@@ -175,6 +175,14 @@
     box-shadow: 0 1px 4px rgba(0,0,0,0.22);
   }
   .part-mat-badge:hover { filter: brightness(1.12); }
+  /* Quantity badge — top-left, shown when N identical parts are collapsed into one card */
+  .part-qty-badge {
+    position: absolute; top: 6px; left: 6px;
+    padding: 2px 7px; border-radius: 20px;
+    font: 700 9px/1.5 system-ui; letter-spacing: 0.04em;
+    background: #333; color: #fff; z-index: 3;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.22); pointer-events: none;
+  }
   /* Empty material group placeholder */
   .mat-group-empty {
     font-size: 11px; color: var(--muted); font-style: italic;
@@ -192,11 +200,30 @@
   .mat-picker button:hover { background: rgba(0,0,0,0.06); }
   .mat-picker .mp-active { background: rgba(0,0,0,0.08); font-weight: 700; }
   .mp-swatch { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; display: inline-block; border: 1px solid rgba(0,0,0,0.15); }
+
+  /* Floor card — identical hover pattern to wall-editable */
+  .part.iw-editable { cursor: pointer; position: relative; }
+  .part.iw-editable:hover { border-color: #2a5a9a; box-shadow: 0 0 0 2px rgba(42,90,154,0.15); }
+  .part.iw-editable:hover::after {
+    content: '✏ Edit surface';
+    position: absolute; top: 6px; right: 6px;
+    font-size: 10px; font-weight: 600;
+    background: #2a5a9a; color: #fff;
+    padding: 2px 6px; border-radius: 3px;
+    pointer-events: none;
+  }
+  /* Floor editor modal — identical positioning to opening editor */
+  #iwModal {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.55);
+    display: flex; align-items: stretch; justify-content: stretch;
+  }
+  #iwSvg { cursor: crosshair; user-select: none; display: block; width: 100%; height: 100%; }
   .part svg { width: 100%; height: auto; max-height: 280px; display: block; }
   .part.wall-editable { cursor: pointer; position: relative; }
   .part.wall-editable:hover { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(200,70,50,0.15); }
   .part.wall-editable:hover::after {
-    content: '✏️ Edit Openings';
+    content: '✏️ Edit wall';
     position: absolute; top: 6px; right: 6px;
     font-size: 10px; font-weight: 600;
     background: var(--accent); color: #fff;
@@ -2015,6 +2042,8 @@ let CONFIG = {
   manualBalconies:{ front: [],  back: [],  east: [],  west: []  },
   partLevels: {},
   partMaterials: {},
+  internalWalls: {},       // { floorIdx: [{ x1,y1,x2,y2 }] }  interior mm coords
+  rooftopItems:  [],        // [{ type, x,y,w,d, h?, label? }]   on-roof placements
   // Bay X position override. null = centred (default). A number = left edge of bay in mm from wall left.
   // Managed by the WYSIWYG editor drag; persists across regenerations until manually reset.
   bayXOverride: null,
@@ -4374,63 +4403,6 @@ function generateFloor(cfg, plan) {
   };
 }
 
-/* Generate bay ceiling (only if there are bays) */
-function generateBayCeiling(cfg, plan) {
-  if (!plan.hasFrontBay && !plan.hasBackBay) return null;
-
-  const { matT, sideLen, fbWidth, bayXStart, bayXEnd, hasFrontBay, hasBackBay } = plan;
-  // Bay ceiling sits between the side walls (interior depth = sideLen)
-  // and between front/back walls (interior width = fbWidth - 2*matT)
-  const bcW = fbWidth - 2 * matT;
-  const bcH = sideLen;
-  const bcTw = 6; // 6mm tongues
-  const margin = 3;
-
-  // Front edge tongues: outboard of front bay opening
-  // The bay X is in WALL local frame (which spans 0 to fbWidth).
-  // The bay ceiling local frame spans 0 to bcW (which is fbWidth - 2*matT).
-  // To map wall x to bay ceiling x: subtract matT (since bay ceiling sits inset by matT from the left wall edge).
-  // But wait, this offset only applies if the front wall is wider than the bay ceiling. Yes.
-  // So bay opening on bay ceiling front edge is at [bayXStart - matT, bayXEnd - matT].
-  // Note the bay opening doesn't actually exist on the BAY CEILING; the bay ceiling sits ABOVE the bay.
-  // But the bay ceiling's TONGUES on the front edge need to slot into the front wall, AVOIDING the bay opening's x range.
-  // Since the bay ceiling tongues land on the front wall body, and the front wall has a bay cutout, the
-  // bay ceiling tongues need to be in regions where the front wall has SOLID material at the bay-ceiling height.
-  const bcBayStart = bayXStart - matT;
-  const bcBayEnd = bayXEnd - matT;
-  
-  const frontForbidden = hasFrontBay ? [[bcBayStart, bcBayEnd]] : [];
-  const backForbidden = hasBackBay ? [[bcBayStart, bcBayEnd]] : [];
-  
-  const frontTongues = placeTongues(bcW, bcTw, margin, frontForbidden, hasFrontBay ? 2 : 3, bcTw);
-  const backTongues = placeTongues(bcW, bcTw, margin, backForbidden, hasBackBay ? 2 : 3, bcTw);
-  const sideTongues = placeTongues(bcH, bcTw, margin, [], 2, bcTw);
-
-  const spec = {
-    width: bcW, height: bcH, matT, kerf: cfg.kerfComp,
-    edges: {
-      top: { tongues: frontTongues, openings: [] },
-      right: { tongues: sideTongues, openings: [] },
-      bottom: { tongues: backTongues, openings: [] },
-      left: { tongues: sideTongues, openings: [] },
-    }
-  };
-  const perimeter = buildWallPath(spec);
-
-  return {
-    id: 'bay_ceiling',
-    name: 'Bay Ceiling',
-    material: 'core',
-    bboxW: bcW + 2 * matT,
-    bboxH: bcH + 2 * matT,
-    bboxOffsetX: matT,
-    bboxOffsetY: matT,
-    paths: [{ type: 'cut', d: perimeter }],
-    rects: [],
-    lines: [],
-  };
-}
-
 /* Generate inter-floor core panels. These sit horizontally inside the building 
    at each interFloorY position. Each panel has tongues on 3 of 4 edges; the 
    4th edge (the lastWallSide direction) has no tongues — it just rests against 
@@ -4445,19 +4417,18 @@ function generateBayCeiling(cfg, plan) {
 */
 function generateInterFloorPanels(cfg, plan) {
   if (!plan.interFloorYs || plan.interFloorYs.length === 0) return [];
-  const { matT, sideLen, fbWidth, lastWallSide } = plan;
+  const { matT, sideLen, fbWidth, lastWallSide,
+          hasFrontBay, hasBackBay, bayXStart, bayXEnd, bayCeilingY } = plan;
   const bcW = fbWidth - 2 * matT;
   const bcH = sideLen;
   const ifTw = 6;
   const margin = 3;
 
-  // Compute tongues for each edge — same positions as the slots in the walls.
-  const frontTongues = (lastWallSide !== 'front')
-    ? placeTongues(bcW, ifTw, margin, [], Math.max(2, Math.min(4, Math.floor(bcW / 25))), ifTw)
-    : [];
-  const backTongues = (lastWallSide !== 'back')
-    ? placeTongues(bcW, ifTw, margin, [], Math.max(2, Math.min(4, Math.floor(bcW / 25))), ifTw)
-    : [];
+  // Bay-opening forbidden zone in panel-local x (= wall-local x − matT for west-wall offset)
+  const bcBayStart = (bayXStart || 0) - matT;
+  const bcBayEnd   = (bayXEnd   || 0) - matT;
+  const hasBay = hasFrontBay || hasBackBay;
+
   const eastTongues = (lastWallSide !== 'east')
     ? placeTongues(bcH, ifTw, margin, [], Math.max(2, Math.min(3, Math.floor(bcH / 35))), ifTw)
     : [];
@@ -4466,45 +4437,48 @@ function generateInterFloorPanels(cfg, plan) {
     : [];
 
   const parts = [];
-  // Sort floors top-down for naming (highest = floor N, lowest = floor 2)
-  const sortedYs = [...plan.interFloorYs].sort((a, b) => a - b); // ascending y = top-down
+  const sortedYs = [...plan.interFloorYs].sort((a, b) => a - b);
   for (let i = 0; i < sortedYs.length; i++) {
     const fy = sortedYs[i];
-    // Floor number — counting from the bottom. If bay exists, bay ceiling is the 1st 
-    // ceiling already, so the lowest interFloor is the floor-2 ceiling.
-    // Without bay, the lowest interFloor is the floor-1 ceiling (i.e. the "floor 2" floor).
-    // For human-readable labeling: just call them "Floor 2 panel", "Floor 3 panel", etc.,
-    // numbered from the bottom up.
-    const floorNum = sortedYs.length - i + (plan.hasFrontBay || plan.hasBackBay ? 2 : 2);
-    // ^ lowest sortedY → highest floor index in array, but bottom-most floor
-    // Actually let me rethink: sortedYs is ascending, so sortedYs[0] is the SMALLEST y, 
-    // which is HIGHEST physically (closest to roof). The largest y is closest to ground.
-    // I want "Floor 2 panel" at the bottom (largest y). So:
-    const physicalFloorNum = sortedYs.length - i + 1; // bottom-most → 2, next → 3, ...
+
+    // Detect bay-ceiling panel — needs tongue forbidden zones where the bay opening is
+    const isBayCeil = hasBay && bayCeilingY !== undefined && Math.abs(fy - bayCeilingY) < 0.1;
+
+    const frontForbidden = (isBayCeil && hasFrontBay) ? [[bcBayStart, bcBayEnd]] : [];
+    const backForbidden  = (isBayCeil && hasBackBay)  ? [[bcBayStart, bcBayEnd]] : [];
+
+    const frontTongues = (lastWallSide !== 'front')
+      ? placeTongues(bcW, ifTw, margin, frontForbidden, Math.max(2, Math.min(4, Math.floor(bcW / 25))), ifTw)
+      : [];
+    const backTongues = (lastWallSide !== 'back')
+      ? placeTongues(bcW, ifTw, margin, backForbidden, Math.max(2, Math.min(4, Math.floor(bcW / 25))), ifTw)
+      : [];
+
+    const physicalFloorNum = sortedYs.length - i + 1;
+    const panelLabel = isBayCeil ? 'Bay ceiling' : `Floor ${physicalFloorNum} ceiling`;
 
     const spec = {
       width: bcW, height: bcH, matT, kerf: cfg.kerfComp,
       edges: {
-        top: { tongues: frontTongues, openings: [] },
-        right: { tongues: eastTongues, openings: [] },
-        bottom: { tongues: backTongues, openings: [] },
-        left: { tongues: westTongues, openings: [] },
+        top:    { tongues: frontTongues, openings: [] },
+        right:  { tongues: eastTongues,  openings: [] },
+        bottom: { tongues: backTongues,  openings: [] },
+        left:   { tongues: westTongues,  openings: [] },
       }
     };
     const perimeter = buildWallPath(spec);
 
-    // Compute bbox accounting for missing tongues on one side
-    const tongueLeft = (lastWallSide !== 'west') ? matT : 0;
-    const tongueRight = (lastWallSide !== 'east') ? matT : 0;
-    const tongueTop = (lastWallSide !== 'front') ? matT : 0;
-    const tongueBottom = (lastWallSide !== 'back') ? matT : 0;
+    const tongueLeft   = (lastWallSide !== 'west')  ? matT : 0;
+    const tongueRight  = (lastWallSide !== 'east')  ? matT : 0;
+    const tongueTop    = (lastWallSide !== 'front') ? matT : 0;
+    const tongueBottom = (lastWallSide !== 'back')  ? matT : 0;
 
     parts.push({
       id: 'inter_floor_panel_' + (i + 1),
-      name: `Inter-floor panel #${i + 1} (Floor ${physicalFloorNum} ceiling, y=${fy.toFixed(1)})`,
+      name: `Inter-floor panel #${i + 1} (${panelLabel}, y=${fy.toFixed(1)})`,
       material: 'core',
       bboxW: bcW + tongueLeft + tongueRight,
-      bboxH: bcH + tongueTop + tongueBottom,
+      bboxH: bcH + tongueTop  + tongueBottom,
       bboxOffsetX: tongueLeft,
       bboxOffsetY: tongueTop,
       paths: [{ type: 'cut', d: perimeter }],
@@ -5983,8 +5957,6 @@ function generateBuilding(cfg) {
   const roofResult = generateRoof(cfg, plan);
   if (Array.isArray(roofResult)) parts.push(...roofResult); else parts.push(roofResult);
   parts.push(generateFloor(cfg, plan));
-  const bayCeiling = generateBayCeiling(cfg, plan);
-  if (bayCeiling) parts.push(bayCeiling);
 
   // Inter-floor core panels (one per interFloorYs entry)
   const interFloorParts = generateInterFloorPanels(cfg, plan);
@@ -6067,12 +6039,11 @@ function generateBuilding(cfg) {
   const doorParts = generateDoorInserts(cfg, doorTallies);
   parts.push(...doorParts);
 
+  parts.push(...generateInternalWallParts(cfg, plan));
+  injectInternalWallSlots(parts, cfg, plan);
+
   return { parts, plan, totalWindows, upperWindows, groundWindows, totalDoors };
 }
-
-/* =====================================================================
-   SVG GENERATION
-   ===================================================================== */
 
 function partToSvg(part, options) {
   options = options || {};
@@ -6432,6 +6403,37 @@ function isKnownMat(matId) {
   return (CONFIG.materials || []).some(m => m.id === matId);
 }
 
+/* ---- Part deduplication for display ----
+   Identical geometry → one card with ×N badge.
+   The full parts array (lastParts) is unchanged so export still includes all copies. */
+function partSignature(p) {
+  return [
+    effectiveMat(p.id, p.material),
+    p.bboxW.toFixed(3),
+    p.bboxH.toFixed(3),
+    JSON.stringify(p.paths),
+    JSON.stringify(p.rects  || []),
+    JSON.stringify(p.lines  || []),
+  ].join('|||');
+}
+
+function deduplicatePartsForDisplay(parts) {
+  const sigMap = new Map(); // signature → { part, count, ids[] }
+  const order  = [];
+  for (const p of parts) {
+    const sig = partSignature(p);
+    if (sigMap.has(sig)) {
+      const e = sigMap.get(sig);
+      e.count++;
+      e.ids.push(p.id);
+    } else {
+      sigMap.set(sig, { part: p, count: 1, ids: [p.id] });
+      order.push(sig);
+    }
+  }
+  return order.map(sig => sigMap.get(sig));
+}
+
 function renderPartsOutput(parts) {
   lastParts = parts;
   if (!parts || !parts.length) {
@@ -6486,13 +6488,26 @@ function renderPartsOutput(parts) {
       html += `<div class="mat-group-empty">No parts assigned</div>`;
     } else {
       html += `<div class="part-grid">`;
-      for (const part of grpParts) {
+      const dedupedParts = deduplicatePartsForDisplay(grpParts);
+      for (const { part, count } of dedupedParts) {
         const ew = wallFromPartId(part.id);
         const ea = ew ? ` data-editwall="${ew}"` : '';
         const ec = ew ? ' wall-editable' : '';
-        html += `<div class="part${ec}"${ea} data-part-id="${part.id}">`;
+        const iwf = iwFloorIdxForPart(part.id);
+        const iwAttr = iwf !== null ? ` data-iw-floor="${iwf}"` : '';
+        const iwCls  = iwf !== null ? ' iw-editable' : '';
+        html += `<div class="part${ec}${iwCls}"${ea}${iwAttr} data-part-id="${part.id}">`;
         html += `<div class="part-name"><span>${part.name}</span><span class="part-dims">${part.bboxW.toFixed(1)} × ${part.bboxH.toFixed(1)} mm</span></div>`;
-        if (part.assemblyNote) html += `<div class="part-note">${part.assemblyNote}</div>`;
+        if (count > 1) html += `<span class="part-qty-badge">×${count}</span>`;
+        if (part.assemblyNote) {
+          const note = count > 1
+            ? part.assemblyNote + ` Cut ×${count} identical copies.`
+            : part.assemblyNote;
+          html += `<div class="part-note">${note}</div>`;
+        } else if (count > 1) {
+          html += `<div class="part-note">Cut ×${count} identical copies.</div>`;
+        }
+        if (iwf !== null) {/* hover badge via CSS ::after */}
         html += matBadgeHtml(part.id, mat);
         html += partToPreviewSvg(part);
         html += `</div>`;
@@ -6506,13 +6521,15 @@ function renderPartsOutput(parts) {
     html += `<div class="mat-group">`;
     html += `<div class="mat-group-hdr"><span class="mat-hdr-swatch" style="background:#999"></span>Unassigned<span class="mat-count">${unassignedParts.length} part${unassignedParts.length!==1?'s':''}</span></div>`;
     html += `<div class="part-grid">`;
-    for (const part of unassignedParts) {
+    for (const { part, count } of deduplicatePartsForDisplay(unassignedParts)) {
       const ew = wallFromPartId(part.id);
       const ea = ew ? ` data-editwall="${ew}"` : '';
       const ec = ew ? ' wall-editable' : '';
       html += `<div class="part${ec}"${ea} data-part-id="${part.id}">`;
       html += `<div class="part-name"><span>${part.name}</span><span class="part-dims">${part.bboxW.toFixed(1)} × ${part.bboxH.toFixed(1)} mm</span></div>`;
-      if (part.assemblyNote) html += `<div class="part-note">${part.assemblyNote}</div>`;
+      if (count > 1) html += `<span class="part-qty-badge">×${count}</span>`;
+      if (part.assemblyNote) html += `<div class="part-note">${part.assemblyNote}${count > 1 ? ` Cut ×${count} identical copies.` : ''}</div>`;
+      else if (count > 1) html += `<div class="part-note">Cut ×${count} identical copies.</div>`;
       html += `<button class="part-mat-badge" data-part-id="${part.id}" style="background:#999;color:#fff" title="Unassigned — click to assign to a material">—</button>`;
       html += partToPreviewSvg(part);
       html += `</div>`;
@@ -6526,6 +6543,12 @@ function renderPartsOutput(parts) {
 
   document.querySelectorAll('.part[data-editwall]').forEach(card => {
     card.addEventListener('click', () => openOpeningEditor(card.dataset.editwall));
+  });
+  document.querySelectorAll('.part[data-iw-floor]').forEach(card => {
+    card.addEventListener('click', () => {
+      const f = parseInt(card.dataset.iwFloor);
+      openInternalWallEditor(isNaN(f) ? 0 : f);
+    });
   });
   document.querySelectorAll('.part-mat-badge').forEach(badge => {
     badge.addEventListener('click', e => {
@@ -6585,6 +6608,629 @@ function showMaterialPicker(partId, anchor) {
   }, 0);
 }
 
+/* =====================================================================
+   INTERNAL WALL EDITOR
+   Coordinate system: interior mm from building NW corner.
+   x = 0..bcW (west→east), y = 0..bcH (front→back)
+   where bcW = fbWidth - 2*matT, bcH = sideLen
+   ===================================================================== */
+let iwFloor  = 0;           // floor index (0-based) or IW_ROOF
+let iwTool   = 'draw';      // 'draw' | 'erase'
+let iwScale  = 4;
+let iwOffX   = 20, iwOffY = 20;
+let iwDrag   = false;
+let iwDragPt = null;        // {x,y} mm — wall drag start
+let iwCurMM  = null;        // {x,y} mm — mouse position
+let iwDragItem = null;      // roof item being dragged from toolbox
+let iwCustomSizes = {};
+
+const IW_ROOF        = 'roof'; // sentinel value for the roof tab
+const IW_TAB_SPACING = 35;     // mm between wall tongue tabs
+
+function openInternalWallEditor(startFloor) {
+  if (!lastPlan) { alert('Generate a building first.'); return; }
+  if (!CONFIG.internalWalls) CONFIG.internalWalls = {};
+  if (!CONFIG.internalWalls[0]) CONFIG.internalWalls[0] = [];   // single shared layout
+  if (!CONFIG.rooftopItems) CONFIG.rooftopItems = [];
+  document.getElementById('iwModal').style.display = '';
+  iwSetFloor(startFloor === IW_ROOF ? IW_ROOF : 0);
+}
+function iwClose() { document.getElementById('iwModal').style.display = 'none'; }
+function iwApply() { iwClose(); regenerate(); }
+
+function iwFloorCount() { return lastPlan ? Math.max(1, lastPlan.floors || 1) : 1; }
+function iwIsRoof()     { return iwFloor === IW_ROOF; }
+function iwWalls() { return iwIsRoof() ? [] : ((CONFIG.internalWalls || {})[0] || []); }
+function iwIsFloor() { return !iwIsRoof(); }
+
+function iwFloorIdxForPart(partId) {
+  if (partId === 'roof') return IW_ROOF;   // roof panel → open Roof tab
+  if (partId === 'floor') return 0;
+  const m = partId.match(/^inter_floor_panel_(\d+)$/);
+  if (!m) return null;
+  const panelN = parseInt(m[1]);
+  const total  = lastPlan?.interFloorYs?.length || 0;
+  return Math.max(0, total - panelN);
+}
+
+function iwSetFloor(f) {
+  iwFloor = f;
+  if (!iwIsRoof()) {
+    if (!CONFIG.internalWalls) CONFIG.internalWalls = {};
+    if (!CONFIG.internalWalls[0]) CONFIG.internalWalls[0] = [];
+  }
+  iwTool = 'draw';
+  iwBuildTabs();
+  iwPopulateToolbox();
+  iwPopulateTopbar();
+  iwFitView();
+  iwRender();
+}
+
+const IW_INTER = 'inter'; // sentinel for inter-floors tab
+
+function iwBuildTabs() {
+  const el = document.getElementById('iwFloorTabs');
+  if (!el) return;
+  el.innerHTML = '';
+  const tabs = [
+    { key: 0,         label: 'Ground Floor' },
+    { key: IW_INTER,  label: 'Inter Floors' },
+    { key: IW_ROOF,   label: 'Roof'         },
+  ];
+  for (const { key, label } of tabs) {
+    const b = document.createElement('button');
+    b.className = 'oe-wall-tab' + (iwFloor === key ? ' oe-active' : '');
+    b.textContent = label;
+    b.onclick = () => iwSetFloor(key);
+    el.appendChild(b);
+  }
+}
+
+/* ---- Toolbox — matches opening-editor item style ---- */
+/* ---- Left toolbox: item library (mirrors opening editor oe-toolbox) ---- */
+function iwPopulateToolbox() {
+  const box = document.getElementById('iwToolbox');
+  if (!box) return;
+  box.innerHTML = '';
+
+  function sec(lbl) {
+    const s = document.createElement('div');
+    s.className = 'oe-toolbox-section';
+    s.textContent = lbl;
+    box.appendChild(s);
+  }
+  function actionCard(icon, lbl, active, eraseStyle, onClick) {
+    const c = document.createElement('div');
+    c.className = 'oe-toolbox-item oe-action'
+      + (active && !eraseStyle ? ' oe-tool-active'  : '')
+      + (active &&  eraseStyle ? ' oe-erase-active' : '');
+    c.innerHTML = '<span class="oe-toolbox-item-icon">' + icon + '</span>'
+                + '<span class="oe-toolbox-item-label">' + lbl + '</span>';
+    c.addEventListener('mousedown', e => { e.preventDefault(); onClick(c); });
+    box.appendChild(c);
+  }
+  function dragCard(icon, lbl, sublbl, item, sizeInputs) {
+    const c = document.createElement('div');
+    c.className = 'oe-toolbox-item oe-draggable';
+    c.title = lbl + ' — drag onto plan';
+    let sHtml = '';
+    if (sizeInputs && sizeInputs.length) {
+      sHtml = '<div class="oe-size-row">'
+        + sizeInputs.map(si =>
+            '<label>' + si.label + '</label>'
+            + '<input type="number" data-key="' + si.key + '" min="' + (si.min||1)
+            + '" max="' + (si.max||200) + '" step="' + (si.step||1)
+            + '" value="' + si.val + '">'
+          ).join('')
+        + '</div>';
+    }
+    c.innerHTML = '<span class="oe-toolbox-item-icon">' + icon + '</span>'
+                + '<span class="oe-toolbox-item-label">' + lbl + '</span>'
+                + '<span class="oe-toolbox-item-dim">'  + sublbl + '</span>'
+                + sHtml;
+    c.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('click',  e => e.stopPropagation());
+      inp.addEventListener('change', e => e.stopPropagation());
+    });
+    c.addEventListener('mousedown', e => {
+      if (e.target.tagName === 'INPUT') return;
+      e.preventDefault();
+      iwDragItem = { ...item };
+      if (sizeInputs) sizeInputs.forEach(si => {
+        const inp = c.querySelector('[data-key="' + si.key + '"]');
+        if (inp) iwDragItem[si.key] = parseFloat(inp.value) || si.val;
+      });
+      iwDrag = true;
+      iwCurMM = iwSvgPt(e);
+      iwRender();
+    });
+    box.appendChild(c);
+  }
+
+  function setTool(tool, c) {
+    iwTool = tool; iwDragItem = null;
+    box.querySelectorAll('.oe-tool-active,.oe-erase-active').forEach(el =>
+      el.classList.remove('oe-tool-active', 'oe-erase-active'));
+    c.classList.add(tool === 'erase' ? 'oe-erase-active' : 'oe-tool-active');
+    iwPopulateTopbar();
+    iwRender();
+  }
+
+  if (!iwIsRoof()) {
+    sec('Walls');
+    actionCard('✏', 'Draw wall',  iwTool === 'draw',  false, c => {
+      setTool('draw', c);
+      document.getElementById('iwStatus').textContent = 'Drag to draw a wall — snaps to horizontal or vertical.';
+    });
+    actionCard('✕', 'Erase wall', iwTool === 'erase', true,  c => {
+      setTool('erase', c);
+      document.getElementById('iwStatus').textContent = 'Click a wall to delete it.';
+    });
+  } else {
+    sec('Roof items');
+    dragCard('🏭', 'Mech. Room', 'enclosed structure', { type: 'mechroom', label: 'Mech. Room' },
+      [{ label:'W', key:'w', val:20, min:4, max:200 },
+       { label:'D', key:'d', val:15, min:4, max:200 },
+       { label:'H', key:'h', val:12, min:2, max:60  }]);
+    dragCard('📋', 'Billboard',  'wall sign',          { type: 'billboard', label: 'Billboard' },
+      [{ label:'W', key:'w', val:20, min:4, max:200 },
+       { label:'H', key:'h', val:12, min:2, max:60  }]);
+    dragCard('📦', 'STL Zone',   'placement area',     { type: 'stlzone', label: 'STL Object' },
+      [{ label:'W', key:'w', val:20, min:4, max:200 },
+       { label:'D', key:'d', val:15, min:4, max:200 }]);
+    sec('Tools');
+    actionCard('🏗', 'Shield Wall', iwTool === 'shieldwall', false, c => {
+      setTool('shieldwall', c);
+      document.getElementById('iwStatus').textContent = 'Click a roof edge to toggle a parapet.';
+    });
+    actionCard('✕', 'Erase item',  iwTool === 'erase',      true,  c => {
+      setTool('erase', c);
+      document.getElementById('iwStatus').textContent = 'Click a roof item to remove it.';
+    });
+  }
+}
+
+/* ---- Topbar: properties / controls of the active tool or selected object ---- */
+function iwPopulateTopbar() {
+  const bar = document.getElementById('iwTopbar');
+  if (!bar) return;
+  bar.innerHTML = '';
+
+  function addLbl(text) {
+    const s = document.createElement('span');
+    s.className = 'oe-topbar-label';
+    s.textContent = text;
+    bar.appendChild(s);
+  }
+  function addSep() {
+    const s = document.createElement('div');
+    s.className = 'oe-topbar-sep';
+    bar.appendChild(s);
+  }
+
+  if (iwTool === 'draw' && !iwIsRoof()) {
+    addLbl('DRAW MODE');
+    const hint = document.createElement('span');
+    hint.style.cssText = 'font-size:11px;color:var(--muted);padding:0 8px;';
+    hint.textContent = 'Click & drag on the plan to place a wall. Release to commit.';
+    bar.appendChild(hint);
+    addSep();
+    addLbl('SNAP');
+    const snap = document.createElement('span');
+    snap.style.cssText = 'font-size:11px;color:var(--muted);padding:0 6px;';
+    snap.textContent = 'Axis-aligned only (H or V)';
+    bar.appendChild(snap);
+
+  } else if (iwTool === 'erase') {
+    addLbl('ERASE MODE');
+    const hint = document.createElement('span');
+    hint.style.cssText = 'font-size:11px;color:var(--muted);padding:0 8px;';
+    hint.textContent = iwIsRoof() ? 'Click a roof item to remove it.' : 'Click a wall to delete it.';
+    bar.appendChild(hint);
+
+  } else if (iwTool === 'shieldwall' && iwIsRoof()) {
+    addLbl('SHIELD WALL');
+    const hint = document.createElement('span');
+    hint.style.cssText = 'font-size:11px;color:var(--muted);padding:0 8px;';
+    hint.textContent = 'Click the North, South, East or West edge of the roof to toggle a parapet.';
+    bar.appendChild(hint);
+
+  } else if (iwDragItem) {
+    addLbl('PLACING');
+    const hint = document.createElement('span');
+    hint.style.cssText = 'font-size:11px;color:var(--muted);padding:0 8px;';
+    hint.textContent = (iwDragItem.label || iwDragItem.type) + ' — release over the plan to place.';
+    bar.appendChild(hint);
+
+  } else {
+    // Default: inter-floor note or empty
+    if (iwFloor === IW_INTER) {
+      addLbl('NOTE');
+      const note = document.createElement('span');
+      note.style.cssText = 'font-size:11px;color:var(--muted);padding:0 8px;';
+      note.textContent = 'Wall layout is shared across all intermediate floors.';
+      bar.appendChild(note);
+    }
+  }
+}
+
+function iwGrid()  { return Math.max(1, parseFloat(document.getElementById('iwGridInput')?.value) || 5); }
+function iwSnap(v) { const g = iwGrid(); return Math.round(v / g) * g; }
+function iwBounds() {
+  if (!lastPlan) return { bW: 60, bD: 40 };
+  return { bW: lastPlan.fbWidth - 2 * lastPlan.matT, bD: lastPlan.sideLen };
+}
+
+function iwFitView() {
+  const wrap = document.getElementById('iwCanvasWrap');
+  if (!wrap) return;
+  const { bW, bD } = iwBounds();
+  const pad = 56;
+  const sx = (wrap.clientWidth  - pad * 2) / bW;
+  const sy = (wrap.clientHeight - pad * 2) / bD;
+  iwScale = Math.max(1, Math.min(12, Math.min(sx, sy)));
+  iwOffX = (wrap.clientWidth  - bW * iwScale) / 2;
+  iwOffY = (wrap.clientHeight - bD * iwScale) / 2;
+}
+
+function iwPX(x, y) { return { x: iwOffX + x * iwScale, y: iwOffY + y * iwScale }; }
+function iwMM(px,py) { return { x: (px - iwOffX) / iwScale, y: (py - iwOffY) / iwScale }; }
+function iwClamp(pt, bW, bD) { return { x: Math.max(0, Math.min(bW, pt.x)), y: Math.max(0, Math.min(bD, pt.y)) }; }
+
+function iwAxisAlign(start, end) {
+  const dx = Math.abs(end.x - start.x), dy = Math.abs(end.y - start.y);
+  return dx >= dy ? { ...end, y: start.y } : { ...end, x: start.x };
+}
+
+function iwRender() {
+  const svg  = document.getElementById('iwSvg');
+  const wrap = document.getElementById('iwCanvasWrap');
+  if (!svg || !wrap) return;
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  svg.setAttribute('width', W); svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  const { bW, bD } = iwBounds();
+  const matT   = lastPlan?.matT || CONFIG.coreThickness || 1.5;
+  const g      = iwGrid();
+  const erasing = iwTool === 'erase';
+  const isRoof  = iwIsRoof();
+  let h = `<rect width="${W}" height="${H}" fill="#e0e0d8"/>`;
+
+  // Grid dots
+  for (let x = 0; x <= bW + 0.01; x += g) {
+    for (let y = 0; y <= bD + 0.01; y += g) {
+      const p = iwPX(x, y);
+      if (p.x >= 2 && p.x <= W - 2 && p.y >= 2 && p.y <= H - 2)
+        h += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="1" fill="#bbb"/>`;
+    }
+  }
+
+  // Building footprint
+  const fp = iwPX(0, 0), fpR = iwPX(bW, bD);
+  const fpW = (fpR.x - fp.x).toFixed(1), fpH = (fpR.y - fp.y).toFixed(1);
+  const roofFill = isRoof ? '#d8e8d0' : '#fff';
+  h += `<rect x="${fp.x.toFixed(1)}" y="${fp.y.toFixed(1)}" width="${fpW}" height="${fpH}" fill="${roofFill}" stroke="#555" stroke-width="2"/>`;
+  if (isRoof) h += `<text x="${((fp.x+fpR.x)/2).toFixed(1)}" y="${((fp.y+fpR.y)/2).toFixed(1)}" font-size="11" font-family="system-ui" fill="#6a8a6a" text-anchor="middle" dominant-baseline="middle" pointer-events="none">Roof plan</text>`;
+
+  // Dimension labels
+  h += `<text x="${((fp.x+fpR.x)/2).toFixed(1)}" y="${(fp.y-8).toFixed(1)}" font-size="10" font-family="system-ui" fill="#888" text-anchor="middle">${bW.toFixed(1)} mm</text>`;
+  h += `<text x="${(fp.x-8).toFixed(1)}" y="${((fp.y+fpR.y)/2).toFixed(1)}" font-size="10" font-family="system-ui" fill="#888" text-anchor="middle" transform="rotate(-90,${(fp.x-8).toFixed(1)},${((fp.y+fpR.y)/2).toFixed(1)})">${bD.toFixed(1)} mm</text>`;
+
+  if (!isRoof) {
+    // ---- Floor view: draw walls ----
+    const walls  = iwWalls();
+    const wallPx = Math.max(1.5, matT * iwScale);
+
+    walls.forEach((w, i) => {
+      const p1 = iwPX(w.x1, w.y1), p2 = iwPX(w.x2, w.y2);
+      const isH = Math.abs(w.y2 - w.y1) < 0.01;
+      const len = isH ? Math.abs(w.x2 - w.x1) : Math.abs(w.y2 - w.y1);
+      const col = erasing ? '#c44' : '#2a5a9a';
+      h += `<line class="iw-wall" data-i="${i}" x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="${col}" stroke-width="${wallPx.toFixed(1)}" stroke-linecap="square" style="cursor:${erasing?'pointer':'default'}"/>`;
+      if (iwScale > 3 && len > 5)
+        h += `<text x="${((p1.x+p2.x)/2).toFixed(1)}" y="${((p1.y+p2.y)/2-5).toFixed(1)}" font-size="9" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">${len.toFixed(0)}</text>`;
+      if (!erasing && lastPlan) {
+        const { tabPositions } = iwComputeTabs(i, walls, matT);
+        const x0 = Math.min(w.x1, w.x2), y0 = Math.min(w.y1, w.y2);
+        for (const tp of tabPositions) {
+          const pp = iwPX(isH ? x0 + tp : w.x1, isH ? w.y1 : y0 + tp);
+          const tl = Math.max(3, matT * iwScale / 2);
+          if (isH) h += `<line x1="${pp.x.toFixed(1)}" y1="${(pp.y-tl).toFixed(1)}" x2="${pp.x.toFixed(1)}" y2="${(pp.y+tl).toFixed(1)}" stroke="#aad" stroke-width="1" pointer-events="none"/>`;
+          else     h += `<line x1="${(pp.x-tl).toFixed(1)}" y1="${pp.y.toFixed(1)}" x2="${(pp.x+tl).toFixed(1)}" y2="${pp.y.toFixed(1)}" stroke="#aad" stroke-width="1" pointer-events="none"/>`;
+        }
+      }
+    });
+
+    // Wall drag preview
+    if (iwDrag && !iwDragItem && iwDragPt && iwCurMM) {
+      const cl = iwClamp(iwCurMM, bW, bD);
+      const al = iwAxisAlign(iwDragPt, { x: iwSnap(cl.x), y: iwSnap(cl.y) });
+      const p1 = iwPX(iwDragPt.x, iwDragPt.y), p2 = iwPX(al.x, al.y);
+      h += `<line x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="#2a5a9a88" stroke-width="${wallPx.toFixed(1)}" stroke-dasharray="6,4" pointer-events="none"/>`;
+    }
+    // Cursor dot
+    if (iwCurMM && !iwDrag) {
+      const cl = iwClamp(iwCurMM, bW, bD);
+      const sp = iwPX(iwSnap(cl.x), iwSnap(cl.y));
+      h += `<circle cx="${sp.x.toFixed(1)}" cy="${sp.y.toFixed(1)}" r="3" fill="${erasing?'#c44':'#2a5a9a'}" stroke="white" stroke-width="1.5" pointer-events="none"/>`;
+    }
+
+    svg.innerHTML = h;
+    if (erasing) {
+      svg.querySelectorAll('.iw-wall').forEach(line => {
+        line.addEventListener('click', e => {
+          e.stopPropagation();
+          CONFIG.internalWalls[0].splice(parseInt(line.dataset.i), 1);
+          iwRender();
+        });
+      });
+    }
+
+  } else {
+    // ---- Roof view: draw rooftop items ----
+    const items = CONFIG.rooftopItems || [];
+    const COLORS = { mechroom: ['#c0d8c0','#4a7a4a'], billboard: ['#d8d0b8','#7a6a30'], stlzone: ['#d8c8e0','#6a4a8a'] };
+
+    items.forEach((item, i) => {
+      const p = iwPX(item.x, item.y);
+      const pw = (item.w || 20) * iwScale, pd = (item.d || 15) * iwScale;
+      const [fill, stroke] = COLORS[item.type] || ['#ccc','#888'];
+      const outlineCol = erasing ? '#c44' : stroke;
+      h += `<rect class="iw-item" data-i="${i}" x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}" width="${pw.toFixed(1)}" height="${pd.toFixed(1)}" fill="${fill}" stroke="${outlineCol}" stroke-width="${erasing?2:1.5}" rx="2" style="cursor:${erasing?'pointer':'move'}"/>`;
+      if (iwScale > 2) {
+        const lbl = item.label || item.type;
+        h += `<text x="${(p.x + pw/2).toFixed(1)}" y="${(p.y + pd/2 + 4).toFixed(1)}" font-size="9" font-family="system-ui" fill="${stroke}" text-anchor="middle" pointer-events="none">${lbl}</text>`;
+        if (item.w && item.d) h += `<text x="${(p.x + pw/2).toFixed(1)}" y="${(p.y + pd/2 - 4).toFixed(1)}" font-size="8" font-family="system-ui" fill="${stroke}" text-anchor="middle" opacity="0.7" pointer-events="none">${item.w}×${item.d}</text>`;
+      }
+    });
+
+    // Roof item drag preview from toolbox
+    if (iwDragItem && iwCurMM) {
+      const cl = iwClamp(iwCurMM, bW, bD);
+      const sx = iwSnap(cl.x - (iwDragItem.w||20)/2), sy = iwSnap(cl.y - (iwDragItem.d||15)/2);
+      const px = iwPX(sx, sy);
+      const pw = (iwDragItem.w || 20) * iwScale, pd = (iwDragItem.d || 15) * iwScale;
+      h += `<rect x="${px.x.toFixed(1)}" y="${px.y.toFixed(1)}" width="${pw.toFixed(1)}" height="${pd.toFixed(1)}" fill="rgba(100,100,200,0.25)" stroke="#448" stroke-width="1.5" stroke-dasharray="5,3" rx="2" pointer-events="none"/>`;
+    }
+
+    svg.innerHTML = h;
+    if (erasing) {
+      svg.querySelectorAll('.iw-item').forEach(el => {
+        el.addEventListener('click', e => {
+          e.stopPropagation();
+          CONFIG.rooftopItems.splice(parseInt(el.dataset.i), 1);
+          iwRender();
+        });
+      });
+    }
+  }
+}
+
+function iwSvgPt(e) {
+  const r = document.getElementById('iwSvg').getBoundingClientRect();
+  return iwMM(e.clientX - r.left, e.clientY - r.top);
+}
+
+function iwHandleMouseMove(e) {
+  iwCurMM = iwSvgPt(e);
+  iwRender();
+}
+
+function iwHandleMouseDown(e) {
+  if (e.button !== 0) return;
+  if (iwDragItem) return; // handled on mouseup from document
+  if (iwTool !== 'draw' || iwIsRoof()) return;
+  const { bW, bD } = iwBounds();
+  const cl = iwClamp(iwSvgPt(e), bW, bD);
+  iwDragPt = { x: iwSnap(cl.x), y: iwSnap(cl.y) };
+  iwDrag = true;
+}
+
+function iwHandleMouseUp(e) {
+  if (iwDragItem && iwIsRoof() && iwCurMM) {
+    // Place a roof item
+    const { bW, bD } = iwBounds();
+    const cl = iwClamp(iwCurMM, bW, bD);
+    const ix = Math.max(0, Math.min(bW - (iwDragItem.w||20), iwSnap(cl.x - (iwDragItem.w||20)/2)));
+    const iy = Math.max(0, Math.min(bD - (iwDragItem.d||15), iwSnap(cl.y - (iwDragItem.d||15)/2)));
+    if (!CONFIG.rooftopItems) CONFIG.rooftopItems = [];
+    CONFIG.rooftopItems.push({ ...iwDragItem, x: ix, y: iy });
+    iwDragItem = null; iwDrag = false;
+    iwRender(); return;
+  }
+  iwDragItem = null;
+  if (!iwDrag || iwTool !== 'draw' || iwIsRoof()) { iwDrag = false; return; }
+  iwDrag = false;
+  if (!iwDragPt || !iwCurMM) return;
+  const { bW, bD } = iwBounds();
+  const cl = iwClamp(iwCurMM, bW, bD);
+  const al = iwAxisAlign(iwDragPt, { x: iwSnap(cl.x), y: iwSnap(cl.y) });
+  const len = Math.hypot(al.x - iwDragPt.x, al.y - iwDragPt.y);
+  if (len < 3) { iwDragPt = null; return; }
+  if (!CONFIG.internalWalls[0]) CONFIG.internalWalls[0] = [];
+  CONFIG.internalWalls[0].push({ x1: iwDragPt.x, y1: iwDragPt.y, x2: al.x, y2: al.y });
+  iwDragPt = null;
+  iwRender();
+}
+
+function iwHandleMouseLeave() { if (!iwDragItem) { iwCurMM = null; if (!iwDrag) iwRender(); } }
+
+
+/* ---- Tab computation with stagger & half-lap detection ---- */
+function iwComputeTabs(wi, walls, matT) {
+  const w = walls[wi];
+  const isH = Math.abs(w.y2 - w.y1) < 0.01;
+  const len = isH ? Math.abs(w.x2 - w.x1) : Math.abs(w.y2 - w.y1);
+  const x0  = isH ? Math.min(w.x1, w.x2) : w.x1;
+  const y0  = isH ? w.y1 : Math.min(w.y1, w.y2);
+
+  // Find crossing points (half-lap positions along this wall's span)
+  const crossings = [];
+  for (let j = 0; j < walls.length; j++) {
+    if (j === wi) continue;
+    const w2 = walls[j];
+    const isH2 = Math.abs(w2.y2 - w2.y1) < 0.01;
+    if (isH === isH2) continue; // parallel, no crossing
+    if (isH) {
+      // w is H, w2 is V at x = w2.x1
+      const cx = w2.x1;
+      const ylo = Math.min(w2.y1, w2.y2), yhi = Math.max(w2.y1, w2.y2);
+      if (cx > x0 + matT && cx < x0 + len - matT && y0 > ylo && y0 < yhi)
+        crossings.push({ pos: cx - x0, dir: 'v' });
+    } else {
+      // w is V, w2 is H at y = w2.y1
+      const cy = w2.y1;
+      const xlo = Math.min(w2.x1, w2.x2), xhi = Math.max(w2.x1, w2.x2);
+      if (cy > y0 + matT && cy < y0 + len - matT && x0 > xlo && x0 < xhi)
+        crossings.push({ pos: cy - y0, dir: 'h' });
+    }
+  }
+
+  // Stagger phase based on rank among parallel walls
+  const myRef = isH ? w.y1 : w.x1;
+  const rank  = walls.filter((ww, k) => k !== wi
+    && (Math.abs(ww.y2 - ww.y1) < 0.01) === isH
+    && (isH ? ww.y1 : ww.x1) < myRef - matT / 2).length;
+  const phase = (rank % 2) * (IW_TAB_SPACING / 2);
+
+  // Place tabs, avoiding crossing ± 2*matT
+  const n = Math.max(2, Math.round(len / IW_TAB_SPACING));
+  const spacing = len / (n + 1);
+  const tabPositions = [];
+  for (let ti = 1; ti <= n; ti++) {
+    let pos = spacing * ti + phase;
+    if (pos <= matT || pos >= len - matT) continue;
+    if (crossings.some(c => Math.abs(c.pos - pos) < matT * 2.5)) continue;
+    tabPositions.push(pos);
+  }
+  // Fallback: ensure ≥ 2 tabs
+  if (tabPositions.length < 2) {
+    tabPositions.length = 0;
+    for (let ti = 1; ti <= Math.max(2, n); ti++) {
+      const pos = len * ti / (Math.max(2, n) + 1);
+      if (pos > matT && pos < len - matT && !crossings.some(c => Math.abs(c.pos - pos) < matT * 2))
+        tabPositions.push(pos);
+    }
+  }
+  return { tabPositions, crossings, isH, len, x0, y0 };
+}
+
+/* ---- Build wall panel SVG path with tabs and half-lap notches ---- */
+// panelL = length, panelH = floor height
+// tabs protrude above (y<0) and below (y>panelH)
+// halfLaps: [{pos, edge:'top'|'bottom'}] — rectangular notches INTO the panel
+function iwBuildPanelPath(panelL, panelH, matT, tabPos, halfLaps) {
+  const tt = [...tabPos].sort((a, b) => a - b);
+
+  // Outer perimeter clockwise, starting at top-left
+  const pts = [[0, 0]];
+  // Top edge left→right with upward tab protrusions
+  for (const p of tt) {
+    const l = p - matT / 2, r = p + matT / 2;
+    pts.push([l, 0], [l, -matT], [r, -matT], [r, 0]);
+  }
+  pts.push([panelL, 0], [panelL, panelH]);
+  // Bottom edge right→left with downward tab protrusions
+  for (const p of [...tt].reverse()) {
+    const l = p - matT / 2, r = p + matT / 2;
+    pts.push([r, panelH], [r, panelH + matT], [l, panelH + matT], [l, panelH]);
+  }
+  pts.push([0, panelH]);
+
+  const d = 'M ' + pts.map(p => `${p[0].toFixed(3)},${p[1].toFixed(3)}`).join(' L ') + ' Z';
+  const paths = [{ type: 'cut', d }];
+
+  // Half-lap notches as inner rectangular cuts
+  for (const lap of halfLaps) {
+    const x1 = (lap.pos - matT / 2).toFixed(3);
+    const x2 = (lap.pos + matT / 2).toFixed(3);
+    const y1 = lap.edge === 'top' ? '0' : (panelH / 2).toFixed(3);
+    const y2 = lap.edge === 'top' ? (panelH / 2).toFixed(3) : panelH.toFixed(3);
+    paths.push({ type: 'cut', d: `M ${x1},${y1} L ${x2},${y1} L ${x2},${y2} L ${x1},${y2} Z` });
+  }
+
+  // Etch guide lines at floor-plate edges
+  const lines = [
+    { type: 'etch', x1: 0, y1: 0,      x2: panelL, y2: 0 },
+    { type: 'etch', x1: 0, y1: panelH,  x2: panelL, y2: panelH },
+  ];
+  return { paths, lines };
+}
+
+/* ---- Generate SVG parts for all internal walls ---- */
+function generateInternalWallParts(cfg, plan) {
+  const sharedWalls = (cfg.internalWalls || {})[0] || [];
+  if (!sharedWalls.length) return [];
+
+  const matT   = plan.matT;
+  const floorH = plan.floors > 1 ? plan.H / plan.floors : plan.H;
+  const parts  = [];
+
+  // Same wall layout applied to every floor level
+  for (let lvl = 0; lvl < (plan.floors || 1); lvl++) {
+    const lvlLabel = lvl === 0 ? 'Ground floor' : `Floor ${lvl + 1}`;
+    sharedWalls.forEach((w, wi) => {
+      const { tabPositions, crossings, isH, len } = iwComputeTabs(wi, sharedWalls, matT);
+      if (len < matT * 2) return;
+      const halfLaps   = crossings.map(c => ({ pos: c.pos, edge: isH ? 'top' : 'bottom' }));
+      const { paths, lines } = iwBuildPanelPath(len, floorH, matT, tabPositions, halfLaps);
+      const dir    = isH ? 'horizontal' : 'vertical';
+      const posLbl = isH ? `y=${w.y1.toFixed(1)}` : `x=${w.x1.toFixed(1)}`;
+      const crossNote = halfLaps.length ? ` ${halfLaps.length} half-lap notch${halfLaps.length > 1 ? 'es' : ''}.` : '';
+      parts.push({
+        id: `iwall_f${lvl}_${wi}`, material: 'core',
+        name: `Internal wall — ${lvlLabel}, ${dir}, ${len.toFixed(0)} mm (${posLbl})`,
+        assemblyNote: `Tabs slot into floor/ceiling panels (${tabPositions.length} tabs, staggered).${crossNote}`,
+        bboxW: len, bboxH: floorH + 2 * matT,
+        bboxOffsetX: 0, bboxOffsetY: matT,
+        paths, rects: [], lines,
+      });
+    });
+  }
+  return parts;
+}
+
+/* ---- Inject wall-tab slots into floor & inter-floor panel parts ---- */
+function injectInternalWallSlots(parts, cfg, plan) {
+  const sharedWalls = (cfg.internalWalls || {})[0] || [];
+  if (!sharedWalls.length) return;
+
+  const matT = plan.matT;
+  const kerf = cfg.kerfComp || 0;
+
+  function slotPath(cx, cy) {
+    const hw = matT / 2 - kerf;
+    return `M ${(cx-hw).toFixed(3)},${(cy-hw).toFixed(3)} L ${(cx+hw).toFixed(3)},${(cy-hw).toFixed(3)} L ${(cx+hw).toFixed(3)},${(cy+hw).toFixed(3)} L ${(cx-hw).toFixed(3)},${(cy+hw).toFixed(3)} Z`;
+  }
+
+  // Shared slot positions (interior coordinates)
+  const sharedSlots = [];
+  sharedWalls.forEach((w, wi) => {
+    const { tabPositions, isH, x0, y0 } = iwComputeTabs(wi, sharedWalls, matT);
+    for (const tp of tabPositions) {
+      sharedSlots.push(isH ? { cx: x0 + tp, cy: w.y1 } : { cx: w.x1, cy: y0 + tp });
+    }
+  });
+
+  // Inject into every inter-floor panel (same slots on all levels)
+  const sortedIFYs = plan.interFloorYs ? [...plan.interFloorYs].sort((a, b) => a - b) : [];
+  for (let panelN = 1; panelN <= sortedIFYs.length; panelN++) {
+    const ifPart = parts.find(p => p.id === `inter_floor_panel_${panelN}`);
+    if (!ifPart) continue;
+    for (const sl of sharedSlots)
+      ifPart.paths.push({ type: 'cut', d: slotPath(sl.cx, sl.cy) });
+  }
+
+  // Inject into base floor plate (exterior coordinates: +matT offset)
+  const floorPart = parts.find(p => p.id === 'floor');
+  if (floorPart) {
+    for (const sl of sharedSlots)
+      floorPart.paths.push({ type: 'cut', d: slotPath(sl.cx + matT, sl.cy + matT) });
+  }
+}
+
 /* Regenerate building and update preview */
 function regenerate() {
   readForm();
@@ -6630,6 +7276,29 @@ function regenerate() {
   }
   if (totalWindows === 0 && CONFIG.windowDensity !== 'none') {
     warnings += `<div class="warn">No windows fit in the given building dimensions. Try smaller window size or larger building.</div>`;
+  }
+
+  // Bay opening height constraint.
+  // plan.H = cfg.height (parapet lives in plan.parapetH — already excluded ✓).
+  // When first-floor height is overridden, the upper floors use the remaining height;
+  // the bay (which spans the first floor) should not exceed one upper-floor height
+  // minus matT, so the bay-ceiling panel always has a ledge to seat its tongue joints.
+  if ((CONFIG.hasFrontBay || CONFIG.hasBackBay) && lastPlan) {
+    const matT        = lastPlan.matT || CONFIG.coreThickness || 1.5;
+    const H           = lastPlan.H;   // wall height only, parapet excluded
+    const floors      = lastPlan.floors || 1;
+    const firstFloorH = lastPlan.firstFloorHeight || (H / floors);
+    // Upper floors share the remaining height equally
+    const upperFloorH = floors > 1 ? (H - firstFloorH) / (floors - 1) : H;
+    const refFloorH   = floors > 1 ? upperFloorH : H;
+    const maxBayH     = refFloorH - matT;
+    const bayH        = lastPlan.bayHeight || 0;
+    if (bayH > maxBayH) {
+      warnings += `<div class="warn">Bay opening height (${bayH.toFixed(1)} mm) exceeds the safe maximum of ${maxBayH.toFixed(1)} mm`
+        + ` (${floors > 1 ? `upper-floor height ${refFloorH.toFixed(1)}` : `wall height ${H.toFixed(1)}`} mm`
+        + ` − material thickness ${matT} mm).`
+        + ` The bay-ceiling panel needs at least ${matT} mm of wall material above the opening for its tongue joints.</div>`;
+    }
   }
   document.getElementById('warnings').innerHTML = warnings;
 }
@@ -7986,6 +8655,22 @@ function init() {
   }
 
   document.getElementById('openingEditorBtn').addEventListener('click', () => openOpeningEditor());
+
+  // Internal wall editor wiring
+  document.getElementById('iwBtnClose').addEventListener('click', iwClose);
+  document.getElementById('iwBtnApply').addEventListener('click', iwApply);
+  document.getElementById('iwGridInput').addEventListener('change', () => iwRender());
+  document.getElementById('iwZoomIn').addEventListener('click',  () => { iwScale = Math.min(12, iwScale * 1.25); iwRender(); });
+  document.getElementById('iwZoomOut').addEventListener('click', () => { iwScale = Math.max(1, iwScale / 1.25); iwRender(); });
+  document.getElementById('iwZoom1').addEventListener('click',   () => { iwFitView(); iwRender(); });
+  const iwSvgEl = document.getElementById('iwSvg');
+  iwSvgEl.addEventListener('mousemove',  iwHandleMouseMove);
+  iwSvgEl.addEventListener('mousedown',  iwHandleMouseDown);
+  iwSvgEl.addEventListener('mouseup',    iwHandleMouseUp);
+  iwSvgEl.addEventListener('mouseleave', iwHandleMouseLeave);
+  window.addEventListener('mouseup', () => {
+    if (iwDrag || iwDragItem) { iwDrag = false; iwDragItem = null; iwDragPt = null; iwRender(); }
+  });
   document.getElementById('wingEditorBtn').addEventListener('click', openWingEditor);
   document.getElementById('exportBtn').addEventListener('click', exportZip);
   document.getElementById('saveBtn').addEventListener('click', () => { readForm(); savePreset(); });
@@ -8486,8 +9171,6 @@ function generateBuildingWithWings(cfg) {
     }
   }
 
-  const bayCeiling = generateBayCeiling(cfg, plan);
-  if (bayCeiling) parts.push(bayCeiling);
 
   parts.push(...generateInterFloorPanels(cfg, plan));
 
@@ -8623,6 +9306,9 @@ function generateBuildingWithWings(cfg) {
   const windowParts = generateWindowParts(cfg, upperWindows, groundWindows);
   parts.push(...windowParts);
   parts.push(...generateDoorInserts(cfg, doorTallies));
+
+  parts.push(...generateInternalWallParts(cfg, plan));
+  injectInternalWallSlots(parts, cfg, plan);
 
   return { parts, plan, totalWindows, upperWindows, groundWindows, totalDoors };
 }
@@ -12534,6 +13220,49 @@ window.onerror = function(msg, src, line, col, err) {
 <!-- =====================================================================
      WYSIWYG Opening Editor Modal
      ===================================================================== -->
+<div id="iwModal" style="display:none;">
+  <div class="oe-dialog">
+
+    <div class="oe-header">
+      <h2>Floor Editor</h2>
+      <div class="oe-wall-tabs" id="iwFloorTabs"></div>
+      <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+        <button class="primary" id="iwBtnApply">✓ Apply &amp; Regenerate</button>
+        <button id="iwBtnClose">✕</button>
+      </div>
+    </div>
+
+    <!-- Properties / controls of the currently active tool or selected item -->
+    <div class="oe-topbar" id="iwTopbar" style="min-height:36px;"></div>
+
+    <!-- Body: left library + canvas, identical to opening editor -->
+    <div class="oe-body">
+      <div class="oe-toolbox" id="iwToolbox"></div>
+
+      <div class="oe-canvas-area" id="iwCanvasWrap" style="background:#e0e0d8;padding:0;overflow:hidden;position:relative;">
+        <div class="oe-fab-bar">
+          <span class="oe-fab-zoom">Zoom</span>
+          <button class="oe-fab-zoom-btn" id="iwZoomIn">+</button>
+          <button class="oe-fab-zoom-btn" id="iwZoom1">1:1</button>
+          <button class="oe-fab-zoom-btn" id="iwZoomOut">−</button>
+          <div class="oe-fab-sep"></div>
+          <span class="oe-fab-zoom" style="display:flex;align-items:center;gap:4px;">Grid
+            <input type="number" id="iwGridInput" value="5" min="1" max="50" step="1"
+              style="width:32px;padding:1px 3px;font-size:11px;border:1px solid #ccc;border-radius:3px;text-align:center;-moz-appearance:textfield;">mm
+          </span>
+        </div>
+        <svg id="iwSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+    </div>
+
+    <div class="oe-footer">
+      <span id="iwStatus">Select a tool from the library, then interact with the floor plan.</span>
+      <span style="margin-left:auto;font-size:10px;color:var(--muted);">Drag to draw walls · Click in Erase mode to delete</span>
+    </div>
+
+  </div>
+</div>
+
 <div id="openingEditorModal" style="display:none;">
   <div class="oe-dialog">
     <!-- Header -->

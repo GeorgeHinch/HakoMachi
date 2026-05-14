@@ -240,6 +240,36 @@
   .oe-sel-size-input::-webkit-outer-spin-button { -webkit-appearance: none; }
   .oe-sel-size-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+  /* ---- Floating action bar (erase / zoom / cladding) ---- */
+  .oe-fab-bar {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    z-index: 10;
+    display: flex; align-items: center; gap: 2px;
+    padding: 4px 10px;
+    background: #fff; border: 1px solid var(--border); border-radius: 24px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+    white-space: nowrap;
+    pointer-events: all;
+  }
+  .oe-fab-sep { width: 1px; height: 18px; background: #ddd; margin: 0 6px; flex-shrink: 0; }
+  .oe-fab-btn {
+    padding: 3px 9px; height: 26px;
+    border: 1px solid var(--border); border-radius: 13px;
+    background: #f5f5f0; font-size: 12px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
+    line-height: 1; white-space: nowrap; transition: background .12s, color .12s;
+  }
+  .oe-fab-btn:hover { background: #e8e8e2; }
+  .oe-fab-btn.fab-active { background: var(--etch); color: #fff; border-color: #1a4488; }
+  .oe-fab-btn.fab-erase.fab-active { background: var(--accent); color: #fff; border-color: var(--accent-dark); }
+  .oe-fab-zoom { font-size: 11px; color: var(--muted); }
+  .oe-fab-zoom-btn {
+    padding: 1px 6px; height: 22px; border: 1px solid var(--border); border-radius: 11px;
+    background: #f5f5f0; font-size: 13px; line-height: 1; cursor: pointer;
+  }
+  .oe-fab-zoom-btn:hover { background: #e8e8e2; }
+  .oe-fab-zoom-lbl { font-size: 11px; color: var(--muted); min-width: 34px; text-align: center; }
+
   /* Left toolbox */
   .oe-body { display: flex; flex: 1; overflow: hidden; min-height: 0; }
   .oe-toolbox {
@@ -295,7 +325,7 @@
   .oe-size-reset:hover { color: var(--accent); }
   .oe-toolbox-divider { height: 1px; background: var(--border); margin: 2px 0; flex-shrink: 0; }
   .oe-canvas-area {
-    flex: 1; overflow: auto;
+    flex: 1; overflow: auto; position: relative;
     display: flex; align-items: center; justify-content: center;
     padding: 24px; background: #e8e8e0;
   }
@@ -305,6 +335,14 @@
     font-size: 11px; color: var(--muted); flex-shrink: 0;
     display: flex; align-items: center; gap: 16px;
   }
+  .oe-canvas-map {
+    position: absolute; bottom: 12px; right: 12px; z-index: 10;
+    border: 1px solid var(--border); border-radius: 5px;
+    background: rgba(255,255,255,0.92); overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.14);
+    pointer-events: none;
+  }
+  #oeFootprintSvg { display: block; }
   .oe-mode-badge {
     font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 3px;
   }
@@ -568,6 +606,22 @@
           <option value="east" data-i18n-opt="opt_slopeEast">East is high</option>
           <option value="west" data-i18n-opt="opt_slopeWest">West is high</option>
         </select>
+      </div>
+      <div class="field" id="roofOverhangField" style="display:none">
+        <label data-i18n="lbl_overhang">Roof overhang (mm)</label>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input type="number" id="roofOverhangFB" min="0" max="60" step="0.5" value="0" style="flex:1"
+                 oninput="onOverhangInput('fb',this.value)" title="Front / back overhang">
+          <button id="roofOverhangLinkBtn" onclick="toggleOverhangLink()" title="Link / unlink"
+                  style="padding:2px 7px;font-size:12px;border:1px solid var(--border);border-radius:3px;background:var(--bg);cursor:pointer;flex-shrink:0;transition:background .15s,color .15s;">🔗</button>
+          <input type="number" id="roofOverhangEW" min="0" max="60" step="0.5" value="0" style="flex:1"
+                 oninput="onOverhangInput('ew',this.value)" title="East / west overhang">
+        </div>
+        <div style="display:flex;gap:4px;font-size:10px;color:var(--muted);margin-top:2px;">
+          <span style="flex:1;text-align:center;" data-i18n="lbl_ohFB">Front / back</span>
+          <span style="width:30px;"></span>
+          <span style="flex:1;text-align:center;" data-i18n="lbl_ohEW">East / west</span>
+        </div>
       </div>
     </details>
 
@@ -1193,6 +1247,16 @@ const WINDOW_SCALES = {
   xlarge: 1.8,
 };
 
+/* ---- Awning styles: w=wall width, d=depth (projection outward) ---- */
+const AWNING_STYLES = {
+  narrow:    { label: 'Narrow',    baseW: 14, baseD: 7  },
+  standard:  { label: 'Standard',  baseW: 22, baseD: 10 },
+  wide:      { label: 'Wide',      baseW: 32, baseD: 12 },
+  shopfront: { label: 'Shopfront', baseW: 42, baseD: 14 },
+};
+// Visual height of awning in the wall editor (mm, represents projection in face view)
+const AWNING_DISP_H = 4;
+
 /* Returns {w, h, mullion} for the current style+scale */
 function getWindowDims(cfg) {
   const style = WINDOW_STYLES[cfg.windowStyle];
@@ -1325,6 +1389,9 @@ const TRANSLATIONS = {
     lbl_pitch: 'Roof pitch (mm rise)',
     lbl_ridge: 'Ridge direction',
     lbl_slope: 'High side',
+    lbl_overhang: 'Roof overhang (mm)',
+    lbl_ohFB: 'Front / back',
+    lbl_ohEW: 'East / west',
     /* cladding / window / door labels */
     lbl_claddingStyle: 'Style',
     lbl_winStyle: 'Window style (each style has its own characteristic shape)',
@@ -1478,6 +1545,9 @@ const TRANSLATIONS = {
     lbl_pitch: '屋根勾配・立ち上がり（mm）',
     lbl_ridge: '棟の方向',
     lbl_slope: '高い側',
+    lbl_overhang: '軒の出（mm）',
+    lbl_ohFB: '前後',
+    lbl_ohEW: '東西',
     /* cladding / window / door labels */
     lbl_claddingStyle: 'スタイル',
     lbl_winStyle: '窓スタイル（スタイルごとに形状が異なります）',
@@ -1875,6 +1945,9 @@ let CONFIG = {
   roofPitch: 10,
   roofRidgeDirection: 'ew',    // gabled: 'ew' (east-west ridge) or 'ns' (north-south ridge)
   roofSlopeDirection: 'back',  // slanted: which side is high ('front','back','east','west')
+  roofOverhangFB: 0,           // mm overhang beyond front / back walls
+  roofOverhangEW: 0,           // mm overhang beyond east / west walls
+  roofOverhangLinked: true,    // keep FB and EW in sync
   doorStyle: 'single',
   frontDoorCount: 0, backDoorCount: 0, sideDoorCount: 1,
   // Trim strips along top/bottom of building
@@ -1890,6 +1963,9 @@ let CONFIG = {
   // Manual opening overrides per wall. null = use auto-placement; array = editor-placed openings.
   // Each entry: { type: 'window'|'door', x, y, w, h } in wall-local mm coords (y=0 at top).
   manualOpenings: { front: null, back: null, east: null, west: null },
+  // Awnings placed via the opening editor. Stored separately so wall generators never see them.
+  // Each entry: { x, y, w, d } where d = projection depth outward in mm.
+  manualAwnings:  { front: [],  back: [],  east: [],  west: []  },
   // Bay X position override. null = centred (default). A number = left edge of bay in mm from wall left.
   // Managed by the WYSIWYG editor drag; persists across regenerations until manually reset.
   bayXOverride: null,
@@ -2166,19 +2242,66 @@ function isGableEndWall(cfg, which) {
  *   Shape: rectangular body (wallW × wallH) + isoceles triangle above it.
  *   Apex at (wallW/2, −pitch).  Left/right/bottom edges carry the same
  *   tongue/opening features as the corresponding rectangular wall.
- *   The two diagonal gable-slope edges are plain cuts (glued in assembly).
+ *   The two diagonal gable-slope edges carry tabs when slopeTabSpec is provided.
+ *
+ * slopeTabSpec: { tw, margin, kerf } — if supplied, rectangular tabs are
+ *   generated along both slant edges, matching the slots cut in the slope panels.
  */
-function buildGableWallPath(wallW, wallH, pitch, spec) {
+function buildGableWallPath(wallW, wallH, pitch, spec, slopeTabSpec = null) {
   const { matT, kerf } = spec;
   const k  = kerf || 0;
   const td = matT;
   const tk = -k;
   const sk =  k;
 
+  const halfW    = wallW / 2;
+  const slantLen = Math.hypot(halfW, pitch);
+
   let d = 'M 0,0';
 
-  // ---- GABLE SLOPES (plain diagonals, no tongue features) ----
-  d += ` L ${(wallW / 2).toFixed(3)},${(-pitch).toFixed(3)} L ${wallW},0`;
+  // ---- GABLE SLOPES ----
+  if (slopeTabSpec) {
+    const { tw: tabW, margin: tabMargin } = slopeTabSpec;
+    const tabDepth = matT;   // tab protrudes by one material thickness
+    const tabK     = -(slopeTabSpec.kerf || 0);
+    const tabCount = Math.max(2, Math.min(3, Math.floor(slantLen / 25)));
+    const tabs     = placeTongues(slantLen, tabW, tabMargin, [], tabCount, tabW / 2);
+
+    // Left slant edge: travels from (0,0) → apex (halfW, −pitch).
+    // Tangent:  (halfW, −pitch) / slantLen  [in SVG y-down coords]
+    // Outward normal (CW rotate tangent):  (tanY, −tanX)
+    const lTx = halfW / slantLen,  lTy = -pitch / slantLen;
+    const lNx = lTy,               lNy = -lTx;   // outward for left edge (upper-left)
+
+    for (const tab of tabs) {
+      const s = tab.start + tabK, e = tab.end - tabK;
+      d += ` L ${(s*lTx).toFixed(3)},${(s*lTy).toFixed(3)}`;                        // walk to tab start
+      d += ` L ${(s*lTx+tabDepth*lNx).toFixed(3)},${(s*lTy+tabDepth*lNy).toFixed(3)}`; // step out
+      d += ` L ${(e*lTx+tabDepth*lNx).toFixed(3)},${(e*lTy+tabDepth*lNy).toFixed(3)}`; // across tab
+      d += ` L ${(e*lTx).toFixed(3)},${(e*lTy).toFixed(3)}`;                        // step back
+    }
+    d += ` L ${halfW.toFixed(3)},${(-pitch).toFixed(3)}`;  // apex
+
+    // Right slant edge: travels from apex (halfW, −pitch) → (wallW, 0).
+    // Tangent: (halfW, pitch) / slantLen
+    // Outward normal (CW rotate): (pitch, −halfW) / slantLen  (upper-right)
+    const rTx = halfW / slantLen,  rTy = pitch / slantLen;
+    const rNx = rTy,               rNy = -rTx;
+
+    for (const tab of tabs) {   // same tab positions, from apex outward
+      const s = tab.start + tabK, e = tab.end - tabK;
+      const ax = halfW + s*rTx, ay = -pitch + s*rTy;
+      const bx = halfW + e*rTx, by = -pitch + e*rTy;
+      d += ` L ${ax.toFixed(3)},${ay.toFixed(3)}`;
+      d += ` L ${(ax+tabDepth*rNx).toFixed(3)},${(ay+tabDepth*rNy).toFixed(3)}`;
+      d += ` L ${(bx+tabDepth*rNx).toFixed(3)},${(by+tabDepth*rNy).toFixed(3)}`;
+      d += ` L ${bx.toFixed(3)},${by.toFixed(3)}`;
+    }
+    d += ` L ${wallW},0`;  // right eave
+  } else {
+    // Plain diagonals — no tabs
+    d += ` L ${halfW.toFixed(3)},${(-pitch).toFixed(3)} L ${wallW},0`;
+  }
 
   // ---- RIGHT EDGE (top→bottom) ----
   const rightFeats = [
@@ -2234,6 +2357,79 @@ function buildGableWallPath(wallW, wallH, pitch, spec) {
   return d;
 }
 
+
+/**
+ * Trapezoidal perimeter for a wall whose top edge is slanted.
+ *   pitchLeft  = extra height at x=0   (top-left  at y = −pitchLeft)
+ *   pitchRight = extra height at x=wallW (top-right at y = −pitchRight)
+ * Tongue/opening features are only placed within the rectangular base [0, wallH].
+ * The slanted top edge has no tongue features (roof just rests on it).
+ */
+function buildSlantedWallPath(wallW, wallH, pitchLeft, pitchRight, spec) {
+  const { matT, kerf } = spec;
+  const k  = kerf || 0;
+  const td = matT;
+  const tk = -k;
+  const sk =  k;
+
+  let d = `M 0,${(-pitchLeft).toFixed(3)}`;
+
+  // ---- SLANTED TOP EDGE (no features) ----
+  d += ` L ${wallW},${(-pitchRight).toFixed(3)}`;
+
+  // ---- RIGHT EDGE (top-right → bottom-right), tongues/openings in [0, wallH] ----
+  const rightFeats = [
+    ...(spec.edges.right.tongues  || []).map(t => ({ ...t, kind: 'tongue'  })),
+    ...(spec.edges.right.openings || []).map(o => ({ ...o, kind: 'opening' })),
+  ].sort((a, b) => a.start - b.start);
+  let y = -pitchRight;
+  for (const f of rightFeats) {
+    const fS = f.start + (f.kind === 'tongue' ? tk : -sk);
+    const fE = f.end   - (f.kind === 'tongue' ? tk : -sk);
+    if (fS > y) d += ` L ${wallW},${fS.toFixed(3)}`;
+    d += f.kind === 'tongue'
+      ? ` L ${(wallW+td).toFixed(3)},${fS.toFixed(3)} L ${(wallW+td).toFixed(3)},${fE.toFixed(3)} L ${wallW},${fE.toFixed(3)}`
+      : ` L ${(wallW-td).toFixed(3)},${fS.toFixed(3)} L ${(wallW-td).toFixed(3)},${fE.toFixed(3)} L ${wallW},${fE.toFixed(3)}`;
+    y = fE;
+  }
+  if (y < wallH) d += ` L ${wallW},${wallH}`;
+
+  // ---- BOTTOM EDGE (right → left) ----
+  const botFeats = [
+    ...(spec.edges.bottom.tongues  || []).map(t => ({ ...t, kind: 'tongue'  })),
+    ...(spec.edges.bottom.openings || []).map(o => ({ ...o, kind: 'opening' })),
+  ].sort((a, b) => b.start - a.start);
+  let xp = wallW;
+  for (const f of botFeats) {
+    const fS = f.start + (f.kind === 'tongue' ? tk : -sk);
+    const fE = f.end   - (f.kind === 'tongue' ? tk : -sk);
+    if (xp > fE) d += ` L ${fE.toFixed(3)},${wallH}`;
+    d += f.kind === 'tongue'
+      ? ` L ${fE.toFixed(3)},${(wallH+td).toFixed(3)} L ${fS.toFixed(3)},${(wallH+td).toFixed(3)} L ${fS.toFixed(3)},${wallH}`
+      : ` L ${fE.toFixed(3)},${(wallH-td).toFixed(3)} L ${fS.toFixed(3)},${(wallH-td).toFixed(3)} L ${fS.toFixed(3)},${wallH}`;
+    xp = fS;
+  }
+  if (xp > 0) d += ` L 0,${wallH}`;
+
+  // ---- LEFT EDGE (bottom-left → top-left), tongues/openings in [0, wallH] ----
+  const leftFeats = [
+    ...(spec.edges.left.tongues  || []).map(t => ({ ...t, kind: 'tongue'  })),
+    ...(spec.edges.left.openings || []).map(o => ({ ...o, kind: 'opening' })),
+  ].sort((a, b) => b.start - a.start);
+  let yp = wallH;
+  for (const f of leftFeats) {
+    const fS = f.start + (f.kind === 'tongue' ? tk : -sk);
+    const fE = f.end   - (f.kind === 'tongue' ? tk : -sk);
+    if (yp > fE) d += ` L 0,${fE.toFixed(3)}`;
+    d += f.kind === 'tongue'
+      ? ` L ${(-td).toFixed(3)},${fE.toFixed(3)} L ${(-td).toFixed(3)},${fS.toFixed(3)} L 0,${fS.toFixed(3)}`
+      : ` L ${td.toFixed(3)},${fE.toFixed(3)} L ${td.toFixed(3)},${fS.toFixed(3)} L 0,${fS.toFixed(3)}`;
+    yp = fS;
+  }
+  if (yp > -pitchLeft) d += ` L 0,${(-pitchLeft).toFixed(3)}`;
+  d += ' Z';
+  return d;
+}
 
 /* Build a perimeter-only panel path with OUTWARD tongues and NO interior slot
    cutouts. Used for floor/ceiling panels where the panel carries the tongues. */
@@ -3136,15 +3332,31 @@ function generateSideWall(cfg, plan, side) {
   const sideWallFace = side === 'E' ? 'east' : 'west';
   const sPitch = cfg.roofPitch || 10;
   const isSideGableEnd = isGableEndWall(cfg, sideWallFace);
-  const perimeter = isSideGableEnd
-    ? buildGableWallPath(sideLen, H, sPitch, wallSpec)
-    : buildWallPath(wallSpec);
+  const sideSlopeTabSpec = isSideGableEnd
+    ? { tw, margin, kerf: cfg.kerfComp || 0 } : null;
+
+  // For slanted roofs, side walls perpendicular to the slope direction need a trapezoidal top.
+  // Convention: x=0 is the SOUTH/front end, x=sideLen is the NORTH/back end.
+  const isSlantedRoof = roofStyle === 'slanted';
+  const slopeDir = cfg.roofSlopeDirection || 'back';
+  const slantNsAxis = (slopeDir === 'front' || slopeDir === 'back');
+  let perimeter;
+  if (isSlantedRoof && slantNsAxis) {
+    // Side (E/W) walls need slanted tops for NS-axis slopes
+    const pitchL = (slopeDir === 'front') ? sPitch : 0;  // south/left end pitch
+    const pitchR = (slopeDir === 'back')  ? sPitch : 0;  // north/right end pitch
+    perimeter = buildSlantedWallPath(sideLen, H, pitchL, pitchR, wallSpec);
+  } else if (isSideGableEnd) {
+    perimeter = buildGableWallPath(sideLen, H, sPitch, wallSpec, sideSlopeTabSpec);
+  } else {
+    perimeter = buildWallPath(wallSpec);
+  }
 
   // Interior cuts: roof slots, bay ceiling slots, window holes
   const rects = [];
   
-  // Roof slots (parapet style only)
-  if (roofStyle === 'parapet' || roofStyle === 'slanted' || roofStyle === 'gabled') {
+  // Roof slots — only for parapet/flat roofs where the roof panel has matching tongues
+  if (roofStyle === 'parapet') {
     const roofSlotCount = Math.max(2, Math.min(4, Math.floor(sideLen / 30)));
     const roofTonguePoss = placeTongues(sideLen, tw, margin, [], roofSlotCount, tw / 2);
     for (const t of roofTonguePoss) {
@@ -3209,6 +3421,7 @@ function generateSideWall(cfg, plan, side) {
   if (_sideManualOps) {
     // Manual mode: use editor-placed openings directly
     for (const op of _sideManualOps) {
+      if (op.type === 'awning') continue;   // awnings sit on the surface; no wall slot needed
       if (op.type === 'door') {
         rects.push({ type: 'cut', x: op.x - 1, y: op.y - 1, w: op.w + 2, h: op.h + 1, compensateKerf: false });
         sideDoors.push(op);
@@ -3355,18 +3568,38 @@ function generateFrontBackWall(cfg, plan, which) {
     perimeter = buildFBWallWithBay(wallSpec, plan);
   }
 
-  // Gable-end walls: replace the rectangular perimeter with a pentagon (triangle above eave level).
+  // Gable-end walls: replace with pentagon (triangle above eave level).
   const pitch = cfg.roofPitch || 10;
   const isGableEnd = isGableEndWall(cfg, which) && !hasBay;
   if (isGableEnd) {
-    perimeter = buildGableWallPath(fbWidth, H, pitch, wallSpec);
+    const fbSlopeTabSpec = { tw, margin, kerf: cfg.kerfComp || 0 };
+    perimeter = buildGableWallPath(fbWidth, H, pitch, wallSpec, fbSlopeTabSpec);
+  }
+
+  // Slanted-roof: front/back walls perpendicular to an EW slope need trapezoidal tops.
+  // Convention: x=0 is the WEST end, x=fbWidth is the EAST end.
+  const isSlantedFB = roofStyle === 'slanted' && !hasBay && !isGableEnd;
+  if (isSlantedFB) {
+    const slopeDir = cfg.roofSlopeDirection || 'back';
+    const nsAxis   = (slopeDir === 'front' || slopeDir === 'back');
+    if (!nsAxis) {
+      // EW slope → front/back walls are trapezoidal
+      const pitchL = (slopeDir === 'west') ? pitch : 0;  // west/left end
+      const pitchR = (slopeDir === 'east') ? pitch : 0;  // east/right end
+      perimeter = buildSlantedWallPath(fbWidth, H, pitchL, pitchR, wallSpec);
+    }
+    // NS slope → front/back walls are rectangular eave walls.
+    // The back wall for 'back' slope is simply taller; handled by the builder's H param
+    // which uses plan.H = base height.  The height difference shows in the 3D preview;
+    // the SVG panel is always H tall since H is the building height at the low eave.
+    // (Separate bbox adjustment below handles the taller eave wall label/size.)
   }
 
   // Interior cuts
   const rects = [];
 
-  // Roof slots
-  if (roofStyle === 'parapet' || roofStyle === 'slanted' || roofStyle === 'gabled') {
+  // Roof slots — only for parapet/flat roofs where the roof panel has matching tongues
+  if (roofStyle === 'parapet') {
     const roofSlotCount = Math.max(2, Math.min(4, Math.floor(fbWidth / 30)));
     const roofTonguePoss = placeTongues(fbWidth, tw, margin, [], roofSlotCount, tw / 2);
     for (const t of roofTonguePoss) {
@@ -3440,6 +3673,7 @@ function generateFrontBackWall(cfg, plan, which) {
   if (_fbManualOps) {
     // Manual mode: use editor-placed openings directly
     for (const op of _fbManualOps) {
+      if (op.type === 'awning') continue;   // awnings sit on the surface; no wall slot needed
       if (op.type === 'door') {
         // Glass doors need a core cut-through so the glass pane can be inserted.
         // Solid doors only cut the cladding layer — core stays solid behind them.
@@ -3778,35 +4012,29 @@ function generateRoof(cfg, plan) {
   }
 
   if (roofStyle === 'slanted') {
-    // Single-slope roof.  The high side is determined by cfg.roofSlopeDirection.
-    // 'back'/'front'  → slope runs N-S; panel is  fbWidth  wide × slantLen long
-    // 'east'/'west'   → slope runs E-W; panel is  sideLen+2*matT wide × slantLen long
     const pitch    = cfg.roofPitch || 10;
     const slopeDir = cfg.roofSlopeDirection || 'back';
     const nsAxis   = (slopeDir === 'front' || slopeDir === 'back');
-    const span     = nsAxis ? sideLen : (fbWidth - 2 * matT);   // run along which axis
-    const perpLen  = nsAxis ? fbWidth : (sideLen + 2 * matT);   // perpendicular dimension
-    const slantLen = Math.hypot(span, pitch);
-    const margin   = Math.max(matT * 2, 5);
-    const BLEED    = 0.6;
 
-    // Panel: perpLen × slantLen (perpendicular × along-slope)
-    const slotCountPerp = Math.max(2, Math.min(4, Math.floor(perpLen / 30)));
-    const slotCountSlant = Math.max(2, Math.min(4, Math.floor(slantLen / 30)));
+    // Use OUTER building dimensions so the panel spans wall-face to wall-face
+    const span0    = nsAxis ? cfg.depth : cfg.width;
+    const perpLen0 = nsAxis ? cfg.width  : cfg.depth;
+    const slantLen0 = Math.hypot(span0, pitch);
+
+    // Overhang: eave extends along slope run; verge extends perpendicular
+    const ohFB = cfg.roofOverhangFB || 0;
+    const ohEW = cfg.roofOverhangEW || 0;
+    const ohEave  = nsAxis ? ohFB : ohEW;
+    const ohVerge = nsAxis ? ohEW : ohFB;
+    const ohSlant = ohEave > 0 ? ohEave * (slantLen0 / span0) : 0;
+
+    // Total panel dimensions — both eave ends overhang, both verge sides overhang
+    const slantLen = slantLen0 + 2 * ohSlant;
+    const perpLen  = perpLen0  + 2 * ohVerge;
+
+    // No tongue-slot joints: the panel simply rests on the wall tops.
+    // A plain rectangle is all that's needed.
     const perimeter = rectPath(0, 0, perpLen, slantLen);
-    const rects = [];
-    // Low-eave edge (y=0)
-    for (const s of placeTongues(perpLen, tw, margin, [], slotCountPerp, tw / 2))
-      rects.push({ type: 'cut', x: s.start, y: -BLEED, w: s.end - s.start, h: matT + BLEED, compensateKerf: true });
-    // High-eave edge (y=slantLen)
-    for (const s of placeTongues(perpLen, tw, margin, [], slotCountPerp, tw / 2))
-      rects.push({ type: 'cut', x: s.start, y: slantLen - matT, w: s.end - s.start, h: matT + BLEED, compensateKerf: true });
-    // Left edge
-    for (const s of placeTongues(slantLen, tw, margin, [], slotCountSlant, tw / 2))
-      rects.push({ type: 'cut', x: -BLEED, y: s.start, w: matT + BLEED, h: s.end - s.start, compensateKerf: true });
-    // Right edge
-    for (const s of placeTongues(slantLen, tw, margin, [], slotCountSlant, tw / 2))
-      rects.push({ type: 'cut', x: perpLen - matT, y: s.start, w: matT + BLEED, h: s.end - s.start, compensateKerf: true });
 
     const highLabel = { front:'front high', back:'back high', east:'east high', west:'west high' }[slopeDir];
     const corePanel = {
@@ -3814,7 +4042,7 @@ function generateRoof(cfg, plan) {
       material: 'core',
       bboxW: perpLen, bboxH: slantLen, bboxOffsetX: 0, bboxOffsetY: 0,
       paths: [{ type: 'cut', d: perimeter }],
-      rects, lines: [],
+      rects: [], lines: [],
     };
     const claddingPanel = generateRoofCladdingPanel('roof_cladding', `Roof Cladding (slanted — ${highLabel})`,
       perpLen, slantLen, CLADDING_STYLES[cfg.claddingStyle], cfg);
@@ -3822,55 +4050,159 @@ function generateRoof(cfg, plan) {
   }
 
   if (roofStyle === 'gabled') {
-    // Two symmetric slope panels meeting at the ridge.
-    // 'ew' ridge (default): ridge runs east-west, slopes face front & back
-    //   → each panel is fbWidth wide × slantLen long (slant = half-depth run)
-    // 'ns' ridge:           ridge runs north-south, slopes face east & west
-    //   → each panel is (sideLen+2*matT) wide × slantLen long (slant = half-width run)
     const pitch    = cfg.roofPitch || 10;
     const ridgeDir = cfg.roofRidgeDirection || 'ew';
     const ewRidge  = (ridgeDir === 'ew');
 
-    const halfSpan  = ewRidge ? sideLen / 2 : (fbWidth - 2 * matT) / 2;
-    const perpLen   = ewRidge ? fbWidth : (sideLen + 2 * matT);
-    const slantLen  = Math.hypot(halfSpan, pitch);   // full pitch is the ridge rise above eave
-    const margin    = Math.max(matT * 2, 5);
-    const BLEED     = 0.6;
-    const slotCountPerp  = Math.max(2, Math.min(4, Math.floor(perpLen / 30)));
-    const slotCountSlant = Math.max(2, Math.min(3, Math.floor(slantLen / 25)));
+    // Use OUTER building dimensions: each slope spans from outer wall face to ridge centre
+    const halfSpan0 = ewRidge ? cfg.depth / 2 : cfg.width / 2;
+    const perpLen0  = ewRidge ? cfg.width      : cfg.depth;
+    const slantLen0 = Math.hypot(halfSpan0, pitch);
+
+    // Overhang: eave = low end (beyond wall face); verge = ridge-end sides
+    const ohFB = cfg.roofOverhangFB || 0;
+    const ohEW = cfg.roofOverhangEW || 0;
+    const ohEave  = ewRidge ? ohFB : ohEW;
+    const ohVerge = ewRidge ? ohEW : ohFB;
+    const ohEaveS = ohEave > 0 ? ohEave * (slantLen0 / halfSpan0) : 0;
+
+    // Each panel: eave end extends by ohEaveS; ridge end has no overhang;
+    //             both verge sides extend by ohVerge
+    const slantLen = slantLen0 + ohEaveS;
+    const perpLen  = perpLen0  + 2 * ohVerge;
+    const margin   = Math.max(matT * 2, 5);
+
+    // No tongue-slot joints on any edge — panels rest on wall tops and meet at the ridge.
+    // Exception: VERGE slots at the gable-wall positions, which receive the tabs on the
+    // triangular gable wall tops.
+    // When ohVerge === 0 the slot lands on the panel edge → embed as an open notch in
+    // the perimeter path (same approach as the floor panel).
+    // When ohVerge  >  0 the slot is interior → use a closed-rect cut.
+    const vergeSlantLen = Math.hypot(halfSpan0, pitch);
+    const vergeSlotCount = Math.max(2, Math.min(3, Math.floor(vergeSlantLen / 25)));
+    const vergeSlots = placeTongues(vergeSlantLen, tw, margin, [], vergeSlotCount, tw / 2);
 
     const slopeLabels = ewRidge ? ['Front slope', 'Back slope'] : ['East slope', 'West slope'];
 
     function makeGablePanelParts(id, name) {
-      const perimeter = rectPath(0, 0, perpLen, slantLen);
+      let perimeter;
       const rects = [];
-      // Eave (lower) edge
-      for (const s of placeTongues(perpLen, tw, margin, [], slotCountPerp, tw / 2))
-        rects.push({ type: 'cut', x: s.start, y: -BLEED, w: s.end - s.start, h: matT + BLEED, compensateKerf: true });
-      // Ridge (upper) edge
-      for (const s of placeTongues(perpLen, tw, margin, [], slotCountPerp, tw / 2))
-        rects.push({ type: 'cut', x: s.start, y: slantLen - matT, w: s.end - s.start, h: matT + BLEED, compensateKerf: true });
-      // Left edge
-      for (const s of placeTongues(slantLen, tw, margin, [], slotCountSlant, tw / 2))
-        rects.push({ type: 'cut', x: -BLEED, y: s.start, w: matT + BLEED, h: s.end - s.start, compensateKerf: true });
-      // Right edge
-      for (const s of placeTongues(slantLen, tw, margin, [], slotCountSlant, tw / 2))
-        rects.push({ type: 'cut', x: perpLen - matT, y: s.start, w: matT + BLEED, h: s.end - s.start, compensateKerf: true });
-      return { id, name, material: 'core', bboxW: perpLen, bboxH: slantLen, bboxOffsetX: 0, bboxOffsetY: 0,
-               paths: [{ type: 'cut', d: perimeter }], rects, lines: [] };
+
+      if (ohVerge === 0 && vergeSlots.length > 0) {
+        // ---- Open-edge notches in the perimeter path ----
+        // Top edge (left→right)
+        let d = `M 0,0 L ${perpLen.toFixed(3)},0`;
+
+        // Right edge (top→bottom) — right-verge notches indent LEFT by matT
+        let ry = 0;
+        for (const s of vergeSlots) {
+          const y1 = ohEaveS + s.start, y2 = ohEaveS + s.end;
+          if (y1 > ry) d += ` L ${perpLen.toFixed(3)},${y1.toFixed(3)}`;
+          d += ` L ${(perpLen - matT).toFixed(3)},${y1.toFixed(3)}`
+             + ` L ${(perpLen - matT).toFixed(3)},${y2.toFixed(3)}`
+             + ` L ${perpLen.toFixed(3)},${y2.toFixed(3)}`;
+          ry = y2;
+        }
+        d += ` L ${perpLen.toFixed(3)},${slantLen.toFixed(3)}`;
+
+        // Bottom edge (right→left)
+        d += ` L 0,${slantLen.toFixed(3)}`;
+
+        // Left edge (bottom→top) — left-verge notches indent RIGHT by matT
+        let ly = slantLen;
+        for (const s of [...vergeSlots].reverse()) {
+          const y1 = ohEaveS + s.start, y2 = ohEaveS + s.end;
+          if (y2 < ly) d += ` L 0,${y2.toFixed(3)}`;
+          d += ` L ${matT.toFixed(3)},${y2.toFixed(3)}`
+             + ` L ${matT.toFixed(3)},${y1.toFixed(3)}`
+             + ` L 0,${y1.toFixed(3)}`;
+          ly = y1;
+        }
+        d += ` L 0,0 Z`;
+        perimeter = d;
+
+      } else {
+        // ---- Interior closed-rect slots (overhang present) ----
+        perimeter = rectPath(0, 0, perpLen, slantLen);
+        const lx = ohVerge;               // left slot starts at the gable wall outer face
+        const rx = perpLen - ohVerge - matT; // right slot starts at gable wall inner face
+        for (const s of vergeSlots) {
+          rects.push({ type:'cut', x: lx, y: ohEaveS + s.start,
+                       w: matT, h: s.end - s.start, compensateKerf: true });
+          rects.push({ type:'cut', x: rx, y: ohEaveS + s.start,
+                       w: matT, h: s.end - s.start, compensateKerf: true });
+        }
+      }
+
+      return { id, name, material: 'core',
+               bboxW: perpLen, bboxH: slantLen, bboxOffsetX: 0, bboxOffsetY: 0,
+               paths: [{ type: 'cut', d: perimeter }],
+               rects, lines: [] };
     }
 
     const panel0 = makeGablePanelParts('roof_slope0', `Roof ${slopeLabels[0]} (gabled ${ridgeDir} ridge)`);
     const panel1 = makeGablePanelParts('roof_slope1', `Roof ${slopeLabels[1]} (gabled ${ridgeDir} ridge)`);
 
     const styleSpec = CLADDING_STYLES[cfg.claddingStyle];
-    const clad0 = generateRoofCladdingPanel('roof_slope0_cladding', `${slopeLabels[0]} Cladding`, perpLen, slantLen, styleSpec, cfg);
-    const clad1 = generateRoofCladdingPanel('roof_slope1_cladding', `${slopeLabels[1]} Cladding`, perpLen, slantLen, styleSpec, cfg);
+    const combinedClad = styleSpec
+      ? generateGabledRoofCladding(perpLen, slantLen, halfSpan0, pitch, matT, styleSpec, ridgeDir)
+      : null;
 
     const parts = [panel0, panel1];
-    if (clad0) parts.push(clad0, clad1);
+    if (combinedClad) parts.push(combinedClad);
     return parts;
   }
+}
+
+/**
+ * Single folding cladding panel for a gabled roof.
+ * Covers both slopes in one piece:
+ *   height = 2 × slantLen + ridgeGap
+ *   ridgeGap = 2 × matT × tan(slantAngle)  — extra length to clear the core thickness at the ridge
+ *   fold/score etch line at foldY = slantLen + ridgeGap/2
+ * Texture lines run from each eave toward the fold line on their respective halves.
+ */
+function generateGabledRoofCladding(perpLen, slantLen, halfSpan, pitch, matT, styleSpec, ridgeDir) {
+  if (!styleSpec) return null;
+
+  const slantAngle = Math.atan2(pitch, halfSpan);
+  // Extra cladding length to wrap over the core material at the ridge joint
+  const ridgeGap = 2 * matT * Math.tan(slantAngle);
+  const totalH   = 2 * slantLen + ridgeGap;
+  const foldY    = slantLen + ridgeGap / 2;   // exact centre fold line
+
+  const spacing = styleSpec.type === 'tile' ? (styleSpec.spacing || 8)
+                : styleSpec.type === 'brick' ? 6
+                : 5;
+  const lines = [];
+
+  // Bottom half — eave (y=0) up to ridge fold (y=foldY)
+  for (let y = spacing; y < foldY - 0.5; y += spacing) {
+    lines.push({ type: 'etch', x1: 0, y1: y, x2: perpLen, y2: y });
+    const off = ((Math.round(y / spacing) % 2) === 0) ? perpLen / 3 : perpLen * 2 / 3;
+    lines.push({ type: 'etch', x1: off, y1: y, x2: off, y2: Math.min(y + spacing, foldY) });
+  }
+
+  // Top half — back eave (y=totalH) down to ridge fold (y=foldY), mirrored
+  for (let y = totalH - spacing; y > foldY + 0.5; y -= spacing) {
+    lines.push({ type: 'etch', x1: 0, y1: y, x2: perpLen, y2: y });
+    const off = ((Math.round((totalH - y) / spacing) % 2) === 0) ? perpLen / 3 : perpLen * 2 / 3;
+    lines.push({ type: 'etch', x1: off, y1: y, x2: off, y2: Math.max(y - spacing, foldY) });
+  }
+
+  // Centre fold / score line — distinct from tile lines; placed last so it renders on top
+  lines.push({ type: 'etch', x1: 0, y1: foldY, x2: perpLen, y2: foldY });
+  // Second pass of fold line for emphasis (dashed simulation via two overlapping strokes)
+  lines.push({ type: 'etch', x1: 0, y1: foldY, x2: perpLen, y2: foldY });
+
+  return {
+    id: 'roof_gabled_cladding',
+    name: `Roof Cladding (gabled ${ridgeDir} ridge — score & fold at centre)`,
+    material: 'cladding',
+    bboxW: perpLen, bboxH: totalH, bboxOffsetX: 0, bboxOffsetY: 0,
+    paths: [{ type: 'cut', d: rectPath(0, 0, perpLen, totalH) }],
+    rects: [], lines,
+  };
 }
 
 /* Generate a roof cladding panel with groove lines representing tiles/shingles */
@@ -4427,40 +4759,100 @@ function generateRooftopMechRoom(cfg, plan) {
    depth: how far the awning projects outward; angle: slope (degrees, default 20).
    ===================================================================== */
 function generateAwningParts(cfg, plan) {
-  if (!cfg.awnings || cfg.awnings.length === 0) return [];
   const matT = cfg.coreThickness || 1.5;
   const parts = [];
 
-  cfg.awnings.forEach((aw, i) => {
+  // ── Legacy cfg.awnings (sloped top panel + triangular side brackets) ──
+  (cfg.awnings || []).forEach((aw, i) => {
     const depth = aw.depth || 15;
     const angle = aw.angle || 20;
     const slopeLen = depth / Math.cos(angle * Math.PI / 180);
     const sideH = depth * Math.tan(angle * Math.PI / 180);
     const id = `awning_${i}`;
-
-    // Top panel (sloped canopy)
     parts.push({
       id: id + '_top', name: `Awning ${i+1} — top panel`,
       material: 'cladding',
-      bboxW: aw.w, bboxH: slopeLen,
-      bboxOffsetX: 0, bboxOffsetY: 0,
+      bboxW: aw.w, bboxH: slopeLen, bboxOffsetX: 0, bboxOffsetY: 0,
       paths: [{ type: 'cut', d: rectPath(0, 0, aw.w, slopeLen) }],
       rects: [], lines: [],
     });
-
-    // Side bracket (right triangle: base = depth, height = sideH)
     const triPath = `M 0,0 L ${slopeLen},0 L ${slopeLen},${sideH} Z`;
     for (const side of ['left', 'right']) {
       parts.push({
         id: id + '_' + side, name: `Awning ${i+1} — ${side} bracket`,
         material: 'core',
-        bboxW: slopeLen, bboxH: sideH + matT,
-        bboxOffsetX: 0, bboxOffsetY: 0,
+        bboxW: slopeLen, bboxH: sideH + matT, bboxOffsetX: 0, bboxOffsetY: 0,
         paths: [{ type: 'cut', d: triPath }],
         rects: [], lines: [],
       });
     }
   });
+
+  // ── Editor-placed awnings: three layers of 0.28 mm card stock ──
+  //   Layer 1 – Face  (top, stripe etch visible from outside)
+  //   Layer 2 – Core  (middle, structural)
+  //   Layer 3 – Base  (bottom, mirrored stripe etch + support-glue guides)
+  for (const face of ['front', 'back', 'east', 'west']) {
+    const awnings = ((cfg.manualAwnings || {})[face] || []);
+    awnings.forEach((aw, i) => {
+      const W = aw.w, D = aw.d;   // width (along wall), depth (projection outward)
+      const id = `awning_${face}_${i}`;
+      const lbl = `Awning — ${face} wall #${i + 1}`;
+      const stripePitch = 3; // mm between vertical etch stripes
+
+      // Vertical etch stripes running along D, spaced every stripePitch across W
+      function stripes(mirrorX = false) {
+        const ls = [];
+        for (let x = stripePitch; x < W; x += stripePitch) {
+          const ex = mirrorX ? W - x : x;
+          ls.push({ type: 'etch', x1: ex, y1: 0, x2: ex, y2: D });
+        }
+        return ls;
+      }
+
+      // Support-glue guide marks for the base layer (outer edge = y=D)
+      function supportMarks() {
+        const ls = [];
+        const n = Math.max(2, Math.round(W / 12)); // one mark per ~12mm
+        for (let m = 1; m <= n; m++) {
+          const mx = W * m / (n + 1);
+          ls.push({ type: 'etch', x1: mx - 1.5, y1: D - 0.5, x2: mx + 1.5, y2: D - 0.5 }); // horiz tick
+          ls.push({ type: 'etch', x1: mx, y1: D - 3,   x2: mx, y2: D });                      // vert tick
+        }
+        // Fold / attachment score line along the wall-attach edge (y ≈ 0.5)
+        ls.push({ type: 'etch', x1: 0, y1: 0.8, x2: W, y2: 0.8 });
+        return ls;
+      }
+
+      // Layer 1: Face — stripe etch on top face, cut border
+      parts.push({
+        id: id + '_face', name: `${lbl} — Face (top layer, stripe side out)`,
+        material: 'cladding',
+        bboxW: W, bboxH: D, bboxOffsetX: 0, bboxOffsetY: 0,
+        paths: [{ type: 'cut', d: rectPath(0, 0, W, D) }],
+        rects: [], lines: stripes(false),
+      });
+
+      // Layer 2: Core — plain structural layer
+      parts.push({
+        id: id + '_core', name: `${lbl} — Core (middle layer)`,
+        material: 'cladding',
+        bboxW: W, bboxH: D, bboxOffsetX: 0, bboxOffsetY: 0,
+        paths: [{ type: 'cut', d: rectPath(0, 0, W, D) }],
+        rects: [], lines: [],
+      });
+
+      // Layer 3: Base — mirrored stripes + support-glue marks (etch side faces inward when assembled)
+      parts.push({
+        id: id + '_base', name: `${lbl} — Base (bottom layer, glue-guide side down)`,
+        material: 'cladding',
+        bboxW: W, bboxH: D, bboxOffsetX: 0, bboxOffsetY: 0,
+        paths: [{ type: 'cut', d: rectPath(0, 0, W, D) }],
+        rects: [], lines: [...stripes(true), ...supportMarks()],
+      });
+    });
+  }
+
   return parts;
 }
 
@@ -5585,6 +5977,8 @@ function readForm() {
   CONFIG.roofPitch = num('roofPitch');
   CONFIG.roofRidgeDirection = val('roofRidgeDirection') || 'ew';
   CONFIG.roofSlopeDirection = val('roofSlopeDirection') || 'back';
+  CONFIG.roofOverhangFB = num('roofOverhangFB') || 0;
+  CONFIG.roofOverhangEW = num('roofOverhangEW') || 0;
   CONFIG.claddingStyle = val('claddingStyle');
   CONFIG.windowStyle = val('windowStyle');
   CONFIG.windowScale = val('windowScale');
@@ -5656,6 +6050,9 @@ function writeForm() {
   set('roofPitch', CONFIG.roofPitch);
   set('roofRidgeDirection', CONFIG.roofRidgeDirection || 'ew');
   set('roofSlopeDirection', CONFIG.roofSlopeDirection || 'back');
+  set('roofOverhangFB', CONFIG.roofOverhangFB || 0);
+  set('roofOverhangEW', CONFIG.roofOverhangEW || 0);
+  updateOverhangLinkBtn();
   set('claddingStyle', CONFIG.claddingStyle);
   set('windowStyle', CONFIG.windowStyle);
   set('windowScale', CONFIG.windowScale);
@@ -5750,6 +6147,7 @@ function updateConditionalFields() {
   document.getElementById('roofPitchField').style.display = (roofStyle === 'slanted' || roofStyle === 'gabled') ? '' : 'none';
   document.getElementById('roofRidgeDirectionField').style.display = (roofStyle === 'gabled') ? '' : 'none';
   document.getElementById('roofSlopeDirectionField').style.display = (roofStyle === 'slanted') ? '' : 'none';
+  document.getElementById('roofOverhangField').style.display = (roofStyle === 'slanted' || roofStyle === 'gabled') ? '' : 'none';
   document.getElementById('baySizeField').style.display = (bayConfig !== 'none') ? '' : 'none';
   // Rooftop shield sub-fields
   const shieldOn = !!document.getElementById('rooftopShieldEnabled')?.checked;
@@ -6553,24 +6951,57 @@ function generateBuildingStl(cfg) {
   } else if (cfg.roofStyle === 'slanted') {
     const pitch = cfg.roofPitch || 10;
     const slopeDir = cfg.roofSlopeDirection || 'back';
-    // Outer-face corners of the slanted slab
+    const ohFB = cfg.roofOverhangFB || 0;
+    const ohEW = cfg.roofOverhangEW || 0;
+    // Slope rate: rise per unit horizontal distance
+    const slopeRateX = pitch / W;   // for EW-axis slopes
+    const slopeRateY = pitch / D;   // for NS-axis slopes
     let p0, p1, p2, p3;
-    if      (slopeDir === 'front') { p0=[0,0,H+pitch]; p1=[W,0,H+pitch]; p2=[W,D,H]; p3=[0,D,H]; }
-    else if (slopeDir === 'back')  { p0=[0,0,H]; p1=[W,0,H]; p2=[W,D,H+pitch]; p3=[0,D,H+pitch]; }
-    else if (slopeDir === 'east')  { p0=[0,0,H]; p1=[W,0,H+pitch]; p2=[W,D,H+pitch]; p3=[0,D,H]; }
-    else                           { p0=[0,0,H+pitch]; p1=[W,0,H]; p2=[W,D,H]; p3=[0,D,H+pitch]; }
+    if (slopeDir === 'front') {
+      // High = south (y=0), low = north (y=D)
+      p0=[-ohEW, -ohFB, H+pitch+ohFB*slopeRateY]; p1=[W+ohEW, -ohFB, H+pitch+ohFB*slopeRateY];
+      p2=[W+ohEW, D+ohFB, H-ohFB*slopeRateY];     p3=[-ohEW, D+ohFB, H-ohFB*slopeRateY];
+    } else if (slopeDir === 'back') {
+      // High = north (y=D), low = south (y=0)
+      p0=[-ohEW, -ohFB, H-ohFB*slopeRateY];     p1=[W+ohEW, -ohFB, H-ohFB*slopeRateY];
+      p2=[W+ohEW, D+ohFB, H+pitch+ohFB*slopeRateY]; p3=[-ohEW, D+ohFB, H+pitch+ohFB*slopeRateY];
+    } else if (slopeDir === 'east') {
+      // High = east (x=W), low = west (x=0)
+      p0=[-ohEW, -ohFB, H-ohEW*slopeRateX];     p1=[W+ohEW, -ohFB, H+pitch+ohEW*slopeRateX];
+      p2=[W+ohEW, D+ohFB, H+pitch+ohEW*slopeRateX]; p3=[-ohEW, D+ohFB, H-ohEW*slopeRateX];
+    } else {
+      // High = west (x=0), low = east (x=W)
+      p0=[-ohEW, -ohFB, H+pitch+ohEW*slopeRateX]; p1=[W+ohEW, -ohFB, H-ohEW*slopeRateX];
+      p2=[W+ohEW, D+ohFB, H-ohEW*slopeRateX];     p3=[-ohEW, D+ohFB, H+pitch+ohEW*slopeRateX];
+    }
     addSlantedSlab(tris.tris, p0, p1, p2, p3, matT);
   } else if (cfg.roofStyle === 'gabled') {
     const pitch = cfg.roofPitch || 10;
+    const ohFB = cfg.roofOverhangFB || 0;
+    const ohEW = cfg.roofOverhangEW || 0;
     const ewR = (cfg.roofRidgeDirection || 'ew') === 'ew';
     if (ewR) {
-      // Ridge runs E–W; front slope (Y 0→D/2) and back slope (Y D/2→D)
-      addSlantedSlab(tris.tris, [0,0,H], [W,0,H], [W,D/2,H+pitch], [0,D/2,H+pitch], matT);
-      addSlantedSlab(tris.tris, [W,D/2,H+pitch], [0,D/2,H+pitch], [0,D,H], [W,D,H], matT);
+      // EW ridge: eave = front/back (ohFB), verge = east/west (ohEW)
+      // Front slope: low eave at y=-ohFB, ridge at y=D/2 (immovable)
+      const slopeRateEW = pitch / (D / 2);
+      addSlantedSlab(tris.tris,
+        [-ohEW, -ohFB, H - ohFB*slopeRateEW], [W+ohEW, -ohFB, H - ohFB*slopeRateEW],
+        [W+ohEW, D/2, H+pitch],               [-ohEW, D/2, H+pitch], matT);
+      // Back slope: ridge at y=D/2, low eave at y=D+ohFB
+      addSlantedSlab(tris.tris,
+        [W+ohEW, D/2, H+pitch], [-ohEW, D/2, H+pitch],
+        [-ohEW, D+ohFB, H - ohFB*slopeRateEW], [W+ohEW, D+ohFB, H - ohFB*slopeRateEW], matT);
     } else {
-      // Ridge runs N–S; west slope (X 0→W/2) and east slope (X W/2→W)
-      addSlantedSlab(tris.tris, [0,D,H], [0,0,H], [W/2,0,H+pitch], [W/2,D,H+pitch], matT);
-      addSlantedSlab(tris.tris, [W/2,0,H+pitch], [W/2,D,H+pitch], [W,D,H], [W,0,H], matT);
+      // NS ridge: eave = east/west (ohEW), verge = front/back (ohFB)
+      const slopeRateNS = pitch / (W / 2);
+      // West slope: low eave at x=-ohEW, ridge at x=W/2
+      addSlantedSlab(tris.tris,
+        [-ohEW, D+ohFB, H - ohEW*slopeRateNS], [-ohEW, -ohFB, H - ohEW*slopeRateNS],
+        [W/2, -ohFB, H+pitch],                  [W/2, D+ohFB, H+pitch], matT);
+      // East slope: ridge at x=W/2, low eave at x=W+ohEW
+      addSlantedSlab(tris.tris,
+        [W/2, -ohFB, H+pitch],                  [W/2, D+ohFB, H+pitch],
+        [W+ohEW, D+ohFB, H - ohEW*slopeRateNS], [W+ohEW, -ohFB, H - ohEW*slopeRateNS], matT);
     }
   } else {
     tris.box(0, W, 0, D, H, H + matT);   // unknown style — flat cap
@@ -6940,6 +7371,40 @@ function importConfigFile(file) {
 }
 
 /* Try to auto-load a saved preset on startup. Silent if none exists. */
+function onOverhangInput(axis, val) {
+  const v = parseFloat(val) || 0;
+  if (CONFIG.roofOverhangLinked) {
+    document.getElementById('roofOverhangFB').value = v;
+    document.getElementById('roofOverhangEW').value = v;
+    CONFIG.roofOverhangFB = v;
+    CONFIG.roofOverhangEW = v;
+  } else {
+    if (axis === 'fb') CONFIG.roofOverhangFB = v;
+    else               CONFIG.roofOverhangEW = v;
+  }
+}
+
+function toggleOverhangLink() {
+  CONFIG.roofOverhangLinked = !CONFIG.roofOverhangLinked;
+  if (CONFIG.roofOverhangLinked) {
+    // Sync EW to match FB
+    const fbv = parseFloat(document.getElementById('roofOverhangFB').value) || 0;
+    document.getElementById('roofOverhangEW').value = fbv;
+    CONFIG.roofOverhangEW = fbv;
+  }
+  updateOverhangLinkBtn();
+}
+
+function updateOverhangLinkBtn() {
+  const btn = document.getElementById('roofOverhangLinkBtn');
+  if (!btn) return;
+  const on = !!CONFIG.roofOverhangLinked;
+  btn.style.background  = on ? '#e8e8e2' : '';
+  btn.style.color       = on ? 'var(--text)' : '';
+  btn.style.borderColor = on ? 'var(--muted)' : '';
+  btn.style.boxShadow   = on ? 'inset 0 1px 2px rgba(0,0,0,0.15)' : '';
+}
+
 function tryAutoLoadPreset() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -8884,6 +9349,9 @@ function weRenderSidebar() {
    ===================================================================== */
 
 let oeWall = 'front';
+let oeExtraTop   = 0;   // SVG px above the eave level (for slant / gable peaks)
+let oeWallEffH   = 0;   // effective wall height (may exceed plan.H for high-eave walls)
+let oeWallLeftPx = 0;   // extra SVG px to the left of the main wall (coplanar wing extensions)
 let oeTool = 'window';
 let oeSnapGrid = 1;             // mm; 0 = no snapping
 let oeZoom = 1.0;               // zoom multiplier for the opening editor canvas
@@ -8915,12 +9383,28 @@ function wallFromPartId(id) {
 
 function openOpeningEditor(wall) {
   if (!lastPlan) { readForm(); regenerate(); }
-  oeOpenings = JSON.parse(JSON.stringify(CONFIG.manualOpenings || { front: null, back: null, east: null, west: null }));
+
+  // Load structural openings (windows + doors) from manualOpenings
+  oeOpenings = JSON.parse(JSON.stringify(
+    CONFIG.manualOpenings || { front: null, back: null, east: null, west: null }
+  ));
+
+  // Merge saved awnings into oeOpenings so they appear in the editor.
+  // Awnings are stored as { x, y, w, d } in manualAwnings; convert to the
+  // editor's { type:'awning', x, y, w, h } form where h = depth.
+  const savedAwnings = CONFIG.manualAwnings || { front: [], back: [], east: [], west: [] };
+  for (const face of ['front', 'back', 'east', 'west']) {
+    const aws = savedAwnings[face] || [];
+    if (aws.length === 0) continue;
+    if (!Array.isArray(oeOpenings[face])) oeOpenings[face] = [];
+    for (const a of aws) {
+      oeOpenings[face].push({ type: 'awning', x: a.x, y: a.y, w: a.w, h: a.d });
+    }
+  }
 
   document.getElementById('openingEditorModal').style.display = '';
   oePopulateToolbox();
   oePopulateTopbar();
-  // Navigate to the requested wall, defaulting to the last-used wall
   oeSetWall(wall || oeWall);
   oeSetTool(oeTool === 'window' || oeTool === 'door' ? 'move' : oeTool);
 }
@@ -8932,8 +9416,16 @@ function oeClose() {
 
 function oeApply() {
   if (!CONFIG.manualOpenings) CONFIG.manualOpenings = { front: null, back: null, east: null, west: null };
+  if (!CONFIG.manualAwnings)  CONFIG.manualAwnings  = { front: [],  back: [],  east: [],  west: []  };
   for (const w of ['front', 'back', 'east', 'west']) {
-    CONFIG.manualOpenings[w] = oeOpenings[w];
+    const ops = oeOpenings[w] || [];
+    // Structural openings → manualOpenings (consumed by wall/cladding generators)
+    const structural = ops.filter(op => op.type !== 'awning');
+    CONFIG.manualOpenings[w] = structural.length > 0 ? structural : null;
+    // Awnings → manualAwnings (separate store, wall generators never see this)
+    CONFIG.manualAwnings[w] = ops
+      .filter(op => op.type === 'awning')
+      .map(op => ({ x: op.x, y: op.y, w: op.w, d: op.h }));
   }
   oeClose();
   regenerate();
@@ -9168,29 +9660,115 @@ function oePopulateToolbox() {
     });
     box.appendChild(card);
   }
+
+  // ---- Awnings ----
+  const awningHdr = document.createElement('div');
+  awningHdr.className = 'oe-toolbox-section';
+  awningHdr.textContent = 'Awnings';
+  box.appendChild(awningHdr);
+
+  for (const [key, style] of Object.entries(AWNING_STYLES)) {
+    const ck = 'awning_' + key;
+    const defW = style.baseW, defD = style.baseD;
+    const custom = oeCustomSizes[ck];
+    const w = custom ? custom.w : defW;
+    const d = custom ? custom.d : defD;
+    const PS = Math.min(5, 80 / w);
+    const pvgW = Math.max(24, Math.round(w * PS));
+    const pvgH = Math.max(10, Math.round(AWNING_DISP_H * PS * 2));
+
+    // Build striped preview SVG
+    const sp = 3; // stripe pitch mm
+    let stripes = '';
+    for (let sx = 0; sx < w; sx += sp * 2) {
+      stripes += `<rect x="${sx.toFixed(1)}" y="0" width="${sp}" height="${AWNING_DISP_H}" fill="rgba(100,55,10,0.28)"/>`;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'oe-toolbox-item oe-draggable';
+    card.title = `${style.label} — W:${w} × D:${d} mm — drag onto wall`;
+    card.innerHTML = `
+      <svg width="${pvgW}" height="${pvgH}" viewBox="0 0 ${w} ${AWNING_DISP_H}" style="display:block">
+        <rect x="0" y="0" width="${w}" height="${AWNING_DISP_H}" fill="#c4935a" stroke="#7a4b15" stroke-width="0.4"/>
+        ${stripes}
+      </svg>
+      <div class="oe-toolbox-item-label">${style.label}</div>`;
+
+    const sizeRow = document.createElement('div');
+    sizeRow.className = 'oe-size-row';
+    sizeRow.innerHTML = `
+      <label>W</label>
+      <input type="number" min="5" max="100" step="1" value="${w}" class="${custom ? 'oe-custom' : ''}">
+      <label>D</label>
+      <input type="number" min="3" max="40"  step="1" value="${d}" class="${custom ? 'oe-custom' : ''}">
+      <button class="oe-size-reset" title="Reset to default" style="${custom ? '' : 'visibility:hidden'}">↺</button>`;
+    card.appendChild(sizeRow);
+
+    const [wInp, dInp] = sizeRow.querySelectorAll('input');
+    const resetBtn = sizeRow.querySelector('.oe-size-reset');
+
+    function makeAwningUpdater(_key, _ck, _defW, _defD, _wInp, _dInp, _resetBtn) {
+      return function() {
+        const nW = parseFloat(_wInp.value) || _defW;
+        const nD = parseFloat(_dInp.value) || _defD;
+        if (Math.abs(nW - _defW) < 0.01 && Math.abs(nD - _defD) < 0.01) {
+          delete oeCustomSizes[_ck];
+          _wInp.classList.remove('oe-custom'); _dInp.classList.remove('oe-custom');
+          _resetBtn.style.visibility = 'hidden';
+        } else {
+          oeCustomSizes[_ck] = { w: nW, d: nD };
+          _wInp.classList.add('oe-custom'); _dInp.classList.add('oe-custom');
+          _resetBtn.style.visibility = '';
+        }
+      };
+    }
+    const updateFn = makeAwningUpdater(key, ck, defW, defD, wInp, dInp, resetBtn);
+    wInp.addEventListener('change', updateFn);
+    dInp.addEventListener('change', updateFn);
+    wInp.addEventListener('click', e => e.stopPropagation());
+    dInp.addEventListener('click', e => e.stopPropagation());
+    resetBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      delete oeCustomSizes[ck];
+      wInp.value = defW; dInp.value = defD;
+      wInp.classList.remove('oe-custom'); dInp.classList.remove('oe-custom');
+      resetBtn.style.visibility = 'hidden';
+    });
+    card.addEventListener('mousedown', e => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+      e.preventDefault(); oeToolboxDragStart(e, 'awning', key);
+    });
+    box.appendChild(card);
+  }
 }
 
 /* ---- Drag from toolbox ---- */
 
 function oeToolboxDragStart(e, type, styleKey) {
   // Compute opening dims at drag-start time so they're fixed for this drag
-  const dims = (type === 'window') ? oeGetWinDims(styleKey) : oeGetDoorDims(styleKey);
+  const dims = type === 'window' ? oeGetWinDims(styleKey)
+             : type === 'door'   ? oeGetDoorDims(styleKey)
+             :                     oeGetAwningDims(styleKey);
+
+  const isAwning = type === 'awning';
+  const borderCol = type === 'window' ? '#2a64aa' : type === 'door' ? '#c84a3a' : '#7a4b15';
+  const bgCol     = type === 'window' ? 'rgba(160,205,245,0.82)' : type === 'door' ? 'rgba(245,185,130,0.82)' : 'rgba(196,147,90,0.82)';
+  const ghostW    = Math.max(20, dims.w * 5);
+  const ghostH    = isAwning ? Math.max(8, (dims.d || 10) * 2) : Math.max(15, dims.h * 5);
+  const ghostLbl  = isAwning ? `${dims.w.toFixed(1)}W × ${dims.d.toFixed(1)}D` : `${dims.w.toFixed(1)}×${dims.h.toFixed(1)}`;
 
   // Ghost element follows cursor
-  const GHOST_S = 5; // px per mm
   const ghost = document.createElement('div');
   ghost.style.cssText = [
     'position:fixed', 'pointer-events:none', 'z-index:9999',
     'transform:translate(-50%,-50%)',
-    `width:${Math.max(20, dims.w * GHOST_S)}px`,
-    `height:${Math.max(15, dims.h * GHOST_S)}px`,
-    `border:2px solid ${type === 'window' ? '#2a64aa' : '#c84a3a'}`,
-    `background:${type === 'window' ? 'rgba(160,205,245,0.82)' : 'rgba(245,185,130,0.82)'}`,
+    `width:${ghostW}px`, `height:${ghostH}px`,
+    `border:2px solid ${borderCol}`, `background:${bgCol}`,
     'border-radius:3px', 'display:flex', 'align-items:center', 'justify-content:center',
     'font-size:9px', 'color:#333', 'font-family:system-ui', 'box-shadow:0 2px 8px rgba(0,0,0,0.2)',
     `left:${e.clientX}px`, `top:${e.clientY}px`,
   ].join(';');
-  ghost.textContent = `${dims.w.toFixed(1)}×${dims.h.toFixed(1)}`;
+  ghost.textContent = ghostLbl;
   document.body.appendChild(ghost);
 
   const svg = document.getElementById('openingEditorSvg');
@@ -9214,8 +9792,8 @@ function oeToolboxDragStart(e, type, styleKey) {
     if (!over) return;
 
     const PAD = 32;
-    const mmX = (me.clientX - r.left  - PAD) / oeEditorScale;
-    const mmY = (me.clientY - r.top   - PAD) / oeEditorScale;
+    const mmX = (me.clientX - r.left  - PAD - oeWallLeftPx) / oeEditorScale;
+    const mmY = (me.clientY - r.top   - PAD - oeExtraTop)   / oeEditorScale;
     oeDropOpening(type, dims, mmX, mmY);
   };
 
@@ -9241,6 +9819,14 @@ function oeDropOpening(type, dims, x, y) {
     oeOpenings[oeWall].push({ type: 'window',
       x: oeSnap(Math.max(2, Math.min(W - dims.w - 2, x - dims.w / 2))),
       y: oeSnap(ny), w: dims.w, h: dims.h });
+  } else if (type === 'awning') {
+    // Place awning; y = attachment point on wall face. Snap x to grid.
+    // h field stores the DEPTH (projection), not visual wall height.
+    oeOpenings[oeWall].push({ type: 'awning',
+      x: oeSnap(Math.max(0, Math.min(W - dims.w, x - dims.w / 2))),
+      y: oeSnap(Math.max(0, Math.min(H - AWNING_DISP_H, y))),
+      w: dims.w,
+      h: dims.d });   // h = depth for awnings
   } else {
     oeOpenings[oeWall].push({ type: 'door',
       x: oeSnap(Math.max(2, Math.min(W - dims.w - 2, x - dims.w / 2))),
@@ -9282,20 +9868,11 @@ function oePopulateTopbar() {
     return b;
   }
 
-  // ---- Edit tools ----
-  label('Edit');
-  btn('oeTool-erase', '✕ Erase', 'Toggle erase mode — click openings to remove them',
-    () => oeSetTool(oeTool === 'erase' ? 'move' : 'erase'),
-    false, oeTool === 'erase').classList.toggle('tb-erase', true);
-
-  sep();
-
-  // ---- View ----
-  label('View');
-  btn('oeCladBtn', '🏗 Cladding', 'Toggle cladding pattern overlay',
-    oeToggleCladding, false, oeShowCladding);
-
-  sep();
+  // ---- Sync floating action bar button states ----
+  const eraseBtn = document.getElementById('oeEraseBtn');
+  if (eraseBtn) eraseBtn.classList.toggle('fab-active', oeTool === 'erase');
+  const cladBtn = document.getElementById('oeCladBtn');
+  if (cladBtn) cladBtn.classList.toggle('fab-active', oeShowCladding);
 
   // ---- Wall ops ----
   label('Wall');
@@ -9365,14 +9942,17 @@ function oePopulateTopbar() {
       wWrap.appendChild(wLbl); wWrap.appendChild(wInp);
       bar.appendChild(wWrap);
 
-      // H input
+      // H / D input (height for windows/doors, depth for awnings)
       const hWrap = document.createElement('span'); hWrap.style.cssText = 'display:inline-flex;align-items:center;gap:2px;';
-      const hLbl = document.createElement('span'); hLbl.className = 'oe-topbar-label'; hLbl.textContent = 'H';
+      const hLbl = document.createElement('span'); hLbl.className = 'oe-topbar-label';
+      hLbl.textContent = primaryOp.type === 'awning' ? 'D' : 'H';
       const hInp = document.createElement('input');
       hInp.type = 'number'; hInp.min = '1'; hInp.max = '500'; hInp.step = '0.5';
       hInp.value = primaryOp.h.toFixed(1);
       hInp.className = 'oe-sel-size-input';
-      hInp.title = 'Height of selected opening(s) in mm';
+      hInp.title = primaryOp.type === 'awning'
+        ? 'Depth of awning (projection from wall) in mm'
+        : 'Height of selected opening(s) in mm';
       hWrap.appendChild(hLbl); hWrap.appendChild(hInp);
       bar.appendChild(hWrap);
 
@@ -9390,9 +9970,9 @@ function oePopulateTopbar() {
           op.h = Math.max(1, Math.min(wallH, newH));
           // Clamp X so opening still fits within wall width after resize
           op.x = Math.max(0, Math.min(wallW - op.w, op.x));
-          // Doors always snap to the wall bottom
+          // Doors always snap to the wall bottom; awnings just clamp y; windows stay in their band
           if (op.type === 'door') op.y = wallH - op.h;
-          // Windows: keep within their floor band vertically
+          else if (op.type === 'awning') op.y = Math.max(0, Math.min(wallH - AWNING_DISP_H, op.y));
           else {
             const bands = oeGetFloorBands(oeWall);
             const bi = oeYToBand(bands, op.y + op.h / 2);
@@ -9494,8 +10074,8 @@ function oeAlignLeft()    { oeAlignSelected((op, sel) => { op.x = Math.min(...se
 function oeAlignRight()   { oeAlignSelected((op, sel) => { const r = Math.max(...sel.map(o => o.x + o.w)); op.x = r - op.w; }); }
 function oeAlignCenterH() { oeAlignSelected((op, sel) => { const cx = (Math.min(...sel.map(o => o.x)) + Math.max(...sel.map(o => o.x + o.w))) / 2; op.x = cx - op.w / 2; }); }
 function oeAlignTop()     { oeAlignSelected((op, sel) => { op.y = Math.min(...sel.map(o => o.y)); }); }
-function oeAlignBottom()  { oeAlignSelected((op, sel) => { const b = Math.max(...sel.map(o => o.y + o.h)); op.y = b - op.h; }); }
-function oeAlignMiddleV() { oeAlignSelected((op, sel) => { const cy = (Math.min(...sel.map(o => o.y)) + Math.max(...sel.map(o => o.y + o.h))) / 2; op.y = cy - op.h / 2; }); }
+function oeAlignBottom()  { oeAlignSelected((op, sel) => { const b = Math.max(...sel.map(o => o.y + oeOpH(o))); op.y = b - oeOpH(op); }); }
+function oeAlignMiddleV() { oeAlignSelected((op, sel) => { const cy = (Math.min(...sel.map(o => o.y)) + Math.max(...sel.map(o => o.y + oeOpH(o)))) / 2; op.y = cy - oeOpH(op) / 2; }); }
 
 /* ---- Distribute functions ---- */
 
@@ -9517,11 +10097,11 @@ function oeDistributeVertical() {
   const ops = oeOpenings[oeWall];
   const sel = [...oeSelectedSet].map(i => ({ i, op: ops[i] })).sort((a, b) => a.op.y - b.op.y);
   const topY    = sel[0].op.y;
-  const bottomY = sel[sel.length - 1].op.y + sel[sel.length - 1].op.h;
-  const totalH  = sel.reduce((s, { op }) => s + op.h, 0);
+  const bottomY = sel[sel.length - 1].op.y + oeOpH(sel[sel.length - 1].op);
+  const totalH  = sel.reduce((s, { op }) => s + oeOpH(op), 0);
   const gap     = (bottomY - topY - totalH) / (sel.length - 1);
   let y = topY;
-  for (const { op } of sel) { op.y = oeSnap(y); y += op.h + gap; }
+  for (const { op } of sel) { op.y = oeSnap(y); y += oeOpH(op) + gap; }
   oeCommit(); oeRender();
 }
 
@@ -9693,56 +10273,210 @@ function oeToggleCladding() {
 
 /* ---- Render ---- */
 
+/**
+ * Returns coplanar wing sections that form a joined/L-shaped wall with the
+ * currently-edited face. Uses the same wingCoplanarCheck logic as the SVG generator.
+ *
+ * Each entry: { width (mm along face), height (mm), wing (ref), side: 'left'|'right' }
+ *
+ * Convention — "left" means the smaller-x end of the editor canvas for each face:
+ *   front  : left=west,  right=east
+ *   back   : left=east,  right=west   (back is viewed mirrored)
+ *   east   : left=south, right=north  (x=0=south convention)
+ *   west   : left=south, right=north
+ */
+function oeComputeWingExtensions() {
+  const wings  = CONFIG.wings || [];
+  const plan   = lastPlan;
+  const mainW  = CONFIG.width, mainD = CONFIG.depth;
+  const baseH  = plan ? plan.H : CONFIG.height;
+  const result = [];
+
+  for (const wing of wings) {
+    const cp     = wingCoplanarCheck(wing, mainW, mainD);
+    const wingH  = (wing.height && wing.height > 0) ? wing.height : baseH;
+    const extW   = wing.depth; // how far the wing extends perpendicular to the joined face
+
+    switch (oeWall) {
+      case 'front':
+        // east/west wings whose "west" (south) face is flush with the main front face
+        if (wing.face === 'east' && cp.westCoplanar) result.push({ side:'right', width:extW, height:wingH, wing });
+        if (wing.face === 'west' && cp.westCoplanar) result.push({ side:'left',  width:extW, height:wingH, wing });
+        break;
+      case 'back':
+        // east/west wings whose "east" (north) face is flush with the main back face
+        // back wall is viewed mirrored, so east → left
+        if (wing.face === 'east' && cp.eastCoplanar) result.push({ side:'left',  width:extW, height:wingH, wing });
+        if (wing.face === 'west' && cp.eastCoplanar) result.push({ side:'right', width:extW, height:wingH, wing });
+        break;
+      case 'east':
+        // front/back wings whose "east" face is flush with the main east face
+        if (wing.face === 'front' && cp.eastCoplanar) result.push({ side:'left',  width:extW, height:wingH, wing });
+        if (wing.face === 'back'  && cp.eastCoplanar) result.push({ side:'right', width:extW, height:wingH, wing });
+        break;
+      case 'west':
+        // front/back wings whose "west" face is flush with the main west face
+        if (wing.face === 'front' && cp.westCoplanar) result.push({ side:'left',  width:extW, height:wingH, wing });
+        if (wing.face === 'back'  && cp.westCoplanar) result.push({ side:'right', width:extW, height:wingH, wing });
+        break;
+    }
+  }
+  return result;
+}
+
+/**
+ *   pitchL  – extra height (mm) at x=0 (left when viewed from outside)
+ *   pitchR  – extra height at x=W
+ *   gable   – triangle height for gable-end walls (pentagon)
+ *   wallH   – effective base wall height (may exceed plan.H for high-eave rectangular walls)
+ * For a plain rectangular wall all values are 0 / plan.H.
+ */
+function oeWallShapeInfo() {
+  const plan = lastPlan;
+  const baseH = plan ? plan.H : CONFIG.height;
+  const roofStyle = CONFIG.roofStyle;
+  const pitch     = CONFIG.roofPitch || 0;
+  const slopeDir  = CONFIG.roofSlopeDirection || 'back';
+  const ridgeDir  = CONFIG.roofRidgeDirection || 'ew';
+  const nsAxis    = slopeDir === 'back' || slopeDir === 'front';
+  const isSide    = oeWall === 'east' || oeWall === 'west';
+
+  const none = { pitchL:0, pitchR:0, gable:0, wallH: baseH };
+
+  if (roofStyle === 'gabled') {
+    const ewRidge = ridgeDir === 'ew';
+    const isGableEnd = (ewRidge && isSide) || (!ewRidge && !isSide);
+    return { ...none, gable: isGableEnd ? pitch : 0 };
+  }
+
+  if (roofStyle === 'slanted') {
+    if (isSide && nsAxis) {
+      // Side walls trapezoidal for NS slope; x=0 = south/front
+      return { pitchL: slopeDir==='front'?pitch:0, pitchR: slopeDir==='back'?pitch:0,
+               gable:0, wallH: baseH };
+    }
+    if (isSide && !nsAxis) {
+      // Side walls rectangular but one is taller
+      const isHigh = (slopeDir==='east'&&oeWall==='east') || (slopeDir==='west'&&oeWall==='west');
+      return { ...none, wallH: isHigh ? baseH+pitch : baseH };
+    }
+    if (!isSide && !nsAxis) {
+      // Front/back walls trapezoidal for EW slope; x=0=west for front, x=0=east for back
+      const isBack = oeWall==='back';
+      let pl = slopeDir==='west'?pitch:0, pr = slopeDir==='east'?pitch:0;
+      if (isBack) { [pl, pr] = [pr, pl]; }  // back wall is viewed from the opposite direction
+      return { pitchL:pl, pitchR:pr, gable:0, wallH: baseH };
+    }
+    if (!isSide && nsAxis) {
+      // Front/back walls rectangular at different heights
+      const isHigh = (slopeDir==='back'&&oeWall==='back') || (slopeDir==='front'&&oeWall==='front');
+      return { ...none, wallH: isHigh ? baseH+pitch : baseH };
+    }
+  }
+
+  return none;
+}
+
 function oeRender() {
+  try {
+    _oeRenderInner();
+  } catch(e) {
+    console.error('oeRender error:', e);
+    const banner = document.getElementById('_errBanner') || (() => {
+      const b = document.createElement('div');
+      b.id = '_errBanner';
+      b.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;padding:6px 12px;font:12px monospace;z-index:99999;cursor:pointer;';
+      b.onclick = () => b.remove();
+      document.body.appendChild(b);
+      return b;
+    })();
+    banner.textContent = 'oeRender: ' + e.message + (e.stack ? ' — ' + e.stack.split('\n')[1] : '');
+  }
+}
+function _oeRenderInner() {
   const svg = document.getElementById('openingEditorSvg');
   if (!svg) return;
-  const { W, H } = oeGetWallDims(oeWall);
-  const PAD = 32;
-  const s = Math.min((900 - PAD * 2) / W, (560 - PAD * 2) / H, 7) * oeZoom;
-  oeEditorScale = s;
-  const svgW = W * s + PAD * 2, svgH = H * s + PAD * 2;
-  const ox = PAD, oy = PAD;
+  const { W, H: baseH } = oeGetWallDims(oeWall);
 
-  svg.setAttribute('width', svgW);
-  svg.setAttribute('height', svgH);
+  // ---- Wall shape info ----
+  const si      = oeWallShapeInfo();
+  const pitchL  = si.pitchL, pitchR = si.pitchR, gable = si.gable;
+  const wallH   = si.wallH;
+  const peakAbove = Math.max(pitchL, pitchR, gable);
+
+  // ---- Coplanar wing extensions (joined / L-shaped walls) ----
+  const wingExts   = oeComputeWingExtensions();
+  const leftExts   = wingExts.filter(e => e.side === 'left');
+  const rightExts  = wingExts.filter(e => e.side === 'right');
+  const leftExtW   = leftExts.reduce((a, e) => a + e.width, 0);
+  const rightExtW  = rightExts.reduce((a, e) => a + e.width, 0);
+  const totalDispW = W + leftExtW + rightExtW;
+
+  const PAD = 32;
+  const totalH = wallH + peakAbove;
+  const s = Math.min((900 - PAD * 2) / totalDispW, (560 - PAD * 2) / totalH, 7) * oeZoom;
+  oeEditorScale = s;
+  oeExtraTop    = peakAbove * s;
+  oeWallEffH    = wallH;
+  oeWallLeftPx  = leftExtW * s;   // SVG px left of ox that belong to wing extensions
+
+  const svgW = totalDispW * s + PAD * 2;
+  const svgH = totalH * s + PAD * 2;
+  const ox   = PAD + leftExtW * s;  // x-origin of the MAIN WALL in SVG coords
+  const oy   = PAD + oeExtraTop;
+
+  svg.setAttribute('width',   svgW);
+  svg.setAttribute('height',  svgH);
   svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
 
+  // Build polygon points for the wall outline
+  function wallPts() {
+    const p = [];
+    p.push(`${ox},${(oy + wallH*s).toFixed(1)}`);         // bottom-left
+    p.push(`${ox},${(oy - pitchL*s).toFixed(1)}`);        // top-left
+    if (gable > 0)
+      p.push(`${(ox+W*s/2).toFixed(1)},${(oy-gable*s).toFixed(1)}`); // apex
+    p.push(`${(ox+W*s).toFixed(1)},${(oy-pitchR*s).toFixed(1)}`);    // top-right
+    p.push(`${(ox+W*s).toFixed(1)},${(oy+wallH*s).toFixed(1)}`);     // bottom-right
+    return p.join(' ');
+  }
+  const WPTS = wallPts();
+
   let html = `<defs>
+    <clipPath id="oe-wall-clip"><polygon points="${WPTS}"/></clipPath>
     <pattern id="oe-hatch" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(45)">
       <line x1="0" y1="0" x2="0" y2="5" stroke="#bbb" stroke-width="1.2"/>
     </pattern>
   </defs>`;
 
-  // Wall face base colour
-  html += `<rect x="${ox}" y="${oy}" width="${W*s}" height="${H*s}" fill="#c8bfb0" stroke="#777" stroke-width="1.5"/>`;
+  // Wall background fill (matches actual shape)
+  html += `<polygon points="${WPTS}" fill="#c8bfb0" stroke="none"/>`;
 
-  // ---- Snap grid dots ----
+  // ---- All interior content clipped to the wall polygon ----
+  html += `<g clip-path="url(#oe-wall-clip)">`;
+
+  // Snap grid dots
   if (oeSnapGrid > 0) {
-    // Choose a display interval: show every snap point if spacing ≥ 4px, else every 2×, 4× …
     let displayStep = oeSnapGrid;
     while (displayStep * s < 4) displayStep *= 2;
     const dotR = Math.min(1.2, displayStep * s * 0.12);
     html += `<g opacity="0.35" pointer-events="none">`;
     for (let gx = 0; gx <= W + 0.01; gx += displayStep) {
-      for (let gy = 0; gy <= H + 0.01; gy += displayStep) {
-        html += `<circle cx="${(ox + gx * s).toFixed(1)}" cy="${(oy + gy * s).toFixed(1)}" r="${dotR}" fill="#666"/>`;
+      for (let gy = -peakAbove; gy <= wallH + 0.01; gy += displayStep) {
+        html += `<circle cx="${(ox+gx*s).toFixed(1)}" cy="${(oy+gy*s).toFixed(1)}" r="${dotR}" fill="#666"/>`;
       }
     }
     html += `</g>`;
   }
 
-  // ---- Floor band tints (drawn before anything else so they sit under windows) ----
+  // Floor band tints
   const bands = oeGetFloorBands(oeWall);
   for (let i = 0; i < bands.length; i++) {
     const b = bands[i];
     const by = oy + b.yTop * s, bh = (b.yBottom - b.yTop) * s;
-    // Alternating warm/cool tint
     html += `<rect x="${ox}" y="${by}" width="${W*s}" height="${bh}" fill="${OE_BAND_FILLS[i % 2]}" pointer-events="none"/>`;
-    // Top boundary line of band
-    if (i > 0) {
+    if (i > 0)
       html += `<line x1="${ox}" y1="${by}" x2="${ox+W*s}" y2="${by}" stroke="rgba(80,80,80,0.25)" stroke-width="0.8" stroke-dasharray="4 3" pointer-events="none"/>`;
-    }
-    // Floor label — right-aligned, faint
     html += `<text x="${ox+W*s-3}" y="${by+bh-4}" font-size="8" fill="rgba(60,60,60,0.35)" text-anchor="end" font-family="system-ui" pointer-events="none">floor ${bands.length - i}</text>`;
   }
 
@@ -9753,75 +10487,57 @@ function oeRender() {
     html += `<text x="${ox+4}" y="${oy+ph-3}" font-size="9" fill="#666" font-family="system-ui" pointer-events="none">parapet</text>`;
   }
 
-  // Bay opening (front/back) — rendered as a draggable element
+  // Bay opening
   if ((oeWall === 'front' || oeWall === 'back') && lastPlan) {
-    const hasBay = (oeWall === 'front' && lastPlan.hasFrontBay) || (oeWall === 'back' && lastPlan.hasBackBay);
+    const hasBay = (oeWall==='front' && lastPlan.hasFrontBay) || (oeWall==='back' && lastPlan.hasBackBay);
     if (hasBay) {
       const bh  = lastPlan.bayHeight || 0;
       const bxs = (_oeBayDragTempX !== null) ? _oeBayDragTempX : lastPlan.bayXStart;
       const bxe = bxs + (lastPlan.bayXEnd - lastPlan.bayXStart);
       const isDriveThrough = lastPlan.hasBackBay;
       const linkLabel = isDriveThrough ? ' (⇔ linked)' : '';
-      html += `<rect x="${ox+bxs*s}" y="${oy+(H-bh)*s}" width="${(bxe-bxs)*s}" height="${bh*s}"
-        fill="#9a9088" stroke="${_oeBayDragTempX !== null ? '#f70' : '#555'}" stroke-width="${_oeBayDragTempX !== null ? 2 : 1}"
+      html += `<rect x="${ox+bxs*s}" y="${oy+(wallH-bh)*s}" width="${(bxe-bxs)*s}" height="${bh*s}"
+        fill="#9a9088" stroke="${_oeBayDragTempX!==null?'#f70':'#555'}" stroke-width="${_oeBayDragTempX!==null?2:1}"
         data-oe-bay="1" style="cursor:ew-resize"/>`;
-      html += `<text x="${ox+(bxs+(bxe-bxs)/2)*s}" y="${oy+(H-bh/2)*s+4}" font-size="9" fill="#eee"
+      html += `<text x="${ox+(bxs+(bxe-bxs)/2)*s}" y="${oy+(wallH-bh/2)*s+4}" font-size="9" fill="#eee"
         text-anchor="middle" font-family="system-ui" pointer-events="none">bay${linkLabel}</text>`;
-      html += `<text x="${ox+(bxs+(bxe-bxs)/2)*s}" y="${oy+(H-bh/2)*s+14}" font-size="8" fill="rgba(255,255,255,0.6)"
-        text-anchor="middle" font-family="system-ui" pointer-events="none">drag to move</text>`;
-      // Show X position label during drag
-      if (_oeBayDragTempX !== null) {
-        html += `<text x="${ox+bxs*s}" y="${oy+(H-bh)*s-4}" font-size="9" fill="#f70"
-          font-family="system-ui">x=${bxs.toFixed(1)}</text>`;
-      }
+      if (_oeBayDragTempX !== null)
+        html += `<text x="${ox+bxs*s}" y="${oy+(wallH-bh)*s-4}" font-size="9" fill="#f70" font-family="system-ui">x=${bxs.toFixed(1)}</text>`;
     }
   }
 
-  // Floor centre lines (subtle dashes through each band)
+  // Floor centre lines
   if (lastPlan && lastPlan.floorCenterYs) {
-    for (const cy of lastPlan.floorCenterYs) {
+    for (const cy of lastPlan.floorCenterYs)
       html += `<line x1="${ox}" y1="${oy+cy*s}" x2="${ox+W*s}" y2="${oy+cy*s}" stroke="rgba(80,140,100,0.4)" stroke-width="0.7" stroke-dasharray="5 4" pointer-events="none"/>`;
-    }
   }
 
-  // ---- Cladding overlay ----
+  // Cladding overlay
   if (oeShowCladding && lastPlan) {
     const cT = CONFIG.claddingThickness || 0.28;
     const ops = oeOpenings[oeWall] || [];
-    const cutOpenings = ops.map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h }));
+    const cutOpenings = ops.filter(op => op.type !== 'awning')
+                           .map(op => ({ x:op.x, y:op.y, w:op.w, h:op.h }));
 
-    // Helper to render one cladding band (full wall or ground/upper split)
     function drawCladdingBand(styleKey, bandTop, bandBottom) {
       const styleSpec = CLADDING_STYLES[styleKey];
       if (!styleSpec) return;
-      // Clip openings to this band
-      const bandCuts = cutOpenings
-        .map(c => {
-          const cy0 = Math.max(c.y, bandTop), cy1 = Math.min(c.y + c.h, bandBottom);
-          if (cy1 <= cy0) return null;
-          return { x: c.x, y: cy0, w: c.w, h: cy1 - cy0 };
-        })
-        .filter(Boolean);
-
-      // Cladding face fill (slightly different tone from base wall)
-      const claddingFill = 'rgba(190,175,158,0.55)';
-      html += `<rect x="${ox}" y="${oy+bandTop*s}" width="${W*s}" height="${(bandBottom-bandTop)*s}" fill="${claddingFill}" pointer-events="none"/>`;
-
-      // Pattern lines from the cladding generator (wall-frame coords)
+      const bandCuts = cutOpenings.map(c => {
+        const cy0=Math.max(c.y,bandTop), cy1=Math.min(c.y+c.h,bandBottom);
+        if (cy1<=cy0) return null;
+        return { x:c.x, y:cy0, w:c.w, h:cy1-cy0 };
+      }).filter(Boolean);
+      html += `<rect x="${ox}" y="${oy+bandTop*s}" width="${W*s}" height="${(bandBottom-bandTop)*s}" fill="rgba(190,175,158,0.55)" pointer-events="none"/>`;
       const lines = generateCladdingPattern(styleSpec, 0, bandTop, W, bandBottom, bandCuts);
-      for (const l of lines) {
+      for (const l of lines)
         html += `<line x1="${(ox+l.x1*s).toFixed(2)}" y1="${(oy+l.y1*s).toFixed(2)}" x2="${(ox+l.x2*s).toFixed(2)}" y2="${(oy+l.y2*s).toFixed(2)}" stroke="rgba(70,50,30,0.55)" stroke-width="0.6" pointer-events="none"/>`;
-      }
-
-      // Knock out the openings so you can see through the cladding to the core
       for (const op of ops) {
-        const cy0 = Math.max(op.y, bandTop), cy1 = Math.min(op.y + op.h, bandBottom);
-        if (cy1 <= cy0) continue;
-        const isWin = op.type === 'window';
-        html += `<rect x="${(ox+op.x*s).toFixed(2)}" y="${(oy+cy0*s).toFixed(2)}" width="${(op.w*s).toFixed(2)}" height="${((cy1-cy0)*s).toFixed(2)}" fill="${isWin ? 'rgba(130,175,215,0.7)' : 'rgba(230,190,140,0.7)'}" pointer-events="none"/>`;
+        if (op.type === 'awning') continue;   // awnings sit on the surface, no cladding hole
+        const cy0=Math.max(op.y,bandTop), cy1=Math.min(op.y+op.h,bandBottom);
+        if (cy1<=cy0) continue;
+        const isWin = op.type==='window';
+        html += `<rect x="${(ox+op.x*s).toFixed(2)}" y="${(oy+cy0*s).toFixed(2)}" width="${(op.w*s).toFixed(2)}" height="${((cy1-cy0)*s).toFixed(2)}" fill="${isWin?'rgba(130,175,215,0.7)':'rgba(230,190,140,0.7)'}" pointer-events="none"/>`;
       }
-
-      // Cladding thickness indicator along the edges (faint left/right lines)
       const edgePx = cT * s;
       if (edgePx >= 1) {
         html += `<line x1="${ox}" y1="${oy+bandTop*s}" x2="${ox}" y2="${oy+bandBottom*s}" stroke="rgba(120,90,60,0.35)" stroke-width="${edgePx}" pointer-events="none"/>`;
@@ -9829,118 +10545,176 @@ function oeRender() {
       }
     }
 
-    // Check if there's a ground/upper cladding split
     const splitEnabled = !!(CONFIG.firstFloorCladdingStyleEnabled) &&
       CONFIG.firstFloorCladdingStyle && CONFIG.firstFloorCladdingStyle !== CONFIG.claddingStyle;
     const firstFloorH = lastPlan.firstFloorHeight || CONFIG.floorHeight || 30;
-    const splitY = H - firstFloorH;  // wall-frame Y where ground band starts
-
-    if (splitEnabled && splitY > 2 && splitY < H - 2) {
+    const splitY = wallH - firstFloorH;
+    if (splitEnabled && splitY > 2 && splitY < wallH - 2) {
       drawCladdingBand(CONFIG.claddingStyle, 0, splitY);
-      drawCladdingBand(CONFIG.firstFloorCladdingStyle, splitY, H);
-      // Draw the split boundary line
+      drawCladdingBand(CONFIG.firstFloorCladdingStyle, splitY, wallH);
       html += `<line x1="${ox}" y1="${oy+splitY*s}" x2="${ox+W*s}" y2="${oy+splitY*s}" stroke="rgba(60,40,20,0.5)" stroke-width="1" stroke-dasharray="4 2" pointer-events="none"/>`;
       html += `<text x="${ox+4}" y="${oy+splitY*s-3}" font-size="8" fill="rgba(60,40,20,0.6)" font-family="system-ui" pointer-events="none">upper cladding</text>`;
       html += `<text x="${ox+4}" y="${oy+splitY*s+9}" font-size="8" fill="rgba(60,40,20,0.6)" font-family="system-ui" pointer-events="none">ground cladding</text>`;
     } else {
-      drawCladdingBand(CONFIG.claddingStyle, 0, H);
+      drawCladdingBand(CONFIG.claddingStyle, 0, wallH);
     }
   }
 
-  // Dimension labels
-  html += `<text x="${ox+W*s/2}" y="${oy-10}" font-size="10" fill="#555" text-anchor="middle" font-family="system-ui">${W.toFixed(1)} mm</text>`;
-  html += `<text x="${ox-10}" y="${oy+H*s/2}" font-size="10" fill="#555" text-anchor="middle" font-family="system-ui" transform="rotate(-90,${ox-10},${oy+H*s/2})">${H.toFixed(1)} mm</text>`;
+  // Wing coverage zones (hatched, not editable)
+  for (const wing of (CONFIG.wings || [])) {
+    let coveredFaces = [];
+    if (wing.face === 'east' || wing.face === 'west') {
+      if (oeWall === 'front' || oeWall === 'back')
+        coveredFaces.push({ x: wing.offset||0, w: wing.span||wing.width||0 });
+    } else {
+      if (oeWall === 'east' || oeWall === 'west')
+        coveredFaces.push({ x: wing.offset||0, w: wing.span||wing.depth||0 });
+    }
+    for (const cf of coveredFaces) {
+      const gx = ox + cf.x * s, gw = cf.w * s;
+      html += `<rect x="${gx.toFixed(1)}" y="${oy}" width="${gw.toFixed(1)}" height="${(wallH*s).toFixed(1)}" fill="rgba(80,80,80,0.25)" stroke="rgba(80,80,80,0.5)" stroke-width="1" stroke-dasharray="4 2" pointer-events="none"/>`;
+      html += `<text x="${(gx+gw/2).toFixed(1)}" y="${(oy+wallH*s/2).toFixed(1)}" font-size="9" fill="rgba(60,60,60,0.7)" text-anchor="middle" font-family="system-ui" pointer-events="none" transform="rotate(-90,${(gx+gw/2).toFixed(1)},${(oy+wallH*s/2).toFixed(1)})">wing</text>`;
+    }
+  }
 
-  // ---- Openings ----
+  html += `</g>`; // end clip group
+
+  // ---- Coplanar wing extension panels (outside main-wall clip) ----
+  {
+    const extFill    = '#b8b0a4';
+    const extPattern = 'rgba(80,60,40,0.18)';
+    function drawWingPanel(extList, startX) {
+      let curX = startX;
+      for (const ext of extList) {
+        const extPx  = ext.width * s;
+        const extHPx = ext.height * s;
+        const panX   = curX, panY = oy + (wallH - ext.height) * s;
+        // Panel fill
+        html += `<rect x="${panX.toFixed(1)}" y="${panY.toFixed(1)}" width="${extPx.toFixed(1)}" height="${extHPx.toFixed(1)}" fill="${extFill}" stroke="none"/>`;
+        // Diagonal hatch to distinguish from editable area
+        html += `<line x1="${panX.toFixed(1)}" y1="${panY.toFixed(1)}" x2="${(panX+extPx).toFixed(1)}" y2="${(panY+extHPx).toFixed(1)}" stroke="${extPattern}" stroke-width="1" pointer-events="none"/>`;
+        html += `<line x1="${(panX+extPx).toFixed(1)}" y1="${panY.toFixed(1)}" x2="${panX.toFixed(1)}" y2="${(panY+extHPx).toFixed(1)}" stroke="${extPattern}" stroke-width="1" pointer-events="none"/>`;
+        // Outline
+        html += `<rect x="${panX.toFixed(1)}" y="${panY.toFixed(1)}" width="${extPx.toFixed(1)}" height="${extHPx.toFixed(1)}" fill="none" stroke="#888" stroke-width="1.5"/>`;
+        // Height step connector line (dashed, where main wall is taller)
+        if (ext.height < wallH) {
+          const stepY = oy + (wallH - ext.height) * s;
+          if (extList === leftExts) {
+            html += `<line x1="${ox.toFixed(1)}" y1="${oy.toFixed(1)}" x2="${ox.toFixed(1)}" y2="${stepY.toFixed(1)}" stroke="#777" stroke-width="1.2" stroke-dasharray="4 2" pointer-events="none"/>`;
+          } else {
+            html += `<line x1="${(ox+W*s).toFixed(1)}" y1="${oy.toFixed(1)}" x2="${(ox+W*s).toFixed(1)}" y2="${stepY.toFixed(1)}" stroke="#777" stroke-width="1.2" stroke-dasharray="4 2" pointer-events="none"/>`;
+          }
+        }
+        // Label
+        const lx = panX + extPx / 2, ly = panY + extHPx / 2;
+        html += `<text x="${lx.toFixed(1)}" y="${(ly-6).toFixed(1)}" font-size="9" fill="#fff" text-anchor="middle" font-family="system-ui" font-weight="600" pointer-events="none">wing</text>`;
+        html += `<text x="${lx.toFixed(1)}" y="${(ly+6).toFixed(1)}" font-size="8" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="system-ui" pointer-events="none">${ext.width.toFixed(0)}×${ext.height.toFixed(0)}</text>`;
+        // Dimension arrow at top
+        if (extHPx > 20) {
+          html += `<text x="${lx.toFixed(1)}" y="${(panY-4).toFixed(1)}" font-size="8" fill="#777" text-anchor="middle" font-family="system-ui" pointer-events="none">⟵${ext.width.toFixed(0)} mm⟶</text>`;
+        }
+        // Floor alignment line
+        html += `<line x1="${panX.toFixed(1)}" y1="${(oy+wallH*s).toFixed(1)}" x2="${(panX+extPx).toFixed(1)}" y2="${(oy+wallH*s).toFixed(1)}" stroke="#888" stroke-width="1" pointer-events="none"/>`;
+        curX += extPx;
+      }
+    }
+    // Left extensions accumulate right-to-left from ox
+    {
+      const reversed = [...leftExts].reverse();
+      let curX = ox;
+      for (const ext of reversed) {
+        curX -= ext.width * s;
+        drawWingPanel([ext], curX);
+      }
+    }
+    // Right extensions accumulate left-to-right from ox+W*s
+    drawWingPanel(rightExts, ox + W * s);
+  }
+
+  // Wall outline on top (not clipped, so it's always sharp)
+  html += `<polygon points="${WPTS}" fill="none" stroke="#555" stroke-width="1.5"/>`;
+
+  // Dimension labels
+  html += `<text x="${ox+W*s/2}" y="${(oy-peakAbove*s-8).toFixed(1)}" font-size="10" fill="#555" text-anchor="middle" font-family="system-ui">${W.toFixed(1)} mm</text>`;
+  html += `<text x="${(ox-14).toFixed(1)}" y="${(oy+wallH*s/2).toFixed(1)}" font-size="10" fill="#555" text-anchor="middle" font-family="system-ui" transform="rotate(-90,${(ox-14).toFixed(1)},${(oy+wallH*s/2).toFixed(1)})">${wallH.toFixed(1)} mm</text>`;
+
+  // Slant/gable pitch labels
+  if (pitchL > 0)
+    html += `<text x="${ox+4}" y="${(oy-pitchL*s-4).toFixed(1)}" font-size="9" fill="#888" font-family="system-ui">+${pitchL.toFixed(0)}</text>`;
+  if (pitchR > 0)
+    html += `<text x="${(ox+W*s-4).toFixed(1)}" y="${(oy-pitchR*s-4).toFixed(1)}" font-size="9" fill="#888" text-anchor="end" font-family="system-ui">+${pitchR.toFixed(0)}</text>`;
+  if (gable > 0)
+    html += `<text x="${(ox+W*s/2).toFixed(1)}" y="${(oy-gable*s-6).toFixed(1)}" font-size="9" fill="#888" text-anchor="middle" font-family="system-ui">▲ ${gable.toFixed(0)} mm</text>`;
+
+  // Openings (outside clip so selection handles are always visible)
   const ops = oeOpenings[oeWall] || [];
   for (let i = 0; i < ops.length; i++) {
     const op = ops[i];
-    const isSel    = oeSelectedSet.has(i);
+    const isSel = oeSelectedSet.has(i);
     const isPrimary = isSel && [...oeSelectedSet][0] === i;
-    const isWin = op.type === 'window';
-    const fill  = isWin ? 'rgba(160,205,245,0.85)' : 'rgba(245,185,130,0.85)';
-    const stroke = isSel ? '#f70' : (isWin ? '#2a64aa' : '#c84a3a');
-    const sw = isSel ? 2.5 : 1.2;
-    const rx = ox + op.x*s, ry = oy + op.y*s, rw = op.w*s, rh = op.h*s;
+    const rx = ox + op.x*s, ry = oy + op.y*s, rw = op.w*s;
 
-    html += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" data-oe-idx="${i}"/>`;
-    if (rw > 6 && rh > 4) {
-      html += `<line x1="${rx+rw/2}" y1="${ry+1}" x2="${rx+rw/2}" y2="${ry+rh-1}" stroke="${stroke}" stroke-width="0.5" opacity="0.4" pointer-events="none"/>`;
-      if (!isWin) html += `<line x1="${rx+1}" y1="${ry+rh*0.55}" x2="${rx+rw-1}" y2="${ry+rh*0.55}" stroke="${stroke}" stroke-width="0.5" opacity="0.4" pointer-events="none"/>`;
-    }
-
-    if (isPrimary) {
-      const bandIdx  = oeYToBand(bands, op.y + op.h / 2);
-      const bandLabel = bandIdx >= 0 ? ` · floor ${bands.length - bandIdx}` : '';
-      const cntLabel  = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size} sel]` : '';
-      html += `<text x="${rx+rw/2}" y="${ry-3}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.w.toFixed(1)}×${op.h.toFixed(1)}${bandLabel}${cntLabel}</text>`;
-      for (const [hx, hy] of [[rx,ry],[rx+rw,ry],[rx,ry+rh],[rx+rw,ry+rh]]) {
-        html += `<rect x="${hx-4}" y="${hy-4}" width="8" height="8" fill="#f70" stroke="white" stroke-width="1" rx="1"/>`;
+    if (op.type === 'awning') {
+      // ---- Awning: striped horizontal bar ----
+      const dispH = AWNING_DISP_H * s;
+      const stroke = isSel ? '#f70' : '#7a4b15';
+      const sw = isSel ? 2.5 : 1.2;
+      html += `<rect x="${rx.toFixed(1)}" y="${ry.toFixed(1)}" width="${rw.toFixed(1)}" height="${dispH.toFixed(1)}" fill="#c4935a" stroke="${stroke}" stroke-width="${sw}" data-oe-idx="${i}"/>`;
+      // Alternating darker stripes (every 3mm); guard step > 0 to be safe
+      const spPx = Math.max(3 * s, 0.5);
+      for (let sx = rx; sx < rx + rw; sx += spPx * 2) {
+        const cw = Math.min(spPx, rx + rw - sx);
+        if (cw > 0.5) html += `<rect x="${sx.toFixed(1)}" y="${ry.toFixed(1)}" width="${cw.toFixed(1)}" height="${dispH.toFixed(1)}" fill="rgba(90,45,5,0.28)" pointer-events="none"/>`;
       }
-      if (bandIdx >= 0) {
-        const b = bands[bandIdx];
-        html += `<rect x="${ox}" y="${oy+b.yTop*s}" width="${W*s}" height="${(b.yBottom-b.yTop)*s}" fill="none" stroke="#f70" stroke-width="1" stroke-dasharray="4 3" opacity="0.6" pointer-events="none"/>`;
+      // Depth label inside the bar
+      if (rw > 16) {
+        html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry+dispH*0.72).toFixed(1)}" font-size="7" fill="rgba(50,20,0,0.75)" text-anchor="middle" font-family="system-ui" font-weight="600" pointer-events="none">↙${op.h.toFixed(0)}mm</text>`;
+      }
+      if (isPrimary) {
+        const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
+        html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.w.toFixed(1)}W × ${op.h.toFixed(1)}D${cntLabel}</text>`;
+        for (const [hx, hy] of [[rx,ry],[rx+rw,ry],[rx,ry+dispH],[rx+rw,ry+dispH]])
+          html += `<rect x="${hx-4}" y="${hy-4}" width="8" height="8" fill="#f70" stroke="white" stroke-width="1" rx="1"/>`;
+      }
+
+    } else {
+      // ---- Window or door ----
+      const isWin = op.type === 'window';
+      const rh = op.h*s;
+      const fill   = isWin ? 'rgba(160,205,245,0.85)' : 'rgba(245,185,130,0.85)';
+      const stroke = isSel ? '#f70' : (isWin ? '#2a64aa' : '#c84a3a');
+      const sw = isSel ? 2.5 : 1.2;
+      html += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" data-oe-idx="${i}"/>`;
+      if (rw > 6 && rh > 4) {
+        html += `<line x1="${rx+rw/2}" y1="${ry+1}" x2="${rx+rw/2}" y2="${ry+rh-1}" stroke="${stroke}" stroke-width="0.5" opacity="0.4" pointer-events="none"/>`;
+        if (!isWin) html += `<line x1="${rx+1}" y1="${ry+rh*0.55}" x2="${rx+rw-1}" y2="${ry+rh*0.55}" stroke="${stroke}" stroke-width="0.5" opacity="0.4" pointer-events="none"/>`;
+      }
+      if (isPrimary) {
+        const bandIdx  = oeYToBand(bands, op.y + op.h / 2);
+        const bandLabel = bandIdx >= 0 ? ` · floor ${bands.length - bandIdx}` : '';
+        const cntLabel  = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size} sel]` : '';
+        html += `<text x="${rx+rw/2}" y="${ry-3}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.w.toFixed(1)}×${op.h.toFixed(1)}${bandLabel}${cntLabel}</text>`;
+        for (const [hx, hy] of [[rx,ry],[rx+rw,ry],[rx,ry+rh],[rx+rw,ry+rh]])
+          html += `<rect x="${hx-4}" y="${hy-4}" width="8" height="8" fill="#f70" stroke="white" stroke-width="1" rx="1"/>`;
+        if (bandIdx >= 0) {
+          const b = bands[bandIdx];
+          html += `<rect x="${ox}" y="${oy+b.yTop*s}" width="${W*s}" height="${(b.yBottom-b.yTop)*s}" fill="none" stroke="#f70" stroke-width="1" stroke-dasharray="4 3" opacity="0.6" pointer-events="none"/>`;
+        }
       }
     }
   }
 
   // Rubber-band selection rect
   if (_oeRubberBand) {
-    const rb  = _oeRubberBand;
-    const rbx = ox + Math.min(rb.x0, rb.x1) * s;
-    const rby = oy + Math.min(rb.y0, rb.y1) * s;
-    const rbw = Math.abs(rb.x1 - rb.x0) * s;
-    const rbh = Math.abs(rb.y1 - rb.y0) * s;
+    const rb = _oeRubberBand;
+    const rbx = ox + Math.min(rb.x0, rb.x1)*s, rby = oy + Math.min(rb.y0, rb.y1)*s;
+    const rbw = Math.abs(rb.x1 - rb.x0)*s,     rbh = Math.abs(rb.y1 - rb.y0)*s;
     html += `<rect x="${rbx}" y="${rby}" width="${rbw}" height="${rbh}" fill="rgba(247,160,0,0.08)" stroke="#f70" stroke-width="1" stroke-dasharray="4 3" pointer-events="none"/>`;
   }
-
-  // ---- Wing coverage zones (greyed out — no cladding placed here) ----
-  // For the current wall face, compute which x-ranges are covered by a wing connecting to this face
-  // (the parallel wall of the wing overlaps the main block's face)
-  {
-    const cfg = CONFIG;
-    const { W: wallW, H: wallH } = oeGetWallDims(oeWall);
-    // Determine the wall coordinate axis for each face
-    // For east/west walls: the covered zone is along the depth (sideLen axis = floor_y)
-    // For front/back walls: covered zone is along the width
-    for (const wing of (cfg.wings || [])) {
-      // A wing covers the opposite face of the main block when it's coplanar
-      // e.g. an east wing at offset=0 covers the FRONT face at x=[W, W+depth]
-      // We show the grey zone on the connecting face (east/west/front/back) showing
-      // where the wing's outer face aligns with and covers a portion of this face.
-      // Show on the PERPENDICULAR faces: e.g. east wing at y=off..off+span
-      // covers a strip on the front (y=0..depth) and back walls
-      let coveredFaces = [];
-      if (wing.face === 'east' || wing.face === 'west') {
-        // Wing covers a portion of the front/back face at x = [off, off+span]
-        if (oeWall === 'front' || oeWall === 'back') {
-          coveredFaces.push({ x: wing.offset, w: wing.span, wallW: cfg.width });
-        }
-      } else {
-        // front/back wing covers a portion of east/west walls at x = [off, off+span]
-        if (oeWall === 'east' || oeWall === 'west') {
-          coveredFaces.push({ x: wing.offset, w: wing.span, wallW: cfg.depth - 2*(cfg.coreThickness||1.5) });
-        }
-      }
-      for (const cf of coveredFaces) {
-        const scaleX = wallW / cf.wallW;
-        const gx = ox + cf.x * scaleX * s;
-        const gw = cf.w * scaleX * s;
-        html += `<rect x="${gx.toFixed(1)}" y="${oy}" width="${gw.toFixed(1)}" height="${(H*s).toFixed(1)}" `
-              + `fill="rgba(80,80,80,0.25)" stroke="rgba(80,80,80,0.5)" stroke-width="1" stroke-dasharray="4 2" pointer-events="none"/>`;
-        html += `<text x="${(gx + gw/2).toFixed(1)}" y="${(oy + H*s/2).toFixed(1)}" `
-              + `font-size="9" fill="rgba(60,60,60,0.7)" text-anchor="middle" font-family="system-ui" pointer-events="none" transform="rotate(-90,${(gx+gw/2).toFixed(1)},${(oy+H*s/2).toFixed(1)})">wing covered</text>`;
-      }
-    }
-  }
-
-  // Wall border on top of everything
-  html += `<rect x="${ox}" y="${oy}" width="${W*s}" height="${H*s}" fill="none" stroke="#555" stroke-width="1.5"/>`;
 
   svg.innerHTML = html;
   svg.onmousedown = oeMouseDown;
   svg.onclick = oeClick;
-  // Scroll wheel zoom
   svg.onwheel = (e) => {
     e.preventDefault();
     const factor = e.deltaY < 0 ? 1.12 : 1/1.12;
@@ -9953,17 +10727,94 @@ function oeRender() {
   if (lbl) lbl.textContent = Math.round(oeZoom * 100) + '%';
   document.removeEventListener('keydown', oeKeyDown);
   document.addEventListener('keydown', oeKeyDown);
-  // Keep toolbar disabled states in sync with selection
   oePopulateTopbar();
+  oeRenderFootprintMap();
 }
 
+/* ---- Building footprint mini-map (static element in the footer) ---- */
+function oeRenderFootprintMap() {
+  const svg = document.getElementById('oeFootprintSvg');
+  if (!svg) return;
+
+  const FP_W = 120, FP_H = 96, FP_PAD = 10;
+  const mainW = CONFIG.width || 80, mainD = CONFIG.depth || 60;
+  const wings = CONFIG.wings || [];
+
+  // Compute bounding box over main block + all wings
+  let minX = 0, maxX = mainW, minY = 0, maxY = mainD;
+  for (const wing of wings) {
+    const wS = wing.span || 30, wD = wing.depth || 20, off = wing.offset || 0;
+    if      (wing.face === 'east')  { maxX = Math.max(maxX, mainW + wD); minY = Math.min(minY, off); maxY = Math.max(maxY, off + wS); }
+    else if (wing.face === 'west')  { minX = Math.min(minX, -wD);        minY = Math.min(minY, off); maxY = Math.max(maxY, off + wS); }
+    else if (wing.face === 'front') { maxY = Math.max(maxY, mainD + wD); minX = Math.min(minX, off); maxX = Math.max(maxX, off + wS); }
+    else                            { minY = Math.min(minY, -wD);        minX = Math.min(minX, off); maxX = Math.max(maxX, off + wS); }
+  }
+
+  const bW = maxX - minX, bH = maxY - minY;
+  const fp_s  = Math.min((FP_W - 2*FP_PAD) / bW, (FP_H - 2*FP_PAD) / bH) * 0.85;
+  const fp_ox = FP_PAD + (FP_W - 2*FP_PAD - bW*fp_s)/2 - minX*fp_s;
+  const fp_oy = FP_PAD + (FP_H - 2*FP_PAD - bH*fp_s)/2 - minY*fp_s;
+
+  const edgeHighlight = {
+    front: [[fp_ox,             fp_oy+mainD*fp_s, fp_ox+mainW*fp_s, fp_oy+mainD*fp_s]],
+    back:  [[fp_ox,             fp_oy,            fp_ox+mainW*fp_s, fp_oy           ]],
+    east:  [[fp_ox+mainW*fp_s,  fp_oy,            fp_ox+mainW*fp_s, fp_oy+mainD*fp_s]],
+    west:  [[fp_ox,             fp_oy,            fp_ox,            fp_oy+mainD*fp_s]],
+  };
+
+  let html = '';
+
+  // Wings (drawn first so main block sits on top)
+  for (const wing of wings) {
+    let wx, wy, ww, wh;
+    const wS = wing.span || 30, wD = wing.depth || 20, off = wing.offset || 0;
+    if      (wing.face === 'east')  { wx = mainW;  wy = off; ww = wD; wh = wS; }
+    else if (wing.face === 'west')  { wx = -wD;    wy = off; ww = wD; wh = wS; }
+    else if (wing.face === 'front') { wx = off; wy = mainD;  ww = wS; wh = wD; }
+    else                            { wx = off; wy = -wD;    ww = wS; wh = wD; }
+    html += `<rect x="${(fp_ox+wx*fp_s).toFixed(1)}" y="${(fp_oy+wy*fp_s).toFixed(1)}" `
+          + `width="${(ww*fp_s).toFixed(1)}" height="${(wh*fp_s).toFixed(1)}" `
+          + `fill="#d4c8b8" stroke="#aaa" stroke-width="0.8"/>`;
+  }
+
+  // Main block
+  html += `<rect x="${fp_ox.toFixed(1)}" y="${fp_oy.toFixed(1)}" `
+        + `width="${(mainW*fp_s).toFixed(1)}" height="${(mainD*fp_s).toFixed(1)}" `
+        + `fill="#c8bfb0" stroke="#888" stroke-width="1"/>`;
+
+  // Active wall highlight
+  for (const [x1,y1,x2,y2] of (edgeHighlight[oeWall] || [])) {
+    html += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" `
+          + `stroke="#f70" stroke-width="3" stroke-linecap="round"/>`;
+  }
+
+  // Cardinal compass labels
+  const cx = fp_ox + mainW*fp_s/2, cy = fp_oy + mainD*fp_s/2;
+  html += `<text x="${cx.toFixed(1)}"             y="${(fp_oy+mainD*fp_s+9).toFixed(1)}" font-size="7" fill="#999" text-anchor="middle"  font-family="system-ui">S</text>`;
+  html += `<text x="${cx.toFixed(1)}"             y="${(fp_oy-3).toFixed(1)}"             font-size="7" fill="#999" text-anchor="middle"  font-family="system-ui">N</text>`;
+  html += `<text x="${(fp_ox+mainW*fp_s+8).toFixed(1)}" y="${(cy+3).toFixed(1)}"          font-size="7" fill="#999"                       font-family="system-ui">E</text>`;
+  html += `<text x="${(fp_ox-8).toFixed(1)}"      y="${(cy+3).toFixed(1)}"                font-size="7" fill="#999" text-anchor="end"     font-family="system-ui">W</text>`;
+
+  svg.setAttribute('width',  FP_W);
+  svg.setAttribute('height', FP_H);
+  svg.innerHTML = html;
+}
+
+
 /* ---- Hit test & coordinate conversion ---- */
+
+/* Visual height of an opening in wall-editor coordinates.
+   For awnings, op.h stores the DEPTH (projection) not the on-wall height. */
+function oeOpH(op) {
+  return op.type === 'awning' ? AWNING_DISP_H : op.h;
+}
 
 function oeHitTest(mx, my) {
   const ops = oeOpenings[oeWall] || [];
   for (let i = ops.length - 1; i >= 0; i--) {
     const op = ops[i];
-    if (mx >= op.x && mx <= op.x + op.w && my >= op.y && my <= op.y + op.h) return i;
+    const hitH = op.type === 'awning' ? AWNING_DISP_H : op.h;
+    if (mx >= op.x && mx <= op.x + op.w && my >= op.y && my <= op.y + hitH) return i;
   }
   return -1;
 }
@@ -9972,7 +10823,10 @@ function oeToMM(e) {
   const svg = document.getElementById('openingEditorSvg');
   const r = svg.getBoundingClientRect();
   const PAD = 32;
-  return { x: (e.clientX - r.left - PAD) / oeEditorScale, y: (e.clientY - r.top - PAD) / oeEditorScale };
+  return {
+    x: (e.clientX - r.left  - PAD - oeWallLeftPx) / oeEditorScale,
+    y: (e.clientY - r.top   - PAD - oeExtraTop)   / oeEditorScale,
+  };
 }
 
 /* ---- Click (select / erase only — placement is drag-from-toolbox) ---- */
@@ -10089,7 +10943,7 @@ function oeMouseDown(e) {
         const next = me.shiftKey ? new Set(oeSelectedSet) : new Set();
         for (let i = 0; i < ops.length; i++) {
           const op = ops[i];
-          const cx = op.x + op.w / 2, cy = op.y + op.h / 2;
+          const cx = op.x + op.w / 2, cy = op.y + oeOpH(op) / 2;
           if (cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1) next.add(i);
         }
         oeSelectedSet = next;
@@ -10124,7 +10978,7 @@ function oeMouseDown(e) {
   for (const i of oeSelectedSet) {
     const op = allOps[i];
     if (op.type === 'window') {
-      const bi = oeYToBand(_dragBands, op.y + op.h / 2);
+      const bi = oeYToBand(_dragBands, op.y + oeOpH(op) / 2);
       bandForIdx[i] = bi >= 0 ? _dragBands[bi] : null;
     }
   }
@@ -10136,6 +10990,7 @@ function oeMouseDown(e) {
     for (const i of oeSelectedSet) {
       const op = allOps[i];
       const orig = origPositions[i];
+      const opH = oeOpH(op);
       op.x = oeSnap(Math.max(0, Math.min(W - op.w, orig.x + dx)));
       if (op.type === 'door') {
         op.y = H - op.h;
@@ -10143,9 +10998,9 @@ function oeMouseDown(e) {
         const band = bandForIdx[i];
         if (band) {
           const margin = 1;
-          op.y = oeSnap(Math.max(band.yTop + margin, Math.min(band.yBottom - op.h - margin, orig.y + dy)));
+          op.y = oeSnap(Math.max(band.yTop + margin, Math.min(band.yBottom - opH - margin, orig.y + dy)));
         } else {
-          op.y = oeSnap(Math.max(0, Math.min(H - op.h, orig.y + dy)));
+          op.y = oeSnap(Math.max(0, Math.min(H - opH, orig.y + dy)));
         }
       }
     }
@@ -10189,10 +11044,11 @@ function oeKeyDown(e) {
       if (e.key === 'ArrowLeft')  op.x = oeSnap(Math.max(0,        op.x - step));
       if (e.key === 'ArrowRight') op.x = oeSnap(Math.min(W - op.w, op.x + step));
       if (op.type !== 'door') {
-        const bandIdx = oeYToBand(bands, op.y + op.h / 2);
+        const opH = oeOpH(op);
+        const bandIdx = op.type === 'awning' ? -1 : oeYToBand(bands, op.y + opH / 2);
         const band = bandIdx >= 0 ? bands[bandIdx] : null;
         const minY = band ? band.yTop + 1       : 0;
-        const maxY = band ? band.yBottom - op.h - 1 : H - op.h;
+        const maxY = band ? band.yBottom - opH - 1 : H - opH;
         if (e.key === 'ArrowUp')   op.y = oeSnap(Math.max(minY, op.y - step));
         if (e.key === 'ArrowDown') op.y = oeSnap(Math.min(maxY, op.y + step));
       }
@@ -10204,17 +11060,28 @@ function oeKeyDown(e) {
 /* ---- Commit to CONFIG (without closing) ---- */
 
 function oeCommit() {
+  const ops = oeOpenings[oeWall] || [];
+
+  // Structural openings (windows + doors) → manualOpenings
   if (!CONFIG.manualOpenings) CONFIG.manualOpenings = { front: null, back: null, east: null, west: null };
-  CONFIG.manualOpenings[oeWall] = oeOpenings[oeWall];
+  const structural = ops.filter(op => op.type !== 'awning');
+  CONFIG.manualOpenings[oeWall] = structural.length > 0 ? structural : null;
+
+  // Awnings → manualAwnings (invisible to every wall/cladding/3D generator)
+  if (!CONFIG.manualAwnings) CONFIG.manualAwnings = { front: [], back: [], east: [], west: [] };
+  CONFIG.manualAwnings[oeWall] = ops
+    .filter(op => op.type === 'awning')
+    .map(op => ({ x: op.x, y: op.y, w: op.w, d: op.h }));
+
   oeUpdateModeBadge();
-  // Update tab indicator for this wall
   const tab = document.getElementById('oeTab' + oeWall.charAt(0).toUpperCase() + oeWall.slice(1));
   if (tab) tab.classList.add('oe-manual-indicator');
 }
 
 function oeResetWall() {
-  oeOpenings[oeWall] = oeGetAutoOpenings(oeWall);
+  oeOpenings[oeWall] = oeGetAutoOpenings(oeWall);  // auto layout (no awnings)
   if (CONFIG.manualOpenings) CONFIG.manualOpenings[oeWall] = null;
+  if (CONFIG.manualAwnings)  CONFIG.manualAwnings[oeWall]  = [];
   oeSelectedSet.clear();
   oeUpdateModeBadge();
   const tab = document.getElementById('oeTab' + oeWall.charAt(0).toUpperCase() + oeWall.slice(1));
@@ -10239,6 +11106,15 @@ function oeGetDoorDims(styleKey) {
   if (!style) return { w: 7, h: 18 };
   if (oeCustomSizes[key]) return { ...oeCustomSizes[key] };
   return { w: style.width, h: style.height };
+}
+
+function oeGetAwningDims(styleKey) {
+  const key = styleKey || Object.keys(AWNING_STYLES)[0];
+  const style = AWNING_STYLES[key];
+  if (!style) return { w: 22, d: 10 };
+  const ck = 'awning_' + key;
+  if (oeCustomSizes[ck]) return { ...oeCustomSizes[ck] };
+  return { w: style.baseW, d: style.baseD };
 }
 </script>
 
@@ -10395,7 +11271,9 @@ function buildWallTexture(cfg, wallW, wallH, openings, flipX) {
 function get3DWallOpenings(cfg, plan, face) {
   if (!plan) return [];
   const manual = (cfg.manualOpenings || {})[face];
-  if (manual) return manual.map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h, type: op.type }));
+  if (manual) return manual
+    .filter(op => op.type !== 'awning')   // awnings sit on the surface, not through the wall
+    .map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h, type: op.type }));
 
   const { H, matT, fbWidth, sideLen } = plan;
   const wallW = (face === 'front' || face === 'back') ? fbWidth : sideLen;
@@ -10453,15 +11331,25 @@ function get3DWallOpenings(cfg, plan, face) {
  * wallW / wallH in mm; the shape is centred at x=0, y spans 0..wallH.
  * If mirrorX is true the hole x-coords are flipped (used for walls viewed in reverse).
  */
-function buildWallMesh3D(wallW, wallH, thickness, openings, material, mirrorX, texture, gablePitch) {
+function buildWallMesh3D(wallW, wallH, thickness, openings, material, mirrorX, texture, gablePitch, slantPitch) {
   const shape = new THREE.Shape();
   shape.moveTo(-wallW / 2, 0);
   shape.lineTo( wallW / 2, 0);
-  shape.lineTo( wallW / 2, wallH);
+  // Top edge: flat, gable-peaked, or slanted
   if (gablePitch && gablePitch > 0) {
+    shape.lineTo( wallW / 2, wallH);
     shape.lineTo(0, wallH + gablePitch);   // apex of gable triangle
+    shape.lineTo(-wallW / 2, wallH);
+  } else if (slantPitch && slantPitch !== 0) {
+    // slantPitch > 0 → right side (+wallW/2) is taller; < 0 → left side is taller
+    const hR = wallH + Math.max(0,  slantPitch);
+    const hL = wallH + Math.max(0, -slantPitch);
+    shape.lineTo( wallW / 2, hR);
+    shape.lineTo(-wallW / 2, hL);
+  } else {
+    shape.lineTo( wallW / 2, wallH);
+    shape.lineTo(-wallW / 2, wallH);
   }
-  shape.lineTo(-wallW / 2, wallH);
   shape.closePath();
 
   for (const op of openings) {
@@ -10555,21 +11443,45 @@ function updateThreePreview(cfg) {
 
   // Gable end walls: when roofStyle='gabled', the end walls are pentagonal.
   const isGabled  = cfg.roofStyle === 'gabled';
+  const isSlanted = cfg.roofStyle === 'slanted';
   const ewRidge   = (cfg.roofRidgeDirection || 'ew') === 'ew';
-  const gabPitch  = isGabled ? (cfg.roofPitch || 10) : 0;
+  const gabPitch  = isGabled  ? (cfg.roofPitch || 10) : 0;
+  const sltPitch  = isSlanted ? (cfg.roofPitch || 10) : 0;
+  const slopeDir  = cfg.roofSlopeDirection || 'back';
+  const sltNsAxis = (slopeDir === 'back' || slopeDir === 'front');
   // For 'ew' ridge: front/back are gable ends; for 'ns': east/west are gable ends.
   // EW ridge → gable-end triangles on east/west; NS ridge → on front/back
   const fbGable   = isGabled && !ewRidge  ? gabPitch : 0;
   const sideGable = isGabled &&  ewRidge  ? gabPitch : 0;
-  // Texture height includes the triangle so the full face is mapped.
-  const fbTexH    = h + fbGable;
-  const sideTexH  = h + sideGable;
+
+  // Slanted-roof wall heights (eave walls are rectangular at their correct height)
+  // NS slope (back/front): front/back walls differ in height; side walls are trapezoidal
+  // EW slope (east/west): east/west walls differ in height; front/back walls are trapezoidal
+  const frontH = isSlanted && sltNsAxis && slopeDir === 'front' ? h + sltPitch : h;
+  const backH  = isSlanted && sltNsAxis && slopeDir === 'back'  ? h + sltPitch : h;
+  const eastH  = isSlanted && !sltNsAxis && slopeDir === 'east' ? h + sltPitch : h;
+  const westH  = isSlanted && !sltNsAxis && slopeDir === 'west' ? h + sltPitch : h;
+
+  // slantPitch for the trapezoidal side walls (>0 = right end of shape is taller):
+  //   East wall shape: local x=-sideLen/2 = NORTH, x=+sideLen/2 = SOUTH
+  //   West wall shape: local x=-sideLen/2 = SOUTH, x=+sideLen/2 = NORTH
+  //   Front/back wall shape: local x=-w/2 = WEST, x=+w/2 = EAST
+  const eastSlant = isSlanted && sltNsAxis
+    ? (slopeDir === 'back' ? -sltPitch : +sltPitch) : 0;
+  const westSlant = isSlanted && sltNsAxis
+    ? (slopeDir === 'back' ? +sltPitch : -sltPitch) : 0;
+  const fbSlant   = isSlanted && !sltNsAxis
+    ? (slopeDir === 'east' ? +sltPitch : -sltPitch) : 0;
+
+  // Texture height includes the triangle/slant so the full face is mapped.
+  const fbTexH    = Math.max(frontH, backH)   + fbGable;
+  const sideTexH  = Math.max(eastH,  westH)   + sideGable;
 
   // Front wall (z = +d/2)
   const frontOps = get3DWallOpenings(cfg, plan, 'front');
   const frontVis  = visOnly(frontOps);
   const frontTex  = buildWallTexture(cfg, w, fbTexH, frontVis, false);
-  const frontMesh = buildWallMesh3D(w, h, t, frontVis, wallMat, false, frontTex, fbGable);
+  const frontMesh = buildWallMesh3D(w, frontH, t, frontVis, wallMat, false, frontTex, fbGable, fbSlant);
   // North outer face at z = -d/2; extrusion goes +z (inward) to -d/2+t
   frontMesh.position.set(0, 0, -d / 2);
   group.add(frontMesh);
@@ -10587,7 +11499,7 @@ function updateThreePreview(cfg) {
   const backOps = get3DWallOpenings(cfg, plan, 'back');
   const backVis  = visOnly(backOps);
   const backTex  = buildWallTexture(cfg, w, fbTexH, backVis, true);
-  const backMesh = buildWallMesh3D(w, h, t, backVis, wallMat, true, backTex, fbGable);
+  const backMesh = buildWallMesh3D(w, backH, t, backVis, wallMat, true, backTex, fbGable, fbSlant);
   // South inner face at z = d/2-t; extrusion goes +z (outward) so back cap lands at d/2
   backMesh.position.set(0, 0, d / 2 - t);
   group.add(backMesh);
@@ -10604,7 +11516,7 @@ function updateThreePreview(cfg) {
   const eastOps = get3DWallOpenings(cfg, plan, 'east');
   const eastVis  = visOnly(eastOps);
   const eastTex  = buildWallTexture(cfg, sideLen, sideTexH, eastVis, true);
-  const eastMesh = buildWallMesh3D(sideLen, h, t, eastVis, wallMat, true, eastTex, sideGable);
+  const eastMesh = buildWallMesh3D(sideLen, eastH, t, eastVis, wallMat, true, eastTex, sideGable, eastSlant);
   // rotation.y=π/2 maps local +z → world +x, so outer back-cap lands at position.x + t
   // Position at w/2-t so the outer face sits exactly at x=+w/2
   eastMesh.rotation.y = Math.PI / 2;
@@ -10624,7 +11536,7 @@ function updateThreePreview(cfg) {
   const westOps = get3DWallOpenings(cfg, plan, 'west');
   const westVis  = visOnly(westOps);
   const westTex  = buildWallTexture(cfg, sideLen, sideTexH, westVis, false);
-  const westMesh = buildWallMesh3D(sideLen, h, t, westVis, wallMat, false, westTex, sideGable);
+  const westMesh = buildWallMesh3D(sideLen, westH, t, westVis, wallMat, false, westTex, sideGable, westSlant);
   // rotation.y=-π/2 maps local +z → world -x, outer back-cap lands at position.x - t
   // Position at -w/2+t so the outer face sits exactly at x=-w/2
   westMesh.rotation.y = -Math.PI / 2;
@@ -10640,43 +11552,60 @@ function updateThreePreview(cfg) {
     group.add(pane);
   }
 
-  // ---- Roof ----
   const roofStyle3d = cfg.roofStyle || 'parapet';
   const pH3d = plan.parapetH || 0;   // parapet height — sloped roofs sit above the parapet base
+  const ohFB3 = cfg.roofOverhangFB || 0;
+  const ohEW3 = cfg.roofOverhangEW || 0;
   if (roofStyle3d === 'slanted') {
     const pitch = cfg.roofPitch || 10;
     const slopeDir = cfg.roofSlopeDirection || 'back';
     const nsAxis = (slopeDir === 'front' || slopeDir === 'back');
     const span = nsAxis ? d : w;
     const angle = Math.atan2(pitch, span);
-    const panelH = Math.hypot(span, pitch);
+    const panelH0 = Math.hypot(span, pitch);
+    // Overhang: eave direction extends along slope at both ends; verge extends perpendicular
+    const ohEave  = nsAxis ? ohFB3 : ohEW3;
+    const ohVerge = nsAxis ? ohEW3 : ohFB3;
+    const ohSlant = ohEave * (panelH0 / span);
+    const panelH  = panelH0 + 2 * ohSlant;
     const rm = new THREE.Mesh(
-      nsAxis ? new THREE.BoxGeometry(w, t, panelH) : new THREE.BoxGeometry(panelH, t, d),
+      nsAxis ? new THREE.BoxGeometry(w + 2*ohVerge, t, panelH)
+             : new THREE.BoxGeometry(panelH, t, d + 2*ohVerge),
       roofMat
     );
     rm.rotation.x = nsAxis ? (slopeDir === 'back' ? -angle : angle) : 0;
     rm.rotation.z = nsAxis ? 0 : (slopeDir === 'east' ? -angle : angle);
-    rm.position.set(0, h + pitch / 2, 0);   // centre of slope above wall top
+    rm.position.set(0, h + pitch / 2, 0);   // centre of slope above wall top (both eave ends equal)
     group.add(rm);
   } else if (roofStyle3d === 'gabled') {
     const pitch = cfg.roofPitch || 10;
     const ridgeDir = cfg.roofRidgeDirection || 'ew';
     const ewRidge = (ridgeDir === 'ew');
     const halfSpan = ewRidge ? d / 2 : w / 2;
-    const slantAngle = Math.atan2(pitch, halfSpan);       // full rise = pitch
-    const slantLen = Math.hypot(halfSpan, pitch);
-    // Ridge sits at y = h + pitch; each slope panel centre is at y = h + pitch/2.
+    const slantAngle = Math.atan2(pitch, halfSpan);
+    const slantLen0  = Math.hypot(halfSpan, pitch);
+    // Eave = the outer edge of each panel that hangs beyond the building wall
+    const ohEave  = ewRidge ? ohFB3 : ohEW3;
+    const ohVerge = ewRidge ? ohEW3 : ohFB3;
+    const ohEaveSlant = ohEave * (slantLen0 / halfSpan);
+    const slantLen = slantLen0 + ohEaveSlant;   // each panel: only the eave end extends
+    // Each panel's ridge end spans ±(t/2)·sin(angle) across z=0 due to material thickness.
+    // Shift each panel outward by that amount so their INNER faces meet cleanly at the ridge
+    // with no penetration — outer faces diverge symmetrically above the peak.
+    const ridgeShift    = (t / 2) * Math.sin(slantAngle);
+    const panelCentreOffset = (halfSpan + ohEave) / 2 + ridgeShift;
     for (const sign of [-1, 1]) {
       const rm = new THREE.Mesh(
-        ewRidge ? new THREE.BoxGeometry(w, t, slantLen) : new THREE.BoxGeometry(slantLen, t, d),
+        ewRidge ? new THREE.BoxGeometry(w + 2*ohVerge, t, slantLen)
+                : new THREE.BoxGeometry(slantLen, t, d + 2*ohVerge),
         roofMat
       );
       if (ewRidge) {
         rm.rotation.x = sign * slantAngle;
-        rm.position.set(0, h + pitch / 2, sign * halfSpan / 2);
+        rm.position.set(0, h + pitch / 2, sign * panelCentreOffset);
       } else {
         rm.rotation.z = sign * slantAngle;
-        rm.position.set(sign * halfSpan / 2, h + pitch / 2, 0);
+        rm.position.set(sign * panelCentreOffset, h + pitch / 2, 0);
       }
       group.add(rm);
     }
@@ -10832,12 +11761,11 @@ function updateThreePreview(cfg) {
     }
   }
 
-  // ---- Awnings ----
+  // ---- Awnings (cfg.awnings — legacy sloped style) ----
   for (const aw of (cfg.awnings || [])) {
     const awMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.7 });
     const awDepth = aw.depth || 15, awAngle = (aw.angle || 20) * Math.PI / 180;
     const awH = awDepth * Math.sin(awAngle);
-    // Position awning at the door location (approximate: x from aw.x, face side)
     let awX = aw.x + aw.w / 2 - w / 2;
     let awZ = 0, awRotY = 0;
     const wallZ = d / 2;
@@ -10851,6 +11779,55 @@ function updateThreePreview(cfg) {
     awMesh.rotation.x = -awAngle;
     awMesh.position.set(awX, awH / 2 + h * 0.15, awZ);
     group.add(awMesh);
+  }
+
+  // ---- Awnings (editor-placed: flat panel with correct face orientation + downward tilt) ----
+  {
+    const awningMat = new THREE.MeshStandardMaterial({ color: 0xb87333, roughness: 0.65, side: THREE.DoubleSide });
+    const tilt    = 12 * Math.PI / 180;
+    const layerT  = 1.2; // visible thickness (3 × 0.28 mm exaggerated)
+
+    for (const face of ['front', 'back', 'east', 'west']) {
+      const faceAwnings = ((cfg.manualAwnings || {})[face] || []);
+      for (const aw of faceAwnings) {
+        const awW = Number(aw.w) || 22;
+        const awD = Number(aw.d) || 10;
+        if (!isFinite(awW) || !isFinite(awD) || awW <= 0 || awD <= 0) continue;
+
+        const worldY = h - (Number(aw.y) || 0);
+        if (!isFinite(worldY)) continue;
+
+        // Use a pivot Object3D so X-tilt always applies in local space after face rotation
+        const pivot = new THREE.Object3D();
+        const geo   = new THREE.BoxGeometry(awW, layerT, awD);
+        const mesh  = new THREE.Mesh(geo, awningMat);
+        // Centre mesh along depth so pivot is at the wall-attachment edge
+        mesh.position.z = awD / 2;
+        // Tilt outer edge downward in local space
+        pivot.rotation.x = -tilt;
+        pivot.add(mesh);
+
+        const projZ = awD * Math.cos(tilt); // horizontal clearance from wall face
+        switch (face) {
+          case 'front':
+            pivot.position.set(aw.x + awW/2 - w/2, worldY, -(d/2));
+            break;
+          case 'back':
+            pivot.rotation.y = Math.PI;
+            pivot.position.set(w/2 - (aw.x + awW/2), worldY, d/2);
+            break;
+          case 'east':
+            pivot.rotation.y = Math.PI / 2;
+            pivot.position.set(w/2, worldY, aw.x + awW/2 - sideLen/2);
+            break;
+          case 'west':
+            pivot.rotation.y = -Math.PI / 2;
+            pivot.position.set(-w/2, worldY, sideLen/2 - (aw.x + awW/2));
+            break;
+        }
+        group.add(pivot);
+      }
+    }
   }
 
   // ---- Billboards ----
@@ -10897,11 +11874,18 @@ function animateThree() {
   requestAnimationFrame(animateThree);
 
   if (threeControls) {
-    threeControls.update();
+    try { threeControls.update(); } catch(e) { /* ignore controls errors */ }
   }
 
   if (threeRenderer && threeScene && threeCamera) {
-    threeRenderer.render(threeScene, threeCamera);
+    try {
+      threeRenderer.render(threeScene, threeCamera);
+    } catch(e) {
+      // Catch WebGL / Three.js errors (appear as "Script error." from CDN origin).
+      // Rebuild the preview from scratch to recover from any bad geometry state.
+      console.warn('Three.js render error — rebuilding preview:', e);
+      try { updateThreePreview(CONFIG); } catch(e2) { /* still broken, skip silently */ }
+    }
   }
 }
 
@@ -10920,13 +11904,36 @@ const oldRegenerate = regenerate;
 
 regenerate = function() {
   oldRegenerate();
-  updateThreePreview(CONFIG);
+  try {
+    updateThreePreview(CONFIG);
+  } catch(e) {
+    console.error('3D preview error:', e);
+  }
 };
 
 setTimeout(() => {
   initThreePreview();
-  updateThreePreview(CONFIG);
+  try { updateThreePreview(CONFIG); } catch(e) { console.error('3D init error:', e); }
 }, 100);
+
+// Catch all unhandled errors and show them clearly (helps diagnose "Script error." from CDN scripts)
+window.addEventListener('error', function(e) {
+  const msg = e.message || 'unknown';
+  const src = e.filename ? e.filename.split('/').pop() : 'unknown';
+  const loc = `${src}:${e.lineno}:${e.colno}`;
+  console.error('Caught error:', msg, 'at', loc, e.error);
+  // Show non-CDN errors in a banner
+  if (msg !== 'Script error.' && !e.filename?.includes('cdnjs') && !e.filename?.includes('jsdelivr')) {
+    const banner = document.getElementById('_errBanner') || (() => {
+      const b = document.createElement('div');
+      b.id = '_errBanner';
+      b.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;padding:6px 12px;font:12px monospace;z-index:99999;';
+      document.body.appendChild(b);
+      return b;
+    })();
+    banner.textContent = `Error: ${msg} (${loc})`;
+  }
+}, true);
 
 </script>
 
@@ -10961,12 +11968,29 @@ setTimeout(() => {
         <!-- Populated dynamically by oePopulateToolbox() -->
       </div>
       <div class="oe-canvas-area">
-        <div style="display:flex;align-items:center;gap:4px;padding:3px 6px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:11px;">
-          <span style="color:var(--muted);">Zoom:</span>
-          <button onclick="oeZoom=Math.min(4,oeZoom*1.25);oeRender();" title="Zoom in" style="padding:1px 7px;font-size:13px;line-height:1;">+</button>
-          <button onclick="oeZoom=Math.max(0.3,oeZoom/1.25);oeRender();" title="Zoom out" style="padding:1px 7px;font-size:13px;line-height:1;">−</button>
-          <button onclick="oeZoom=1.0;oeRender();" title="Reset zoom" style="padding:1px 7px;font-size:11px;">1:1</button>
-          <span id="oeZoomLabel" style="color:var(--muted);min-width:32px;">100%</span>
+        <!-- Floating action bar: erase · zoom · cladding -->
+        <div class="oe-fab-bar">
+          <button id="oeEraseBtn" class="oe-fab-btn fab-erase"
+                  onclick="oeSetTool(oeTool==='erase'?'move':'erase')"
+                  title="Erase mode — click openings to delete them">✕ Erase</button>
+
+          <div class="oe-fab-sep"></div>
+
+          <span class="oe-fab-zoom">Zoom</span>
+          <button class="oe-fab-zoom-btn" onclick="oeZoom=Math.min(4,oeZoom*1.25);oeRender();" title="Zoom in">+</button>
+          <button class="oe-fab-zoom-btn" onclick="oeZoom=Math.max(0.3,oeZoom/1.25);oeRender();" title="Zoom out">−</button>
+          <button class="oe-fab-zoom-btn" onclick="oeZoom=1.0;oeRender();" title="Reset zoom" style="font-size:10px;">1:1</button>
+          <span id="oeZoomLabel" class="oe-fab-zoom-lbl">100%</span>
+
+          <div class="oe-fab-sep"></div>
+
+          <button id="oeCladBtn" class="oe-fab-btn"
+                  onclick="oeToggleCladding()"
+                  title="Toggle cladding pattern overlay">🏗 Cladding</button>
+        </div>
+        <!-- Floating footprint map: bottom-right of canvas -->
+        <div class="oe-canvas-map" title="Building plan — orange edge = current wall">
+          <svg id="oeFootprintSvg"></svg>
         </div>
         <svg id="openingEditorSvg"></svg>
       </div>
@@ -10975,7 +11999,7 @@ setTimeout(() => {
     <div class="oe-footer">
       <span><b>Drag</b> items from toolbox to place</span>
       <span><b>Shift+click</b> or <b>drag empty space</b> to multi-select</span>
-      <span><b>Drag</b> selection to move all · <kbd>Delete</kbd> removes all selected</span>
+      <span><b>Drag</b> selection to move · <kbd>Delete</kbd> removes all selected</span>
       <span style="margin-left:auto; font-size:10px; color:var(--muted);">Dashed lines = floor levels &nbsp;|&nbsp; Y=0 at top</span>
     </div>
   </div>

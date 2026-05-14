@@ -177,7 +177,7 @@
   .part-mat-badge:hover { filter: brightness(1.12); }
   /* Quantity badge — top-left, shown when N identical parts are collapsed into one card */
   .part-qty-badge {
-    position: absolute; top: 6px; left: 6px;
+    position: absolute; bottom: 6px; left: 6px;
     padding: 2px 7px; border-radius: 20px;
     font: 700 9px/1.5 system-ui; letter-spacing: 0.04em;
     background: #333; color: #fff; z-index: 3;
@@ -3050,114 +3050,80 @@ function buildEdgePlans(cfg) {
   const ffhEnabled = !!cfg.firstFloorHeightEnabled;
   const fheightCfg = (cfg.floorHeight && cfg.floorHeight > 0) ? cfg.floorHeight : 30;
   const ffh = (cfg.firstFloorHeight && cfg.firstFloorHeight > 0) ? cfg.firstFloorHeight : fheightCfg;
-  // Effective first-floor band height (= bay height when bay exists)
-  const firstBandH = ffhEnabled ? ffh : (cfg.bayHeight || fheightCfg);
-  // Effective bay height — if a bay exists, it spans the entire first floor
-  const bayHeight = firstBandH;
-
-  // Floor slots in walls: floor sits AT bottom (y=H), wall bottom edge tongues protrude DOWN.
-  // Roof slots in walls: depend on roof style.
-  //   parapet: roof recessed by parapetHeight. Slot in wall body at y=parapetHeight to parapetHeight+matT
-  //   flat: roof at top. Wall top edge has tongues going UP into roof slots.
-  //   slanted/gabled: more complex (the side walls have angled tops). For now treat like parapet.
+  // First-floor height — determines where the inter-floor panel between floors 1 and 2 sits.
+  // Reads firstFloorHeight when that override is on; otherwise uses the standard floor height.
+  // The bay opening height is a SEPARATE value and must not influence this.
+  const firstBandH = ffhEnabled ? ffh : fheightCfg;
 
   const hasFrontBay = bayConfig === 'front' || bayConfig === 'drivethrough';
-  const hasBackBay = bayConfig === 'drivethrough';
+  const hasBackBay  = bayConfig === 'drivethrough';
 
-  // Bay opening on front wall (and back if drive-through):
-  // Position: centered on width, sits at the BOTTOM of the wall (y=H-bayH to y=H).
-  // In edge coordinates: bottom edge runs along x. Opening = [center - bayW/2, center + bayW/2]
-  // Bay X start: user-overrideable via WYSIWYG drag, otherwise centred
+  // Bay X position (centered unless user dragged it in the opening editor)
   const bayXStart = (cfg.bayXOverride !== null && cfg.bayXOverride !== undefined)
     ? Math.max(0, Math.min(width - bayWidth, cfg.bayXOverride))
     : (width - bayWidth) / 2;
   const bayXEnd = bayXStart + bayWidth;
 
-  // Where the bay top sits (mm down from top of wall) — for bay ceiling slots
-  const bayCeilingY = H - bayHeight;
+  const sideLen = depth - 2 * matT;
+  const fbWidth = width;
 
-  // Side walls and front/back walls have different widths because of corner overlap convention:
-  // Front/back walls: 'width' wide (full outer width of the building)
-  // Side walls: 'depth' minus 2*matT long (sit BETWEEN front and back walls)
-  // Wait — actually convention from the loading station: side walls are 'depth' long INCLUDING 1.5mm
-  // that protrudes into the front/back walls' slots. So side wall body length = depth - 2*matT? 
-  // No, side wall body length = depth, with tongues protruding outward. Front/back walls are 
-  // (width + 2*matT - 2*matT) = width? Hmm let me re-derive.
-  //
-  // From the loading station design:
-  //   Outer building footprint: 83 x 83 mm (= width x depth)
-  //   Front/back walls: 'width' wide = 83mm. They form the front and back outer faces.
-  //   Side walls: 'depth' - 2*matT = 80mm long (sit BETWEEN front+back walls' inside faces).
-  //     Side wall body is 80mm; with tongues protruding 1.5mm on each end into front/back slots.
-  //   Front and back walls have slots on their VERTICAL edges to receive side wall tongues.
-  //
-  // So:
-  //   Front/back wall body width: cfg.width
-  //   Side wall body length:      cfg.depth - 2 * matT  (NOT cfg.depth)
-  //
-  // Wait, actually re-checking: in the loading station I had width=83mm meaning that's the outer
-  // dimension. So if user inputs width=80mm meaning interior or outer? Let me make WIDTH = OUTER.
-  //
-  // OUTER footprint: width x depth (mm)
-  // Front/back wall body width: width (= outer width, since front wall is the outer face)
-  // Side wall body length: depth - 2*matT (interior depth, since side walls sit between front+back)
-
-  const sideLen = depth - 2 * matT;  // length of side wall body
-  const fbWidth = width;             // width of front/back wall body
-
-  // ---- Inter-floor panel positions ----
-  // The user can request floor panels between each floor. Compute Y positions 
-  // (in wall coordinates, y=0 at top, y=H at bottom) of each inter-floor slot.
-  // 
-  // First-floor height override: when enabled, the GROUND floor / bay level / 
-  // first floor (all the same band) gets firstFloorHeight. Upper floors continue 
-  // at floorHeight.
-  //   - If bay exists, the bay ceiling at y=bayCeilingY is the boundary between 
-  //     the first floor and floor 2. The next inter-floor slot above bay ceiling 
-  //     sits at y = bayCeilingY - floorHeight (NOT first-floor-height — upper 
-  //     floors all share floorHeight).
-  //   - Otherwise, the lowest band uses firstFloorHeight, so the first 
-  //     inter-floor slot sits at y = H - firstFloorHeight.
-  //   - All boundaries above that step up by floorHeight.
-  //   - Stop before reaching the parapet/roof slot region.
   const includeFloorPanels = !!cfg.floorPanels;
-  const fcount = (cfg.floorCount && cfg.floorCount > 0) ? cfg.floorCount : 1;
+  const fcount  = (cfg.floorCount && cfg.floorCount > 0) ? cfg.floorCount : 1;
   const fheight = fheightCfg;
-  // (firstBandH already computed above)
-  
+
+  // ── Inter-floor panels ──────────────────────────────────────────────────────
+  // Placed purely from floor count/height — no bay dependency.
+  // The first (lowest) panel sits at H − firstBandH from the top; subsequent
+  // panels step upward by fheight. The bay opening fits BELOW the first panel;
+  // its height is auto-capped so the panel's tongue slots always land in solid
+  // wall material rather than in the bay void.
   const interFloorYs = [];
+  // Bay ceiling panel is always required when a bay exists — it physically closes
+  // the top of the bay opening — regardless of the inter-floor panel toggle.
+  if (hasFrontBay || hasBackBay) {
+    interFloorYs.push(H - firstBandH);
+  }
+  // Additional inter-floor panels above (only when the setting is on and fcount >= 2).
+  // Deduplicated so the bay ceiling Y is never double-added.
   if (includeFloorPanels && fcount >= 2) {
-    // The first inter-floor slot sits one "first-floor band" above the ground reference.
-    // If a bay exists, the bay ceiling itself IS that first slot, so we step up 
-    // from the bay ceiling by floorHeight (upper floors). Otherwise, the first 
-    // inter-floor slot sits firstBandH above the wall bottom.
-    const groundY = (hasFrontBay || hasBackBay) ? bayCeilingY : H;
-    const lowest = (hasFrontBay || hasBackBay) ? (groundY - fheight) : (groundY - firstBandH);
-    const upperBound = parapetHeight + matT + 3;  // don't intrude into roof zone
-    let y = lowest;
-    let safety = 20;
+    const lowest     = H - firstBandH;
+    const upperBound = parapetHeight + matT + 3;
+    let y = lowest, safety = 20;
     while (y > upperBound && safety-- > 0) {
-      interFloorYs.push(y);
+      if (!interFloorYs.some(iy => Math.abs(iy - y) < 0.1)) interFloorYs.push(y);
       y -= fheight;
     }
   }
 
-  // Combined list of all horizontal-slot Y positions on the wall body — used by 
-  // window-placement logic to avoid putting windows where slots will be cut.
-  const slotYs = [];
-  if (hasFrontBay || hasBackBay) slotYs.push(bayCeilingY);
-  for (const y of interFloorYs) slotYs.push(y);
+  // Bay opening height — independent from the floor panel position.
+  // Defaults to firstBandH if unset so it fills the first floor by default.
+  let bayHeight = (cfg.bayHeight && cfg.bayHeight > 0) ? cfg.bayHeight : firstBandH;
+  if (hasFrontBay || hasBackBay) {
+    if (interFloorYs.length > 0) {
+      const lowestPanelFromGround = H - Math.max(...interFloorYs); // = firstBandH
+      bayHeight = Math.min(bayHeight, lowestPanelFromGround - matT);
+    } else {
+      bayHeight = Math.min(bayHeight, H - matT);
+    }
+    bayHeight = Math.max(bayHeight, 5);
+  }
+
+  // Top of the bay opening in wall coords (y=0 at top, y=H at ground)
+  const bayCeilingY = H - bayHeight;
+
+  // Slot-avoidance Ys for window placement — real panel positions only
+  const slotYs = [...interFloorYs];
 
   // VISUAL floor boundaries — used to align windows to floor levels even when 
   // no physical inter-floor slots are cut. Always includes real slot Ys, plus 
   // implicit floor boundaries derived from floor counts.
   const visualFloorYs = [...slotYs];
-  const baseY = (hasFrontBay || hasBackBay) ? bayCeilingY : H;
+  // Use the fixed first-floor panel position as the base for visual floor bands —
+  // NOT bayCeilingY (the opening top), which moves when the user adjusts bay height
+  // and would incorrectly add/remove window rows.
+  const baseY = (hasFrontBay || hasBackBay) ? (H - firstBandH) : H;
   const visTopBound = parapetHeight + matT + 3;
-  // First implicit boundary: if bay exists, bay ceiling already accounts for the 
-  // first floor; step up by regular floorHeight. Without bay, the first boundary 
-  // is firstBandH above the wall bottom.
-  let vy = (hasFrontBay || hasBackBay) ? (baseY - fheight) : (baseY - firstBandH);
+  let vy = baseY - fheight;
   let safety = 30;
   while (vy > visTopBound && safety-- > 0) {
     if (!visualFloorYs.some(s => Math.abs(s - vy) < 1)) {
@@ -3165,7 +3131,7 @@ function buildEdgePlans(cfg) {
     }
     vy -= fheight;
   }
-  visualFloorYs.sort((a, b) => a - b);  // ascending (top to bottom)
+  visualFloorYs.sort((a, b) => a - b);
 
   // Compute CANONICAL floor center Ys — one per visible floor band of the building.
   // These are the Y positions where windows sit on each floor, identical across 
@@ -3448,22 +3414,6 @@ function generateSideWall(cfg, plan, side) {
     }
   }
 
-  // Bay ceiling slots (only if there are bay openings)
-  if (hasFrontBay || hasBackBay) {
-    const bcTw = 6; // bay ceiling tongues are smaller (6mm wide)
-    const bcMargin = 3;
-    const bcCount = Math.max(2, Math.min(3, Math.floor(sideLen / 35)));
-    const bcPoss = placeTongues(sideLen, bcTw, bcMargin, [], bcCount, bcTw);
-    for (const t of bcPoss) {
-      rects.push({
-        type: 'cut',
-        x: t.start, y: bayCeilingY - matT/2,  // centered on bayCeilingY
-        w: t.end - t.start, h: matT,
-        compensateKerf: true,
-      });
-    }
-  }
-
   // Inter-floor panel slots — but skip if this side IS the "last wall" 
   // (the panel's open edge rests against the last wall's inner face).
   const sideKey = (side === 'E') ? 'east' : 'west';
@@ -3691,25 +3641,9 @@ function generateFrontBackWall(cfg, plan, which) {
     }
   }
 
-  // Bay ceiling slots (if there's a bay anywhere in the building)
-  if (plan.hasFrontBay || plan.hasBackBay) {
-    const bcTw = 6;
-    const bcMargin = 3;
-    // Forbidden: the bay opening on this wall (so slots go OUTSIDE the bay region)
-    const bcForbidden = hasBay ? [[bayXStart, bayXEnd]] : [];
-    const bcCount = Math.max(2, Math.min(4, Math.floor(fbWidth / 25)));
-    const bcPoss = placeTongues(fbWidth, bcTw, bcMargin, bcForbidden, bcCount, bcTw);
-    for (const t of bcPoss) {
-      rects.push({
-        type: 'cut',
-        x: t.start, y: bayCeilingY - matT/2,
-        w: t.end - t.start, h: matT,
-        compensateKerf: true,
-      });
-    }
-  }
-
   // Inter-floor panel slots — skipped if this wall IS the "last wall".
+  // No bay forbidden zones needed: the bay opening is capped below the panel Y
+  // so all slots land in solid wall material.
   const skipInterFloorSlots = (plan.lastWallSide === which);
   if (!skipInterFloorSlots && plan.interFloorYs && plan.interFloorYs.length > 0) {
     const ifTw = 6;
@@ -3720,7 +3654,7 @@ function generateFrontBackWall(cfg, plan, which) {
       for (const t of ifPoss) {
         rects.push({
           type: 'cut',
-          x: t.start, y: fy - matT/2,
+          x: t.start, y: fy - matT / 2,
           w: t.end - t.start, h: matT,
           compensateKerf: true,
         });
@@ -4417,18 +4351,21 @@ function generateFloor(cfg, plan) {
 */
 function generateInterFloorPanels(cfg, plan) {
   if (!plan.interFloorYs || plan.interFloorYs.length === 0) return [];
-  const { matT, sideLen, fbWidth, lastWallSide,
-          hasFrontBay, hasBackBay, bayXStart, bayXEnd, bayCeilingY } = plan;
+  const { matT, sideLen, fbWidth, lastWallSide } = plan;
   const bcW = fbWidth - 2 * matT;
   const bcH = sideLen;
   const ifTw = 6;
   const margin = 3;
 
-  // Bay-opening forbidden zone in panel-local x (= wall-local x − matT for west-wall offset)
-  const bcBayStart = (bayXStart || 0) - matT;
-  const bcBayEnd   = (bayXEnd   || 0) - matT;
-  const hasBay = hasFrontBay || hasBackBay;
-
+  // All panels use identical tongue layout — no bay-specific forbidden zones.
+  // The bay opening is capped in buildEdgePlans so it never reaches the panel Y,
+  // meaning the panel slots always land in solid wall material.
+  const frontTongues = (lastWallSide !== 'front')
+    ? placeTongues(bcW, ifTw, margin, [], Math.max(2, Math.min(4, Math.floor(bcW / 25))), ifTw)
+    : [];
+  const backTongues = (lastWallSide !== 'back')
+    ? placeTongues(bcW, ifTw, margin, [], Math.max(2, Math.min(4, Math.floor(bcW / 25))), ifTw)
+    : [];
   const eastTongues = (lastWallSide !== 'east')
     ? placeTongues(bcH, ifTw, margin, [], Math.max(2, Math.min(3, Math.floor(bcH / 35))), ifTw)
     : [];
@@ -4440,22 +4377,7 @@ function generateInterFloorPanels(cfg, plan) {
   const sortedYs = [...plan.interFloorYs].sort((a, b) => a - b);
   for (let i = 0; i < sortedYs.length; i++) {
     const fy = sortedYs[i];
-
-    // Detect bay-ceiling panel — needs tongue forbidden zones where the bay opening is
-    const isBayCeil = hasBay && bayCeilingY !== undefined && Math.abs(fy - bayCeilingY) < 0.1;
-
-    const frontForbidden = (isBayCeil && hasFrontBay) ? [[bcBayStart, bcBayEnd]] : [];
-    const backForbidden  = (isBayCeil && hasBackBay)  ? [[bcBayStart, bcBayEnd]] : [];
-
-    const frontTongues = (lastWallSide !== 'front')
-      ? placeTongues(bcW, ifTw, margin, frontForbidden, Math.max(2, Math.min(4, Math.floor(bcW / 25))), ifTw)
-      : [];
-    const backTongues = (lastWallSide !== 'back')
-      ? placeTongues(bcW, ifTw, margin, backForbidden, Math.max(2, Math.min(4, Math.floor(bcW / 25))), ifTw)
-      : [];
-
     const physicalFloorNum = sortedYs.length - i + 1;
-    const panelLabel = isBayCeil ? 'Bay ceiling' : `Floor ${physicalFloorNum} ceiling`;
 
     const spec = {
       width: bcW, height: bcH, matT, kerf: cfg.kerfComp,
@@ -4475,7 +4397,7 @@ function generateInterFloorPanels(cfg, plan) {
 
     parts.push({
       id: 'inter_floor_panel_' + (i + 1),
-      name: `Inter-floor panel #${i + 1} (${panelLabel}, y=${fy.toFixed(1)})`,
+      name: `Inter-floor panel #${i + 1} (Floor ${physicalFloorNum} ceiling, y=${fy.toFixed(1)})`,
       material: 'core',
       bboxW: bcW + tongueLeft + tongueRight,
       bboxH: bcH + tongueTop  + tongueBottom,

@@ -2044,6 +2044,8 @@ let CONFIG = {
   partMaterials: {},
   internalWalls: {},       // { floorIdx: [{ x1,y1,x2,y2 }] }  interior mm coords
   rooftopItems:  [],        // [{ type, x,y,w,d, h?, label? }]   on-roof placements
+  floorHoles:    [],        // [{ shape:'circle'|'square', x,y,d? | w?,h? }]  cut-outs in floor/inter-floor panels
+  roofHoles:     [],        // same format, applied to the roof panel
   // Bay X position override. null = centred (default). A number = left edge of bay in mm from wall left.
   // Managed by the WYSIWYG editor drag; persists across regenerations until manually reset.
   bayXOverride: null,
@@ -2284,6 +2286,210 @@ function buildWallPath(spec) {
     ypos = fStart;
   }
   if (ypos > 0) d += ` L 0,0`;
+  d += ` Z`;
+  return d;
+}
+
+/* Build an L-shaped wall perimeter path WITH edge tongues.
+   extRight=true  → extension at bottom-right; extRight=false → extension at bottom-left.
+   stepY = mainH − extH (where the inner step starts from the top).
+
+   opts:
+     matT      — tongue/slot depth (= material thickness)
+     mainTopTongues  — tongues along the main top edge (x in [0, mainW]),    protrude UP
+     extTopTongues   — tongues along the extension top edge,                 protrude UP
+     mainBotTongues  — tongues along the main-portion bottom (x in [0, mainW])
+     extBotTongues   — tongues along the extension-portion bottom
+     extTopShift     — offset (in main x) of the ext-top tongues relative to the
+                       start of the extension. Used when the L-shape bridges the
+                       wing's matT corner so tongue positions still match the
+                       wing's roof/wall layout. Defaults to 0.
+     extBotShift     — same idea, for the bottom edge.
+     extRightTongues — tongues along the extension's right edge (y in [0, extH]), protrude RIGHT
+     leftTongues     — tongues along the full left edge (y in [0, mainH]),         protrude LEFT
+     mainRightTongues— tongues along the main wall's far-side right edge (only used
+                       when extRight=false; the L-shape's "right" is the main wall there)
+*/
+function buildLShapePathWithFeatures(mainW, mainH, extW, extH, extRight, opts) {
+  const matT = opts.matT;
+  const stepY = mainH - extH;
+  const totalW = mainW + extW;
+  const fx = v => v.toFixed(3);
+  const td  = matT;
+
+  const mainTop = (opts.mainTopTongues || []).slice().sort((a, b) => a.start - b.start);
+  const extTop  = (opts.extTopTongues  || []).slice().sort((a, b) => a.start - b.start);
+  const mainBot = (opts.mainBotTongues || []).slice().sort((a, b) => a.start - b.start);
+  const extBot  = (opts.extBotTongues  || []).slice().sort((a, b) => a.start - b.start);
+  const extRT   = (opts.extRightTongues|| []).slice().sort((a, b) => a.start - b.start);
+  const leftTng = (opts.leftTongues    || []).slice().sort((a, b) => a.start - b.start);
+  const extBotShift = opts.extBotShift || 0;
+  const extTopShift = opts.extTopShift || 0;
+
+  // Combine bottom tongues into a single list in wall-local x. Main portion is
+  // at wall-local x = xMainStart + t (xMainStart = 0 if extRight, extW otherwise).
+  // Ext portion is at wall-local x = xExtStart + extBotShift + t (xExtStart = mainW if
+  // extRight, 0 otherwise).
+  const xMainStart = extRight ? 0      : extW;
+  const xExtStart  = extRight ? mainW  : 0;
+  const allBot = [
+    ...mainBot.map(t => ({ start: xMainStart + t.start, end: xMainStart + t.end })),
+    ...extBot .map(t => ({ start: xExtStart  + extBotShift + t.start,
+                            end:   xExtStart  + extBotShift + t.end })),
+  ].sort((a, b) => a.start - b.start);
+
+  let d;
+
+  // ── extRight=true: extension on the right; path walks ──────────────────────
+  // (0,0) → main top → step at (mainW, 0..stepY) → ext top → ext right → bottom → left → close.
+  if (extRight) {
+    d = `M 0,0`;
+    // Main top (x in [0, mainW], tongues UP at y=-td)
+    let x = 0;
+    for (const t of mainTop) {
+      if (t.start > x) d += ` L ${fx(t.start)},0`;
+      d += ` L ${fx(t.start)},${fx(-td)} L ${fx(t.end)},${fx(-td)} L ${fx(t.end)},0`;
+      x = t.end;
+    }
+    if (x < mainW) d += ` L ${fx(mainW)},0`;
+    // Step DOWN at x=mainW from y=0 to y=stepY (no features)
+    d += ` L ${fx(mainW)},${fx(stepY)}`;
+    // Ext top (x in [mainW, totalW], tongues UP at y=stepY-td). Tongue positions
+    // come in as positions within the wing's wall length [0, ...]; the start of
+    // those positions is offset by extTopShift inside the extension.
+    x = mainW;
+    for (const t of extTop) {
+      const xs = mainW + extTopShift + t.start, xe = mainW + extTopShift + t.end;
+      if (xs > x) d += ` L ${fx(xs)},${fx(stepY)}`;
+      d += ` L ${fx(xs)},${fx(stepY - td)} L ${fx(xe)},${fx(stepY - td)} L ${fx(xe)},${fx(stepY)}`;
+      x = xe;
+    }
+    if (x < totalW) d += ` L ${fx(totalW)},${fx(stepY)}`;
+    // Ext right (y in [stepY, mainH], tongues RIGHT at x=totalW+td). Tongue positions
+    // are in [0, extH] in local "y from stepY" coords → absolute y = stepY + t.
+    let y = stepY;
+    for (const t of extRT) {
+      const ys = stepY + t.start, ye = stepY + t.end;
+      if (ys > y) d += ` L ${fx(totalW)},${fx(ys)}`;
+      d += ` L ${fx(totalW + td)},${fx(ys)} L ${fx(totalW + td)},${fx(ye)} L ${fx(totalW)},${fx(ye)}`;
+      y = ye;
+    }
+    if (y < mainH) d += ` L ${fx(totalW)},${fx(mainH)}`;
+    // Bottom (walking RIGHT→LEFT from totalW to 0, tongues DOWN at y=mainH+td)
+    // and carving up by `bay.height` between bay.xEnd and bay.xStart if a bay
+    // opening sits on this wall. Bay coords are already in L-frame (main side).
+    const bay = opts.bay || null;
+    let xpos = totalW;
+    const sortedBot = [...allBot].sort((a, b) => b.start - a.start);
+    // Tongues to the right of the bay (or all of them if no bay)
+    for (const t of sortedBot) {
+      if (bay && t.start < bay.xEnd) continue;
+      if (xpos > t.end) d += ` L ${fx(t.end)},${fx(mainH)}`;
+      d += ` L ${fx(t.end)},${fx(mainH + td)} L ${fx(t.start)},${fx(mainH + td)} L ${fx(t.start)},${fx(mainH)}`;
+      xpos = t.start;
+    }
+    if (bay) {
+      // Move to bay's east edge along y=mainH, then carve up, across, and down
+      if (xpos > bay.xEnd) d += ` L ${fx(bay.xEnd)},${fx(mainH)}`;
+      d += ` L ${fx(bay.xEnd)},${fx(mainH - bay.height)} L ${fx(bay.xStart)},${fx(mainH - bay.height)} L ${fx(bay.xStart)},${fx(mainH)}`;
+      xpos = bay.xStart;
+      // Remaining tongues to the left of the bay
+      for (const t of sortedBot) {
+        if (t.start >= bay.xEnd) continue;       // already handled
+        if (t.end > bay.xStart) continue;         // would collide with bay
+        if (xpos > t.end) d += ` L ${fx(t.end)},${fx(mainH)}`;
+        d += ` L ${fx(t.end)},${fx(mainH + td)} L ${fx(t.start)},${fx(mainH + td)} L ${fx(t.start)},${fx(mainH)}`;
+        xpos = t.start;
+      }
+    }
+    if (xpos > 0) d += ` L 0,${fx(mainH)}`;
+    // Left (full, walking BOTTOM→TOP from mainH to 0, tongues LEFT at x=-td).
+    // leftTongues are in [0, mainH] measured from the TOP.
+    let ypos = mainH;
+    for (const t of [...leftTng].sort((a, b) => b.start - a.start)) {
+      if (ypos > t.end) d += ` L 0,${fx(t.end)}`;
+      d += ` L ${fx(-td)},${fx(t.end)} L ${fx(-td)},${fx(t.start)} L 0,${fx(t.start)}`;
+      ypos = t.start;
+    }
+    if (ypos > 0) d += ` L 0,0`;
+    d += ` Z`;
+    return d;
+  }
+
+  // ── extRight=false: extension on the left; path walks ──────────────────────
+  // (extW,0) → main top (right) → right edge → bottom → left edge UP to (0, stepY) →
+  // ext top (right) to (extW, stepY) → step UP to (extW, 0) → close.
+  d = `M ${fx(extW)},0`;
+  // Main top (x in [extW, totalW], tongues UP at y=-td). mainTop positions are
+  // in [0, mainW] so add extW to get wall-local x.
+  let x = extW;
+  for (const t of mainTop) {
+    const xs = extW + t.start, xe = extW + t.end;
+    if (xs > x) d += ` L ${fx(xs)},0`;
+    d += ` L ${fx(xs)},${fx(-td)} L ${fx(xe)},${fx(-td)} L ${fx(xe)},0`;
+    x = xe;
+  }
+  if (x < totalW) d += ` L ${fx(totalW)},0`;
+  // Right edge (y in [0, mainH], tongues RIGHT at x=totalW+td). The original right
+  // edge tongues belong to the MAIN wall (the side that was unchanged) — they
+  // ride along the full mainH. We reuse leftTongues here only if the caller wanted to
+  // — for extRight=false the OPPOSITE side is "right", so we pass the original right
+  // tongues via opts. We don't have them here so leave the right edge plain unless
+  // opts.mainRightTongues is supplied.
+  const mainRight = (opts.mainRightTongues || []).slice().sort((a, b) => a.start - b.start);
+  let y = 0;
+  for (const t of mainRight) {
+    if (t.start > y) d += ` L ${fx(totalW)},${fx(t.start)}`;
+    d += ` L ${fx(totalW + td)},${fx(t.start)} L ${fx(totalW + td)},${fx(t.end)} L ${fx(totalW)},${fx(t.end)}`;
+    y = t.end;
+  }
+  if (y < mainH) d += ` L ${fx(totalW)},${fx(mainH)}`;
+  // Bottom (walking RIGHT→LEFT, tongues DOWN at y=mainH+td) — with optional
+  // bay carve. Same logic as the extRight branch above.
+  const bayLR = opts.bay || null;
+  let xpos = totalW;
+  const sortedBotLR = [...allBot].sort((a, b) => b.start - a.start);
+  for (const t of sortedBotLR) {
+    if (bayLR && t.start < bayLR.xEnd) continue;
+    if (xpos > t.end) d += ` L ${fx(t.end)},${fx(mainH)}`;
+    d += ` L ${fx(t.end)},${fx(mainH + td)} L ${fx(t.start)},${fx(mainH + td)} L ${fx(t.start)},${fx(mainH)}`;
+    xpos = t.start;
+  }
+  if (bayLR) {
+    if (xpos > bayLR.xEnd) d += ` L ${fx(bayLR.xEnd)},${fx(mainH)}`;
+    d += ` L ${fx(bayLR.xEnd)},${fx(mainH - bayLR.height)} L ${fx(bayLR.xStart)},${fx(mainH - bayLR.height)} L ${fx(bayLR.xStart)},${fx(mainH)}`;
+    xpos = bayLR.xStart;
+    for (const t of sortedBotLR) {
+      if (t.start >= bayLR.xEnd) continue;
+      if (t.end > bayLR.xStart) continue;
+      if (xpos > t.end) d += ` L ${fx(t.end)},${fx(mainH)}`;
+      d += ` L ${fx(t.end)},${fx(mainH + td)} L ${fx(t.start)},${fx(mainH + td)} L ${fx(t.start)},${fx(mainH)}`;
+      xpos = t.start;
+    }
+  }
+  if (xpos > 0) d += ` L 0,${fx(mainH)}`;
+  // Left edge from (0, mainH) UP to (0, stepY). Tongues LEFT at x=-td, only those
+  // with t.start within (stepY, mainH).
+  let ypos = mainH;
+  for (const t of [...leftTng].sort((a, b) => b.start - a.start)) {
+    if (t.start < stepY - 0.01) continue;  // skip tongues in the ext-top portion
+    if (ypos > t.end) d += ` L 0,${fx(t.end)}`;
+    d += ` L ${fx(-td)},${fx(t.end)} L ${fx(-td)},${fx(t.start)} L 0,${fx(t.start)}`;
+    ypos = t.start;
+  }
+  if (ypos > stepY) d += ` L 0,${fx(stepY)}`;
+  // Ext top (walking LEFT→RIGHT from (0, stepY) to (extW, stepY), tongues UP at y=stepY-td)
+  // extTop tongue positions are within [0, wing wall length]; shift by extTopShift.
+  x = 0;
+  for (const t of extTop) {
+    const xs = extTopShift + t.start, xe = extTopShift + t.end;
+    if (xs > x) d += ` L ${fx(xs)},${fx(stepY)}`;
+    d += ` L ${fx(xs)},${fx(stepY - td)} L ${fx(xe)},${fx(stepY - td)} L ${fx(xe)},${fx(stepY)}`;
+    x = xe;
+  }
+  if (x < extW) d += ` L ${fx(extW)},${fx(stepY)}`;
+  // Step UP from (extW, stepY) to (extW, 0), closing
+  d += ` L ${fx(extW)},0`;
   d += ` Z`;
   return d;
 }
@@ -3965,7 +4171,7 @@ function generateRoof(cfg, plan) {
       bboxH: roofH + 2 * matT,
       bboxOffsetX: matT,
       bboxOffsetY: matT,
-      paths: [{ type: 'cut', d: perimeter }],
+      paths: [{ type: 'cut', d: perimeter }, ...holePathsForList(cfg.roofHoles)],
       rects: rects,
       lines: lines,
     };
@@ -4018,7 +4224,7 @@ function generateRoof(cfg, plan) {
       material: 'core',
       bboxW: rW, bboxH: rH,
       bboxOffsetX: 0, bboxOffsetY: 0,
-      paths: [{ type: 'cut', d: perimeter }],
+      paths: [{ type: 'cut', d: perimeter }, ...holePathsForList(cfg.roofHoles)],
       rects: rects,
       lines: lines,
     };
@@ -4054,7 +4260,7 @@ function generateRoof(cfg, plan) {
       id: 'roof', name: `Roof (slanted — ${highLabel})`,
       material: 'core',
       bboxW: perpLen, bboxH: slantLen, bboxOffsetX: 0, bboxOffsetY: 0,
-      paths: [{ type: 'cut', d: perimeter }],
+      paths: [{ type: 'cut', d: perimeter }, ...holePathsForList(cfg.roofHoles)],
       rects: [], lines: [],
     };
     const claddingPanel = generateRoofCladdingPanel('roof_cladding', `Roof Cladding (slanted — ${highLabel})`,
@@ -4331,7 +4537,284 @@ function generateFloor(cfg, plan) {
     material: 'core',
     bboxW: floorW, bboxH: floorH,
     bboxOffsetX: 0, bboxOffsetY: 0,
-    paths: [{ type: 'cut', d: buildFloorPerimeter() }],
+    paths: [{ type: 'cut', d: buildFloorPerimeter() }, ...holePathsForList(cfg.floorHoles)],
+    rects: [],
+    lines: [],
+  };
+}
+
+/* Generate a single MERGED floor part covering the main block + all wings.
+   Returns one connected polygon (with proper slot indents on every exterior
+   wall edge and no slots on the interior wing-connection edges).
+   Falls back to generateFloor() for the no-wing case or unsupported layouts. */
+function generateMergedFloor(cfg, plan) {
+  const wings = (cfg.wings || []).slice();
+  if (wings.length === 0) return generateFloor(cfg, plan);
+
+  const { H, matT, tw, sideLen, fbWidth, bayXStart, bayXEnd,
+          hasFrontBay, hasBackBay } = plan;
+  const floorW = fbWidth;
+  const floorH = sideLen + 2 * matT;
+  const margin = Math.max(matT * 2, 5);
+  const doorStyle = cfg.doorStyle;
+
+  // Group wings by face, sort by offset
+  const byFace = { front: [], back: [], east: [], west: [] };
+  for (const w of wings) {
+    if (w && byFace[w.face]) byFace[w.face].push(w);
+  }
+  for (const f of ['front','back','east','west']) byFace[f].sort((a,b) => a.offset - b.offset);
+
+  // Validate: each wing inside its face, no overlaps; otherwise fall back.
+  const faceLen = { front: floorW, back: floorW, east: floorH, west: floorH };
+  for (const f of ['front','back','east','west']) {
+    let lastEnd = -Infinity;
+    for (const w of byFace[f]) {
+      const startMain = (f === 'east' || f === 'west') ? w.offset : w.offset;
+      const endMain   = startMain + w.span;
+      if (startMain < 0 || endMain > faceLen[f] + 0.01) return generateFloor(cfg, plan);
+      if (startMain < lastEnd - 0.01) return generateFloor(cfg, plan);
+      lastEnd = endMain;
+    }
+  }
+
+  // ── Door forbidden zones, identical to generateFloor ──────────────────────
+  function doorForbiddenZones(wallDoors) {
+    return wallDoors.map(d => [d.x - 2, d.x + (d.w !== undefined ? d.w : d.width) + 2]);
+  }
+  function getWallDoors(manualKey, edgeLen, wallH, count, hasBay) {
+    if (count <= 0 || !doorStyle || doorStyle === 'none') return [];
+    const manual = (cfg.manualOpenings || {})[manualKey] || null;
+    if (manual) return manual.filter(o => o.type === 'door');
+    if (hasBay) return [];
+    return computeDoors(edgeLen, wallH, { doorStyle, doorCount: count, hasOpening: false, bayXStart: 0, bayXEnd: 0 });
+  }
+  const frontDoors = getWallDoors('front', fbWidth, H, cfg.frontDoorCount || 0, hasFrontBay);
+  const backDoors  = getWallDoors('back',  fbWidth, H, cfg.backDoorCount  || 0, hasBackBay);
+  const sideDoors  = getWallDoors('east',  sideLen, H, cfg.sideDoorCount  || 0, false);
+
+  // Wing connection ranges (in WALL-LOCAL coords for each face)
+  // Front/back walls: wall-local = main x (= floor x), range [offset, offset+span]
+  // East/west walls : wall-local = floor y - matT (since side wall spans matT..floorH-matT)
+  const frontWingF = byFace.front.map(w => [w.offset, w.offset + w.span]);
+  const backWingF  = byFace.back .map(w => [w.offset, w.offset + w.span]);
+  const eastWingF  = byFace.east .map(w => [Math.max(0, w.offset - matT), Math.min(sideLen, w.offset + w.span - matT)]);
+  const westWingF  = byFace.west .map(w => [Math.max(0, w.offset - matT), Math.min(sideLen, w.offset + w.span - matT)]);
+
+  const frontForbidden = [...(hasFrontBay ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(frontDoors), ...frontWingF];
+  const backForbidden  = [...(hasBackBay  ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(backDoors),  ...backWingF];
+  const eastForbidden  = [...doorForbiddenZones(sideDoors), ...eastWingF];
+  const westForbidden  = [...doorForbiddenZones(sideDoors), ...westWingF];
+
+  const frontSlots = placeTongues(fbWidth, tw, margin, frontForbidden, 3, tw / 2);
+  const backSlots  = placeTongues(fbWidth, tw, margin, backForbidden,  3, tw / 2);
+  const eastSlots  = placeTongues(sideLen, tw, margin, eastForbidden,  3, tw / 2);
+  const westSlots  = placeTongues(sideLen, tw, margin, westForbidden,  3, tw / 2);
+
+  // Wing-local outer-edge slot positions
+  function wingSlots(w) {
+    return {
+      back: placeTongues(w.span,  tw, margin, [], 3, tw / 2),  // along x_wing in [0, span], on the wing's far edge
+      side: placeTongues(w.depth, tw, margin, [], 3, tw / 2),  // along the wing's depth, used on both west and east walls
+    };
+  }
+
+  // Compute bbox extents (wings extend beyond main floor in ±x or ±y)
+  let xMin = 0, xMax = floorW, yMin = 0, yMax = floorH;
+  for (const w of wings) {
+    const ext = w.depth + 2 * matT;
+    if (w.face === 'west')  xMin = Math.min(xMin, -ext);
+    if (w.face === 'east')  xMax = Math.max(xMax, floorW + ext);
+    if (w.face === 'front') yMin = Math.min(yMin, -ext);
+    if (w.face === 'back')  yMax = Math.max(yMax, floorH + ext);
+  }
+  const bboxW = xMax - xMin;
+  const bboxH = yMax - yMin;
+  const bboxOffsetX = -xMin;
+  const bboxOffsetY = -yMin;
+
+  const fx = v => v.toFixed(3);
+  let d = 'M 0,0';
+
+  // ── Helper: emit slot indents along a 1-D segment ──────────────────────────
+  // Walks from `start` to `end` along an axis-aligned direction, drawing slot
+  // indents normal to the walk direction. Filters/sorts the supplied slots so
+  // only those overlapping [min(start,end), max(start,end)] are drawn, in walk
+  // order.
+  //
+  //   axis: 'x' or 'y' — which axis we're walking along
+  //   start, end: walk start and end in that axis
+  //   fixed: the other axis's constant coordinate
+  //   slots: list of {start, end} in absolute walk-axis coords
+  //   indent: +matT or -matT (signed normal direction into polygon interior)
+  //
+  // Returns nothing; mutates the d string via closure.
+  function emit(axis, start, end, fixed, slots, indent) {
+    const dir = (end > start) ? 1 : -1;
+    // Filter slots to the segment, then sort by walk position
+    const lo = Math.min(start, end), hi = Math.max(start, end);
+    // Normalize each slot to have start <= end so near/far logic below is
+    // walk-direction-driven (callers don't need to flip start/end themselves).
+    const segSlots = (slots || [])
+      .map(s => (s.start <= s.end) ? s : { start: s.end, end: s.start })
+      .filter(s => s.end > lo + 0.01 && s.start < hi - 0.01)
+      .map(s => ({ start: Math.max(s.start, lo), end: Math.min(s.end, hi) }))
+      .sort((a, b) => dir * (a.start - b.start));
+
+    let cur = start;
+    for (const s of segSlots) {
+      // In walk-axis coords, the "near" edge of the slot (encountered first) is
+      // s.start when dir=+1, s.end when dir=-1.
+      const slotNear = (dir === 1) ? s.start : s.end;
+      const slotFar  = (dir === 1) ? s.end   : s.start;
+
+      // Walk straight to slot near-edge
+      if (axis === 'x') d += ` L ${fx(slotNear)},${fx(fixed)}`;
+      else              d += ` L ${fx(fixed)},${fx(slotNear)}`;
+      // Indent in (perpendicular to walk)
+      if (axis === 'x') d += ` L ${fx(slotNear)},${fx(fixed + indent)}`;
+      else              d += ` L ${fx(fixed + indent)},${fx(slotNear)}`;
+      // Across slot at indented level
+      if (axis === 'x') d += ` L ${fx(slotFar)},${fx(fixed + indent)}`;
+      else              d += ` L ${fx(fixed + indent)},${fx(slotFar)}`;
+      // Back out
+      if (axis === 'x') d += ` L ${fx(slotFar)},${fx(fixed)}`;
+      else              d += ` L ${fx(fixed)},${fx(slotFar)}`;
+      cur = slotFar;
+    }
+    // Finish to end
+    if (axis === 'x') d += ` L ${fx(end)},${fx(fixed)}`;
+    else              d += ` L ${fx(fixed)},${fx(end)}`;
+  }
+
+  // ── Detour helpers — for each face, walk around the wing's 3 outer edges ──
+
+  // FRONT wing: walking +x along y=0, detour up (negative y) and back
+  function detourFront(w) {
+    const ext = w.depth + 2 * matT;
+    const ws = wingSlots(w);
+    // Wing's local-west wall slot main-y positions: -(matT + s.start) .. -(matT + s.end)
+    // Walking -y on wing west: indent +x (right, into wing interior)
+    const wWestSlotsMain = ws.side.map(s => ({ start: -(matT + s.end), end: -(matT + s.start) }));
+    emit('y', 0, -ext, w.offset, wWestSlotsMain, +matT);
+    // Wing's far edge (back wall): walking +x, indent +y (down toward main block)
+    const wBackSlotsMain = ws.back.map(s => ({ start: w.offset + s.start, end: w.offset + s.end }));
+    emit('x', w.offset, w.offset + w.span, -ext, wBackSlotsMain, +matT);
+    // Wing's local-east wall: walking +y back to y=0, indent -x (left, into interior)
+    const wEastSlotsMain = ws.side.map(s => ({ start: -(matT + s.end), end: -(matT + s.start) }));
+    emit('y', -ext, 0, w.offset + w.span, wEastSlotsMain, -matT);
+  }
+
+  // BACK wing: walking -x along y=floorH, detour down (+y) and back
+  function detourBack(w) {
+    const ext = w.depth + 2 * matT;
+    const yB = floorH;
+    const ws = wingSlots(w);
+    // Wing's local-east wall (south side of wing in screen / east in main): walking +y, indent -x
+    const wEastSlotsMain = ws.side.map(s => ({ start: yB + matT + s.start, end: yB + matT + s.end }));
+    emit('y', yB, yB + ext, w.offset + w.span, wEastSlotsMain, -matT);
+    // Wing back wall (far edge): walking -x, indent -y (up toward main)
+    const wBackSlotsMain = ws.back.map(s => ({ start: w.offset + s.start, end: w.offset + s.end }));
+    emit('x', w.offset + w.span, w.offset, yB + ext, wBackSlotsMain, -matT);
+    // Wing's local-west wall: walking -y back, indent +x
+    const wWestSlotsMain = ws.side.map(s => ({ start: yB + matT + s.start, end: yB + matT + s.end }));
+    emit('y', yB + ext, yB, w.offset, wWestSlotsMain, +matT);
+  }
+
+  // EAST wing: walking +y along x=floorW, detour right (+x) and back
+  function detourEast(w) {
+    const ext = w.depth + 2 * matT;
+    const xR = floorW;
+    const ws = wingSlots(w);
+    // Wing local west wall: walking +x along south of wing, indent +y
+    const wWestSlotsMain = ws.side.map(s => ({ start: xR + matT + s.start, end: xR + matT + s.end }));
+    emit('x', xR, xR + ext, w.offset, wWestSlotsMain, +matT);
+    // Wing far (back) wall: walking +y, indent -x
+    const wBackSlotsMain = ws.back.map(s => ({ start: w.offset + s.start, end: w.offset + s.end }));
+    emit('y', w.offset, w.offset + w.span, xR + ext, wBackSlotsMain, -matT);
+    // Wing local east wall: walking -x back to main, indent -y
+    const wEastSlotsMain = ws.side.map(s => ({ start: xR + matT + s.start, end: xR + matT + s.end }));
+    emit('x', xR + ext, xR, w.offset + w.span, wEastSlotsMain, -matT);
+  }
+
+  // WEST wing: walking -y along x=0, detour left (-x) and back
+  function detourWest(w) {
+    const ext = w.depth + 2 * matT;
+    const ws = wingSlots(w);
+    // Wing local east wall: walking -x along north of wing, indent -y
+    const wEastSlotsMain = ws.side.map(s => ({ start: -(matT + s.end), end: -(matT + s.start) }));
+    emit('x', 0, -ext, w.offset + w.span, wEastSlotsMain, -matT);
+    // Wing far (back) wall: walking -y, indent +x
+    const wBackSlotsMain = ws.back.map(s => ({ start: w.offset + s.start, end: w.offset + s.end }));
+    emit('y', w.offset + w.span, w.offset, -ext, wBackSlotsMain, +matT);
+    // Wing local west wall: walking +x back to main, indent +y
+    const wWestSlotsMain = ws.side.map(s => ({ start: -(matT + s.end), end: -(matT + s.start) }));
+    emit('x', -ext, 0, w.offset, wWestSlotsMain, +matT);
+  }
+
+  // ── Walk perimeter clockwise: top → right → bottom → left ─────────────────
+
+  // TOP edge (y=0, walking +x). Detour up into each front wing.
+  {
+    let x = 0;
+    for (const w of byFace.front) {
+      emit('x', x, w.offset, 0, frontSlots, +matT);
+      detourFront(w);
+      x = w.offset + w.span;
+    }
+    emit('x', x, floorW, 0, frontSlots, +matT);
+  }
+
+  // RIGHT edge (x=floorW, walking +y). The main side wall spans floor y in [matT, floorH-matT].
+  // East slot positions in side-wall-local coords need translation to floor y (add matT).
+  const eastSlotsFloor = eastSlots.map(s => ({ start: matT + s.start, end: matT + s.end }));
+  {
+    let y = 0;
+    for (const w of byFace.east) {
+      emit('y', y, w.offset, floorW, eastSlotsFloor, -matT);
+      detourEast(w);
+      y = w.offset + w.span;
+    }
+    emit('y', y, floorH, floorW, eastSlotsFloor, -matT);
+  }
+
+  // BOTTOM edge (y=floorH, walking -x). Iterate back wings in REVERSE (right→left).
+  {
+    let x = floorW;
+    const backWingsRev = [...byFace.back].reverse();
+    for (const w of backWingsRev) {
+      emit('x', x, w.offset + w.span, floorH, backSlots, -matT);
+      detourBack(w);
+      x = w.offset;
+    }
+    emit('x', x, 0, floorH, backSlots, -matT);
+  }
+
+  // LEFT edge (x=0, walking -y). Iterate west wings in REVERSE (bottom→top).
+  const westSlotsFloor = westSlots.map(s => ({ start: matT + s.start, end: matT + s.end }));
+  {
+    let y = floorH;
+    const westWingsRev = [...byFace.west].reverse();
+    for (const w of westWingsRev) {
+      emit('y', y, w.offset + w.span, 0, westSlotsFloor, +matT);
+      detourWest(w);
+      y = w.offset;
+    }
+    emit('y', y, 0, 0, westSlotsFloor, +matT);
+  }
+
+  d += ' Z';
+
+  const nm = wings.length === 1
+    ? 'Floor (merged with 1 wing)'
+    : `Floor (merged with ${wings.length} wings)`;
+
+  return {
+    id: 'floor',
+    name: nm,
+    material: 'core',
+    bboxW, bboxH, bboxOffsetX, bboxOffsetY,
+    paths: [{ type: 'cut', d }, ...holePathsForList(cfg.floorHoles)],
     rects: [],
     lines: [],
   };
@@ -4349,6 +4832,25 @@ function generateFloor(cfg, plan) {
                 'left' edge (x=0) corresponds to the WEST side wall.
                 'right' edge (x=bcW) corresponds to the EAST side wall.
 */
+/* ---- Cutout path helpers ---- */
+function holeCirPath(cx, cy, r) {
+  // Full circle as a closed SVG path (two 180° arcs)
+  const f = v => v.toFixed(3);
+  return `M ${f(cx - r)},${f(cy)} A ${f(r)},${f(r)} 0 1 0 ${f(cx + r)},${f(cy)} A ${f(r)},${f(r)} 0 1 0 ${f(cx - r)},${f(cy)} Z`;
+}
+function holeRectPath(cx, cy, w, h) {
+  const [x, y] = [cx - w/2, cy - h/2];
+  return `M ${x.toFixed(3)},${y.toFixed(3)} h ${w.toFixed(3)} v ${h.toFixed(3)} h ${(-w).toFixed(3)} Z`;
+}
+function holePathsForList(holes) {
+  return (holes || []).map(h => ({
+    type: 'cut',
+    d: h.shape === 'circle'
+      ? holeCirPath(h.x, h.y, (h.d || 3) / 2)
+      : holeRectPath(h.x, h.y, h.w || 5, h.h || 5),
+  }));
+}
+
 function generateInterFloorPanels(cfg, plan) {
   if (!plan.interFloorYs || plan.interFloorYs.length === 0) return [];
   const { matT, sideLen, fbWidth, lastWallSide } = plan;
@@ -4403,7 +4905,7 @@ function generateInterFloorPanels(cfg, plan) {
       bboxH: bcH + tongueTop  + tongueBottom,
       bboxOffsetX: tongueLeft,
       bboxOffsetY: tongueTop,
-      paths: [{ type: 'cut', d: perimeter }],
+      paths: [{ type: 'cut', d: perimeter }, ...holePathsForList(cfg.floorHoles)],
       rects: [],
       lines: [],
     });
@@ -4998,61 +5500,161 @@ function generateBalconyParts(cfg, plan) {
 function generateBillboardParts(cfg) {
   if (!cfg.billboards || cfg.billboards.length === 0) return [];
   const matT = cfg.coreThickness || 1.5;
-  const cT   = cfg.claddingThickness || 0.28;
+  const mW   = Math.max(1.4, matT * 1.05);  // structural member width
   const parts = [];
-  const gutter = 4;
+
+  // ── Lattice panel helper ────────────────────────────────────────────────────
+  // Generates triangular void cut-paths that leave diagonal brace strips as solid
+  // material — matching real laser-cut N-scale billboard kits.
+  // useXBrace: true = X pattern (4 triangles per bay), false = alternating single diagonal
+  function latticePaths(panW, panH, nHRails, nVDivs, useXBrace) {
+    const f = v => +v.toFixed(4);
+    const tri = (...pts) => 'M' + pts.map(([x,y]) => `${f(x)},${f(y)}`).join(' L') + ' Z';
+
+    function buildBands(total, nDiv) {
+      const inner = total - 2 * mW;
+      const bayLen = (inner - nDiv * mW) / (nDiv + 1);
+      const bands = [{ solid:true, a:0, b:mW }];
+      for (let i = 0; i < nDiv + 1; i++) {
+        const s = mW + i * (bayLen + mW);
+        bands.push({ solid:false, a:s, b:s + bayLen });
+        if (i < nDiv) bands.push({ solid:true, a:s+bayLen, b:s+bayLen+mW });
+      }
+      bands.push({ solid:true, a:total-mW, b:total });
+      return bands;
+    }
+
+    const hBands = buildBands(panH, nHRails);
+    const vBands = buildBands(panW, nVDivs);
+    const cutPaths = [`M0,0 H${f(panW)} V${f(panH)} H0 Z`]; // outer cut
+    let bayN = 0;
+
+    for (const vb of vBands.filter(b => !b.solid)) {
+      for (const hb of hBands.filter(b => !b.solid)) {
+        const x1=vb.a, x2=vb.b, y1=hb.a, y2=hb.b;
+        const cx=(x1+x2)/2, cy=(y1+y2)/2;
+        const m = mW * 0.55; // inset for strip width
+
+        if (useXBrace) {
+          // X-brace: 4 triangular voids, solid X strip remains
+          cutPaths.push(tri([x1+m,y1],[x2-m,y1],[cx,cy]));        // top void
+          cutPaths.push(tri([x1+m,y2],[x2-m,y2],[cx,cy]));        // bottom void
+          cutPaths.push(tri([x1,y1+m],[x1,y2-m],[cx,cy]));        // left void
+          cutPaths.push(tri([x2,y1+m],[x2,y2-m],[cx,cy]));        // right void
+        } else {
+          // Alternating single diagonal — Pratt truss pattern
+          if (bayN % 2 === 0) {
+            // Brace TL→BR: cut upper-right and lower-left voids
+            cutPaths.push(tri([x1+m,y1],[x2,y1],[x2,y2-m]));
+            cutPaths.push(tri([x1,y1+m],[x1,y2],[x2-m,y2]));
+          } else {
+            // Brace TR→BL: cut upper-left and lower-right voids
+            cutPaths.push(tri([x1,y1],[x2-m,y1],[x1,y2-m]));
+            cutPaths.push(tri([x2,y1+m],[x2,y2],[x1+m,y2]));
+          }
+        }
+        bayN++;
+      }
+    }
+    return {
+      paths: cutPaths.map(d => ({ type:'cut', d })),
+      lines: [],
+    };
+  }
+
+  function slot(x, y, w, h) {
+    return { type:'cut', x, y, w, h, compensateKerf:true };
+  }
 
   cfg.billboards.forEach((bb, i) => {
-    const w = bb.w || 30;
-    const h = bb.height || 20;
+    const bbW   = bb.w         || 30;
+    const bbH   = bb.height    || 20;
     const postH = bb.postHeight || 15;
-    const id = `billboard_${i}`;
-    const pfx = `Billboard ${i+1}`;
+    const id    = `billboard_${i}`;
+    const pfx   = `Billboard ${i+1}`;
 
     if (bb.type === 'square') {
-      // 4 identical panels + 1 base plate
+      // Tower footprint = bbW * 0.65
+      const tW = bbW * 0.65;
+      // Aim for roughly square bays: use floor(postH / bayTarget) rails
+      const nH = Math.max(3, Math.round(postH / (tW * 0.5 / 3))) ;
+      const nV = 1;
+
+      const { paths:lp, lines:ll } = latticePaths(tW, postH, nH, nV, false);
+      // Centre cross-lap slot (top half for one panel, lower half for cross partner)
+      const slotH = postH / 2;
+      const faceRects = [
+        slot(tW/2 - mW/2, 0,     mW, slotH),
+        slot(tW/2 - mW/2, slotH, mW, slotH),
+      ];
+
       for (let s = 0; s < 4; s++) {
         parts.push({
-          id: id + `_face${s}`, name: `${pfx} — face ${s+1}`,
-          material: 'cladding',
-          bboxW: w, bboxH: h, bboxOffsetX: 0, bboxOffsetY: 0,
-          paths: [{ type: 'cut', d: rectPath(0, 0, w, h) }],
-          rects: [], lines: [],
+          id:`${id}_tower_face_${s}`,
+          name:`${pfx} — tower face (×4 identical)`,
+          material:'core',
+          bboxW:tW, bboxH:postH,
+          bboxOffsetX:0, bboxOffsetY:0,
+          assemblyNote:`4 identical panels cross-lapped at corners to form square tower. Cut ×4.`,
+          paths:lp, rects:faceRects, lines:ll,
         });
       }
-      // Base plate with centre post hole
-      const bpW = w + 2 * matT, bpH = w + 2 * matT;
-      const holeW = matT, holeH = matT;
-      parts.push({
-        id: id + '_base', name: `${pfx} — base plate`,
-        material: 'core',
-        bboxW: bpW, bboxH: bpH, bboxOffsetX: 0, bboxOffsetY: 0,
-        paths: [{ type: 'cut', d: rectPath(0, 0, bpW, bpH) }],
-        rects: [{ type: 'cut', x: (bpW-holeW)/2, y: (bpH-holeH)/2, w: holeW, h: holeH, compensateKerf: true }],
-        lines: [],
-      });
+
+      for (let s = 0; s < 4; s++) {
+        parts.push({
+          id:`${id}_sign_face_${s}`,
+          name:`${pfx} — sign face (×4 identical)`,
+          material:'cladding',
+          bboxW:bbW, bboxH:bbH,
+          bboxOffsetX:0, bboxOffsetY:0,
+          assemblyNote:`Glue to each face of the assembled tower. Cut ×4.`,
+          paths:[{ type:'cut', d:`M0,0 H${bbW} V${bbH} H0 Z` }],
+          rects:[], lines:[],
+        });
+      }
+
     } else {
-      // Single-sided billboard: 1 panel + 2 posts
+      // Sign face
       parts.push({
-        id: id + '_face', name: `${pfx} — sign face`,
-        material: 'cladding',
-        bboxW: w, bboxH: h, bboxOffsetX: 0, bboxOffsetY: 0,
-        paths: [{ type: 'cut', d: rectPath(0, 0, w, h) }],
-        rects: [], lines: [],
+        id:`${id}_face`,
+        name:`${pfx} — sign face`,
+        material:'cladding',
+        bboxW:bbW, bboxH:bbH,
+        bboxOffsetX:0, bboxOffsetY:0,
+        assemblyNote:'Front sign panel — print/paint ad then glue to frame.',
+        paths:[{ type:'cut', d:`M0,0 H${bbW} V${bbH} H0 Z` }],
+        rects:[], lines:[],
       });
-      // Posts (two identical vertical strips)
-      const postW = matT * 1.5;
+
+      // Two A-frame support panels (front + back)
+      const baseW  = bbW + bbW * 0.56;
+      const splay  = (baseW - bbW) / 2;
+      const f4 = v => v.toFixed(4);
+      const nH = Math.max(3, Math.round(postH / 7));
+      const { paths:ap, lines:al } = latticePaths(baseW, postH, nH, 1, false);
+
+      // Replace outer rect path with trapezoid
+      const trapPath = `M${f4(splay)},0 H${f4(splay+bbW)} L${f4(baseW)},${f4(postH)} H0 Z`;
+      const supportPaths = [
+        { type:'cut', d:trapPath },
+        ...ap.slice(1),  // inner voids (skip outer rect)
+      ];
+
       for (let p = 0; p < 2; p++) {
         parts.push({
-          id: id + `_post${p}`, name: `${pfx} — post ${p+1}`,
-          material: 'core',
-          bboxW: postW, bboxH: postH + h, bboxOffsetX: 0, bboxOffsetY: 0,
-          paths: [{ type: 'cut', d: rectPath(0, 0, postW, postH + h) }],
-          rects: [], lines: [],
+          id:`${id}_support_${p}`,
+          name:`${pfx} — A-frame support (×2 identical)`,
+          material:'core',
+          bboxW:baseW, bboxH:postH,
+          bboxOffsetX:0, bboxOffsetY:0,
+          assemblyNote:`Front and back support frames — stand parallel, sign panel glues between. Cut ×2.`,
+          paths:supportPaths,
+          rects:[], lines:al,
         });
       }
     }
   });
+
   return parts;
 }
 
@@ -5418,7 +6020,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
   for (const wing of (cfg.wings || [])) {
     if (wing.face !== which) continue;
     if (wing.connection === 'open') continue;
-    const wH = (wing.height && wing.height > 0) ? wing.height : H;
+    const wH = wingHeight(cfg, wing);
     const { matT: wMatT = matT } = plan;
 
     let cx, cw;
@@ -5878,7 +6480,7 @@ function generateBuilding(cfg) {
   parts.push(generateFrontBackWall(cfg, plan, 'back'));
   const roofResult = generateRoof(cfg, plan);
   if (Array.isArray(roofResult)) parts.push(...roofResult); else parts.push(roofResult);
-  parts.push(generateFloor(cfg, plan));
+  parts.push(generateMergedFloor(cfg, plan));
 
   // Inter-floor core panels (one per interFloorYs entry)
   const interFloorParts = generateInterFloorPanels(cfg, plan);
@@ -6685,10 +7287,16 @@ function iwPopulateToolbox() {
       setTool('draw', c);
       document.getElementById('iwStatus').textContent = 'Drag to draw a wall — snaps to horizontal or vertical.';
     });
-    actionCard('✕', 'Erase wall', iwTool === 'erase', true,  c => {
+    actionCard('✕', 'Erase',      iwTool === 'erase', true,  c => {
       setTool('erase', c);
-      document.getElementById('iwStatus').textContent = 'Click a wall to delete it.';
+      document.getElementById('iwStatus').textContent = 'Click a wall or cutout to delete it.';
     });
+    sec('Cutouts');
+    dragCard('○', 'Circle', 'cable pass-through', { type: 'hole', shape: 'circle' },
+      [{ label: '⌀', key: 'd', val: 3, min: 0.5, max: 30, step: 0.5 }]);
+    dragCard('□', 'Square', 'cable pass-through', { type: 'hole', shape: 'square' },
+      [{ label: 'W', key: 'w', val: 5, min: 0.5, max: 50, step: 0.5 },
+       { label: 'H', key: 'h', val: 5, min: 0.5, max: 50, step: 0.5 }]);
   } else {
     sec('Roof items');
     dragCard('🏭', 'Mech. Room', 'enclosed structure', { type: 'mechroom', label: 'Mech. Room' },
@@ -6701,6 +7309,12 @@ function iwPopulateToolbox() {
     dragCard('📦', 'STL Zone',   'placement area',     { type: 'stlzone', label: 'STL Object' },
       [{ label:'W', key:'w', val:20, min:4, max:200 },
        { label:'D', key:'d', val:15, min:4, max:200 }]);
+    sec('Cutouts');
+    dragCard('○', 'Circle', 'cable pass-through', { type: 'hole', shape: 'circle' },
+      [{ label: '⌀', key: 'd', val: 3, min: 0.5, max: 30, step: 0.5 }]);
+    dragCard('□', 'Square', 'cable pass-through', { type: 'hole', shape: 'square' },
+      [{ label: 'W', key: 'w', val: 5, min: 0.5, max: 50, step: 0.5 },
+       { label: 'H', key: 'h', val: 5, min: 0.5, max: 50, step: 0.5 }]);
     sec('Tools');
     actionCard('🏗', 'Shield Wall', iwTool === 'shieldwall', false, c => {
       setTool('shieldwall', c);
@@ -6708,7 +7322,7 @@ function iwPopulateToolbox() {
     });
     actionCard('✕', 'Erase item',  iwTool === 'erase',      true,  c => {
       setTool('erase', c);
-      document.getElementById('iwStatus').textContent = 'Click a roof item to remove it.';
+      document.getElementById('iwStatus').textContent = 'Click a roof item or cutout to remove it.';
     });
   }
 }
@@ -6779,6 +7393,17 @@ function iwPopulateTopbar() {
 
 function iwGrid()  { return Math.max(1, parseFloat(document.getElementById('iwGridInput')?.value) || 5); }
 function iwSnap(v) { const g = iwGrid(); return Math.round(v / g) * g; }
+// Snap a coordinate to the building boundary if within half a grid unit
+function iwSnapAxis(v, max) {
+  const thresh = iwGrid() * 0.6;
+  if (v <= thresh)        return 0;
+  if (v >= max - thresh)  return max;
+  return iwSnap(v);
+}
+function iwSnapPt(x, y) {
+  const { bW, bD } = iwBounds();
+  return { x: iwSnapAxis(x, bW), y: iwSnapAxis(y, bD) };
+}
 function iwBounds() {
   if (!lastPlan) return { bW: 60, bD: 40 };
   return { bW: lastPlan.fbWidth - 2 * lastPlan.matT, bD: lastPlan.sideLen };
@@ -6868,15 +7493,47 @@ function iwRender() {
     // Wall drag preview
     if (iwDrag && !iwDragItem && iwDragPt && iwCurMM) {
       const cl = iwClamp(iwCurMM, bW, bD);
-      const al = iwAxisAlign(iwDragPt, { x: iwSnap(cl.x), y: iwSnap(cl.y) });
+      const al = iwAxisAlign(iwDragPt, iwSnapPt(cl.x, cl.y));
       const p1 = iwPX(iwDragPt.x, iwDragPt.y), p2 = iwPX(al.x, al.y);
       h += `<line x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="#2a5a9a88" stroke-width="${wallPx.toFixed(1)}" stroke-dasharray="6,4" pointer-events="none"/>`;
     }
     // Cursor dot
     if (iwCurMM && !iwDrag) {
       const cl = iwClamp(iwCurMM, bW, bD);
-      const sp = iwPX(iwSnap(cl.x), iwSnap(cl.y));
+      const sm = iwSnapPt(cl.x, cl.y);
+      const sp = iwPX(sm.x, sm.y);
       h += `<circle cx="${sp.x.toFixed(1)}" cy="${sp.y.toFixed(1)}" r="3" fill="${erasing?'#c44':'#2a5a9a'}" stroke="white" stroke-width="1.5" pointer-events="none"/>`;
+    }
+
+    // Floor holes (circles & squares)
+    const floorHoles = CONFIG.floorHoles || [];
+    floorHoles.forEach((hole, i) => {
+      const col = erasing ? '#c44' : '#8840a0';
+      if (hole.shape === 'circle') {
+        const r = (hole.d / 2) * iwScale;
+        const cp = iwPX(hole.x, hole.y);
+        h += `<circle class="iw-hole" data-i="${i}" cx="${cp.x.toFixed(1)}" cy="${cp.y.toFixed(1)}" r="${r.toFixed(1)}" fill="${erasing?'rgba(200,68,68,0.12)':'rgba(136,64,160,0.12)'}" stroke="${col}" stroke-width="1.5" style="cursor:${erasing?'pointer':'default'}"/>`;
+        h += `<line x1="${(cp.x-r*.4).toFixed(1)}" y1="${cp.y.toFixed(1)}" x2="${(cp.x+r*.4).toFixed(1)}" y2="${cp.y.toFixed(1)}" stroke="${col}" stroke-width="0.7" pointer-events="none"/>`;
+        h += `<line x1="${cp.x.toFixed(1)}" y1="${(cp.y-r*.4).toFixed(1)}" x2="${cp.x.toFixed(1)}" y2="${(cp.y+r*.4).toFixed(1)}" stroke="${col}" stroke-width="0.7" pointer-events="none"/>`;
+        if (iwScale > 2) h += `<text x="${cp.x.toFixed(1)}" y="${(cp.y+r+9).toFixed(1)}" font-size="8" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">⌀${hole.d}mm</text>`;
+      } else {
+        const hp = iwPX(hole.x - hole.w/2, hole.y - hole.h/2);
+        const pw = hole.w * iwScale, ph = hole.h * iwScale;
+        h += `<rect class="iw-hole" data-i="${i}" x="${hp.x.toFixed(1)}" y="${hp.y.toFixed(1)}" width="${pw.toFixed(1)}" height="${ph.toFixed(1)}" fill="${erasing?'rgba(200,68,68,0.12)':'rgba(136,64,160,0.12)'}" stroke="${col}" stroke-width="1.5" style="cursor:${erasing?'pointer':'default'}"/>`;
+        if (iwScale > 2) h += `<text x="${(hp.x+pw/2).toFixed(1)}" y="${(hp.y+ph+9).toFixed(1)}" font-size="8" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">${hole.w}×${hole.h}mm</text>`;
+      }
+    });
+    // Hole drag ghost (floor tab)
+    if (iwDragItem && iwDragItem.type === 'hole' && iwCurMM) {
+      const cl = iwClamp(iwCurMM, bW, bD);
+      const gp = iwPX(iwSnap(cl.x), iwSnap(cl.y));
+      if (iwDragItem.shape === 'circle') {
+        const r = (iwDragItem.d / 2) * iwScale;
+        h += `<circle cx="${gp.x.toFixed(1)}" cy="${gp.y.toFixed(1)}" r="${r.toFixed(1)}" fill="rgba(136,64,160,0.15)" stroke="#8840a0" stroke-width="1.5" stroke-dasharray="4,3" pointer-events="none"/>`;
+      } else {
+        const pw = iwDragItem.w * iwScale, ph = iwDragItem.h * iwScale;
+        h += `<rect x="${(gp.x-pw/2).toFixed(1)}" y="${(gp.y-ph/2).toFixed(1)}" width="${pw.toFixed(1)}" height="${ph.toFixed(1)}" fill="rgba(136,64,160,0.15)" stroke="#8840a0" stroke-width="1.5" stroke-dasharray="4,3" pointer-events="none"/>`;
+      }
     }
 
     svg.innerHTML = h;
@@ -6885,6 +7542,13 @@ function iwRender() {
         line.addEventListener('click', e => {
           e.stopPropagation();
           CONFIG.internalWalls[0].splice(parseInt(line.dataset.i), 1);
+          iwRender();
+        });
+      });
+      svg.querySelectorAll('.iw-hole').forEach(el => {
+        el.addEventListener('click', e => {
+          e.stopPropagation();
+          (CONFIG.floorHoles || []).splice(parseInt(el.dataset.i), 1);
           iwRender();
         });
       });
@@ -6897,24 +7561,56 @@ function iwRender() {
 
     items.forEach((item, i) => {
       const p = iwPX(item.x, item.y);
-      const pw = (item.w || 20) * iwScale, pd = (item.d || 15) * iwScale;
+      const pw = (item.w || 20) * iwScale, pd = (item.h || item.d || 15) * iwScale;
       const [fill, stroke] = COLORS[item.type] || ['#ccc','#888'];
       const outlineCol = erasing ? '#c44' : stroke;
       h += `<rect class="iw-item" data-i="${i}" x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}" width="${pw.toFixed(1)}" height="${pd.toFixed(1)}" fill="${fill}" stroke="${outlineCol}" stroke-width="${erasing?2:1.5}" rx="2" style="cursor:${erasing?'pointer':'move'}"/>`;
       if (iwScale > 2) {
         const lbl = item.label || item.type;
         h += `<text x="${(p.x + pw/2).toFixed(1)}" y="${(p.y + pd/2 + 4).toFixed(1)}" font-size="9" font-family="system-ui" fill="${stroke}" text-anchor="middle" pointer-events="none">${lbl}</text>`;
-        if (item.w && item.d) h += `<text x="${(p.x + pw/2).toFixed(1)}" y="${(p.y + pd/2 - 4).toFixed(1)}" font-size="8" font-family="system-ui" fill="${stroke}" text-anchor="middle" opacity="0.7" pointer-events="none">${item.w}×${item.d}</text>`;
+        const dim2 = item.h || item.d;
+        if (item.w && dim2) h += `<text x="${(p.x + pw/2).toFixed(1)}" y="${(p.y + pd/2 - 4).toFixed(1)}" font-size="8" font-family="system-ui" fill="${stroke}" text-anchor="middle" opacity="0.7" pointer-events="none">${item.w}×${dim2}</text>`;
       }
     });
 
-    // Roof item drag preview from toolbox
-    if (iwDragItem && iwCurMM) {
+    if (iwDragItem && iwDragItem.type !== 'hole' && iwCurMM) {
       const cl = iwClamp(iwCurMM, bW, bD);
-      const sx = iwSnap(cl.x - (iwDragItem.w||20)/2), sy = iwSnap(cl.y - (iwDragItem.d||15)/2);
+      const dim2 = iwDragItem.h || iwDragItem.d || 15;
+      const sx = iwSnap(cl.x - (iwDragItem.w||20)/2), sy = iwSnap(cl.y - dim2/2);
       const px = iwPX(sx, sy);
-      const pw = (iwDragItem.w || 20) * iwScale, pd = (iwDragItem.d || 15) * iwScale;
+      const pw = (iwDragItem.w || 20) * iwScale, pd = dim2 * iwScale;
       h += `<rect x="${px.x.toFixed(1)}" y="${px.y.toFixed(1)}" width="${pw.toFixed(1)}" height="${pd.toFixed(1)}" fill="rgba(100,100,200,0.25)" stroke="#448" stroke-width="1.5" stroke-dasharray="5,3" rx="2" pointer-events="none"/>`;
+    }
+
+    // Roof holes
+    const roofHoles = CONFIG.roofHoles || [];
+    roofHoles.forEach((hole, i) => {
+      const col = erasing ? '#c44' : '#8840a0';
+      if (hole.shape === 'circle') {
+        const r = (hole.d / 2) * iwScale;
+        const cp = iwPX(hole.x, hole.y);
+        h += `<circle class="iw-roof-hole" data-i="${i}" cx="${cp.x.toFixed(1)}" cy="${cp.y.toFixed(1)}" r="${r.toFixed(1)}" fill="${erasing?'rgba(200,68,68,0.12)':'rgba(136,64,160,0.12)'}" stroke="${col}" stroke-width="1.5" style="cursor:${erasing?'pointer':'default'}"/>`;
+        h += `<line x1="${(cp.x-r*.4).toFixed(1)}" y1="${cp.y.toFixed(1)}" x2="${(cp.x+r*.4).toFixed(1)}" y2="${cp.y.toFixed(1)}" stroke="${col}" stroke-width="0.7" pointer-events="none"/>`;
+        h += `<line x1="${cp.x.toFixed(1)}" y1="${(cp.y-r*.4).toFixed(1)}" x2="${cp.x.toFixed(1)}" y2="${(cp.y+r*.4).toFixed(1)}" stroke="${col}" stroke-width="0.7" pointer-events="none"/>`;
+        if (iwScale > 2) h += `<text x="${cp.x.toFixed(1)}" y="${(cp.y+r+9).toFixed(1)}" font-size="8" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">⌀${hole.d}mm</text>`;
+      } else {
+        const hp = iwPX(hole.x - hole.w/2, hole.y - hole.h/2);
+        const pw = hole.w * iwScale, ph = hole.h * iwScale;
+        h += `<rect class="iw-roof-hole" data-i="${i}" x="${hp.x.toFixed(1)}" y="${hp.y.toFixed(1)}" width="${pw.toFixed(1)}" height="${ph.toFixed(1)}" fill="${erasing?'rgba(200,68,68,0.12)':'rgba(136,64,160,0.12)'}" stroke="${col}" stroke-width="1.5" style="cursor:${erasing?'pointer':'default'}"/>`;
+        if (iwScale > 2) h += `<text x="${(hp.x+pw/2).toFixed(1)}" y="${(hp.y+ph+9).toFixed(1)}" font-size="8" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">${hole.w}×${hole.h}mm</text>`;
+      }
+    });
+    // Hole drag ghost (roof tab)
+    if (iwDragItem && iwDragItem.type === 'hole' && iwCurMM) {
+      const cl = iwClamp(iwCurMM, bW, bD);
+      const gp = iwPX(iwSnap(cl.x), iwSnap(cl.y));
+      if (iwDragItem.shape === 'circle') {
+        const r = (iwDragItem.d / 2) * iwScale;
+        h += `<circle cx="${gp.x.toFixed(1)}" cy="${gp.y.toFixed(1)}" r="${r.toFixed(1)}" fill="rgba(136,64,160,0.15)" stroke="#8840a0" stroke-width="1.5" stroke-dasharray="4,3" pointer-events="none"/>`;
+      } else {
+        const pw = iwDragItem.w * iwScale, ph = iwDragItem.h * iwScale;
+        h += `<rect x="${(gp.x-pw/2).toFixed(1)}" y="${(gp.y-ph/2).toFixed(1)}" width="${pw.toFixed(1)}" height="${ph.toFixed(1)}" fill="rgba(136,64,160,0.15)" stroke="#8840a0" stroke-width="1.5" stroke-dasharray="4,3" pointer-events="none"/>`;
+      }
     }
 
     svg.innerHTML = h;
@@ -6923,6 +7619,13 @@ function iwRender() {
         el.addEventListener('click', e => {
           e.stopPropagation();
           CONFIG.rooftopItems.splice(parseInt(el.dataset.i), 1);
+          iwRender();
+        });
+      });
+      svg.querySelectorAll('.iw-roof-hole').forEach(el => {
+        el.addEventListener('click', e => {
+          e.stopPropagation();
+          (CONFIG.roofHoles || []).splice(parseInt(el.dataset.i), 1);
           iwRender();
         });
       });
@@ -6946,19 +7649,29 @@ function iwHandleMouseDown(e) {
   if (iwTool !== 'draw' || iwIsRoof()) return;
   const { bW, bD } = iwBounds();
   const cl = iwClamp(iwSvgPt(e), bW, bD);
-  iwDragPt = { x: iwSnap(cl.x), y: iwSnap(cl.y) };
+  iwDragPt = iwSnapPt(cl.x, cl.y);
   iwDrag = true;
 }
 
 function iwHandleMouseUp(e) {
-  if (iwDragItem && iwIsRoof() && iwCurMM) {
-    // Place a roof item
+  if (iwDragItem && iwCurMM) {
     const { bW, bD } = iwBounds();
     const cl = iwClamp(iwCurMM, bW, bD);
-    const ix = Math.max(0, Math.min(bW - (iwDragItem.w||20), iwSnap(cl.x - (iwDragItem.w||20)/2)));
-    const iy = Math.max(0, Math.min(bD - (iwDragItem.d||15), iwSnap(cl.y - (iwDragItem.d||15)/2)));
-    if (!CONFIG.rooftopItems) CONFIG.rooftopItems = [];
-    CONFIG.rooftopItems.push({ ...iwDragItem, x: ix, y: iy });
+    const sx = iwSnap(cl.x), sy = iwSnap(cl.y);
+    if (iwDragItem.type === 'hole') {
+      // Place a circle or square cutout
+      const store = iwIsRoof()
+        ? (CONFIG.roofHoles  || (CONFIG.roofHoles  = []))
+        : (CONFIG.floorHoles || (CONFIG.floorHoles = []));
+      store.push({ ...iwDragItem, x: sx, y: sy });
+    } else if (iwIsRoof()) {
+      // Place a roof structural item
+      const dim2 = iwDragItem.h || iwDragItem.d || 15;
+      const ix = Math.max(0, Math.min(bW - (iwDragItem.w||20), iwSnap(sx - (iwDragItem.w||20)/2)));
+      const iy = Math.max(0, Math.min(bD - dim2, iwSnap(sy - dim2/2)));
+      if (!CONFIG.rooftopItems) CONFIG.rooftopItems = [];
+      CONFIG.rooftopItems.push({ ...iwDragItem, x: ix, y: iy });
+    }
     iwDragItem = null; iwDrag = false;
     iwRender(); return;
   }
@@ -6968,7 +7681,7 @@ function iwHandleMouseUp(e) {
   if (!iwDragPt || !iwCurMM) return;
   const { bW, bD } = iwBounds();
   const cl = iwClamp(iwCurMM, bW, bD);
-  const al = iwAxisAlign(iwDragPt, { x: iwSnap(cl.x), y: iwSnap(cl.y) });
+  const al = iwAxisAlign(iwDragPt, iwSnapPt(cl.x, cl.y));
   const len = Math.hypot(al.x - iwDragPt.x, al.y - iwDragPt.y);
   if (len < 3) { iwDragPt = null; return; }
   if (!CONFIG.internalWalls[0]) CONFIG.internalWalls[0] = [];
@@ -7797,7 +8510,7 @@ function generateBuildingStl(cfg) {
   // slots cut through them (the holes the wing wall-tabs pass through).
   const wingSlots = { east: [], west: [], front: [], back: [] };
   for (const wing of (cfg.wings || [])) {
-    const wH   = (wing.height && wing.height > 0) ? wing.height : H;
+    const wH   = wingHeight(cfg, wing);
     const off  = wing.offset;
     const wW   = wing.span;
     if (wing.face === 'east' || wing.face === 'west') {
@@ -8142,7 +8855,7 @@ function generateBuildingStl(cfg) {
   
   // ---- Wings ----
   for (const wing of (cfg.wings || [])) {
-    const wH   = (wing.height && wing.height > 0) ? wing.height : H;
+    const wH   = wingHeight(cfg, wing);
     const wD   = wing.depth;
     const wW   = wing.span;
     const off  = wing.offset;
@@ -8834,13 +9547,16 @@ function newWing(face, mainW, mainD) {
     offset,
     span,
     depth: 40,
-    height: null,
-    floors: null,
+    floors: 1,
     connection: 'wall',
     windowDensity: null,
     claddingStyle: null,
+    // Roof overrides — null means "inherit from main building"
     roofStyle: null,
-    parapetH: null,
+    parapetHeight: null,
+    roofPitch: null,
+    roofRidgeDirection: null,
+    roofSlopeDirection: null,
     frontDoorCount: 0,
     backDoorCount: 0,
     sideDoorCount: 0,
@@ -8849,21 +9565,42 @@ function newWing(face, mainW, mainD) {
   };
 }
 
+/* ---- Wing height (locked to main's floor heights) ----
+   Wings always inherit the main building's first-floor height and standard
+   floor height. Wing total height is therefore determined solely by its
+   floor count, never by an explicit height value. */
+function wingHeight(cfg, wing) {
+  const floorH = (cfg.floorHeight && cfg.floorHeight > 0) ? cfg.floorHeight : 30;
+  const firstH = (cfg.firstFloorHeightEnabled && cfg.firstFloorHeight && cfg.firstFloorHeight > 0)
+    ? cfg.firstFloorHeight
+    : floorH;
+  const fcount = (wing.floors && wing.floors > 0) ? wing.floors : 1;
+  return firstH + (fcount - 1) * floorH;
+}
+
 /* ---- Build a per-wing cfg by overriding main cfg dimensions ---- */
 function buildWingCfg(cfg, wing) {
-  const h = (wing.height && wing.height > 0) ? wing.height : cfg.height;
+  const h = wingHeight(cfg, wing);
+  const fcount = (wing.floors && wing.floors > 0) ? wing.floors : 1;
   // For any face attachment:
   //   "width" in buildEdgePlans = the wing's front/back wall dimension = wing.span
   //   "depth" in buildEdgePlans = the wing's side wall dimension     = wing.depth
+  // Roof overrides: each may be null (inherit from main cfg) or a wing-specific value.
+  // floorHeight / firstFloorHeight / firstFloorHeightEnabled are INHERITED from cfg
+  // via Object.assign and intentionally NOT overridden — wings use main's floor heights.
   return Object.assign({}, cfg, {
     width:  wing.span,
     depth:  wing.depth,
     height: h,
-    floors: (wing.floors && wing.floors > 0) ? wing.floors : (cfg.floors || 1),
+    floors:     fcount,
+    floorCount: fcount,    // buildEdgePlans reads floorCount, not floors
     claddingStyle: wing.claddingStyle || cfg.claddingStyle,
     windowDensity: wing.windowDensity || cfg.windowDensity,
-    roofStyle: wing.roofStyle || cfg.roofStyle,
-    parapetH: (wing.parapetH != null) ? wing.parapetH : cfg.parapetH,
+    roofStyle:          wing.roofStyle          || cfg.roofStyle,
+    parapetHeight:      (wing.parapetHeight     != null) ? wing.parapetHeight     : cfg.parapetHeight,
+    roofPitch:          (wing.roofPitch         != null) ? wing.roofPitch         : cfg.roofPitch,
+    roofRidgeDirection: wing.roofRidgeDirection || cfg.roofRidgeDirection,
+    roofSlopeDirection: wing.roofSlopeDirection || cfg.roofSlopeDirection,
     frontDoorCount: wing.frontDoorCount || 0,
     backDoorCount:  wing.backDoorCount  || 0,
     sideDoorCount:  wing.sideDoorCount  || 0,
@@ -8902,7 +9639,7 @@ function mainWallOpeningsFromWings(cfg) {
   for (const wing of (cfg.wings || [])) {
     if (wing.connection !== 'open') continue;
     const wallH = cfg.height;
-    const wingH = (wing.height && wing.height > 0) ? wing.height : cfg.height;
+    const wingH = wingHeight(cfg, wing);
     // In wall-local coords, y=0 is top, y=wallH is bottom
     // The opening sits at the bottom of the wall, spanning from y=wallH-wingH to y=wallH
     const y0 = wallH - wingH;
@@ -8984,7 +9721,7 @@ function generateBuildingWithWings(cfg) {
     const mainH = plan.H;
 
     for (const wing of (cfg.wings || [])) {
-      const wH   = (wing.height && wing.height > 0) ? wing.height : mainH;
+      const wH   = wingHeight(cfg, wing);
       const wCfg = buildWingCfg(cfg, wing);
       const wPlan = buildEdgePlans(wCfg);
       const cp   = wingCoplanarCheck(wing, mainW, mainD);
@@ -9029,15 +9766,20 @@ function generateBuildingWithWings(cfg) {
   }
   const roofResultMain = generateRoof(cfg, plan);
   if (Array.isArray(roofResultMain)) parts.push(...roofResultMain); else parts.push(roofResultMain);
-  parts.push(generateFloor(cfg, plan));
+  parts.push(generateMergedFloor(cfg, plan));
 
   /* Merge coplanar wing parallel faces into main block face walls.
      When a wing's parallel face is flush with a main block wall, replace the
      rectangular wall path with an L-shaped path combining both faces. */
   for (const wing of (cfg.wings || [])) {
     const cp  = wingCoplanarCheck(wing, mainW, mainD);
-    const wH  = (wing.height && wing.height > 0) ? wing.height : plan.H;
-    const extW = wing.depth;   // the wing adds this depth to the merged wall
+    const wH  = wingHeight(cfg, wing);
+    // The wing's parallel wall has length = wing.depth. But for the merged L-shape
+    // to be CONTINUOUS (no matT gap between main wall end and wing wall start), the
+    // extension must also bridge the wing's "front matT corner" — an extra matT of
+    // wall material right past the main wall's end. So total extension on the wall
+    // = wing.depth + matT.
+    const extW = wing.depth + plan.matT;
 
     // For east/west face wings: coplanar parallel faces extend front or back wall
     // For front/back face wings: coplanar parallel faces extend east or west side wall
@@ -9065,31 +9807,163 @@ function generateBuildingWithWings(cfg) {
       const faceMainW = faceIsEW2 ? plan.sideLen : plan.fbWidth;
       const totalW    = faceMainW + extW;
       const stepY     = plan.H - wH;
+      const matT      = plan.matT;
+      const tw        = cfg.tongueWidth || 15;
+      const margin    = Math.max(matT * 2, 5);
 
-      // Replace perimeter path with L-shaped version
-      const lPath = buildLShapePath(faceMainW, plan.H, extW, wH, extRight);
+      // ── Recompute the original wall's tongue positions so we can fold them into
+      // the L-shape. These match exactly what generateFrontBackWall/generateSideWall
+      // produced (they're cheap to redo and avoids fragile path-parsing). ────────
+      let mainTopT = [];
+      let mainBotT = [];
+      let leftT    = [];      // vertical slot positions on left/right (= tongues for side walls)
+      const ssRoofTop = (plan.roofStyle === 'flat');
+
+      if (!faceIsEW2) {
+        // Front/back wall main features
+        const hasBay = (face === 'front' && plan.hasFrontBay) || (face === 'back' && plan.hasBackBay);
+        const fbDoorCount = (face === 'front') ? (cfg.frontDoorCount || 0) : (cfg.backDoorCount || 0);
+        const manual = (cfg.manualOpenings || {})[face] || null;
+        let doors = [];
+        if (manual) doors = manual.filter(o => o.type === 'door');
+        else if (!hasBay && fbDoorCount > 0 && cfg.doorStyle && cfg.doorStyle !== 'none')
+          doors = computeDoors(plan.fbWidth, plan.H, { doorStyle: cfg.doorStyle, doorCount: fbDoorCount, hasOpening: false, bayXStart: 0, bayXEnd: 0 });
+        const doorForbidden = doors.map(d => [d.x - 2, d.x + (d.w !== undefined ? d.w : d.width) + 2]);
+        const bottomForbidden = [
+          ...(hasBay ? [[plan.bayXStart, plan.bayXEnd]] : []),
+          ...doorForbidden,
+        ];
+        mainBotT = placeTongues(plan.fbWidth, tw, margin, bottomForbidden, 3, tw / 2);
+        mainTopT = ssRoofTop ? placeTongues(plan.fbWidth, tw, margin, [], 3, tw / 2) : [];
+      } else {
+        // Side wall main features
+        const manual = (cfg.manualOpenings || {})[face] || null;
+        let doors = [];
+        if (manual) doors = manual.filter(o => o.type === 'door');
+        else if ((cfg.sideDoorCount || 0) > 0 && cfg.doorStyle && cfg.doorStyle !== 'none')
+          doors = computeDoors(plan.sideLen, plan.H, { doorStyle: cfg.doorStyle, doorCount: cfg.sideDoorCount, hasOpening: false, bayXStart: 0, bayXEnd: 0 });
+        const doorForbidden = doors.map(d => [d.x - 2, d.x + (d.w !== undefined ? d.w : d.width) + 2]);
+        mainBotT = placeTongues(plan.sideLen, tw, margin, doorForbidden, 3, tw / 2);
+        mainTopT = ssRoofTop ? placeTongues(plan.sideLen, tw, margin, [], 3, tw / 2) : [];
+      }
+
+      // Vertical (left edge) tongues — between front/back walls and side walls. Use
+      // the same algorithm as generateSideWall vertical tongues.
+      {
+        const sideHasBay = plan.hasFrontBay || plan.hasBackBay;
+        const verticalEdgeMinMargin = Math.max(plan.parapetH + matT + 2, 8);
+        const verticalEdgeMaxY = sideHasBay ? (plan.bayCeilingY - 3) : (plan.H - margin);
+        const vAvail = verticalEdgeMaxY - verticalEdgeMinMargin;
+        const vTongueCount = Math.max(2, Math.min(4, Math.floor(vAvail / 40)));
+        const verticalForbidden = [
+          [0, verticalEdgeMinMargin],
+          [verticalEdgeMaxY, plan.H],
+        ];
+        leftT = placeTongues(plan.H, tw, 0.1, verticalForbidden, vTongueCount, tw / 2);
+      }
+
+      // ── Extension features. The extension represents the WING's parallel wall.
+      // Its actual wall length = wing.depth (the matT corners around it are floor
+      // material, not wall). But the merged L-shape spans an extra matT to bridge
+      // the wing's "front matT corner" gap — so the wall has wing.depth + matT total
+      // extension length, with the wing wall's tongues offset by matT from the start
+      // of the extension. ─────────
+      const wallLenExt = wing.depth;       // actual wing parallel-wall length
+      const extBotT  = placeTongues(wallLenExt, tw, margin, [], 3, tw / 2);
+      const extTopT  = ssRoofTop ? placeTongues(wallLenExt, tw, margin, [], 3, tw / 2) : [];
+      // Vertical tongues for the extension's outer right edge (between the wing's
+      // far wall and this merged wall). Length = wH (the wing's height).
+      const extVerticalMaxY = wH - margin;
+      const extVerticalMinMargin = Math.max(plan.parapetH + matT + 2, 8);
+      const extVAvail = Math.max(0, extVerticalMaxY - extVerticalMinMargin);
+      const extVCount = (extVAvail > 0) ? Math.max(2, Math.min(4, Math.floor(extVAvail / 40))) : 0;
+      const extVerticalForbidden = [[0, extVerticalMinMargin], [extVerticalMaxY, wH]];
+      const extRightT = (extVCount > 0)
+        ? placeTongues(wH, tw, 0.1, extVerticalForbidden, extVCount, tw / 2)
+                .map(t => ({ start: t.start - stepY, end: t.end - stepY }))   // make relative to stepY
+                .filter(t => t.start >= -0.01 && t.end <= wH + 0.01)
+        : [];
+
+      // Bay opening (on front/back faces only, when this face has a bay).
+      // Carved upward from the bottom edge of the merged L. Coordinates are
+      // translated into L-frame: for extLeft, the main side sits at L-x ≥ extW.
+      const mergeMainHasBay = !faceIsEW2 &&
+        ((face === 'front' && plan.hasFrontBay) || (face === 'back' && plan.hasBackBay));
+      const bayOpt = mergeMainHasBay
+        ? { xStart: plan.bayXStart + (extRight ? 0 : extW),
+            xEnd:   plan.bayXEnd   + (extRight ? 0 : extW),
+            height: plan.bayHeight }
+        : null;
+
+      // Build the L-shape path WITH every edge tongue restored.
+      const lPath = buildLShapePathWithFeatures(faceMainW, plan.H, extW, wH, extRight, {
+        matT,
+        mainTopTongues:   mainTopT,
+        extTopTongues:    extTopT,
+        extTopShift:      matT,         // wing roof slots are matT past extension start
+        mainBotTongues:   mainBotT,
+        extBotTongues:    extBotT,
+        extBotShift:      matT,         // floor slots are inset matT from extension start
+        extRightTongues:  extRightT,
+        leftTongues:      leftT,
+        mainRightTongues: leftT,        // for extRight=false the "right" of the L is the main wall's far side
+        bay:              bayOpt,
+      });
       wallPart.paths = [{ type: 'cut', d: lPath }];
 
-      // Update bbox to include the extension
-      wallPart.bboxW = totalW + 2 * plan.matT;
+      // Update bbox to include the extension (and the matT tongue protrusions)
+      wallPart.bboxW = totalW + 2 * matT;
       wallPart.name  = wallPart.name.replace(' (merged)', '') + ' (merged)';
 
-      // Add roof-connection slots along the wing's top edge (the inner step top)
-      // These are the slots that receive the wing roof panel's bottom tongues
-      if (plan.roofStyle === 'parapet' || plan.roofStyle === 'slanted' || plan.roofStyle === 'gabled') {
-        const tw     = cfg.tongueWidth || 15;
-        const margin = Math.max(plan.matT * 2, 5);
-        const extSlots = placeTongues(extW, tw, margin, [], Math.max(2, Math.floor(extW / 30)), tw / 2);
-        const xOff = extRight ? faceMainW : 0;
-        for (const t of extSlots) {
-          wallPart.rects.push({
-            type: 'cut',
-            x: xOff + t.start, y: stepY + plan.parapetH,
-            w: t.end - t.start, h: plan.matT,
-            compensateKerf: true,
-          });
-        }
+      // ── Translate main wall's existing features (windows/doors/slots) into
+      // the merged L's coordinate frame. For extRight=true the main occupies
+      // the same x range it always did (path-x [0, mainW]), so no translation.
+      // For extRight=false (extension on left), the main wall is shifted right
+      // by extW in the L frame and its rects must follow.
+      const mainTx = extRight ? 0 : extW;
+      if (mainTx !== 0) {
+        wallPart.rects = (wallPart.rects || []).map(r => ({ ...r, x: r.x + mainTx }));
+        wallPart.lines = (wallPart.lines || []).map(l => ({
+          ...l,
+          x1: l.x1 + mainTx, x2: l.x2 + mainTx,
+        }));
       }
+
+      // ── Generate the wing's coplanar wall and fold its rects (windows,
+      // doors, slots for inter-floor panels, slots for the wing's
+      // perpendicular walls, slots for the wing roof tongues, etc.) into
+      // wallPart.rects. Without this the L-shape wall is blank in the wing
+      // section even though the cladding above it shows windows.
+      //
+      // The wing wall's rects are in its own wall-content frame
+      // (x∈[0, sideLen], y∈[0, wH]). In the merged L frame the wing wall
+      // content sits at:
+      //     merged_x ∈ [(extRight?faceMainW:0) + 2·matT,
+      //                 (extRight?faceMainW:0) + 2·matT + sideLen]
+      //     merged_y ∈ [stepY, stepY + wH]
+      // The +2·matT offset is: one matT bridge of wall material between main
+      // wall end and the wing wall, plus one matT for the wing's front matT
+      // corner (where the wing's connecting wall thickness sits).
+      //
+      // For the wing's 'east' face the wall is viewed from the opposite side
+      // so its x is mirrored before translation, matching the flip the
+      // cladding merge applies.
+      const wCfg     = buildWingCfg(cfg, wing);
+      const wPlan    = buildEdgePlans(wCfg);
+      // For each merge entry, the wing face coplanar with the main face being
+      // merged is unambiguous: front/west merges pair with the wing's west
+      // face; back/east merges pair with the wing's east face.
+      const wingFace = (face === 'front' || face === 'west') ? 'west' : 'east';
+      const wingSide = (wingFace === 'east') ? 'E' : 'W';
+      const wingWall = generateSideWall(wCfg, wPlan, wingSide);
+      const wSideLen = wPlan.sideLen;
+      const wingWallXStart = (extRight ? faceMainW : 0) + 2 * matT;
+      const flipWX = (wingFace === 'east');
+      const wingRectsT = (wingWall.rects || []).map(r => {
+        const x = flipWX ? (wSideLen - (r.x + r.w)) : r.x;
+        return { ...r, x: x + wingWallXStart, y: r.y + stepY };
+      });
+      wallPart.rects = (wallPart.rects || []).concat(wingRectsT);
     }
   }
 
@@ -9118,6 +9992,187 @@ function generateBuildingWithWings(cfg) {
      are handled as rectangular cutouts inside generateCladdingPanel.
      For 'open' wings the main wall has an opening already, so no extra exclusion needed. */
   pushCladding(cfg, plan, '', new Set());
+
+  /* ── L-shape cladding merge ──────────────────────────────────────────────
+     When a wing is coplanar with a main face, replace the rectangular
+     main-face cladding panel with an L-shape that also covers the wing's
+     parallel face. Mirrors the L-shape merge of the core wall underneath, so
+     the cladding piece is a single continuous panel instead of two abutting
+     rectangles with a matT gap. */
+  (function mergeLShapeCladding() {
+    if (!cfg.wings || cfg.wings.length === 0) return;
+    const split = hasSplitCladding(cfg);
+    // Main panel IDs differ for split vs single cladding. For split cladding
+    // we merge band-by-band (upper with upper, ground with ground); for single
+    // cladding we merge one combined panel.
+    const cladIdsFor = split
+      ? {
+          front: ['cladding_front_upper', 'cladding_front_ground'],
+          back:  ['cladding_back_upper',  'cladding_back_ground'],
+          east:  ['cladding_east_upper',  'cladding_east_ground'],
+          west:  ['cladding_west_upper',  'cladding_west_ground'],
+        }
+      : {
+          front: ['cladding_front'],
+          back:  ['cladding_back'],
+          east:  ['cladding_side_east'],
+          west:  ['cladding_side_west'],
+        };
+    const fx = v => v.toFixed(3);
+
+    for (const wing of cfg.wings) {
+      const cp = wingCoplanarCheck(wing, mainW, mainD);
+      if (!cp.westCoplanar && !cp.eastCoplanar) continue;
+      const wCfg  = buildWingCfg(cfg, wing);
+      // Wing inherits split-cladding flag from main by default. If they diverge
+      // (e.g. wing overrides claddingStyle in a way that changes splitness),
+      // skip the merge — combining a single panel with an upper/ground pair
+      // would require splitting one of them, which we don't support yet.
+      if (split !== hasSplitCladding(wCfg)) continue;
+      const wPlan = buildEdgePlans(wCfg);
+      const wingIsEW    = (wing.face === 'east' || wing.face === 'west');
+      const wingIsEast  = (wing.face === 'east');
+      const wingIsFront = (wing.face === 'front');
+      const merges = [];
+      if (wingIsEW) {
+        if (cp.westCoplanar) merges.push({ face: 'front', extRight: wingIsEast,  wingFace: 'west' });
+        if (cp.eastCoplanar) merges.push({ face: 'back',  extRight: wingIsEast,  wingFace: 'east' });
+      } else {
+        if (cp.westCoplanar) merges.push({ face: 'west',  extRight: wingIsFront, wingFace: 'west' });
+        if (cp.eastCoplanar) merges.push({ face: 'east',  extRight: wingIsFront, wingFace: 'east' });
+      }
+
+      for (const m of merges) {
+        const mainIds = cladIdsFor[m.face];
+        const bands   = split ? ['upper', 'ground'] : [null];
+
+        for (let bi = 0; bi < mainIds.length; bi++) {
+          const mainId = mainIds[bi];
+          const band   = bands[bi];
+          const idx    = parts.findIndex(p => p.id === mainId);
+          if (idx < 0) continue;
+          const mainPart = parts[idx];
+
+          // Generate the wing's coplanar parallel-face cladding panel. It
+          // would otherwise be excluded — here we fold it into the main panel.
+          const wingPart = band
+            ? generateCladdingPanel(wCfg, wPlan, m.wingFace, band)
+            : generateCladdingPanel(wCfg, wPlan, m.wingFace);
+          if (!wingPart) continue;
+
+          const mainCW = mainPart.bboxW;
+          const mainCH = mainPart.bboxH;
+          const extCW  = wingPart.bboxW;
+          const extCH  = wingPart.bboxH;
+          const stepY  = mainCH - extCH;
+          const totalW = mainCW + extCW;
+
+          // Translation of features into the merged panel's coordinate frame.
+          // (0,0) of the merged panel is at the merged outline's top-left.
+          const mainTx = m.extRight ? 0      : extCW;
+          const wingTx = m.extRight ? mainCW : 0;
+          const wingTy = stepY;
+          // For the wing's 'east' face cladding panel, x=0 is at the wing's
+          // outer end (away from main) rather than the connection side. Flip x
+          // so the connection side lines up with the merged step.
+          const flipWX = (m.wingFace === 'east');
+
+          // L-shape outer perimeter
+          let lPath;
+          if (m.extRight) {
+            lPath = `M 0,0 L ${fx(mainCW)},0 L ${fx(mainCW)},${fx(stepY)} L ${fx(totalW)},${fx(stepY)} L ${fx(totalW)},${fx(mainCH)} L 0,${fx(mainCH)} Z`;
+          } else {
+            lPath = `M 0,${fx(stepY)} L ${fx(extCW)},${fx(stepY)} L ${fx(extCW)},0 L ${fx(totalW)},0 L ${fx(totalW)},${fx(mainCH)} L 0,${fx(mainCH)} Z`;
+          }
+
+          // Parse any extra rect-shaped paths (e.g. bay cutout) on main back
+          // to {x,y,w,h} rects so we can:
+          //   1. Translate them by mainTx (so extLeft case puts the bay in
+          //      the right place — was previously broken).
+          //   2. Add them to the cuts list used for pattern regeneration so
+          //      seam lines don't draw across the bay opening.
+          function rectFromCutPath(d) {
+            if (!d || typeof d !== 'string') return null;
+            const re = /^M\s+([-\d.]+),([-\d.]+)\s+L\s+([-\d.]+),([-\d.]+)\s+L\s+([-\d.]+),([-\d.]+)\s+L\s+([-\d.]+),([-\d.]+)\s+Z\s*$/;
+            const mm = d.match(re);
+            if (!mm) return null;
+            const n = mm.slice(1).map(parseFloat);
+            const x1 = n[0], y1 = n[1], x2 = n[2], y2 = n[3], x3 = n[4], y3 = n[5], x4 = n[6], y4 = n[7];
+            if (Math.abs(x1 - x4) > 0.001 || Math.abs(x2 - x3) > 0.001 ||
+                Math.abs(y1 - y2) > 0.001 || Math.abs(y3 - y4) > 0.001) return null;
+            return { x: x1, y: y1, w: x2 - x1, h: y4 - y1 };
+          }
+          const extraRects = (mainPart.paths || []).slice(1)
+            .map(p => rectFromCutPath(p.d))
+            .filter(r => r !== null)
+            .map(r => ({ ...r, x: r.x + (m.extRight ? 0 : extCW) })); // translate by mainTx
+
+          // Replace the outer perimeter; rebuild extra paths with the
+          // translated positions so the bay cutout lines up after merge.
+          mainPart.paths = [
+            { type: 'cut', d: lPath },
+            ...extraRects.map(r => ({ type: 'cut', d: rectPath(r.x, r.y, r.w, r.h) })),
+          ];
+
+          // Translate main's existing features when extension is on the left
+          if (mainTx !== 0) {
+            mainPart.rects = (mainPart.rects || []).map(r => ({ ...r, x: r.x + mainTx }));
+            mainPart.lines = (mainPart.lines || []).map(l => ({ ...l, x1: l.x1 + mainTx, x2: l.x2 + mainTx }));
+          }
+
+          // Translate and merge wing's features (rects & etched seam lines)
+          const wingRects = (wingPart.rects || []).map(r => {
+            const x = flipWX ? (extCW - (r.x + r.w)) : r.x;
+            return { ...r, x: x + wingTx, y: r.y + wingTy };
+          });
+          const wingLines = (wingPart.lines || []).map(l => {
+            const x1 = flipWX ? (extCW - l.x1) : l.x1;
+            const x2 = flipWX ? (extCW - l.x2) : l.x2;
+            return { ...l, x1: x1 + wingTx, y1: l.y1 + wingTy, x2: x2 + wingTx, y2: l.y2 + wingTy };
+          });
+          mainPart.rects = (mainPart.rects || []).concat(wingRects);
+
+          // Regenerate the cladding seam-line pattern over the full merged L.
+          // Each per-panel pattern previously was evenly distributed across its
+          // own width (x = i × W/n), so a narrow wing panel and wide main panel
+          // produced different X spacings that never lined up at the seam.
+          // Regenerating once over the L bbox with the missing corner added as
+          // a clipping cut gives a single continuous pattern with consistent
+          // spacing — matching how the core wall's L-shape underneath behaves.
+          //
+          // Falls back to the old concat behaviour when main and wing use
+          // different cladding styles (style mismatch can't be unified).
+          const cT = cfg.claddingThickness || 0.28;
+          const mainStyleKey = (band === 'ground') ? cfg.firstFloorCladdingStyle  : cfg.claddingStyle;
+          const wingStyleKey = (band === 'ground') ? wCfg.firstFloorCladdingStyle : wCfg.claddingStyle;
+          const styleSpec    = CLADDING_STYLES[mainStyleKey];
+          if (styleSpec && mainStyleKey === wingStyleKey) {
+            // Missing-corner cut. Extend height by cT so the wing-section
+            // pattern doesn't bleed into the wing's top cladding-thickness
+            // padding (the strip at y=stepY..stepY+cT that sits inside the L
+            // outline but outside the wing's wall content area).
+            const cornerCut = m.extRight
+              ? { x: mainCW, y: 0, w: extCW, h: stepY + cT }
+              : { x: 0,      y: 0, w: extCW, h: stepY + cT };
+            const cuts = mainPart.rects.concat([cornerCut]).concat(extraRects);
+            const patEtchTop    = (band === 'ground') ? 0      : cT;
+            const patEtchBottom = (band === 'upper')  ? mainCH : mainCH - cT;
+            const lines = generateCladdingPattern(
+              styleSpec, cT, patEtchTop, totalW - cT, patEtchBottom, cuts,
+            );
+            mainPart.lines = lines.map(ln => ({ type: 'etch', x1: ln.x1, y1: ln.y1, x2: ln.x2, y2: ln.y2 }));
+          } else {
+            // Mismatched styles — fall back to keeping each side's own pattern.
+            mainPart.lines = (mainPart.lines || []).concat(wingLines);
+          }
+
+          // Update bbox and name
+          mainPart.bboxW = totalW;
+          if (!mainPart.name.includes('(L-shape)')) mainPart.name += ' (L-shape)';
+        }
+      }
+    }
+  })();
 
   parts.push(...generateTrimStrips(cfg, plan));
   parts.push(...generateGroundFloorOffsetParts(cfg, plan));
@@ -9163,10 +10218,8 @@ function generateBuildingWithWings(cfg) {
       if (!isMerged) parts.push(p);
     }
 
-    /* Wing floor */
-    const wFloor = generateFloor(wCfg, wPlan);
-    wFloor.id += sfx; wFloor.name = `Wing ${wi+1} Floor`;
-    parts.push(wFloor);
+    /* Wing floor — merged into main building floor via generateMergedFloor,
+       so we DON'T push a separate wing floor part here. */
 
     /* Wing inter-floor panels */
     const wInterFloors = generateInterFloorPanels(wCfg, wPlan);
@@ -9683,10 +10736,6 @@ function wlKeyDown(e) {
 }
 </script>
 
-  }
-}
-</script>
-
 <script>
 /* =====================================================================
    WING / MULTI-BLOCK BUILDING SYSTEM
@@ -9765,7 +10814,7 @@ function weBuildWingCfg(cfg, wing) {
     bayConfig:      'none',
     bayXOverride:   null,
     roofStyle:      wing.roofStyle   || cfg.roofStyle,
-    parapetHeight:  wing.parapetH    != null ? wing.parapetH    : cfg.parapetHeight,
+    parapetHeight:  wing.parapetHeight != null ? wing.parapetHeight : cfg.parapetHeight,
     manualOpenings: wing.manualOpenings || { front: null, back: null, east: null, west: null },
     wings: [],   // no nested wings
     // cosmetic ids
@@ -10304,8 +11353,24 @@ function weRenderSidebar() {
 
   numField('Offset (mm)',  'offset', 0,   500, 1);
   twoNumFields('Span (mm)', 'span', 'Depth (mm)', 'depth', 5, 500, 1);
-  numField('Height (mm)', 'height', 10,  200, 1);
-  numField('Floors',      'floors',  1,   10, 1);
+  numField('Floors',       'floors',  1,   10, 1);
+
+  // Show the derived total height as a read-only hint so users know what
+  // floor count maps to. Wing height is locked to main building floor heights:
+  // first floor matches main's first-floor height, each floor above is one
+  // standard main floor height.
+  (function showDerivedHeight() {
+    const h = wingHeight(CONFIG, wing);
+    const floorH = (CONFIG.floorHeight && CONFIG.floorHeight > 0) ? CONFIG.floorHeight : 30;
+    const firstH = (CONFIG.firstFloorHeightEnabled && CONFIG.firstFloorHeight && CONFIG.firstFloorHeight > 0)
+      ? CONFIG.firstFloorHeight
+      : floorH;
+    const hint = document.createElement('div');
+    hint.className = 'we-hint';
+    hint.style.cssText = 'font-size:11px;color:#666;margin:-4px 0 8px 0;line-height:1.4;';
+    hint.textContent = `Height: ${h} mm (1st floor ${firstH} mm + ${(wing.floors||1)-1} × ${floorH} mm) — locked to main building`;
+    sidebar.appendChild(hint);
+  })();
 
   // Connection type
   const connHdr = document.createElement('div'); connHdr.className = 'we-section-label'; connHdr.textContent = 'Connection';
@@ -10343,7 +11408,62 @@ function weRenderSidebar() {
   }
 
   selectField('Cladding', 'claddingStyle', Object.entries(CLADDING_STYLES).map(([k, v]) => [k, v.label || k]));
-  selectField('Roof',     'roofStyle',     [['flat','Flat'],['parapet','Parapet'],['gabled','Gabled']]);
+  selectField('Roof',     'roofStyle',     [
+    ['flat',    'Flat'],
+    ['parapet', 'Parapet'],
+    ['slanted', 'Slanted'],
+    ['gabled',  'Gabled'],
+  ]);
+
+  // ── Roof-specific overrides. The effective roof style is the wing's override
+  // (when set) or main cfg's value (when wing.roofStyle is null/Inherit). Each
+  // sub-field can independently be left empty to inherit main's value.
+  const effectiveRoof = wing.roofStyle || CONFIG.roofStyle;
+
+  function inheritedNumField(label, key, min, max, step, mainValue) {
+    const d = document.createElement('div'); d.className = 'field';
+    const placeholder = (mainValue != null) ? `inherit (${mainValue})` : 'inherit';
+    d.innerHTML = `<label>${label}</label><input type="number" min="${min}" max="${max}" step="${step}" value="${wing[key] != null ? wing[key] : ''}" placeholder="${placeholder}">`;
+    const inp = d.querySelector('input');
+    inp.addEventListener('change', () => {
+      const v = inp.value.trim();
+      wing[key] = v === '' ? null : parseFloat(v);
+      weRender(); weRenderSidebar(); regenerate();
+    });
+    sidebar.appendChild(d);
+  }
+  function inheritedSelectField(label, key, options, mainValue) {
+    const d = document.createElement('div'); d.className = 'field';
+    const mainLabel = options.find(([v]) => v === mainValue);
+    const inheritLabel = mainLabel ? `— Inherit (${mainLabel[1]}) —` : '— Inherit —';
+    const opts = [['', inheritLabel], ...options];
+    d.innerHTML = `<label>${label}</label><select>${opts.map(([v,t]) =>
+      `<option value="${v}" ${wing[key] === v || (v === '' && wing[key] == null) ? 'selected' : ''}>${t}</option>`
+    ).join('')}</select>`;
+    d.querySelector('select').addEventListener('change', ev => {
+      wing[key] = ev.target.value || null;
+      weRender(); weRenderSidebar(); regenerate();
+    });
+    sidebar.appendChild(d);
+  }
+
+  if (effectiveRoof === 'parapet') {
+    inheritedNumField('Parapet height (mm)', 'parapetHeight', 1, 10, 0.5, CONFIG.parapetHeight);
+  } else if (effectiveRoof === 'slanted') {
+    inheritedNumField('Roof pitch (mm rise)', 'roofPitch', 3, 40, 1, CONFIG.roofPitch);
+    inheritedSelectField('High side', 'roofSlopeDirection', [
+      ['back',  'Back is high'],
+      ['front', 'Front is high'],
+      ['east',  'East is high'],
+      ['west',  'West is high'],
+    ], CONFIG.roofSlopeDirection);
+  } else if (effectiveRoof === 'gabled') {
+    inheritedNumField('Roof pitch (mm rise)', 'roofPitch', 3, 40, 1, CONFIG.roofPitch);
+    inheritedSelectField('Ridge direction', 'roofRidgeDirection', [
+      ['ew', 'East–West (slopes face span ends)'],
+      ['ns', 'North–South (slopes face depth ends)'],
+    ], CONFIG.roofRidgeDirection);
+  }
 
   // Delete button
   const delBtn = document.createElement('button');
@@ -11445,7 +12565,7 @@ function oeComputeWingExtensions() {
 
   for (const wing of wings) {
     const cp     = wingCoplanarCheck(wing, mainW, mainD);
-    const wingH  = (wing.height && wing.height > 0) ? wing.height : baseH;
+    const wingH  = wingHeight(CONFIG, wing);
     const extW   = wing.depth; // how far the wing extends perpendicular to the joined face
 
     switch (oeWall) {
@@ -11564,18 +12684,46 @@ function oeRender() {
   svg.setAttribute('height',  svgH);
   svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
 
-  // Build polygon points for the wall outline
+  // Build polygon points for the wall outline. Includes coplanar wing
+  // extensions as L (or U) steps so the merged wall looks continuous — and
+  // so cladding, floor bands and parapet (all drawn inside the clip path)
+  // naturally extend across the wing portion too.
   function wallPts() {
     const p = [];
-    p.push(`${ox},${(oy + wallH*s).toFixed(1)}`);         // bottom-left
-    p.push(`${ox},${(oy - pitchL*s).toFixed(1)}`);        // top-left
+    // Up to one extension per side is supported in the polygon. Additional
+    // extensions on the same side will still render as separate hatched
+    // panels (rare case).
+    const lExt = leftExts[0]  || null;
+    const rExt = rightExts[0] || null;
+    const lExtWpx = lExt ? lExt.width  * s : 0;
+    const lExtHpx = lExt ? lExt.height * s : 0;
+    const rExtWpx = rExt ? rExt.width  * s : 0;
+    const rExtHpx = rExt ? rExt.height * s : 0;
+    const x0 = ox - lExtWpx;
+    const xE = ox + W*s + rExtWpx;
+    const yB = oy + wallH*s;
+    // Walk the perimeter counter-clockwise starting bottom-left.
+    p.push(`${x0.toFixed(1)},${yB.toFixed(1)}`);                                     // bottom-left
+    if (lExt) {
+      p.push(`${x0.toFixed(1)},${(yB - lExtHpx).toFixed(1)}`);                       // up left ext
+      p.push(`${ox.toFixed(1)},${(yB - lExtHpx).toFixed(1)}`);                       // step right at ext top
+    }
+    p.push(`${ox.toFixed(1)},${(oy - pitchL*s).toFixed(1)}`);                        // main top-left
     if (gable > 0)
-      p.push(`${(ox+W*s/2).toFixed(1)},${(oy-gable*s).toFixed(1)}`); // apex
-    p.push(`${(ox+W*s).toFixed(1)},${(oy-pitchR*s).toFixed(1)}`);    // top-right
-    p.push(`${(ox+W*s).toFixed(1)},${(oy+wallH*s).toFixed(1)}`);     // bottom-right
+      p.push(`${(ox+W*s/2).toFixed(1)},${(oy - gable*s).toFixed(1)}`);               // apex
+    p.push(`${(ox+W*s).toFixed(1)},${(oy - pitchR*s).toFixed(1)}`);                  // main top-right
+    if (rExt) {
+      p.push(`${(ox+W*s).toFixed(1)},${(yB - rExtHpx).toFixed(1)}`);                 // down to right ext top
+      p.push(`${xE.toFixed(1)},${(yB - rExtHpx).toFixed(1)}`);                       // right along ext top
+    }
+    p.push(`${xE.toFixed(1)},${yB.toFixed(1)}`);                                     // bottom-right
     return p.join(' ');
   }
   const WPTS = wallPts();
+  // Total extended wall x range used by cladding, floor bands, parapet
+  const wxStart = ox - leftExtW * s;
+  const wxEnd   = ox + W * s + rightExtW * s;
+  const wxW     = wxEnd - wxStart;
 
   let html = `<defs>
     <clipPath id="oe-wall-clip"><polygon points="${WPTS}"/></clipPath>
@@ -11604,21 +12752,21 @@ function oeRender() {
     html += `</g>`;
   }
 
-  // Floor band tints
+  // Floor band tints (extend across wing portion too via the L-shape clip)
   const bands = oeGetFloorBands(oeWall);
   for (let i = 0; i < bands.length; i++) {
     const b = bands[i];
     const by = oy + b.yTop * s, bh = (b.yBottom - b.yTop) * s;
-    html += `<rect x="${ox}" y="${by}" width="${W*s}" height="${bh}" fill="${OE_BAND_FILLS[i % 2]}" pointer-events="none"/>`;
+    html += `<rect x="${wxStart.toFixed(1)}" y="${by}" width="${wxW.toFixed(1)}" height="${bh}" fill="${OE_BAND_FILLS[i % 2]}" pointer-events="none"/>`;
     if (i > 0)
-      html += `<line x1="${ox}" y1="${by}" x2="${ox+W*s}" y2="${by}" stroke="rgba(80,80,80,0.25)" stroke-width="0.8" stroke-dasharray="4 3" pointer-events="none"/>`;
-    html += `<text x="${ox+W*s-3}" y="${by+bh-4}" font-size="8" fill="rgba(60,60,60,0.35)" text-anchor="end" font-family="system-ui" pointer-events="none">floor ${bands.length - i}</text>`;
+      html += `<line x1="${wxStart.toFixed(1)}" y1="${by}" x2="${wxEnd.toFixed(1)}" y2="${by}" stroke="rgba(80,80,80,0.25)" stroke-width="0.8" stroke-dasharray="4 3" pointer-events="none"/>`;
+    html += `<text x="${(ox+W*s-3).toFixed(1)}" y="${by+bh-4}" font-size="8" fill="rgba(60,60,60,0.35)" text-anchor="end" font-family="system-ui" pointer-events="none">floor ${bands.length - i}</text>`;
   }
 
-  // Parapet zone
+  // Parapet zone (extends across L-shape — clip path crops to wing's parapet height too)
   if (lastPlan && lastPlan.parapetH > 0) {
     const ph = lastPlan.parapetH * s;
-    html += `<rect x="${ox}" y="${oy}" width="${W*s}" height="${ph}" fill="url(#oe-hatch)" opacity="0.55" pointer-events="none"/>`;
+    html += `<rect x="${wxStart.toFixed(1)}" y="${oy}" width="${wxW.toFixed(1)}" height="${ph}" fill="url(#oe-hatch)" opacity="0.55" pointer-events="none"/>`;
     html += `<text x="${ox+4}" y="${oy+ph-3}" font-size="9" fill="#666" font-family="system-ui" pointer-events="none">parapet</text>`;
   }
 
@@ -11647,25 +12795,45 @@ function oeRender() {
       html += `<line x1="${ox}" y1="${oy+cy*s}" x2="${ox+W*s}" y2="${oy+cy*s}" stroke="rgba(80,140,100,0.4)" stroke-width="0.7" stroke-dasharray="5 4" pointer-events="none"/>`;
   }
 
-  // Cladding overlay
+  // Cladding overlay (extends across full L-shape — clip path crops naturally)
   if (oeShowCladding && lastPlan) {
     const cT = CONFIG.claddingThickness || 0.28;
     const ops = oeOpenings[oeWall] || [];
     const cutOpenings = ops.filter(op => op.type !== 'awning' && op.type !== 'balcony')
                            .map(op => ({ x:op.x, y:op.y, w:op.w, h:op.h }));
 
+    // Full extended wall width in mm (main + left + right wing extensions)
+    const wxWmm = W + leftExtW + rightExtW;
+    // The cladding pattern is computed across the full extended width in
+    // *mm*, with main wall's openings positioned at x = leftExtW + op.x
+    // (shifted right by the left extension). Wing openings on the extension
+    // areas are not currently included — the wing wall is read-only here
+    // and its openings are drawn as overlays later.
+    const cladOps = cutOpenings.map(op => ({ x: op.x + leftExtW, y: op.y, w: op.w, h: op.h }));
+    // Include the bay opening as a cut so cladding seam lines don't draw
+    // across it (same fix we apply to the laser-panel cladding).
+    if (lastPlan && ((oeWall === 'front' && lastPlan.hasFrontBay) || (oeWall === 'back' && lastPlan.hasBackBay))) {
+      const bayW = lastPlan.bayXEnd - lastPlan.bayXStart;
+      cladOps.push({
+        x: lastPlan.bayXStart + leftExtW,
+        y: wallH - lastPlan.bayHeight,
+        w: bayW,
+        h: lastPlan.bayHeight,
+      });
+    }
+
     function drawCladdingBand(styleKey, bandTop, bandBottom) {
       const styleSpec = CLADDING_STYLES[styleKey];
       if (!styleSpec) return;
-      const bandCuts = cutOpenings.map(c => {
+      const bandCuts = cladOps.map(c => {
         const cy0=Math.max(c.y,bandTop), cy1=Math.min(c.y+c.h,bandBottom);
         if (cy1<=cy0) return null;
         return { x:c.x, y:cy0, w:c.w, h:cy1-cy0 };
       }).filter(Boolean);
-      html += `<rect x="${ox}" y="${oy+bandTop*s}" width="${W*s}" height="${(bandBottom-bandTop)*s}" fill="rgba(190,175,158,0.55)" pointer-events="none"/>`;
-      const lines = generateCladdingPattern(styleSpec, 0, bandTop, W, bandBottom, bandCuts);
+      html += `<rect x="${wxStart.toFixed(1)}" y="${oy+bandTop*s}" width="${wxW.toFixed(1)}" height="${(bandBottom-bandTop)*s}" fill="rgba(190,175,158,0.55)" pointer-events="none"/>`;
+      const lines = generateCladdingPattern(styleSpec, 0, bandTop, wxWmm, bandBottom, bandCuts);
       for (const l of lines)
-        html += `<line x1="${(ox+l.x1*s).toFixed(2)}" y1="${(oy+l.y1*s).toFixed(2)}" x2="${(ox+l.x2*s).toFixed(2)}" y2="${(oy+l.y2*s).toFixed(2)}" stroke="rgba(70,50,30,0.55)" stroke-width="0.6" pointer-events="none"/>`;
+        html += `<line x1="${(wxStart+l.x1*s).toFixed(2)}" y1="${(oy+l.y1*s).toFixed(2)}" x2="${(wxStart+l.x2*s).toFixed(2)}" y2="${(oy+l.y2*s).toFixed(2)}" stroke="rgba(70,50,30,0.55)" stroke-width="0.6" pointer-events="none"/>`;
       for (const op of ops) {
         if (op.type === 'awning' || op.type === 'balcony') continue;
         const cy0=Math.max(op.y,bandTop), cy1=Math.min(op.y+op.h,bandBottom);
@@ -11675,8 +12843,8 @@ function oeRender() {
       }
       const edgePx = cT * s;
       if (edgePx >= 1) {
-        html += `<line x1="${ox}" y1="${oy+bandTop*s}" x2="${ox}" y2="${oy+bandBottom*s}" stroke="rgba(120,90,60,0.35)" stroke-width="${edgePx}" pointer-events="none"/>`;
-        html += `<line x1="${ox+W*s}" y1="${oy+bandTop*s}" x2="${ox+W*s}" y2="${oy+bandBottom*s}" stroke="rgba(120,90,60,0.35)" stroke-width="${edgePx}" pointer-events="none"/>`;
+        html += `<line x1="${wxStart.toFixed(1)}" y1="${oy+bandTop*s}" x2="${wxStart.toFixed(1)}" y2="${oy+bandBottom*s}" stroke="rgba(120,90,60,0.35)" stroke-width="${edgePx}" pointer-events="none"/>`;
+        html += `<line x1="${wxEnd.toFixed(1)}" y1="${oy+bandTop*s}" x2="${wxEnd.toFixed(1)}" y2="${oy+bandBottom*s}" stroke="rgba(120,90,60,0.35)" stroke-width="${edgePx}" pointer-events="none"/>`;
       }
     }
 
@@ -11695,75 +12863,67 @@ function oeRender() {
     }
   }
 
-  // Wing coverage zones (hatched, not editable)
-  for (const wing of (CONFIG.wings || [])) {
-    let coveredFaces = [];
-    if (wing.face === 'east' || wing.face === 'west') {
-      if (oeWall === 'front' || oeWall === 'back')
-        coveredFaces.push({ x: wing.offset||0, w: wing.span||wing.width||0 });
-    } else {
-      if (oeWall === 'east' || oeWall === 'west')
-        coveredFaces.push({ x: wing.offset||0, w: wing.span||wing.depth||0 });
-    }
-    for (const cf of coveredFaces) {
-      const gx = ox + cf.x * s, gw = cf.w * s;
-      html += `<rect x="${gx.toFixed(1)}" y="${oy}" width="${gw.toFixed(1)}" height="${(wallH*s).toFixed(1)}" fill="rgba(80,80,80,0.25)" stroke="rgba(80,80,80,0.5)" stroke-width="1" stroke-dasharray="4 2" pointer-events="none"/>`;
-      html += `<text x="${(gx+gw/2).toFixed(1)}" y="${(oy+wallH*s/2).toFixed(1)}" font-size="9" fill="rgba(60,60,60,0.7)" text-anchor="middle" font-family="system-ui" pointer-events="none" transform="rotate(-90,${(gx+gw/2).toFixed(1)},${(oy+wallH*s/2).toFixed(1)})">wing</text>`;
-    }
+  // Wing footprint overlay — shows where wings attach to this wall, so the
+  // user can avoid placing openings in zones occupied by wing interiors /
+  // wing connection walls. A wing's FRONT face attaches to main.<wing.face>,
+  // so its footprint sits on that wall at x∈[wing.offset, wing.offset+wing.span]
+  // and y∈[wallH-wingH, wallH]. Uses the same x convention as
+  // mainWallOpeningsFromWings (no mirroring).
+  for (const wi in (CONFIG.wings || [])) {
+    const wing = CONFIG.wings[wi];
+    if (wing.face !== oeWall) continue;
+    const fx0 = ox + (wing.offset || 0) * s;
+    const fxW = (wing.span || 0) * s;
+    const wH2 = wingHeight(CONFIG, wing);
+    const fy0 = oy + (wallH - wH2) * s;
+    const fyH = wH2 * s;
+    // Hatched fill (re-uses the same pattern as the parapet zone)
+    html += `<rect x="${fx0.toFixed(1)}" y="${fy0.toFixed(1)}" width="${fxW.toFixed(1)}" height="${fyH.toFixed(1)}" fill="rgba(180,140,90,0.18)" stroke="rgba(160,110,60,0.7)" stroke-width="1.5" stroke-dasharray="6 3" pointer-events="none"/>`;
+    html += `<rect x="${fx0.toFixed(1)}" y="${fy0.toFixed(1)}" width="${fxW.toFixed(1)}" height="${fyH.toFixed(1)}" fill="url(#oe-hatch)" opacity="0.25" pointer-events="none"/>`;
+    // Label "Wing N" — centred, with the wing's connection type
+    const connLabel = (wing.connection === 'open') ? 'open' : 'wall';
+    html += `<text x="${(fx0 + fxW/2).toFixed(1)}" y="${(fy0 + fyH/2).toFixed(1)}" font-size="11" fill="rgba(110,70,30,0.85)" text-anchor="middle" font-family="system-ui" font-weight="600" pointer-events="none">Wing ${+wi + 1}</text>`;
+    html += `<text x="${(fx0 + fxW/2).toFixed(1)}" y="${(fy0 + fyH/2 + 13).toFixed(1)}" font-size="9" fill="rgba(110,70,30,0.6)" text-anchor="middle" font-family="system-ui" pointer-events="none">(${connLabel} · ${wing.span}×${wH2.toFixed(0)}mm)</text>`;
   }
 
   html += `</g>`; // end clip group
 
-  // ---- Coplanar wing extension panels (outside main-wall clip) ----
+  // ---- Coplanar wing extension markers (outside main-wall clip).
+  // Cladding/floor-bands/parapet are now drawn across the full L-shape
+  // (handled by the extended wallPts polygon clip), so the wing portion
+  // already looks cladded and continuous. We just add a subtle dashed
+  // boundary at the step and a "Wing N" label so the user can see which
+  // part belongs to the wing and isn't directly editable from here.
   {
-    const extFill    = '#b8b0a4';
-    const extPattern = 'rgba(80,60,40,0.18)';
-    function drawWingPanel(extList, startX) {
-      let curX = startX;
-      for (const ext of extList) {
-        const extPx  = ext.width * s;
-        const extHPx = ext.height * s;
-        const panX   = curX, panY = oy + (wallH - ext.height) * s;
-        // Panel fill
-        html += `<rect x="${panX.toFixed(1)}" y="${panY.toFixed(1)}" width="${extPx.toFixed(1)}" height="${extHPx.toFixed(1)}" fill="${extFill}" stroke="none"/>`;
-        // Diagonal hatch to distinguish from editable area
-        html += `<line x1="${panX.toFixed(1)}" y1="${panY.toFixed(1)}" x2="${(panX+extPx).toFixed(1)}" y2="${(panY+extHPx).toFixed(1)}" stroke="${extPattern}" stroke-width="1" pointer-events="none"/>`;
-        html += `<line x1="${(panX+extPx).toFixed(1)}" y1="${panY.toFixed(1)}" x2="${panX.toFixed(1)}" y2="${(panY+extHPx).toFixed(1)}" stroke="${extPattern}" stroke-width="1" pointer-events="none"/>`;
-        // Outline
-        html += `<rect x="${panX.toFixed(1)}" y="${panY.toFixed(1)}" width="${extPx.toFixed(1)}" height="${extHPx.toFixed(1)}" fill="none" stroke="#888" stroke-width="1.5"/>`;
-        // Height step connector line (dashed, where main wall is taller)
-        if (ext.height < wallH) {
-          const stepY = oy + (wallH - ext.height) * s;
-          if (extList === leftExts) {
-            html += `<line x1="${ox.toFixed(1)}" y1="${oy.toFixed(1)}" x2="${ox.toFixed(1)}" y2="${stepY.toFixed(1)}" stroke="#777" stroke-width="1.2" stroke-dasharray="4 2" pointer-events="none"/>`;
-          } else {
-            html += `<line x1="${(ox+W*s).toFixed(1)}" y1="${oy.toFixed(1)}" x2="${(ox+W*s).toFixed(1)}" y2="${stepY.toFixed(1)}" stroke="#777" stroke-width="1.2" stroke-dasharray="4 2" pointer-events="none"/>`;
-          }
-        }
-        // Label
-        const lx = panX + extPx / 2, ly = panY + extHPx / 2;
-        html += `<text x="${lx.toFixed(1)}" y="${(ly-6).toFixed(1)}" font-size="9" fill="#fff" text-anchor="middle" font-family="system-ui" font-weight="600" pointer-events="none">wing</text>`;
-        html += `<text x="${lx.toFixed(1)}" y="${(ly+6).toFixed(1)}" font-size="8" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="system-ui" pointer-events="none">${ext.width.toFixed(0)}×${ext.height.toFixed(0)}</text>`;
-        // Dimension arrow at top
-        if (extHPx > 20) {
-          html += `<text x="${lx.toFixed(1)}" y="${(panY-4).toFixed(1)}" font-size="8" fill="#777" text-anchor="middle" font-family="system-ui" pointer-events="none">⟵${ext.width.toFixed(0)} mm⟶</text>`;
-        }
-        // Floor alignment line
-        html += `<line x1="${panX.toFixed(1)}" y1="${(oy+wallH*s).toFixed(1)}" x2="${(panX+extPx).toFixed(1)}" y2="${(oy+wallH*s).toFixed(1)}" stroke="#888" stroke-width="1" pointer-events="none"/>`;
-        curX += extPx;
-      }
+    function drawWingMarker(ext, panX, isLeft) {
+      const extPx  = ext.width * s;
+      const extHPx = ext.height * s;
+      const panY   = oy + (wallH - ext.height) * s;
+      // Dashed boundary on the side that touches main, and along the step
+      const stepX = isLeft ? (panX + extPx) : panX;
+      html += `<line x1="${stepX.toFixed(1)}" y1="${oy.toFixed(1)}" x2="${stepX.toFixed(1)}" y2="${panY.toFixed(1)}" stroke="rgba(110,80,50,0.5)" stroke-width="1.2" stroke-dasharray="3 3" pointer-events="none"/>`;
+      // Label "Wing N" — find wing index from CONFIG.wings
+      const wi = (CONFIG.wings || []).indexOf(ext.wing);
+      const lx = panX + extPx / 2, ly = panY + extHPx / 2;
+      html += `<text x="${lx.toFixed(1)}" y="${(ly-5).toFixed(1)}" font-size="11" fill="rgba(110,70,30,0.85)" text-anchor="middle" font-family="system-ui" font-weight="600" pointer-events="none">Wing ${wi >= 0 ? wi + 1 : '?'}</text>`;
+      html += `<text x="${lx.toFixed(1)}" y="${(ly+8).toFixed(1)}" font-size="8" fill="rgba(110,70,30,0.6)" text-anchor="middle" font-family="system-ui" pointer-events="none">edit via wing tab</text>`;
     }
     // Left extensions accumulate right-to-left from ox
     {
-      const reversed = [...leftExts].reverse();
       let curX = ox;
-      for (const ext of reversed) {
+      for (const ext of [...leftExts].reverse()) {
         curX -= ext.width * s;
-        drawWingPanel([ext], curX);
+        drawWingMarker(ext, curX, true);
       }
     }
     // Right extensions accumulate left-to-right from ox+W*s
-    drawWingPanel(rightExts, ox + W * s);
+    {
+      let curX = ox + W * s;
+      for (const ext of rightExts) {
+        drawWingMarker(ext, curX, false);
+        curX += ext.width * s;
+      }
+    }
   }
 
   // Wall outline on top (not clipped, so it's always sharp)
@@ -12844,12 +14004,24 @@ function updateThreePreview(cfg) {
     const eastOps  = get3DWallOpenings(wCfg, wPlan, 'east');
 
     // Per-face materials (BoxGeometry order: +X, -X, +Y, -Y, +Z, -Z)
+    // buildWallTexture's repeat/offset are calibrated for the main building's
+    // ExtrudeGeometry (UVs in world mm). BoxGeometry uses normalized 0–1 UVs,
+    // so we reset the transforms here. flipY is already true (canvas Y=top
+    // maps to V=1) so vertical orientation matches; only horizontal mirroring
+    // needs the explicit handling per face.
+    const fixBoxTex = (tex, mirror) => {
+      if (!tex) return tex;
+      tex.repeat.set(mirror ? -1 : 1, 1);
+      tex.offset.set(mirror ? 1 : 0, 0);
+      tex.needsUpdate = true;
+      return tex;
+    };
     const mkM = (tex) => tex
       ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 })
       : wallMat;
-    const oMat = mkM(buildWallTexture(wCfg, fW,  wH, outerOps, false));
-    const nMat = mkM(buildWallTexture(wCfg, bW,  wH, westOps,  false));
-    const sMat = mkM(buildWallTexture(wCfg, bW,  wH, eastOps,  true));
+    const oMat = mkM(fixBoxTex(buildWallTexture(wCfg, fW, wH, outerOps, false), false));
+    const nMat = mkM(fixBoxTex(buildWallTexture(wCfg, bW, wH, westOps,  false), false));
+    const sMat = mkM(fixBoxTex(buildWallTexture(wCfg, bW, wH, eastOps,  false), true));
     const cMat = wallMat;  // connection (interior) face — plain
 
     // Map face roles to BoxGeometry material slots
@@ -13043,7 +14215,7 @@ function updateThreePreview(cfg) {
 
   // ---- Billboards ----
   for (const bb of (cfg.billboards || [])) {
-    const postMat = new THREE.MeshStandardMaterial({ color: 0x666666 });
+    const steelMat = new THREE.MeshStandardMaterial({ color: 0x1e1e1e, roughness: 0.75, metalness: 0.45 });
     const bbW = bb.w || 25, bbH = bb.height || 18, postH = bb.postHeight || 12;
     const roofTopY = h + t;
     let bbX = (bb.x || 0) + bbW / 2 - w / 2, bbZ = 0;
@@ -13053,32 +14225,146 @@ function updateThreePreview(cfg) {
       case 'east':  bbZ = 0; bbX = w / 4; break;
       case 'west':  bbZ = 0; bbX = -w / 4; break;
     }
+
+    const mR = t * 0.38, bR = t * 0.26;
+    const upV = new THREE.Vector3(0, 1, 0);
+    function beam(ax, ay, az, bx, by, bz, r) {
+      const pA = new THREE.Vector3(ax, ay, az), pB = new THREE.Vector3(bx, by, bz);
+      const dir = new THREE.Vector3().subVectors(pB, pA);
+      const len = dir.length();
+      if (len < 0.1) return;
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 6), steelMat);
+      m.position.copy(pA).addScaledVector(dir.clone().normalize(), len / 2);
+      m.quaternion.setFromUnitVectors(upV, dir.normalize());
+      group.add(m);
+    }
+
+    // ── Square / four-faced column sign ─────────────────────────────────────
     if (bb.type === 'square') {
-      const signMesh = new THREE.Mesh(new THREE.BoxGeometry(bbW, bbH, bbW), bbMat);
-      signMesh.position.set(bbX, roofTopY + postH + bbH / 2, bbZ);
-      group.add(signMesh);
-    } else {
-      const signMesh = new THREE.Mesh(new THREE.BoxGeometry(bbW, bbH, t), bbMat);
-      signMesh.position.set(bbX, roofTopY + postH + bbH / 2, bbZ);
-      group.add(signMesh);
-      for (const dx of [-bbW * 0.4, bbW * 0.4]) {
-        const post = new THREE.Mesh(new THREE.BoxGeometry(t * 2, postH, t * 2), postMat);
-        post.position.set(bbX + dx, roofTopY + postH / 2, bbZ);
-        group.add(post);
+      const tW = bbW * 0.65, tHalf = tW / 2;
+      const tBot = roofTopY, tTop = roofTopY + postH;
+      const signCY = tTop + bbH / 2;
+
+      // Semi-transparent sign cube (lets you see the tower inside)
+      const cubeSign = new THREE.Mesh(
+        new THREE.BoxGeometry(bbW, bbH, bbW),
+        new THREE.MeshStandardMaterial({ color: 0xdde8f0, roughness: 0.5, transparent: true, opacity: 0.22 })
+      );
+      cubeSign.position.set(bbX, signCY, bbZ);
+      group.add(cubeSign);
+
+      // Four corner posts + base foot plates
+      const corners = [
+        [bbX - tHalf, bbZ - tHalf], [bbX + tHalf, bbZ - tHalf],
+        [bbX + tHalf, bbZ + tHalf], [bbX - tHalf, bbZ + tHalf],
+      ];
+      for (const [cx, cz] of corners) {
+        beam(cx, tBot, cz, cx, tTop, cz, mR * 1.1);
+        const fp = new THREE.Mesh(new THREE.CylinderGeometry(mR * 2.5, mR * 2.5, t * 0.4, 6), steelMat);
+        fp.position.set(cx, tBot + t * 0.2, cz);
+        group.add(fp);
       }
+
+      // Four identical faces — horizontal rails + X-bracing per bay
+      // (each face is a flat laser-cuttable lattice panel)
+      const facePairs = [[0,1],[1,2],[2,3],[3,0]];
+      const hRails = 3;
+      for (const [ai, bi] of facePairs) {
+        const [ax, az] = corners[ai], [bx, bz] = corners[bi];
+        for (let i = 0; i <= hRails; i++) {
+          const ry = tBot + postH * i / hRails;
+          beam(ax, ry, az, bx, ry, bz, bR);
+        }
+        for (let i = 0; i < hRails; i++) {
+          const y0 = tBot + postH * i / hRails, y1 = tBot + postH * (i + 1) / hRails;
+          beam(ax, y0, az, bx, y1, bz, bR * 0.75);
+          beam(bx, y0, bz, ax, y1, az, bR * 0.75);
+        }
+      }
+
+      // Diagonal knee braces from each post base outward to roof — classic Japanese detail
+      const braceOut = tW * 0.55;
+      for (const [cx, cz] of corners) {
+        const ox = bbX + Math.sign(cx - bbX) * braceOut;
+        const oz = bbZ + Math.sign(cz - bbZ) * braceOut;
+        beam(cx, tBot + postH * 0.35, cz, ox, tBot, oz, bR);
+      }
+
+    // ── Flat / two-faced panel sign (standard rooftop billboard) ────────────
+    } else {
+      const sL = bbX - bbW / 2, sR = bbX + bbW / 2;
+      const signBot = roofTopY + postH, signTop = signBot + bbH;
+      const depth = t * 3;
+      const fZ = bbZ - depth / 2, bkZ = bbZ + depth / 2;
+      const spread = bbW * 0.28;
+      const baseL = sL - spread, baseR = sR + spread;
+
+      // Sign panel (ghost face)
+      const signMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(bbW, bbH, t * 1.5),
+        new THREE.MeshStandardMaterial({ color: 0xf0e8d0, roughness: 0.55, transparent: true, opacity: 0.18 })
+      );
+      signMesh.position.set(bbX, signBot + bbH / 2, fZ);
+      group.add(signMesh);
+
+      // Sign face grid — perimeter + 3 horizontal rails + 2 verticals + alternating diagonals
+      beam(sL, signTop, fZ, sR, signTop, fZ, mR);
+      beam(sL, signBot, fZ, sR, signBot, fZ, mR);
+      beam(sL, signBot, fZ, sL, signTop, fZ, mR);
+      beam(sR, signBot, fZ, sR, signTop, fZ, mR);
+      const hRows = 3, vCols = 2;
+      for (let i = 1; i <= hRows; i++) beam(sL, signBot + bbH * i / (hRows + 1), fZ, sR, signBot + bbH * i / (hRows + 1), fZ, bR);
+      for (let i = 1; i <= vCols; i++) beam(sL + bbW * i / (vCols + 1), signBot, fZ, sL + bbW * i / (vCols + 1), signTop, fZ, bR);
+      const panW = bbW / (vCols + 1), panH = bbH / (hRows + 1);
+      for (let col = 0; col <= vCols; col++) for (let row = 0; row <= hRows; row++) {
+        const px1 = sL + col * panW, px2 = px1 + panW;
+        const py1 = signBot + row * panH, py2 = py1 + panH;
+        if ((col + row) % 2 === 0) beam(px1, py1, fZ, px2, py2, fZ, bR * 0.7);
+        else                        beam(px2, py1, fZ, px1, py2, fZ, bR * 0.7);
+      }
+
+      // Back face perimeter + front-to-back ties at corners
+      beam(sL, signTop, bkZ, sR, signTop, bkZ, mR);
+      beam(sL, signBot, bkZ, sR, signBot, bkZ, mR);
+      beam(sL, signBot, bkZ, sL, signTop, bkZ, mR);
+      beam(sR, signBot, bkZ, sR, signTop, bkZ, mR);
+      for (const [sx, sy] of [[sL,signTop],[sR,signTop],[sL,signBot],[sR,signBot]])
+        beam(sx, sy, fZ, sx, sy, bkZ, bR);
+
+      // Support A-frame: outer splayed legs + inner verticals + rails + X-bracing
+      beam(sL, signBot, fZ, baseL, roofTopY, fZ, mR);
+      beam(sR, signBot, fZ, baseR, roofTopY, fZ, mR);
+      const iL = bbX - bbW * 0.1, iR = bbX + bbW * 0.1;
+      beam(iL, signBot, fZ, iL, roofTopY, fZ, mR);
+      beam(iR, signBot, fZ, iR, roofTopY, fZ, mR);
+      beam(baseL, roofTopY, fZ, baseR, roofTopY, fZ, mR);
+      for (let i = 1; i <= 2; i++) {
+        const ry = roofTopY + postH * i / 3;
+        const frac = 1 - i / 3;
+        beam(baseL + (sL - baseL) * frac, ry, fZ, baseR + (sR - baseR) * frac, ry, fZ, bR);
+      }
+      const m1Y = roofTopY + postH / 3, m2Y = roofTopY + postH * 2 / 3;
+      const m2L = baseL + (sL - baseL) * (1/3), m2R = baseR + (sR - baseR) * (1/3);
+      beam(baseL, roofTopY, fZ, m2L, m2Y, fZ, bR);
+      beam(baseL, roofTopY, fZ, iL,  m2Y, fZ, bR * 0.8);
+      beam(baseR, roofTopY, fZ, m2R, m2Y, fZ, bR);
+      beam(baseR, roofTopY, fZ, iR,  m2Y, fZ, bR * 0.8);
+
+      // Back face support + front-to-back ties
+      beam(sL, signBot, bkZ, baseL, roofTopY, bkZ, mR);
+      beam(sR, signBot, bkZ, baseR, roofTopY, bkZ, mR);
+      beam(iL, signBot, bkZ, iL, roofTopY, bkZ, mR);
+      beam(iR, signBot, bkZ, iR, roofTopY, bkZ, mR);
+      beam(baseL, roofTopY, bkZ, baseR, roofTopY, bkZ, mR);
+      for (const dx of [baseL, iL, iR, baseR])
+        beam(dx, roofTopY, fZ, dx, roofTopY, bkZ, bR);
     }
   }
 
-  // ---- Floor plane ----
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x888878, roughness: 0.95 });
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w + 40, d + 40), floorMat);
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.set(0, -0.2, 0);
-  group.add(floor);
-
-  buildingMesh = group;
+  // Add the assembled building to the scene
   threeScene.add(group);
-}
+  buildingMesh = group;
+}  // end updateThreePreview
 
 function animateThree() {
   requestAnimationFrame(animateThree);
@@ -13125,7 +14411,7 @@ regenerate = function() {
 };
 
 setTimeout(() => {
-  initThreePreview();
+  try { initThreePreview(); } catch(e) { console.error('initThreePreview threw:', e); return; }
   try { updateThreePreview(CONFIG); } catch(e) { console.error('3D init error:', e); }
 }, 100);
 

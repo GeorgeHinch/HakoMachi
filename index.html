@@ -3962,9 +3962,9 @@ function generateFrontBackWall(cfg, plan, which) {
     id: which + '_wall',
     name: which === 'front' ? 'Front Wall' : 'Back Wall',
     material: 'core',
-    bboxW: fbWidth + 2 * matT,
+    bboxW: fbWidth,
     bboxH: (isGableEnd ? H + pitch + matT : H + 2 * matT),
-    bboxOffsetX: matT,
+    bboxOffsetX: 0,
     bboxOffsetY: (isGableEnd ? pitch : matT),
     paths: [{ type: 'cut', d: perimeter }],
     rects: rects,
@@ -5804,7 +5804,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
   //          there is NO reason to inset the side cladding in Z.
   if (which === 'front' || which === 'back') {
     cWidth = fbWidth + 2 * cT;
-    cHeight = H + cT;
+    cHeight = H;
     cId = 'cladding_' + which;
     cName = (which === 'front' ? 'Front' : 'Back') + ' Cladding';
     hasBay = (which === 'front' ? hasFrontBay : hasBackBay);
@@ -5818,16 +5818,22 @@ function generateCladdingPanel(cfg, plan, which, band) {
       };
     }
   } else {
-    cWidth = sideLen;               // full side wall body — no inset needed
-    cHeight = H + cT;
+    // Side cladding spans exactly the building's external depth: matT corner
+    // + sideLen wall body + matT corner = mainD. NO overhang past the corners
+    // — the front/back cladding's cT overhang on each end is what covers the
+    // corner seam (it overlaps the outer face of this side cladding at the
+    // corner). Wall body's x=0 sits at cladding-frame x = matT, so openings
+    // shift by matT on x.
+    cWidth = sideLen + 2 * matT;
+    cHeight = H;
     cId = 'cladding_side_' + which;
     cName = 'Side Cladding ' + (which === 'east' ? 'East' : 'West');
   }
 
   // Apply band restriction by trimming the cladding panel to the appropriate Y range.
-  // boundaryClad is the boundary expressed in CLADDING frame y. cT offset for top overhang,
-  // then boundaryWall mm down (since cladding y=cT corresponds to wall y=0).
-  const boundaryClad = cT + boundaryWall;
+  // boundaryClad is the boundary expressed in CLADDING frame y. Cladding frame y now
+  // matches wall frame y exactly (no top overhang), so the boundary is simply boundaryWall.
+  const boundaryClad = boundaryWall;
   let panelYStart = 0;          // top of this panel in cladding frame
   let panelYEnd = cHeight;      // bottom of this panel in cladding frame
   if (band === 'upper') {
@@ -5872,9 +5878,9 @@ function generateCladdingPanel(cfg, plan, which, band) {
   let perimPath;
   if (isCladdingGableEnd) {
     // Apex is above the rectangle by clPitch (in the panel's local coordinate frame).
-    // Local eave level: cT (top overhang offset).
-    const eaveY  = cT;
-    const apexY  = cT - clPitch;    // negative — above the panel top
+    // Eaves at the panel top (y=0); apex at y=-clPitch (above panel top).
+    const eaveY  = 0;
+    const apexY  = -clPitch;       // negative — above the panel top
     perimPath = `M 0,${eaveY} L ${(localCWidth / 2).toFixed(3)},${apexY.toFixed(3)} L ${localCWidth},${eaveY} L ${localCWidth},${localCHeight} L 0,${localCHeight} Z`;
   } else {
     perimPath = rectPath(0, 0, localCWidth, localCHeight);
@@ -5911,12 +5917,12 @@ function generateCladdingPanel(cfg, plan, which, band) {
 
     const _fbManualOps = (cfg.manualOpenings || {})[which] || null;
     if (_fbManualOps) {
-      // Manual mode — convert from wall-frame to cladding-frame (shift by +cT on both axes)
+      // Manual mode — cladding frame y now matches wall frame y (no top overhang)
       for (const op of _fbManualOps) {
         if (op.type === 'window') {
-          cladWindows.push({ x: op.x + cT, y: op.y + cT, w: op.w, h: op.h, isGround: false });
+          cladWindows.push({ x: op.x + cT, y: op.y, w: op.w, h: op.h, isGround: false });
         } else if (op.type === 'door') {
-          cladDoors.push({ x: op.x + cT, y: op.y + cT, w: op.w, h: op.h, style: null });
+          cladDoors.push({ x: op.x + cT, y: op.y, w: op.w, h: op.h, style: null });
         }
       }
     } else {
@@ -5935,7 +5941,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
         doorReserveH: doorReserveH,
       });
       for (const w of wallWindows) {
-        cladWindows.push({ x: w.x + cT, y: w.y + cT, w: w.width, h: w.height, isGround: w.isGround });
+        cladWindows.push({ x: w.x + cT, y: w.y, w: w.width, h: w.height, isGround: w.isGround });
       }
       if (!hasBay) {
         const wallDoors = computeDoors(fbWidth, H, {
@@ -5943,7 +5949,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
           hasOpening: false, bayXStart: 0, bayXEnd: 0,
         });
         for (const d of wallDoors) {
-          cladDoors.push({ x: d.x + cT, y: d.y + cT, w: d.width, h: d.height, style: d.style });
+          cladDoors.push({ x: d.x + cT, y: d.y, w: d.width, h: d.height, style: d.style });
         }
       }
     }
@@ -5954,13 +5960,16 @@ function generateCladdingPanel(cfg, plan, which, band) {
     const doorReserveH = (sideDoorCount > 0) ? doorH + 3 : 0;
 
     const _sideManualOps = (cfg.manualOpenings || {})[which] || null;
+    // Side cladding spans sideLen + 2*matT, with the wall body's x=0 sitting
+    // at cladding-frame x = matT (= the south corner extension).
+    const sideXShift = matT;
     if (_sideManualOps) {
-      // Manual mode — cladding frame for sides is now identical to wall frame (no x offset)
+      // Manual mode — shift openings into the cladding frame
       for (const op of _sideManualOps) {
         if (op.type === 'window') {
-          cladWindows.push({ x: op.x, y: op.y + cT, w: op.w, h: op.h, isGround: false });
+          cladWindows.push({ x: op.x + sideXShift, y: op.y, w: op.w, h: op.h, isGround: false });
         } else if (op.type === 'door') {
-          cladDoors.push({ x: op.x, y: op.y + cT, w: op.w, h: op.h, style: null });
+          cladDoors.push({ x: op.x + sideXShift, y: op.y, w: op.w, h: op.h, style: null });
         }
       }
     } else {
@@ -5978,14 +5987,14 @@ function generateCladdingPanel(cfg, plan, which, band) {
         doorReserveH: doorReserveH,
       });
       for (const w of wallWindows) {
-        cladWindows.push({ x: w.x, y: w.y + cT, w: w.width, h: w.height, isGround: w.isGround });
+        cladWindows.push({ x: w.x + sideXShift, y: w.y, w: w.width, h: w.height, isGround: w.isGround });
       }
       const wallDoors = computeDoors(sideLen, H, {
         doorStyle: doorStyle, doorCount: sideDoorCount,
         hasOpening: false, bayXStart: 0, bayXEnd: 0,
       });
       for (const d of wallDoors) {
-        cladDoors.push({ x: d.x, y: d.y + cT, w: d.width, h: d.height, style: d.style });
+        cladDoors.push({ x: d.x + sideXShift, y: d.y, w: d.width, h: d.height, style: d.style });
       }
     }
   }
@@ -6049,20 +6058,21 @@ function generateCladdingPanel(cfg, plan, which, band) {
 
   // Etched cladding pattern — dispatch by pattern type. All etches are clipped 
   // to avoid passing through any cut openings (where they'd be lost as scrap).
-  // For split panels, the upper edge of the ground band has no cT overhang, so 
-  // pattern starts from y=0 of the local frame. Same for the bottom edge of 
-  // the upper band.
-  const patEtchTop = (band === 'ground') ? 0 : cT;
-  const patEtchBottom = (band === 'upper') ? localCHeight : (localCHeight - cT);
+  // Cladding y now matches wall y exactly (no top overhang), so the pattern
+  // starts at y=0. The x-axis cT inset matches the front/back left/right
+  // overhang region (still applies); for sides without left/right overhang
+  // it acts as a small margin from the laser-cut edge.
+  const patEtchTop = 0;
+  const patEtchBottom = localCHeight;
   const patternLines = generateCladdingPattern(claddingStyleSpec, cT, patEtchTop, localCWidth - cT, patEtchBottom, cutOpenings);
   for (const ln of patternLines) {
     lines.push({ type: 'etch', x1: ln.x1, y1: ln.y1, x2: ln.x2, y2: ln.y2 });
   }
 
-  // For gable-end panels: add a horizontal cap line at the eave level (y = cT)
+  // For gable-end panels: add a horizontal cap line at the eave level (y = 0)
   // to visually terminate the vertical cladding lines where they meet the gable slopes.
   if (isCladdingGableEnd) {
-    lines.push({ type: 'etch', x1: cT, y1: cT, x2: localCWidth - cT, y2: cT });
+    lines.push({ type: 'etch', x1: cT, y1: 0, x2: localCWidth - cT, y2: 0 });
   }
 
   // Count ground-floor vs upper-floor windows on this PANEL
@@ -6074,9 +6084,9 @@ function generateCladdingPanel(cfg, plan, which, band) {
     name: cName,
     material: (cfg.claddingMaterials && cfg.claddingMaterials[styleKey]) || 'cladding',
     bboxW: localCWidth,
-    bboxH: localCHeight + (isCladdingGableEnd ? clPitch - cT : 0),
+    bboxH: localCHeight + (isCladdingGableEnd ? clPitch : 0),
     bboxOffsetX: 0,
-    bboxOffsetY: isCladdingGableEnd ? (clPitch - cT) : 0,
+    bboxOffsetY: isCladdingGableEnd ? clPitch : 0,
     paths: paths,
     rects: rects,
     lines: lines,
@@ -6522,8 +6532,20 @@ function generateBuilding(cfg) {
   // Cladding roof (only for parapet/flat)
   if (cfg.roofStyle !== 'gabled') {
     const cT = cfg.claddingThickness;
-    const rW = plan.fbWidth + 2 * cT;
-    const rH = cfg.depth + 2 * cT;
+    let rW, rH;
+    if (cfg.roofStyle === 'parapet') {
+      // Parapet roof sits recessed inside the walls (the parapet wall extends
+      // above the roof). Cladding fits WITHIN the walls — interior dimensions
+      // = outer dim minus a wall thickness on each side. Matches the roof
+      // core piece (fbWidth - 2*matT × sideLen).
+      rW = plan.fbWidth - 2 * plan.matT;
+      rH = cfg.depth    - 2 * plan.matT;
+    } else {
+      // Flat roof sits ON TOP of the walls. Cladding spans the outer footprint
+      // plus the usual cT overhang on each side.
+      rW = plan.fbWidth + 2 * cT;
+      rH = cfg.depth    + 2 * cT;
+    }
     parts.push({
       id: 'cladding_roof',
       name: 'Cladding Roof',
@@ -10147,16 +10169,15 @@ function generateBuildingWithWings(cfg) {
           const wingStyleKey = (band === 'ground') ? wCfg.firstFloorCladdingStyle : wCfg.claddingStyle;
           const styleSpec    = CLADDING_STYLES[mainStyleKey];
           if (styleSpec && mainStyleKey === wingStyleKey) {
-            // Missing-corner cut. Extend height by cT so the wing-section
-            // pattern doesn't bleed into the wing's top cladding-thickness
-            // padding (the strip at y=stepY..stepY+cT that sits inside the L
-            // outline but outside the wing's wall content area).
+            // Missing-corner cut: covers the area inside the L bbox but above
+            // the wing's wall content. Cladding y now matches wall y exactly
+            // (no top overhang), so the cut height is just stepY.
             const cornerCut = m.extRight
-              ? { x: mainCW, y: 0, w: extCW, h: stepY + cT }
-              : { x: 0,      y: 0, w: extCW, h: stepY + cT };
+              ? { x: mainCW, y: 0, w: extCW, h: stepY }
+              : { x: 0,      y: 0, w: extCW, h: stepY };
             const cuts = mainPart.rects.concat([cornerCut]).concat(extraRects);
-            const patEtchTop    = (band === 'ground') ? 0      : cT;
-            const patEtchBottom = (band === 'upper')  ? mainCH : mainCH - cT;
+            const patEtchTop    = 0;
+            const patEtchBottom = mainCH;
             const lines = generateCladdingPattern(
               styleSpec, cT, patEtchTop, totalW - cT, patEtchBottom, cuts,
             );
@@ -10249,10 +10270,20 @@ function generateBuildingWithWings(cfg) {
 
     if (wCfg.roofStyle !== 'gabled') {
       const cT = wCfg.claddingThickness;
+      let wRW, wRH;
+      if (wCfg.roofStyle === 'parapet') {
+        // Parapet — cladding fits within the wing's walls (interior dim).
+        wRW = wPlan.fbWidth - 2 * wPlan.matT;
+        wRH = wCfg.depth    - 2 * wPlan.matT;
+      } else {
+        // Flat — cladding spans the wing's outer footprint + cT overhang.
+        wRW = wPlan.fbWidth + 2 * cT;
+        wRH = wCfg.depth    + 2 * cT;
+      }
       parts.push({ id: 'cladding_roof' + sfx, name: `Wing ${wi+1} Cladding Roof`, material: 'cladding',
-        bboxW: wPlan.fbWidth + 2*cT, bboxH: wCfg.depth + 2*cT,
+        bboxW: wRW, bboxH: wRH,
         bboxOffsetX: 0, bboxOffsetY: 0,
-        paths: [{ type: 'cut', d: rectPath(0, 0, wPlan.fbWidth + 2*cT, wCfg.depth + 2*cT) }],
+        paths: [{ type: 'cut', d: rectPath(0, 0, wRW, wRH) }],
         rects: [], lines: [] });
     }
 
@@ -11208,7 +11239,7 @@ function weAddWing(face) {
     span:   defaultSpan,
     depth:  defaultDepth,
     height: CONFIG.height,
-    floors: CONFIG.floors,
+    floors: 1,
     connection: 'wall',
     // style overrides (null = inherit)
     claddingStyle: null, windowDensity: null, windowStyle: null,
@@ -11333,7 +11364,16 @@ function weRenderSidebar() {
     d.innerHTML = `<label>${label}</label><input type="number" min="${min}" max="${max}" step="${step}" value="${wing[key] != null ? wing[key] : ''}">`;
     const inp = d.querySelector('input');
     inp.addEventListener('change', () => {
-      wing[key] = inp.value === '' ? null : parseFloat(inp.value);
+      if (inp.value === '') {
+        wing[key] = null;
+      } else {
+        let v = parseFloat(inp.value);
+        if (!isFinite(v)) v = min;
+        if (v < min) v = min;
+        if (v > max) v = max;
+        wing[key] = v;
+        inp.value = v;
+      }
       weRender(); weRenderSidebar(); regenerate();
     });
     sidebar.appendChild(d);
@@ -11632,6 +11672,23 @@ function oeGetWallDims(wall) {
   const { H, fbWidth, sideLen } = lastPlan;
   if (wall === 'front' || wall === 'back') return { W: fbWidth, H };
   return { W: sideLen, H };
+}
+
+/* East wall editor view is mirrored from the laser-panel x convention so it
+   matches standard external observer view: when you face an east wall from
+   outside (facing west), the building's FRONT (Y=0, labeled +N in the
+   footprint view) is on your RIGHT. The other three walls already lay out
+   correctly with the laser-panel convention. We store x in laser-panel
+   convention (matching `mainWallOpeningsFromWings` and the cut layout, where
+   x=0 corresponds to Y=matT for east/west walls); the mirror is applied at
+   the rendering and click boundaries.
+
+   For 'east':       rendered_x = ox + (W - stored_x - w) * s
+   For other walls:  rendered_x = ox +  stored_x       * s   */
+function oeMirrorX(x, w) {
+  if (oeWall !== 'east') return x;
+  const W = oeGetWallDims(oeWall).W;
+  return W - x - (w || 0);
 }
 
 /* =====================================================================
@@ -12570,23 +12627,30 @@ function oeComputeWingExtensions() {
 
     switch (oeWall) {
       case 'front':
-        // east/west wings whose "west" (south) face is flush with the main front face
-        if (wing.face === 'east' && cp.westCoplanar) result.push({ side:'right', width:extW, height:wingH, wing });
-        if (wing.face === 'west' && cp.westCoplanar) result.push({ side:'left',  width:extW, height:wingH, wing });
+        // east/west wings whose "west" face is flush with the main front face.
+        // Editor's front-wall x runs west→east in the unmirrored laser-panel
+        // convention. For the user's "+N up" plan-view mental model, an east
+        // wing extending FRONT renders on the LEFT of the editor.
+        if (wing.face === 'east' && cp.westCoplanar) result.push({ side:'left',  width:extW, height:wingH, wing });
+        if (wing.face === 'west' && cp.westCoplanar) result.push({ side:'right', width:extW, height:wingH, wing });
         break;
       case 'back':
-        // east/west wings whose "east" (north) face is flush with the main back face
-        // back wall is viewed mirrored, so east → left
-        if (wing.face === 'east' && cp.eastCoplanar) result.push({ side:'left',  width:extW, height:wingH, wing });
-        if (wing.face === 'west' && cp.eastCoplanar) result.push({ side:'right', width:extW, height:wingH, wing });
+        // east/west wings whose "east" face is flush with the main back face.
+        if (wing.face === 'east' && cp.eastCoplanar) result.push({ side:'right', width:extW, height:wingH, wing });
+        if (wing.face === 'west' && cp.eastCoplanar) result.push({ side:'left',  width:extW, height:wingH, wing });
         break;
       case 'east':
-        // front/back wings whose "east" face is flush with the main east face
-        if (wing.face === 'front' && cp.eastCoplanar) result.push({ side:'left',  width:extW, height:wingH, wing });
-        if (wing.face === 'back'  && cp.eastCoplanar) result.push({ side:'right', width:extW, height:wingH, wing });
+        // front/back wings whose "east" face is flush with the main east face.
+        // East wall view is mirrored (see `oeMirrorX`) so +N/FRONT (Y=0) is on
+        // the right; a front-face wing at the east end (eastCoplanar) sits at
+        // the FRONT-EAST corner so its extension shows on the RIGHT.
+        if (wing.face === 'front' && cp.eastCoplanar) result.push({ side:'right', width:extW, height:wingH, wing });
+        if (wing.face === 'back'  && cp.eastCoplanar) result.push({ side:'left',  width:extW, height:wingH, wing });
         break;
       case 'west':
-        // front/back wings whose "west" face is flush with the main west face
+        // front/back wings whose "west" face is flush with the main west face.
+        // West wall view is NOT mirrored (its laser-panel convention already
+        // matches standard external observer view: FRONT/Y=0 is on the left).
         if (wing.face === 'front' && cp.westCoplanar) result.push({ side:'left',  width:extW, height:wingH, wing });
         if (wing.face === 'back'  && cp.westCoplanar) result.push({ side:'right', width:extW, height:wingH, wing });
         break;
@@ -12805,13 +12869,13 @@ function oeRender() {
     // Full extended wall width in mm (main + left + right wing extensions)
     const wxWmm = W + leftExtW + rightExtW;
     // The cladding pattern is computed across the full extended width in
-    // *mm*, with main wall's openings positioned at x = leftExtW + op.x
-    // (shifted right by the left extension). Wing openings on the extension
-    // areas are not currently included — the wing wall is read-only here
-    // and its openings are drawn as overlays later.
-    const cladOps = cutOpenings.map(op => ({ x: op.x + leftExtW, y: op.y, w: op.w, h: op.h }));
+    // *mm*, with main wall's openings positioned at x = leftExtW + (mirrored)op.x
+    // (shifted right by the left extension; mirrored for east/west walls so
+    // the cuts line up with the rendered window/door rectangles above).
+    const cladOps = cutOpenings.map(op => ({ x: oeMirrorX(op.x, op.w) + leftExtW, y: op.y, w: op.w, h: op.h }));
     // Include the bay opening as a cut so cladding seam lines don't draw
-    // across it (same fix we apply to the laser-panel cladding).
+    // across it (same fix we apply to the laser-panel cladding). Bays are
+    // only on front/back so no mirror needed.
     if (lastPlan && ((oeWall === 'front' && lastPlan.hasFrontBay) || (oeWall === 'back' && lastPlan.hasBackBay))) {
       const bayW = lastPlan.bayXEnd - lastPlan.bayXStart;
       cladOps.push({
@@ -12839,7 +12903,7 @@ function oeRender() {
         const cy0=Math.max(op.y,bandTop), cy1=Math.min(op.y+op.h,bandBottom);
         if (cy1<=cy0) continue;
         const isWin = op.type==='window';
-        html += `<rect x="${(ox+op.x*s).toFixed(2)}" y="${(oy+cy0*s).toFixed(2)}" width="${(op.w*s).toFixed(2)}" height="${((cy1-cy0)*s).toFixed(2)}" fill="${isWin?'rgba(130,175,215,0.7)':'rgba(230,190,140,0.7)'}" pointer-events="none"/>`;
+        html += `<rect x="${(ox+oeMirrorX(op.x, op.w)*s).toFixed(2)}" y="${(oy+cy0*s).toFixed(2)}" width="${(op.w*s).toFixed(2)}" height="${((cy1-cy0)*s).toFixed(2)}" fill="${isWin?'rgba(130,175,215,0.7)':'rgba(230,190,140,0.7)'}" pointer-events="none"/>`;
       }
       const edgePx = cT * s;
       if (edgePx >= 1) {
@@ -12867,13 +12931,17 @@ function oeRender() {
   // user can avoid placing openings in zones occupied by wing interiors /
   // wing connection walls. A wing's FRONT face attaches to main.<wing.face>,
   // so its footprint sits on that wall at x∈[wing.offset, wing.offset+wing.span]
-  // and y∈[wallH-wingH, wallH]. Uses the same x convention as
-  // mainWallOpeningsFromWings (no mirroring).
+  // and y∈[wallH-wingH, wallH]. For east/west walls the editor view is
+  // mirrored relative to laser-panel x (so +N/FRONT appears on observer's
+  // right for east, left for west — matching standard external view); we
+  // route the x through `oeMirrorX` so the rendered position lines up with
+  // the footprint mini-map and the +N/+S labels.
   for (const wi in (CONFIG.wings || [])) {
     const wing = CONFIG.wings[wi];
     if (wing.face !== oeWall) continue;
-    const fx0 = ox + (wing.offset || 0) * s;
-    const fxW = (wing.span || 0) * s;
+    const wingSpan = wing.span || 0;
+    const fx0 = ox + oeMirrorX(wing.offset || 0, wingSpan) * s;
+    const fxW = wingSpan * s;
     const wH2 = wingHeight(CONFIG, wing);
     const fy0 = oy + (wallH - wH2) * s;
     const fyH = wH2 * s;
@@ -12947,7 +13015,9 @@ function oeRender() {
     const op = ops[i];
     const isSel = oeSelectedSet.has(i);
     const isPrimary = isSel && [...oeSelectedSet][0] === i;
-    const rx = ox + op.x*s, ry = oy + op.y*s, rw = op.w*s;
+    // Apply the east/west mirror at render time so the editor view matches
+    // the +N/+S external-observer convention (see `oeMirrorX`).
+    const rx = ox + oeMirrorX(op.x, op.w)*s, ry = oy + op.y*s, rw = op.w*s;
 
     if (op.type === 'awning') {
       // ---- Awning: striped horizontal bar ----
@@ -13161,10 +13231,16 @@ function oeToMM(e) {
   const svg = document.getElementById('openingEditorSvg');
   const r = svg.getBoundingClientRect();
   const PAD = 32;
-  return {
-    x: (e.clientX - r.left  - PAD - oeWallLeftPx) / oeEditorScale,
-    y: (e.clientY - r.top   - PAD - oeExtraTop)   / oeEditorScale,
-  };
+  const rawX = (e.clientX - r.left  - PAD - oeWallLeftPx) / oeEditorScale;
+  const y    = (e.clientY - r.top   - PAD - oeExtraTop)   / oeEditorScale;
+  // East wall view is mirrored on screen vs storage convention (so the
+  // observer-from-outside layout matches the footprint +N/+S labels). Apply
+  // the inverse mirror here so the rest of the editor — hit-tests, drag
+  // math, opening placement — keeps operating on stored (laser-panel) x.
+  const x = (oeWall === 'east')
+              ? oeGetWallDims(oeWall).W - rawX
+              : rawX;
+  return { x, y };
 }
 
 /* ---- Click (select / erase only — placement is drag-from-toolbox) ---- */

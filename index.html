@@ -17,7 +17,7 @@
   * { box-sizing: border-box; }
   body {
     margin: 0; padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", "Noto Sans CJK JP", system-ui, sans-serif;
     font-size: 13px; line-height: 1.4;
     background: var(--bg); color: var(--text);
     height: 100vh; overflow: hidden;
@@ -910,9 +910,9 @@
             <button id="loadBtn" title="Load settings from browser cache">📂 Load from cache</button>
             <button id="clearBtn" title="Clear cached settings">🗑 Clear cache</button>
             <div class="overflow-sep"></div>
-            <button id="exportConfigBtn" title="Download settings as a .json file">⬇ Export config (.json)</button>
-            <button id="importConfigBtn" title="Import settings from a .json file">⬆ Import config (.json)</button>
-            <input type="file" id="importConfigFile" accept=".json,application/json" style="display:none">
+            <button id="exportConfigBtn" title="Download settings as a standalone .hako file">⬇ Export settings (.hako)</button>
+            <button id="importConfigBtn" title="Import settings from a .hako file (or legacy .json)">⬆ Import settings (.hako)</button>
+            <input type="file" id="importConfigFile" accept=".hako,.json,application/json" style="display:none">
             <div class="overflow-sep"></div>
             <button id="resetBtn" title="Reset to building-type defaults">↺ Reset to defaults</button>
             <div class="overflow-sep"></div>
@@ -1299,6 +1299,64 @@ const WINDOW_STYLES = {
     baseW: 4, baseH: 16,
     mullion: 'none',
   },
+
+  /* ---- Japanese window types ----
+   * `frameColor` / `paneFill` are preview-rendering hints used by the toolbox
+   * icon and editor canvas so the on-screen appearance matches the laser-cut
+   * material. They do not change what gets cut — the actual frame piece is
+   * still cladding (or `frameMaterial` if specified, e.g. plaster for mushiko).
+   * `mullion` values trigger Japanese-specific lattice generators inside
+   * `windowFeatureShapes` (etched bars / kumiko) or `panesForMullion`
+   * (real cut-through slits for mushiko). */
+  renji_mado: {
+    label: 'Renji-mado (連子窓)',
+    description: 'Dense vertical wooden bars over a single fixed pane. Machiya shops, alleys.',
+    baseW: 9, baseH: 7,
+    mullion: 'renji_vertical',
+    frameColor: '#6a4a2a',
+    paneFill:   'rgba(248,232,200,0.85)',
+  },
+  mushiko_mado: {
+    label: 'Mushiko-mado (虫籠窓)',
+    description: 'Thick plaster grille with narrow cut-through slits. Upper floors of historic machiya.',
+    baseW: 10, baseH: 4,
+    mullion: 'mushiko_slits',
+    frameColor: '#5a4a3a',
+    paneFill:   'rgba(232,224,208,0.95)',
+    frameMaterial: 'plaster',
+  },
+  shoji_grid: {
+    label: 'Shoji-grid (障子)',
+    description: 'Fine kumiko lattice over a single warm-tinted pane. Traditional residences and tea houses.',
+    baseW: 8, baseH: 11,
+    mullion: 'shoji_grid',
+    frameColor: '#6a4a2a',
+    paneFill:   'rgba(252,245,225,0.92)',
+  },
+  ranma_lattice: {
+    label: 'Ranma (欄間)',
+    description: 'Decorative transom band with fine vertical lattice. Above doorways and in upper-wall bands.',
+    baseW: 14, baseH: 3,
+    mullion: 'ranma_lattice',
+    frameColor: '#6a4a2a',
+    paneFill:   'rgba(248,232,200,0.85)',
+  },
+  yukimi_shoji: {
+    label: 'Yukimi-shoji (雪見障子)',
+    description: 'Upper half gridded shoji, lower half clear glass — "snow-viewing" window.',
+    baseW: 7, baseH: 11,
+    mullion: 'yukimi_split',
+    frameColor: '#6a4a2a',
+    paneFill:   'rgba(252,245,225,0.92)',  // top half (paper); bottom half is clear glass
+  },
+  renji_tall: {
+    label: 'Renji-tall (縦連子)',
+    description: 'Tall narrow renji variant. Stairwell-height vertical lattice on machiya side walls.',
+    baseW: 5, baseH: 13,
+    mullion: 'renji_vertical',
+    frameColor: '#6a4a2a',
+    paneFill:   'rgba(248,232,200,0.85)',
+  },
 };
 
 /* Window size SCALE — multiplies the style's intrinsic size */
@@ -1552,8 +1610,8 @@ const TRANSLATIONS = {
     btn_save: '💾 Save to cache',
     btn_load: '📂 Load from cache',
     btn_clear: '🗑 Clear cache',
-    btn_export: '⬇ Export config (.json)',
-    btn_import: '⬆ Import config (.json)',
+    btn_export: '⬇ Export settings (.hako)',
+    btn_import: '⬆ Import settings (.hako)',
     btn_reset: '↺ Reset to defaults',
     btn_addBill: '＋ Add Billboard',
     btn_overflowTip: '···',
@@ -1708,8 +1766,8 @@ const TRANSLATIONS = {
     btn_save: '💾 キャッシュ保存',
     btn_load: '📂 キャッシュ読込',
     btn_clear: '🗑 キャッシュ消去',
-    btn_export: '⬇ 設定エクスポート（.json）',
-    btn_import: '⬆ 設定インポート（.json）',
+    btn_export: '⬇ 設定エクスポート（.hako）',
+    btn_import: '⬆ 設定インポート（.hako）',
     btn_reset: '↺ デフォルトにリセット',
     btn_addBill: '＋ 看板を追加',
     btn_overflowTip: '···',
@@ -1832,72 +1890,266 @@ const DOOR_STYLES = {
     label: 'Single door (solid)',
     description: 'Plain solid single door. Office or service entrance.',
     width: 7, height: 18,
-    glassPanes: [],  // no glass
-    panels: [{ type: 'panel', y1: 2, y2: 9 }, { type: 'panel', y1: 10, y2: 16 }],
+    glassPanes: [],
+    features: [
+      { type: 'panel', x1: 1.2, y1: 2, x2: 5.8, y2: 9 },
+      { type: 'panel', x1: 1.2, y1: 10, x2: 5.8, y2: 16 },
+      { type: 'knob',  cx: 5.6, cy: 9.5, r: 0.35 },
+    ],
   },
   single_glass: {
     label: 'Single glass door',
     description: 'Single door with upper glass panel. Office and shop entrances.',
     width: 7, height: 18,
-    glassPanes: [{ x1: 1, y1: 2, x2: 6, y2: 10 }],
-    panels: [{ type: 'panel', y1: 11, y2: 16 }],
+    glassPanes: [{ x1: 1.2, y1: 2, x2: 5.8, y2: 10 }],
+    features: [
+      { type: 'panel', x1: 1.2, y1: 11, x2: 5.8, y2: 16 },
+      { type: 'knob',  cx: 5.6, cy: 10.5, r: 0.35 },
+    ],
   },
   single_full_glass: {
     label: 'Single full-glass door',
     description: 'Glass door with thin frame. Storefronts.',
     width: 7, height: 18,
-    glassPanes: [{ x1: 0.7, y1: 1.5, x2: 6.3, y2: 16.5 }],
-    panels: [],
+    glassPanes: [{ x1: 1.2, y1: 1.5, x2: 5.8, y2: 16.5 }],
+    features: [
+      { type: 'handle', x1: 5.4, y1: 6, x2: 5.4, y2: 12 },
+    ],
   },
   double: {
     label: 'Double door (solid)',
     description: 'Two-leaf solid door. Service entrances, warehouses.',
     width: 12, height: 18,
     glassPanes: [],
-    panels: [
-      { type: 'panel', y1: 2, y2: 9 }, { type: 'panel', y1: 10, y2: 16 },
-    ],
     centerSplit: true,
+    features: [
+      { type: 'panel', x1: 0.9, y1: 2, x2: 5.4, y2: 9 },
+      { type: 'panel', x1: 0.9, y1: 10, x2: 5.4, y2: 16 },
+      { type: 'panel', x1: 6.6, y1: 2, x2: 11.1, y2: 9 },
+      { type: 'panel', x1: 6.6, y1: 10, x2: 11.1, y2: 16 },
+      { type: 'knob',  cx: 5.4, cy: 9.5, r: 0.32 },
+      { type: 'knob',  cx: 6.6, cy: 9.5, r: 0.32 },
+    ],
   },
   double_glass: {
     label: 'Double glass door',
     description: 'Two-leaf doors with glass tops. Office and commercial entrances.',
     width: 12, height: 18,
     glassPanes: [
-      { x1: 1, y1: 2, x2: 5, y2: 10 },
-      { x1: 7, y1: 2, x2: 11, y2: 10 },
+      { x1: 1.2, y1: 2, x2: 4.8, y2: 10 },
+      { x1: 7.2, y1: 2, x2: 10.8, y2: 10 },
     ],
-    panels: [],
     centerSplit: true,
+    features: [
+      { type: 'panel', x1: 0.9, y1: 11, x2: 5.4, y2: 16 },
+      { type: 'panel', x1: 6.6, y1: 11, x2: 11.1, y2: 16 },
+      { type: 'knob',  cx: 5.4, cy: 13, r: 0.32 },
+      { type: 'knob',  cx: 6.6, cy: 13, r: 0.32 },
+    ],
   },
   double_full_glass: {
     label: 'Double full-glass door',
     description: 'Two glass-leaf doors with thin frames. Modern shop fronts.',
     width: 12, height: 18,
     glassPanes: [
-      { x1: 0.7, y1: 1.5, x2: 5.3, y2: 16.5 },
-      { x1: 6.7, y1: 1.5, x2: 11.3, y2: 16.5 },
+      { x1: 1.2, y1: 1.5, x2: 5.2, y2: 16.5 },
+      { x1: 6.8, y1: 1.5, x2: 10.8, y2: 16.5 },
     ],
-    panels: [],
     centerSplit: true,
+    features: [
+      { type: 'handle', x1: 5.4, y1: 7, x2: 5.4, y2: 11 },
+      { type: 'handle', x1: 6.6, y1: 7, x2: 6.6, y2: 11 },
+    ],
   },
   rolling: {
     label: 'Rolling shutter',
     description: 'Roll-up metal door for shops and small workshops.',
     width: 14, height: 22,
     glassPanes: [],
-    panels: [],
     rollingSlats: true,
+    features: [
+      { type: 'lockPlate', x1: 6.3, y1: 20.2, x2: 7.7, y2: 21.4 },
+    ],
   },
   sliding_glass: {
     label: 'Sliding glass entrance',
     description: 'Wide sliding glass entrance, automatic-style. Modern shops and offices.',
     width: 16, height: 20,
     glassPanes: [
-      { x1: 0.5, y1: 1, x2: 7.5, y2: 19 },
-      { x1: 8.5, y1: 1, x2: 15.5, y2: 19 },
+      { x1: 1.2, y1: 1.2, x2: 7.4, y2: 18.8 },
+      { x1: 8.6, y1: 1.2, x2: 14.8, y2: 18.8 },
     ],
-    panels: [],
+    features: [
+      { type: 'track',  y: 0.8 },
+      { type: 'track',  y: 19.2 },
+      { type: 'handle', x1: 6.6, y1: 8, x2: 6.6, y2: 12 },
+      { type: 'handle', x1: 9.4, y1: 8, x2: 9.4, y2: 12 },
+    ],
+  },
+  single_industrial: {
+    label: 'Single industrial w/ crash bar',
+    description: 'Solid industrial door with push-bar exit hardware. Warehouses, fire exits, schools.',
+    width: 7, height: 18,
+    glassPanes: [],
+    features: [
+      { type: 'crashBar',  y: 11, x1: 0.7, x2: 6.3 },
+      { type: 'kickPlate', x1: 0.5, y1: 15.5, x2: 6.5, y2: 17.5 },
+    ],
+  },
+  double_industrial: {
+    label: 'Double industrial w/ crash bar',
+    description: 'Two-leaf solid industrial door with push-bar exit hardware on each leaf.',
+    width: 12, height: 18,
+    glassPanes: [],
+    centerSplit: true,
+    features: [
+      { type: 'crashBar',  y: 11, x1: 0.7, x2: 5.3 },
+      { type: 'crashBar',  y: 11, x1: 6.7, x2: 11.3 },
+      { type: 'kickPlate', x1: 0.5, y1: 15.5, x2: 5.5, y2: 17.5 },
+      { type: 'kickPlate', x1: 6.5, y1: 15.5, x2: 11.5, y2: 17.5 },
+    ],
+  },
+
+  /* ---- Japanese door types ----
+   * Three optional preview-rendering hints carry per-style colour identity
+   * so toolbox / editor / laser-etched insert all match visually:
+   *   frameColor → stroke for outer body + all etched features
+   *   panelFill  → fill for the solid door body
+   *   glassFill  → fill for glass apertures (defaults to clear blue)
+   * `frameMaterial` (e.g. 'plaster') overrides the cut material at laser
+   * time — kura-do is cut from plaster card rather than basswood cladding.
+   */
+  koshi_do: {
+    label: 'Koshi-do (格子戸)',
+    description: 'Vertical wooden lattice door with top rail and bottom kick panel. Iconic machiya shopfront.',
+    width: 7, height: 18,
+    glassPanes: [],
+    frameColor: '#5a3a1a',
+    panelFill:  'rgba(186,148,98,0.88)',
+    features: [
+      { type: 'rail',            x1: 0.4, y1: 1.6,  x2: 6.6, y2: 1.6,  thick: true },
+      { type: 'panel',           x1: 0.4, y1: 14.5, x2: 6.6, y2: 17.6 },
+      { type: 'latticeVertical', x1: 0.5, y1: 1.7,  x2: 6.5, y2: 14.4 },
+      { type: 'hikite',          x1: 5.6, y1: 8.5,  x2: 6.2, y2: 10.0 },
+    ],
+  },
+  koshi_do_glass: {
+    label: 'Koshi-do with glass (格子戸・ガラス入り)',
+    description: 'Modern koshi-do with a glass-backed lattice — see-through interior visible through the bars.',
+    width: 7, height: 18,
+    // Glass aperture covers the lattice region; bars are etched on top.
+    glassPanes: [{ x1: 0.5, y1: 1.7, x2: 6.5, y2: 14.4 }],
+    frameColor: '#5a3a1a',
+    panelFill:  'rgba(186,148,98,0.88)',
+    glassFill:  'rgba(252,245,225,0.92)',  // paper-tinted glass behind the lattice
+    features: [
+      { type: 'rail',            x1: 0.4, y1: 1.6,  x2: 6.6, y2: 1.6,  thick: true },
+      { type: 'panel',           x1: 0.4, y1: 14.5, x2: 6.6, y2: 17.6 },
+      { type: 'latticeVertical', x1: 0.5, y1: 1.7,  x2: 6.5, y2: 14.4 },
+      { type: 'hikite',          x1: 5.6, y1: 8.5,  x2: 6.2, y2: 10.0 },
+    ],
+  },
+  koshi_do_double: {
+    label: 'Koshi-do double (両開き格子戸)',
+    description: 'Two-leaf koshi-do for wider entrances. Sake shops, tea houses, ryokan main entries.',
+    width: 12, height: 18,
+    glassPanes: [],
+    centerSplit: true,
+    frameColor: '#5a3a1a',
+    panelFill:  'rgba(186,148,98,0.88)',
+    features: [
+      { type: 'rail',            x1: 0.4, y1: 1.6,  x2: 11.6, y2: 1.6,  thick: true },
+      { type: 'panel',           x1: 0.4, y1: 14.5, x2: 5.8,  y2: 17.6 },
+      { type: 'panel',           x1: 6.2, y1: 14.5, x2: 11.6, y2: 17.6 },
+      { type: 'latticeVertical', x1: 0.5, y1: 1.7,  x2: 5.7,  y2: 14.4 },
+      { type: 'latticeVertical', x1: 6.3, y1: 1.7,  x2: 11.5, y2: 14.4 },
+    ],
+  },
+  sliding_shoji: {
+    label: 'Sliding shoji (障子引戸)',
+    description: 'Two-leaf sliding entry with kumiko grid and paper/frosted glass. Modern Japanese shop and home entries.',
+    width: 14, height: 18,
+    // Each leaf is a full glass aperture with kumiko etched on top.
+    glassPanes: [
+      { x1: 0.3, y1: 0.9, x2: 6.9,  y2: 17.1 },
+      { x1: 7.1, y1: 0.9, x2: 13.7, y2: 17.1 },
+    ],
+    centerSplit: true,
+    frameColor: '#6a4a2a',
+    panelFill:  'rgba(252,245,225,0.92)',
+    glassFill:  'rgba(252,245,225,0.92)',  // paper-tinted glass — uniform appearance
+    features: [
+      { type: 'track',        y: 0.8 },
+      { type: 'track',        y: 17.2 },
+      { type: 'latticeGrid',  x1: 0.3, y1: 0.9, x2: 6.9,  y2: 17.1, targetCell: 3.5 },
+      { type: 'latticeGrid',  x1: 7.1, y1: 0.9, x2: 13.7, y2: 17.1, targetCell: 3.5 },
+      { type: 'hikite',       x1: 6.0, y1: 8.5, x2: 6.7,  y2: 10.0 },
+      { type: 'hikite',       x1: 7.3, y1: 8.5, x2: 8.0,  y2: 10.0 },
+    ],
+  },
+  itado: {
+    label: 'Itado (板戸)',
+    description: 'Heavy vertical-plank wooden door with iron-studded rails. Storehouses, service entries, alley doors.',
+    width: 7, height: 18,
+    glassPanes: [],
+    frameColor: '#3a2410',
+    panelFill:  'rgba(140,100,60,0.92)',
+    features: [
+      { type: 'rail',       x1: 0.4, y1: 2.0,  x2: 6.6, y2: 2.0,  thick: true },
+      { type: 'rail',       x1: 0.4, y1: 9.0,  x2: 6.6, y2: 9.0,  thick: true },
+      { type: 'rail',       x1: 0.4, y1: 16.0, x2: 6.6, y2: 16.0, thick: true },
+      { type: 'plankSeams', x1: 0.4, y1: 0.4,  x2: 6.6, y2: 17.6, count: 5 },
+      // Iron studs at top + bottom rail intersections (4 each)
+      { type: 'stud', cx: 1.5, cy: 2.0,  r: 0.16 },
+      { type: 'stud', cx: 2.8, cy: 2.0,  r: 0.16 },
+      { type: 'stud', cx: 4.1, cy: 2.0,  r: 0.16 },
+      { type: 'stud', cx: 5.4, cy: 2.0,  r: 0.16 },
+      { type: 'stud', cx: 1.5, cy: 16.0, r: 0.16 },
+      { type: 'stud', cx: 2.8, cy: 16.0, r: 0.16 },
+      { type: 'stud', cx: 4.1, cy: 16.0, r: 0.16 },
+      { type: 'stud', cx: 5.4, cy: 16.0, r: 0.16 },
+    ],
+  },
+  kura_do: {
+    label: 'Kura-do (蔵戸)',
+    description: 'Thick plaster-clad storehouse door with iron banding and studs. Reuses the plaster material.',
+    width: 9, height: 18,
+    glassPanes: [],
+    frameColor: '#5a4a3a',
+    panelFill:  'rgba(232,224,208,0.96)',
+    frameMaterial: 'plaster',
+    features: [
+      // Inset frame outline
+      { type: 'panel',    x1: 0.7, y1: 0.7,  x2: 8.3, y2: 17.3 },
+      // Iron banding (horizontal top + bottom, vertical centre)
+      { type: 'ironBand', x1: 0.7, y1: 3.2,  x2: 8.3, y2: 3.7 },
+      { type: 'ironBand', x1: 0.7, y1: 14.3, x2: 8.3, y2: 14.8 },
+      { type: 'ironBand', x1: 4.25, y1: 0.7, x2: 4.75, y2: 17.3 },
+      // Iron studs at the four corners of the banding
+      { type: 'stud', cx: 2.0, cy: 3.45,  r: 0.2 },
+      { type: 'stud', cx: 3.5, cy: 3.45,  r: 0.2 },
+      { type: 'stud', cx: 5.5, cy: 3.45,  r: 0.2 },
+      { type: 'stud', cx: 7.0, cy: 3.45,  r: 0.2 },
+      { type: 'stud', cx: 2.0, cy: 14.55, r: 0.2 },
+      { type: 'stud', cx: 3.5, cy: 14.55, r: 0.2 },
+      { type: 'stud', cx: 5.5, cy: 14.55, r: 0.2 },
+      { type: 'stud', cx: 7.0, cy: 14.55, r: 0.2 },
+      // Lock plate
+      { type: 'lockPlate', x1: 6.0, y1: 8.5, x2: 7.2, y2: 9.8 },
+    ],
+  },
+  yotsume_koshi_do: {
+    label: 'Yotsume-gōshi-do (四つ目格子戸)',
+    description: 'Square-lattice variant of koshi-do — "four-eye" grid. Tea houses, formal residences.',
+    width: 7, height: 18,
+    glassPanes: [],
+    frameColor: '#5a3a1a',
+    panelFill:  'rgba(186,148,98,0.88)',
+    features: [
+      { type: 'rail',         x1: 0.4, y1: 1.6,  x2: 6.6, y2: 1.6,  thick: true },
+      { type: 'panel',        x1: 0.4, y1: 14.5, x2: 6.6, y2: 17.6 },
+      { type: 'latticeGrid',  x1: 0.4, y1: 1.7,  x2: 6.6, y2: 14.4, targetCell: 2.5 },
+    ],
   },
 };
 
@@ -1906,6 +2158,546 @@ const DOOR_STYLES = {
 function doorHasGlass(styleKey) {
   const spec = DOOR_STYLES[styleKey];
   return spec && Array.isArray(spec.glassPanes) && spec.glassPanes.length > 0;
+}
+
+/** Cut per-aperture core-wall holes for a glass door's glass panes.
+ *
+ *  Follows the same sandwich pattern as windows:
+ *    - core hole = visible glass aperture + 1 mm overlap on each side
+ *    - glass pane (oversized by 0.9 mm each side after fit clearance) slots
+ *      into the core hole and is glued to the lip
+ *    - the door insert (cladding-level) then glues on top of the glass and
+ *      its smaller cladding aperture reveals only the visible glass area
+ *
+ *  Solid doors produce no core cut at all — the cladding insert glues
+ *  directly to the wall surface.
+ *
+ *  Aperture coordinates are scaled from the base DOOR_STYLES dims to the
+ *  opening's actual w/h, and X-mirrored if the wall stores X right-to-left
+ *  (east side wall internal-view convention).
+ */
+function cutDoorCoreHoles(rects, x, y, w, h, style, mirrorX) {
+  if (!doorHasGlass(style)) return;
+  const spec = DOOR_STYLES[style];
+  if (!spec || !Array.isArray(spec.glassPanes) || spec.glassPanes.length === 0) return;
+  const sx = w / spec.width;
+  const sy = h / spec.height;
+  for (const gp of spec.glassPanes) {
+    let lx1 = gp.x1 * sx, lx2 = gp.x2 * sx;
+    const ly1 = gp.y1 * sy, ly2 = gp.y2 * sy;
+    if (mirrorX) {
+      const t = lx1; lx1 = w - lx2; lx2 = w - t;
+    }
+    rects.push({
+      type: 'cut',
+      x: x + lx1 - 1,
+      y: y + ly1 - 1,
+      w: (lx2 - lx1) + 2,
+      h: (ly2 - ly1) + 2,
+      compensateKerf: false,
+    });
+  }
+}
+
+/** Expand a door style's feature list into a flat array of primitive shapes
+ *  in door-local mm coordinates (0..width × 0..height).
+ *
+ *  Used by three consumers so the toolbox icon, the editor canvas, and the
+ *  laser-etched insert are always identical:
+ *    - oePopulateToolbox renders these as inline SVG inside each door card.
+ *    - oeRender renders them on top of the door rectangle on the wall canvas.
+ *    - generateDoorInserts converts them into etched lines + outline rects
+ *      on the cladding insert.
+ *
+ *  Primitive shapes returned:
+ *    { type: 'rect', x, y, w, h, tint? }     outline rectangle (optional tinted fill in preview)
+ *    { type: 'line', x1, y1, x2, y2, thick? } line segment
+ *    { type: 'circle', cx, cy, r, fill? }   circle (filled = solid disc for knobs)
+ *
+ *  Feature → shape mapping (semantics of each feature kept in one place):
+ *    panel      → 1 outline rect
+ *    knob       → 1 filled circle
+ *    handle     → 1 thick line
+ *    crashBar   → 1 tinted thin rect (the bar) + 2 outline rects (end brackets)
+ *    kickPlate  → 1 outline rect
+ *    lockPlate  → 1 outline rect
+ *    track      → 1 line spanning the door
+ *  Plus the boolean style flags:
+ *    centerSplit  → 1 vertical line at x = width/2
+ *    rollingSlats → 1 tinted drum-band rect + N horizontal slat lines
+ */
+function doorFeatureShapes(spec) {
+  if (!spec) return [];
+  const out = [];
+  const W = spec.width, H = spec.height;
+
+  if (spec.centerSplit) {
+    out.push({ type: 'line', x1: W / 2, y1: 0.5, x2: W / 2, y2: H - 0.5 });
+  }
+
+  if (spec.rollingSlats) {
+    out.push({ type: 'rect', x: 0.2, y: 0.2, w: W - 0.4, h: 1.5, tint: true });
+    const spacing = 1.5;
+    for (let y = 3; y < H - 0.6; y += spacing) {
+      out.push({ type: 'line', x1: 0.5, y1: y, x2: W - 0.5, y2: y });
+    }
+  }
+
+  for (const f of (spec.features || [])) {
+    switch (f.type) {
+      case 'panel':
+        out.push({ type: 'rect', x: f.x1, y: f.y1, w: f.x2 - f.x1, h: f.y2 - f.y1 });
+        break;
+      case 'knob':
+        out.push({ type: 'circle', cx: f.cx, cy: f.cy, r: f.r, fill: true });
+        break;
+      case 'handle':
+        out.push({ type: 'line', x1: f.x1, y1: f.y1, x2: f.x2, y2: f.y2, thick: true });
+        break;
+      case 'crashBar': {
+        const inset = 0.7;
+        out.push({ type: 'rect', x: f.x1 + inset, y: f.y - 0.3, w: (f.x2 - f.x1) - inset * 2, h: 0.6, tint: true });
+        out.push({ type: 'rect', x: f.x1,         y: f.y - 0.6, w: inset, h: 1.2 });
+        out.push({ type: 'rect', x: f.x2 - inset, y: f.y - 0.6, w: inset, h: 1.2 });
+        break;
+      }
+      case 'kickPlate':
+      case 'lockPlate':
+        out.push({ type: 'rect', x: f.x1, y: f.y1, w: f.x2 - f.x1, h: f.y2 - f.y1 });
+        break;
+      case 'track':
+        out.push({ type: 'line', x1: 0.4, y1: f.y, x2: W - 0.4, y2: f.y });
+        break;
+      case 'rail':
+        // Plain etched line (horizontal or vertical), used for top rails on
+        // Japanese doors. Optional thick=true for a heavier visual weight.
+        out.push({ type: 'line', x1: f.x1, y1: f.y1, x2: f.x2, y2: f.y2, thick: !!f.thick });
+        break;
+      case 'latticeVertical': {
+        // N vertical etched bars across {f.x1..f.x2} × {f.y1..f.y2}. Bar
+        // count is picked from the available width to match the renji-mado
+        // window engine. Bars are etched (no kerf concern).
+        const usable = f.x2 - f.x1;
+        const n = Math.max(3, Math.min(12, Math.floor(usable / 0.9)));
+        const pitch = usable / (n + 1);
+        for (let i = 1; i <= n; i++) {
+          const x = f.x1 + i * pitch;
+          out.push({ type: 'line', x1: x, y1: f.y1, x2: x, y2: f.y2 });
+        }
+        break;
+      }
+      case 'latticeGrid': {
+        // Cell grid across {f.x1..f.x2} × {f.y1..f.y2}. Cell size targets
+        // ~2.5 mm by default; override with f.targetCell. Used by sliding
+        // shoji and yotsume-gōshi.
+        const targetCell = f.targetCell || 2.5;
+        const cols = Math.max(2, Math.round((f.x2 - f.x1) / targetCell));
+        const rows = Math.max(2, Math.round((f.y2 - f.y1) / targetCell));
+        for (let c = 1; c < cols; c++) {
+          const x = f.x1 + (c / cols) * (f.x2 - f.x1);
+          out.push({ type: 'line', x1: x, y1: f.y1, x2: x, y2: f.y2 });
+        }
+        for (let r = 1; r < rows; r++) {
+          const y = f.y1 + (r / rows) * (f.y2 - f.y1);
+          out.push({ type: 'line', x1: f.x1, y1: y, x2: f.x2, y2: y });
+        }
+        break;
+      }
+      case 'plankSeams': {
+        // N-1 vertical etched lines dividing {f.x1..f.x2} into N planks,
+        // running between {f.y1..f.y2}. Used by itado.
+        const usable = f.x2 - f.x1;
+        const count = f.count || Math.max(3, Math.floor(usable / 1.5));
+        for (let i = 1; i < count; i++) {
+          const x = f.x1 + (i / count) * usable;
+          out.push({ type: 'line', x1: x, y1: f.y1, x2: x, y2: f.y2 });
+        }
+        break;
+      }
+      case 'ironBand':
+        // Thin filled rect used for the visible iron banding on kura-do.
+        out.push({ type: 'rect', x: f.x1, y: f.y1, w: f.x2 - f.x1, h: f.y2 - f.y1, tint: true });
+        break;
+      case 'stud':
+        // Small filled circle (iron stud on plank / kura door).
+        out.push({ type: 'circle', cx: f.cx, cy: f.cy, r: f.r || 0.18, fill: true });
+        break;
+      case 'hikite':
+        // Recessed pull handle on traditional Japanese sliding doors —
+        // rendered as a small etched rectangle outline.
+        out.push({ type: 'rect', x: f.x1, y: f.y1, w: f.x2 - f.x1, h: f.y2 - f.y1 });
+        break;
+    }
+  }
+  return out;
+}
+
+/** Emit SVG markup for the given door-local shapes. Used by the toolbox card
+ *  and the editor canvas. `s` is the input→output unit scale (e.g. px/mm),
+ *  `ox`/`oy` translate the shapes' origin into the output coordinate space.
+ *  Stroke widths are given in OUTPUT units (so the caller picks pixels or
+ *  mm depending on what the surrounding SVG uses).
+ */
+function emitDoorShapesSvg(shapes, ox, oy, s, opts) {
+  opts = opts || {};
+  const stroke    = opts.stroke    || '#c84a3a';
+  const knobFill  = opts.knobFill  || '#4a3a30';
+  const tintFill  = opts.tintFill  || 'rgba(200,74,58,0.18)';
+  const sw        = (opts.strokeWidth != null) ? opts.strokeWidth : 0.3;
+  const swThick   = (opts.thickStrokeWidth != null) ? opts.thickStrokeWidth : sw * 1.4;
+  const pe        = opts.pointerEvents ? '' : ' pointer-events="none"';
+
+  let svg = '';
+  for (const sh of shapes) {
+    if (sh.type === 'rect') {
+      const x = (ox + sh.x * s).toFixed(2);
+      const y = (oy + sh.y * s).toFixed(2);
+      const w = (sh.w * s).toFixed(2);
+      const h = (sh.h * s).toFixed(2);
+      const fill = sh.tint ? tintFill : 'none';
+      svg += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"${pe}/>`;
+    } else if (sh.type === 'line') {
+      const x1 = (ox + sh.x1 * s).toFixed(2);
+      const y1 = (oy + sh.y1 * s).toFixed(2);
+      const x2 = (ox + sh.x2 * s).toFixed(2);
+      const y2 = (oy + sh.y2 * s).toFixed(2);
+      const w  = sh.thick ? swThick : sw;
+      svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="${w}" stroke-linecap="round"${pe}/>`;
+    } else if (sh.type === 'circle') {
+      const cx = (ox + sh.cx * s).toFixed(2);
+      const cy = (oy + sh.cy * s).toFixed(2);
+      const r  = (sh.r * s).toFixed(2);
+      const fill = sh.fill ? knobFill : 'none';
+      const st   = sh.fill ? 'none'    : stroke;
+      svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${st}" stroke-width="${sw}"${pe}/>`;
+    }
+  }
+  return svg;
+}
+
+/* Build the inline SVG body for a door preview. Used by the toolbox card and
+ * the editor canvas, so both show the actual style-specific door (body fill,
+ * glass apertures, etched features) rather than diverging. Mirrors the
+ * windows' `buildWindowSvgBody` so doors get the same per-style colour
+ * identity (frameColor / panelFill / glassFill) — Western doors fall through
+ * to the existing orange-cream defaults.
+ *
+ * Output coordinates use the spec's mm units, scaled to (w, h) for any
+ * custom-sized door. Caller wraps in <svg viewBox> or <g transform> as needed.
+ */
+function buildDoorSvgBody(style, w, h, opts) {
+  if (!style) return '';
+  opts = opts || {};
+  const styleScale  = w / style.width;
+  const styleScaleY = h / style.height;
+  // Per-style colour identity. Japanese doors override; Western doors use
+  // the existing defaults via the `||` fallbacks.
+  const frameColor = style.frameColor || '#c84a3a';
+  const panelFill  = style.panelFill  || 'rgba(245,185,130,0.85)';
+  const glassFill  = style.glassFill  || 'rgba(160,205,245,0.85)';
+  const glassStroke = style.glassFill ? frameColor : '#2a64aa';
+  const sw         = (opts.strokeWidth      != null) ? opts.strokeWidth      : 0.3;
+  const swThick    = (opts.thickStrokeWidth != null) ? opts.thickStrokeWidth : 0.4;
+  const glassSw    = (opts.glassStrokeWidth != null) ? opts.glassStrokeWidth : 0.25;
+  // Tint fill — used by rolling-shutter drum band, crash-bar bar etc.
+  // Defaults to a translucent dark on Japanese doors (better against the
+  // brown body) and the original reddish wash on Western doors.
+  const tintFill = opts.tintFill || (style.frameColor ? 'rgba(0,0,0,0.32)' : 'rgba(200,74,58,0.18)');
+
+  // 1. Door body
+  let svg = `<rect x="0.2" y="0.2" width="${(w-0.4).toFixed(2)}" height="${(h-0.4).toFixed(2)}"`
+          + ` fill="${panelFill}" stroke="${frameColor}" stroke-width="${sw}"/>`;
+
+  // 2. Glass apertures (scaled into target size)
+  for (const gp of (style.glassPanes || [])) {
+    const gx = gp.x1 * styleScale, gy = gp.y1 * styleScaleY;
+    const gw = (gp.x2 - gp.x1) * styleScale, gh = (gp.y2 - gp.y1) * styleScaleY;
+    svg += `<rect x="${gx.toFixed(2)}" y="${gy.toFixed(2)}" width="${gw.toFixed(2)}" height="${gh.toFixed(2)}"`
+         + ` fill="${glassFill}" stroke="${glassStroke}" stroke-width="${glassSw}"/>`;
+  }
+
+  // 3. Engraved features — shape data is in spec base coords, wrap in a <g>
+  //    that scales to target size.
+  const shapes = doorFeatureShapes(style);
+  if (shapes.length) {
+    svg += `<g transform="scale(${styleScale.toFixed(4)} ${styleScaleY.toFixed(4)})">`;
+    svg += emitDoorShapesSvg(shapes, 0, 0, 1, {
+      stroke: frameColor,
+      knobFill: frameColor,
+      tintFill: tintFill,
+      strokeWidth: sw * 0.85,
+      thickStrokeWidth: swThick * 0.85,
+      pointerEvents: opts.pointerEvents,
+    });
+    svg += `</g>`;
+  }
+  return svg;
+}
+
+/* =====================================================================
+   WINDOW FEATURE SHAPES
+   Mirrors the door system: WINDOW_STYLES carries semantic data (mullion type,
+   colours); windowFeatureShapes() turns that into low-level geometric
+   primitives ({type:'line'|'rect'|...}); emitWindowShapesSvg() renders them
+   inline; the laser-output generator uses the same primitives to drive etches
+   and cuts on the frame piece. One data source, three consumers — the
+   toolbox icon, the editor canvas, and the physical frame stay in sync.
+   ===================================================================== */
+
+/* Cell-count helpers — picked from window dimensions so the lattice adapts
+ * to custom-sized windows. Returns at least the minimum count. */
+function _renjiBarCount(W) {
+  // bars ~0.4mm thick with ~0.5mm gap → 0.9mm pitch, 0.5mm end margin each side
+  return Math.max(3, Math.min(12, Math.floor((W - 1.0) / 0.9)));
+}
+function _ranmaBarCount(W) {
+  // ranma bars are slightly more spread out (~1.0mm pitch)
+  return Math.max(5, Math.min(24, Math.floor((W - 1.0) / 1.0)));
+}
+function _mushikoSlitCount(W) {
+  // Slits are 1.0mm wide with ≥1.2mm plaster between (kerf-safe).
+  // Total = N*1.0 + (N+1)*1.2 ≤ W  ⇒  N ≤ (W-1.2)/2.2
+  return Math.max(2, Math.floor((W - 1.2) / 2.2));
+}
+function _shojiCellCount(W, H) {
+  return {
+    cols: Math.max(2, Math.round(W / 2.7)),
+    rows: Math.max(2, Math.round(H / 2.7)),
+  };
+}
+
+/* Returns an array of {type, ...} primitives describing the visible lattice /
+ * bars / kumiko etched on the window's external frame piece. Coordinates are
+ * in window-local mm, origin at top-left of the visible aperture.
+ *
+ *   line   → {type:'line', x1, y1, x2, y2, thick?}
+ *   rect   → {type:'rect', x, y, w, h, tint?}      (etched outline)
+ *
+ * NOTE: mushiko_slits are NOT returned here — they're real cut-throughs and
+ * are handled by panesForMullion in layoutDividerFrame.
+ */
+function windowFeatureShapes(spec, W, H) {
+  if (!spec || !spec.mullion) return [];
+  const out = [];
+  const m = spec.mullion;
+
+  if (m === 'renji_vertical') {
+    // Vertical wooden bars, etched. Bars sit just inside the frame edge.
+    const n = _renjiBarCount(W);
+    const inset = 0.5;
+    const usable = W - inset * 2;
+    const pitch  = usable / (n + 1);
+    for (let i = 1; i <= n; i++) {
+      const x = inset + i * pitch;
+      out.push({ type: 'line', x1: x, y1: 0.3, x2: x, y2: H - 0.3, thick: true });
+    }
+    return out;
+  }
+
+  if (m === 'ranma_lattice') {
+    // Like renji_vertical but tighter spacing for transom proportions.
+    const n = _ranmaBarCount(W);
+    const inset = 0.4;
+    const usable = W - inset * 2;
+    const pitch  = usable / (n + 1);
+    for (let i = 1; i <= n; i++) {
+      const x = inset + i * pitch;
+      out.push({ type: 'line', x1: x, y1: 0.25, x2: x, y2: H - 0.25 });
+    }
+    return out;
+  }
+
+  if (m === 'shoji_grid') {
+    // Fine kumiko grid — cell count picked from W & H.
+    const { cols, rows } = _shojiCellCount(W, H);
+    const inset = 0.25;
+    const usableW = W - inset * 2, usableH = H - inset * 2;
+    // Vertical kumiko (between columns)
+    for (let c = 1; c < cols; c++) {
+      const x = inset + (c / cols) * usableW;
+      out.push({ type: 'line', x1: x, y1: inset, x2: x, y2: H - inset });
+    }
+    // Horizontal kumiko
+    for (let r = 1; r < rows; r++) {
+      const y = inset + (r / rows) * usableH;
+      out.push({ type: 'line', x1: inset, y1: y, x2: W - inset, y2: y });
+    }
+    return out;
+  }
+
+  if (m === 'yukimi_split') {
+    // Top half = shoji kumiko (etched), bottom half = clear pane (no etching).
+    // A thicker horizontal "meeting rail" line marks the split.
+    const splitY = H * 0.55;
+    const inset = 0.25;
+    const usableW = W - inset * 2;
+    const usableH = splitY - inset;
+    // Meeting rail (thicker etch line)
+    out.push({ type: 'line', x1: 0, y1: splitY, x2: W, y2: splitY, thick: true });
+    // Kumiko in the top half — generator picks counts based on top-half size
+    const { cols, rows } = _shojiCellCount(W, splitY);
+    for (let c = 1; c < cols; c++) {
+      const x = inset + (c / cols) * usableW;
+      out.push({ type: 'line', x1: x, y1: inset, x2: x, y2: splitY });
+    }
+    for (let r = 1; r < rows; r++) {
+      const y = inset + (r / rows) * usableH;
+      out.push({ type: 'line', x1: inset, y1: y, x2: W - inset, y2: y });
+    }
+    return out;
+  }
+
+  // Other mullion types (vertical_1, grid_2x2, etc.) — no etched features;
+  // their mullion bars are real retained material in the divider frame.
+  return [];
+}
+
+/** Emit SVG markup for window-local shapes. Mirrors emitDoorShapesSvg.
+ *  `s` is the input→output unit scale. `ox/oy` translate origin. */
+function emitWindowShapesSvg(shapes, ox, oy, s, opts) {
+  opts = opts || {};
+  const stroke  = opts.stroke      || '#2a64aa';
+  const sw      = (opts.strokeWidth      != null) ? opts.strokeWidth      : 0.18;
+  const swThick = (opts.thickStrokeWidth != null) ? opts.thickStrokeWidth : sw * 1.8;
+  const pe      = opts.pointerEvents ? '' : ' pointer-events="none"';
+
+  let svg = '';
+  for (const sh of shapes) {
+    if (sh.type === 'line') {
+      const x1 = (ox + sh.x1 * s).toFixed(2);
+      const y1 = (oy + sh.y1 * s).toFixed(2);
+      const x2 = (ox + sh.x2 * s).toFixed(2);
+      const y2 = (oy + sh.y2 * s).toFixed(2);
+      const w  = sh.thick ? swThick : sw;
+      svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="${w}" stroke-linecap="square"${pe}/>`;
+    } else if (sh.type === 'rect') {
+      const x = (ox + sh.x * s).toFixed(2);
+      const y = (oy + sh.y * s).toFixed(2);
+      const w = (sh.w * s).toFixed(2);
+      const h = (sh.h * s).toFixed(2);
+      const fill = sh.tint ? (opts.tintFill || 'rgba(0,0,0,0.18)') : 'none';
+      svg += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"${pe}/>`;
+    }
+  }
+  return svg;
+}
+
+/* For mushiko_mado, slit rects are real cut-throughs (not etches). This
+ * helper computes their geometry (window-local coords, inset from frame edge)
+ * so the toolbox preview, editor canvas, and laser-output plaster frame all
+ * agree on where the slits are. */
+function mushikoSlitRects(W, H) {
+  const n = _mushikoSlitCount(W);
+  const slitW = 1.0;
+  const gap = (W - n * slitW) / (n + 1);
+  const inset = Math.max(0.5, H * 0.18);  // top/bottom plaster margin
+  const slitH = H - inset * 2;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    out.push({
+      x: gap + i * (slitW + gap),
+      y: inset,
+      w: slitW,
+      h: slitH,
+    });
+  }
+  return out;
+}
+
+/* Build the inline SVG body for a window preview. Used by the toolbox card
+ * and the editor canvas so both show the actual visual pattern. The same
+ * three sources of geometric truth are consulted as for the laser output:
+ *   - style.mullion=mushiko_slits → slit rects via mushikoSlitRects()
+ *   - style.mullion=yukimi_split  → top paper + bottom clear glass
+ *   - other Japanese lattices     → windowFeatureShapes() (etched lines)
+ *   - Western mullions            → drawn as thick lines (retained material
+ *                                   in the divider frame at laser time)
+ * Output coordinates use the spec's mm units (caller wraps in viewBox or
+ * <g transform> as needed).
+ */
+function buildWindowSvgBody(style, w, h, opts) {
+  opts = opts || {};
+  const frameColor = (style && style.frameColor) || (opts.stroke || '#2a64aa');
+  const paneFill   = (style && style.paneFill)   || 'rgba(160,205,245,0.85)';
+  const sw         = (opts.strokeWidth != null) ? opts.strokeWidth : 0.3;
+  const swThick    = sw * 1.6;
+  let svg = '';
+
+  // --- mushiko: plaster body with dark cut-through slits ---
+  if (style && style.mullion === 'mushiko_slits') {
+    svg += `<rect x="0.2" y="0.2" width="${(w-0.4).toFixed(2)}" height="${(h-0.4).toFixed(2)}"`
+         + ` fill="${paneFill}" stroke="${frameColor}" stroke-width="${sw}"/>`;
+    // Inner recess line
+    const inX = Math.min(0.7, w * 0.07), inY = Math.min(0.5, h * 0.12);
+    svg += `<rect x="${inX.toFixed(2)}" y="${inY.toFixed(2)}"`
+         + ` width="${(w-inX*2).toFixed(2)}" height="${(h-inY*2).toFixed(2)}"`
+         + ` fill="none" stroke="${frameColor}" stroke-width="${(sw*0.5).toFixed(3)}" opacity="0.6"/>`;
+    for (const s of mushikoSlitRects(w, h)) {
+      svg += `<rect x="${s.x.toFixed(2)}" y="${s.y.toFixed(2)}"`
+           + ` width="${s.w.toFixed(2)}" height="${s.h.toFixed(2)}" fill="#3a3028"/>`;
+    }
+    return svg;
+  }
+
+  // --- yukimi: split (top paper-tinted, bottom clear glass) ---
+  if (style && style.mullion === 'yukimi_split') {
+    const splitY = h * 0.55;
+    svg += `<rect x="0.2" y="0.2" width="${(w-0.4).toFixed(2)}" height="${(splitY-0.2).toFixed(2)}"`
+         + ` fill="${paneFill}" stroke="${frameColor}" stroke-width="${sw}"/>`;
+    svg += `<rect x="0.2" y="${splitY.toFixed(2)}" width="${(w-0.4).toFixed(2)}" height="${(h-splitY-0.2).toFixed(2)}"`
+         + ` fill="rgba(160,205,245,0.85)" stroke="${frameColor}" stroke-width="${sw}"/>`;
+    // Etched kumiko + meeting rail from the same shape source as the laser output
+    const shapes = windowFeatureShapes(style, w, h);
+    svg += emitWindowShapesSvg(shapes, 0, 0, 1, {
+      stroke: frameColor, strokeWidth: sw * 0.6, thickStrokeWidth: swThick,
+    });
+    return svg;
+  }
+
+  // --- standard pane background ---
+  svg += `<rect x="0.2" y="0.2" width="${(w-0.4).toFixed(2)}" height="${(h-0.4).toFixed(2)}"`
+       + ` fill="${paneFill}" stroke="${frameColor}" stroke-width="${sw}"/>`;
+
+  // --- Western mullions (retained material in divider frame at laser time;
+  //     drawn here as thick lines so the preview matches the visible bars) ---
+  if (style && style.mullion) {
+    const m = style.mullion;
+    if (m === 'vertical_1') {
+      svg += `<line x1="${(w/2).toFixed(2)}" y1="0.3" x2="${(w/2).toFixed(2)}" y2="${(h-0.3).toFixed(2)}"`
+           + ` stroke="${frameColor}" stroke-width="${swThick}"/>`;
+    } else if (m === 'vertical_many') {
+      const n = Math.max(3, Math.min(5, Math.floor(w / 6)));
+      for (let i = 1; i < n; i++) {
+        const x = (w / n) * i;
+        svg += `<line x1="${x.toFixed(2)}" y1="0.3" x2="${x.toFixed(2)}" y2="${(h-0.3).toFixed(2)}"`
+             + ` stroke="${frameColor}" stroke-width="${swThick}"/>`;
+      }
+    } else if (m === 'grid_2x2') {
+      svg += `<line x1="${(w/2).toFixed(2)}" y1="0.3" x2="${(w/2).toFixed(2)}" y2="${(h-0.3).toFixed(2)}"`
+           + ` stroke="${frameColor}" stroke-width="${swThick}"/>`;
+      svg += `<line x1="0.3" y1="${(h/2).toFixed(2)}" x2="${(w-0.3).toFixed(2)}" y2="${(h/2).toFixed(2)}"`
+           + ` stroke="${frameColor}" stroke-width="${swThick}"/>`;
+    } else if (m === 'grid_3x2') {
+      svg += `<line x1="${(w/3).toFixed(2)}" y1="0.3" x2="${(w/3).toFixed(2)}" y2="${(h-0.3).toFixed(2)}"`
+           + ` stroke="${frameColor}" stroke-width="${swThick}"/>`;
+      svg += `<line x1="${(2*w/3).toFixed(2)}" y1="0.3" x2="${(2*w/3).toFixed(2)}" y2="${(h-0.3).toFixed(2)}"`
+           + ` stroke="${frameColor}" stroke-width="${swThick}"/>`;
+      svg += `<line x1="0.3" y1="${(h/2).toFixed(2)}" x2="${(w-0.3).toFixed(2)}" y2="${(h/2).toFixed(2)}"`
+           + ` stroke="${frameColor}" stroke-width="${swThick}"/>`;
+    }
+  }
+
+  // --- Japanese etched lattices (renji, ranma, shoji) ---
+  const shapes = style ? windowFeatureShapes(style, w, h) : [];
+  if (shapes.length) {
+    svg += emitWindowShapesSvg(shapes, 0, 0, 1, {
+      stroke: frameColor,
+      strokeWidth: sw * 0.6,
+      thickStrokeWidth: swThick * 0.8,
+    });
+  }
+
+  return svg;
 }
 
 /* =====================================================================
@@ -2069,6 +2861,7 @@ let CONFIG = {
     { id: 'cladding', name: '0.28mm Basswood',         thickness: 0.28, colour: '#9abcda' },
     { id: 'window',   name: '0.5mm Clear PVC',         thickness: 0.5,  colour: '#b8ddf0' },
     { id: 'backing',  name: '0.28mm Black Card',       thickness: 0.28, colour: '#444444' },
+    { id: 'plaster',  name: '0.28mm Plaster Card',     thickness: 0.28, colour: '#e8e0d0' },
   ],
   // Per-cladding-style material override: { claddingStyleKey → materials[].id }
   // Any key not listed here defaults to 'cladding'.
@@ -2491,6 +3284,161 @@ function buildLShapePathWithFeatures(mainW, mainH, extW, extH, extRight, opts) {
   // Step UP from (extW, stepY) to (extW, 0), closing
   d += ` L ${fx(extW)},0`;
   d += ` Z`;
+  return d;
+}
+
+/* Build a T-shaped wall perimeter path WITH edge tongues.
+   Used when two wings extend the same main face (one on each side). The
+   outline is a T: main rectangle at top spanning full width of merged panel,
+   with left and right wings hanging from its bottom corners.
+
+   Coordinate frame: the merged panel's (0,0) is at the TOP-LEFT of the LEFT
+   WING. Main rectangle occupies x ∈ [leftCW, leftCW+mainW], y ∈ [0, mainH].
+
+   opts:
+     matT                — tongue depth
+     mainTopTongues      — main top tongues, positions in main-local x [0, mainW]
+     mainBotTongues      — main bottom tongues, positions in main-local x
+     leftExtTopTongues   — left wing top tongues, in wing-local x
+     leftExtTopShift     — offset (default 0) from left-merged-x=0 to start of
+                           left wing's wall content (allows bridging matT corner)
+     leftExtBotTongues   — left wing bottom tongues, in wing-local x
+     leftExtBotShift     — offset from left-merged-x=0 to start of left wing
+                           wall content along the bottom
+     leftExtLeftTongues  — left wing outer (left) vertical tongues, in wing-
+                           local y [0, leftCH]
+     rightExtTopTongues  — right wing top tongues, in wing-local x
+     rightExtTopShift    — offset from start of right wing in merged frame to
+                           start of wall content (typically matT)
+     rightExtBotTongues  — right wing bottom tongues, in wing-local x
+     rightExtBotShift    — same idea for bottom
+     rightExtRightTongues — right wing outer (right) vertical tongues, in wing-
+                           local y [0, rightCH]
+     bay                 — optional { xStart, xEnd, height } in MERGED-frame x
+
+   leftCW, leftCH       — left wing extension width and height
+   rightCW, rightCH     — right wing extension width and height
+*/
+function buildTShapePathWithFeatures(mainW, mainH, leftCW, leftCH, rightCW, rightCH, opts) {
+  const matT  = opts.matT;
+  const td    = matT;
+  const fx    = v => v.toFixed(3);
+  const stepYL = mainH - leftCH;
+  const stepYR = mainH - rightCH;
+  const xMain  = leftCW;
+  const xRight = leftCW + mainW;
+  const totalW = leftCW + mainW + rightCW;
+
+  const mainTop  = (opts.mainTopTongues       || []).slice().sort((a, b) => a.start - b.start);
+  const mainBot  = (opts.mainBotTongues       || []).slice().sort((a, b) => a.start - b.start);
+  const leftTop  = (opts.leftExtTopTongues    || []).slice().sort((a, b) => a.start - b.start);
+  const leftBot  = (opts.leftExtBotTongues    || []).slice().sort((a, b) => a.start - b.start);
+  const leftLeft = (opts.leftExtLeftTongues   || []).slice().sort((a, b) => a.start - b.start);
+  const rightTop = (opts.rightExtTopTongues   || []).slice().sort((a, b) => a.start - b.start);
+  const rightBot = (opts.rightExtBotTongues   || []).slice().sort((a, b) => a.start - b.start);
+  const rightRT  = (opts.rightExtRightTongues || []).slice().sort((a, b) => a.start - b.start);
+  const leftTopShift  = opts.leftExtTopShift  || 0;
+  const leftBotShift  = opts.leftExtBotShift  || 0;
+  const rightTopShift = opts.rightExtTopShift || 0;
+  const rightBotShift = opts.rightExtBotShift || 0;
+
+  // Combine bottom tongues into a single list in merged-frame x.
+  // Left wing bottom: x = leftBotShift + t.
+  // Main bottom: x = xMain + t.
+  // Right wing bottom: x = xRight + rightBotShift + t.
+  const allBot = [
+    ...leftBot .map(t => ({ start: leftBotShift + t.start,            end: leftBotShift + t.end })),
+    ...mainBot .map(t => ({ start: xMain        + t.start,            end: xMain        + t.end })),
+    ...rightBot.map(t => ({ start: xRight + rightBotShift + t.start,  end: xRight + rightBotShift + t.end })),
+  ].sort((a, b) => a.start - b.start);
+
+  // Walk clockwise from (xMain, 0) = top-left of main rectangle.
+  let d = `M ${fx(xMain)},0`;
+
+  // 1) Main top edge — walk right, tongues UP at y=-td.
+  let x = xMain;
+  for (const t of mainTop) {
+    const xs = xMain + t.start, xe = xMain + t.end;
+    if (xs > x) d += ` L ${fx(xs)},0`;
+    d += ` L ${fx(xs)},${fx(-td)} L ${fx(xe)},${fx(-td)} L ${fx(xe)},0`;
+    x = xe;
+  }
+  if (x < xRight) d += ` L ${fx(xRight)},0`;
+
+  // 2) Main's right edge down to top of right wing (no tongues — interior step).
+  d += ` L ${fx(xRight)},${fx(stepYR)}`;
+
+  // 3) Right wing top edge — walk right, tongues UP at y=stepYR-td.
+  x = xRight;
+  for (const t of rightTop) {
+    const xs = xRight + rightTopShift + t.start, xe = xRight + rightTopShift + t.end;
+    if (xs > x) d += ` L ${fx(xs)},${fx(stepYR)}`;
+    d += ` L ${fx(xs)},${fx(stepYR - td)} L ${fx(xe)},${fx(stepYR - td)} L ${fx(xe)},${fx(stepYR)}`;
+    x = xe;
+  }
+  if (x < totalW) d += ` L ${fx(totalW)},${fx(stepYR)}`;
+
+  // 4) Right wing's right edge — walk down, tongues RIGHT at x=totalW+td.
+  let y = stepYR;
+  for (const t of rightRT) {
+    const ys = stepYR + t.start, ye = stepYR + t.end;
+    if (ys > y) d += ` L ${fx(totalW)},${fx(ys)}`;
+    d += ` L ${fx(totalW + td)},${fx(ys)} L ${fx(totalW + td)},${fx(ye)} L ${fx(totalW)},${fx(ye)}`;
+    y = ye;
+  }
+  if (y < mainH) d += ` L ${fx(totalW)},${fx(mainH)}`;
+
+  // 5) Bottom edge — walk LEFT from (totalW, mainH) to (0, mainH), tongues DOWN
+  //    at y=mainH+td. Optional bay carved upward in the main portion.
+  const bay = opts.bay || null;
+  let xpos = totalW;
+  const sortedBot = [...allBot].sort((a, b) => b.start - a.start);
+  for (const t of sortedBot) {
+    if (bay && t.start < bay.xEnd) continue;
+    if (xpos > t.end) d += ` L ${fx(t.end)},${fx(mainH)}`;
+    d += ` L ${fx(t.end)},${fx(mainH + td)} L ${fx(t.start)},${fx(mainH + td)} L ${fx(t.start)},${fx(mainH)}`;
+    xpos = t.start;
+  }
+  if (bay) {
+    if (xpos > bay.xEnd) d += ` L ${fx(bay.xEnd)},${fx(mainH)}`;
+    d += ` L ${fx(bay.xEnd)},${fx(mainH - bay.height)} L ${fx(bay.xStart)},${fx(mainH - bay.height)} L ${fx(bay.xStart)},${fx(mainH)}`;
+    xpos = bay.xStart;
+    for (const t of sortedBot) {
+      if (t.start >= bay.xEnd) continue;
+      if (t.end > bay.xStart) continue;
+      if (xpos > t.end) d += ` L ${fx(t.end)},${fx(mainH)}`;
+      d += ` L ${fx(t.end)},${fx(mainH + td)} L ${fx(t.start)},${fx(mainH + td)} L ${fx(t.start)},${fx(mainH)}`;
+      xpos = t.start;
+    }
+  }
+  if (xpos > 0) d += ` L 0,${fx(mainH)}`;
+
+  // 6) Left wing's left edge — walk UP from (0, mainH) to (0, stepYL),
+  //    tongues LEFT at x=-td. Tongue positions are in wing-local y [0, leftCH]
+  //    so merged y = stepYL + t.
+  let ypos = mainH;
+  for (const t of [...leftLeft].sort((a, b) => b.start - a.start)) {
+    const ys = stepYL + t.start, ye = stepYL + t.end;
+    if (ypos > ye) d += ` L 0,${fx(ye)}`;
+    d += ` L ${fx(-td)},${fx(ye)} L ${fx(-td)},${fx(ys)} L 0,${fx(ys)}`;
+    ypos = ys;
+  }
+  if (ypos > stepYL) d += ` L 0,${fx(stepYL)}`;
+
+  // 7) Left wing top edge — walk RIGHT from (0, stepYL) to (xMain, stepYL),
+  //    tongues UP at y=stepYL-td.
+  x = 0;
+  for (const t of leftTop) {
+    const xs = leftTopShift + t.start, xe = leftTopShift + t.end;
+    if (xs > x) d += ` L ${fx(xs)},${fx(stepYL)}`;
+    d += ` L ${fx(xs)},${fx(stepYL - td)} L ${fx(xe)},${fx(stepYL - td)} L ${fx(xe)},${fx(stepYL)}`;
+    x = xe;
+  }
+  if (x < xMain) d += ` L ${fx(xMain)},${fx(stepYL)}`;
+
+  // 8) Main's left edge — walk UP from (xMain, stepYL) back to (xMain, 0).
+  //    No tongues here either (interior step).
+  d += ` L ${fx(xMain)},0 Z`;
   return d;
 }
 
@@ -3507,8 +4455,16 @@ function buildEdgePlans(cfg) {
 function applyWingOpenings(rects, cfg, wallKey, wallW, wallH) {
   const openings = ((cfg._wingOpenings || {})[wallKey] || []);
   for (const op of openings) {
-    const x = Math.max(0, op.x0);
-    const w = Math.min(wallW, op.x1) - x;
+    // East wall laser panel uses internal-view convention (north on the
+    // right of the panel) to match the openings editor's east display via
+    // `oeMirrorX`. Storage keeps x=0=NORTH; flip here at the cut layer so
+    // the slot lands at the right physical end of the panel.
+    let x0 = op.x0, x1 = op.x1;
+    if (wallKey === 'east') {
+      [x0, x1] = [wallW - x1, wallW - x0];
+    }
+    const x = Math.max(0, x0);
+    const w = Math.min(wallW, x1) - x;
     const y = Math.max(0, op.y0);
     const h = Math.min(wallH, op.y1) - y;
     if (w > 0 && h > 0) {
@@ -3653,15 +4609,23 @@ function generateSideWall(cfg, plan, side) {
   let sideWindowsToDraw = [], sideDoors = [];
   const _sideManualKey = side === 'E' ? 'east' : 'west';
   const _sideManualOps = (cfg.manualOpenings || {})[_sideManualKey] || null;
+  // East wall laser panel uses the internal-view convention (north on right
+  // of panel) to match the openings editor's east display via `oeMirrorX`.
+  // Storage keeps x=0=NORTH; flip op.x at the cut layer so a feature placed
+  // near the wing side (right in display) cuts at the right end of the panel.
+  const _sideMirrorX = (side === 'E');
   if (_sideManualOps) {
     // Manual mode: use editor-placed openings directly
     for (const op of _sideManualOps) {
       if (op.type === 'awning') continue;   // awnings sit on the surface; no wall slot needed
+      const opXBase = _sideMirrorX ? (sideLen - op.x - op.w) : op.x;
       if (op.type === 'door') {
-        rects.push({ type: 'cut', x: op.x - 1, y: op.y - 1, w: op.w + 2, h: op.h + 1, compensateKerf: false });
+        // Per-aperture core holes for glass doors; nothing for solid doors
+        // (the cladding insert glues to the wall surface).
+        cutDoorCoreHoles(rects, opXBase, op.y, op.w, op.h, op.style || cfg.doorStyle, _sideMirrorX);
         sideDoors.push(op);
       } else {
-        rects.push({ type: 'cut', x: op.x - 1, y: op.y - 1, w: op.w + 2, h: op.h + 2, compensateKerf: false });
+        rects.push({ type: 'cut', x: opXBase - 1, y: op.y - 1, w: op.w + 2, h: op.h + 2, compensateKerf: false });
         sideWindowsToDraw.push(op);
       }
     }
@@ -3682,9 +4646,10 @@ function generateSideWall(cfg, plan, side) {
     });
     sideWindowsToDraw = windows;
     for (const w of sideWindowsToDraw) {
+      const wxBase = _sideMirrorX ? (sideLen - w.x - w.width) : w.x;
       rects.push({
         type: 'cut',
-        x: w.x - 1, y: w.y - 1,
+        x: wxBase - 1, y: w.y - 1,
         w: w.width + 2, h: w.height + 2,
         compensateKerf: false,
       });
@@ -3697,15 +4662,9 @@ function generateSideWall(cfg, plan, side) {
       bayXStart: 0, bayXEnd: 0,
     });
     for (const d of sideDoors) {
-      // Glass doors only: cut through the core; solid doors live in cladding only.
-      if (doorHasGlass(d.style)) {
-        rects.push({
-          type: 'cut',
-          x: d.x - 1, y: d.y - 1,
-          w: d.width + 2, h: d.height + 1,
-          compensateKerf: false,
-        });
-      }
+      // Per-aperture core holes for glass doors; nothing for solid doors.
+      const dxBase = _sideMirrorX ? (sideLen - d.x - d.width) : d.x;
+      cutDoorCoreHoles(rects, dxBase, d.y, d.width, d.height, d.style, _sideMirrorX);
     }
   }
 
@@ -3835,12 +4794,20 @@ function generateFrontBackWall(cfg, plan, which) {
 
   // Roof slots — only for parapet/flat roofs where the roof panel has matching tongues
   if (roofStyle === 'parapet') {
-    const roofSlotCount = Math.max(2, Math.min(4, Math.floor(fbWidth / 30)));
-    const roofTonguePoss = placeTongues(fbWidth, tw, margin, [], roofSlotCount, tw / 2);
+    // Use the SAME placeTongues call as generateRoof so positions match
+    // exactly. The roof sits inside the walls (interior dim = fbWidth - 2*matT),
+    // so the wall's slots must be at the same positions but offset by matT
+    // (wall-content x = matT + roof-local x). When the wing is small and
+    // capacity becomes limiting (e.g. wing.span = 48 → fbWidth=48 capacity 2,
+    // but interior=45 capacity 1), this prevents wall and roof from disagreeing
+    // on tongue count.
+    const interiorW = fbWidth - 2 * matT;
+    const roofSlotCount = Math.max(2, Math.min(4, Math.floor(interiorW / 30)));
+    const roofTonguePoss = placeTongues(interiorW, tw, margin, [], roofSlotCount, tw / 2);
     for (const t of roofTonguePoss) {
       rects.push({
         type: 'cut',
-        x: t.start, y: parapetH,
+        x: t.start + matT, y: parapetH,
         w: t.end - t.start, h: matT,
         compensateKerf: true,
       });
@@ -3894,11 +4861,10 @@ function generateFrontBackWall(cfg, plan, which) {
     for (const op of _fbManualOps) {
       if (op.type === 'awning') continue;   // awnings sit on the surface; no wall slot needed
       if (op.type === 'door') {
-        // Glass doors need a core cut-through so the glass pane can be inserted.
-        // Solid doors only cut the cladding layer — core stays solid behind them.
-        if (doorHasGlass(op.style)) {
-          rects.push({ type: 'cut', x: op.x - 1, y: op.y - 1, w: op.w + 2, h: op.h + 1, compensateKerf: false });
-        }
+        // Glass doors get per-aperture core holes (matching the window
+        // sandwich pattern); solid doors get no core cut — the cladding
+        // insert glues directly to the wall surface.
+        cutDoorCoreHoles(rects, op.x, op.y, op.w, op.h, op.style || cfg.doorStyle, false);
         doors.push(op);
       } else {
         rects.push({ type: 'cut', x: op.x - 1, y: op.y - 1, w: op.w + 2, h: op.h + 2, compensateKerf: false });
@@ -3942,15 +4908,8 @@ function generateFrontBackWall(cfg, plan, which) {
         bayXStart: 0, bayXEnd: 0,
       });
       for (const d of doors) {
-        // Glass doors need a core cut-through; solid doors appear only in the cladding.
-        if (doorHasGlass(d.style)) {
-          rects.push({
-            type: 'cut',
-            x: d.x - 1, y: d.y - 1,
-            w: d.width + 2, h: d.height + 1,
-            compensateKerf: false,
-          });
-        }
+        // Per-aperture core holes for glass doors; nothing for solid doors.
+        cutDoorCoreHoles(rects, d.x, d.y, d.width, d.height, d.style, false);
       }
     }
   }
@@ -5922,7 +6881,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
         if (op.type === 'window') {
           cladWindows.push({ x: op.x + cT, y: op.y, w: op.w, h: op.h, isGround: false });
         } else if (op.type === 'door') {
-          cladDoors.push({ x: op.x + cT, y: op.y, w: op.w, h: op.h, style: null });
+          cladDoors.push({ x: op.x + cT, y: op.y, w: op.w, h: op.h, style: op.style || cfg.doorStyle });
         }
       }
     } else {
@@ -5963,13 +6922,19 @@ function generateCladdingPanel(cfg, plan, which, band) {
     // Side cladding spans sideLen + 2*matT, with the wall body's x=0 sitting
     // at cladding-frame x = matT (= the south corner extension).
     const sideXShift = matT;
+    // East side cladding mirrors x to match the east laser core panel and the
+    // openings editor display (internal view, north on right).
+    const _sideCladMirrorX = (which === 'east');
+    const _sideMirroredX = (rawX, w) => _sideCladMirrorX
+      ? ((sideLen - rawX - w) + sideXShift)
+      : (rawX + sideXShift);
     if (_sideManualOps) {
       // Manual mode — shift openings into the cladding frame
       for (const op of _sideManualOps) {
         if (op.type === 'window') {
-          cladWindows.push({ x: op.x + sideXShift, y: op.y, w: op.w, h: op.h, isGround: false });
+          cladWindows.push({ x: _sideMirroredX(op.x, op.w), y: op.y, w: op.w, h: op.h, isGround: false });
         } else if (op.type === 'door') {
-          cladDoors.push({ x: op.x + sideXShift, y: op.y, w: op.w, h: op.h, style: null });
+          cladDoors.push({ x: _sideMirroredX(op.x, op.w), y: op.y, w: op.w, h: op.h, style: op.style || cfg.doorStyle });
         }
       }
     } else {
@@ -5987,14 +6952,14 @@ function generateCladdingPanel(cfg, plan, which, band) {
         doorReserveH: doorReserveH,
       });
       for (const w of wallWindows) {
-        cladWindows.push({ x: w.x + sideXShift, y: w.y, w: w.width, h: w.height, isGround: w.isGround });
+        cladWindows.push({ x: _sideMirroredX(w.x, w.width), y: w.y, w: w.width, h: w.height, isGround: w.isGround });
       }
       const wallDoors = computeDoors(sideLen, H, {
         doorStyle: doorStyle, doorCount: sideDoorCount,
         hasOpening: false, bayXStart: 0, bayXEnd: 0,
       });
       for (const d of wallDoors) {
-        cladDoors.push({ x: d.x + sideXShift, y: d.y, w: d.width, h: d.height, style: d.style });
+        cladDoors.push({ x: _sideMirroredX(d.x, d.width), y: d.y, w: d.width, h: d.height, style: d.style });
       }
     }
   }
@@ -6038,6 +7003,13 @@ function generateCladdingPanel(cfg, plan, which, band) {
       cx = Math.max(0, wing.offset - wMatT);
       const cx2 = Math.min(cWidth, wing.offset + wing.span - wMatT);
       cw = cx2 - cx;
+      // East cladding uses internal-view convention (north on right) to
+      // match the east laser core panel and the openings editor. Mirror
+      // the coverage zone so a wing at wing.offset=0 (north end) lands at
+      // the RIGHT of the cladding panel, not the LEFT.
+      if (which === 'east') {
+        cx = cWidth - cx - cw;
+      }
     } else {
       // Front/back cladding: x runs 0..cWidth with cT overhang on each side
       cx = Math.max(0, wing.offset + cT);
@@ -6094,6 +7066,14 @@ function generateCladdingPanel(cfg, plan, which, band) {
     upperWindows: upperCount,
     groundWindows: groundCount,
     doors: cladDoorsBand.length,
+    doorStyleTallies: (() => {
+      const t = {};
+      for (const d of cladDoorsBand) {
+        const s = d.style || cfg.doorStyle;
+        if (s && s !== 'none') t[s] = (t[s] || 0) + 1;
+      }
+      return t;
+    })(),
   };
 }
 
@@ -6137,6 +7117,16 @@ function generateWindowPartsForDims(cfg, winDims, count, suffix) {
   // Allocate spares
   const total = count + 3;
 
+  // Look up the style spec (for frameMaterial, frameColor, paneFill, etc.).
+  // winDims may be a synthetic dim (e.g. cladding-style override) so styleKey
+  // can be missing — fall back to plain cladding/no extras in that case.
+  const styleSpec = (winDims.styleKey && WINDOW_STYLES[winDims.styleKey]) || null;
+  const frameMaterial = (styleSpec && styleSpec.frameMaterial) || 'cladding';
+  // Lattice / kumiko etched on the external frame piece (renji, shoji, ranma, yukimi).
+  const etchShapes = styleSpec
+    ? windowFeatureShapes(styleSpec, winDims.w, winDims.h)
+    : [];
+
   // Glass: visible window size + 1mm on each side (for the core hole) - 0.2mm clearance for fit
   const glassW = winDims.w + 2 - 0.2;
   const glassH = winDims.h + 2 - 0.2;
@@ -6161,16 +7151,29 @@ function generateWindowPartsForDims(cfg, winDims, count, suffix) {
     'Inner frame' + suffix + ' — single aperture (use 1-2 per window for depth)'));
 
   if (winDims.mullion && winDims.mullion !== 'none') {
-    parts.push(layoutDividerFrame('frame_divider' + suffixId(suffix), total,
-      innerFrameOuterW, innerFrameOuterH, innerApW, innerApH, winDims.mullion,
-      'cladding',
-      'Divider frame' + suffix + ' — multi-pane (max 1 per window; mullion = retained material)'));
+    // For Japanese lattice/kumiko styles, the visible "panes" come from
+    // etching on the external frame (handled below) — no divider frame piece.
+    // mushiko_slits is the exception: real cut-through slits in a separate
+    // plaster-material piece that replaces the divider role.
+    const etchedLatticeStyles = new Set(['renji_vertical', 'ranma_lattice', 'shoji_grid', 'yukimi_split']);
+    const isEtchedLattice = etchedLatticeStyles.has(winDims.mullion);
+    if (!isEtchedLattice) {
+      const dividerMat = (winDims.mullion === 'mushiko_slits') ? 'plaster' : 'cladding';
+      const dividerLabel = (winDims.mullion === 'mushiko_slits')
+        ? 'Plaster slit frame'
+        : 'Divider frame';
+      parts.push(layoutDividerFrame('frame_divider' + suffixId(suffix), total,
+        innerFrameOuterW, innerFrameOuterH, innerApW, innerApH, winDims.mullion,
+        dividerMat,
+        dividerLabel + suffix + ' — multi-pane (max 1 per window; retained material = mullion / plaster between slits)'));
+    }
   }
 
   parts.push(layoutSingleApFrames('frame_external' + suffixId(suffix), total,
     winDims.w, winDims.h, innerApW, innerApH,
-    'cladding',
-    'External frame' + suffix + ' — single aperture (use 1-2 per window for outside depth)'));
+    frameMaterial,
+    'External frame' + suffix + ' — single aperture (use 1-2 per window for outside depth)',
+    etchShapes));
 
   return parts;
 }
@@ -6232,34 +7235,37 @@ function generateDoorInserts(cfg, doorTallies) {
       }
 
       // Center split line for double doors (etch on retained body)
-      if (door.centerSplit) {
-        // Only etch where there's no glass aperture in the way; we draw two short
-        // segments at top and bottom in the body region.
-        // Simplest: draw the split line in panel-only regions (above/below glass).
-        // If the door has full-height glass panes, the split is visible between them
-        // — but since both panes are the same height as the door, the split runs
-        // OUTSIDE both apertures (in the central retained strip).
-        lines.push({
-          type: 'etch',
-          x1: ox + insetW / 2, y1: oy + 1,
-          x2: ox + insetW / 2, y2: oy + insetH - 1,
-        });
-      }
-
       // Decorative panel ridges (etched horizontal lines on retained body)
-      for (const p of door.panels) {
-        const py1 = oy + p.y1 * sy;
-        const py2 = oy + p.y2 * sy;
-        // These sit in regions WITHOUT glass apertures, so they're on retained body
-        lines.push({ type: 'etch', x1: ox + 1, y1: py1, x2: ox + insetW - 1, y2: py1 });
-        lines.push({ type: 'etch', x1: ox + 1, y1: py2, x2: ox + insetW - 1, y2: py2 });
-      }
-
       // Rolling shutter slats — etched horizontal lines covering the body
-      if (door.rollingSlats) {
-        const slatSpacing = 1.5;
-        for (let yy = oy + slatSpacing; yy < oy + insetH - 0.5; yy += slatSpacing) {
-          lines.push({ type: 'etch', x1: ox + 0.5, y1: yy, x2: ox + insetW - 0.5, y2: yy });
+      // ALL of the above are now driven by `doorFeatureShapes` so the
+      // toolbox icon, editor canvas, and laser-etched insert stay in sync.
+      const shapes = doorFeatureShapes(door);
+      for (const sh of shapes) {
+        if (sh.type === 'rect') {
+          // Etched rectangle = 4 line segments around the perimeter
+          const x1 = ox + sh.x * sx, y1 = oy + sh.y * sy;
+          const x2 = ox + (sh.x + sh.w) * sx, y2 = oy + (sh.y + sh.h) * sy;
+          lines.push({ type: 'etch', x1, y1, x2, y2: y1 });
+          lines.push({ type: 'etch', x1: x2, y1, x2, y2 });
+          lines.push({ type: 'etch', x1: x2, y1: y2, x2: x1, y2 });
+          lines.push({ type: 'etch', x1, y1: y2, x2: x1, y2: y1 });
+        } else if (sh.type === 'line') {
+          lines.push({ type: 'etch',
+            x1: ox + sh.x1 * sx, y1: oy + sh.y1 * sy,
+            x2: ox + sh.x2 * sx, y2: oy + sh.y2 * sy });
+        } else if (sh.type === 'circle') {
+          // 12-segment polygon approximates the circle for vector etching
+          const cx = ox + sh.cx * sx, cy = oy + sh.cy * sy;
+          const rx = sh.r * sx, ry = sh.r * sy;
+          const N = 12;
+          let px = cx + rx, py = cy;
+          for (let i = 1; i <= N; i++) {
+            const a = (i / N) * 2 * Math.PI;
+            const nx = cx + Math.cos(a) * rx;
+            const ny = cy + Math.sin(a) * ry;
+            lines.push({ type: 'etch', x1: px, y1: py, x2: nx, y2: ny });
+            px = nx; py = ny;
+          }
         }
       }
     }
@@ -6267,7 +7273,7 @@ function generateDoorInserts(cfg, doorTallies) {
     parts.push({
       id: 'door_insert_' + styleKey,
       name: `Door insert — ${door.label} (${count} needed + 2 spare)`,
-      material: 'cladding',
+      material: door.frameMaterial || 'cladding',
       bboxW: sheetW, bboxH: sheetH,
       bboxOffsetX: 0, bboxOffsetY: 0,
       paths: [], rects: rects, lines: lines,
@@ -6283,8 +7289,12 @@ function generateDoorInserts(cfg, doorTallies) {
       const glassPieces = [];
       for (let pi = 0; pi < glassApertures.length; pi++) {
         const gp = glassApertures[pi];
-        const gw = (gp.x2 - gp.x1) * sx + 1 - 0.2;  // +1mm overlap behind frame, -0.2 clearance
-        const gh = (gp.y2 - gp.y1) * sy + 1 - 0.2;
+        // Glass pane oversized by 0.9 mm each side over the visible aperture
+        // (= +2 mm minus 0.2 mm fit clearance), matching the window pattern.
+        // The pane slots into the core hole (cut at aperture + 1 mm each side)
+        // and is glued to the lip; the cladding insert is then glued on top.
+        const gw = (gp.x2 - gp.x1) * sx + 2 - 0.2;
+        const gh = (gp.y2 - gp.y1) * sy + 2 - 0.2;
         if (gw < 1 || gh < 1) continue;
         for (let n = 0; n < total; n++) {
           glassPieces.push({ w: gw, h: gh, paneIndex: pi });
@@ -6309,7 +7319,7 @@ function generateDoorInserts(cfg, doorTallies) {
         }
         parts.push({
           id: 'door_glass_' + styleKey,
-          name: `Door glass — ${door.label} (slot behind insert apertures)`,
+          name: `Door glass — ${door.label} (slots into core holes, 0.2 mm clearance)`,
           material: 'window',
           bboxW: gSheetW, bboxH: gSheetH,
           bboxOffsetX: 0, bboxOffsetY: 0,
@@ -6375,6 +7385,21 @@ function layoutDividerFrame(id, count, outerW, outerH, innerApW, innerApH, mulli
       }
       return out;
     }
+    if (mullion === 'mushiko_slits') {
+      // Real cut-through slits with kerf-safe plaster between. The frame piece
+      // is plaster material; the surrounding glass+backing handle the dark
+      // appearance behind each slit. Outer-perimeter cut is handled by the
+      // caller; we only return the slit apertures here.
+      return mushikoSlitRects(innerApW, innerApH).map(s => ({
+        x: apOffX + s.x, y: apOffY + s.y, w: s.w, h: s.h,
+      }));
+    }
+    if (mullion === 'renji_vertical' || mullion === 'ranma_lattice' ||
+        mullion === 'shoji_grid'     || mullion === 'yukimi_split') {
+      // Single big aperture — the lattice / kumiko / bars are etched on the
+      // external frame piece, not made of retained mullion material.
+      return [{ x: apOffX, y: apOffY, w: innerApW, h: innerApH }];
+    }
     // Fallback: single aperture
     return [{ x: apOffX, y: apOffY, w: innerApW, h: innerApH }];
   }
@@ -6417,14 +7442,17 @@ function layoutDividerFrame(id, count, outerW, outerH, innerApW, innerApH, mulli
 }
 
 /* Layout for simple frames: each frame is an outer rectangle with ONE rectangular 
-   aperture in the middle. */
-function layoutSingleApFrames(id, count, outerW, outerH, innerW, innerH, material, description) {
+   aperture in the middle. Optionally adds etched shapes (e.g. wooden lattice) to
+   each frame piece — passed as window-local shapes that get scaled to the
+   visible aperture and offset to each piece's position on the sheet. */
+function layoutSingleApFrames(id, count, outerW, outerH, innerW, innerH, material, description, etchShapes) {
   const gutter = 5;
   const cols = Math.min(count, Math.max(4, Math.floor((250 - gutter) / (outerW + gutter))));
   const rows = Math.ceil(count / cols);
   const sheetW = cols * (outerW + gutter) + gutter;
   const sheetH = rows * (outerH + gutter) + gutter;
   const rects = [];
+  const lines = [];
   for (let i = 0; i < count; i++) {
     const c = i % cols;
     const r = Math.floor(i / cols);
@@ -6434,12 +7462,33 @@ function layoutSingleApFrames(id, count, outerW, outerH, innerW, innerH, materia
     const ix = ox + (outerW - innerW) / 2;
     const iy = oy + (outerH - innerH) / 2;
     rects.push({ type: 'cut', x: ix, y: iy, w: innerW, h: innerH, compensateKerf: false });
+    // Optional etched shapes (e.g. renji bars, shoji kumiko) — coords are
+    // window-local with origin at the aperture's top-left.
+    if (etchShapes && etchShapes.length) {
+      for (const sh of etchShapes) {
+        if (sh.type === 'line') {
+          lines.push({
+            type: 'etch',
+            x1: ix + sh.x1, y1: iy + sh.y1,
+            x2: ix + sh.x2, y2: iy + sh.y2,
+          });
+        } else if (sh.type === 'rect') {
+          // Etched rectangle = 4 line segments
+          const rx1 = ix + sh.x,        ry1 = iy + sh.y;
+          const rx2 = ix + sh.x + sh.w, ry2 = iy + sh.y + sh.h;
+          lines.push({ type: 'etch', x1: rx1, y1: ry1, x2: rx2, y2: ry1 });
+          lines.push({ type: 'etch', x1: rx2, y1: ry1, x2: rx2, y2: ry2 });
+          lines.push({ type: 'etch', x1: rx2, y1: ry2, x2: rx1, y2: ry2 });
+          lines.push({ type: 'etch', x1: rx1, y1: ry2, x2: rx1, y2: ry1 });
+        }
+      }
+    }
   }
   return {
     id: id, name: description, material: material,
     bboxW: sheetW, bboxH: sheetH,
     bboxOffsetX: 0, bboxOffsetY: 0,
-    paths: [], rects: rects, lines: [],
+    paths: [], rects: rects, lines: lines,
   };
 }
 
@@ -6564,17 +7613,18 @@ function generateBuilding(cfg) {
   let upperWindows = 0;
   let groundWindows = 0;
   let totalDoors = 0;
-  // Per-style door tallies. All walls share the same door style, so this is just one entry.
+  // Per-style door tallies — different walls may have different mixes when
+  // the user places doors via the openings editor.
   const doorTallies = {};
   for (const p of parts) {
     if (p.material === 'cladding') {
       if (p.windows) totalWindows += p.windows;
       if (p.upperWindows) upperWindows += p.upperWindows;
       if (p.groundWindows) groundWindows += p.groundWindows;
-      if (p.doors) {
-        totalDoors += p.doors;
-        if (cfg.doorStyle && cfg.doorStyle !== 'none') {
-          doorTallies[cfg.doorStyle] = (doorTallies[cfg.doorStyle] || 0) + p.doors;
+      if (p.doors) totalDoors += p.doors;
+      if (p.doorStyleTallies) {
+        for (const [s, n] of Object.entries(p.doorStyleTallies)) {
+          doorTallies[s] = (doorTallies[s] || 0) + n;
         }
       }
     }
@@ -7960,10 +9010,161 @@ function regenerate() {
   document.getElementById('warnings').innerHTML = warnings;
 }
 
+/* ---------------------------------------------------------------------------
+   TONGUE/SLOT CONSISTENCY VERIFICATION
+
+   Each tongue (a 4-point outward bump on a part's perimeter, matT deep) must
+   plug into exactly one slot. Slots come in two flavours:
+     1. Interior rect cuts with one dimension ≈ matT (e.g. roof slots at
+        parapetH, dividing-wall connection slots).
+     2. Inward perimeter bumps — "openings" produced by buildWallPath when a
+        front/back wall has slots on its left/right edges for side-wall
+        tongues.
+   Counts are split by orientation:
+     • Horizontal-edge tongues (vertical protrusions) ↔ slots with h ≈ matT
+       AND horizontal-edge openings (inward vertical bumps).
+     • Vertical-edge tongues (horizontal protrusions) ↔ slots with w ≈ matT
+       AND vertical-edge openings (inward horizontal bumps).
+   When the counts disagree there's a tab somewhere with no matching slot,
+   or a slot that won't receive any tab.
+
+   The detector ignores:
+     • Non-core parts (cladding, trim, windows) — they don't participate in
+       the structural tongue-and-slot system.
+     • Large rectangular bay carves — their bump depth ≠ matT so the strict
+       length check skips them.
+*/
+function classifyBumpsInPath(d, matT, tolerance) {
+  // Pull (x,y) points out of M/L commands in walk order.
+  const pts = [];
+  const re = /[ML]\s*(-?[\d.]+),(-?[\d.]+)/g;
+  let m;
+  while ((m = re.exec(d)) !== null) {
+    pts.push({ x: parseFloat(m[1]), y: parseFloat(m[2]) });
+  }
+
+  const r = {
+    horizTongues: 0, vertTongues: 0,
+    horizOpenings: 0, vertOpenings: 0,
+  };
+  for (let i = 0; i + 3 < pts.length; i++) {
+    const a = pts[i], b = pts[i+1], c = pts[i+2], d2 = pts[i+3];
+    const ab = { dx: b.x - a.x, dy: b.y - a.y };
+    const bc = { dx: c.x - b.x, dy: c.y - b.y };
+    const cd = { dx: d2.x - c.x, dy: d2.y - c.y };
+
+    // ab and cd must be perpendicular moves of matT length.
+    const abIsVert  = Math.abs(ab.dx) < tolerance && Math.abs(Math.abs(ab.dy) - matT) < tolerance;
+    const abIsHoriz = Math.abs(ab.dy) < tolerance && Math.abs(Math.abs(ab.dx) - matT) < tolerance;
+    if (!abIsVert && !abIsHoriz) continue;
+    if (abIsVert) {
+      if (Math.abs(cd.dx) > tolerance) continue;
+      if (Math.abs(Math.abs(cd.dy) - matT) > tolerance) continue;
+      if (Math.abs(ab.dy + cd.dy) > tolerance) continue;
+    } else {
+      if (Math.abs(cd.dy) > tolerance) continue;
+      if (Math.abs(Math.abs(cd.dx) - matT) > tolerance) continue;
+      if (Math.abs(ab.dx + cd.dx) > tolerance) continue;
+    }
+    // bc must be parallel to the edge with non-zero length.
+    if (abIsVert) {
+      if (Math.abs(bc.dy) > tolerance) continue;
+      if (Math.abs(bc.dx) < tolerance) continue;
+    } else {
+      if (Math.abs(bc.dx) > tolerance) continue;
+      if (Math.abs(bc.dy) < tolerance) continue;
+    }
+
+    // Outward perpendicular of bc for a clockwise walk is (bc.dy, -bc.dx).
+    // Dot product with ab tells us which way the bump points.
+    const dot = ab.dx * bc.dy + ab.dy * (-bc.dx);
+    if (Math.abs(dot) < tolerance) continue;
+    if (dot > 0) {
+      if (abIsVert) r.horizTongues++;
+      else r.vertTongues++;
+    } else {
+      if (abIsVert) r.horizOpenings++;
+      else r.vertOpenings++;
+    }
+  }
+  return r;
+}
+
+function verifyTongueSlotMatch(parts, matT) {
+  // h/w-match tolerance: slot h/w can be matT or matT+bleed (some slots add
+  // ~0.6 mm bleed for tongue clearance). Allow up to 1 mm slop.
+  const SLOT_DIM_TOL = 1.0;
+  const TOL = 0.1;
+  let horizTongues = 0, vertTongues = 0;
+  let horizOpenings = 0, vertOpenings = 0;
+  let horizSlots = 0, vertSlots = 0;
+
+  for (const part of parts) {
+    if (part.material !== 'core') continue;
+    for (const p of (part.paths || [])) {
+      if (p.type !== 'cut' || !p.d) continue;
+      const c = classifyBumpsInPath(p.d, matT, TOL);
+      horizTongues  += c.horizTongues;
+      vertTongues   += c.vertTongues;
+      horizOpenings += c.horizOpenings;
+      vertOpenings  += c.vertOpenings;
+    }
+    for (const r of (part.rects || [])) {
+      if (r.type !== 'cut') continue;
+      // Slot identification: one dimension within slop of matT, the other
+      // strictly larger (otherwise it's a tiny square, not a slot).
+      const hIsThin = Math.abs(r.h - matT) < SLOT_DIM_TOL;
+      const wIsThin = Math.abs(r.w - matT) < SLOT_DIM_TOL;
+      const hIsLong = r.h > matT + SLOT_DIM_TOL;
+      const wIsLong = r.w > matT + SLOT_DIM_TOL;
+      if (hIsThin && wIsLong) horizSlots++;        // wide slot, thin in Y → horizontal slot
+      else if (wIsThin && hIsLong) vertSlots++;    // tall slot, thin in X → vertical slot
+    }
+  }
+
+  const horizMatched = horizSlots + horizOpenings;
+  const vertMatched  = vertSlots  + vertOpenings;
+  const issues = [];
+  if (horizTongues !== horizMatched) {
+    issues.push(
+      `Horizontal-edge tongues: ${horizTongues}; matching features ` +
+      `(rect slots h≈${matT}: ${horizSlots}, perimeter openings: ${horizOpenings}, total ${horizMatched})` +
+      ` (diff ${horizTongues - horizMatched}).`
+    );
+  }
+  if (vertTongues !== vertMatched) {
+    issues.push(
+      `Vertical-edge tongues: ${vertTongues}; matching features ` +
+      `(rect slots w≈${matT}: ${vertSlots}, perimeter openings: ${vertOpenings}, total ${vertMatched})` +
+      ` (diff ${vertTongues - vertMatched}).`
+    );
+  }
+  return {
+    issues,
+    horizTongues, vertTongues, horizSlots, vertSlots,
+    horizOpenings, vertOpenings,
+  };
+}
+
 /* Export ZIP */
 async function exportZip() {
   readForm();
   const result = generateBuilding(CONFIG);
+
+  // Pre-flight: verify each tongue has a matching slot.
+  const verify = verifyTongueSlotMatch(result.parts, result.plan.matT);
+  if (verify.issues.length > 0) {
+    const msg =
+      'Tongue/slot consistency check found issues:\n\n' +
+      verify.issues.map(s => '  • ' + s).join('\n') +
+      '\n\nThis usually means a part has tongues that won\'t plug into anything,' +
+      ' or slots that nothing will plug into.\n\nProceed with download anyway?';
+    if (!confirm(msg)) {
+      if (typeof flashMessage === 'function') flashMessage('Download cancelled — fix tongue/slot mismatches first.', 'warn');
+      return;
+    }
+  }
+
   const zip = new JSZip();
 
   // Build a lookup: material id → sanitised folder name (from CONFIG.materials)
@@ -8036,6 +9237,12 @@ async function exportZip() {
 
   manifest += `\n## Settings\n` + JSON.stringify(CONFIG, null, 2);
   zip.file('README.md', manifest);
+
+  // Bundle the project's settings as a .hako file so the user can re-import
+  // it later via the three-dot menu's "Import settings" option. Same JSON
+  // payload as exportConfigFile() writes; just placed inside the zip.
+  const hakoName = `building_${CONFIG.buildingType}_${CONFIG.width}x${CONFIG.depth}x${CONFIG.height}.hako`;
+  zip.file(hakoName, JSON.stringify(CONFIG, null, 2));
 
   // ---- 3D preview STL ----
   try {
@@ -9040,7 +10247,7 @@ function clearPreset() {
   }
 }
 
-/* Export current config as a downloadable .json file */
+/* Export current config as a downloadable .hako file (JSON inside) */
 function exportConfigFile() {
   readForm();
   const json = JSON.stringify(CONFIG, null, 2);
@@ -9048,15 +10255,16 @@ function exportConfigFile() {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   const typeName = CONFIG.buildingType || 'building';
-  a.download = `building_config_${typeName}_${CONFIG.width}x${CONFIG.depth}x${CONFIG.height}.json`;
+  a.download = `building_${typeName}_${CONFIG.width}x${CONFIG.depth}x${CONFIG.height}.hako`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(a.href);
-  flashMessage('Config file downloaded.', 'ok');
+  flashMessage('Settings file downloaded.', 'ok');
 }
 
-/* Import a .json config file picked by the user */
+/* Import a .hako (or legacy .json) settings file picked by the user.
+   Both are JSON internally — same payload, different extension. */
 function importConfigFile(file) {
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -9068,7 +10276,7 @@ function importConfigFile(file) {
       if (warnings.length) {
         flashMessage('Imported with warnings: ' + warnings.join(' '), 'warn');
       } else {
-        flashMessage('Config imported from file.', 'ok');
+        flashMessage('Settings imported from file.', 'ok');
       }
     } catch (err) {
       flashMessage('Import failed: ' + err.message, 'err');
@@ -9653,6 +10861,62 @@ function wingCoplanarCheck(wing, mainW, mainD) {
   };
 }
 
+/* ---- Face-merge topology ---------------------------------------------------
+   Single source of truth for "which wings extend which main face on which
+   side". Core and cladding merge logic both call this so they always agree on
+   the layout topology. Returns:
+     { front: { left, right }, back: { left, right },
+       east:  { left, right }, west:  { left, right } }
+   Each slot is either null or { wing, wingFace, extRight, flipWX }, where:
+     wing      — the wing object
+     wingFace  — which of the wing's parallel faces ('west' | 'east') is
+                 coplanar with this main face (= the panel that extends main)
+     extRight  — true if the wing extension lies on the RIGHT side of main in
+                 the merged panel's frame; false if on the LEFT
+     flipWX    — whether to mirror the wing panel's x before translating, so
+                 the wing's connection-adjacent end stays adjacent to main in
+                 the merged frame regardless of which face/side it's on
+   Front-merge uses internal-view convention (east on LEFT) per the openings
+   editor. Back/east/west merges keep their natural conventions. When two
+   wings target the same (face, side) — rare — the first one in `cfg.wings`
+   wins. Layouts with wings stacked on the same side of the same face are
+   not currently representable in the merged outline.
+*/
+function computeFaceMerges(cfg, mainW, mainD) {
+  const out = {
+    front: { left: null, right: null },
+    back:  { left: null, right: null },
+    east:  { left: null, right: null },
+    west:  { left: null, right: null },
+  };
+  for (const wing of (cfg.wings || [])) {
+    const cp = wingCoplanarCheck(wing, mainW, mainD);
+    if (!cp.westCoplanar && !cp.eastCoplanar) continue;
+    const wingIsEW    = (wing.face === 'east' || wing.face === 'west');
+    const wingIsEast  = (wing.face === 'east');
+    const wingIsFront = (wing.face === 'front');
+    const candidates = [];
+    if (wingIsEW) {
+      if (cp.westCoplanar) candidates.push({ face: 'front', extRight: !wingIsEast, wingFace: 'west' });
+      if (cp.eastCoplanar) candidates.push({ face: 'back',  extRight: wingIsEast,  wingFace: 'east' });
+    } else {
+      if (cp.westCoplanar) candidates.push({ face: 'west',  extRight: wingIsFront, wingFace: 'west' });
+      if (cp.eastCoplanar) candidates.push({ face: 'east',  extRight: wingIsFront, wingFace: 'east' });
+    }
+    for (const c of candidates) {
+      const m = {
+        wing,
+        wingFace: c.wingFace,
+        extRight: c.extRight,
+        flipWX:   ((c.wingFace === 'east') === c.extRight),
+      };
+      const side = c.extRight ? 'right' : 'left';
+      if (!out[c.face][side]) out[c.face][side] = m;
+    }
+  }
+  return out;
+}
+
 /* ---- Build the list of opening cuts needed on each main-block wall ---- */
 function mainWallOpeningsFromWings(cfg) {
   // Returns { front:[], back:[], east:[], west:[] }
@@ -9767,22 +11031,91 @@ function generateBuildingWithWings(cfg) {
       const northFaceX = faceIsEW ? (wing.offset - matT) : wing.offset;
       const southFaceX = faceIsEW ? (wing.offset + wing.span - matT) : (wing.offset + wing.span);
       const wallLen    = faceIsEW ? plan.sideLen : plan.fbWidth;
+      // East wall laser panel uses the internal-view convention (north on
+      // right of panel) to match the openings editor's east display. The
+      // storage-frame face X values (which align with main Y axis) must be
+      // mirrored at the cut layer so the parallel-face attachment slots land
+      // at the same physical position as the rest of the east-wall features.
+      const mirrorX = (wing.face === 'east');
+      const placeFaceX = (fx) => mirrorX ? (wallLen - fx - matT) : fx;
 
       // North/west parallel face slots (skip if coplanar)
       if (!cp.westCoplanar && northFaceX >= 0 && northFaceX < wallLen) {
+        const slotX = placeFaceX(northFaceX);
         for (const t of tongues) {
           wallPart.rects.push({ type: 'cut',
-            x: northFaceX, y: yOff + t.start, w: matT, h: t.end - t.start,
+            x: slotX, y: yOff + t.start, w: matT, h: t.end - t.start,
             compensateKerf: true });
         }
       }
       // South/east parallel face slots (skip if coplanar)
       if (!cp.eastCoplanar && southFaceX >= 0 && southFaceX < wallLen) {
+        const slotX = placeFaceX(southFaceX);
         for (const t of tongues) {
           wallPart.rects.push({ type: 'cut',
-            x: southFaceX, y: yOff + t.start, w: matT, h: t.end - t.start,
+            x: slotX, y: yOff + t.start, w: matT, h: t.end - t.start,
             compensateKerf: true });
         }
+      }
+    }
+  }
+
+  /* Wing roof TOP-tongue slots in main walls. For each wing with a parapet
+     roof, the wing roof has a tongue on its TOP edge (= the edge adjacent to
+     the wing's connection face) that protrudes toward main. Without a slot in
+     main's wall to receive it, the tongue has nowhere to land. The previous
+     `generateDividingWall` piece was meant to handle this but was the wrong
+     dimensions (wing.depth instead of wing.span) and wasn't placed anywhere in
+     the assembly, so the slot never actually existed. Cut it directly into
+     main's wall at the connection face here. */
+  {
+    const matT = plan.matT;
+    const tw   = cfg.tongueWidth || 15;
+    const margin = Math.max(matT * 2, 5);
+    const mainH = plan.H;
+
+    for (const wing of (cfg.wings || [])) {
+      const wCfg  = buildWingCfg(cfg, wing);
+      if (wCfg.roofStyle !== 'parapet') continue;
+      const wPlan = buildEdgePlans(wCfg);
+      const wH    = wingHeight(cfg, wing);
+
+      // Wing roof's W-axis tongues — use the SAME placeTongues call as
+      // generateRoof so positions line up exactly.
+      const wingRoofW = wPlan.fbWidth - 2 * matT;
+      const wingRoofTongueCountW = Math.max(2, Math.min(4, Math.floor(wingRoofW / 30)));
+      const wingRoofWTongues = placeTongues(wingRoofW, tw, margin, [], wingRoofTongueCountW, tw / 2);
+      if (!wingRoofWTongues.length) continue;
+
+      // Find main's wall at the wing's connection face.
+      const wallPart = parts.find(p => p.id === facePartIds[wing.face]);
+      if (!wallPart) continue;
+
+      const faceIsEW = (wing.face === 'east' || wing.face === 'west');
+      const wallLen  = faceIsEW ? plan.sideLen : plan.fbWidth;
+      // East-wall laser panel uses the internal-view convention (north on
+      // right), so storage-frame X values must be mirrored — same treatment
+      // as the parallel-face attachment slots above.
+      const mirrorX = (wing.face === 'east');
+
+      // Vertical position in main's wall: where the wing's roof sits.
+      //   wing's parapet is at `wPlan.parapetH` from top of wing wall
+      //   wing wall top in main's wall frame is at (mainH - wH)
+      //   → slot top-y = (mainH - wH) + wPlan.parapetH
+      const slotY = (mainH - wH) + wPlan.parapetH;
+
+      for (const t of wingRoofWTongues) {
+        // Wing-local x range of the tongue (matT corner + roof-local position)
+        const wingLocalStart = wing.offset + matT + t.start;
+        const wingLocalEnd   = wing.offset + matT + t.end;
+        const w = wingLocalEnd - wingLocalStart;
+        // Map to wall-panel x. East wall mirrors.
+        const xLeft = mirrorX ? (wallLen - wingLocalEnd) : wingLocalStart;
+        wallPart.rects.push({
+          type: 'cut',
+          x: xLeft, y: slotY, w, h: matT,
+          compensateKerf: true,
+        });
       }
     }
   }
@@ -9791,55 +11124,34 @@ function generateBuildingWithWings(cfg) {
   parts.push(generateMergedFloor(cfg, plan));
 
   /* Merge coplanar wing parallel faces into main block face walls.
-     When a wing's parallel face is flush with a main block wall, replace the
-     rectangular wall path with an L-shaped path combining both faces. */
-  for (const wing of (cfg.wings || [])) {
-    const cp  = wingCoplanarCheck(wing, mainW, mainD);
-    const wH  = wingHeight(cfg, wing);
-    // The wing's parallel wall has length = wing.depth. But for the merged L-shape
-    // to be CONTINUOUS (no matT gap between main wall end and wing wall start), the
-    // extension must also bridge the wing's "front matT corner" — an extra matT of
-    // wall material right past the main wall's end. So total extension on the wall
-    // = wing.depth + matT.
-    const extW = wing.depth + plan.matT;
+     When wings are coplanar with a main face, replace the rectangular wall
+     path with an L-shape (one wing) or T-shape (two wings, one on each side)
+     combining all faces. Uses computeFaceMerges so the core merge agrees with
+     the cladding merge on topology — see computeFaceMerges in this file. */
+  {
+    const coreMerges = computeFaceMerges(cfg, mainW, mainD);
+    const matT   = plan.matT;
+    const tw     = cfg.tongueWidth || 15;
+    const margin = Math.max(matT * 2, 5);
+    const ssRoofTop = (plan.roofStyle === 'flat');
 
-    // For east/west face wings: coplanar parallel faces extend front or back wall
-    // For front/back face wings: coplanar parallel faces extend east or west side wall
-    const faceIsEW  = (wing.face === 'east' || wing.face === 'west');
-    const wingIsEast = (wing.face === 'east');
-    const wingIsFront = (wing.face === 'front');
+    for (const face of ['front', 'back', 'east', 'west']) {
+      const faceM = coreMerges[face];
+      if (!faceM.left && !faceM.right) continue;
 
-    const merges = [];
-    if (faceIsEW) {
-      // westCoplanar → front face gets the extension; eastCoplanar → back face
-      if (cp.westCoplanar) merges.push({ face: 'front', extRight: wingIsEast });
-      if (cp.eastCoplanar) merges.push({ face: 'back',  extRight: wingIsEast });
-    } else {
-      // westCoplanar → west side wall; eastCoplanar → east side wall
-      if (cp.westCoplanar) merges.push({ face: 'west', extRight: wingIsFront });
-      if (cp.eastCoplanar) merges.push({ face: 'east', extRight: wingIsFront });
-    }
-
-    for (const { face, extRight } of merges) {
       const partIdx = parts.findIndex(p => p.id === facePartIds[face]);
       if (partIdx < 0) continue;
+      const wallPart = parts[partIdx];
 
-      const wallPart  = parts[partIdx];
       const faceIsEW2 = (face === 'east' || face === 'west');
       const faceMainW = faceIsEW2 ? plan.sideLen : plan.fbWidth;
-      const totalW    = faceMainW + extW;
-      const stepY     = plan.H - wH;
-      const matT      = plan.matT;
-      const tw        = cfg.tongueWidth || 15;
-      const margin    = Math.max(matT * 2, 5);
 
-      // ── Recompute the original wall's tongue positions so we can fold them into
-      // the L-shape. These match exactly what generateFrontBackWall/generateSideWall
-      // produced (they're cheap to redo and avoids fragile path-parsing). ────────
+      // ── Recompute main wall's tongue positions so they fold into the merged
+      // outline. These mirror what generateFrontBackWall / generateSideWall
+      // produced. (Cheap to redo; avoids fragile path parsing.) ──────────────
       let mainTopT = [];
       let mainBotT = [];
-      let leftT    = [];      // vertical slot positions on left/right (= tongues for side walls)
-      const ssRoofTop = (plan.roofStyle === 'flat');
+      let leftT    = [];
 
       if (!faceIsEW2) {
         // Front/back wall main features
@@ -9869,8 +11181,8 @@ function generateBuildingWithWings(cfg) {
         mainTopT = ssRoofTop ? placeTongues(plan.sideLen, tw, margin, [], 3, tw / 2) : [];
       }
 
-      // Vertical (left edge) tongues — between front/back walls and side walls. Use
-      // the same algorithm as generateSideWall vertical tongues.
+      // Vertical (left/right) edge tongues — between this wall and the
+      // perpendicular walls. Same algorithm as generateSideWall.
       {
         const sideHasBay = plan.hasFrontBay || plan.hasBackBay;
         const verticalEdgeMinMargin = Math.max(plan.parapetH + matT + 2, 8);
@@ -9884,108 +11196,145 @@ function generateBuildingWithWings(cfg) {
         leftT = placeTongues(plan.H, tw, 0.1, verticalForbidden, vTongueCount, tw / 2);
       }
 
-      // ── Extension features. The extension represents the WING's parallel wall.
-      // Its actual wall length = wing.depth (the matT corners around it are floor
-      // material, not wall). But the merged L-shape spans an extra matT to bridge
-      // the wing's "front matT corner" gap — so the wall has wing.depth + matT total
-      // extension length, with the wing wall's tongues offset by matT from the start
-      // of the extension. ─────────
-      const wallLenExt = wing.depth;       // actual wing parallel-wall length
-      const extBotT  = placeTongues(wallLenExt, tw, margin, [], 3, tw / 2);
-      const extTopT  = ssRoofTop ? placeTongues(wallLenExt, tw, margin, [], 3, tw / 2) : [];
-      // Vertical tongues for the extension's outer right edge (between the wing's
-      // far wall and this merged wall). Length = wH (the wing's height).
-      const extVerticalMaxY = wH - margin;
-      const extVerticalMinMargin = Math.max(plan.parapetH + matT + 2, 8);
-      const extVAvail = Math.max(0, extVerticalMaxY - extVerticalMinMargin);
-      const extVCount = (extVAvail > 0) ? Math.max(2, Math.min(4, Math.floor(extVAvail / 40))) : 0;
-      const extVerticalForbidden = [[0, extVerticalMinMargin], [extVerticalMaxY, wH]];
-      const extRightT = (extVCount > 0)
-        ? placeTongues(wH, tw, 0.1, extVerticalForbidden, extVCount, tw / 2)
-                .map(t => ({ start: t.start - stepY, end: t.end - stepY }))   // make relative to stepY
-                .filter(t => t.start >= -0.01 && t.end <= wH + 0.01)
-        : [];
+      // Per-side wing extension data builder
+      const buildExtData = (m) => {
+        const wing = m.wing;
+        const wH = wingHeight(cfg, wing);
+        const extW = wing.depth + matT;
+        const wallLenExt = wing.depth;
+        const stepY = plan.H - wH;
+        const extBotT = placeTongues(wallLenExt, tw, margin, [], 3, tw / 2);
+        const extTopT = ssRoofTop ? placeTongues(wallLenExt, tw, margin, [], 3, tw / 2) : [];
+        const extVerticalMaxY = wH - margin;
+        const extVerticalMinMargin = Math.max(plan.parapetH + matT + 2, 8);
+        const extVAvail = Math.max(0, extVerticalMaxY - extVerticalMinMargin);
+        const extVCount = (extVAvail > 0) ? Math.max(2, Math.min(4, Math.floor(extVAvail / 40))) : 0;
+        const extVerticalForbidden = [[0, extVerticalMinMargin], [extVerticalMaxY, wH]];
+        const extVerticalT = (extVCount > 0)
+          ? placeTongues(wH, tw, 0.1, extVerticalForbidden, extVCount, tw / 2)
+                  .map(t => ({ start: t.start - stepY, end: t.end - stepY }))
+                  .filter(t => t.start >= -0.01 && t.end <= wH + 0.01)
+          : [];
+        return { m, wing, wH, extW, wallLenExt, stepY, extBotT, extTopT, extVerticalT };
+      };
 
-      // Bay opening (on front/back faces only, when this face has a bay).
-      // Carved upward from the bottom edge of the merged L. Coordinates are
-      // translated into L-frame: for extLeft, the main side sits at L-x ≥ extW.
+      const leftExt  = faceM.left  ? buildExtData(faceM.left)  : null;
+      const rightExt = faceM.right ? buildExtData(faceM.right) : null;
+
+      // Bay info (front/back only): bay sits in main's portion. In the merged
+      // frame the bay's x is offset by xMain (= leftExt.extW if a left wing
+      // exists, else 0).
+      const xMain = leftExt ? leftExt.extW : 0;
       const mergeMainHasBay = !faceIsEW2 &&
         ((face === 'front' && plan.hasFrontBay) || (face === 'back' && plan.hasBackBay));
       const bayOpt = mergeMainHasBay
-        ? { xStart: plan.bayXStart + (extRight ? 0 : extW),
-            xEnd:   plan.bayXEnd   + (extRight ? 0 : extW),
+        ? { xStart: plan.bayXStart + xMain,
+            xEnd:   plan.bayXEnd   + xMain,
             height: plan.bayHeight }
         : null;
 
-      // Build the L-shape path WITH every edge tongue restored.
-      const lPath = buildLShapePathWithFeatures(faceMainW, plan.H, extW, wH, extRight, {
-        matT,
-        mainTopTongues:   mainTopT,
-        extTopTongues:    extTopT,
-        extTopShift:      matT,         // wing roof slots are matT past extension start
-        mainBotTongues:   mainBotT,
-        extBotTongues:    extBotT,
-        extBotShift:      matT,         // floor slots are inset matT from extension start
-        extRightTongues:  extRightT,
-        leftTongues:      leftT,
-        mainRightTongues: leftT,        // for extRight=false the "right" of the L is the main wall's far side
-        bay:              bayOpt,
-      });
+      // Build the outline path. 1 wing → L-shape (existing behaviour);
+      // 2 wings → T-shape (new).
+      let lPath;
+      if (leftExt && rightExt) {
+        lPath = buildTShapePathWithFeatures(
+          faceMainW, plan.H,
+          leftExt.extW, leftExt.wH,
+          rightExt.extW, rightExt.wH,
+          {
+            matT,
+            mainTopTongues:       mainTopT,
+            mainBotTongues:       mainBotT,
+            leftExtTopTongues:    leftExt.extTopT,
+            leftExtBotTongues:    leftExt.extBotT,
+            leftExtLeftTongues:   leftExt.extVerticalT,
+            leftExtTopShift:      matT,
+            leftExtBotShift:      matT,
+            rightExtTopTongues:   rightExt.extTopT,
+            rightExtBotTongues:   rightExt.extBotT,
+            rightExtRightTongues: rightExt.extVerticalT,
+            rightExtTopShift:     matT,
+            rightExtBotShift:     matT,
+            bay:                  bayOpt,
+          });
+      } else if (leftExt) {
+        lPath = buildLShapePathWithFeatures(faceMainW, plan.H, leftExt.extW, leftExt.wH, false, {
+          matT,
+          mainTopTongues:   mainTopT,
+          extTopTongues:    leftExt.extTopT,
+          extTopShift:      matT,
+          mainBotTongues:   mainBotT,
+          extBotTongues:    leftExt.extBotT,
+          extBotShift:      matT,
+          extRightTongues:  leftExt.extVerticalT,
+          leftTongues:      leftT,
+          mainRightTongues: leftT,
+          bay:              bayOpt,
+        });
+      } else {
+        lPath = buildLShapePathWithFeatures(faceMainW, plan.H, rightExt.extW, rightExt.wH, true, {
+          matT,
+          mainTopTongues:   mainTopT,
+          extTopTongues:    rightExt.extTopT,
+          extTopShift:      matT,
+          mainBotTongues:   mainBotT,
+          extBotTongues:    rightExt.extBotT,
+          extBotShift:      matT,
+          extRightTongues:  rightExt.extVerticalT,
+          leftTongues:      leftT,
+          mainRightTongues: leftT,
+          bay:              bayOpt,
+        });
+      }
       wallPart.paths = [{ type: 'cut', d: lPath }];
 
-      // Update bbox to include the extension (and the matT tongue protrusions)
-      wallPart.bboxW = totalW + 2 * matT;
+      // Update bbox to include all extensions (and matT tongue protrusions).
+      const totalExtW = (leftExt ? leftExt.extW : 0) + (rightExt ? rightExt.extW : 0);
+      wallPart.bboxW = faceMainW + totalExtW + 2 * matT;
       wallPart.name  = wallPart.name.replace(' (merged)', '') + ' (merged)';
 
-      // ── Translate main wall's existing features (windows/doors/slots) into
-      // the merged L's coordinate frame. For extRight=true the main occupies
-      // the same x range it always did (path-x [0, mainW]), so no translation.
-      // For extRight=false (extension on left), the main wall is shifted right
-      // by extW in the L frame and its rects must follow.
-      const mainTx = extRight ? 0 : extW;
-      if (mainTx !== 0) {
-        wallPart.rects = (wallPart.rects || []).map(r => ({ ...r, x: r.x + mainTx }));
+      // Translate main's existing features (windows, doors, slots) into the
+      // merged L/T frame. For extRight-only (no left wing) xMain = 0 so this
+      // is a no-op, matching the previous single-wing behaviour exactly.
+      if (xMain !== 0) {
+        wallPart.rects = (wallPart.rects || []).map(r => ({ ...r, x: r.x + xMain }));
         wallPart.lines = (wallPart.lines || []).map(l => ({
-          ...l,
-          x1: l.x1 + mainTx, x2: l.x2 + mainTx,
+          ...l, x1: l.x1 + xMain, x2: l.x2 + xMain,
         }));
       }
 
-      // ── Generate the wing's coplanar wall and fold its rects (windows,
+      // Generate each wing's coplanar wall and fold its rects (windows,
       // doors, slots for inter-floor panels, slots for the wing's
-      // perpendicular walls, slots for the wing roof tongues, etc.) into
-      // wallPart.rects. Without this the L-shape wall is blank in the wing
-      // section even though the cladding above it shows windows.
+      // perpendicular walls, etc.) into wallPart.rects.
       //
-      // The wing wall's rects are in its own wall-content frame
-      // (x∈[0, sideLen], y∈[0, wH]). In the merged L frame the wing wall
-      // content sits at:
-      //     merged_x ∈ [(extRight?faceMainW:0) + 2·matT,
-      //                 (extRight?faceMainW:0) + 2·matT + sideLen]
-      //     merged_y ∈ [stepY, stepY + wH]
       // The +2·matT offset is: one matT bridge of wall material between main
       // wall end and the wing wall, plus one matT for the wing's front matT
       // corner (where the wing's connecting wall thickness sits).
       //
-      // For the wing's 'east' face the wall is viewed from the opposite side
-      // so its x is mirrored before translation, matching the flip the
-      // cladding merge applies.
-      const wCfg     = buildWingCfg(cfg, wing);
-      const wPlan    = buildEdgePlans(wCfg);
-      // For each merge entry, the wing face coplanar with the main face being
-      // merged is unambiguous: front/west merges pair with the wing's west
-      // face; back/east merges pair with the wing's east face.
-      const wingFace = (face === 'front' || face === 'west') ? 'west' : 'east';
-      const wingSide = (wingFace === 'east') ? 'E' : 'W';
-      const wingWall = generateSideWall(wCfg, wPlan, wingSide);
-      const wSideLen = wPlan.sideLen;
-      const wingWallXStart = (extRight ? faceMainW : 0) + 2 * matT;
-      const flipWX = (wingFace === 'east');
-      const wingRectsT = (wingWall.rects || []).map(r => {
-        const x = flipWX ? (wSideLen - (r.x + r.w)) : r.x;
-        return { ...r, x: x + wingWallXStart, y: r.y + stepY };
-      });
-      wallPart.rects = (wallPart.rects || []).concat(wingRectsT);
+      // The flipWX flag (from computeFaceMerges) handles the case where the
+      // wing's natural x=0 end is on the FAR side of the wing portion in the
+      // merged panel instead of adjacent to main — true for (west, !extRight)
+      // and (east, extRight) after the front-merge extRight flip.
+      for (const side of ['left', 'right']) {
+        const ext = (side === 'left') ? leftExt : rightExt;
+        if (!ext) continue;
+        const wing     = ext.wing;
+        const wCfg     = buildWingCfg(cfg, wing);
+        const wPlan    = buildEdgePlans(wCfg);
+        const wingFace = ext.m.wingFace;
+        const wingSide = (wingFace === 'east') ? 'E' : 'W';
+        const wingWall = generateSideWall(wCfg, wPlan, wingSide);
+        const wSideLen = wPlan.sideLen;
+        const wingWallXStart = (side === 'left')
+          ? 2 * matT
+          : xMain + faceMainW + 2 * matT;
+        const flipWX = ext.m.flipWX;
+        const wingRectsT = (wingWall.rects || []).map(r => {
+          const x = flipWX ? (wSideLen - (r.x + r.w)) : r.x;
+          return { ...r, x: x + wingWallXStart, y: r.y + ext.stepY };
+        });
+        wallPart.rects = (wallPart.rects || []).concat(wingRectsT);
+      }
     }
   }
 
@@ -10042,155 +11391,160 @@ function generateBuildingWithWings(cfg) {
         };
     const fx = v => v.toFixed(3);
 
-    for (const wing of cfg.wings) {
-      const cp = wingCoplanarCheck(wing, mainW, mainD);
-      if (!cp.westCoplanar && !cp.eastCoplanar) continue;
-      const wCfg  = buildWingCfg(cfg, wing);
-      // Wing inherits split-cladding flag from main by default. If they diverge
-      // (e.g. wing overrides claddingStyle in a way that changes splitness),
-      // skip the merge — combining a single panel with an upper/ground pair
-      // would require splitting one of them, which we don't support yet.
-      if (split !== hasSplitCladding(wCfg)) continue;
-      const wPlan = buildEdgePlans(wCfg);
-      const wingIsEW    = (wing.face === 'east' || wing.face === 'west');
-      const wingIsEast  = (wing.face === 'east');
-      const wingIsFront = (wing.face === 'front');
-      const merges = [];
-      if (wingIsEW) {
-        if (cp.westCoplanar) merges.push({ face: 'front', extRight: wingIsEast,  wingFace: 'west' });
-        if (cp.eastCoplanar) merges.push({ face: 'back',  extRight: wingIsEast,  wingFace: 'east' });
-      } else {
-        if (cp.westCoplanar) merges.push({ face: 'west',  extRight: wingIsFront, wingFace: 'west' });
-        if (cp.eastCoplanar) merges.push({ face: 'east',  extRight: wingIsFront, wingFace: 'east' });
+    // Helper: parse a 4-point rect-shaped SVG path back to {x,y,w,h}
+    function rectFromCutPath(d) {
+      if (!d || typeof d !== 'string') return null;
+      const re = /^M\s+([-\d.]+),([-\d.]+)\s+L\s+([-\d.]+),([-\d.]+)\s+L\s+([-\d.]+),([-\d.]+)\s+L\s+([-\d.]+),([-\d.]+)\s+Z\s*$/;
+      const mm = d.match(re);
+      if (!mm) return null;
+      const n = mm.slice(1).map(parseFloat);
+      const x1 = n[0], y1 = n[1], x2 = n[2], y2 = n[3], x3 = n[4], y3 = n[5], x4 = n[6], y4 = n[7];
+      if (Math.abs(x1 - x4) > 0.001 || Math.abs(x2 - x3) > 0.001 ||
+          Math.abs(y1 - y2) > 0.001 || Math.abs(y3 - y4) > 0.001) return null;
+      return { x: x1, y: y1, w: x2 - x1, h: y4 - y1 };
+    }
+
+    // Process per-face using the shared topology. Each face gets its merge
+    // applied once with both wings (if present) baked into a single T-shape.
+    // This avoids the previous bug where iterating wings would overwrite an
+    // earlier wing's L-shape with a later wing's L-shape.
+    const faceMerges = computeFaceMerges(cfg, mainW, mainD);
+
+    for (const face of ['front', 'back', 'east', 'west']) {
+      const faceM = faceMerges[face];
+      if (!faceM.left && !faceM.right) continue;
+
+      // Filter out wings whose cladding split flag doesn't match main's. We
+      // can't merge a single-band wing panel into a split (upper/ground) main
+      // pair or vice-versa.
+      const filteredM = { left: null, right: null };
+      for (const side of ['left', 'right']) {
+        const m = faceM[side];
+        if (!m) continue;
+        const wCfg = buildWingCfg(cfg, m.wing);
+        if (split !== hasSplitCladding(wCfg)) continue;
+        filteredM[side] = m;
       }
+      if (!filteredM.left && !filteredM.right) continue;
 
-      for (const m of merges) {
-        const mainIds = cladIdsFor[m.face];
-        const bands   = split ? ['upper', 'ground'] : [null];
+      const mainIds = cladIdsFor[face];
+      const bands   = split ? ['upper', 'ground'] : [null];
 
-        for (let bi = 0; bi < mainIds.length; bi++) {
-          const mainId = mainIds[bi];
-          const band   = bands[bi];
-          const idx    = parts.findIndex(p => p.id === mainId);
-          if (idx < 0) continue;
-          const mainPart = parts[idx];
+      for (let bi = 0; bi < mainIds.length; bi++) {
+        const mainId = mainIds[bi];
+        const band   = bands[bi];
+        const idx    = parts.findIndex(p => p.id === mainId);
+        if (idx < 0) continue;
+        const mainPart = parts[idx];
 
-          // Generate the wing's coplanar parallel-face cladding panel. It
-          // would otherwise be excluded — here we fold it into the main panel.
+        // Generate wing cladding panels for each side that has a merge.
+        const wingData = { left: null, right: null };
+        for (const side of ['left', 'right']) {
+          const m = filteredM[side];
+          if (!m) continue;
+          const wCfg  = buildWingCfg(cfg, m.wing);
+          const wPlan = buildEdgePlans(wCfg);
           const wingPart = band
             ? generateCladdingPanel(wCfg, wPlan, m.wingFace, band)
             : generateCladdingPanel(wCfg, wPlan, m.wingFace);
           if (!wingPart) continue;
+          wingData[side] = { m, wCfg, wingPart };
+        }
+        if (!wingData.left && !wingData.right) continue;
 
-          const mainCW = mainPart.bboxW;
-          const mainCH = mainPart.bboxH;
-          const extCW  = wingPart.bboxW;
-          const extCH  = wingPart.bboxH;
-          const stepY  = mainCH - extCH;
-          const totalW = mainCW + extCW;
+        const mainCW = mainPart.bboxW;
+        const mainCH = mainPart.bboxH;
+        const leftCW  = wingData.left  ? wingData.left.wingPart.bboxW  : 0;
+        const leftCH  = wingData.left  ? wingData.left.wingPart.bboxH  : 0;
+        const rightCW = wingData.right ? wingData.right.wingPart.bboxW : 0;
+        const rightCH = wingData.right ? wingData.right.wingPart.bboxH : 0;
+        const stepYL = mainCH - leftCH;
+        const stepYR = mainCH - rightCH;
+        const totalW = leftCW + mainCW + rightCW;
+        const xMain  = leftCW;
+        const xRight = leftCW + mainCW;
 
-          // Translation of features into the merged panel's coordinate frame.
-          // (0,0) of the merged panel is at the merged outline's top-left.
-          const mainTx = m.extRight ? 0      : extCW;
-          const wingTx = m.extRight ? mainCW : 0;
-          const wingTy = stepY;
-          // For the wing's 'east' face cladding panel, x=0 is at the wing's
-          // outer end (away from main) rather than the connection side. Flip x
-          // so the connection side lines up with the merged step.
-          const flipWX = (m.wingFace === 'east');
+        // Build outer perimeter — T-shape for two wings, L-shape for one.
+        let lPath;
+        if (wingData.left && wingData.right) {
+          lPath = `M 0,${fx(stepYL)} L ${fx(xMain)},${fx(stepYL)} L ${fx(xMain)},0 L ${fx(xRight)},0 L ${fx(xRight)},${fx(stepYR)} L ${fx(totalW)},${fx(stepYR)} L ${fx(totalW)},${fx(mainCH)} L 0,${fx(mainCH)} Z`;
+        } else if (wingData.left) {
+          lPath = `M 0,${fx(stepYL)} L ${fx(xMain)},${fx(stepYL)} L ${fx(xMain)},0 L ${fx(totalW)},0 L ${fx(totalW)},${fx(mainCH)} L 0,${fx(mainCH)} Z`;
+        } else {
+          lPath = `M 0,0 L ${fx(xRight)},0 L ${fx(xRight)},${fx(stepYR)} L ${fx(totalW)},${fx(stepYR)} L ${fx(totalW)},${fx(mainCH)} L 0,${fx(mainCH)} Z`;
+        }
 
-          // L-shape outer perimeter
-          let lPath;
-          if (m.extRight) {
-            lPath = `M 0,0 L ${fx(mainCW)},0 L ${fx(mainCW)},${fx(stepY)} L ${fx(totalW)},${fx(stepY)} L ${fx(totalW)},${fx(mainCH)} L 0,${fx(mainCH)} Z`;
-          } else {
-            lPath = `M 0,${fx(stepY)} L ${fx(extCW)},${fx(stepY)} L ${fx(extCW)},0 L ${fx(totalW)},0 L ${fx(totalW)},${fx(mainCH)} L 0,${fx(mainCH)} Z`;
-          }
+        // Bay cutout / other rect-shaped extra paths: translate by xMain so
+        // they line up with the main portion in the merged frame.
+        const extraRects = (mainPart.paths || []).slice(1)
+          .map(p => rectFromCutPath(p.d))
+          .filter(r => r !== null)
+          .map(r => ({ ...r, x: r.x + xMain }));
 
-          // Parse any extra rect-shaped paths (e.g. bay cutout) on main back
-          // to {x,y,w,h} rects so we can:
-          //   1. Translate them by mainTx (so extLeft case puts the bay in
-          //      the right place — was previously broken).
-          //   2. Add them to the cuts list used for pattern regeneration so
-          //      seam lines don't draw across the bay opening.
-          function rectFromCutPath(d) {
-            if (!d || typeof d !== 'string') return null;
-            const re = /^M\s+([-\d.]+),([-\d.]+)\s+L\s+([-\d.]+),([-\d.]+)\s+L\s+([-\d.]+),([-\d.]+)\s+L\s+([-\d.]+),([-\d.]+)\s+Z\s*$/;
-            const mm = d.match(re);
-            if (!mm) return null;
-            const n = mm.slice(1).map(parseFloat);
-            const x1 = n[0], y1 = n[1], x2 = n[2], y2 = n[3], x3 = n[4], y3 = n[5], x4 = n[6], y4 = n[7];
-            if (Math.abs(x1 - x4) > 0.001 || Math.abs(x2 - x3) > 0.001 ||
-                Math.abs(y1 - y2) > 0.001 || Math.abs(y3 - y4) > 0.001) return null;
-            return { x: x1, y: y1, w: x2 - x1, h: y4 - y1 };
-          }
-          const extraRects = (mainPart.paths || []).slice(1)
-            .map(p => rectFromCutPath(p.d))
-            .filter(r => r !== null)
-            .map(r => ({ ...r, x: r.x + (m.extRight ? 0 : extCW) })); // translate by mainTx
+        mainPart.paths = [
+          { type: 'cut', d: lPath },
+          ...extraRects.map(r => ({ type: 'cut', d: rectPath(r.x, r.y, r.w, r.h) })),
+        ];
 
-          // Replace the outer perimeter; rebuild extra paths with the
-          // translated positions so the bay cutout lines up after merge.
-          mainPart.paths = [
-            { type: 'cut', d: lPath },
-            ...extraRects.map(r => ({ type: 'cut', d: rectPath(r.x, r.y, r.w, r.h) })),
-          ];
+        // Translate main's existing features into the merged frame.
+        if (xMain !== 0) {
+          mainPart.rects = (mainPart.rects || []).map(r => ({ ...r, x: r.x + xMain }));
+          mainPart.lines = (mainPart.lines || []).map(l => ({ ...l, x1: l.x1 + xMain, x2: l.x2 + xMain }));
+        }
 
-          // Translate main's existing features when extension is on the left
-          if (mainTx !== 0) {
-            mainPart.rects = (mainPart.rects || []).map(r => ({ ...r, x: r.x + mainTx }));
-            mainPart.lines = (mainPart.lines || []).map(l => ({ ...l, x1: l.x1 + mainTx, x2: l.x2 + mainTx }));
-          }
-
-          // Translate and merge wing's features (rects & etched seam lines)
-          const wingRects = (wingPart.rects || []).map(r => {
+        // Merge each wing's features.
+        const collectedWingLines = [];
+        for (const side of ['left', 'right']) {
+          const wd = wingData[side];
+          if (!wd) continue;
+          const wingTx = (side === 'left') ? 0      : xRight;
+          const wingTy = (side === 'left') ? stepYL : stepYR;
+          const flipWX = wd.m.flipWX;
+          const extCW  = wd.wingPart.bboxW;
+          const wingRects = (wd.wingPart.rects || []).map(r => {
             const x = flipWX ? (extCW - (r.x + r.w)) : r.x;
             return { ...r, x: x + wingTx, y: r.y + wingTy };
           });
-          const wingLines = (wingPart.lines || []).map(l => {
+          const wingLines = (wd.wingPart.lines || []).map(l => {
             const x1 = flipWX ? (extCW - l.x1) : l.x1;
             const x2 = flipWX ? (extCW - l.x2) : l.x2;
             return { ...l, x1: x1 + wingTx, y1: l.y1 + wingTy, x2: x2 + wingTx, y2: l.y2 + wingTy };
           });
           mainPart.rects = (mainPart.rects || []).concat(wingRects);
-
-          // Regenerate the cladding seam-line pattern over the full merged L.
-          // Each per-panel pattern previously was evenly distributed across its
-          // own width (x = i × W/n), so a narrow wing panel and wide main panel
-          // produced different X spacings that never lined up at the seam.
-          // Regenerating once over the L bbox with the missing corner added as
-          // a clipping cut gives a single continuous pattern with consistent
-          // spacing — matching how the core wall's L-shape underneath behaves.
-          //
-          // Falls back to the old concat behaviour when main and wing use
-          // different cladding styles (style mismatch can't be unified).
-          const cT = cfg.claddingThickness || 0.28;
-          const mainStyleKey = (band === 'ground') ? cfg.firstFloorCladdingStyle  : cfg.claddingStyle;
-          const wingStyleKey = (band === 'ground') ? wCfg.firstFloorCladdingStyle : wCfg.claddingStyle;
-          const styleSpec    = CLADDING_STYLES[mainStyleKey];
-          if (styleSpec && mainStyleKey === wingStyleKey) {
-            // Missing-corner cut: covers the area inside the L bbox but above
-            // the wing's wall content. Cladding y now matches wall y exactly
-            // (no top overhang), so the cut height is just stepY.
-            const cornerCut = m.extRight
-              ? { x: mainCW, y: 0, w: extCW, h: stepY }
-              : { x: 0,      y: 0, w: extCW, h: stepY };
-            const cuts = mainPart.rects.concat([cornerCut]).concat(extraRects);
-            const patEtchTop    = 0;
-            const patEtchBottom = mainCH;
-            const lines = generateCladdingPattern(
-              styleSpec, cT, patEtchTop, totalW - cT, patEtchBottom, cuts,
-            );
-            mainPart.lines = lines.map(ln => ({ type: 'etch', x1: ln.x1, y1: ln.y1, x2: ln.x2, y2: ln.y2 }));
-          } else {
-            // Mismatched styles — fall back to keeping each side's own pattern.
-            mainPart.lines = (mainPart.lines || []).concat(wingLines);
-          }
-
-          // Update bbox and name
-          mainPart.bboxW = totalW;
-          if (!mainPart.name.includes('(L-shape)')) mainPart.name += ' (L-shape)';
+          collectedWingLines.push(...wingLines);
         }
+
+        // Regenerate the cladding seam-line pattern across the whole merged
+        // outline. Each missing corner (above a wing extension) is added as a
+        // clipping cut so the pattern doesn't draw into empty space.
+        const cT = cfg.claddingThickness || 0.28;
+        const mainStyleKey = (band === 'ground') ? cfg.firstFloorCladdingStyle  : cfg.claddingStyle;
+        const stylesMatch = ['left', 'right'].every(side => {
+          const wd = wingData[side];
+          if (!wd) return true;
+          const wsk = (band === 'ground') ? wd.wCfg.firstFloorCladdingStyle : wd.wCfg.claddingStyle;
+          return wsk === mainStyleKey;
+        });
+        const styleSpec = CLADDING_STYLES[mainStyleKey];
+        if (styleSpec && stylesMatch) {
+          const cornerCuts = [];
+          if (wingData.left)  cornerCuts.push({ x: 0,      y: 0, w: leftCW,  h: stepYL });
+          if (wingData.right) cornerCuts.push({ x: xRight, y: 0, w: rightCW, h: stepYR });
+          const cuts = mainPart.rects.concat(cornerCuts).concat(extraRects);
+          const lines = generateCladdingPattern(
+            styleSpec, cT, 0, totalW - cT, mainCH, cuts,
+          );
+          mainPart.lines = lines.map(ln => ({ type: 'etch', x1: ln.x1, y1: ln.y1, x2: ln.x2, y2: ln.y2 }));
+        } else {
+          // Style mismatch — keep main's regenerated pattern (if any) and add
+          // each wing's etched lines verbatim, translated.
+          mainPart.lines = (mainPart.lines || []).concat(collectedWingLines);
+        }
+
+        // Update bbox and name.
+        mainPart.bboxW = totalW;
+        const shape = (wingData.left && wingData.right) ? 'T-shape' : 'L-shape';
+        if (!mainPart.name.includes('-shape')) mainPart.name += ` (${shape})`;
       }
     }
   })();
@@ -10287,11 +11641,18 @@ function generateBuildingWithWings(cfg) {
         rects: [], lines: [] });
     }
 
-    /* ---- 3. Dividing wall (for 'wall' connections) ---- */
-    if (wing.connection === 'wall') {
-      const dw = generateDividingWall(cfg, plan, wCfg, wPlan, wing, wi);
-      parts.push(dw);
-    }
+    /* ---- 3. Dividing wall (for 'wall' connections) ----
+       Historically a separate part was generated here, but it had the wrong
+       dimensions (width = wing.depth instead of wing.span) and wasn't placed
+       anywhere in the assembly — so the wing roof's TOP tongue had no slot.
+       The slot is now cut directly into main's wall at the connection face
+       (see "Wing roof TOP-tongue slots in main walls" above), and this piece
+       is no longer produced. The generator is kept in the file in case any
+       other code path references it. */
+    // if (wing.connection === 'wall') {
+    //   const dw = generateDividingWall(cfg, plan, wCfg, wPlan, wing, wi);
+    //   parts.push(dw);
+    // }
   }
 
   /* ---- Window/door tallies ---- */
@@ -10302,10 +11663,11 @@ function generateBuildingWithWings(cfg) {
       if (p.windows)      totalWindows += p.windows;
       if (p.upperWindows) upperWindows += p.upperWindows;
       if (p.groundWindows)groundWindows+= p.groundWindows;
-      if (p.doors) {
-        totalDoors += p.doors;
-        const ds = cfg.doorStyle;
-        if (ds && ds !== 'none') doorTallies[ds] = (doorTallies[ds] || 0) + p.doors;
+      if (p.doors)        totalDoors += p.doors;
+      if (p.doorStyleTallies) {
+        for (const [s, n] of Object.entries(p.doorStyleTallies)) {
+          doorTallies[s] = (doorTallies[s] || 0) + n;
+        }
       }
     }
   }
@@ -11753,12 +13115,7 @@ function oePopulateToolbox() {
     card.className = 'oe-toolbox-item oe-draggable';
     card.title = `${style.label}  ${w}×${h} mm — drag onto wall`;
     card.innerHTML = `
-      <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${w} ${h}" style="display:block">
-        <rect x="0.2" y="0.2" width="${w-0.4}" height="${h-0.4}"
-              fill="rgba(160,205,245,0.85)" stroke="#2a64aa" stroke-width="0.5"/>
-        <line x1="${w/2}" y1="0.5" x2="${w/2}" y2="${h-0.5}"
-              stroke="#2a64aa" stroke-width="0.4" opacity="0.5"/>
-      </svg>
+      <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${w} ${h}" style="display:block">${buildWindowSvgBody(style, w, h)}</svg>
       <div class="oe-toolbox-item-label">${style.label}</div>`;
 
     // Size inputs
@@ -11826,15 +13183,11 @@ function oePopulateToolbox() {
     const card = document.createElement('div');
     card.className = 'oe-toolbox-item oe-draggable';
     card.title = `${style.label}  ${w}×${h} mm — drag onto wall`;
+    // Style-specific icon — body, glass apertures, and engraved features all
+    // come from the same `buildDoorSvgBody` helper used by the editor canvas
+    // so toolbox and on-wall preview stay in lock-step.
     card.innerHTML = `
-      <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${w} ${h}" style="display:block">
-        <rect x="0.2" y="0.2" width="${w-0.4}" height="${h-0.4}"
-              fill="rgba(245,185,130,0.85)" stroke="#c84a3a" stroke-width="0.5"/>
-        <line x1="${w/2}" y1="0.5" x2="${w/2}" y2="${h-0.5}"
-              stroke="#c84a3a" stroke-width="0.4" opacity="0.5"/>
-        <line x1="0.5" y1="${h*0.55}" x2="${w-0.5}" y2="${h*0.55}"
-              stroke="#c84a3a" stroke-width="0.4" opacity="0.4"/>
-      </svg>
+      <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${w} ${h}" style="display:block">${buildDoorSvgBody(style, w, h, { strokeWidth: 0.3, thickStrokeWidth: 0.4, glassStrokeWidth: 0.25 })}</svg>
       <div class="oe-toolbox-item-label">${style.label}</div>`;
 
     // Size inputs
@@ -12115,14 +13468,63 @@ function oeToolboxDragStart(e, type, styleKey) {
     const PAD = 32;
     const mmX = (me.clientX - r.left  - PAD - oeWallLeftPx) / oeEditorScale;
     const mmY = (me.clientY - r.top   - PAD - oeExtraTop)   / oeEditorScale;
-    oeDropOpening(type, dims, mmX, mmY);
+    oeDropOpening(type, dims, mmX, mmY, styleKey);
   };
 
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
 }
 
-function oeDropOpening(type, dims, x, y) {
+/* Snap a door to the bottom of whichever floor band the probe Y falls in.
+   Doors always rest with their bottom on a floor surface — but can sit on
+   ANY floor's surface, not just the ground floor. Used by both door
+   placement (drag-and-drop) and door drag-to-reposition. */
+/* Bands suitable for *door* placement on a wall.
+ *
+ * Returns the same bands as oeGetFloorBands, plus — on a bay-bearing wall —
+ * a synthetic ground-floor band spanning from the bay ceiling down to the
+ * floor (y=H). Doors can sit on this floor alongside the bay opening; the
+ * regular bands list omits it because windows would visually collide with
+ * the bay aperture there.
+ */
+function oeGetDoorBands(wall) {
+  const bands = oeGetFloorBands(wall);
+  if (!lastPlan) return bands;
+  const hasBay = (wall === 'front' && lastPlan.hasFrontBay) ||
+                 (wall === 'back'  && lastPlan.hasBackBay);
+  if (!hasBay) return bands;
+  const wallH = oeGetWallDims(wall).H;
+  const bayCeilingY = lastPlan.bayCeilingY;
+  if (bayCeilingY == null || bayCeilingY >= wallH - 0.5) return bands;
+  // Append the ground-floor band. Order doesn't matter — oeDoorSnappedY
+  // searches by containment then by closest centre.
+  return [
+    ...bands,
+    { yTop: bayCeilingY, yBottom: wallH, centerY: (bayCeilingY + wallH) / 2 },
+  ];
+}
+
+function oeDoorSnappedY(wall, doorH, probeY) {
+  const { H } = oeGetWallDims(wall);
+  const bands = oeGetDoorBands(wall);
+  if (!bands.length) return Math.max(0, H - doorH);
+  let band = null;
+  for (const b of bands) {
+    if (probeY >= b.yTop && probeY <= b.yBottom) { band = b; break; }
+  }
+  if (!band) {
+    // Probe is outside every band — clamp to the closest one by center.
+    let bestDist = Infinity;
+    for (const b of bands) {
+      const bc = (b.yTop + b.yBottom) / 2;
+      const d  = Math.abs(probeY - bc);
+      if (d < bestDist) { band = b; bestDist = d; }
+    }
+  }
+  return Math.max(0, band.yBottom - doorH);
+}
+
+function oeDropOpening(type, dims, x, y, styleKey) {
   const { W, H } = oeGetWallDims(oeWall);
   if (!Array.isArray(oeOpenings[oeWall])) oeOpenings[oeWall] = [];
 
@@ -12139,7 +13541,8 @@ function oeDropOpening(type, dims, x, y) {
     }
     oeOpenings[oeWall].push({ type: 'window',
       x: oeSnap(Math.max(2, Math.min(W - dims.w - 2, x - dims.w / 2))),
-      y: oeSnap(ny), w: dims.w, h: dims.h });
+      y: oeSnap(ny), w: dims.w, h: dims.h,
+      style: styleKey });
   } else if (type === 'awning') {
     // Place awning; y = attachment point on wall face. Snap x to grid.
     // h field stores the DEPTH (projection), not visual wall height.
@@ -12157,7 +13560,9 @@ function oeDropOpening(type, dims, x, y) {
   } else {
     oeOpenings[oeWall].push({ type: 'door',
       x: oeSnap(Math.max(2, Math.min(W - dims.w - 2, x - dims.w / 2))),
-      y: H - dims.h, w: dims.w, h: dims.h });
+      y: oeDoorSnappedY(oeWall, dims.h, y), w: dims.w, h: dims.h,
+      style: styleKey,
+    });
   }
 
   oeSelectedSet = new Set([oeOpenings[oeWall].length - 1]);
@@ -12293,12 +13698,15 @@ function oePopulateTopbar() {
         for (const i of oeSelectedSet) {
           const op = ops[i];
           if (!op) continue;
+          // Capture the door's CURRENT bottom (which is sitting on some floor
+          // surface) before resizing, so we can re-anchor it after.
+          const oldBottom = op.y + op.h;
           op.w = Math.max(1, Math.min(wallW - op.x, newW));
           op.h = Math.max(1, Math.min(wallH, newH));
           // Clamp X so opening still fits within wall width after resize
           op.x = Math.max(0, Math.min(wallW - op.w, op.x));
-          // Doors always snap to the wall bottom; awnings just clamp y; windows stay in their band
-          if (op.type === 'door') op.y = wallH - op.h;
+          // Doors keep their bottom on the same floor; awnings just clamp y; windows stay in their band
+          if (op.type === 'door') op.y = Math.max(0, oldBottom - op.h);
           else if (op.type === 'awning') op.y = Math.max(0, Math.min(wallH - AWNING_DISP_H, op.y));
           else if (op.type === 'balcony') op.y = Math.max(0, Math.min(wallH - op.h, op.y));
           else {
@@ -12394,7 +13802,14 @@ function oeAlignSelected(fn) {
   if (oeSelectedSet.size < 2) return;
   const ops = oeOpenings[oeWall];
   const sel = [...oeSelectedSet].map(i => ops[i]);
-  for (const i of oeSelectedSet) fn(ops[i], sel);
+  for (const i of oeSelectedSet) {
+    fn(ops[i], sel);
+    // Doors always sit with their bottom on a floor surface; re-snap after
+    // any align operation in case it pushed the door off-floor.
+    if (ops[i].type === 'door') {
+      ops[i].y = oeDoorSnappedY(oeWall, ops[i].h, ops[i].y + ops[i].h / 2);
+    }
+  }
   oeCommit(); oeRender();
 }
 
@@ -13089,13 +14504,56 @@ function oeRender() {
       // ---- Window or door ----
       const isWin = op.type === 'window';
       const rh = op.h*s;
-      const fill   = isWin ? 'rgba(160,205,245,0.85)' : 'rgba(245,185,130,0.85)';
-      const stroke = isSel ? '#f70' : (isWin ? '#2a64aa' : '#c84a3a');
-      const sw = isSel ? 2.5 : 1.2;
-      html += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" data-oe-idx="${i}"/>`;
-      if (rw > 6 && rh > 4) {
-        html += `<line x1="${rx+rw/2}" y1="${ry+1}" x2="${rx+rw/2}" y2="${ry+rh-1}" stroke="${stroke}" stroke-width="0.5" opacity="0.4" pointer-events="none"/>`;
-        if (!isWin) html += `<line x1="${rx+1}" y1="${ry+rh*0.55}" x2="${rx+rw-1}" y2="${ry+rh*0.55}" stroke="${stroke}" stroke-width="0.5" opacity="0.4" pointer-events="none"/>`;
+      if (isWin) {
+        // Window — render style-specific pane background + lattice / mullion
+        // pattern using the same data the toolbox card uses. Falls back to
+        // the global CONFIG.windowStyle when an older op didn't store its
+        // own style (e.g. windows placed before per-op style support).
+        const styleKey = op.style || CONFIG.windowStyle;
+        const styleSpec = WINDOW_STYLES[styleKey] || null;
+        const stroke = isSel ? '#f70' : ((styleSpec && styleSpec.frameColor) || '#2a64aa');
+        const sw = isSel ? 2.5 : 1.2;
+        // Selection rectangle (transparent fill — actual fill comes from the
+        // SVG body that follows). Kept as the click target.
+        html += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="transparent" stroke="${stroke}" stroke-width="${sw}" data-oe-idx="${i}"/>`;
+        if (styleSpec && rw > 4 && rh > 3) {
+          const scaleX = rw / op.w;   // px/mm in displayed window
+          const scaleY = rh / op.h;
+          const body = buildWindowSvgBody(styleSpec, op.w, op.h, { strokeWidth: 0.35 });
+          html += `<g transform="translate(${rx.toFixed(1)} ${ry.toFixed(1)}) scale(${scaleX.toFixed(3)} ${scaleY.toFixed(3)})" pointer-events="none">${body}</g>`;
+        } else {
+          // Fallback: solid pane with single mullion hint
+          const fallbackFill = (styleSpec && styleSpec.paneFill) || 'rgba(160,205,245,0.85)';
+          html += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="${fallbackFill}" pointer-events="none"/>`;
+          if (rw > 6 && rh > 4) {
+            html += `<line x1="${rx+rw/2}" y1="${ry+1}" x2="${rx+rw/2}" y2="${ry+rh-1}" stroke="${stroke}" stroke-width="0.5" opacity="0.4" pointer-events="none"/>`;
+          }
+        }
+      } else {
+        // Door — render style-specific glass apertures and engraved features
+        // via the shared `buildDoorSvgBody` helper so the toolbox icon and
+        // on-wall preview stay in lock-step.
+        const styleSpec = DOOR_STYLES[op.style || CONFIG.doorStyle];
+        const styleFrame = (styleSpec && styleSpec.frameColor) || '#c84a3a';
+        const stroke = isSel ? '#f70' : styleFrame;
+        const sw = isSel ? 2.5 : 1.2;
+        // Click target — transparent fill since the visual fill comes from
+        // the SVG body that follows. The selection-ring stroke stays here.
+        html += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="transparent" stroke="${stroke}" stroke-width="${sw}" data-oe-idx="${i}"/>`;
+        if (styleSpec && rw > 4 && rh > 6) {
+          const scaleX = rw / op.w;   // px/mm in displayed door
+          const scaleY = rh / op.h;
+          const body = buildDoorSvgBody(styleSpec, op.w, op.h, {
+            strokeWidth: 0.3, thickStrokeWidth: 0.4, glassStrokeWidth: 0.6,
+          });
+          html += `<g transform="translate(${rx.toFixed(1)} ${ry.toFixed(1)}) scale(${scaleX.toFixed(3)} ${scaleY.toFixed(3)})" pointer-events="none">${body}</g>`;
+        } else if (rw > 6 && rh > 4) {
+          // Fallback (no style or door too small): solid panel + cross hint
+          const fallbackFill = (styleSpec && styleSpec.panelFill) || 'rgba(245,185,130,0.85)';
+          html += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="${fallbackFill}" pointer-events="none"/>`;
+          html += `<line x1="${rx+rw/2}" y1="${ry+1}" x2="${rx+rw/2}" y2="${ry+rh-1}" stroke="${stroke}" stroke-width="0.5" opacity="0.4" pointer-events="none"/>`;
+          html += `<line x1="${rx+1}" y1="${ry+rh*0.55}" x2="${rx+rw-1}" y2="${ry+rh*0.55}" stroke="${stroke}" stroke-width="0.5" opacity="0.4" pointer-events="none"/>`;
+        }
       }
       if (isPrimary) {
         const bandIdx  = oeYToBand(bands, op.y + op.h / 2);
@@ -13164,8 +14622,8 @@ function oeRenderFootprintMap() {
   const fp_oy = FP_PAD + (FP_H - 2*FP_PAD - bH*fp_s)/2 - minY*fp_s;
 
   const edgeHighlight = {
-    front: [[fp_ox,             fp_oy+mainD*fp_s, fp_ox+mainW*fp_s, fp_oy+mainD*fp_s]],
-    back:  [[fp_ox,             fp_oy,            fp_ox+mainW*fp_s, fp_oy           ]],
+    front: [[fp_ox,             fp_oy,            fp_ox+mainW*fp_s, fp_oy           ]],
+    back:  [[fp_ox,             fp_oy+mainD*fp_s, fp_ox+mainW*fp_s, fp_oy+mainD*fp_s]],
     east:  [[fp_ox+mainW*fp_s,  fp_oy,            fp_ox+mainW*fp_s, fp_oy+mainD*fp_s]],
     west:  [[fp_ox,             fp_oy,            fp_ox,            fp_oy+mainD*fp_s]],
   };
@@ -13178,8 +14636,8 @@ function oeRenderFootprintMap() {
     const wS = wing.span || 30, wD = wing.depth || 20, off = wing.offset || 0;
     if      (wing.face === 'east')  { wx = mainW;  wy = off; ww = wD; wh = wS; }
     else if (wing.face === 'west')  { wx = -wD;    wy = off; ww = wD; wh = wS; }
-    else if (wing.face === 'front') { wx = off; wy = mainD;  ww = wS; wh = wD; }
-    else                            { wx = off; wy = -wD;    ww = wS; wh = wD; }
+    else if (wing.face === 'front') { wx = off;    wy = -wD;   ww = wS; wh = wD; }
+    else                            { wx = off;    wy = mainD; ww = wS; wh = wD; }
     html += `<rect x="${(fp_ox+wx*fp_s).toFixed(1)}" y="${(fp_oy+wy*fp_s).toFixed(1)}" `
           + `width="${(ww*fp_s).toFixed(1)}" height="${(wh*fp_s).toFixed(1)}" `
           + `fill="#d4c8b8" stroke="#aaa" stroke-width="0.8"/>`;
@@ -13407,7 +14865,11 @@ function oeMouseDown(e) {
       const opH = oeOpH(op);
       op.x = oeSnap(Math.max(0, Math.min(W - op.w, orig.x + dx)));
       if (op.type === 'door') {
-        op.y = H - op.h;
+        // Doors can move vertically between floors but always snap so their
+        // bottom rests on a floor surface. Pick the band using the door's
+        // vertical center after applying the drag delta.
+        const centerY = (orig.y + dy) + op.h / 2;
+        op.y = oeDoorSnappedY(oeWall, op.h, centerY);
       } else {
         const band = bandForIdx[i];
         if (band) {
@@ -13453,11 +14915,27 @@ function oeKeyDown(e) {
     const step = e.shiftKey ? unit * 5 : unit;
     const ops  = oeOpenings[oeWall];
     const bands = oeGetFloorBands(oeWall);
+    const doorBands = oeGetDoorBands(oeWall);
     for (const i of oeSelectedSet) {
       const op = ops[i];
       if (e.key === 'ArrowLeft')  op.x = oeSnap(Math.max(0,        op.x - step));
       if (e.key === 'ArrowRight') op.x = oeSnap(Math.min(W - op.w, op.x + step));
-      if (op.type !== 'door') {
+      if (op.type === 'door') {
+        // Up/Down jumps the door to the adjacent floor's surface. Door's
+        // bottom sits on some band's yBottom; probe just above to find
+        // which band that is. Uses doorBands so the bay-floor on a bay
+        // wall is reachable.
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          const probeY = op.y + op.h - 0.5;
+          const cb = oeYToBand(doorBands, probeY);
+          if (cb >= 0) {
+            const target = (e.key === 'ArrowUp')
+              ? Math.max(0, cb - 1)
+              : Math.min(doorBands.length - 1, cb + 1);
+            op.y = Math.max(0, doorBands[target].yBottom - op.h);
+          }
+        }
+      } else {
         const opH = oeOpH(op);
         const bandIdx = (op.type === 'awning' || op.type === 'balcony') ? -1 : oeYToBand(bands, op.y + opH / 2);
         const band = bandIdx >= 0 ? bands[bandIdx] : null;

@@ -683,6 +683,13 @@
         <label data-i18n="lbl_parapetH">Parapet height (mm)</label>
         <input type="number" id="parapetHeight" min="1" max="10" step="0.5" value="2">
       </div>
+      <div class="field" id="parapetInnerCladdingField">
+        <label style="display:flex; align-items:center; gap:6px;">
+          <input type="checkbox" id="parapetInnerCladding" checked>
+          <span data-i18n="lbl_parapetInner">Add inner parapet cladding</span>
+        </label>
+        <div class="small" data-i18n="hlp_parapetInner">Four thin cladding strips that glue to the inside face of the parapet (the portion of the wall above the roof deck), so the parapet looks clad on both sides.</div>
+      </div>
       <div class="field" id="roofPitchField" style="display:none">
         <label data-i18n="lbl_pitch">Roof pitch (mm rise)</label>
         <input type="number" id="roofPitch" min="3" max="40" step="1" value="10">
@@ -1635,6 +1642,8 @@ const TRANSLATIONS = {
     /* roof labels */
     lbl_roofStyle: 'Roof style',
     lbl_parapetH: 'Parapet height (mm)',
+    lbl_parapetInner: 'Add inner parapet cladding',
+    hlp_parapetInner: 'Four thin cladding strips that glue to the inside face of the parapet (the portion of the wall above the roof deck), so the parapet looks clad on both sides.',
     lbl_pitch: 'Roof pitch (mm rise)',
     lbl_ridge: 'Ridge direction',
     lbl_slope: 'High side',
@@ -1791,6 +1800,8 @@ const TRANSLATIONS = {
     /* roof labels */
     lbl_roofStyle: '屋根スタイル',
     lbl_parapetH: 'パラペット高さ（mm）',
+    lbl_parapetInner: 'パラペット内側の壁材を追加',
+    hlp_parapetInner: '屋根面より上の壁内側に貼る薄い壁材4枚。パラペットの両面が外装材で覆われた仕上がりになります。',
     lbl_pitch: '屋根勾配・立ち上がり（mm）',
     lbl_ridge: '棟の方向',
     lbl_slope: '高い側',
@@ -2739,10 +2750,14 @@ const FIXTURE_STYLES = {
 
   downspout: {
     label: 'Downspout',
-    description: 'Vertical drainpipe with bracket bands. Resizable height — bands re-distribute as you stretch.',
+    description: 'Vertical drainpipe with bracket bands. Auto-sizes to the full wall height when placed — the gutter sits at the eaves and the spout vents at ground level, just like a real downspout. Width is still user-tunable.',
     width: 0.8, height: 16,
     depthTier: 'shallow',
     resizable: 'height',
+    // When dropped, this fixture's height is overridden to the wall's full
+    // baseH and its y is pinned to 0 so the pipe spans top-to-bottom. The
+    // toolbox card's H input is locked to "auto" to reflect that.
+    fullHeight: true,
     pieces: [
       {
         material: 'cladding', panelFill: '#5a4a3a', frameColor: '#2a2218',
@@ -3864,6 +3879,7 @@ let CONFIG = {
   rooftopEquipment: { ac_small: 0, ac_large: 0, cooling_tower: 0, water_tank_round: 0, water_tank_square: 0, mushroom_vent: 0, elec_cabinet: 0, antenna_mast: 0 },
   roofStyle: 'parapet',
   parapetHeight: 2,
+  parapetInnerCladding: true,
   roofPitch: 10,
   roofRidgeDirection: 'ew',    // gabled: 'ew' (east-west ridge) or 'ns' (north-south ridge)
   roofSlopeDirection: 'back',  // slanted: which side is high ('front','back','east','west')
@@ -9526,6 +9542,67 @@ function tallyCladdingOverrides(cfg) {
   return Array.from(groups.values());
 }
 
+/* Generate four thin cladding strips that wrap the INSIDE face of the
+ * parapet (the band of wall material that extends above the roof deck on
+ * a parapet-style roof). Without these, the parapet shows its bare core
+ * material on the inside whenever the viewer angle catches it from above
+ * the roof — adding the inner strips makes the parapet look properly clad
+ * on both sides, matching what a real building's parapet wall looks like.
+ *
+ * Geometry per face (in the cladding's local frame):
+ *   • front/back: width = fbWidth − 2·matT  (between the two side walls'
+ *     inside faces — the front/back wall's inside-X span)
+ *   • east/west:  width = sideLen           (between the front and back
+ *     walls' inside faces — already accounts for matT on each end)
+ *   • height: parapetH (the band of wall above the deck top)
+ *
+ * Each strip is a single flat rectangle cut from cladding material, with
+ * the configured cladding pattern etched onto its face. The strips have
+ * no overhangs and no openings — they butt-join at the inside corners.
+ * Returns [] when the roof isn't a parapet, when parapetH ≤ 0, or when
+ * the user has opted out via cfg.parapetInnerCladding === false. */
+function generateInnerParapetCladding(cfg, plan) {
+  if (cfg.roofStyle !== 'parapet') return [];
+  if (cfg.parapetInnerCladding === false) return [];
+  const { matT, parapetH, fbWidth, sideLen } = plan;
+  if (!parapetH || parapetH <= 0) return [];
+  const styleKey = cfg.claddingStyle;
+  const styleSpec = CLADDING_STYLES[styleKey];
+  if (!styleSpec) return [];
+  const material = (cfg.claddingMaterials && cfg.claddingMaterials[styleKey]) || 'cladding';
+
+  const parts = [];
+  const faces = [
+    { which: 'front', label: 'Front', width: fbWidth - 2 * matT },
+    { which: 'back',  label: 'Back',  width: fbWidth - 2 * matT },
+    { which: 'east',  label: 'East',  width: sideLen },
+    { which: 'west',  label: 'West',  width: sideLen },
+  ];
+  for (const { which, label, width } of faces) {
+    if (width <= 0) continue;
+    const w = width;
+    const h = parapetH;
+    // Etch the cladding pattern inside the rectangle. No cut openings —
+    // the inner parapet has no windows, doors, or fixtures. The pattern
+    // helper returns {x1,y1,x2,y2} segments which we wrap as etch lines.
+    const patSegs = generateCladdingPattern(styleSpec, 0, 0, w, h, [], null);
+    const lines = patSegs.map(seg => ({ type: 'etch', x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2 }));
+    parts.push({
+      id: 'cladding_parapet_inner_' + which,
+      name: label + ' inner parapet cladding',
+      material: material,
+      bboxW: w,
+      bboxH: h,
+      bboxOffsetX: 0,
+      bboxOffsetY: 0,
+      paths: [{ type: 'cut', d: rectPath(0, 0, w, h) }],
+      rects: [],
+      lines: lines,
+    });
+  }
+  return parts;
+}
+
 /* Produce laser-cut sheets for cladding overrides. One sheet per
  * (claddingStyle × dimensions). Each entry contributes one cut piece sized
  * to its bbox, with the secondary cladding pattern etched on it. Cut from
@@ -9922,6 +9999,9 @@ function generateBuilding(cfg) {
     parts.push(generateCladdingPanel(cfg, plan, 'west'));
   }
 
+  // Inner parapet cladding (parapet roofs only — opt-out via setting).
+  parts.push(...generateInnerParapetCladding(cfg, plan));
+
   // Trim strips (top/bottom horizontal bands)
   const trimParts = generateTrimStrips(cfg, plan, parts);
   parts.push(...trimParts);
@@ -10184,6 +10264,7 @@ function readForm() {
   }
   CONFIG.roofStyle = val('roofStyle');
   CONFIG.parapetHeight = num('parapetHeight');
+  CONFIG.parapetInnerCladding = !!document.getElementById('parapetInnerCladding')?.checked;
   CONFIG.roofPitch = num('roofPitch');
   CONFIG.roofRidgeDirection = val('roofRidgeDirection') || 'ew';
   CONFIG.roofSlopeDirection = val('roofSlopeDirection') || 'back';
@@ -10265,6 +10346,8 @@ function writeForm() {
   set('floorHeight', CONFIG.floorHeight);
   set('roofStyle', CONFIG.roofStyle);
   set('parapetHeight', CONFIG.parapetHeight);
+  const parapetInnerEl = document.getElementById('parapetInnerCladding');
+  if (parapetInnerEl) parapetInnerEl.checked = (CONFIG.parapetInnerCladding !== false);
   set('roofPitch', CONFIG.roofPitch);
   set('roofRidgeDirection', CONFIG.roofRidgeDirection || 'ew');
   set('roofSlopeDirection', CONFIG.roofSlopeDirection || 'back');
@@ -10357,6 +10440,7 @@ function updateConditionalFields() {
   document.getElementById('mechRoomDimsField').style.display = mrOn ? '' : 'none';
   document.getElementById('mechRoomPosField').style.display = mrOn ? '' : 'none';
   document.getElementById('parapetHeightField').style.display = (roofStyle === 'parapet' || roofStyle === 'flat') ? '' : 'none';
+  document.getElementById('parapetInnerCladdingField').style.display = (roofStyle === 'parapet') ? '' : 'none';
   document.getElementById('roofPitchField').style.display = (roofStyle === 'slanted' || roofStyle === 'gabled') ? '' : 'none';
   document.getElementById('roofRidgeDirectionField').style.display = (roofStyle === 'gabled') ? '' : 'none';
   document.getElementById('roofSlopeDirectionField').style.display = (roofStyle === 'slanted') ? '' : 'none';
@@ -16458,6 +16542,11 @@ function oePopulateToolbox() {
     const PREVIEW_S = Math.min(6, 80 / Math.max(w, h));
     const svgW = Math.max(16, Math.round(w * PREVIEW_S));
     const svgH = Math.max(20, Math.round(h * PREVIEW_S));
+    // A fullHeight fixture (e.g. downspout) auto-sizes to the wall's baseH
+    // at drop time, so the toolbox H input has no effect — lock it and show
+    // an explanatory placeholder so the user understands the value isn't
+    // editable. Width still applies normally.
+    const isFullHeight = !!style.fullHeight;
 
     const card = document.createElement('div');
     card.className = 'oe-toolbox-item oe-draggable';
@@ -16466,45 +16555,49 @@ function oePopulateToolbox() {
                     : (style.depthTier === 'deep')   ? ' \u00b7 deep'
                     : (style.depthTier === 'medium') ? ' \u00b7 medium'
                     : '';
-    card.title = `${style.label}  ${w}\u00d7${h} mm${tierLabel} \u2014 drag onto wall`;
+    const cardSizeLabel = isFullHeight ? `${w}\u00d7auto mm` : `${w}\u00d7${h} mm`;
+    card.title = `${style.label}  ${cardSizeLabel}${tierLabel} \u2014 drag onto wall`;
     card.innerHTML = `
       <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${w} ${h}" style="display:block">${buildFixtureSvgBody(style, w, h, { strokeWidth: 0.18, thickStrokeWidth: 0.28 })}</svg>
       <div class="oe-toolbox-item-label">${style.label}</div>`;
 
     const sizeRow = document.createElement('div');
     sizeRow.className = 'oe-size-row';
+    const hValAttr = isFullHeight ? 'auto' : h;
+    const hExtra   = isFullHeight ? 'disabled title="Sizes to wall height automatically"' : '';
     sizeRow.innerHTML = `
       <label>W</label>
       <input type="number" min="0.5" max="100" step="0.5" value="${w}" class="${custom ? 'oe-custom' : ''}">
       <label>H</label>
-      <input type="number" min="0.5" max="100" step="0.5" value="${h}" class="${custom ? 'oe-custom' : ''}">
-      <button class="oe-size-reset" title="Reset to style default" style="${custom ? '' : 'visibility:hidden'}">\u21ba</button>`;
+      <input type="${isFullHeight ? 'text' : 'number'}" ${isFullHeight ? '' : 'min="0.5" max="100" step="0.5"'} value="${hValAttr}" class="${custom && !isFullHeight ? 'oe-custom' : ''}" ${hExtra}>
+      <button class="oe-size-reset" title="Reset to style default" style="${custom && !isFullHeight ? '' : 'visibility:hidden'}">\u21ba</button>`;
     card.appendChild(sizeRow);
     const [wInp, hInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');
 
     function updateFixtureCard() {
       const newW = parseFloat(wInp.value) || defW;
-      const newH = parseFloat(hInp.value) || defH;
+      const newH = isFullHeight ? defH : (parseFloat(hInp.value) || defH);
       if (Math.abs(newW - defW) < 0.01 && Math.abs(newH - defH) < 0.01) {
         delete oeCustomSizes[ck];
-        wInp.classList.remove('oe-custom'); hInp.classList.remove('oe-custom');
+        wInp.classList.remove('oe-custom'); if (!isFullHeight) hInp.classList.remove('oe-custom');
         resetBtn.style.visibility = 'hidden';
       } else {
         oeCustomSizes[ck] = { w: newW, h: newH };
-        wInp.classList.add('oe-custom'); hInp.classList.add('oe-custom');
+        wInp.classList.add('oe-custom'); if (!isFullHeight) hInp.classList.add('oe-custom');
         resetBtn.style.visibility = '';
       }
     }
     wInp.addEventListener('change', updateFixtureCard);
-    hInp.addEventListener('change', updateFixtureCard);
+    if (!isFullHeight) hInp.addEventListener('change', updateFixtureCard);
     wInp.addEventListener('click', e => e.stopPropagation());
     hInp.addEventListener('click', e => e.stopPropagation());
     resetBtn.addEventListener('click', e => {
       e.stopPropagation();
       delete oeCustomSizes[ck];
-      wInp.value = defW; hInp.value = defH;
-      wInp.classList.remove('oe-custom'); hInp.classList.remove('oe-custom');
+      wInp.value = defW;
+      if (!isFullHeight) hInp.value = defH;
+      wInp.classList.remove('oe-custom'); if (!isFullHeight) hInp.classList.remove('oe-custom');
       resetBtn.style.visibility = 'hidden';
     });
     card.addEventListener('mousedown', e => {
@@ -17282,11 +17375,31 @@ function oeDropOpening(type, dims, x, y, styleKey) {
   } else if (type === 'fixture') {
     // Fixtures float freely on the wall surface — no band snapping; the
     // user places them wherever they look right. Clamp to wall bounds.
-    oeOpenings[oeWall].push({ type: 'fixture',
-      x: oeSnap(Math.max(0, Math.min(W - dims.w, x - dims.w / 2))),
-      y: oeSnap(Math.max(0, Math.min(H - dims.h, y - dims.h / 2))),
-      w: dims.w, h: dims.h,
-      style: styleKey });
+    // A `fullHeight: true` style (the downspout, currently) auto-sizes to
+    // span from the gutter line down to ground. For a parapet roof the
+    // gutter sits at the roof DECK level — the top of the roof core panel
+    // — which is recessed below the parapet's top edge by `parapetH` mm
+    // (since the wall material extends `parapetH` mm above the deck as
+    // the parapet itself). For other roof styles (slanted, gabled, flat
+    // without parapet) the deck sits at the wall top, so the downspout
+    // uses the full wall height.
+    const fStyle = FIXTURE_STYLES[styleKey];
+    if (fStyle && fStyle.fullHeight) {
+      const isParapet = (CONFIG.roofStyle === 'parapet');
+      const topY = (isParapet && lastPlan) ? (lastPlan.parapetH || 0) : 0;
+      const downH = Math.max(1, H - topY);
+      oeOpenings[oeWall].push({ type: 'fixture',
+        x: oeSnap(Math.max(0, Math.min(W - dims.w, x - dims.w / 2))),
+        y: topY,
+        w: dims.w, h: downH,
+        style: styleKey });
+    } else {
+      oeOpenings[oeWall].push({ type: 'fixture',
+        x: oeSnap(Math.max(0, Math.min(W - dims.w, x - dims.w / 2))),
+        y: oeSnap(Math.max(0, Math.min(H - dims.h, y - dims.h / 2))),
+        w: dims.w, h: dims.h,
+        style: styleKey });
+    }
   } else if (type === 'cladding_override') {
     // Free-placed rectangular patch of secondary cladding material. Clamps
     // to wall bounds; the user picks the actual style via the topbar picker.
@@ -18740,7 +18853,15 @@ function oeRender() {
         const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
         const tierTag  = styleSpec && styleSpec.depthTier ? ` · ${styleSpec.depthTier}` : '';
         html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.w.toFixed(1)}×${op.h.toFixed(1)}${tierTag}${cntLabel}</text>`;
-        html += oeResizeHandles(rx, ry, rw, rh, i, 'fixture');
+        // Full-height fixtures (e.g. downspout) auto-size to the wall and
+        // have a very thin footprint, so corner resize handles would cover
+        // the entire click area and prevent the user from grabbing the body
+        // to drag the fixture left/right. Skip the handles in that case —
+        // width is set via the toolbox card and height is determined by
+        // the wall, leaving nothing useful to resize after placement.
+        if (!(styleSpec && styleSpec.fullHeight)) {
+          html += oeResizeHandles(rx, ry, rw, rh, i, 'fixture');
+        }
       }
 
     } else if (op.type === 'printed_item') {
@@ -18964,11 +19085,20 @@ function oeHitTest(mx, my) {
   const ops = oeOpenings[oeWall] || [];
   // First pass — non-override ops (windows/doors/fixtures/awnings/balconies)
   // hit first since they visually sit on top of cladding overrides.
+  // For very thin fixtures (notably downspouts, where w can be < 1 mm) the
+  // exact rect would be near-impossible to click on at typical zoom; pad
+  // the hit area horizontally so the user can reliably grab the body.
   for (let i = ops.length - 1; i >= 0; i--) {
     const op = ops[i];
     if (op.type === 'cladding_override') continue;
     const hitH = op.type === 'awning' ? AWNING_DISP_H : op.h;
-    if (mx >= op.x && mx <= op.x + op.w && my >= op.y && my <= op.y + hitH) return i;
+    let hitX0 = op.x, hitX1 = op.x + op.w;
+    if (op.type === 'fixture' && op.w < 2) {
+      const pad = (2 - op.w) / 2;
+      hitX0 -= pad;
+      hitX1 += pad;
+    }
+    if (mx >= hitX0 && mx <= hitX1 && my >= op.y && my <= op.y + hitH) return i;
   }
   // Second pass — cladding overrides (only hit when no feature is at this point)
   for (let i = ops.length - 1; i >= 0; i--) {

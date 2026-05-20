@@ -242,6 +242,19 @@
     font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
   }
   details[open] summary { color: var(--text); }
+  /* Nested details (subsections inside the Defaults group) get an indented
+     left rule and a smaller, lower-contrast summary so they read as children
+     rather than peers of the top-level section list. */
+  details details {
+    margin-left: 8px;
+    padding-left: 8px;
+    border-left: 2px solid var(--border);
+    margin-bottom: 4px;
+  }
+  details details > summary {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
   .warn { color: var(--accent); font-size: 11px; padding: 4px; background: #fef0ee; border: 1px solid #f5d0c8; border-radius: 3px; margin-top: 6px; }
   .ok-msg { color: #2a6a3a; font-size: 11px; padding: 4px; background: #eef7f0; border: 1px solid #c9e1d0; border-radius: 3px; margin-top: 6px; }
 
@@ -651,6 +664,10 @@
       </div>
     </details>
 
+    <details open>
+      <summary data-i18n="s_defaults">Defaults</summary>
+      <div class="small" style="margin-bottom: 6px;">Properties that control what gets placed by default. Each individual window, door, trim, etc. can still be overridden in the floor editor.</div>
+
     <details>
       <summary data-i18n="s_roof">Roof</summary>
       <div class="field">
@@ -759,25 +776,6 @@
     </details>
 
     <details>
-      <summary data-i18n="s_bay">Bay Doors</summary>
-      <div class="field">
-        <label data-i18n="lbl_bayConfig">Bay configuration</label>
-        <select id="bayConfig">
-          <option value="none" data-i18n-opt="opt_bayNone">No bay</option>
-          <option value="front" data-i18n-opt="opt_bayFront">Front only</option>
-          <option value="drivethrough" data-i18n-opt="opt_bayDrive">Drive-through (front + back)</option>
-        </select>
-      </div>
-      <div class="field" id="baySizeField">
-        <label data-i18n="lbl_baySize">Bay size W×H (mm)</label>
-        <div class="row">
-          <input type="number" id="bayWidth" min="20" max="200" step="5" value="50">
-          <input type="number" id="bayHeight" min="15" max="80" step="5" value="30">
-        </div>
-      </div>
-    </details>
-
-    <details>
       <summary data-i18n="s_trim">Trim Strips</summary>
       <div class="field">
         <label><input type="checkbox" id="trimTop"> Top trim band</label>
@@ -795,6 +793,8 @@
         <div class="small">Each F/B trim strip extends past the cladding by this amount on each end so it wraps to meet the side trim.</div>
       </div>
     </details>
+
+    </details><!-- /Defaults -->
 
     <details>
       <summary data-i18n="s_ifloor">Inter-Floor Core Panels</summary>
@@ -836,12 +836,6 @@
         </div>
         <div class="small">Negative X = west, positive X = east. Negative Y = front, positive Y = back. Auto-clamped to fit on roof.</div>
       </div>
-    </details>
-
-    <details>
-      <summary data-i18n="s_equip">Rooftop Equipment</summary>
-      <div class="small">3D-printable rooftop equipment. Each enabled type is included as an STL in the download, with its footprint etched on the roof piece showing where to glue it. A manifest text file lists how many of each are needed.</div>
-      <div id="rooftopEquipFields"></div>
     </details>
 
     <details>
@@ -979,8 +973,11 @@ const BUILDING_TYPES = {
       windowStyle: 'industrial_small',
       windowScale: 'default',
       windowDensity: 'sparse',
-      bayConfig: 'drivethrough',
-      bayWidth: 50, bayHeight: 30,
+      manualOpenings: {
+        front: [{ type: 'bay', style: 'through', x: 15, y: 96, w: 50, h: 24 }],
+        back:  [{ type: 'bay', style: 'through', x: 15, y: 96, w: 50, h: 24 }],
+        east: null, west: null,
+      },
       roofStyle: 'parapet',
       parapetHeight: 2,
       doorStyle: 'single',
@@ -996,8 +993,10 @@ const BUILDING_TYPES = {
       windowStyle: 'industrial_small',
       windowScale: 'default',
       windowDensity: 'sparse',
-      bayConfig: 'front',
-      bayWidth: 60, bayHeight: 40,
+      manualOpenings: {
+        front: [{ type: 'bay', style: 'side', x: 30, y: 36, w: 60, h: 24 }],
+        back: null, east: null, west: null,
+      },
       roofStyle: 'slanted',
       parapetHeight: 1,
       doorStyle: 'single',
@@ -1013,7 +1012,6 @@ const BUILDING_TYPES = {
       windowStyle: 'office_grid_2x2',
       windowScale: 'default',
       windowDensity: 'dense',
-      bayConfig: 'none',
       roofStyle: 'parapet',
       parapetHeight: 3,
       doorStyle: 'double_glass',
@@ -1029,8 +1027,10 @@ const BUILDING_TYPES = {
       windowStyle: 'factory_square',
       windowScale: 'default',
       windowDensity: 'medium',
-      bayConfig: 'front',
-      bayWidth: 45, bayHeight: 30,
+      manualOpenings: {
+        front: [{ type: 'bay', style: 'side', x: 17.5, y: 26, w: 45, h: 24 }],
+        back: null, east: null, west: null,
+      },
       roofStyle: 'gabled',
       parapetHeight: 1,
       doorStyle: 'single',
@@ -1046,7 +1046,6 @@ const BUILDING_TYPES = {
       windowStyle: 'vertical_strip',
       windowScale: 'default',
       windowDensity: 'sparse',
-      bayConfig: 'none',
       roofStyle: 'parapet',
       parapetHeight: 2,
       doorStyle: 'single',
@@ -1062,7 +1061,6 @@ const BUILDING_TYPES = {
       windowStyle: 'storefront',
       windowScale: 'default',
       windowDensity: 'dense',
-      bayConfig: 'none',
       roofStyle: 'flat',
       parapetHeight: 1,
       doorStyle: 'sliding_glass',
@@ -1078,7 +1076,6 @@ const BUILDING_TYPES = {
       windowStyle: 'industrial_small',
       windowScale: 'default',
       windowDensity: 'medium',
-      bayConfig: 'none',
       roofStyle: 'gabled',
       parapetHeight: 1,
       doorStyle: 'single',
@@ -1094,7 +1091,6 @@ const BUILDING_TYPES = {
       windowStyle: 'industrial_small',
       windowScale: 'small',
       windowDensity: 'sparse',
-      bayConfig: 'none',
       roofStyle: 'gabled',
       parapetHeight: 1,
       doorStyle: 'double',
@@ -1110,7 +1106,6 @@ const BUILDING_TYPES = {
       windowStyle: 'office_grid_2x2',
       windowScale: 'large',
       windowDensity: 'dense',
-      bayConfig: 'none',
       roofStyle: 'parapet',
       parapetHeight: 4,
       doorStyle: 'double_glass',
@@ -1126,7 +1121,6 @@ const BUILDING_TYPES = {
       windowStyle: 'office_grid_3x2',
       windowScale: 'large',
       windowDensity: 'medium',
-      bayConfig: 'none',
       roofStyle: 'parapet',
       parapetHeight: 5,
       doorStyle: 'double',
@@ -1427,6 +1421,90 @@ const BALCONY_STYLES = {
 };
 const BALCONY_TOUCH_MARGIN = 1.5; // mm — closeness to side wall that triggers L-shape
 
+/* ---- Bay styles ----
+ * A bay is a ground-floor opening that cuts the wall(s) up to a fixed height.
+ * 'side': cuts only the wall it sits on
+ * 'through': cuts BOTH the front and back walls at the same X (drive-through)
+ *
+ * Bays live in cfg.manualOpenings just like windows/doors — type='bay' with
+ * a 'style' field. They are bottom-anchored (y = H - h) and only valid on
+ * front/back walls. Only one bay per building; 'through' must sit on front.
+ */
+const BAY_STYLES = {
+  side:    { label: 'Side bay',           baseW: 50, baseH: 24, description: 'Single-wall ground-floor opening (a doorway-sized cut)' },
+  through: { label: 'Through bay',        baseW: 50, baseH: 24, description: 'Drive-through opening — cuts both the front and back walls' },
+};
+
+/* Look up the single bay opening on a face from cfg.manualOpenings. */
+function findBayOnFace(cfg, face) {
+  const ops = (cfg && cfg.manualOpenings) ? cfg.manualOpenings[face] : null;
+  if (!Array.isArray(ops)) return null;
+  return ops.find(op => op && op.type === 'bay') || null;
+}
+
+/* "Is this face in manual-windows-and-doors mode?"
+ *
+ * The bay lives in cfg.manualOpenings alongside windows and doors, but its
+ * presence ALONE doesn't mean the user has taken over window/door layout.
+ * Without this distinction, dropping a bay would silently disable the auto
+ * window pattern (the wall generator's `if (manualOps)` branch would fire
+ * with only the bay in the array and never emit any windows).
+ *
+ * Returns the filtered array of window+door manual ops, or null when none
+ * exist. Use this for manual-mode gating; use the raw cfg.manualOpenings[face]
+ * when iterating structural ops INCLUDING the bay (e.g. for selection state).
+ */
+function manualStructuralOps(cfg, face) {
+  const ops = (cfg && cfg.manualOpenings) ? cfg.manualOpenings[face] : null;
+  if (!Array.isArray(ops)) return null;
+  const filtered = ops.filter(op => op.type === 'window' || op.type === 'door');
+  return filtered.length > 0 ? filtered : null;
+}
+
+/* Resolve the building's effective bay state.
+ *
+ * Returns { hasFrontBay, hasBackBay, bayXStart, bayXEnd, bayWidth, bayHeight }.
+ *
+ * Source of truth is cfg.manualOpenings — bays are placed through the
+ * opening editor's toolbox, never via top-level cfg fields. A through-bay
+ * is stored as twin entries on both front and back walls (same local-X),
+ * but resolveBay is defensive: if it sees a through entry on only one
+ * wall it still flags the other wall's cut so an orphan half doesn't
+ * silently disappear.
+ */
+function resolveBay(cfg, fbWidth) {
+  const frontBay = findBayOnFace(cfg, 'front');
+  const backBay  = findBayOnFace(cfg, 'back');
+
+  // A through-bay on either wall implies the OTHER wall is also cut, even
+  // if the twin entry is missing (defensive against any orphan halves).
+  const frontThrough = !!(frontBay && frontBay.style === 'through');
+  const backThrough  = !!(backBay  && backBay.style  === 'through');
+
+  const hasFrontBay = !!frontBay || backThrough;
+  const hasBackBay  = !!backBay  || frontThrough;
+
+  if (!hasFrontBay && !hasBackBay) {
+    return { hasFrontBay: false, hasBackBay: false,
+             bayXStart: 0, bayXEnd: 0, bayWidth: 0, bayHeight: 0 };
+  }
+
+  // Bay parameters come from whichever bay actually exists. When both exist
+  // (the twin entries created by a through-bay drop), the front entry is
+  // the canonical source — drag/resize syncing keeps the two identical.
+  // The laser-cut panels for both walls are drawn in their own local-X
+  // coordinate space starting at 0; the building's wall generator uses
+  // plan.bayXStart as-is for both walls, so we store the value un-mirrored.
+  const src = frontBay || backBay;
+  const bayWidth  = src.w;
+  const bayHeight = src.h;
+  const bayXStart = src.x;
+  const bayXEnd   = bayXStart + bayWidth;
+
+  return { hasFrontBay, hasBackBay, bayXStart, bayXEnd, bayWidth, bayHeight };
+}
+
+
 /* Returns {w, h, mullion} for the current style+scale */
 function getWindowDims(cfg) {
   const style = WINDOW_STYLES[cfg.windowStyle];
@@ -1523,6 +1601,7 @@ const TRANSLATIONS = {
     s_type: 'Building Type',
     s_dim: 'Dimensions',
     s_ground: 'Ground Floor',
+    s_defaults: 'Defaults',
     s_roof: 'Roof',
     s_cladding: 'Cladding Style',
     s_windows: 'Windows',
@@ -1570,7 +1649,6 @@ const TRANSLATIONS = {
     lbl_doorStyle: 'Door style',
     lbl_doorCount: 'Doors per wall (front / back / side)',
     /* bay labels */
-    lbl_bayConfig: 'Bay configuration',
     lbl_baySize: 'Bay size W×H (mm)',
     /* trim labels */
     lbl_trimTop: 'Top trim band',
@@ -1679,6 +1757,7 @@ const TRANSLATIONS = {
     s_type: '建物タイプ',
     s_dim: '寸法',
     s_ground: '1階設定',
+    s_defaults: '既定値',
     s_roof: '屋根',
     s_cladding: '外壁仕上げ',
     s_windows: '窓',
@@ -1726,7 +1805,6 @@ const TRANSLATIONS = {
     lbl_doorStyle: 'ドアスタイル',
     lbl_doorCount: 'ドア数（前面 / 背面 / 側面）',
     /* bay labels */
-    lbl_bayConfig: '搬入口設定',
     lbl_baySize: '搬入口サイズ 幅×高さ（mm）',
     /* trim labels */
     lbl_trimTop: '上部モール',
@@ -3548,6 +3626,17 @@ function getShutterDimsForWindow(op) {
                               AND the printed-sheet output. One source of
                               truth for the artwork.
    ===================================================================== */
+/* Original polygon/path bodies extracted from the supplied Buffer-Large.svg
+ * and Buffer-Small.svg artwork files. The polygons are positioned in their
+ * original Adobe Illustrator coordinates (bbox starts at the bb_x/bb_y noted
+ * in each PRINTED_STYLES entry), and the designSvg function below transforms
+ * them into the printed item's local 0..w × 0..h frame via a single
+ * `transform="scale(sx,sy) translate(-bb_x,-bb_y)"` wrapper. CSS class
+ * references in the source SVGs have already been resolved to explicit
+ * fill attributes so the bodies stand alone without a <style> block. */
+const BUFFER_LARGE_BODY = `<polygon fill="#fada10" points="393.2 301 394 301.5 395.2 302.3 396 302.7 396.4 303 398.1 304.1 398.7 304.5 398.8 306.2 397.9 305.7 396.3 304.7 394.9 303.8 394.4 303.5 393.2 302.7 393.2 301.1 393.2 301"/><polygon fill="#f9da10" points="393.2 297.8 393.6 298 394.8 298.8 395.9 299.5 396.2 299.7 397.6 300.6 398.7 301.2 398.7 302.9 398.2 302.6 396.9 301.7 395.8 301 394.4 300.2 393.2 299.4 393.2 297.9 393.2 297.8"/><path fill="#f9da10" d="M393.3,310.6s0,0,0,0l1.8,1.1.9.6.6.4,1.2.7,1,.6v1.4s0,0,0,0l-.6-.3-1.2-.8-1.2-.8-1.8-1.1-.7-.4v-1.6Z"/><path fill="#fada10" d="M393.2,304.3s0,0,.1,0l1.3.8,1.3.8s0,0,0,0l1.3.8,1.4.9v1.5s-1-.6-1-.6l-1.6-1-1-.6-.6-.4-1.3-.8s0,0-.1,0c0,0,0,0,0,0v-1.5Z"/><path fill="#fada10" d="M393.3,307.5l1.7,1,1.1.7c.1.1.3.2.5.3l1.2.8,1,.6v1.5s-.9-.6-.9-.6l-1.7-1.1-1.2-.7-.7-.4c-.4-.2-.7-.5-1.1-.7v-1.5s0,0,0,0Z"/><path fill="#fad90c" d="M395.7,296.2c0,0,.2.1.3.2l1.3.8,1.3.8v1.4s0,0,0,0c0,0,0,0,0,0l-1.2-.8-1.3-.8h-.1c0,0-1.4-1-1.4-1l-1.3-.8h2.4Z"/><path fill="#050807" d="M393.2,296.2v1.6s.5.3.5.3l1.2.8,1.1.7.3.2,1.4.9,1.1.7v-1.6s0,0,0,0l-1.2-.8-1.3-.8h-.1c0,0-1.4-1-1.4-1l-1.3-.8s0,0-.1,0Z"/><polygon fill="#050807" points="393.2 301 394 301.5 395.2 302.3 396 302.7 396.4 303 398.1 304.1 398.7 304.5 398.7 302.9 398.2 302.6 396.9 301.7 395.8 301 394.4 300.2 393.2 299.4 393.2 301"/><path fill="#151514" d="M393.2,304.3s0,0,.1,0l1.3.8,1.3.8s0,0,0,0l1.3.8,1.4.9v-1.6s-.8-.5-.8-.5l-1.6-1-1.5-.9-.5-.3-1.2-.7v1.6Z"/><path fill="#151514" d="M393.3,307.5h0s1.7,1.1,1.7,1.1l1.1.7c.1.1.3.2.5.3l1.2.8,1,.6v-1.6s-1-.6-1-.6l-1.6-1-1-.6-.6-.4-1.3-.8s0,0-.1,0v1.6Z"/><path fill="#151514" d="M393.3,310.6s0,0,0,0l1.8,1.1.9.6.6.4,1.2.7,1,.6v-1.6s-.9-.6-.9-.6l-1.7-1.1-1.2-.7-.7-.4c-.4-.2-.7-.5-1.1-.7v1.6Z"/><path fill="#fadb19" d="M393.3,313.7s0,0,.1,0l1.3.8,1.4.9s0,0,0,0l.8.5h-2.4s0,0,0,0h0s-1-.7-1-.7c0,0-.1,0-.2,0,0,0,0,0,0,0v-1.5Z"/><path fill="#040807" d="M393.3,313.7s0,0,.1,0l1.3.8,1.4.9s0,0,0,0l.8.5h1.8s0-.5,0-.5l-.6-.3-1.2-.8-1.2-.8-1.8-1.1-.7-.4v1.6Z"/><path fill="#050807" d="M395.7,296.2h2.5s.4.3.4.3v1.6s-1.3-.8-1.3-.8l-1.3-.8c-.1,0-.3-.1-.3-.2Z"/><path fill="#212120" d="M393.3,315.2c0,0,.1,0,.2,0l1,.7h0s0,0,0,0h-1.3s0-.8,0-.8Z"/><path fill="#f6db27" d="M398.7,296.5l-.4-.3h.4c0,0,0,.2,0,.3Z"/>`;
+const BUFFER_SMALL_BODY = `<polygon fill="#fada10" points="384.7 354.8 385.5 355.6 386.7 356.6 387.4 357.3 387.8 357.7 389.6 359.2 390.2 359.8 390.2 362.2 389.4 361.5 387.8 360.1 386.4 358.8 385.9 358.3 384.7 357.3 384.7 355 384.7 354.8"/><polygon fill="#f9da10" points="384.7 350.2 385.1 350.6 386.3 351.6 387.4 352.6 387.7 352.9 389.1 354.2 390.2 355.1 390.2 357.5 389.7 357 388.3 355.9 387.3 354.9 385.9 353.6 384.7 352.5 384.6 350.3 384.7 350.2"/><path fill="#f9da10" d="M384.7,368.5c0,0,0,0,0,0l1.8,1.6.9.8.6.5,1.2,1.1,1,.9v2s0,.1,0,.1l-.6-.5-1.2-1.1-1.2-1.1-1.8-1.6-.7-.6v-2.2Z"/><path fill="#fada10" d="M384.7,359.5c0,0,0,0,.1.1l1.3,1.2,1.3,1.2s0,0,0,0l1.3,1.2,1.4,1.2v2.2s-1-.9-1-.9l-1.6-1.4-1-.9-.6-.5-1.3-1.2s0,0-.1,0c0,0,0,0,0,0v-2.2Z"/><path fill="#fada10" d="M384.8,364.1l1.7,1.5,1.1.9c.1.2.3.3.5.5l1.2,1.1,1,.9v2.2s-.9-.8-.9-.8l-1.7-1.5-1.2-1-.7-.6c-.4-.3-.7-.7-1.1-1v-2.1s0,0,0,0Z"/><path fill="#fad90c" d="M387.1,348c0,.1.2.2.3.3l1.3,1.2,1.3,1.2v2.1s0,0,0,0c0,0,0,0,0,0l-1.2-1.1-1.3-1.1h-.1c0,0-1.4-1.4-1.4-1.4l-1.3-1.2h2.4Z"/><path fill="#050807" d="M384.6,348v2.2s.5.4.5.4l1.2,1.1,1.1,1,.3.3,1.4,1.3,1.1.9v-2.3s0,0,0,0l-1.2-1.1-1.3-1.1h-.1c0,0-1.4-1.4-1.4-1.4l-1.3-1.2s0,0-.1,0Z"/><polygon fill="#050807" points="384.7 354.8 385.5 355.6 386.7 356.6 387.4 357.3 387.8 357.7 389.6 359.2 390.2 359.8 390.2 357.5 389.7 357 388.3 355.9 387.3 354.9 385.9 353.6 384.7 352.5 384.7 354.8"/><path fill="#151514" d="M384.7,359.5c0,0,0,0,.1.1l1.3,1.2,1.3,1.2s0,0,0,0l1.3,1.2,1.4,1.2v-2.3s-.8-.7-.8-.7l-1.6-1.4-1.5-1.3-.5-.5-1.2-1v2.3Z"/><path fill="#151514" d="M384.7,364h0s1.7,1.5,1.7,1.5l1.1.9c.1.2.3.3.5.5l1.2,1.1,1,.9v-2.3s-1-.9-1-.9l-1.6-1.4-1-.9-.6-.5-1.3-1.2s0,0-.1,0v2.3Z"/><path fill="#151514" d="M384.7,368.5c0,0,0,0,0,0l1.8,1.6.9.8.6.5,1.2,1.1,1,.9v-2.3s-.9-.8-.9-.8l-1.7-1.5-1.2-1-.7-.6c-.4-.3-.7-.7-1.1-1v2.2Z"/><path fill="#fadb19" d="M384.8,372.9c0,0,0,0,.1.1l1.3,1.2,1.4,1.3s0,0,0,0l.8.8h-2.4s0,0,0,0h0s-1-1-1-1c0,0-.1-.1-.2-.1,0,0,0,0,0,0v-2.2Z"/><path fill="#040807" d="M384.8,372.9c0,0,0,0,.1.1l1.3,1.2,1.4,1.3s0,0,0,0l.8.8h1.8s0-.7,0-.7l-.6-.5-1.2-1.1-1.2-1.1-1.8-1.6-.7-.6v2.2Z"/><path fill="#050807" d="M387.1,348h2.5s.4.4.4.4v2.3s-1.3-1.2-1.3-1.2l-1.3-1.2c-.1-.1-.3-.2-.3-.3Z"/><path fill="#212120" d="M384.8,375.1c0,0,.1,0,.2.1l1,.9h0s0,0,0,0h-1.3s0-1.2,0-1.2Z"/><path fill="#f6db27" d="M390.1,348.3l-.4-.4h.4c0,.1,0,.3,0,.4Z"/>`;
+
 const PRINTED_STYLES = {
   movie_poster: {
     label: 'Movie poster',
@@ -3633,6 +3722,29 @@ const PRINTED_STYLES = {
            + `<text x="${(w/2).toFixed(2)}" y="${(h*0.6).toFixed(2)}" font-family="serif" font-weight="bold" font-size="${(w*0.35).toFixed(2)}" fill="#fff" text-anchor="middle">NEW</text>`
            + `<text x="${(w/2).toFixed(2)}" y="${(h*0.75).toFixed(2)}" font-family="serif" font-weight="bold" font-size="${(w*0.35).toFixed(2)}" fill="#fff" text-anchor="middle">SEASON</text>`
            + `<line x1="${(w*0.15).toFixed(2)}" y1="${(h*0.92).toFixed(2)}" x2="${(w*0.85).toFixed(2)}" y2="${(h*0.92).toFixed(2)}" stroke="#fcd34d" stroke-width="${(w*0.05).toFixed(2)}"/>`;
+    },
+  },
+  buffer_large: {
+    label: 'Safety bollard (large)',
+    description: 'Yellow-and-black hazard-striped safety bollard, glued beside large bay/garage door openings to protect them from vehicle impact. The wider profile (often called a "loading-dock bumper" or 防護ポール in Japanese) suits truck bays and warehouse roll-up doors.',
+    width: 3, height: 10,
+    designSvg: (w, h) => {
+      // Source artwork bbox: x ∈ [393.20, 398.80], y ∈ [296.20, 315.20]
+      // Translate the bbox origin to (0,0) then scale to fit the printed
+      // item's local frame. Original aspect is preserved when w/h match the
+      // defaults; user-resizes stretch the bollard accordingly.
+      const sx = w / 5.6, sy = h / 19.0;
+      return `<g transform="scale(${sx.toFixed(4)},${sy.toFixed(4)}) translate(-393.20,-296.20)">${BUFFER_LARGE_BODY}</g>`;
+    },
+  },
+  buffer_small: {
+    label: 'Safety bollard (small)',
+    description: 'Slimmer hazard-striped safety post for tighter spots beside narrower bay doors, pedestrian entries, or loading bay corners. Same yellow-and-black warning livery; lower visual mass than the large variant.',
+    width: 2, height: 7,
+    designSvg: (w, h) => {
+      // Source artwork bbox: x ∈ [384.60, 390.20], y ∈ [348.00, 375.10]
+      const sx = w / 5.6, sy = h / 27.1;
+      return `<g transform="scale(${sx.toFixed(4)},${sy.toFixed(4)}) translate(-384.60,-348.00)">${BUFFER_SMALL_BODY}</g>`;
     },
   },
 };
@@ -3750,8 +3862,6 @@ let CONFIG = {
   rooftopMechRoomYOffset: 10,   // offset from roof CENTER in depth direction (positive = back)
   // Rooftop equipment counts. Each entry corresponds to a key in ROOFTOP_EQUIPMENT.
   rooftopEquipment: { ac_small: 0, ac_large: 0, cooling_tower: 0, water_tank_round: 0, water_tank_square: 0, mushroom_vent: 0, elec_cabinet: 0, antenna_mast: 0 },
-  bayConfig: 'drivethrough',
-  bayWidth: 50, bayHeight: 30,
   roofStyle: 'parapet',
   parapetHeight: 2,
   roofPitch: 10,
@@ -3773,8 +3883,16 @@ let CONFIG = {
   tongueWidth: 15,
   kerfComp: -0.005,
   // Manual opening overrides per wall. null = use auto-placement; array = editor-placed openings.
-  // Each entry: { type: 'window'|'door', x, y, w, h } in wall-local mm coords (y=0 at top).
-  manualOpenings: { front: null, back: null, east: null, west: null },
+  // Each entry: { type: 'window'|'door'|'bay', x, y, w, h, ... } in wall-local mm
+  // coords (y=0 at top). The default seeds a through-bay across front/back to
+  // match the initial industrial building type. Bay height (24) is deliberately
+  // less than the default first-floor band (30) so there's a visible strip of
+  // wall material above the bay before the inter-floor panel.
+  manualOpenings: {
+    front: [{ type: 'bay', style: 'through', x: 15, y: 96, w: 50, h: 24 }],
+    back:  [{ type: 'bay', style: 'through', x: 15, y: 96, w: 50, h: 24 }],
+    east: null, west: null,
+  },
   // Awnings placed via the opening editor. Stored separately so wall generators never see them.
   // Each entry: { x, y, w, d } where d = projection depth outward in mm.
   manualAwnings:  { front: [],  back: [],  east: [],  west: []  },
@@ -3791,9 +3909,6 @@ let CONFIG = {
   // the hole size. The frames are 1.5mm wider than the hole on each side and
   // sandwich the plexi which sits over the hole.
   skylights:     [],
-  // Bay X position override. null = centred (default). A number = left edge of bay in mm from wall left.
-  // Managed by the WYSIWYG editor drag; persists across regenerations until manually reset.
-  bayXOverride: null,
   // Awnings: array of {face, x, w, depth, angle} — x and w in wall-local mm (0=left edge)
   awnings: [],
   // Rooftop billboards: array of {type:'single'|'square', face, x, w, height, postHeight}
@@ -4758,17 +4873,54 @@ function clipHorizontalLineByCuts(y, x0, x1, cuts, margin) {
    
    panelLeft/Top/Right/Bottom: the inner region of the cladding panel where 
      etches should be drawn (typically inset by cT to avoid the panel edge). */
-function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBottom, cutOpenings) {
+function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBottom, cutOpenings, topEdge) {
   const out = [];
   const W = panelRight - panelLeft;
   const H = panelBottom - panelTop;
   const pat = style.pattern || 'lines';
 
+  // Optional slanted-top clip: panel's top edge isn't flat at panelTop but
+  // instead slants linearly from `topEdge.leftY` at panelLeft to
+  // `topEdge.rightY` at panelRight. Used for trapezoidal side cladding
+  // on slanted NS-axis roofs so the engrave lines stop at the cut line
+  // instead of extending into the empty area above the slope. When
+  // omitted, the top edge stays flat at panelTop and behaviour is unchanged.
+  const hasSlant = topEdge && (topEdge.leftY !== topEdge.rightY);
+  const slantSlope = hasSlant ? (topEdge.rightY - topEdge.leftY) / W : 0;
+  const slantBaseY = topEdge ? topEdge.leftY : panelTop;
+  function topYAt(x) {
+    if (!topEdge) return panelTop;
+    return slantBaseY + slantSlope * (x - panelLeft);
+  }
+
   function pushClippedV(x, y0, y1) {
+    // Clip the top of the line against the slanted top edge at this x.
+    const yTopHere = topYAt(x);
+    if (yTopHere >= y1) return;          // entirely above the slope → drop
+    if (yTopHere > y0)  y0 = yTopHere;   // trim the portion above the slope
     const segs = clipVerticalLineByCuts(x, y0, y1, cutOpenings);
     for (const [a, b] of segs) out.push({ x1: x, y1: a, x2: x, y2: b });
   }
   function pushClippedH(y, x0, x1) {
+    // For a horizontal line, find the x-range where y sits BELOW the slanted
+    // top edge (y >= topYAt(x)). Outside that range, the line is above the
+    // slope and should be dropped.
+    if (topEdge) {
+      if (slantSlope > 0) {
+        // top edge rises L→R: y >= leftY + slope*(x-panelLeft) → x <= panelLeft + (y-leftY)/slope
+        const xMax = panelLeft + (y - slantBaseY) / slantSlope;
+        if (xMax <= x0) return;          // whole line above the slope
+        if (xMax < x1) x1 = xMax;
+      } else if (slantSlope < 0) {
+        // top edge falls L→R: y >= leftY + slope*(x-panelLeft) → x >= panelLeft + (y-leftY)/slope
+        const xMin = panelLeft + (y - slantBaseY) / slantSlope;
+        if (xMin >= x1) return;          // whole line above the slope
+        if (xMin > x0) x0 = xMin;
+      } else {
+        // flat top at slantBaseY (rare case where topEdge is set but flat)
+        if (y < slantBaseY) return;
+      }
+    }
     const segs = clipHorizontalLineByCuts(y, x0, x1, cutOpenings);
     for (const [a, b] of segs) out.push({ x1: a, y1: y, x2: b, y2: y });
   }
@@ -4790,6 +4942,12 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
             py > c.y - 0.5 && py < c.y + c.h + 0.5) {
           inside = true; break;
         }
+      }
+      // Also drop samples that sit above the slanted top edge (if any) —
+      // the inside-cut test handles only rectangular cuts; the slope is a
+      // separate constraint that lives on the panel outline.
+      if (!inside && topEdge) {
+        if (py < topYAt(px)) inside = true;
       }
       if (!inside) {
         if (segStart === null) segStart = { x: px, y: py };
@@ -5145,7 +5303,7 @@ function computeDoors(wallW, wallH, opts) {
 /* Build the basic edge feature plan for the building, used by all wall generators */
 function buildEdgePlans(cfg) {
   const { width, depth, height, coreThickness: matT, tongueWidth: tw,
-          parapetHeight, roofStyle, bayConfig, bayWidth } = cfg;
+          parapetHeight, roofStyle } = cfg;
 
   // Wall heights all = building height
   const H = height;
@@ -5162,17 +5320,17 @@ function buildEdgePlans(cfg) {
   // The bay opening height is a SEPARATE value and must not influence this.
   const firstBandH = ffhEnabled ? ffh : fheightCfg;
 
-  const hasFrontBay = bayConfig === 'front' || bayConfig === 'drivethrough';
-  const hasBackBay  = bayConfig === 'drivethrough';
-
-  // Bay X position (centered unless user dragged it in the opening editor)
-  const bayXStart = (cfg.bayXOverride !== null && cfg.bayXOverride !== undefined)
-    ? Math.max(0, Math.min(width - bayWidth, cfg.bayXOverride))
-    : (width - bayWidth) / 2;
-  const bayXEnd = bayXStart + bayWidth;
-
   const sideLen = depth - 2 * matT;
   const fbWidth = width;
+
+  // Resolve bay from manual openings (the only source — bay placement is
+  // owned entirely by the opening editor).
+  const bayResolved = resolveBay(cfg, fbWidth);
+  const hasFrontBay = bayResolved.hasFrontBay;
+  const hasBackBay  = bayResolved.hasBackBay;
+  const bayXStart   = bayResolved.bayXStart;
+  const bayXEnd     = bayResolved.bayXEnd;
+  const resolvedBayWidth = bayResolved.bayWidth;
 
   const includeFloorPanels = !!cfg.floorPanels;
   const fcount  = (cfg.floorCount && cfg.floorCount > 0) ? cfg.floorCount : 1;
@@ -5204,7 +5362,9 @@ function buildEdgePlans(cfg) {
 
   // Bay opening height — independent from the floor panel position.
   // Defaults to firstBandH if unset so it fills the first floor by default.
-  let bayHeight = (cfg.bayHeight && cfg.bayHeight > 0) ? cfg.bayHeight : firstBandH;
+  let bayHeight = (bayResolved.bayHeight && bayResolved.bayHeight > 0)
+    ? bayResolved.bayHeight
+    : firstBandH;
   if (hasFrontBay || hasBackBay) {
     if (interFloorYs.length > 0) {
       const lowestPanelFromGround = H - Math.max(...interFloorYs); // = firstBandH
@@ -5325,58 +5485,75 @@ function buildEdgePlans(cfg) {
     }
   }
   // ---- Rooftop equipment placement ----
-  // Place each requested item in a grid pattern on the roof, avoiding the mech room 
-  // (if present) and the parapet/edge area. Each placement carries the equipment key 
-  // and a position rect on the roof piece.
+  // Placements come from cfg.rooftopItems (entries placed by the user in the
+  // rooftop editor — each carries x/y in roof-local coords, an equipKey
+  // identifying its ROOFTOP_EQUIPMENT entry, and its dimensions). The legacy
+  // cfg.rooftopEquipment count map is honoured as a fallback so existing
+  // presets that ship with counts (rather than item placements) still produce
+  // a populated roof on first build — we auto-place via the original greedy
+  // scan, then write the result into cfg.rooftopItems so subsequent edits in
+  // the editor have something to start from.
   const rooftopEquipPlacements = [];
-  const equipReq = cfg.rooftopEquipment || {};
-  const totalEquipReq = Object.values(equipReq).reduce((s, n) => s + (Number(n) || 0), 0);
-  if (totalEquipReq > 0) {
-    const roofW = (roofStyle === 'parapet') ? width - 2 * matT : width;
-    const roofD = (roofStyle === 'parapet') ? depth - 2 * matT : depth;
-    const edgeMargin = 3;
-    // Build flat list of items to place, sorted largest-area first so big items get prime spots
-    const items = [];
-    for (const [key, qty] of Object.entries(equipReq)) {
-      const n = Number(qty) || 0;
-      if (n <= 0) continue;
-      const eq = ROOFTOP_EQUIPMENT[key];
-      if (!eq) continue;
-      for (let i = 0; i < n; i++) {
-        items.push({ key, eq, area: eq.w * eq.d, instance: i + 1 });
-      }
+  const manualEquipItems = (cfg.rooftopItems || []).filter(it =>
+    it && it.type === 'equipment' && it.equipKey && ROOFTOP_EQUIPMENT[it.equipKey]
+  );
+  if (manualEquipItems.length > 0) {
+    const instanceCounts = {};
+    for (const it of manualEquipItems) {
+      const eq = ROOFTOP_EQUIPMENT[it.equipKey];
+      instanceCounts[it.equipKey] = (instanceCounts[it.equipKey] || 0) + 1;
+      rooftopEquipPlacements.push({
+        key: it.equipKey, eq,
+        x: it.x, y: it.y,
+        w: eq.w, d: eq.d,
+        instance: instanceCounts[it.equipKey],
+      });
     }
-    items.sort((a, b) => b.area - a.area);
-    // Simple greedy placement: scan a grid of candidate positions, pick the first 
-    // one where the item fits without overlapping mech room or other placements.
-    const stepX = 1, stepY = 1;
-    function fits(rx, ry, rw, rd) {
-      if (rx < edgeMargin || ry < edgeMargin) return false;
-      if (rx + rw > roofW - edgeMargin || ry + rd > roofD - edgeMargin) return false;
-      // mech room overlap (with 2mm clearance)
-      if (mechRoom) {
-        const mx0 = mechRoom.x - 2, my0 = mechRoom.y - 2;
-        const mx1 = mechRoom.x + mechRoom.w + 2, my1 = mechRoom.y + mechRoom.d + 2;
-        if (!(rx + rw <= mx0 || rx >= mx1 || ry + rd <= my0 || ry >= my1)) return false;
+  } else {
+    // Legacy fallback: auto-place from cfg.rooftopEquipment counts.
+    const equipReq = cfg.rooftopEquipment || {};
+    const totalEquipReq = Object.values(equipReq).reduce((s, n) => s + (Number(n) || 0), 0);
+    if (totalEquipReq > 0) {
+      const roofW = (roofStyle === 'parapet') ? width - 2 * matT : width;
+      const roofD = (roofStyle === 'parapet') ? depth - 2 * matT : depth;
+      const edgeMargin = 3;
+      const items = [];
+      for (const [key, qty] of Object.entries(equipReq)) {
+        const n = Number(qty) || 0;
+        if (n <= 0) continue;
+        const eq = ROOFTOP_EQUIPMENT[key];
+        if (!eq) continue;
+        for (let i = 0; i < n; i++) {
+          items.push({ key, eq, area: eq.w * eq.d, instance: i + 1 });
+        }
       }
-      // other-placement overlap (with 2mm spacing between items)
-      for (const p of rooftopEquipPlacements) {
-        if (!(rx + rw + 2 <= p.x || rx >= p.x + p.w + 2 || ry + rd + 2 <= p.y || ry >= p.y + p.d + 2)) return false;
+      items.sort((a, b) => b.area - a.area);
+      const stepX = 1, stepY = 1;
+      function fits(rx, ry, rw, rd) {
+        if (rx < edgeMargin || ry < edgeMargin) return false;
+        if (rx + rw > roofW - edgeMargin || ry + rd > roofD - edgeMargin) return false;
+        if (mechRoom) {
+          const mx0 = mechRoom.x - 2, my0 = mechRoom.y - 2;
+          const mx1 = mechRoom.x + mechRoom.w + 2, my1 = mechRoom.y + mechRoom.d + 2;
+          if (!(rx + rw <= mx0 || rx >= mx1 || ry + rd <= my0 || ry >= my1)) return false;
+        }
+        for (const p of rooftopEquipPlacements) {
+          if (!(rx + rw + 2 <= p.x || rx >= p.x + p.w + 2 || ry + rd + 2 <= p.y || ry >= p.y + p.d + 2)) return false;
+        }
+        return true;
       }
-      return true;
-    }
-    for (const item of items) {
-      const rw = item.eq.w, rd = item.eq.d;
-      let placed = false;
-      for (let ry = edgeMargin; ry + rd <= roofD - edgeMargin && !placed; ry += stepY) {
-        for (let rx = edgeMargin; rx + rw <= roofW - edgeMargin && !placed; rx += stepX) {
-          if (fits(rx, ry, rw, rd)) {
-            rooftopEquipPlacements.push({ key: item.key, eq: item.eq, x: rx, y: ry, w: rw, d: rd, instance: item.instance });
-            placed = true;
+      for (const item of items) {
+        const rw = item.eq.w, rd = item.eq.d;
+        let placed = false;
+        for (let ry = edgeMargin; ry + rd <= roofD - edgeMargin && !placed; ry += stepY) {
+          for (let rx = edgeMargin; rx + rw <= roofW - edgeMargin && !placed; rx += stepX) {
+            if (fits(rx, ry, rw, rd)) {
+              rooftopEquipPlacements.push({ key: item.key, eq: item.eq, x: rx, y: ry, w: rw, d: rd, instance: item.instance });
+              placed = true;
+            }
           }
         }
       }
-      // If not placed, leave it out — the manifest will note actual placed count
     }
   }
 
@@ -5385,7 +5562,7 @@ function buildEdgePlans(cfg) {
     parapetH: parapetHeight,
     roofStyle,
     sideLen, fbWidth,
-    bayXStart, bayXEnd, bayWidth, bayHeight,
+    bayXStart, bayXEnd, bayWidth: resolvedBayWidth, bayHeight,
     hasFrontBay, hasBackBay,
     bayCeilingY,
     interFloorYs,
@@ -5561,23 +5738,24 @@ function generateSideWall(cfg, plan, side) {
 
   let sideWindowsToDraw = [], sideDoors = [];
   const _sideManualKey = side === 'E' ? 'east' : 'west';
-  const _sideManualOps = (cfg.manualOpenings || {})[_sideManualKey] || null;
+  const _sideManualOps = manualStructuralOps(cfg, _sideManualKey);
   // East wall laser panel uses the internal-view convention (north on right
   // of panel) to match the openings editor's east display via `oeMirrorX`.
   // Storage keeps x=0=NORTH; flip op.x at the cut layer so a feature placed
   // near the wing side (right in display) cuts at the right end of the panel.
   const _sideMirrorX = (side === 'E');
   if (_sideManualOps) {
-    // Manual mode: use editor-placed openings directly
+    // Manual mode: use editor-placed openings directly. Only window and door
+    // entries cut here; bays cannot live on side walls and other types
+    // (awning/balcony/fixture/cladding_override/printed_item) don't cut.
     for (const op of _sideManualOps) {
-      if (op.type === 'awning') continue;   // awnings sit on the surface; no wall slot needed
       const opXBase = _sideMirrorX ? (sideLen - op.x - op.w) : op.x;
       if (op.type === 'door') {
         // Per-aperture core holes for glass doors; nothing for solid doors
         // (the cladding insert glues to the wall surface).
         cutDoorCoreHoles(rects, opXBase, op.y, op.w, op.h, op.style || cfg.doorStyle, _sideMirrorX);
         sideDoors.push(op);
-      } else {
+      } else if (op.type === 'window') {
         const winStyle = op.style ? WINDOW_STYLES[op.style] : null;
         if (winStyle && winStyle.placement === 'etched') {
           sideWindowsToDraw.push(op);
@@ -5586,6 +5764,7 @@ function generateSideWall(cfg, plan, side) {
           sideWindowsToDraw.push(op);
         }
       }
+      // All other types are no-ops in this loop.
     }
   } else {
     // Auto mode
@@ -5641,12 +5820,27 @@ function generateSideWall(cfg, plan, side) {
     name: side === 'E' ? 'Side Wall East' : 'Side Wall West',
     material: 'core',
     bboxW: sideLen + 2 * matT,
-    bboxH: (isSideGableEnd ? H + sPitch + matT : H + 2 * matT),
+    bboxH: isSideGableEnd
+            ? H + sPitch + matT
+            : (isSlantedRoof && slantNsAxis) ? H + sPitch + matT
+            : H + 2 * matT,
     bboxOffsetX: matT,
-    bboxOffsetY: (isSideGableEnd ? sPitch : matT),
+    bboxOffsetY: isSideGableEnd
+            ? sPitch
+            : (isSlantedRoof && slantNsAxis) ? sPitch
+            : matT,
     paths: sideWallPaths,
     rects: rects,
     lines: [],
+    // For NS-axis slanted roofs the trapezoidal east/west outlines are
+    // congruent in the wall coordinate system (both high-on-right), which
+    // makes the laser-cut sheet show two identical shapes. The west panel
+    // gets a render-time horizontal mirror so its outline AND internal
+    // cuts (windows, doors, tongues, slots) all reflect together — the
+    // floor-panel slot alignment is preserved because the tongue x-coords
+    // mirror in lockstep with the perimeter they sit on. East stays as
+    // cut; west is presented as its mirror.
+    mirrorX: side === 'W' && isSlantedRoof && slantNsAxis,
     windows: sideWindowsToDraw.length,
     doors: sideDoors.length,
   };
@@ -5670,7 +5864,7 @@ function generateFrontBackWall(cfg, plan, which) {
   // can be excluded from tongue placement, preventing tabs from colliding with doorways.
   const _earlyFbDoorStyle  = cfg.doorStyle;
   const _earlyFbDoorCount  = (which === 'front') ? (cfg.frontDoorCount || 0) : (cfg.backDoorCount || 0);
-  const _earlyFbManualOps  = (cfg.manualOpenings || {})[which] || null;
+  const _earlyFbManualOps  = manualStructuralOps(cfg, which);
   let _earlyFbDoors;
   if (_earlyFbManualOps) {
     _earlyFbDoors = _earlyFbManualOps.filter(op => op.type === 'door');
@@ -5736,21 +5930,47 @@ function generateFrontBackWall(cfg, plan, which) {
 
   // Slanted-roof: front/back walls perpendicular to an EW slope need trapezoidal tops.
   // Convention: x=0 is the WEST end, x=fbWidth is the EAST end.
-  const isSlantedFB = roofStyle === 'slanted' && !hasBay && !isGableEnd;
+  // For NS-axis slopes the front/back walls are rectangular but the HIGH-side
+  // wall extends UP by the slope pitch so its top edge meets the roof angle.
+  // The extension lives ABOVE y=0 (i.e. at y=−sPitch) so internal cuts
+  // (windows, doors, slots, tongues) keep their stored y coordinates in
+  // the base [0, H] region; the user just sees extra material above them.
+  // This applies whether or not the wall has a bay — the bay sits at the
+  // bottom (y=H), the slope extension sits above (y=−sPitch to 0); they
+  // don't interact.
+  const isSlantedFB = roofStyle === 'slanted' && !isGableEnd;
+  const slopeDir = cfg.roofSlopeDirection || 'back';
+  const isSlantedNS = isSlantedFB && (slopeDir === 'front' || slopeDir === 'back');
+  const isHighSideFB = isSlantedNS && (
+    (slopeDir === 'front' && which === 'front') ||
+    (slopeDir === 'back'  && which === 'back')
+  );
   if (isSlantedFB) {
-    const slopeDir = cfg.roofSlopeDirection || 'back';
-    const nsAxis   = (slopeDir === 'front' || slopeDir === 'back');
-    if (!nsAxis) {
-      // EW slope → front/back walls are trapezoidal
-      const pitchL = (slopeDir === 'west') ? pitch : 0;  // west/left end
-      const pitchR = (slopeDir === 'east') ? pitch : 0;  // east/right end
-      perimeter = buildSlantedWallPath(fbWidth, H, pitchL, pitchR, wallSpec);
+    if (!isSlantedNS) {
+      if (!hasBay) {
+        // EW slope, no bay → front/back walls are trapezoidal (top edge follows slope)
+        const pitchL = (slopeDir === 'west') ? pitch : 0;  // west/left end
+        const pitchR = (slopeDir === 'east') ? pitch : 0;  // east/right end
+        perimeter = buildSlantedWallPath(fbWidth, H, pitchL, pitchR, wallSpec);
+      }
+      // EW slope WITH bay: keep buildFBWallWithBay's existing rectangle.
+      // (Trapezoidal top + bay is a future enhancement; the wall stays flat-top.)
+    } else if (isHighSideFB) {
+      // NS slope, high side → rectangular but extended UP by sPitch so the
+      // wall top sits at y=−sPitch (reaching the roof's high edge). The
+      // extension lives above y=0; the bay (if any) lives at the bottom.
+      if (hasBay) {
+        // Rebuild the bay-aware perimeter with the top raised. buildFBWallWithBay
+        // reads spec.topExtension when present.
+        wallSpec.topExtension = pitch;
+        perimeter = buildFBWallWithBay(wallSpec, plan);
+      } else {
+        // No bay: use the rectangular extension via buildSlantedWallPath with
+        // equal left/right pitches. Top edge stays featureless.
+        perimeter = buildSlantedWallPath(fbWidth, H, pitch, pitch, wallSpec);
+      }
     }
-    // NS slope → front/back walls are rectangular eave walls.
-    // The back wall for 'back' slope is simply taller; handled by the builder's H param
-    // which uses plan.H = base height.  The height difference shows in the 3D preview;
-    // the SVG panel is always H tall since H is the building height at the low eave.
-    // (Separate bbox adjustment below handles the taller eave wall label/size.)
+    // NS slope low-side wall: keep the default rectangle (perimeter already set above).
   }
 
   // Interior cuts
@@ -5819,18 +6039,21 @@ function generateFrontBackWall(cfg, plan, which) {
     : (plan.floorCenterYs || []);
 
   let windowsToDraw = [], doors = [];
-  const _fbManualOps = (cfg.manualOpenings || {})[which] || null;
+  const _fbManualOps = manualStructuralOps(cfg, which);
   if (_fbManualOps) {
-    // Manual mode: use editor-placed openings directly
+    // Manual mode: use editor-placed openings directly. Only window and door
+    // entries cut the wall here — the bay is a separate structural feature
+    // cut via buildFBWallWithBay(), and awnings/fixtures/etc don't penetrate.
+    // Treating an unknown type as a window would punch a second hole at the
+    // bay's raw stored dims, which is exactly the doubled-cut bug we fixed.
     for (const op of _fbManualOps) {
-      if (op.type === 'awning') continue;   // awnings sit on the surface; no wall slot needed
       if (op.type === 'door') {
         // Glass doors get per-aperture core holes (matching the window
         // sandwich pattern); solid doors get no core cut — the cladding
         // insert glues directly to the wall surface.
         cutDoorCoreHoles(rects, op.x, op.y, op.w, op.h, op.style || cfg.doorStyle, false);
         doors.push(op);
-      } else {
+      } else if (op.type === 'window') {
         // Window: skip hole entirely for blanked (etched-on-cladding) styles.
         // The cladding has only an etched outline; no opening through the wall.
         const winStyle = op.style ? WINDOW_STYLES[op.style] : null;
@@ -5841,6 +6064,8 @@ function generateFrontBackWall(cfg, plan, which) {
           windowsToDraw.push(op);
         }
       }
+      // All other types (bay, awning, balcony, fixture, cladding_override,
+      // printed_item) are no-ops in this loop — handled elsewhere.
     }
   } else {
     // Auto mode: compute windows and doors algorithmically
@@ -5897,9 +6122,13 @@ function generateFrontBackWall(cfg, plan, which) {
     name: which === 'front' ? 'Front Wall' : 'Back Wall',
     material: 'core',
     bboxW: fbWidth,
-    bboxH: (isGableEnd ? H + pitch + matT : H + 2 * matT),
+    bboxH: isGableEnd ? H + pitch + matT
+         : isHighSideFB ? H + pitch + matT
+         : H + 2 * matT,
     bboxOffsetX: 0,
-    bboxOffsetY: (isGableEnd ? pitch : matT),
+    bboxOffsetY: isGableEnd ? pitch
+                : isHighSideFB ? pitch
+                : matT,
     paths: wallPaths,
     rects: rects,
     lines: [],
@@ -5915,28 +6144,39 @@ function buildFBWallWithBay(spec, plan) {
   const sk = k;
 
   const { bayXStart, bayXEnd, bayHeight } = plan;
+  // For slanted NS-axis high-side walls the top edge is raised by sPitch
+  // above the regular eave (y=0) so the wall reaches the roof's high edge.
+  // The extension is flat (no tongues), and the [0, H] region keeps all
+  // its features so the bay notch, side-wall slots, and floor tongues land
+  // exactly as they would without the slope.
+  const tExt = (spec.topExtension > 0) ? spec.topExtension : 0;
 
-  let d = `M 0,0`;
+  let d = `M 0,${(-tExt).toFixed(3)}`;
 
   // Top edge
-  const topFeatures = [
-    ...spec.edges.top.tongues.map(t => ({ ...t, kind: 'tongue' })),
-  ].sort((a, b) => a.start - b.start);
-  let x = 0;
-  for (const f of topFeatures) {
-    const fS = f.start + tk;
-    const fE = f.end - tk;
-    if (fS > x) d += ` L ${fS},0`;
-    d += ` L ${fS},${-td} L ${fE},${-td} L ${fE},0`;
-    x = fE;
+  if (tExt > 0) {
+    // Slanted high side: flat extended top, no tongues
+    d += ` L ${W},${(-tExt).toFixed(3)}`;
+  } else {
+    const topFeatures = [
+      ...spec.edges.top.tongues.map(t => ({ ...t, kind: 'tongue' })),
+    ].sort((a, b) => a.start - b.start);
+    let x = 0;
+    for (const f of topFeatures) {
+      const fS = f.start + tk;
+      const fE = f.end - tk;
+      if (fS > x) d += ` L ${fS},0`;
+      d += ` L ${fS},${-td} L ${fE},${-td} L ${fE},0`;
+      x = fE;
+    }
+    if (x < W) d += ` L ${W},0`;
   }
-  if (x < W) d += ` L ${W},0`;
 
-  // Right edge (with side wall slots = openings)
+  // Right edge (with side wall slots = openings) — starts at y=-tExt
   const rightFeatures = [
     ...spec.edges.right.openings.map(o => ({ ...o, kind: 'opening' })),
   ].sort((a, b) => a.start - b.start);
-  let y = 0;
+  let y = -tExt;
   for (const f of rightFeatures) {
     const fS = f.start - sk;
     const fE = f.end + sk;
@@ -5980,7 +6220,7 @@ function buildFBWallWithBay(spec, plan) {
   }
   if (xpos > 0) d += ` L 0,${H}`;
 
-  // Left edge (with side wall slots = openings)
+  // Left edge (with side wall slots = openings) — ends at y=-tExt
   const leftFeatures = [
     ...spec.edges.left.openings.map(o => ({ ...o, kind: 'opening' })),
   ].sort((a, b) => b.start - a.start);
@@ -5992,7 +6232,7 @@ function buildFBWallWithBay(spec, plan) {
     d += ` L ${td},${fE} L ${td},${fS} L 0,${fS}`;
     ypos = fS;
   }
-  if (ypos > 0) d += ` L 0,0`;
+  if (ypos > -tExt) d += ` L 0,${(-tExt).toFixed(3)}`;
   d += ` Z`;
   return d;
 }
@@ -6399,7 +6639,7 @@ function generateFloor(cfg, plan) {
 
   function getWallDoors(manualKey, edgeLen, wallH, count, hasBay) {
     if (count <= 0 || !doorStyle || doorStyle === 'none') return [];
-    const manual = (cfg.manualOpenings || {})[manualKey] || null;
+    const manual = manualStructuralOps(cfg, manualKey);
     if (manual) return manual.filter(o => o.type === 'door');
     if (hasBay) return [];
     return computeDoors(edgeLen, wallH, { doorStyle, doorCount: count, hasOpening: false, bayXStart: 0, bayXEnd: 0 });
@@ -6518,7 +6758,7 @@ function generateMergedFloor(cfg, plan) {
   }
   function getWallDoors(manualKey, edgeLen, wallH, count, hasBay) {
     if (count <= 0 || !doorStyle || doorStyle === 'none') return [];
-    const manual = (cfg.manualOpenings || {})[manualKey] || null;
+    const manual = manualStructuralOps(cfg, manualKey);
     if (manual) return manual.filter(o => o.type === 'door');
     if (hasBay) return [];
     return computeDoors(edgeLen, wallH, { doorStyle, doorCount: count, hasOpening: false, bayXStart: 0, bayXEnd: 0 });
@@ -7913,8 +8153,21 @@ function generateCladdingPanel(cfg, plan, which, band) {
   //          The front/back cladding overhangs cover the corner in X (perpendicular);
   //          there is NO reason to inset the side cladding in Z.
   if (which === 'front' || which === 'back') {
+    // For a slanted NS-axis roof the HIGH-side wall extends UP by the slope
+    // pitch so its top sits at the roof's high edge. The cladding follows —
+    // adding the same sPitch of height keeps the visible exterior flush with
+    // the wall and the roof angle. The LOW-side wall's cladding stays at H
+    // exactly (matches its wall, no extension).
+    const isSlantedFBRoof = cfg.roofStyle === 'slanted';
+    const cladSlopeDir    = cfg.roofSlopeDirection || 'back';
+    const cladIsNS        = isSlantedFBRoof && (cladSlopeDir === 'front' || cladSlopeDir === 'back');
+    const cladIsHighSide  = cladIsNS && (
+      (cladSlopeDir === 'front' && which === 'front') ||
+      (cladSlopeDir === 'back'  && which === 'back')
+    );
+    const slopeRise = cladIsHighSide ? (cfg.roofPitch || 10) : 0;
     cWidth = fbWidth + 2 * cT;
-    cHeight = H;
+    cHeight = H + slopeRise;
     cId = 'cladding_' + which;
     cName = (which === 'front' ? 'Front' : 'Back') + ' Cladding';
     hasBay = (which === 'front' ? hasFrontBay : hasBackBay);
@@ -7934,16 +8187,31 @@ function generateCladdingPanel(cfg, plan, which, band) {
     // corner seam (it overlaps the outer face of this side cladding at the
     // corner). Wall body's x=0 sits at cladding-frame x = matT, so openings
     // shift by matT on x.
+    // For a slanted NS-axis roof the side wall is trapezoidal: tall on the
+    // high-eave end, short on the low-eave end. The cladding follows that
+    // trapezoid — its panel height grows by sPitch and its TOP edge slants
+    // between the two corners so the cladding wraps the wall outline exactly.
+    const sideClSlantedNS = cfg.roofStyle === 'slanted'
+                          && ((cfg.roofSlopeDirection || 'back') === 'front'
+                           || (cfg.roofSlopeDirection || 'back') === 'back');
+    const sideSlopeRise = sideClSlantedNS ? (cfg.roofPitch || 10) : 0;
     cWidth = sideLen + 2 * matT;
-    cHeight = H;
+    cHeight = H + sideSlopeRise;
     cId = 'cladding_side_' + which;
     cName = 'Side Cladding ' + (which === 'east' ? 'East' : 'West');
   }
 
   // Apply band restriction by trimming the cladding panel to the appropriate Y range.
   // boundaryClad is the boundary expressed in CLADDING frame y. Cladding frame y now
-  // matches wall frame y exactly (no top overhang), so the boundary is simply boundaryWall.
-  const boundaryClad = boundaryWall;
+  // Boundary in CLADDING frame. For the standard case (no top overhang)
+  // the cladding panel runs y=[0, H] and matches the wall coordinates
+  // exactly, so the boundary sits at boundaryWall. For the high-side FB
+  // wall of a slanted NS-axis roof, the cladding extends an additional
+  // sPitch above the wall (cHeight = H + sPitch), and the boundary
+  // shifts down by that amount inside the cladding frame so the ground
+  // band still wraps exactly the firstFloorHeight bottom strip.
+  const cladTopOverhang = cHeight - H;
+  const boundaryClad = boundaryWall + cladTopOverhang;
   let panelYStart = 0;          // top of this panel in cladding frame
   let panelYEnd = cHeight;      // bottom of this panel in cladding frame
   if (band === 'upper') {
@@ -7983,7 +8251,23 @@ function generateCladdingPanel(cfg, plan, which, band) {
 
   // Gable-end cladding: the panel is a pentagon (triangle sits above the rectangle).
   // Only applies when the top of this band is at the wall top (panelYStart === 0).
+  // SIDE cladding for slanted NS-axis: trapezoidal panel matching the
+  // trapezoidal side wall. The top edge slants between the low corner
+  // (y=cladTopOverhang in the panel frame) and the high corner (y=0).
+  // slopeDir='back' → high on the north (right of panel, x=cWidth).
+  // slopeDir='front' → high on the south (left of panel, x=0).
+  const isSideSlantedClad = (which === 'east' || which === 'west')
+                            && cfg.roofStyle === 'slanted'
+                            && ((cfg.roofSlopeDirection || 'back') === 'front'
+                             || (cfg.roofSlopeDirection || 'back') === 'back');
   const clPitch = cfg.roofPitch || 10;
+  // Trapezoidal side cladding's slanted top edge corner Y values. Hoisted
+  // so the pattern generator can clip engrave lines against this same edge.
+  // slopeDir='back'  → high on the north (right, x=localCWidth, y=0); low on the south.
+  // slopeDir='front' → high on the south (left, x=0, y=0); low on the north.
+  const _slopeDirLocal = cfg.roofSlopeDirection || 'back';
+  const sideClTopLeftY  = isSideSlantedClad ? (_slopeDirLocal === 'front' ? 0 : clPitch) : 0;
+  const sideClTopRightY = isSideSlantedClad ? (_slopeDirLocal === 'front' ? clPitch : 0) : 0;
   const isCladdingGableEnd = isGableEndWall(cfg, which) && panelYStart === 0;
   let perimPath;
   if (isCladdingGableEnd) {
@@ -7992,6 +8276,14 @@ function generateCladdingPanel(cfg, plan, which, band) {
     const eaveY  = 0;
     const apexY  = -clPitch;       // negative — above the panel top
     perimPath = `M 0,${eaveY} L ${(localCWidth / 2).toFixed(3)},${apexY.toFixed(3)} L ${localCWidth},${eaveY} L ${localCWidth},${localCHeight} L 0,${localCHeight} Z`;
+  } else if (isSideSlantedClad && !splitMode) {
+    // Trapezoidal side cladding. We only emit the slanted top in the full-panel
+    // (un-split) case so the band-split logic stays a clean rectangle for each
+    // band — the apex of the slope is always in the topmost band, which the
+    // splitMode renderer handles separately below if ever needed.
+    perimPath = `M 0,${sideClTopLeftY} L ${localCWidth.toFixed(3)},${sideClTopRightY} `
+              + `L ${localCWidth.toFixed(3)},${localCHeight.toFixed(3)} `
+              + `L 0,${localCHeight.toFixed(3)} Z`;
   } else {
     perimPath = rectPath(0, 0, localCWidth, localCHeight);
   }
@@ -8029,7 +8321,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
       ? (plan.floorCenterYs || []).filter(y => y < (H - bayHeight) - 1)
       : (plan.floorCenterYs || []);
 
-    const _fbManualOps = (cfg.manualOpenings || {})[which] || null;
+    const _fbManualOps = manualStructuralOps(cfg, which);
     if (_fbManualOps) {
       // Manual mode — cladding frame y now matches wall frame y (no top overhang)
       for (const op of _fbManualOps) {
@@ -8091,7 +8383,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
     const doorH = (doorStyle && doorStyle !== 'none' && DOOR_STYLES[doorStyle]) ? DOOR_STYLES[doorStyle].height : 0;
     const doorReserveH = (sideDoorCount > 0) ? doorH + 3 : 0;
 
-    const _sideManualOps = (cfg.manualOpenings || {})[which] || null;
+    const _sideManualOps = manualStructuralOps(cfg, which);
     // Side cladding spans sideLen + 2*matT, with the wall body's x=0 sitting
     // at cladding-frame x = matT (= the south corner extension).
     const sideXShift = matT;
@@ -8151,6 +8443,21 @@ function generateCladdingPanel(cfg, plan, which, band) {
         claddingStyle: ov.claddingStyle,
       });
     }
+  }
+
+  // ─── Convert wall-frame y to cladding-frame y ───
+  // The push loops above pushed window/door/fixture/override y values in the
+  // WALL frame (where y=0 is the wall's TOP edge). The cladding frame's y=0
+  // is the cladding panel's TOP edge, which sits cladTopOverhang ABOVE the
+  // wall's top on the high-side FB wall of a slanted NS-axis roof. Shift
+  // all items by +cladTopOverhang so subsequent band filtering and rect
+  // emission use cladding-frame coordinates consistently. For all other
+  // walls cladTopOverhang is 0 and this loop is a no-op.
+  if (cladTopOverhang > 0) {
+    for (const w of cladWindows)   w.y += cladTopOverhang;
+    for (const d of cladDoors)     d.y += cladTopOverhang;
+    for (const f of cladFixtures)  f.y += cladTopOverhang;
+    for (const o of cladOverrides) o.y += cladTopOverhang;
   }
 
   // Filter windows/doors to this band only, and translate to panel-local coords.
@@ -8373,7 +8680,17 @@ function generateCladdingPanel(cfg, plan, which, band) {
   // it acts as a small margin from the laser-cut edge.
   const patEtchTop = 0;
   const patEtchBottom = localCHeight;
-  const patternLines = generateCladdingPattern(claddingStyleSpec, cT, patEtchTop, localCWidth - cT, patEtchBottom, cutOpenings);
+  // For trapezoidal side cladding, hand the pattern generator the slanted
+  // top edge so engrave lines stop at the cut line instead of extending up
+  // into the empty triangle above. The pattern's x range is [cT, localCWidth-cT],
+  // so we sample the slope's Y at those exact x values.
+  const patEtchTopEdge = (isSideSlantedClad && !splitMode)
+    ? {
+        leftY:  sideClTopLeftY  + (sideClTopRightY - sideClTopLeftY) *               cT / localCWidth,
+        rightY: sideClTopLeftY  + (sideClTopRightY - sideClTopLeftY) * (localCWidth - cT) / localCWidth,
+      }
+    : undefined;
+  const patternLines = generateCladdingPattern(claddingStyleSpec, cT, patEtchTop, localCWidth - cT, patEtchBottom, cutOpenings, patEtchTopEdge);
   for (const ln of patternLines) {
     lines.push({ type: 'etch', x1: ln.x1, y1: ln.y1, x2: ln.x2, y2: ln.y2 });
   }
@@ -9722,6 +10039,15 @@ function partToSvg(part, options) {
     + `width="${vbW.toFixed(3)}mm" height="${vbH.toFixed(3)}mm" `
     + `viewBox="${vbX.toFixed(3)} ${vbY.toFixed(3)} ${vbW.toFixed(3)} ${vbH.toFixed(3)}">`;
 
+  // Parts that need a horizontal mirror (currently: the west side wall on
+  // NS-axis slanted roofs, so it reads as the mirror of the east wall in
+  // the laser sheet) wrap their content in a scale(-1,1) translate group.
+  // The translate offsets by bboxW so the mirror flips the panel in place
+  // — left edge becomes right edge, with the bbox origin preserved.
+  if (part.mirrorX) {
+    svg += `<g transform="translate(${part.bboxW.toFixed(3)},0) scale(-1,1)">`;
+  }
+
   // Printed sheets carry pre-rendered full-colour SVG in `svgContent` — that
   // becomes the artwork layer behind the crop marks.
   if (isPrinted && part.svgContent) {
@@ -9750,6 +10076,9 @@ function partToSvg(part, options) {
     const color = isCrop ? '#000' : ((l.type === 'cut') ? COLOR_CUT : COLOR_ETCH);
     const sw = isCrop ? (strokeW * 1.5) : strokeW;
     svg += `<line x1="${l.x1.toFixed(3)}" y1="${l.y1.toFixed(3)}" x2="${l.x2.toFixed(3)}" y2="${l.y2.toFixed(3)}" stroke="${color}" stroke-width="${sw}"/>`;
+  }
+  if (part.mirrorX) {
+    svg += `</g>`;
   }
   svg += `</svg>`;
   return svg;
@@ -9804,31 +10133,36 @@ function initDropdowns() {
     opt.value = k; opt.textContent = v.label;
     doorSel.appendChild(opt);
   }
-  // Rooftop equipment fields: one row per type with a count input.
+  // Rooftop equipment is now placed via the Floor Editor's roof view rather
+  // than count inputs in the left panel. The container `rooftopEquipFields`
+  // no longer exists; skip building per-type rows if it isn't present so the
+  // older code path stays inert for older HTML.
   const equipContainer = document.getElementById('rooftopEquipFields');
-  for (const [k, v] of Object.entries(ROOFTOP_EQUIPMENT)) {
-    const div = document.createElement('div');
-    div.className = 'field';
-    const label = document.createElement('label');
-    label.style.display = 'flex';
-    label.style.alignItems = 'center';
-    label.style.gap = '8px';
-    const span = document.createElement('span');
-    span.style.flex = '1';
-    span.textContent = v.label + ' (' + v.w + '×' + v.d + '×' + v.h + 'mm)';
-    const inp = document.createElement('input');
-    inp.type = 'number';
-    inp.id = 'rooftopEq_' + k;
-    inp.min = '0'; inp.max = '20'; inp.step = '1'; inp.value = '0';
-    inp.style.width = '60px';
-    label.appendChild(span);
-    label.appendChild(inp);
-    div.appendChild(label);
-    const desc = document.createElement('div');
-    desc.className = 'small';
-    desc.textContent = v.description;
-    div.appendChild(desc);
-    equipContainer.appendChild(div);
+  if (equipContainer) {
+    for (const [k, v] of Object.entries(ROOFTOP_EQUIPMENT)) {
+      const div = document.createElement('div');
+      div.className = 'field';
+      const label = document.createElement('label');
+      label.style.display = 'flex';
+      label.style.alignItems = 'center';
+      label.style.gap = '8px';
+      const span = document.createElement('span');
+      span.style.flex = '1';
+      span.textContent = v.label + ' (' + v.w + '×' + v.d + '×' + v.h + 'mm)';
+      const inp = document.createElement('input');
+      inp.type = 'number';
+      inp.id = 'rooftopEq_' + k;
+      inp.min = '0'; inp.max = '20'; inp.step = '1'; inp.value = '0';
+      inp.style.width = '60px';
+      label.appendChild(span);
+      label.appendChild(inp);
+      div.appendChild(label);
+      const desc = document.createElement('div');
+      desc.className = 'small';
+      desc.textContent = v.description;
+      div.appendChild(desc);
+      equipContainer.appendChild(div);
+    }
   }
 }
 
@@ -9876,9 +10210,6 @@ function readForm() {
   CONFIG.frontDoorCount = num('frontDoorCount');
   CONFIG.backDoorCount = num('backDoorCount');
   CONFIG.sideDoorCount = num('sideDoorCount');
-  CONFIG.bayConfig = val('bayConfig');
-  CONFIG.bayWidth = num('bayWidth');
-  CONFIG.bayHeight = num('bayHeight');
   // Trim
   CONFIG.trimTop = !!document.getElementById('trimTop').checked;
   CONFIG.trimBottom = !!document.getElementById('trimBottom').checked;
@@ -9895,11 +10226,21 @@ function readForm() {
   CONFIG.rooftopMechRoomHeight = num('rooftopMechRoomHeight');
   CONFIG.rooftopMechRoomXOffset = num('rooftopMechRoomXOffset');
   CONFIG.rooftopMechRoomYOffset = num('rooftopMechRoomYOffset');
-  // Rooftop equipment counts
+  // Rooftop equipment counts. The count UI was removed (placement is now done
+  // via the Floor Editor's roof view), but we still honour preset-provided
+  // counts as a legacy fallback at build time — and the migration step in
+  // iwSetFloor moves those counts into CONFIG.rooftopItems the first time
+  // the user opens the roof tab. So: only update the count from the DOM if
+  // the input field still exists; otherwise leave whatever's already in
+  // CONFIG untouched.
   CONFIG.rooftopEquipment = CONFIG.rooftopEquipment || {};
   for (const k of Object.keys(ROOFTOP_EQUIPMENT)) {
     const el = document.getElementById('rooftopEq_' + k);
-    CONFIG.rooftopEquipment[k] = el ? Math.max(0, parseInt(el.value) || 0) : 0;
+    if (el) {
+      CONFIG.rooftopEquipment[k] = Math.max(0, parseInt(el.value) || 0);
+    } else if (CONFIG.rooftopEquipment[k] == null) {
+      CONFIG.rooftopEquipment[k] = 0;
+    }
   }
   // Rooftop shield wall
   CONFIG.rooftopShield = CONFIG.rooftopShield || {};
@@ -9948,9 +10289,6 @@ function writeForm() {
   set('frontDoorCount', CONFIG.frontDoorCount);
   set('backDoorCount', CONFIG.backDoorCount);
   set('sideDoorCount', CONFIG.sideDoorCount);
-  set('bayConfig', CONFIG.bayConfig);
-  set('bayWidth', CONFIG.bayWidth);
-  set('bayHeight', CONFIG.bayHeight);
   // Trim
   document.getElementById('trimTop').checked = !!CONFIG.trimTop;
   document.getElementById('trimBottom').checked = !!CONFIG.trimBottom;
@@ -9992,7 +10330,6 @@ function writeForm() {
 function updateConditionalFields() {
   const heightMode = val('heightMode');
   const roofStyle = val('roofStyle');
-  const bayConfig = val('bayConfig');
   const claddingStyle = val('claddingStyle');
   const windowStyle = val('windowStyle');
   const doorStyle = val('doorStyle');
@@ -10024,7 +10361,6 @@ function updateConditionalFields() {
   document.getElementById('roofRidgeDirectionField').style.display = (roofStyle === 'gabled') ? '' : 'none';
   document.getElementById('roofSlopeDirectionField').style.display = (roofStyle === 'slanted') ? '' : 'none';
   document.getElementById('roofOverhangField').style.display = (roofStyle === 'slanted' || roofStyle === 'gabled') ? '' : 'none';
-  document.getElementById('baySizeField').style.display = (bayConfig !== 'none') ? '' : 'none';
   // Rooftop shield sub-fields
   const shieldOn = !!document.getElementById('rooftopShieldEnabled')?.checked;
   const shieldFields = document.getElementById('rooftopShieldFields');
@@ -10048,8 +10384,40 @@ function updateConditionalFields() {
 function applyBuildingTypeDefaults() {
   const type = val('buildingType');
   const defaults = BUILDING_TYPES[type].defaults;
+  // Bays are part of a preset's identity (e.g. the industrial type's
+  // signature drive-through). Switching presets always clears existing bay
+  // entries first so we don't end up with a stray bay from the previous
+  // type sitting alongside the new type's bay (or a stray bay on a preset
+  // that has none). User-placed windows, doors, awnings, etc. are left
+  // alone — only bays are preset-driven.
+  if (CONFIG.manualOpenings) {
+    for (const face of ['front', 'back', 'east', 'west']) {
+      const arr = CONFIG.manualOpenings[face];
+      if (!Array.isArray(arr)) continue;
+      const noBays = arr.filter(op => op && op.type !== 'bay');
+      CONFIG.manualOpenings[face] = noBays.length > 0 ? noBays : null;
+    }
+  }
   for (const [k, v] of Object.entries(defaults)) {
-    CONFIG[k] = v;
+    if (k === 'manualOpenings') {
+      // Deep copy so the preset's source array isn't aliased into CONFIG
+      // — subsequent edits in the editor would otherwise mutate the
+      // preset definition and bleed across building types.
+      if (!CONFIG.manualOpenings) {
+        CONFIG.manualOpenings = { front: null, back: null, east: null, west: null };
+      }
+      for (const face of ['front', 'back', 'east', 'west']) {
+        const presetArr = (v && v[face]) ? v[face] : null;
+        if (!Array.isArray(presetArr) || presetArr.length === 0) continue;
+        const copy = JSON.parse(JSON.stringify(presetArr));
+        if (!Array.isArray(CONFIG.manualOpenings[face])) {
+          CONFIG.manualOpenings[face] = [];
+        }
+        CONFIG.manualOpenings[face].push(...copy);
+      }
+    } else {
+      CONFIG[k] = v;
+    }
   }
   // Also recalc height mode if needed
   if (defaults.height) {
@@ -10294,6 +10662,14 @@ let iwDragPt = null;        // {x,y} mm — wall drag start
 let iwCurMM  = null;        // {x,y} mm — mouse position
 let iwDragItem = null;      // roof item being dragged from toolbox
 let iwCustomSizes = {};
+// Placed-item interaction state. A placed item is either selected (highlighted,
+// removable via Delete/Backspace) or actively being moved (mouse held down
+// after a mousedown on its rect). Both default to -1 = "nothing selected".
+let iwSelectedIdx = -1;
+let iwMovingIdx   = -1;
+let iwMovingStart = null;   // {x,y} mm — mouse pos when move began
+let iwMovingOrig  = null;   // {x,y} mm — item pos when move began
+let iwMovingMoved = false;  // turned on once the mouse leaves the original pos
 
 const IW_ROOF        = 'roof'; // sentinel value for the roof tab
 const IW_TAB_SPACING = 35;     // mm between wall tongue tabs
@@ -10304,10 +10680,42 @@ function openInternalWallEditor(startFloor) {
   if (!CONFIG.internalWalls[0]) CONFIG.internalWalls[0] = [];   // single shared layout
   if (!CONFIG.rooftopItems) CONFIG.rooftopItems = [];
   document.getElementById('iwModal').style.display = '';
+  // Reset any leftover selection/move state from a previous session.
+  iwSelectedIdx = -1;
+  iwMovingIdx   = -1;
   iwSetFloor(startFloor === IW_ROOF ? IW_ROOF : 0);
 }
-function iwClose() { document.getElementById('iwModal').style.display = 'none'; }
+function iwClose() {
+  // Drop selection so it isn't carried into the next open of the modal.
+  iwSelectedIdx = -1;
+  iwMovingIdx   = -1;
+  document.getElementById('iwModal').style.display = 'none';
+}
 function iwApply() { iwClose(); regenerate(); }
+
+/**
+ * Keyboard handler scoped to the floor editor modal. Currently handles
+ * Delete/Backspace to remove the selected rooftop item — the listener is
+ * installed once at startup and gates itself on (a) the modal being open
+ * and (b) focus not being inside an input field, so it never interferes
+ * with typing in the toolbox/topbar number inputs.
+ */
+function iwKeyDown(e) {
+  const modal = document.getElementById('iwModal');
+  if (!modal || modal.style.display === 'none') return;
+  const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if ((e.key === 'Delete' || e.key === 'Backspace') && iwSelectedIdx >= 0 && iwIsRoof()) {
+    e.preventDefault();
+    (CONFIG.rooftopItems || []).splice(iwSelectedIdx, 1);
+    iwSelectedIdx = -1;
+    iwMovingIdx   = -1;
+    iwRender();
+  } else if (e.key === 'Escape' && iwSelectedIdx >= 0) {
+    iwSelectedIdx = -1;
+    iwRender();
+  }
+}
 
 function iwFloorCount() { return lastPlan ? Math.max(1, lastPlan.floors || 1) : 1; }
 function iwIsRoof()     { return iwFloor === IW_ROOF; }
@@ -10329,13 +10737,260 @@ function iwSetFloor(f) {
   if (!iwIsRoof()) {
     if (!CONFIG.internalWalls) CONFIG.internalWalls = {};
     if (!CONFIG.internalWalls[0]) CONFIG.internalWalls[0] = [];
+  } else {
+    // First time the user lands on the Roof tab after loading a preset, the
+    // preset's rooftopEquipment count map may still hold the equipment but
+    // CONFIG.rooftopItems may not yet contain any equipment entries. Migrate
+    // counts → items so the editor shows the preset's equipment and the
+    // user can drag/edit/remove them. Once migrated, we zero the counts so
+    // they don't double-populate on the next open.
+    migrateEquipCountsToItems();
   }
+  // Selection from a previous tab doesn't carry over.
+  iwSelectedIdx = -1;
+  iwMovingIdx   = -1;
   iwTool = 'draw';
   iwBuildTabs();
   iwPopulateToolbox();
   iwPopulateTopbar();
   iwFitView();
   iwRender();
+  const status = document.getElementById('iwStatus');
+  if (status) {
+    status.textContent = iwIsRoof()
+      ? 'Drag items from the library to place. Click a placed item to select it — drag to move, Delete/Backspace to remove.'
+      : 'Select a tool from the library, then interact with the floor plan.';
+  }
+}
+
+/**
+ * If the legacy rooftopEquipment count map has non-zero values and
+ * CONFIG.rooftopItems doesn't yet carry any equipment entries, run a simple
+ * greedy placement and populate rooftopItems. After migration the counts are
+ * zeroed so they aren't applied a second time. Mech-room and item-vs-item
+ * collisions use the same 2 mm clearance as the original auto-placer.
+ */
+function migrateEquipCountsToItems() {
+  if (!lastPlan) return;
+  const counts = CONFIG.rooftopEquipment || {};
+  const totalCount = Object.values(counts).reduce((s, n) => s + (Number(n) || 0), 0);
+  if (totalCount <= 0) return;
+  if (!CONFIG.rooftopItems) CONFIG.rooftopItems = [];
+  const hasManualEquip = CONFIG.rooftopItems.some(it => it && it.type === 'equipment');
+  if (hasManualEquip) return;
+  // Pull roof bounds from the current plan to match the build's coord system.
+  const { fbWidth, sideLen, matT } = lastPlan;
+  const roofStyleNow = CONFIG.roofStyle || 'parapet';
+  const roofW = (roofStyleNow === 'parapet') ? fbWidth - 2 * matT : fbWidth;
+  const roofD = (roofStyleNow === 'parapet') ? sideLen  - 2 * matT : sideLen;
+  const edgeMargin = 3;
+  // Use the already-placed mech room (if any) as an obstacle.
+  const mechRoom = lastPlan.mechRoom || null;
+  const placed = [];
+  const items = [];
+  for (const [key, qty] of Object.entries(counts)) {
+    const n = Number(qty) || 0;
+    if (n <= 0) continue;
+    const eq = ROOFTOP_EQUIPMENT[key];
+    if (!eq) continue;
+    for (let i = 0; i < n; i++) items.push({ key, eq });
+  }
+  items.sort((a, b) => (b.eq.w * b.eq.d) - (a.eq.w * a.eq.d));
+  function fits(rx, ry, rw, rd) {
+    if (rx < edgeMargin || ry < edgeMargin) return false;
+    if (rx + rw > roofW - edgeMargin || ry + rd > roofD - edgeMargin) return false;
+    if (mechRoom) {
+      const mx0 = mechRoom.x - 2, my0 = mechRoom.y - 2;
+      const mx1 = mechRoom.x + mechRoom.w + 2, my1 = mechRoom.y + mechRoom.d + 2;
+      if (!(rx + rw <= mx0 || rx >= mx1 || ry + rd <= my0 || ry >= my1)) return false;
+    }
+    for (const p of placed) {
+      if (!(rx + rw + 2 <= p.x || rx >= p.x + p.w + 2 || ry + rd + 2 <= p.y || ry >= p.y + p.d + 2)) return false;
+    }
+    return true;
+  }
+  for (const it of items) {
+    const rw = it.eq.w, rd = it.eq.d;
+    let put = false;
+    for (let ry = edgeMargin; ry + rd <= roofD - edgeMargin && !put; ry++) {
+      for (let rx = edgeMargin; rx + rw <= roofW - edgeMargin && !put; rx++) {
+        if (fits(rx, ry, rw, rd)) {
+          placed.push({ key: it.key, eq: it.eq, x: rx, y: ry, w: rw, d: rd });
+          CONFIG.rooftopItems.push({
+            type: 'equipment', equipKey: it.key,
+            w: rw, d: rd, h: it.eq.h, label: it.eq.label,
+            x: rx, y: ry,
+          });
+          put = true;
+        }
+      }
+    }
+  }
+  // Zero the legacy counts so the next open doesn't re-migrate.
+  for (const k of Object.keys(counts)) CONFIG.rooftopEquipment[k] = 0;
+}
+
+/**
+ * Lay out a convincing rooftop equipment arrangement based on traditional
+ * Japanese commercial building conventions:
+ *
+ *   - Water tanks live in the BACK CORNERS (round tank NE first, square tank
+ *     in the opposite back corner). Gravity-fed plumbing + iconic skyline
+ *     feature — almost universal on Japanese rooftops.
+ *   - The cooling tower goes back-center in the equipment yard, where it
+ *     can be near the chillers below without blocking sightlines.
+ *   - Large AC condensers sit in a back-edge row, often behind the shield
+ *     wall (kept off the street-facing front).
+ *   - Small AC condensers (one per tenant unit) line up along one of the
+ *     SIDE edges (east in our convention).
+ *   - The electrical / control cabinet stays near the mech room on the
+ *     west side, mid-roof, for short power runs.
+ *   - Mushroom vents (passive stack vents for kitchens & restrooms) are
+ *     DISTRIBUTED across the roof — never clustered.
+ *   - The antenna mast claims a prominent location near the back-center
+ *     (often atop the mech room when one's present).
+ *
+ * Placement is fully deterministic — same building → same layout — so
+ * running this twice in a row produces the identical result. The mech room
+ * (if any) and any non-equipment rooftopItems (mechroom, billboard, etc.)
+ * are honoured as obstacles; existing equipment items are replaced.
+ *
+ * Returns the count of items actually placed.
+ */
+function iwAutoSeedRoofEquipment() {
+  if (!lastPlan) return 0;
+  if (!CONFIG.rooftopItems) CONFIG.rooftopItems = [];
+  // Drop only existing equipment items — keep mechroom/billboard/skylight
+  // placements, cutouts, etc. They were placed deliberately by the user.
+  CONFIG.rooftopItems = CONFIG.rooftopItems.filter(it => it.type !== 'equipment');
+
+  const { fbWidth, sideLen, matT } = lastPlan;
+  const roofStyleNow = CONFIG.roofStyle || 'parapet';
+  const roofW = (roofStyleNow === 'parapet') ? fbWidth - 2 * matT : fbWidth;
+  const roofD = (roofStyleNow === 'parapet') ? sideLen  - 2 * matT : sideLen;
+  const edge = 3; // edge margin from roof boundary
+  const mechRoom = lastPlan.mechRoom || null;
+
+  // Also avoid any non-equipment rooftopItems (mechroom drag-placed in editor,
+  // billboards, STL zones). These are user-placed obstacles to respect.
+  const obstacles = CONFIG.rooftopItems
+    .filter(it => it.type !== 'equipment')
+    .map(it => ({
+      x: it.x, y: it.y,
+      w: it.w || 20,
+      d: (it.d != null ? it.d : (it.h || 15)),
+    }));
+  if (mechRoom) obstacles.push({ x: mechRoom.x, y: mechRoom.y, w: mechRoom.w, d: mechRoom.d });
+
+  const placed = []; // track our newly-placed items for self-collision
+
+  function fits(rx, ry, rw, rd) {
+    if (rx < edge || ry < edge) return false;
+    if (rx + rw > roofW - edge || ry + rd > roofD - edge) return false;
+    // 2 mm clearance around obstacles and other items.
+    for (const o of obstacles) {
+      if (!(rx + rw + 2 <= o.x || rx >= o.x + o.w + 2 || ry + rd + 2 <= o.y || ry >= o.y + o.d + 2)) return false;
+    }
+    for (const p of placed) {
+      if (!(rx + rw + 2 <= p.x || rx >= p.x + p.w + 2 || ry + rd + 2 <= p.y || ry >= p.y + p.d + 2)) return false;
+    }
+    return true;
+  }
+
+  // Push a placement at exact integer coords; returns true if accepted.
+  function place(key, x, y) {
+    const eq = ROOFTOP_EQUIPMENT[key];
+    if (!eq) return false;
+    const ix = Math.round(x), iy = Math.round(y);
+    if (!fits(ix, iy, eq.w, eq.d)) return false;
+    placed.push({ key, x: ix, y: iy, w: eq.w, d: eq.d });
+    CONFIG.rooftopItems.push({
+      type: 'equipment', equipKey: key,
+      w: eq.w, d: eq.d, h: eq.h, label: eq.label,
+      x: ix, y: iy,
+    });
+    return true;
+  }
+
+  // Spiral outward from (tx, ty) in concentric square rings, looking for a
+  // valid cell. Deterministic search order — always tries E, S, W, N
+  // neighbours in the same sequence so re-running gives identical results.
+  function placeNear(key, tx, ty, maxRadius) {
+    if (maxRadius == null) maxRadius = 15;
+    if (place(key, tx, ty)) return true;
+    for (let r = 1; r <= maxRadius; r++) {
+      // Walk the perimeter of the r-ring clockwise from top-left.
+      for (let dx = -r; dx <= r; dx++) { if (place(key, tx + dx, ty - r)) return true; }
+      for (let dy = -r + 1; dy <= r; dy++) { if (place(key, tx + r, ty + dy)) return true; }
+      for (let dx = r - 1; dx >= -r; dx--) { if (place(key, tx + dx, ty + r)) return true; }
+      for (let dy = r - 1; dy >= -r + 1; dy--) { if (place(key, tx - r, ty + dy)) return true; }
+    }
+    return false;
+  }
+
+  // ===== Placement script =====
+  // Roof coords: y=0 is FRONT (south), y=roofD is BACK (north).
+  // The roof is generally too small to fit every item type — we attempt them
+  // in priority order and rely on placeNear's spiral to find legal positions.
+
+  // 1. WATER TANK (round) — back-east corner, anchored with a small inset.
+  const tankR = ROOFTOP_EQUIPMENT.water_tank_round;
+  placeNear('water_tank_round', roofW - tankR.w - edge - 2, roofD - tankR.d - edge - 2, 10);
+
+  // 2. WATER TANK (square FRP) — opposite back-west corner if the roof is
+  //    wide enough to comfortably fit both tanks without crowding.
+  if (roofW >= 35) {
+    placeNear('water_tank_square', edge + 2, roofD - ROOFTOP_EQUIPMENT.water_tank_square.d - edge - 2, 10);
+  }
+
+  // 3. COOLING TOWER — back-center, in the equipment yard.
+  const cool = ROOFTOP_EQUIPMENT.cooling_tower;
+  if (roofW >= 25) {
+    placeNear('cooling_tower', (roofW - cool.w) / 2, roofD - cool.d - edge - 4, 14);
+  }
+
+  // 4. AC CONDENSERS (large) — back row, between/beside the tanks. Quantity
+  //    scales with roof width: nothing on tiny roofs, 1 on medium, 2 on wide.
+  const acL = ROOFTOP_EQUIPMENT.ac_large;
+  const acLCount = roofW >= 65 ? 2 : (roofW >= 40 ? 1 : 0);
+  for (let i = 0; i < acLCount; i++) {
+    // Place them just south of the tanks/tower zone, centred horizontally.
+    const totalW = acLCount * acL.w + (acLCount - 1) * 2;
+    const xT = (roofW - totalW) / 2 + i * (acL.w + 2);
+    placeNear('ac_large', xT, roofD - acL.d - edge - 16, 10);
+  }
+
+  // 5. AC CONDENSERS (small) — row along the east (right) edge, one per
+  //    tenant unit. Quantity scales with available depth.
+  const acS = ROOFTOP_EQUIPMENT.ac_small;
+  const acSMax = Math.min(5, Math.max(1, Math.floor((roofD - 2 * edge - 25) / (acS.d + 2))));
+  for (let i = 0; i < acSMax; i++) {
+    const yT = edge + 5 + i * (acS.d + 2);
+    if (yT + acS.d > roofD - edge - 20) break; // stop short of the back equipment yard
+    if (!placeNear('ac_small', roofW - acS.w - edge - 1, yT, 5)) break;
+  }
+
+  // 6. ELECTRICAL CABINET — west side, mid-roof, near where a mech room
+  //    typically sits. Tall narrow footprint.
+  if (roofW >= 22) {
+    placeNear('elec_cabinet', edge + 2, roofD * 0.45, 10);
+  }
+
+  // 7. MUSHROOM VENTS — distributed across the roof. Quantity scales with
+  //    area but is capped to keep the layout believable.
+  const ventCount = Math.max(2, Math.min(5, Math.floor((roofW * roofD) / 350)));
+  for (let i = 0; i < ventCount; i++) {
+    // Distribute across a diagonal-ish pattern so they don't line up perfectly.
+    const fx = (i + 1) / (ventCount + 1);
+    const fy = ((i * 2) % (ventCount + 1) + 0.5) / (ventCount + 1);
+    placeNear('mushroom_vent', roofW * fx, roofD * (0.25 + 0.5 * fy), 10);
+  }
+
+  // 8. ANTENNA MAST — prominent, traditionally atop the mech room or
+  //    centred back. Tiny base (2.7×2.7) so it slots into small gaps easily.
+  placeNear('antenna_mast', roofW / 2, roofD * 0.55, 20);
+
+  return placed.length;
 }
 
 const IW_INTER = 'inter'; // sentinel for inter-floors tab
@@ -10465,6 +11120,38 @@ function iwPopulateToolbox() {
     dragCard('□', 'Square', 'cable pass-through', { type: 'hole', shape: 'square' },
       [{ label: 'W', key: 'w', val: 5, min: 0.5, max: 50, step: 0.5 },
        { label: 'H', key: 'h', val: 5, min: 0.5, max: 50, step: 0.5 }]);
+    sec('3D-printed equipment');
+    actionCard('🪄', 'Auto-seed layout', false, false, c => {
+      const existing = (CONFIG.rooftopItems || []).filter(it => it.type === 'equipment').length;
+      if (existing > 0) {
+        const ok = confirm('Replace ' + existing + ' existing equipment item' + (existing === 1 ? '' : 's') + ' with an auto-seeded layout?');
+        if (!ok) return;
+      }
+      const n = iwAutoSeedRoofEquipment();
+      iwSelectedIdx = -1;
+      iwMovingIdx   = -1;
+      iwRender();
+      const status = document.getElementById('iwStatus');
+      if (status) status.textContent = 'Auto-seeded ' + n + ' equipment item' + (n === 1 ? '' : 's') + ' using traditional rooftop layout — drag any item to adjust.';
+    });
+    actionCard('🗑', 'Clear all equipment', false, true, c => {
+      const existing = (CONFIG.rooftopItems || []).filter(it => it.type === 'equipment').length;
+      if (existing === 0) return;
+      if (!confirm('Remove all ' + existing + ' placed equipment item' + (existing === 1 ? '' : 's') + '?')) return;
+      CONFIG.rooftopItems = (CONFIG.rooftopItems || []).filter(it => it.type !== 'equipment');
+      iwSelectedIdx = -1;
+      iwMovingIdx   = -1;
+      iwRender();
+    });
+    for (const [k, eq] of Object.entries(ROOFTOP_EQUIPMENT)) {
+      dragCard(
+        equipmentIcon(k),
+        eq.label,
+        eq.w + '×' + eq.d + '×' + eq.h + ' mm',
+        { type: 'equipment', equipKey: k, w: eq.w, d: eq.d, h: eq.h, label: eq.label },
+        null
+      );
+    }
     sec('Tools');
     actionCard('🏗', 'Shield Wall', iwTool === 'shieldwall', false, c => {
       setTool('shieldwall', c);
@@ -10475,6 +11162,84 @@ function iwPopulateToolbox() {
       document.getElementById('iwStatus').textContent = 'Click a roof item or cutout to remove it.';
     });
   }
+}
+
+/**
+ * Top-down SVG icon for each rooftop equipment type, sized to a 28×28 box.
+ * Shape-specific decoration (louvers, fan rings, FRP panel grid, etc.) matches
+ * the 3D STL so the toolbox card reads as a recognizable footprint at a glance.
+ * Aspect ratio is preserved against the largest item in ROOFTOP_EQUIPMENT so
+ * relative sizes between cards are visually proportional.
+ */
+function equipmentIcon(key) {
+  const eq = ROOFTOP_EQUIPMENT[key];
+  if (!eq) return '⬜';
+  const SZ = 28;
+  // Scale all items against the same max dimension so icons stay comparable.
+  let maxDim = 0;
+  for (const e of Object.values(ROOFTOP_EQUIPMENT)) {
+    maxDim = Math.max(maxDim, e.w, e.d);
+  }
+  // Cap by visual budget so even the largest fills most of the box.
+  const k = (SZ - 4) / maxDim;
+  const w = Math.max(4, eq.w * k);
+  const d = Math.max(4, eq.d * k);
+  const ox = (SZ - w) / 2, oy = (SZ - d) / 2;
+  const cx = SZ / 2, cy = SZ / 2;
+  const fill = '#cdd9e0', stroke = '#3a4a5a';
+  let body;
+  switch (eq.shape) {
+    case 'box_louvered': {
+      const louvers = (eq.details && eq.details.louverCount) || 5;
+      let lines = '';
+      for (let i = 1; i < louvers; i++) {
+        const ly = oy + (d * i) / louvers;
+        lines += `<line x1="${(ox+1).toFixed(2)}" y1="${ly.toFixed(2)}" x2="${(ox+w-1).toFixed(2)}" y2="${ly.toFixed(2)}" stroke="${stroke}" stroke-width="0.5" opacity="0.65"/>`;
+      }
+      body = `<rect x="${ox.toFixed(2)}" y="${oy.toFixed(2)}" width="${w.toFixed(2)}" height="${d.toFixed(2)}" fill="${fill}" stroke="${stroke}" stroke-width="1"/>${lines}`;
+      break;
+    }
+    case 'cooling_tower': {
+      const r = Math.min(w, d) * 0.32;
+      body = `<rect x="${ox.toFixed(2)}" y="${oy.toFixed(2)}" width="${w.toFixed(2)}" height="${d.toFixed(2)}" fill="${fill}" stroke="${stroke}" stroke-width="1"/>`
+           + `<circle cx="${cx}" cy="${cy}" r="${r.toFixed(2)}" fill="none" stroke="${stroke}" stroke-width="1"/>`
+           + `<line x1="${(cx-r).toFixed(2)}" y1="${cy}" x2="${(cx+r).toFixed(2)}" y2="${cy}" stroke="${stroke}" stroke-width="0.8"/>`
+           + `<line x1="${cx}" y1="${(cy-r).toFixed(2)}" x2="${cx}" y2="${(cy+r).toFixed(2)}" stroke="${stroke}" stroke-width="0.8"/>`;
+      break;
+    }
+    case 'tank_round_legged': {
+      const r = Math.min(w, d) / 2;
+      body = `<circle cx="${cx}" cy="${cy}" r="${r.toFixed(2)}" fill="${fill}" stroke="${stroke}" stroke-width="1"/>`
+           + `<circle cx="${cx}" cy="${cy}" r="${(r * 0.7).toFixed(2)}" fill="none" stroke="${stroke}" stroke-width="0.5" opacity="0.6"/>`;
+      break;
+    }
+    case 'tank_square_legged': {
+      body = `<rect x="${ox.toFixed(2)}" y="${oy.toFixed(2)}" width="${w.toFixed(2)}" height="${d.toFixed(2)}" fill="${fill}" stroke="${stroke}" stroke-width="1"/>`
+           + `<line x1="${(ox+w/2).toFixed(2)}" y1="${oy.toFixed(2)}" x2="${(ox+w/2).toFixed(2)}" y2="${(oy+d).toFixed(2)}" stroke="${stroke}" stroke-width="0.5" opacity="0.6"/>`
+           + `<line x1="${ox.toFixed(2)}" y1="${(oy+d/2).toFixed(2)}" x2="${(ox+w).toFixed(2)}" y2="${(oy+d/2).toFixed(2)}" stroke="${stroke}" stroke-width="0.5" opacity="0.6"/>`;
+      break;
+    }
+    case 'mushroom': {
+      const r = Math.min(w, d) / 2;
+      body = `<circle cx="${cx}" cy="${cy}" r="${r.toFixed(2)}" fill="${fill}" stroke="${stroke}" stroke-width="1"/>`
+           + `<circle cx="${cx}" cy="${cy}" r="${(r * 0.45).toFixed(2)}" fill="${stroke}"/>`;
+      break;
+    }
+    case 'cabinet_tall': {
+      body = `<rect x="${ox.toFixed(2)}" y="${oy.toFixed(2)}" width="${w.toFixed(2)}" height="${d.toFixed(2)}" fill="#d6d2c4" stroke="#4a4030" stroke-width="1"/>`
+           + `<line x1="${(ox+w/2).toFixed(2)}" y1="${(oy+1.5).toFixed(2)}" x2="${(ox+w/2).toFixed(2)}" y2="${(oy+d-1.5).toFixed(2)}" stroke="#4a4030" stroke-width="0.5"/>`;
+      break;
+    }
+    case 'antenna': {
+      const bw = Math.max(4, Math.min(w, d));
+      body = `<rect x="${(cx - bw/2).toFixed(2)}" y="${(cy - bw/2).toFixed(2)}" width="${bw.toFixed(2)}" height="${bw.toFixed(2)}" fill="#3a4a5a" stroke="#1a2a3a" stroke-width="0.5"/>`
+           + `<circle cx="${cx}" cy="${cy}" r="1.4" fill="#1a2a3a"/>`;
+      break;
+    }
+    default:
+      body = `<rect x="${ox.toFixed(2)}" y="${oy.toFixed(2)}" width="${w.toFixed(2)}" height="${d.toFixed(2)}" fill="#ccc" stroke="#888" stroke-width="1"/>`;
+  }
+  return `<svg width="${SZ}" height="${SZ}" viewBox="0 0 ${SZ} ${SZ}" xmlns="http://www.w3.org/2000/svg" style="display:block">${body}</svg>`;
 }
 
 /* ---- Topbar: properties / controls of the active tool or selected object ---- */
@@ -10707,25 +11472,66 @@ function iwRender() {
   } else {
     // ---- Roof view: draw rooftop items ----
     const items = CONFIG.rooftopItems || [];
-    const COLORS = { mechroom: ['#c0d8c0','#4a7a4a'], billboard: ['#d8d0b8','#7a6a30'], stlzone: ['#d8c8e0','#6a4a8a'] };
+    const COLORS = { mechroom: ['#c0d8c0','#4a7a4a'], billboard: ['#d8d0b8','#7a6a30'], stlzone: ['#d8c8e0','#6a4a8a'], equipment: ['#cdd9e0','#3a4a5a'] };
 
     items.forEach((item, i) => {
       const p = iwPX(item.x, item.y);
-      const pw = (item.w || 20) * iwScale, pd = (item.h || item.d || 15) * iwScale;
+      // Equipment items store their footprint as w (width = east-west) × d (depth = north-south).
+      // Other item types historically used `h` as the depth field; keep that fallback.
+      const itemDepth = (item.type === 'equipment') ? (item.d || 15) : (item.h || item.d || 15);
+      const pw = (item.w || 20) * iwScale, pd = itemDepth * iwScale;
       const [fill, stroke] = COLORS[item.type] || ['#ccc','#888'];
-      const outlineCol = erasing ? '#c44' : stroke;
-      h += `<rect class="iw-item" data-i="${i}" x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}" width="${pw.toFixed(1)}" height="${pd.toFixed(1)}" fill="${fill}" stroke="${outlineCol}" stroke-width="${erasing?2:1.5}" rx="2" style="cursor:${erasing?'pointer':'move'}"/>`;
+      const isSelected = !erasing && i === iwSelectedIdx;
+      const isMoving   = !erasing && i === iwMovingIdx;
+      const outlineCol = erasing ? '#c44' : (isSelected || isMoving ? '#1f6dff' : stroke);
+      const outlineW   = erasing ? 2 : (isSelected || isMoving ? 2.5 : 1.5);
+      const opacityAttr = isMoving ? ' opacity="0.55"' : '';
+      h += `<rect class="iw-item" data-i="${i}" x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}" width="${pw.toFixed(1)}" height="${pd.toFixed(1)}" fill="${fill}" stroke="${outlineCol}" stroke-width="${outlineW}" rx="2"${opacityAttr} style="cursor:${erasing?'pointer':'move'}"/>`;
+      // For equipment items, etch the same shape-specific marks used on the
+      // toolbox icon (fan circle, FRP grid, mushroom dot, etc.) onto the
+      // placed footprint so each item is recognizable at a glance on the plan.
+      if (item.type === 'equipment' && item.equipKey && ROOFTOP_EQUIPMENT[item.equipKey]) {
+        const eq = ROOFTOP_EQUIPMENT[item.equipKey];
+        const cx = p.x + pw / 2, cy = p.y + pd / 2;
+        const detailCol = erasing ? '#c44' : stroke;
+        if (eq.shape === 'cooling_tower') {
+          const r = Math.min(pw, pd) * 0.32;
+          h += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r.toFixed(1)}" fill="none" stroke="${detailCol}" stroke-width="0.8" pointer-events="none"/>`;
+          h += `<line x1="${(cx-r).toFixed(1)}" y1="${cy.toFixed(1)}" x2="${(cx+r).toFixed(1)}" y2="${cy.toFixed(1)}" stroke="${detailCol}" stroke-width="0.6" pointer-events="none"/>`;
+          h += `<line x1="${cx.toFixed(1)}" y1="${(cy-r).toFixed(1)}" x2="${cx.toFixed(1)}" y2="${(cy+r).toFixed(1)}" stroke="${detailCol}" stroke-width="0.6" pointer-events="none"/>`;
+        } else if (eq.shape === 'tank_round_legged') {
+          const r = Math.min(pw, pd) / 2 - 1;
+          if (r > 2) h += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r.toFixed(1)}" fill="none" stroke="${detailCol}" stroke-width="0.6" opacity="0.7" pointer-events="none"/>`;
+        } else if (eq.shape === 'mushroom') {
+          const r = Math.min(pw, pd) * 0.25;
+          if (r > 1.5) h += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r.toFixed(1)}" fill="${detailCol}" opacity="0.65" pointer-events="none"/>`;
+        } else if (eq.shape === 'box_louvered') {
+          const louvers = (eq.details && eq.details.louverCount) || 5;
+          for (let li = 1; li < louvers; li++) {
+            const ly = p.y + (pd * li) / louvers;
+            h += `<line x1="${(p.x+1).toFixed(1)}" y1="${ly.toFixed(1)}" x2="${(p.x+pw-1).toFixed(1)}" y2="${ly.toFixed(1)}" stroke="${detailCol}" stroke-width="0.4" opacity="0.55" pointer-events="none"/>`;
+          }
+        } else if (eq.shape === 'tank_square_legged') {
+          h += `<line x1="${(p.x+pw/2).toFixed(1)}" y1="${(p.y+1).toFixed(1)}" x2="${(p.x+pw/2).toFixed(1)}" y2="${(p.y+pd-1).toFixed(1)}" stroke="${detailCol}" stroke-width="0.5" opacity="0.6" pointer-events="none"/>`;
+          h += `<line x1="${(p.x+1).toFixed(1)}" y1="${(p.y+pd/2).toFixed(1)}" x2="${(p.x+pw-1).toFixed(1)}" y2="${(p.y+pd/2).toFixed(1)}" stroke="${detailCol}" stroke-width="0.5" opacity="0.6" pointer-events="none"/>`;
+        } else if (eq.shape === 'antenna') {
+          h += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="1.4" fill="${detailCol}" pointer-events="none"/>`;
+        }
+      }
       if (iwScale > 2) {
         const lbl = item.label || item.type;
         h += `<text x="${(p.x + pw/2).toFixed(1)}" y="${(p.y + pd/2 + 4).toFixed(1)}" font-size="9" font-family="system-ui" fill="${stroke}" text-anchor="middle" pointer-events="none">${lbl}</text>`;
-        const dim2 = item.h || item.d;
+        const dim2 = (item.type === 'equipment') ? item.d : (item.h || item.d);
         if (item.w && dim2) h += `<text x="${(p.x + pw/2).toFixed(1)}" y="${(p.y + pd/2 - 4).toFixed(1)}" font-size="8" font-family="system-ui" fill="${stroke}" text-anchor="middle" opacity="0.7" pointer-events="none">${item.w}×${dim2}</text>`;
       }
     });
 
     if (iwDragItem && iwDragItem.type !== 'hole' && iwCurMM) {
       const cl = iwClamp(iwCurMM, bW, bD);
-      const dim2 = iwDragItem.h || iwDragItem.d || 15;
+      // Equipment uses .d for depth; legacy items use .h.
+      const dim2 = (iwDragItem.type === 'equipment')
+        ? (iwDragItem.d || 15)
+        : (iwDragItem.h || iwDragItem.d || 15);
       const sx = iwSnap(cl.x - (iwDragItem.w||20)/2), sy = iwSnap(cl.y - dim2/2);
       const px = iwPX(sx, sy);
       const pw = (iwDragItem.w || 20) * iwScale, pd = dim2 * iwScale;
@@ -10807,6 +11613,7 @@ function iwRender() {
         el.addEventListener('click', e => {
           e.stopPropagation();
           CONFIG.rooftopItems.splice(parseInt(el.dataset.i), 1);
+          if (iwSelectedIdx === parseInt(el.dataset.i)) iwSelectedIdx = -1;
           iwRender();
         });
       });
@@ -10824,6 +11631,28 @@ function iwRender() {
           iwRender();
         });
       });
+    } else if (iwIsRoof()) {
+      // Click-to-select + drag-to-move for placed rooftop items. Mousedown
+      // captures both an initial selection (so Delete/Backspace can remove
+      // it) and the starting positions for a potential move. Whether the
+      // gesture ends as a move or a click is decided in mousemove/mouseup:
+      // any cursor travel beyond ~1.5 px upgrades it to a move.
+      svg.querySelectorAll('.iw-item').forEach(el => {
+        el.addEventListener('mousedown', e => {
+          if (e.button !== 0) return;
+          e.stopPropagation();
+          const i = parseInt(el.dataset.i);
+          const items = CONFIG.rooftopItems || [];
+          const item = items[i];
+          if (!item) return;
+          iwSelectedIdx = i;
+          iwMovingIdx   = i;
+          iwMovingStart = iwSvgPt(e);
+          iwMovingOrig  = { x: item.x, y: item.y };
+          iwMovingMoved = false;
+          iwRender();
+        });
+      });
     }
   }
 }
@@ -10835,12 +11664,46 @@ function iwSvgPt(e) {
 
 function iwHandleMouseMove(e) {
   iwCurMM = iwSvgPt(e);
+  // Move-in-progress: translate the originally-mousedown'd item by the
+  // mouse delta, clamp to roof bounds, then snap to the editor grid. Once
+  // the cursor has moved more than the click threshold we lock the gesture
+  // as a move (so a subsequent mouseup won't be treated as a plain click).
+  if (iwMovingIdx >= 0 && iwMovingStart && iwMovingOrig) {
+    const dx = iwCurMM.x - iwMovingStart.x;
+    const dy = iwCurMM.y - iwMovingStart.y;
+    if (!iwMovingMoved && Math.hypot(dx, dy) > 1.5) iwMovingMoved = true;
+    if (iwMovingMoved) {
+      const items = CONFIG.rooftopItems || [];
+      const item = items[iwMovingIdx];
+      if (item) {
+        const { bW, bD } = iwBounds();
+        const depth = (item.type === 'equipment') ? (item.d || 15) : (item.h || item.d || 15);
+        const w = item.w || 20;
+        let nx = iwMovingOrig.x + dx;
+        let ny = iwMovingOrig.y + dy;
+        nx = Math.max(0, Math.min(bW - w,     iwSnap(nx)));
+        ny = Math.max(0, Math.min(bD - depth, iwSnap(ny)));
+        item.x = nx;
+        item.y = ny;
+      }
+    }
+  }
   iwRender();
 }
 
 function iwHandleMouseDown(e) {
   if (e.button !== 0) return;
   if (iwDragItem) return; // handled on mouseup from document
+  // Background mousedown in roof view (not on an item) deselects whatever
+  // was previously selected. The item rect's own mousedown stops propagation
+  // before this runs, so this only fires when clicking empty roof area.
+  if (iwIsRoof()) {
+    if (iwSelectedIdx !== -1) {
+      iwSelectedIdx = -1;
+      iwRender();
+    }
+    return;
+  }
   if (iwTool !== 'draw' || iwIsRoof()) return;
   const { bW, bD } = iwBounds();
   const cl = iwClamp(iwSvgPt(e), bW, bD);
@@ -10849,6 +11712,19 @@ function iwHandleMouseDown(e) {
 }
 
 function iwHandleMouseUp(e) {
+  // Finish a move-in-progress on a placed item. We clear the move state
+  // regardless (mouseup always ends the gesture), but leave the selection
+  // in place so the user can immediately press Delete/Backspace if they
+  // want, or drag again. A no-movement mouseup is treated as a plain click
+  // that just leaves the item selected at its original position.
+  if (iwMovingIdx >= 0) {
+    iwMovingIdx = -1;
+    iwMovingStart = null;
+    iwMovingOrig  = null;
+    iwMovingMoved = false;
+    iwRender();
+    return;
+  }
   if (iwDragItem && iwCurMM) {
     const { bW, bD } = iwBounds();
     const cl = iwClamp(iwCurMM, bW, bD);
@@ -10870,8 +11746,12 @@ function iwHandleMouseUp(e) {
       if (!CONFIG.skylights) CONFIG.skylights = [];
       CONFIG.skylights.push({ x: cx, y: cy, w, h });
     } else if (iwIsRoof()) {
-      // Place a roof structural item
-      const dim2 = iwDragItem.h || iwDragItem.d || 15;
+      // Place a roof structural item. Equipment items carry their depth in `.d`
+      // (with `.h` reserved for the 3D height of the STL); legacy items
+      // (mechroom, billboard, stlzone) use `.h` as the plan-view depth.
+      const dim2 = (iwDragItem.type === 'equipment')
+        ? (iwDragItem.d || 15)
+        : (iwDragItem.h || iwDragItem.d || 15);
       const ix = Math.max(0, Math.min(bW - (iwDragItem.w||20), iwSnap(sx - (iwDragItem.w||20)/2)));
       const iy = Math.max(0, Math.min(bD - dim2, iwSnap(sy - dim2/2)));
       if (!CONFIG.rooftopItems) CONFIG.rooftopItems = [];
@@ -11831,7 +12711,7 @@ function generateBuildingStl(cfg) {
     // CRITICAL: when manual openings are present on this face, the 3D must
     // use them — not the auto layout. Otherwise the preview shows windows
     // and doors at positions that don't match what's actually been cut.
-    const manual = (cfg.manualOpenings || {})[which] || null;
+    const manual = manualStructuralOps(cfg, which);
     let wins = [];
     let doors = [];
     if (manual) {
@@ -11928,7 +12808,7 @@ function generateBuildingStl(cfg) {
     // CRITICAL: manual openings take precedence over the auto layout. If
     // the user has placed windows/doors via the editor, those are the
     // ground-truth list of holes for this wall.
-    const manual = (cfg.manualOpenings || {})[which] || null;
+    const manual = manualStructuralOps(cfg, which);
     const holes = [];
     if (manual) {
       for (const op of manual) {
@@ -11952,17 +12832,18 @@ function generateBuildingStl(cfg) {
       const fbDoorCount = (which === 'front') ? (cfg.frontDoorCount || 0) : (cfg.backDoorCount || 0);
       const doorH = (cfg.doorStyle && cfg.doorStyle !== 'none' && DOOR_STYLES[cfg.doorStyle]) ? DOOR_STYLES[cfg.doorStyle].height : 0;
       const doorReserveH = (fbDoorCount > 0 && !hasBay) ? doorH + 3 : 0;
+      const bayH = plan.bayHeight || 0;
       const slotYsForThisWall = hasBay
-        ? (plan.slotYs || []).filter(y => y < (H - cfg.bayHeight) - 1)
+        ? (plan.slotYs || []).filter(y => y < (H - bayH) - 1)
         : (plan.slotYs || []);
       const floorCenterYsForThisWall = hasBay
-        ? (plan.floorCenterYs || []).filter(y => y < (H - cfg.bayHeight) - 1)
+        ? (plan.floorCenterYs || []).filter(y => y < (H - bayH) - 1)
         : (plan.floorCenterYs || []);
       const allWins = computeWindows(plan.fbWidth, H, {
         density: cfg.windowDensity, winDims: winDims,
         groundWinDims: groundWinDims,
         groundFloorCenterY: plan.groundFloorCenterY,
-        hasOpening: hasBay, openingY: H - cfg.bayHeight, openingH: cfg.bayHeight,
+        hasOpening: hasBay, openingY: H - bayH, openingH: bayH,
         slotYs: slotYsForThisWall,
         floorCenterYs: floorCenterYsForThisWall,
         matT: matT,
@@ -11991,7 +12872,7 @@ function generateBuildingStl(cfg) {
     if (hasBay) {
       holes.push({
         u0: plan.bayXStart, u1: plan.bayXEnd,
-        v0: 0, v1: cfg.bayHeight,
+        v0: 0, v1: plan.bayHeight || 0,
       });
     }
     // Recess opening: when recess mode is enabled, the front wall has a
@@ -12109,7 +12990,7 @@ function generateBuildingStl(cfg) {
   
   // ---- Bay ceiling ----
   if (plan.hasFrontBay || plan.hasBackBay) {
-    const bcZ = H - cfg.bayHeight;
+    const bcZ = H - (plan.bayHeight || 0);
     tris.box(matT, W - matT, matT, D - matT, bcZ, bcZ + matT);
   }
   
@@ -12285,7 +13166,7 @@ function generateBuildingStl(cfg) {
     // Per-face opening list. Manual openings take precedence over auto
     // computation; the 3D should always show what was actually cut.
     function wingOpsForFace(faceKey, wallLen) {
-      const manual = (wCfg.manualOpenings || {})[faceKey] || null;
+      const manual = manualStructuralOps(wCfg, faceKey);
       const wins = [], doors = [];
       if (manual) {
         for (const op of manual) {
@@ -12713,7 +13594,7 @@ function init() {
 
   // Other inputs only update the conditional-field visibility live.
   // Regeneration is triggered manually by the "Generate Preview" button.
-  const conditionalFieldUpdaters = ['heightMode', 'roofStyle', 'bayConfig', 'claddingStyle', 'windowStyle', 'doorStyle',
+  const conditionalFieldUpdaters = ['heightMode', 'roofStyle', 'claddingStyle', 'windowStyle', 'doorStyle',
                                     'firstFloorHeightEnabled', 'firstFloorWindowStyleEnabled', 
                                     'firstFloorCladdingStyleEnabled', 'groundFloorOffsetEnabled',
                                     'rooftopMechRoom'];
@@ -12752,8 +13633,15 @@ function init() {
   iwSvgEl.addEventListener('mouseup',    iwHandleMouseUp);
   iwSvgEl.addEventListener('mouseleave', iwHandleMouseLeave);
   window.addEventListener('mouseup', () => {
-    if (iwDrag || iwDragItem) { iwDrag = false; iwDragItem = null; iwDragPt = null; iwRender(); }
+    // Generic mouseup recovery: clears any in-progress wall-draw, toolbox
+    // drag, or item move that was active when the cursor left the SVG.
+    if (iwDrag || iwDragItem || iwMovingIdx >= 0) {
+      iwDrag = false; iwDragItem = null; iwDragPt = null;
+      iwMovingIdx = -1; iwMovingStart = null; iwMovingOrig = null; iwMovingMoved = false;
+      iwRender();
+    }
   });
+  document.addEventListener('keydown', iwKeyDown);
   document.getElementById('wingEditorBtn').addEventListener('click', openWingEditor);
   document.getElementById('exportBtn').addEventListener('click', exportZip);
   document.getElementById('saveBtn').addEventListener('click', () => { readForm(); savePreset(); });
@@ -13054,8 +13942,6 @@ function buildWingCfg(cfg, wing) {
     sideDoorCount:  wing.sideDoorCount  || 0,
     doorStyle: wing.doorStyle || cfg.doorStyle,
     manualOpenings: wing.manualOpenings || { front: null, back: null, east: null, west: null },
-    bayConfig: 'none',   // wings don't have bay openings in V1
-    bayXOverride: null,
     wings: [],           // wings don't nest in V1
   });
 }
@@ -13375,7 +14261,7 @@ function generateBuildingWithWings(cfg) {
         // Front/back wall main features
         const hasBay = (face === 'front' && plan.hasFrontBay) || (face === 'back' && plan.hasBackBay);
         const fbDoorCount = (face === 'front') ? (cfg.frontDoorCount || 0) : (cfg.backDoorCount || 0);
-        const manual = (cfg.manualOpenings || {})[face] || null;
+        const manual = manualStructuralOps(cfg, face);
         let doors = [];
         if (manual) doors = manual.filter(o => o.type === 'door');
         else if (!hasBay && fbDoorCount > 0 && cfg.doorStyle && cfg.doorStyle !== 'none')
@@ -13389,7 +14275,7 @@ function generateBuildingWithWings(cfg) {
         mainTopT = ssRoofTop ? placeTongues(plan.fbWidth, tw, margin, [], 3, tw / 2) : [];
       } else {
         // Side wall main features
-        const manual = (cfg.manualOpenings || {})[face] || null;
+        const manual = manualStructuralOps(cfg, face);
         let doors = [];
         if (manual) doors = manual.filter(o => o.type === 'door');
         else if ((cfg.sideDoorCount || 0) > 0 && cfg.doorStyle && cfg.doorStyle !== 'none')
@@ -14431,8 +15317,6 @@ function weBuildWingCfg(cfg, wing) {
     frontDoorCount: 0,
     backDoorCount:  0,
     sideDoorCount:  0,
-    bayConfig:      'none',
-    bayXOverride:   null,
     roofStyle:      wing.roofStyle   || cfg.roofStyle,
     parapetHeight:  wing.parapetHeight != null ? wing.parapetHeight : cfg.parapetHeight,
     manualOpenings: wing.manualOpenings || { front: null, back: null, east: null, west: null },
@@ -15257,6 +16141,23 @@ function oeSetWall(wall) {
   oeSelectedSet.clear();
   if (oeOpenings[wall] === undefined || oeOpenings[wall] === null) {
     oeOpenings[wall] = oeGetAutoOpenings(wall);
+  } else {
+    // The wall has placed items but they may all be non-structural
+    // (bay, awning, balcony, fixture, cladding_override, printed_item).
+    // The build pipeline treats such a wall as still "auto" for windows
+    // and doors — `manualStructuralOps` returns null when no
+    // window-or-door entries exist and the wall generator falls back to
+    // `computeWindows` / `computeDoors`. Without this branch, the editor
+    // would silently hide every window the second a bay landed on the
+    // wall (especially the OPPOSITE face of a through-bay, which is
+    // initialised to `[bay]` by the bay drop handler), even though the
+    // exported laser cuts still showed them. Materialise those auto
+    // openings into the array so the editor view matches what gets cut.
+    const hasStructural = oeOpenings[wall].some(op => op.type === 'window' || op.type === 'door');
+    if (!hasStructural) {
+      const autoOps = oeGetAutoOpenings(wall);
+      if (autoOps && autoOps.length) oeOpenings[wall].push(...autoOps);
+    }
   }
   for (const w of ['front', 'back', 'east', 'west']) {
     const tab = document.getElementById('oeTab' + w.charAt(0).toUpperCase() + w.slice(1));
@@ -15288,6 +16189,31 @@ function oeGetWallDims(wall) {
   const { H, fbWidth, sideLen } = lastPlan;
   if (wall === 'front' || wall === 'back') return { W: fbWidth, H };
   return { W: sideLen, H };
+}
+
+/* Edge buffer (in mm) along the X axis of a wall — the strip near each
+ * end where the core material from the perpendicular wall sits behind the
+ * inside face, making it impossible to cut a real through-opening
+ * (window/door/bay) there.
+ *
+ * The building assembles with front/back panels spanning the full width
+ * and side panels fitting BETWEEN them (sideLen = depth - 2*matT). That
+ * geometry means the front and back walls' leftmost and rightmost matT
+ * mm are backed by the side wall material — anything cut there would be
+ * blocked by the perpendicular wall.
+ *
+ * Side walls have no such buffer on their X axis: their full sideLen
+ * spans the gap between the front and back walls exactly.
+ *
+ * Returns { left, right } in mm. Use Math.max(left, 2) etc. if you also
+ * want a minimum aesthetic margin — but the geometric truth is just matT.
+ */
+function oeEdgeBuffer(wall) {
+  const matT = (CONFIG.coreThickness && CONFIG.coreThickness > 0) ? CONFIG.coreThickness : 1.5;
+  if (wall === 'front' || wall === 'back') {
+    return { left: matT, right: matT };
+  }
+  return { left: 0, right: 0 };
 }
 
 /* East wall editor view is mirrored from the laser-panel x convention so it
@@ -15361,6 +16287,7 @@ function oePopulateToolbox() {
     switch (type) {
       case 'window':  return 'windows';
       case 'door':    return 'doors';
+      case 'bay':     return 'bays';
       case 'fixture': return (style.placement === 'cutout') ? 'passthroughs' : 'fixtures';
       case 'awning':  return 'awnings';
       case 'balcony': return 'balconies';
@@ -15379,6 +16306,7 @@ function oePopulateToolbox() {
     };
     visit(WINDOW_STYLES,  'window');
     visit(DOOR_STYLES,    'door');
+    visit(BAY_STYLES,     'bay');
     visit(FIXTURE_STYLES, 'fixture');
     visit(AWNING_STYLES,  'awning');
     visit(BALCONY_STYLES, 'balcony');
@@ -15867,6 +16795,90 @@ function oePopulateToolbox() {
     return card;
   }
 
+  // ---- Bay card ----
+  // Bays are unique: only one per building, bottom-anchored to the ground
+  // floor, and 'through' style auto-pairs the back wall when placed on the
+  // front. Card visualises a U-cut (wall with door-sized notch) for 'side'
+  // and a tunnel (two flanking pillars) for 'through'.
+  function buildBayCard(key, style) {
+    const ck = 'bay_' + key;
+    const defW = style.baseW, defH = style.baseH;
+    const custom = oeCustomSizes[ck];
+    const w = custom ? custom.w : defW;
+    const h = custom ? custom.h : defH;
+    const isThrough = key === 'through';
+    const svgW = 60, svgH = 44;
+
+    const card = document.createElement('div');
+    card.className = 'oe-toolbox-item oe-draggable';
+    card.title = `${style.label} \u2014 ${style.description} \u2014 drag onto front or back wall`;
+    // Preview: a wall slab with the bay opening cut at the bottom. For
+    // 'through' a second wall slab is drawn behind to suggest the tunnel.
+    const wallW = 50, wallH = 36, bayW = 16, bayH = 18;
+    const bayX = (wallW - bayW) / 2;
+    const bayY = wallH - bayH;
+    const wallFill = '#cbbfa3';
+    const bayFill = isThrough ? '#cfd8dc' : '#3a2e22';  // through shows light (sky), side shows dark (interior)
+    const stroke = '#7a6b54';
+    let backWall = '';
+    if (isThrough) {
+      // Offset back-wall slab a few pixels right/down to suggest depth
+      backWall = `
+        <rect x="6" y="3" width="${wallW}" height="${wallH}" fill="#b8ac90" stroke="${stroke}" stroke-width="0.4" opacity="0.7"/>
+        <rect x="${6+bayX}" y="${3+bayY}" width="${bayW}" height="${bayH}" fill="#cfd8dc" stroke="${stroke}" stroke-width="0.3"/>`;
+    }
+    card.innerHTML = `
+      <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" style="display:block">
+        ${backWall}
+        <rect x="2" y="6" width="${wallW}" height="${wallH}" fill="${wallFill}" stroke="${stroke}" stroke-width="0.5"/>
+        <rect x="${2+bayX}" y="${6+bayY}" width="${bayW}" height="${bayH}" fill="${bayFill}" stroke="${stroke}" stroke-width="0.5"/>
+      </svg>
+      <div class="oe-toolbox-item-label">${style.label}</div>`;
+
+    const sizeRow = document.createElement('div');
+    sizeRow.className = 'oe-size-row';
+    sizeRow.innerHTML = `
+      <label>W</label>
+      <input type="number" min="15" max="300" step="1" value="${w}" class="${custom ? 'oe-custom' : ''}">
+      <label>H</label>
+      <input type="number" min="10" max="80"  step="1" value="${h}" class="${custom ? 'oe-custom' : ''}">
+      <button class="oe-size-reset" title="Reset to default" style="${custom ? '' : 'visibility:hidden'}">\u21ba</button>`;
+    card.appendChild(sizeRow);
+    const [wInp, hInp] = sizeRow.querySelectorAll('input');
+    const resetBtn = sizeRow.querySelector('.oe-size-reset');
+
+    function updateBayCard() {
+      const nW = parseFloat(wInp.value) || defW;
+      const nH = parseFloat(hInp.value) || defH;
+      if (Math.abs(nW - defW) < 0.01 && Math.abs(nH - defH) < 0.01) {
+        delete oeCustomSizes[ck];
+        wInp.classList.remove('oe-custom'); hInp.classList.remove('oe-custom');
+        resetBtn.style.visibility = 'hidden';
+      } else {
+        oeCustomSizes[ck] = { w: nW, h: nH };
+        wInp.classList.add('oe-custom'); hInp.classList.add('oe-custom');
+        resetBtn.style.visibility = '';
+      }
+    }
+    wInp.addEventListener('change', updateBayCard);
+    hInp.addEventListener('change', updateBayCard);
+    wInp.addEventListener('click', e => e.stopPropagation());
+    hInp.addEventListener('click', e => e.stopPropagation());
+    resetBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      delete oeCustomSizes[ck];
+      wInp.value = defW; hInp.value = defH;
+      wInp.classList.remove('oe-custom'); hInp.classList.remove('oe-custom');
+      resetBtn.style.visibility = 'hidden';
+    });
+
+    card.addEventListener('mousedown', e => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+      e.preventDefault(); oeToolboxDragStart(e, 'bay', key);
+    });
+    return card;
+  }
+
   // ---- Dispatch table: type \u2192 builder ----
   const builders = {
     window:            buildWindowCard,
@@ -15876,6 +16888,7 @@ function oePopulateToolbox() {
     balcony:           buildBalconyCard,
     cladding_override: buildCladdingOverrideCard,
     printed_item:      buildPrintedItemCard,
+    bay:               buildBayCard,
   };
 
   function renderSection(headerText, sectionId) {
@@ -15893,6 +16906,7 @@ function oePopulateToolbox() {
 
   renderSection('Windows',           'windows');
   renderSection('Doors',             'doors');
+  renderSection('Bays',              'bays');
   renderSection('Fixtures',          'fixtures');
   renderSection('Awnings',           'awnings');
   renderSection('Balconies',         'balconies');
@@ -15911,6 +16925,7 @@ function oeToolboxDragStart(e, type, styleKey) {
              : type === 'fixture' ? oeGetFixtureDims(styleKey)
              : type === 'cladding_override' ? oeGetCladdingOverrideDims(styleKey)
              : type === 'printed_item' ? oeGetPrintedItemDims(styleKey)
+             : type === 'bay'     ? oeGetBayDims(styleKey)
              :                      oeGetBalconyDims(styleKey);
 
   const isAwning  = type === 'awning';
@@ -15918,6 +16933,7 @@ function oeToolboxDragStart(e, type, styleKey) {
   const isFixture = type === 'fixture';
   const isOverride = type === 'cladding_override';
   const isPrinted = type === 'printed_item';
+  const isBay     = type === 'bay';
   const isInt     = isBalcony && dims.balconyType === 'internal';
   // For fixtures, borrow the colour from the style's first piece so the
   // ghost matches what'll land on the wall.
@@ -15929,6 +16945,7 @@ function oeToolboxDragStart(e, type, styleKey) {
                   : isFixture          ? ((fixFirstPiece && fixFirstPiece.frameColor) || '#3a3a34')
                   : isOverride         ? '#5a4a32'
                   : isPrinted          ? '#6a3a8a'
+                  : isBay              ? '#3a3a3a'
                   : isInt              ? '#3a5a6e' : '#b08830';
   const bgCol     = type === 'window'  ? 'rgba(160,205,245,0.82)'
                   : type === 'door'    ? 'rgba(245,185,130,0.82)'
@@ -15936,6 +16953,7 @@ function oeToolboxDragStart(e, type, styleKey) {
                   : isFixture          ? ((fixFirstPiece && fixFirstPiece.panelFill) || 'rgba(189,189,181,0.82)')
                   : isOverride         ? 'rgba(200,192,176,0.75)'
                   : isPrinted          ? 'rgba(180,140,210,0.75)'
+                  : isBay              ? 'rgba(60,45,30,0.55)'
                   : isInt              ? 'rgba(90,122,142,0.82)' : 'rgba(232,213,160,0.82)';
   const ghostW = isOverride ? Math.max(30, dims.w * 4) : Math.max(20, dims.w * 5);
   const ghostH = isAwning   ? Math.max(8, (dims.d || 10) * 2)
@@ -16039,11 +17057,200 @@ function oeDoorSnappedY(wall, doorH, probeY) {
   return Math.max(0, band.yBottom - doorH);
 }
 
+/* Show a modal asking the user how to handle an opening that's too large
+ * for the ground-floor band. Three resolution paths:
+ *
+ *  - "Make ground floor taller" — enables the firstFloorHeight override
+ *    and grows it just enough to fit, then re-attempts the drop. Only
+ *    offered when the height is the problem (the bay/wall width is a
+ *    bigger commitment to change so we don't surface it here).
+ *  - "Shrink to fit" — clamps the opening dimensions to the band, then
+ *    drops at the reduced size.
+ *  - "Cancel" — abandon the drop entirely.
+ *
+ * `opts` shape:
+ *   { type, dims, bandH, wallW, tooTall, tooWide,
+ *     onMakeTaller, onShrink, onCancel }
+ *
+ * Each handler is invoked AFTER the modal dismisses, so callers can run
+ * synchronous re-drops without worrying about overlay z-order or focus.
+ */
+function oeShowOversizeModal(opts) {
+  const { type, dims, bandH, wallW, tooTall, tooWide,
+          onMakeTaller, onShrink, onCancel } = opts;
+  // Remove any prior instance (defensive — modal is meant to be modal).
+  const existing = document.getElementById('oeOversizeModal');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'oeOversizeModal';
+  overlay.style.cssText =
+    'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:10000;'
+    + 'display:flex;align-items:center;justify-content:center;'
+    + 'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;';
+
+  const dialog = document.createElement('div');
+  dialog.style.cssText =
+    'background:var(--panel);border:1px solid var(--border);border-radius:8px;'
+    + 'padding:24px;max-width:440px;width:90%;'
+    + 'box-shadow:0 10px 40px rgba(0,0,0,0.25);';
+
+  const title = document.createElement('h3');
+  title.style.cssText = 'margin:0 0 12px;font-size:16px;color:var(--text);font-weight:700;';
+  const typeLabel = type === 'window' ? 'Window' : type === 'door' ? 'Door' : 'Object';
+  title.textContent = `${typeLabel} too large for ground floor`;
+  dialog.appendChild(title);
+
+  const msg = document.createElement('p');
+  msg.style.cssText = 'margin:0 0 18px;font-size:13px;color:var(--muted);line-height:1.5;';
+  let msgText = `The ${typeLabel.toLowerCase()} you're placing (${dims.w.toFixed(1)} × ${dims.h.toFixed(1)} mm) `;
+  if (tooTall && tooWide) {
+    msgText += `is larger than the ground floor (available ${wallW.toFixed(1)} × ${bandH.toFixed(1)} mm).`;
+  } else if (tooTall) {
+    msgText += `is taller than the ground floor (${bandH.toFixed(1)} mm available).`;
+  } else {
+    msgText += `is wider than the wall (${wallW.toFixed(1)} mm available).`;
+  }
+  msg.textContent = msgText;
+  dialog.appendChild(msg);
+
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+
+  const close = () => overlay.remove();
+
+  // "Make taller" is only meaningful if height is the problem — there's no
+  // analogous knob for widening the wall on a per-floor basis.
+  if (tooTall) {
+    const btnTaller = document.createElement('button');
+    btnTaller.textContent = 'Make ground floor taller';
+    btnTaller.style.cssText =
+      'padding:10px 16px;background:var(--accent);color:white;border:none;'
+      + 'border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;';
+    btnTaller.onmouseenter = () => btnTaller.style.background = 'var(--accent-dark)';
+    btnTaller.onmouseleave = () => btnTaller.style.background = 'var(--accent)';
+    btnTaller.onclick = () => { close(); onMakeTaller(); };
+    btnRow.appendChild(btnTaller);
+  }
+
+  const btnShrink = document.createElement('button');
+  btnShrink.textContent = `Shrink ${typeLabel.toLowerCase()} to fit`;
+  btnShrink.style.cssText =
+    'padding:10px 16px;background:var(--panel);color:var(--text);'
+    + 'border:1px solid var(--border);border-radius:4px;font-size:13px;cursor:pointer;';
+  btnShrink.onmouseenter = () => btnShrink.style.background = 'var(--bg)';
+  btnShrink.onmouseleave = () => btnShrink.style.background = 'var(--panel)';
+  btnShrink.onclick = () => { close(); onShrink(); };
+  btnRow.appendChild(btnShrink);
+
+  const btnCancel = document.createElement('button');
+  btnCancel.textContent = 'Cancel';
+  btnCancel.style.cssText =
+    'padding:10px 16px;background:transparent;color:var(--muted);'
+    + 'border:1px solid var(--border);border-radius:4px;font-size:13px;cursor:pointer;';
+  btnCancel.onmouseenter = () => btnCancel.style.background = 'var(--bg)';
+  btnCancel.onmouseleave = () => btnCancel.style.background = 'transparent';
+  btnCancel.onclick = () => { close(); onCancel(); };
+  btnRow.appendChild(btnCancel);
+
+  dialog.appendChild(btnRow);
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+
+  // Esc cancels (matches typical dialog UX). Use a one-shot listener bound
+  // to the overlay so we don't leak handlers if the modal is replaced.
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      document.removeEventListener('keydown', escHandler);
+      close();
+      onCancel();
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+}
+
 function oeDropOpening(type, dims, x, y, styleKey) {
   const { W, H } = oeGetWallDims(oeWall);
   if (!Array.isArray(oeOpenings[oeWall])) oeOpenings[oeWall] = [];
 
+  // Pre-flight size check for openings that live in floor bands. Windows
+  // and doors that exceed the target band's height (or the wall's width)
+  // would otherwise be silently clipped — confusing for the user who just
+  // dragged a specific-sized item from the toolbox. Behaviour:
+  //
+  //  - Ground floor + height exceeds band: prompt the user via modal,
+  //    offering either "make the floor taller" (we have a per-floor knob
+  //    for that — firstFloorHeight) or "shrink the object to fit".
+  //  - Upper floor OR width-only excess: silently clamp and flash a
+  //    message. Widening the wall affects the whole building and growing
+  //    floorHeight affects every upper floor at once, so neither is a
+  //    sensible single-opening response — clamping is the right default.
+  if (type === 'window' || type === 'door') {
+    const bands = oeGetFloorBands(oeWall);
+    const bi = oeYToBand(bands, y);
+    const band = (bi >= 0) ? bands[bi] : null;
+    const bandH = band ? (band.yBottom - band.yTop) : H;
+    // The last band in the list is the ground floor (bands are ordered
+    // top→bottom). If the click missed every band, treat it as ground —
+    // doors always snap to a floor surface anyway, and the ground band
+    // is where windows-with-no-band land via the existing fallback.
+    const isGroundFloor = (bi === bands.length - 1) || (bi < 0);
+    // Margins. Vertical: 2 mm so the opening doesn't butt up against the
+    // floor panel slot. Horizontal: the edge buffer (matT on front/back,
+    // 0 on side walls), which is where the perpendicular wall's core
+    // material sits behind the inside face.
+    const buf = oeEdgeBuffer(oeWall);
+    const maxH = Math.max(2, bandH - 2);
+    const maxW = Math.max(2, W - buf.left - buf.right);
+    const tooTall = dims.h > maxH;
+    const tooWide = dims.w > maxW;
+
+    if (tooTall || tooWide) {
+      if (isGroundFloor && tooTall) {
+        oeShowOversizeModal({
+          type, dims, bandH, wallW: W, tooTall, tooWide,
+          onMakeTaller: () => {
+            // Enable the first-floor height override and grow it just
+            // enough to fit the opening (with the 2 mm top margin).
+            const wallH = CONFIG.height || 100;
+            const targetFFH = dims.h + 2;
+            // Keep at least 8 mm of upper-floor space above the new
+            // ground floor so the rest of the building doesn't collapse.
+            const clampedFFH = Math.min(targetFFH, wallH - 8);
+            CONFIG.firstFloorHeightEnabled = true;
+            CONFIG.firstFloorHeight = Math.max(CONFIG.firstFloorHeight || 30, clampedFFH);
+            writeForm();
+            regenerate();
+            // Width is still subject to the wall clamp — there's no
+            // building-wide widening option in this modal, so apply it
+            // up front before re-attempting the drop.
+            const wClamped = Math.min(dims.w, maxW);
+            oeDropOpening(type, { ...dims, w: wClamped }, x, y, styleKey);
+          },
+          onShrink: () => {
+            const newH = Math.min(dims.h, maxH);
+            const newW = Math.min(dims.w, maxW);
+            oeDropOpening(type, { ...dims, h: newH, w: newW }, x, y, styleKey);
+          },
+          onCancel: () => { /* drop abandoned */ },
+        });
+        return;
+      }
+      // Upper floor, or width-only excess: silently clamp + flash.
+      const newH = Math.min(dims.h, maxH);
+      const newW = Math.min(dims.w, maxW);
+      const label = (type === 'window') ? 'Window' : 'Door';
+      flashMessage(
+        `${label} resized from ${dims.w.toFixed(1)}×${dims.h.toFixed(1)} mm `
+        + `to ${newW.toFixed(1)}×${newH.toFixed(1)} mm to fit the floor.`,
+        'warn'
+      );
+      dims = { ...dims, h: newH, w: newW };
+    }
+  }
+
   if (type === 'window') {
+    const buf = oeEdgeBuffer(oeWall);
     const bands = oeGetFloorBands(oeWall);
     const bi = oeYToBand(bands, y);
     let ny;
@@ -16055,7 +17262,7 @@ function oeDropOpening(type, dims, x, y, styleKey) {
       ny = Math.max(2, Math.min(H - dims.h - 2, y - dims.h / 2));
     }
     oeOpenings[oeWall].push({ type: 'window',
-      x: oeSnap(Math.max(2, Math.min(W - dims.w - 2, x - dims.w / 2))),
+      x: oeSnap(Math.max(buf.left, Math.min(W - dims.w - buf.right, x - dims.w / 2))),
       y: oeSnap(ny), w: dims.w, h: dims.h,
       style: styleKey });
   } else if (type === 'awning') {
@@ -16098,9 +17305,58 @@ function oeDropOpening(type, dims, x, y, styleKey) {
       w: dims.w, h: dims.h,
       style: styleKey,
     });
+  } else if (type === 'bay') {
+    // Bays are restricted: front/back walls only, single instance per
+    // building, bottom-anchored to the ground (y = H - h). 'through' style
+    // creates LINKED twin entries on both walls so the user can see, drag,
+    // resize, or delete the bay from either side of the building — the two
+    // entries stay in sync via the standard drag/resize/delete commit path.
+    if (oeWall !== 'front' && oeWall !== 'back') {
+      flashMessage('Bays can only be placed on the front or back wall.', 'warn');
+      return;
+    }
+    if (styleKey === 'through' && oeWall === 'back') {
+      flashMessage('A through-bay must be placed on the front wall.', 'warn');
+      return;
+    }
+    // Remove any existing bay (single-bay rule). We check both walls so
+    // that switching the bay's home face works cleanly.
+    for (const face of ['front', 'back']) {
+      if (Array.isArray(oeOpenings[face])) {
+        oeOpenings[face] = oeOpenings[face].filter(op => op.type !== 'bay');
+      }
+    }
+    if (!Array.isArray(oeOpenings[oeWall])) oeOpenings[oeWall] = [];
+    const buf = oeEdgeBuffer(oeWall);
+    const maxBayW = Math.max(2, W - buf.left - buf.right);
+    const bw = Math.min(maxBayW, dims.w);
+    const bh = Math.min(H - 2, dims.h);
+    const bx = oeSnap(Math.max(buf.left, Math.min(W - bw - buf.right, x - bw / 2)));
+    const bayEntry = { type: 'bay',
+      x: bx, y: H - bh,            // bottom-anchored
+      w: bw, h: bh,
+      style: styleKey,
+    };
+    oeOpenings[oeWall].push(bayEntry);
+
+    // Through-bay: create a paired entry on the opposing wall. The two
+    // entries share local-X coordinates because the laser-cut convention
+    // assembles both panels without flipping (so wall-local X = global X
+    // for both faces). Any subsequent edit to one is mirrored to the other
+    // by the bay-sync helpers below.
+    if (styleKey === 'through') {
+      const otherWall = (oeWall === 'front') ? 'back' : 'front';
+      if (!Array.isArray(oeOpenings[otherWall])) oeOpenings[otherWall] = [];
+      oeOpenings[otherWall].push({ type: 'bay',
+        x: bx, y: H - bh,
+        w: bw, h: bh,
+        style: styleKey,
+      });
+    }
   } else {
+    const buf = oeEdgeBuffer(oeWall);
     oeOpenings[oeWall].push({ type: 'door',
-      x: oeSnap(Math.max(2, Math.min(W - dims.w - 2, x - dims.w / 2))),
+      x: oeSnap(Math.max(buf.left, Math.min(W - dims.w - buf.right, x - dims.w / 2))),
       y: oeDoorSnappedY(oeWall, dims.h, y), w: dims.w, h: dims.h,
       style: styleKey,
     });
@@ -16108,6 +17364,24 @@ function oeDropOpening(type, dims, x, y, styleKey) {
 
   oeSelectedSet = new Set([oeOpenings[oeWall].length - 1]);
   oeCommit();
+  // Bay drops touch both front and back oeOpenings arrays (single-bay rule
+  // clears any pre-existing bay regardless of where it lived). The default
+  // oeCommit only writes the current wall, so we explicitly commit the
+  // opposite wall here too, then regenerate so lastPlan picks up the new
+  // bay (the editor's plan-based bay render reads from lastPlan).
+  if (type === 'bay') {
+    const otherWall = (oeWall === 'front') ? 'back' : 'front';
+    const otherOps = oeOpenings[otherWall];
+    if (Array.isArray(otherOps)) {
+      const structural = otherOps.filter(op =>
+        op.type !== 'awning' && op.type !== 'balcony' &&
+        op.type !== 'fixture' && op.type !== 'cladding_override' &&
+        op.type !== 'printed_item');
+      if (!CONFIG.manualOpenings) CONFIG.manualOpenings = { front: null, back: null, east: null, west: null };
+      CONFIG.manualOpenings[otherWall] = structural.length > 0 ? structural : null;
+    }
+    regenerate();
+  }
   oeRender();
 }
 
@@ -16219,6 +17493,13 @@ function oePopulateTopbar() {
         bar.appendChild(badge);
       }
 
+      // Doors are immutable in size after placement (their dimensions come
+      // from the door style's canonical values, and resizing produces ugly
+      // distortions). The inputs are disabled-and-tooltipped to communicate
+      // this; if a multi-selection mixes doors with other types the resize
+      // path silently skips door entries.
+      const primaryIsDoor = primaryOp.type === 'door';
+
       // W input
       const wWrap = document.createElement('span'); wWrap.style.cssText = 'display:inline-flex;align-items:center;gap:2px;';
       const wLbl = document.createElement('span'); wLbl.className = 'oe-topbar-label'; wLbl.textContent = 'W';
@@ -16226,7 +17507,10 @@ function oePopulateTopbar() {
       wInp.type = 'number'; wInp.min = '1'; wInp.max = '500'; wInp.step = '0.5';
       wInp.value = primaryOp.w.toFixed(1);
       wInp.className = 'oe-sel-size-input';
-      wInp.title = 'Width of selected opening(s) in mm';
+      wInp.title = primaryIsDoor
+        ? 'Doors keep their canonical size — replace with a different door style to change dimensions'
+        : 'Width of selected opening(s) in mm';
+      if (primaryIsDoor) { wInp.disabled = true; wInp.style.opacity = '0.55'; }
       wWrap.appendChild(wLbl); wWrap.appendChild(wInp);
       bar.appendChild(wWrap);
 
@@ -16238,9 +17522,12 @@ function oePopulateTopbar() {
       hInp.type = 'number'; hInp.min = '1'; hInp.max = '500'; hInp.step = '0.5';
       hInp.value = primaryOp.h.toFixed(1);
       hInp.className = 'oe-sel-size-input';
-      hInp.title = primaryOp.type === 'awning'
-        ? 'Depth of awning (projection from wall) in mm'
-        : 'Height of selected opening(s) in mm';
+      hInp.title = primaryIsDoor
+        ? 'Doors keep their canonical size — replace with a different door style to change dimensions'
+        : (primaryOp.type === 'awning'
+            ? 'Depth of awning (projection from wall) in mm'
+            : 'Height of selected opening(s) in mm');
+      if (primaryIsDoor) { hInp.disabled = true; hInp.style.opacity = '0.55'; }
       hWrap.appendChild(hLbl); hWrap.appendChild(hInp);
       bar.appendChild(hWrap);
 
@@ -16254,6 +17541,10 @@ function oePopulateTopbar() {
         for (const i of oeSelectedSet) {
           const op = ops[i];
           if (!op) continue;
+          // Doors are immutable in size — skip them even in mixed-type
+          // multi-selections so the user can still resize the windows in a
+          // window+door multi-select without distorting the door.
+          if (op.type === 'door') continue;
           // Capture the door's CURRENT bottom (which is sitting on some floor
           // surface) before resizing, so we can re-anchor it after.
           const oldBottom = op.y + op.h;
@@ -16761,8 +18052,9 @@ function oeDistributeRow() {
 }
 
 /* ---- Bay drag state ---- */
-let _oeBayDragActive = false;
-let _oeBayDragTempX  = null;   // preview X during drag (null = use lastPlan value)
+// (Previously these tracked the special bay-drag handler that has now been
+// folded into the standard opening drag path — bays use the same selection
+// and drag flow as windows/doors, with a Y-lock constraint inside onMove.)
 
 let oeShowCladding = false;    // whether to overlay the cladding pattern in the editor
 
@@ -16894,6 +18186,40 @@ function oeRender() {
   if (!svg) return;
   const { W, H: baseH } = oeGetWallDims(oeWall);
 
+  // Emit the 4 corner resize handles for a selected opening. Each handle
+  // carries data-oe-handle (corner identifier) + data-oe-idx (which op in
+  // oeOpenings[oeWall]) so the mousedown handler can dispatch to a resize
+  // drag. Cursor hints match the diagonal of each corner; for bay-typed
+  // openings the bottom is anchored, so SW/SE corners get an ew-resize
+  // cursor (they only resize width, not height) — the resize handler will
+  // also enforce that constraint mathematically.
+  // Doors are intentionally NOT resizable after placement — their dimensions
+  // come from the door style's canonical w/h, and resizing produces visually
+  // jarring proportions (e.g. a tall narrow door stretched into a square).
+  // The size can still be set BEFORE drop via the toolbox card's W/H inputs.
+  // We return an empty string for doors so the selection still highlights
+  // (border + label remain) but no resize grips appear.
+  function oeResizeHandles(rx, ry, rw, rh, opIdx, opType) {
+    if (opIdx == null || opIdx < 0) return '';
+    if (opType === 'door') return '';
+    const corners = [
+      ['nw', rx,      ry,      'nwse-resize'],
+      ['ne', rx + rw, ry,      'nesw-resize'],
+      ['sw', rx,      ry + rh, 'nesw-resize'],
+      ['se', rx + rw, ry + rh, 'nwse-resize'],
+    ];
+    let out = '';
+    for (const [corner, hx, hy, cur] of corners) {
+      // Bays: the bottom edge is locked to y=H, so SW/SE corners can only
+      // change width. Use ew-resize cursor to communicate that.
+      const cursor = (opType === 'bay' && (corner === 'sw' || corner === 'se')) ? 'ew-resize' : cur;
+      out += `<rect x="${(hx - 4).toFixed(1)}" y="${(hy - 4).toFixed(1)}" width="8" height="8"`
+           + ` fill="#f70" stroke="white" stroke-width="1" rx="1"`
+           + ` data-oe-handle="${corner}" data-oe-idx="${opIdx}" style="cursor:${cursor}"/>`;
+    }
+    return out;
+  }
+
   // ---- Wall shape info ----
   const si      = oeWallShapeInfo();
   const pitchL  = si.pitchL, pitchR = si.pitchR, gable = si.gable;
@@ -16971,6 +18297,10 @@ function oeRender() {
     <pattern id="oe-hatch" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(45)">
       <line x1="0" y1="0" x2="0" y2="5" stroke="#bbb" stroke-width="1.2"/>
     </pattern>
+    <pattern id="oe-buffer-hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+      <rect width="6" height="6" fill="#a89889"/>
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#7a6c5e" stroke-width="2"/>
+    </pattern>
   </defs>`;
 
   // Wall background fill (matches actual shape)
@@ -16978,6 +18308,35 @@ function oeRender() {
 
   // ---- All interior content clipped to the wall polygon ----
   html += `<g clip-path="url(#oe-wall-clip)">`;
+
+  // Edge buffer overlay — the strips along each end of front/back walls
+  // where the perpendicular wall's core material sits behind the inside
+  // face, making it impossible to cut a real through-opening. Rendered
+  // first (under everything else) as a hatched zone with a hairline divider
+  // so the user understands the placement constraint visually before they
+  // try to drag a window into it.
+  {
+    const buf = oeEdgeBuffer(oeWall);
+    if (buf.left > 0 || buf.right > 0) {
+      const yT = -peakAbove, yB = wallH;
+      if (buf.left > 0) {
+        html += `<rect x="${ox.toFixed(1)}" y="${(oy + yT * s).toFixed(1)}"`
+              + ` width="${(buf.left * s).toFixed(1)}" height="${((yB - yT) * s).toFixed(1)}"`
+              + ` fill="url(#oe-buffer-hatch)" opacity="0.55" pointer-events="none"/>`;
+        html += `<line x1="${(ox + buf.left * s).toFixed(1)}" y1="${(oy + yT * s).toFixed(1)}"`
+              + ` x2="${(ox + buf.left * s).toFixed(1)}" y2="${(oy + yB * s).toFixed(1)}"`
+              + ` stroke="#7a6c5e" stroke-width="0.5" stroke-dasharray="3 2" pointer-events="none"/>`;
+      }
+      if (buf.right > 0) {
+        html += `<rect x="${(ox + (W - buf.right) * s).toFixed(1)}" y="${(oy + yT * s).toFixed(1)}"`
+              + ` width="${(buf.right * s).toFixed(1)}" height="${((yB - yT) * s).toFixed(1)}"`
+              + ` fill="url(#oe-buffer-hatch)" opacity="0.55" pointer-events="none"/>`;
+        html += `<line x1="${(ox + (W - buf.right) * s).toFixed(1)}" y1="${(oy + yT * s).toFixed(1)}"`
+              + ` x2="${(ox + (W - buf.right) * s).toFixed(1)}" y2="${(oy + yB * s).toFixed(1)}"`
+              + ` stroke="#7a6c5e" stroke-width="0.5" stroke-dasharray="3 2" pointer-events="none"/>`;
+      }
+    }
+  }
 
   // Snap grid dots
   if (oeSnapGrid > 0) {
@@ -17011,22 +18370,41 @@ function oeRender() {
     html += `<text x="${ox+4}" y="${oy+ph-3}" font-size="9" fill="#666" font-family="system-ui" pointer-events="none">parapet</text>`;
   }
 
-  // Bay opening
-  if ((oeWall === 'front' || oeWall === 'back') && lastPlan) {
-    const hasBay = (oeWall==='front' && lastPlan.hasFrontBay) || (oeWall==='back' && lastPlan.hasBackBay);
-    if (hasBay) {
-      const bh  = lastPlan.bayHeight || 0;
-      const bxs = (_oeBayDragTempX !== null) ? _oeBayDragTempX : lastPlan.bayXStart;
-      const bxe = bxs + (lastPlan.bayXEnd - lastPlan.bayXStart);
-      const isDriveThrough = lastPlan.hasBackBay;
-      const linkLabel = isDriveThrough ? ' (⇔ linked)' : '';
-      html += `<rect x="${ox+bxs*s}" y="${oy+(wallH-bh)*s}" width="${(bxe-bxs)*s}" height="${bh*s}"
-        fill="#9a9088" stroke="${_oeBayDragTempX!==null?'#f70':'#555'}" stroke-width="${_oeBayDragTempX!==null?2:1}"
-        data-oe-bay="1" style="cursor:ew-resize"/>`;
-      html += `<text x="${ox+(bxs+(bxe-bxs)/2)*s}" y="${oy+(wallH-bh/2)*s+4}" font-size="9" fill="#eee"
-        text-anchor="middle" font-family="system-ui" pointer-events="none">bay${linkLabel}</text>`;
-      if (_oeBayDragTempX !== null)
-        html += `<text x="${ox+bxs*s}" y="${oy+(wallH-bh)*s-4}" font-size="9" fill="#f70" font-family="system-ui">x=${bxs.toFixed(1)}</text>`;
+  // Bay opening — drawn as part of the editor's interactive layer so it
+  // selects, drags, resizes, and deletes through the SAME code paths as
+  // every other opening. Sourced from the bay entry in oeOpenings (where
+  // the user's drag-in-progress mutations live).
+  if (oeWall === 'front' || oeWall === 'back') {
+    const opsArrBay = oeOpenings[oeWall] || [];
+    const bayEntry  = opsArrBay.find(op => op && op.type === 'bay');
+    if (bayEntry) {
+      const bayIdx   = opsArrBay.indexOf(bayEntry);
+      const bayX     = bayEntry.x;
+      const bayY     = bayEntry.y;
+      const bayW     = bayEntry.w;
+      const bayH     = bayEntry.h;
+      const bayStyle = bayEntry.style;
+      const isSel     = oeSelectedSet.has(bayIdx);
+      const isPrimary = isSel && [...oeSelectedSet][0] === bayIdx;
+      const rx = ox + bayX * s;
+      const ry = oy + bayY * s;
+      const rw = bayW * s;
+      const rh = bayH * s;
+      const stroke = isSel ? '#f70' : '#555';
+      const sw     = isSel ? 2.5   : 1.0;
+      const idxAttr = (bayIdx >= 0) ? ` data-oe-idx="${bayIdx}"` : '';
+      const linkLabel = (bayStyle === 'through') ? ' (⇔ linked)' : '';
+      html += `<rect x="${rx.toFixed(1)}" y="${ry.toFixed(1)}" width="${rw.toFixed(1)}" height="${rh.toFixed(1)}"`
+            + ` fill="#9a9088" stroke="${stroke}" stroke-width="${sw}"`
+            + ` data-oe-bay="1"${idxAttr} style="cursor:move"/>`;
+      html += `<text x="${(rx + rw / 2).toFixed(1)}" y="${(ry + rh / 2 + 4).toFixed(1)}" font-size="9" fill="#eee"`
+            + ` text-anchor="middle" font-family="system-ui" pointer-events="none">bay${linkLabel}</text>`;
+      if (isPrimary) {
+        const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
+        const styleLbl = (bayStyle === 'through') ? 'through' : 'side';
+        html += `<text x="${(rx + rw / 2).toFixed(1)}" y="${(ry - 4).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${styleLbl} bay ${bayW.toFixed(1)}×${bayH.toFixed(1)}${cntLabel}</text>`;
+        html += oeResizeHandles(rx, ry, rw, rh, bayIdx, 'bay');
+      }
     }
   }
 
@@ -17077,6 +18455,7 @@ function oeRender() {
         html += `<line x1="${(wxStart+l.x1*s).toFixed(2)}" y1="${(oy+l.y1*s).toFixed(2)}" x2="${(wxStart+l.x2*s).toFixed(2)}" y2="${(oy+l.y2*s).toFixed(2)}" stroke="rgba(70,50,30,0.55)" stroke-width="0.6" pointer-events="none"/>`;
       for (const op of ops) {
         if (op.type === 'awning' || op.type === 'balcony' || op.type === 'fixture' || op.type === 'cladding_override' || op.type === 'printed_item') continue;
+        if (op.type === 'bay') continue;  // bay is drawn via the plan path above
         const cy0=Math.max(op.y,bandTop), cy1=Math.min(op.y+op.h,bandBottom);
         if (cy1<=cy0) continue;
         if (op.type === 'cladding_override') {
@@ -17244,14 +18623,14 @@ function oeRender() {
     if (isPrimary) {
       const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
       html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.w.toFixed(0)}×${op.h.toFixed(0)}${cntLabel}</text>`;
-      for (const [hx, hy] of [[rx,ry],[rx+rw,ry],[rx,ry+rh],[rx+rw,ry+rh]])
-        html += `<rect x="${(hx-4).toFixed(1)}" y="${(hy-4).toFixed(1)}" width="8" height="8" fill="#f70" stroke="white" stroke-width="1" rx="1"/>`;
+      html += oeResizeHandles(rx, ry, rw, rh, i, 'cladding_override');
     }
   }
 
   for (let i = 0; i < ops.length; i++) {
     const op = ops[i];
     if (op.type === 'cladding_override') continue;  // already rendered in pass 1
+    if (op.type === 'bay') continue;  // rendered via the plan-based bay path below
     const isSel = oeSelectedSet.has(i);
     const isPrimary = isSel && [...oeSelectedSet][0] === i;
     // Apply the east/west mirror at render time so the editor view matches
@@ -17277,8 +18656,7 @@ function oeRender() {
       if (isPrimary) {
         const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
         html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.w.toFixed(1)}W × ${op.h.toFixed(1)}D${cntLabel}</text>`;
-        for (const [hx, hy] of [[rx,ry],[rx+rw,ry],[rx,ry+dispH],[rx+rw,ry+dispH]])
-          html += `<rect x="${hx-4}" y="${hy-4}" width="8" height="8" fill="#f70" stroke="white" stroke-width="1" rx="1"/>`;
+        html += oeResizeHandles(rx, ry, rw, dispH, i, 'awning');
       }
 
     } else if (op.type === 'balcony') {
@@ -17320,8 +18698,7 @@ function oeRender() {
       if (isPrimary) {
         const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
         html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.balconyType} ${op.w.toFixed(0)}×${op.d.toFixed(0)}×${op.h.toFixed(0)}${cntLabel}</text>`;
-        for (const [hx, hy] of [[rx,ry],[rx+rw,ry],[rx,ry+rh],[rx+rw,ry+rh]])
-          html += `<rect x="${hx-4}" y="${hy-4}" width="8" height="8" fill="#f70" stroke="white" stroke-width="1" rx="1"/>`;
+        html += oeResizeHandles(rx, ry, rw, rh, i, 'balcony');
       }
 
     } else if (op.type === 'fixture') {
@@ -17363,8 +18740,7 @@ function oeRender() {
         const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
         const tierTag  = styleSpec && styleSpec.depthTier ? ` · ${styleSpec.depthTier}` : '';
         html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.w.toFixed(1)}×${op.h.toFixed(1)}${tierTag}${cntLabel}</text>`;
-        for (const [hx, hy] of [[rx,ry],[rx+rw,ry],[rx,ry+rh],[rx+rw,ry+rh]])
-          html += `<rect x="${hx-4}" y="${hy-4}" width="8" height="8" fill="#f70" stroke="white" stroke-width="1" rx="1"/>`;
+        html += oeResizeHandles(rx, ry, rw, rh, i, 'fixture');
       }
 
     } else if (op.type === 'printed_item') {
@@ -17387,8 +18763,7 @@ function oeRender() {
         const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
         const styleLbl = styleSpec ? styleSpec.label : op.style;
         html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${styleLbl} ${op.w.toFixed(1)}×${op.h.toFixed(1)} · printed${cntLabel}</text>`;
-        for (const [hx, hy] of [[rx,ry],[rx+rw,ry],[rx,ry+rh],[rx+rw,ry+rh]])
-          html += `<rect x="${hx-4}" y="${hy-4}" width="8" height="8" fill="#f70" stroke="white" stroke-width="1" rx="1"/>`;
+        html += oeResizeHandles(rx, ry, rw, rh, i, 'printed_item');
       }
 
     } else {
@@ -17471,8 +18846,7 @@ function oeRender() {
         const bandLabel = bandIdx >= 0 ? ` · floor ${bands.length - bandIdx}` : '';
         const cntLabel  = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size} sel]` : '';
         html += `<text x="${rx+rw/2}" y="${ry-3}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.w.toFixed(1)}×${op.h.toFixed(1)}${bandLabel}${cntLabel}</text>`;
-        for (const [hx, hy] of [[rx,ry],[rx+rw,ry],[rx,ry+rh],[rx+rw,ry+rh]])
-          html += `<rect x="${hx-4}" y="${hy-4}" width="8" height="8" fill="#f70" stroke="white" stroke-width="1" rx="1"/>`;
+        html += oeResizeHandles(rx, ry, rw, rh, i, op.type);
         if (bandIdx >= 0) {
           const b = bands[bandIdx];
           html += `<rect x="${ox}" y="${oy+b.yTop*s}" width="${W*s}" height="${(b.yBottom-b.yTop)*s}" fill="none" stroke="#f70" stroke-width="1" stroke-dasharray="4 3" opacity="0.6" pointer-events="none"/>`;
@@ -17658,58 +19032,197 @@ function oeClick(e) {
   oeRender();
 }
 
+/* ---- Linked-bay helpers ----
+ *
+ * Through-bay placement creates twin entries on the front and back walls
+ * (same local-X, same w/h, same style='through'). Any single edit needs to
+ * be mirrored to the partner so the two stay in lock-step. These helpers
+ * centralise that mirroring; the drag, resize, drop, and delete paths all
+ * call them after a structural change. Side bays carry style='side' and
+ * have no partner — the helpers short-circuit.
+ */
+
+/* Sync the through-bay partner on the opposing wall to match `op`'s
+ * geometry. No-op for side bays. Writes to both oeOpenings (the editor's
+ * working state) and CONFIG.manualOpenings (the committed state) so a
+ * subsequent regenerate sees consistent values on both walls.
+ */
+function oeSyncLinkedBayPartner(op, sourceWall) {
+  if (!op || op.type !== 'bay' || op.style !== 'through') return;
+  const otherWall = (sourceWall === 'front') ? 'back'
+                  : (sourceWall === 'back')  ? 'front'
+                  : null;
+  if (!otherWall) return;
+  for (const store of [oeOpenings, CONFIG.manualOpenings]) {
+    if (!store) continue;
+    const arr = store[otherWall];
+    if (!Array.isArray(arr)) continue;
+    for (const partner of arr) {
+      if (partner && partner.type === 'bay') {
+        partner.x = op.x;
+        partner.y = op.y;
+        partner.w = op.w;
+        partner.h = op.h;
+        partner.style = op.style;
+      }
+    }
+  }
+}
+
+/* Remove the through-bay partner on the opposing wall when `op` is being
+ * deleted. No-op for side bays. Mutates oeOpenings AND CONFIG.manualOpenings
+ * so the deletion is visible to both the editor and the next regenerate.
+ * Returns true when a partner was removed (caller may use this to decide
+ * whether to trigger a regenerate).
+ */
+function oeDeleteLinkedBayPartner(op, sourceWall) {
+  if (!op || op.type !== 'bay' || op.style !== 'through') return false;
+  const otherWall = (sourceWall === 'front') ? 'back'
+                  : (sourceWall === 'back')  ? 'front'
+                  : null;
+  if (!otherWall) return false;
+  let removed = false;
+  for (const store of [oeOpenings, CONFIG.manualOpenings]) {
+    if (!store) continue;
+    const arr = store[otherWall];
+    if (!Array.isArray(arr)) continue;
+    const before = arr.length;
+    store[otherWall] = arr.filter(p => !(p && p.type === 'bay'));
+    if (store[otherWall].length !== before) removed = true;
+    // Mirror oeApply's null-when-empty convention for CONFIG.manualOpenings
+    // so manualStructuralOps falls back to auto mode on the partner wall.
+    if (store === CONFIG.manualOpenings && store[otherWall].length === 0) {
+      store[otherWall] = null;
+    }
+  }
+  return removed;
+}
+
 /* ---- Drag ---- */
 
 function oeMouseDown(e) {
   if (e.button !== 0) return;
   const { x, y } = oeToMM(e);
 
-  // ---- Bay drag ----
-  if ((oeWall === 'front' || oeWall === 'back') && lastPlan) {
-    const hasBay = (oeWall === 'front' && lastPlan.hasFrontBay) || (oeWall === 'back' && lastPlan.hasBackBay);
-    if (hasBay) {
-      const bayH  = lastPlan.bayHeight || 0;
-      const bxs   = (_oeBayDragTempX !== null) ? _oeBayDragTempX : lastPlan.bayXStart;
-      const bw    = lastPlan.bayXEnd - lastPlan.bayXStart;
-      const { H } = oeGetWallDims(oeWall);
-      const { W } = oeGetWallDims(oeWall);
-      // Hit-test the bay rect
-      if (x >= bxs - 2 && x <= bxs + bw + 2 && y >= H - bayH - 2 && y <= H + 2) {
-        // Start bay drag
-        _oeBayDragActive = true;
-        const startX = x, origBayX = bxs;
-        const svg = document.getElementById('openingEditorSvg');
-        svg.style.cursor = 'ew-resize';
+  // ---- Corner resize drag ----
+  // If the click landed on a corner resize handle, dispatch a resize drag.
+  // The handle's data-oe-handle attribute identifies which corner (nw/ne/sw/se)
+  // and data-oe-idx points to the op in oeOpenings[oeWall].
+  const tgt = e.target;
+  if (tgt && tgt.dataset && tgt.dataset.oeHandle && tgt.dataset.oeIdx != null) {
+    const handle = tgt.dataset.oeHandle;
+    const idx = parseInt(tgt.dataset.oeIdx, 10);
+    const ops = oeOpenings[oeWall] || [];
+    const op = ops[idx];
+    if (op && Number.isFinite(idx)) {
+      e.preventDefault();
+      e.stopPropagation();
+      const { W: wallW, H: wallH } = oeGetWallDims(oeWall);
+      const isBay = op.type === 'bay';
+      const isAwning = op.type === 'awning';
+      // Awnings store DEPTH in op.h (it's the projection from the wall, not
+      // a wall-Y dimension). Resize semantics for awnings: NW/NE/SW/SE
+      // change w and depth. We map h↔depth in math below.
+      const orig = { x: op.x, y: op.y, w: op.w, h: op.h };
+      const opSnap = (v) => oeSnap(v);
+      const MIN_W = 2, MIN_H = 2;
 
-        function onBayMove(me) {
-          const { x: mx } = oeToMM(me);
-          const newBayX = Math.max(0, Math.min(W - bw, origBayX + (mx - startX)));
-          _oeBayDragTempX = newBayX;
-          oeRender();
+      function doResize(mx, my) {
+        // Clamp to wall bounds
+        mx = Math.max(0, Math.min(wallW, mx));
+        my = Math.max(0, Math.min(wallH, my));
+
+        // For bays the bottom edge is anchored to y=wallH (the ground line):
+        // any vertical drag adjusts the top edge instead. SW/SE corners
+        // therefore only affect width — the y/h math collapses to a no-op.
+        const east  = (handle === 'ne' || handle === 'se');
+        const west  = (handle === 'nw' || handle === 'sw');
+        const north = (handle === 'nw' || handle === 'ne');
+        const south = (handle === 'sw' || handle === 'se');
+
+        // ---- X axis ----
+        // Through-cuts (window/door/bay) must respect the edge buffer — the
+        // strip of wall at each end where the perpendicular wall's core
+        // material sits behind the inside face. Surface items don't.
+        const isThroughCut = (op.type === 'window' || op.type === 'door' || op.type === 'bay');
+        const buf = oeEdgeBuffer(oeWall);
+        const xMin    = isThroughCut ? buf.left : 0;
+        const xRight  = isThroughCut ? (wallW - buf.right) : wallW;
+        let newX = orig.x, newW = orig.w;
+        if (east) {
+          newW = opSnap(Math.max(MIN_W, mx - orig.x));
+          newW = Math.min(newW, xRight - orig.x);
+        } else if (west) {
+          // Snap the cursor X first so newX is grid-aligned. The east edge
+          // stays put at orig.x + orig.w; new width = east edge - new X.
+          newX = opSnap(Math.max(xMin, Math.min(orig.x + orig.w - MIN_W, mx)));
+          newW = (orig.x + orig.w) - newX;
         }
-        function onBayUp() {
-          document.removeEventListener('mousemove', onBayMove);
-          document.removeEventListener('mouseup', onBayUp);
-          svg.style.cursor = 'crosshair';
-          _oeBayDragActive = false;
-          // Commit bay position and regenerate
-          CONFIG.bayXOverride = Math.round(_oeBayDragTempX * 10) / 10;
-          _oeBayDragTempX = null;
-          regenerate();
-          // Re-init editor openings from fresh plan (bay has moved, auto-openings change)
-          for (const w of ['front', 'back', 'east', 'west']) {
-            if (!(CONFIG.manualOpenings || {})[w]) oeOpenings[w] = null;
+
+        // ---- Y axis ----
+        let newY = orig.y, newH = orig.h;
+        if (isBay) {
+          // Bottom is locked to y = wallH. North handles can resize height
+          // (which moves y up/down). South handles don't change y/h.
+          if (north) {
+            // Cursor Y is the new top edge of the bay; height = wallH - newY
+            newY = opSnap(Math.max(0, Math.min(wallH - MIN_H, my)));
+            newH = wallH - newY;
           }
-          oeSetWall(oeWall);
+        } else {
+          if (south) {
+            newH = opSnap(Math.max(MIN_H, my - orig.y));
+            newH = Math.min(newH, wallH - orig.y);
+          } else if (north) {
+            newY = opSnap(Math.max(0, Math.min(orig.y + orig.h - MIN_H, my)));
+            newH = (orig.y + orig.h) - newY;
+          }
         }
-        document.addEventListener('mousemove', onBayMove);
-        document.addEventListener('mouseup', onBayUp);
-        return; // consumed
+
+        // Awning: op.h stores depth; we still let north/south handles drive
+        // it (the visual rect uses AWNING_DISP_H, but the user expects the
+        // drag to change "size"). Cap depth at a sensible 60 mm.
+        if (isAwning && (north || south)) {
+          newH = Math.min(60, Math.max(MIN_H, newH));
+        }
+
+        op.x = newX; op.y = newY; op.w = newW; op.h = newH;
+        oeRender();
       }
+
+      function onMove(me) {
+        const pt = oeToMM(me);
+        _oeDragMoved = true;
+        doResize(pt.x, pt.y);
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        // Through-bay resize: mirror the new w/h/x to the linked partner
+        // on the opposing wall before commit so the two stay in lock-step.
+        if (isBay && op.style === 'through') oeSyncLinkedBayPartner(op, oeWall);
+        oeCommit();
+        // Bay resize must trigger regenerate so lastPlan picks up the new
+        // bayHeight/bayWidth and the plan-based bay render redraws at the
+        // correct size.
+        if (isBay) regenerate();
+        oeRender();
+        setTimeout(() => { _oeDragMoved = false; }, 0);
+      }
+      // Select this op so the resize feedback (selection box + handles) stays
+      // visible during the drag.
+      oeSelectedSet = new Set([idx]);
+      oeRender();
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      return;
     }
   }
 
   // ---- Opening drag (single or multi) ----
+  // Bays go through this path just like any other opening; the standard
+  // selection, multi-select, and delete behaviours all apply. Bay-specific
+  // Y locking happens inside onMove below (bays stay bottom-anchored).
   const hitIdx = oeHitTest(x, y);
   if (hitIdx < 0) {
     // Miss on empty canvas — start rubber-band selection
@@ -17779,12 +19292,22 @@ function oeMouseDown(e) {
     const { x: mx, y: my } = oeToMM(me);
     const dx = mx - x, dy = my - y;
     if (Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3) _oeDragMoved = true;
+    // Edge buffer applies to through-cuts only (window/door/bay); surface
+    // items (awning/balcony/fixture/cladding_override/printed_item) can sit
+    // anywhere along the wall since they don't penetrate.
+    const buf = oeEdgeBuffer(oeWall);
     for (const i of oeSelectedSet) {
       const op = allOps[i];
       const orig = origPositions[i];
       const opH = oeOpH(op);
-      op.x = oeSnap(Math.max(0, Math.min(W - op.w, orig.x + dx)));
-      if (op.type === 'door') {
+      const isThroughCut = (op.type === 'window' || op.type === 'door' || op.type === 'bay');
+      const minX = isThroughCut ? buf.left : 0;
+      const maxX = isThroughCut ? (W - op.w - buf.right) : (W - op.w);
+      op.x = oeSnap(Math.max(minX, Math.min(maxX, orig.x + dx)));
+      if (op.type === 'bay') {
+        // Bays stay bottom-anchored — Y never changes regardless of cursor.
+        op.y = H - op.h;
+      } else if (op.type === 'door') {
         // Doors can move vertically between floors but always snap so their
         // bottom rests on a floor surface. Pick the band using the door's
         // vertical center after applying the drag delta.
@@ -17806,7 +19329,24 @@ function oeMouseDown(e) {
     svg.style.cursor = oeTool === 'move' ? 'grab' : 'crosshair';
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
-    if (_oeDragMoved) oeCommit();
+    // Bay moves change the structural plan (wall outline, floor panel
+    // position, window auto-layout exclusion zones), so a drag that touched
+    // a bay must trigger regenerate so lastPlan refreshes and the wall
+    // outline / cladding update. A through-bay also needs its partner on
+    // the opposing wall synced before the commit so manualOpenings reflects
+    // both halves consistently.
+    if (_oeDragMoved) {
+      let bayMoved = false;
+      for (const i of oeSelectedSet) {
+        const op = allOps[i];
+        if (op && op.type === 'bay') {
+          bayMoved = true;
+          if (op.style === 'through') oeSyncLinkedBayPartner(op, oeWall);
+        }
+      }
+      oeCommit();
+      if (bayMoved) regenerate();
+    }
     setTimeout(() => { _oeDragMoved = false; }, 0);
   }
   document.addEventListener('mousemove', onMove);
@@ -17839,9 +19379,33 @@ function oeKeyDown(e) {
     e.preventDefault();
     // Remove all selected openings (descending order to keep indices valid)
     const toDelete = [...oeSelectedSet].sort((a, b) => b - a);
-    for (const i of toDelete) oeOpenings[oeWall].splice(i, 1);
+    // Track whether any deleted op is a bay — bay removal must trigger a
+    // fresh regenerate so lastPlan.hasFrontBay/hasBackBay updates and the
+    // plan-based bay render stops drawing the rect. We also collect any
+    // through-bays so their linked partner on the opposing wall is removed
+    // after the local splice — the partner deletion must run after the
+    // current-wall splice so the indices stay valid through the loop.
+    let bayDeleted = false;
+    const partnersToRemove = [];
+    for (const i of toDelete) {
+      const op = oeOpenings[oeWall][i];
+      if (op && op.type === 'bay') {
+        bayDeleted = true;
+        if (op.style === 'through') partnersToRemove.push(op);
+      }
+      oeOpenings[oeWall].splice(i, 1);
+    }
     oeSelectedSet.clear();
-    oeCommit(); oeRender(); return;
+    oeCommit();
+    // After committing the current wall, remove any linked through-bay
+    // partners from the opposite wall. This keeps the "delete a linked bay
+    // removes both halves" invariant: a user on either wall can delete the
+    // through-bay and the cut goes away on both sides of the building.
+    for (const op of partnersToRemove) {
+      oeDeleteLinkedBayPartner(op, oeWall);
+    }
+    if (bayDeleted) regenerate();
+    oeRender(); return;
   }
   if (oeSelectedSet.size > 0 && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
     e.preventDefault();
@@ -17851,10 +19415,14 @@ function oeKeyDown(e) {
     const ops  = oeOpenings[oeWall];
     const bands = oeGetFloorBands(oeWall);
     const doorBands = oeGetDoorBands(oeWall);
+    const buf = oeEdgeBuffer(oeWall);
     for (const i of oeSelectedSet) {
       const op = ops[i];
-      if (e.key === 'ArrowLeft')  op.x = oeSnap(Math.max(0,        op.x - step));
-      if (e.key === 'ArrowRight') op.x = oeSnap(Math.min(W - op.w, op.x + step));
+      const isThroughCut = (op.type === 'window' || op.type === 'door' || op.type === 'bay');
+      const xMin = isThroughCut ? buf.left : 0;
+      const xMax = isThroughCut ? (W - op.w - buf.right) : (W - op.w);
+      if (e.key === 'ArrowLeft')  op.x = oeSnap(Math.max(xMin, op.x - step));
+      if (e.key === 'ArrowRight') op.x = oeSnap(Math.min(xMax, op.x + step));
       if (op.type === 'door') {
         // Up/Down jumps the door to the adjacent floor's surface. Door's
         // bottom sits on some band's yBottom; probe just above to find
@@ -18100,6 +19668,14 @@ function oeGetPrintedItemDims(styleKey) {
   return { w: style.width, h: style.height };
 }
 
+function oeGetBayDims(styleKey) {
+  const key = styleKey || 'side';
+  const style = BAY_STYLES[key] || BAY_STYLES.side;
+  const ck = 'bay_' + key;
+  if (oeCustomSizes[ck]) return { ...oeCustomSizes[ck] };
+  return { w: style.baseW, h: style.baseH };
+}
+
 // Pick a sensible default cladding style for overrides — one that's likely
 // to contrast with the building's main wall cladding. We prefer cement lap
 // siding (horizontal courses) which contrasts nicely with the common
@@ -18172,10 +19748,20 @@ function initThreePreview() {
  * @param {Array}  openings   - [{x,y,w,h}] in wall-local 2D coords (y=0 top)
  * @param {boolean} flipX     - true for walls whose shape was built with mirrorX
  */
-function buildWallTexture(cfg, wallW, wallH, openings, flipX) {
+function buildWallTexture(cfg, wallW, wallH, baseH, openings, flipX) {
   const styleKey = cfg.claddingStyle;
   const styleSpec = CLADDING_STYLES[styleKey];
   if (!styleSpec) return null;
+
+  // The mesh's UV V maps shape coords directly: V = shape_y * (1/wallH). Canvas
+  // y=0 (after flipY) maps to mesh shape y = wallH (the mesh's tallest point).
+  // openings store op.y as the distance from the EDITOR wall top (= baseH in
+  // shape coords). So a window's top in 3D sits at shape y = baseH - op.y, which
+  // maps to canvas y = (wallH − baseH + op.y) * PX. We pre-compute that as
+  // slopeRise so we can draw each opening at canvas y = (slopeRise + op.y) * PX.
+  // For walls without a top extension (parapet, flat, low-side of a slanted
+  // roof) slopeRise = 0 and behaviour matches the old single-arg call.
+  const slopeRise = Math.max(0, wallH - (baseH != null ? baseH : wallH));
 
   // Pick pixel density so the largest canvas dimension stays ≤ 640 px
   const PX = Math.min(8, 640 / Math.max(wallW, wallH, 1));
@@ -18195,13 +19781,13 @@ function buildWallTexture(cfg, wallW, wallH, openings, flipX) {
   ctx.fillStyle = 'rgba(60,45,30,0.35)';
   for (const op of openings) {
     if (op.type === 'connection') continue;  // structural slots – not a visual opening
-    ctx.fillRect(op.x * PX, op.y * PX, op.w * PX, op.h * PX);
+    ctx.fillRect(op.x * PX, (op.y + slopeRise) * PX, op.w * PX, op.h * PX);
   }
 
   // ---- cladding groove lines (clipped around window/door cuts only) ----
   const cuts = openings
     .filter(op => op.type !== 'connection')
-    .map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h }));
+    .map(op => ({ x: op.x, y: op.y + slopeRise, w: op.w, h: op.h }));
   const lines = generateCladdingPattern(styleSpec, 0, 0, wallW, wallH, cuts);
 
   ctx.save();
@@ -18273,9 +19859,15 @@ function get3DWallOpenings(cfg, plan, face) {
   const bayH   = plan.bayHeight || 0;
 
   // Collect the structural wall holes (windows + doors) from EITHER manual or
-  // auto, then ALWAYS append bay/wing-connection holes (those are not part of
-  // the manual openings list — they come from cfg.bayConfig + cfg.wings).
-  const manual = (cfg.manualOpenings || {})[face];
+  // auto, then ALWAYS append bay/wing-connection holes. Bay holes come from
+  // the resolved plan (which derived them from manualOpenings entries);
+  // wing-connection holes come from cfg.wings.
+  // Use manualStructuralOps so a wall whose manualOpenings array contains
+  // ONLY non-structural entries (bays, awnings, fixtures, balconies, cladding
+  // overrides, printed items) still falls through to auto-mode window
+  // computation. Without this, a default through-bay on front/back would
+  // silently suppress all auto windows on those walls in the 3D preview.
+  const manual = manualStructuralOps(cfg, face);
   let wins = [], doors = [];
   if (manual) {
     // Manual mode — only window + door cut through the wall. Awnings sit on
@@ -18350,9 +19942,14 @@ function get3DWallOpenings(cfg, plan, face) {
 /**
  * Build one wall panel mesh using THREE.Shape with rectangular holes for each opening.
  * wallW / wallH in mm; the shape is centred at x=0, y spans 0..wallH.
+ * `baseH` is the editor's wall height — the reference from which opening op.y values
+ * are measured. For walls with no slope extension this equals wallH; for the
+ * high-side wall of a slanted NS-axis roof the mesh extends ABOVE baseH by sPitch
+ * (wallH = baseH + sPitch) but openings stay anchored to baseH so they line up
+ * with the editor and with the glass-pane positions below (which also use baseH).
  * If mirrorX is true the hole x-coords are flipped (used for walls viewed in reverse).
  */
-function buildWallMesh3D(wallW, wallH, thickness, openings, material, mirrorX, texture, gablePitch, slantPitch) {
+function buildWallMesh3D(wallW, wallH, baseH, thickness, openings, material, mirrorX, texture, gablePitch, slantPitch) {
   const shape = new THREE.Shape();
   shape.moveTo(-wallW / 2, 0);
   shape.lineTo( wallW / 2, 0);
@@ -18375,7 +19972,7 @@ function buildWallMesh3D(wallW, wallH, thickness, openings, material, mirrorX, t
 
   for (const op of openings) {
     const hx = mirrorX ? wallW / 2 - op.x - op.w : op.x - wallW / 2;
-    const hy = wallH - op.y - op.h;   // flip y (editor: 0=top, THREE: 0=bottom)
+    const hy = baseH - op.y - op.h;   // op.y is from BASE top (editor convention)
     const hole = new THREE.Path();
     hole.moveTo(hx,        hy);
     hole.lineTo(hx + op.w, hy);
@@ -18425,6 +20022,296 @@ function addWindowGlass3D(group, wallW, wallH, wallZPos, wallRot, openings, glas
     dummy.add(pane);
     group.add(dummy);
   }
+}
+
+/**
+ * Construct a Three.js Group representing one piece of rooftop equipment,
+ * styled to match the 3D-printed STL emitted by the build (same shape,
+ * same proportions, same detail elements — louvers, fan rings, FRP panel
+ * seams, mast tip, etc.). The returned group's origin is at the centre of
+ * the equipment footprint at deck level (y=0), so the caller just needs to
+ * translate the group to the deck-top world position.
+ *
+ *   • box_louvered (AC condensers): main box body with louver ridges on
+ *     the front (-Z) face and a small fan circle on top.
+ *   • cooling_tower: tapered body with vertical louver ridges on all four
+ *     sides, fan housing cylinder and hub on top.
+ *   • tank_round_legged: short cylinder body + tapered dome top + vent
+ *     stack, raised on four box legs at the tank's perimeter.
+ *   • tank_square_legged: rectangular FRP tank on four corner legs, with
+ *     a small vent on top.
+ *   • mushroom: vertical stack with a wider cap (cylinder + frustum).
+ *   • cabinet_tall: tall narrow box with a horizontal door divider on the
+ *     front face and an overhanging top cap.
+ *   • antenna: small square base with a thin tall mast and capped tip.
+ *
+ * @param {Object} item   - one rooftopItems entry with equipKey
+ * @returns {THREE.Group | null}
+ */
+function build3DEquipMesh(item) {
+  if (!item || !item.equipKey) return null;
+  const eq = ROOFTOP_EQUIPMENT[item.equipKey];
+  if (!eq) return null;
+  const w = eq.w, d = eq.d, h = eq.h;
+  const group = new THREE.Group();
+
+  // Shared material palette — chosen to read against the roof's dark grey
+  // and to give each shape's primary surface a distinct hue/finish.
+  const housingMat = new THREE.MeshStandardMaterial({ color: 0xb8bcc0, roughness: 0.7, metalness: 0.15 });
+  const accentMat  = new THREE.MeshStandardMaterial({ color: 0x5a6066, roughness: 0.6, metalness: 0.2 });
+  const fanMat     = new THREE.MeshStandardMaterial({ color: 0x404448, roughness: 0.5, metalness: 0.3 });
+  const tankMat    = new THREE.MeshStandardMaterial({ color: 0xe0dccc, roughness: 0.85, metalness: 0.05 });
+  const legMat     = new THREE.MeshStandardMaterial({ color: 0x383c40, roughness: 0.6, metalness: 0.4 });
+  const ventMat    = new THREE.MeshStandardMaterial({ color: 0x707478, roughness: 0.6, metalness: 0.25 });
+  const cabMat     = new THREE.MeshStandardMaterial({ color: 0xc4b890, roughness: 0.75, metalness: 0.1 });
+
+  switch (eq.shape) {
+    case 'box_louvered': {
+      const det = eq.details || {};
+      const louverCount = det.louverCount || 5;
+      const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), housingMat);
+      body.position.y = h / 2;
+      group.add(body);
+      // Louver ridges on the -Z (front) face. Modeled as thin slabs
+      // protruding slightly; matches the STL's `tris.box` ridge pattern.
+      const louverGap = h * 0.15;
+      const louverHeight = Math.max(0.4, (h - 2 * louverGap) / louverCount);
+      const ridgeH = Math.max(0.15, louverHeight * 0.5);
+      for (let i = 0; i < louverCount; i++) {
+        const yMid = louverGap + (i + 0.5) * louverHeight;
+        const louver = new THREE.Mesh(
+          new THREE.BoxGeometry(w * 0.8, ridgeH, 0.2),
+          accentMat
+        );
+        louver.position.set(0, yMid, -d / 2 - 0.1);
+        group.add(louver);
+      }
+      // Small fan circle on top.
+      const fan = new THREE.Mesh(
+        new THREE.CylinderGeometry(Math.min(w, d) * 0.3, Math.min(w, d) * 0.3, 0.4, 12),
+        fanMat
+      );
+      fan.position.y = h + 0.2;
+      group.add(fan);
+      break;
+    }
+    case 'cooling_tower': {
+      const det = eq.details || {};
+      const fanR = det.fanRadius  || Math.min(w, d) * 0.3;
+      const fanH = det.fanHeight  || 1.5;
+      const bodyH = h - fanH;
+      const louverCount = det.louverCount || 8;
+      // Main body.
+      const body = new THREE.Mesh(new THREE.BoxGeometry(w, bodyH, d), housingMat);
+      body.position.y = bodyH / 2;
+      group.add(body);
+      // Vertical louver ridges on +/-Z faces.
+      const louverGap = bodyH * 0.1;
+      for (let i = 0; i < louverCount; i++) {
+        const xMid = -w / 2 + (i + 0.5) * (w / louverCount);
+        const ridgeW = (w / louverCount) * 0.4;
+        const ridge = new THREE.Mesh(
+          new THREE.BoxGeometry(ridgeW, bodyH - 2 * louverGap, 0.2),
+          accentMat
+        );
+        ridge.position.set(xMid, bodyH / 2, -d / 2 - 0.1);
+        group.add(ridge);
+        const back = ridge.clone();
+        back.position.z = d / 2 + 0.1;
+        group.add(back);
+      }
+      // Fan housing cylinder + hub on top.
+      const fan = new THREE.Mesh(
+        new THREE.CylinderGeometry(fanR, fanR, fanH, 16),
+        fanMat
+      );
+      fan.position.y = bodyH + fanH / 2;
+      group.add(fan);
+      const hub = new THREE.Mesh(
+        new THREE.CylinderGeometry(fanR * 0.25, fanR * 0.25, 0.3, 8),
+        accentMat
+      );
+      hub.position.y = bodyH + fanH + 0.15;
+      group.add(hub);
+      break;
+    }
+    case 'tank_round_legged': {
+      const det = eq.details || {};
+      const tankR = det.tankRadius || Math.min(w, d) / 2;
+      const tankH = det.tankHeight || h * 0.8;
+      const legH  = det.legHeight  || (h - tankH);
+      const legCount = det.legCount || 4;
+      const legSize = 0.4;
+      const legR = Math.max(0.5, tankR - legSize);
+      // Legs.
+      for (let i = 0; i < legCount; i++) {
+        const ang = (i / legCount) * Math.PI * 2;
+        const cx = legR * Math.cos(ang);
+        const cz = legR * Math.sin(ang);
+        const leg = new THREE.Mesh(
+          new THREE.BoxGeometry(legSize, legH, legSize),
+          legMat
+        );
+        leg.position.set(cx, legH / 2, cz);
+        group.add(leg);
+      }
+      // Tank body (cylinder).
+      const bodyTankH = tankH * 0.85;
+      const tank = new THREE.Mesh(
+        new THREE.CylinderGeometry(tankR, tankR, bodyTankH, 16),
+        tankMat
+      );
+      tank.position.y = legH + bodyTankH / 2;
+      group.add(tank);
+      // Top dome (frustum) tapering to a narrower top.
+      const domeH = tankH - bodyTankH;
+      const dome = new THREE.Mesh(
+        new THREE.CylinderGeometry(tankR * 0.7, tankR, domeH, 16),
+        tankMat
+      );
+      dome.position.y = legH + bodyTankH + domeH / 2;
+      group.add(dome);
+      // Small vent stack on top.
+      const vent = new THREE.Mesh(
+        new THREE.CylinderGeometry(tankR * 0.15, tankR * 0.15, 0.6, 8),
+        ventMat
+      );
+      vent.position.y = legH + tankH + 0.3;
+      group.add(vent);
+      break;
+    }
+    case 'tank_square_legged': {
+      const det = eq.details || {};
+      const tankH = det.tankH || h * 0.75;
+      const legH  = det.legH  || (h - tankH);
+      const legSize = 0.5;
+      const corners = [
+        [-w/2 + legSize/2, -d/2 + legSize/2],
+        [ w/2 - legSize/2, -d/2 + legSize/2],
+        [-w/2 + legSize/2,  d/2 - legSize/2],
+        [ w/2 - legSize/2,  d/2 - legSize/2],
+      ];
+      for (const [cx, cz] of corners) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(legSize, legH, legSize), legMat);
+        leg.position.set(cx, legH / 2, cz);
+        group.add(leg);
+      }
+      // Tank body.
+      const tank = new THREE.Mesh(new THREE.BoxGeometry(w, tankH, d), tankMat);
+      tank.position.y = legH + tankH / 2;
+      group.add(tank);
+      // Panel seams: faint cross on front & back faces.
+      const seamH = 0.08;
+      const seamFront = new THREE.Mesh(new THREE.BoxGeometry(w, seamH, 0.15), accentMat);
+      seamFront.position.set(0, legH + tankH * 0.5, -d / 2 - 0.075);
+      group.add(seamFront);
+      const seamFrontV = new THREE.Mesh(new THREE.BoxGeometry(0.08, tankH, 0.15), accentMat);
+      seamFrontV.position.set(0, legH + tankH / 2, -d / 2 - 0.075);
+      group.add(seamFrontV);
+      const seamBack = seamFront.clone();  seamBack.position.z = d / 2 + 0.075;
+      const seamBackV = seamFrontV.clone(); seamBackV.position.z = d / 2 + 0.075;
+      group.add(seamBack); group.add(seamBackV);
+      // Vent on top.
+      const vent = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.4, 0.4, 0.5, 8),
+        ventMat
+      );
+      vent.position.y = legH + tankH + 0.25;
+      group.add(vent);
+      break;
+    }
+    case 'mushroom': {
+      const det = eq.details || {};
+      const stackR = det.stackRadius || 1.0;
+      const stackH = det.stackHeight || h * 0.7;
+      const capR   = det.capRadius   || stackR * 1.6;
+      const capH   = det.capHeight   || (h - stackH);
+      // Stack.
+      const stack = new THREE.Mesh(
+        new THREE.CylinderGeometry(stackR, stackR, stackH, 12),
+        ventMat
+      );
+      stack.position.y = stackH / 2;
+      group.add(stack);
+      // Cap base.
+      const capCyl = new THREE.Mesh(
+        new THREE.CylinderGeometry(capR, capR, capH * 0.3, 12),
+        accentMat
+      );
+      capCyl.position.y = stackH + capH * 0.15;
+      group.add(capCyl);
+      // Cap top tapering up.
+      const capTop = new THREE.Mesh(
+        new THREE.CylinderGeometry(capR * 0.6, capR, capH * 0.7, 12),
+        accentMat
+      );
+      capTop.position.y = stackH + capH * 0.3 + (capH * 0.7) / 2;
+      group.add(capTop);
+      break;
+    }
+    case 'cabinet_tall': {
+      const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), cabMat);
+      body.position.y = h / 2;
+      group.add(body);
+      // Door divider on front (-Z).
+      const divider = new THREE.Mesh(
+        new THREE.BoxGeometry(w, 0.08, 0.15),
+        new THREE.MeshStandardMaterial({ color: 0x4a4030 })
+      );
+      divider.position.set(0, h * 0.5, -d / 2 - 0.075);
+      group.add(divider);
+      // Door handle bumps.
+      const handleMat = new THREE.MeshStandardMaterial({ color: 0x202020, metalness: 0.6 });
+      for (const yPos of [h * 0.4, h * 0.65]) {
+        const handle = new THREE.Mesh(
+          new THREE.BoxGeometry(0.5, 0.1, 0.15),
+          handleMat
+        );
+        handle.position.set(0, yPos, -d / 2 - 0.075);
+        group.add(handle);
+      }
+      // Top cap (overhanging slightly).
+      const cap = new THREE.Mesh(
+        new THREE.BoxGeometry(w + 0.3, 0.2, d + 0.3),
+        cabMat
+      );
+      cap.position.y = h - 0.1;
+      group.add(cap);
+      break;
+    }
+    case 'antenna': {
+      const det = eq.details || {};
+      const baseW = det.baseW || w;
+      const baseH = det.baseH || 1.0;
+      const mastR = det.mastRadius || 0.3;
+      const mastH = det.mastHeight || (h - baseH);
+      const baseMat3D = new THREE.MeshStandardMaterial({ color: 0x303035, metalness: 0.4 });
+      const mastMat3D = new THREE.MeshStandardMaterial({ color: 0x202025, metalness: 0.5 });
+      const base = new THREE.Mesh(new THREE.BoxGeometry(baseW, baseH, baseW), baseMat3D);
+      base.position.y = baseH / 2;
+      group.add(base);
+      const mast = new THREE.Mesh(
+        new THREE.CylinderGeometry(mastR, mastR, mastH, 8),
+        mastMat3D
+      );
+      mast.position.y = baseH + mastH / 2;
+      group.add(mast);
+      // Tip cap.
+      const tip = new THREE.Mesh(
+        new THREE.CylinderGeometry(mastR * 1.3, mastR * 1.3, 0.3, 6),
+        mastMat3D
+      );
+      tip.position.y = baseH + mastH - 0.15;
+      group.add(tip);
+      break;
+    }
+    default: {
+      const fallback = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), housingMat);
+      fallback.position.y = h / 2;
+      group.add(fallback);
+    }
+  }
+  return group;
 }
 
 /* ---- main preview builder ---- */
@@ -18494,15 +20381,26 @@ function updateThreePreview(cfg) {
   const fbSlant   = isSlanted && !sltNsAxis
     ? (slopeDir === 'east' ? +sltPitch : -sltPitch) : 0;
 
-  // Texture height includes the triangle/slant so the full face is mapped.
-  const fbTexH    = Math.max(frontH, backH)   + fbGable;
-  const sideTexH  = Math.max(eastH,  westH)   + sideGable;
+  // Texture height per wall. ExtrudeGeometry UVs are raw shape (mm) coords,
+  // and buildWallTexture scales them by 1/wallH (the texture-height param),
+  // so each wall MUST receive a texture sized to its OWN mesh height —
+  // including the gable triangle (gablePitch) AND any slant extension
+  // (max(0, |slantPitch|), since the trapezoidal mesh extends ABOVE wallH on
+  // one corner). Using a shared max-of-both height or omitting the slant
+  // means the shorter / lower-corner end maps its UV V into only the
+  // BOTTOM portion of an oversized canvas (pattern shifted down with bare
+  // wall above), or the taller / high-corner end wraps off the top of
+  // the canvas (V > 1 → texture wraps).
+  const frontTexH = frontH + fbGable   + Math.abs(fbSlant);
+  const backTexH  = backH  + fbGable   + Math.abs(fbSlant);
+  const eastTexH  = eastH  + sideGable + Math.abs(eastSlant);
+  const westTexH  = westH  + sideGable + Math.abs(westSlant);
 
   // Front wall (z = +d/2)
   const frontOps = get3DWallOpenings(cfg, plan, 'front');
   const frontVis  = visOnly(frontOps);
-  const frontTex  = buildWallTexture(cfg, w, fbTexH, frontVis, false);
-  const frontMesh = buildWallMesh3D(w, frontH, t, frontVis, wallMat, false, frontTex, fbGable, fbSlant);
+  const frontTex  = buildWallTexture(cfg, w, frontTexH, h, frontVis, false);
+  const frontMesh = buildWallMesh3D(w, frontH, h, t, frontVis, wallMat, false, frontTex, fbGable, fbSlant);
   // North outer face at z = -d/2; extrusion goes +z (inward) to -d/2+t
   frontMesh.position.set(0, 0, -d / 2);
   group.add(frontMesh);
@@ -18519,8 +20417,8 @@ function updateThreePreview(cfg) {
   // Back wall (z = -d/2), shape is mirrored left/right when viewed from outside
   const backOps = get3DWallOpenings(cfg, plan, 'back');
   const backVis  = visOnly(backOps);
-  const backTex  = buildWallTexture(cfg, w, fbTexH, backVis, true);
-  const backMesh = buildWallMesh3D(w, backH, t, backVis, wallMat, true, backTex, fbGable, fbSlant);
+  const backTex  = buildWallTexture(cfg, w, backTexH, h, backVis, true);
+  const backMesh = buildWallMesh3D(w, backH, h, t, backVis, wallMat, true, backTex, fbGable, fbSlant);
   // South inner face at z = d/2-t; extrusion goes +z (outward) so back cap lands at d/2
   backMesh.position.set(0, 0, d / 2 - t);
   group.add(backMesh);
@@ -18536,8 +20434,8 @@ function updateThreePreview(cfg) {
   // East wall (x = +w/2), rotated 90° around Y
   const eastOps = get3DWallOpenings(cfg, plan, 'east');
   const eastVis  = visOnly(eastOps);
-  const eastTex  = buildWallTexture(cfg, sideLen, sideTexH, eastVis, true);
-  const eastMesh = buildWallMesh3D(sideLen, eastH, t, eastVis, wallMat, true, eastTex, sideGable, eastSlant);
+  const eastTex  = buildWallTexture(cfg, sideLen, eastTexH, h, eastVis, true);
+  const eastMesh = buildWallMesh3D(sideLen, eastH, h, t, eastVis, wallMat, true, eastTex, sideGable, eastSlant);
   // rotation.y=π/2 maps local +z → world +x, so outer back-cap lands at position.x + t
   // Position at w/2-t so the outer face sits exactly at x=+w/2
   eastMesh.rotation.y = Math.PI / 2;
@@ -18556,8 +20454,8 @@ function updateThreePreview(cfg) {
   // West wall (x = -w/2), rotated -90° around Y
   const westOps = get3DWallOpenings(cfg, plan, 'west');
   const westVis  = visOnly(westOps);
-  const westTex  = buildWallTexture(cfg, sideLen, sideTexH, westVis, false);
-  const westMesh = buildWallMesh3D(sideLen, westH, t, westVis, wallMat, false, westTex, sideGable, westSlant);
+  const westTex  = buildWallTexture(cfg, sideLen, westTexH, h, westVis, false);
+  const westMesh = buildWallMesh3D(sideLen, westH, h, t, westVis, wallMat, false, westTex, sideGable, westSlant);
   // rotation.y=-π/2 maps local +z → world -x, outer back-cap lands at position.x - t
   // Position at -w/2+t so the outer face sits exactly at x=-w/2
   westMesh.rotation.y = -Math.PI / 2;
@@ -18686,9 +20584,9 @@ function updateThreePreview(cfg) {
     const mkM = (tex) => tex
       ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 })
       : wallMat;
-    const oMat = mkM(fixBoxTex(buildWallTexture(wCfg, fW, wH, outerOps, false), false));
-    const nMat = mkM(fixBoxTex(buildWallTexture(wCfg, bW, wH, westOps,  false), false));
-    const sMat = mkM(fixBoxTex(buildWallTexture(wCfg, bW, wH, eastOps,  false), true));
+    const oMat = mkM(fixBoxTex(buildWallTexture(wCfg, fW, wH, wH, outerOps, false), false));
+    const nMat = mkM(fixBoxTex(buildWallTexture(wCfg, bW, wH, wH, westOps,  false), false));
+    const sMat = mkM(fixBoxTex(buildWallTexture(wCfg, bW, wH, wH, eastOps,  false), true));
     const cMat = wallMat;  // connection (interior) face — plain
 
     // Map face roles to BoxGeometry material slots
@@ -18771,6 +20669,35 @@ function updateThreePreview(cfg) {
     );
     mech.position.set(cfg.rooftopMechRoomXOffset, h + cfg.rooftopMechRoomHeight / 2 + t, cfg.rooftopMechRoomYOffset);
     group.add(mech);
+  }
+
+  // ---- Rooftop equipment STLs (matches the 3D-printable model emitted by
+  // the build). Each placement's roof-local (x, y) gives the bottom-left
+  // (front-west) corner of the footprint; centre it and translate the mesh
+  // group to the deck-top world position. The roof-local frame has y=0 at
+  // the FRONT (south) edge and y=roofD at the BACK (north) edge, matching
+  // the mech-room positioning convention where +Z = back. ----
+  if (plan.rooftopEquipPlacements && plan.rooftopEquipPlacements.length > 0) {
+    const isParapet = (cfg.roofStyle === 'parapet');
+    const pH = plan.parapetH || 0;
+    // Roof bounds used by the placement algorithm (must match buildEdgePlans).
+    const roofW = isParapet ? (cfg.width - 2 * t)  : cfg.width;
+    const roofD = isParapet ? (cfg.depth - 2 * t)  : cfg.depth;
+    // Deck top world-Y. For parapet roofs, the deck is recessed below the
+    // wall tops by parapetH; for non-parapet roofs the mech room convention
+    // (h + t) is the closest approximation we have. Slanted/gabled roofs
+    // get the same flat-deck approximation — equipment placement is
+    // already authored against a flat roof piece in the laser-cut output.
+    const deckTopY = isParapet ? (h - pH + t) : (h + t);
+    for (const p of plan.rooftopEquipPlacements) {
+      const mesh = build3DEquipMesh({ equipKey: p.key });
+      if (!mesh) continue;
+      // Convert roof-local bottom-left → world-centered position.
+      const cx = (p.x + p.w / 2) - roofW / 2;
+      const cz = (p.y + p.d / 2) - roofD / 2;
+      mesh.position.set(cx, deckTopY, cz);
+      group.add(mesh);
+    }
   }
 
   // ---- Rooftop shield wall ----

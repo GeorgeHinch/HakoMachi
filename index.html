@@ -11649,6 +11649,58 @@ function readForm() {
   CONFIG.claddingThickness = (CONFIG.materials.find(m=>m.id==='cladding')?.thickness) || 0.28;
   CONFIG.tongueWidth = num('tongueWidth');
   CONFIG.kerfComp = num('kerfComp');
+
+  // Drop any manually-placed openings / awnings / balconies / fixtures /
+  // cladding overrides / printed items that no longer fit on their wall.
+  // Triggered by anything that shrinks the wall (most commonly: reducing
+  // floor count, or shortening floor height). Without this, a bay that
+  // was at y=96 on a 120 mm wall sticks around when the wall drops to
+  // 60 mm — the item still exists in CONFIG, the wall editor renders
+  // it below the visible canvas, and the user sees nothing where their
+  // bay used to be. Removing rather than clamping matches what the user
+  // expects: "if I delete the floor, delete the things on it too."
+  pruneOpeningsBeyondWall(CONFIG);
+}
+
+/* Remove any per-face manually-placed item whose top edge sits at or
+ * below the new wall bottom. Operates in-place on each manual* array so
+ * downstream code (regenerate, openOpeningEditor, the IW editor) all
+ * see the cleaned-up data. Items whose body extends slightly past the
+ * wall bottom but whose top is still inside are KEPT — the wall outline
+ * clips them visually and the user can adjust them; only fully-orphaned
+ * items get culled. wallH is CONFIG.height, the base wall height
+ * (excluding any gable peak above), which is the same threshold the
+ * opening editor uses to size its canvas.
+ */
+function pruneOpeningsBeyondWall(cfg) {
+  const wallH = cfg.height;
+  if (!wallH || wallH <= 0) return;
+  const stores = [
+    cfg.manualOpenings,
+    cfg.manualAwnings,
+    cfg.manualBalconies,
+    cfg.manualFixtures,
+    cfg.manualCladdingOverrides,
+    cfg.manualPrintedItems,
+  ];
+  for (const store of stores) {
+    if (!store || typeof store !== 'object') continue;
+    for (const face of ['front', 'back', 'east', 'west']) {
+      const arr = store[face];
+      if (!Array.isArray(arr) || arr.length === 0) continue;
+      // y=0 is the wall top, y=wallH the wall bottom. An item with
+      // y >= wallH is fully past the bottom — remove. Items with their
+      // top edge anywhere on the wall (even y=wallH-1) are kept and
+      // the wall outline clips any body that extends past the bottom.
+      const kept = arr.filter(item =>
+        !item || typeof item.y !== 'number' || item.y < wallH
+      );
+      if (kept.length !== arr.length) {
+        arr.length = 0;
+        arr.push(...kept);
+      }
+    }
+  }
 }
 
 /* Write CONFIG to the form */

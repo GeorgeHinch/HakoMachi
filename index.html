@@ -1344,6 +1344,23 @@ const CLADDING_STYLES = {
     tileW: 1.8, tileH: 2.0,
     notes: 'Use on roof cladding piece, not walls.',
   },
+  corrugated_metal_overlap: {
+    label: 'Corrugated metal (overlapping sheets)',
+    description: 'Galvanized corrugated metal roofing in overlapping sheets — the classic "tin roof" look seen on industrial sheds, agricultural buildings, and weathered tropical residences. Sheets ~750×1800mm real (5×12mm at 1:150), each with fine vertical corrugation ridges; adjacent rows offset half a sheet width so the lap joints stagger like brickwork.',
+    pattern: 'corrugated_overlap',
+    sheetW: 5, sheetH: 12,
+    corrugationSpacing: 0.7,
+    offsetFraction: 0.5,
+    // For the editor's mini-swatch preview only — the actual etched pattern
+    // is emitted by the `corrugated_overlap` branch in generateCladdingPattern,
+    // which uses sheetW/sheetH/corrugationSpacing/offsetFraction above.
+    // seamSpacing here just gives the popover swatch a sane "dense vertical
+    // lines + a few horizontals" sketch so the style reads as ribbed-metal
+    // ish in the picker; without it the swatch would draw as a plain
+    // rectangle.
+    seamSpacing: { vertical: 0.7, horizontal: 12 },
+    notes: 'Roof cladding style — pairs naturally with slanted or gabled roofs. Corrugation spacing is at the edge of laser-etch resolution at 1:150; verify on a sample cut and widen the spacing if ridges blur together.',
+  },
 
   // ---- Stone & brick ----
   brick_course: {
@@ -5107,8 +5124,69 @@ function buildSlantedWallPath(wallW, wallH, pitchLeft, pitchRight, spec) {
 
   let d = `M 0,${(-pitchLeft).toFixed(3)}`;
 
-  // ---- SLANTED TOP EDGE (no features) ----
-  d += ` L ${wallW},${(-pitchRight).toFixed(3)}`;
+  // ---- TOP EDGE ----
+  // Two cases, both can carry tongues:
+  //
+  //   • Horizontal top (pitchLeft === pitchRight): top runs flat at
+  //     y=−pitch. Tongues stick straight UP just like buildWallPath's
+  //     top edge does — used by the HIGH-side FB wall on NS-axis slanted
+  //     roofs ("rectangular with a flat top raised by pitch", built via
+  //     buildSlantedWallPath with equal pitches).
+  //
+  //   • Slanted top (pitchLeft !== pitchRight): top runs diagonally from
+  //     (0, −pitchLeft) to (wallW, −pitchRight). Tongues stick
+  //     perpendicular to the slanted edge — they end up as small
+  //     parallelograms protruding outward (UP-and-toward-the-LOWER-end).
+  //     This is what the trapezoidal SIDE walls of an NS-axis slanted
+  //     roof need so they can key into the roof panel's verge-row slots,
+  //     analogous to the FB walls' eave-row tongues.
+  //
+  // Tongue x positions are taken from `spec.edges.top.tongues` as
+  // [start, end] x-ranges along the wall's x-axis (NOT arclength). When
+  // the top is slanted, each tongue's outer corners are offset from its
+  // base corners by matT in the direction of the outward unit normal
+  // N = ((pitchLeft − pitchRight), −wallW) / slantLenLocal. For a
+  // back-high case (pitchL=0, pitchR=pitch), N points UP-LEFT — exactly
+  // away from the wall body that sits below the slanted top edge.
+  const horizontalTop = (pitchLeft === pitchRight);
+  const hasTopTongues = spec.edges.top && (spec.edges.top.tongues || []).length > 0;
+  if (horizontalTop && hasTopTongues) {
+    const topTongues = [...spec.edges.top.tongues].sort((a, b) => a.start - b.start);
+    const topY = -pitchLeft;
+    let x = 0;
+    for (const t of topTongues) {
+      const tS = t.start + tk;
+      const tE = t.end   - tk;
+      if (tS > x) d += ` L ${tS.toFixed(3)},${topY.toFixed(3)}`;
+      d += ` L ${tS.toFixed(3)},${(topY - td).toFixed(3)}`
+         + ` L ${tE.toFixed(3)},${(topY - td).toFixed(3)}`
+         + ` L ${tE.toFixed(3)},${topY.toFixed(3)}`;
+      x = tE;
+    }
+    if (x < wallW) d += ` L ${wallW},${topY.toFixed(3)}`;
+  } else if (!horizontalTop && hasTopTongues) {
+    const topTongues = [...spec.edges.top.tongues].sort((a, b) => a.start - b.start);
+    const slantLenLocal = Math.hypot(wallW, pitchLeft - pitchRight);
+    const nx = (pitchLeft - pitchRight) / slantLenLocal;
+    const ny = -wallW / slantLenLocal;
+    const yAtX = (x) => -pitchLeft + x * (pitchLeft - pitchRight) / wallW;
+    let x = 0;
+    for (const t of topTongues) {
+      const tS = t.start + tk;
+      const tE = t.end   - tk;
+      if (tS > x) d += ` L ${tS.toFixed(3)},${yAtX(tS).toFixed(3)}`;
+      const yS = yAtX(tS);
+      const yE = yAtX(tE);
+      d += ` L ${(tS + td * nx).toFixed(3)},${(yS + td * ny).toFixed(3)}`
+         + ` L ${(tE + td * nx).toFixed(3)},${(yE + td * ny).toFixed(3)}`
+         + ` L ${tE.toFixed(3)},${yE.toFixed(3)}`;
+      x = tE;
+    }
+    if (x < wallW) d += ` L ${wallW},${(-pitchRight).toFixed(3)}`;
+  } else {
+    // ---- FEATURELESS TOP EDGE (slanted or horizontal, no tongues) ----
+    d += ` L ${wallW},${(-pitchRight).toFixed(3)}`;
+  }
 
   // ---- RIGHT EDGE (top-right → bottom-right), tongues/openings in [0, wallH] ----
   const rightFeats = [
@@ -5569,6 +5647,56 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
         // small tick from courseTop down by ~30% of the row height
         const tickEnd = courseTop + (H / nRows) * 0.3;
         const segs = clipVerticalLineByCuts(x, courseTop, tickEnd, cutOpenings);
+        for (const [a, b] of segs) out.push({ x1: x, y1: a, x2: x, y2: b });
+      }
+    }
+  }
+
+  else if (pat === 'corrugated_overlap') {
+    // Overlapping corrugated metal roofing sheets — the classic "tin roof"
+    // look. Each row of sheets sits staggered laterally from the row above
+    // (brick-pattern offset by `offsetFraction * sheetW`), and dense
+    // vertical lines etch the corrugation ridges within each row. Two line
+    // families render:
+    //
+    //   1. Full-width horizontal lines at every sheet-row boundary — the
+    //      visible lap where one course of sheets rests on top of the
+    //      course below.
+    //   2. Per-row vertical corrugations, each row's grid shifted by
+    //      `(sheetW * offsetFraction) mod corrSpacing` from its neighbour.
+    //      That shift is what makes the brick stagger READ at the row
+    //      boundary: corrugations don't line up across the lap, the same
+    //      way they don't in the photo reference.
+    //
+    // We deliberately don't draw explicit per-sheet LATERAL boundary
+    // marks. At typical model scale (~1:150) corrugations are already at
+    // the laser-etch resolution limit, and adding an extra vertical line
+    // at each sheet-edge would visually compete with the corrugations
+    // rather than reinforce the "sheets" reading — the horizontal lap
+    // banding plus the row-to-row corrugation stagger does that job
+    // cleanly on its own.
+    const sheetW = style.sheetW || 5;
+    const sheetH = style.sheetH || 12;
+    const corrSpacing = style.corrugationSpacing || 0.7;
+    const offsetFraction = (style.offsetFraction != null) ? style.offsetFraction : 0.5;
+
+    const nRows = Math.max(1, Math.floor(H / sheetH));
+    const rowH = H / nRows;
+
+    // 1. Horizontal sheet-row boundaries
+    for (let i = 1; i < nRows; i++) {
+      pushClippedH(panelTop + i * rowH, panelLeft, panelRight);
+    }
+
+    // 2. Per-row corrugations, with brick-stagger shift between adjacent rows
+    const shiftPerRow = (sheetW * offsetFraction) % corrSpacing;
+    for (let r = 0; r < nRows; r++) {
+      const yTop = panelTop + r * rowH;
+      const yBot = panelTop + (r + 1) * rowH;
+      const shift = (r % 2) * shiftPerRow;
+      for (let x = panelLeft + shift + corrSpacing; x < panelRight - 0.05; x += corrSpacing) {
+        if (x <= panelLeft + 0.05) continue;
+        const segs = clipVerticalLineByCuts(x, yTop, yBot, cutOpenings);
         for (const [a, b] of segs) out.push({ x1: x, y1: a, x2: x, y2: b });
       }
     }
@@ -6053,7 +6181,15 @@ function generateSideWall(cfg, plan, side) {
   // (the overhang). The slot positions in the roof are offset by O but the
   // tongue layout on the wall is identical, since both compute against the
   // same edge length.
-  const topTongues = (roofStyle === 'flat' || roofStyle === 'flat_overhang')
+  //
+  // Slanted NS-axis: side walls have trapezoidal tops (different pitches at
+  // each end). The tongues here are perpendicular to the slanted edge —
+  // buildSlantedWallPath handles the slanted-top tongue rendering — and
+  // key into a corresponding row of slots on the roof panel's verge edge.
+  const _earlySideSlopeDir = cfg.roofSlopeDirection || 'back';
+  const _earlySideSlantNs  = roofStyle === 'slanted'
+                           && (_earlySideSlopeDir === 'front' || _earlySideSlopeDir === 'back');
+  const topTongues = (roofStyle === 'flat' || roofStyle === 'flat_overhang' || _earlySideSlantNs)
     ? placeTongues(sideLen, tw, margin, [], 3, tw / 2)
     : [];
   
@@ -6252,6 +6388,17 @@ function generateSideWall(cfg, plan, side) {
   const sideWallPaths = [{ type: 'cut', d: perimeter }];
   cutFixtureHolesInCore(rects, sideWallPaths, cfg, _sideWallKey, sideMirrorFn);
 
+  // Bbox extension: the slanted-NS side wall has its top edge slanted from
+  // y=−pitchL at x=0 to y=−pitchR at x=sideLen — the bbox already covers
+  // that via `H + sPitch + matT`/`bboxOffsetY = sPitch`. When the wall ALSO
+  // carries top tongues (added above for slanted-NS so the side walls key
+  // into the roof's verge slots), the tongues protrude perpendicular to
+  // the slanted edge by matT. The outermost tongue extent in the y-axis
+  // is matT * (wallW / slantLen) — slightly less than matT in absolute
+  // terms because the normal has a small x-component — but matT is the
+  // safe upper bound. So when topTongues are present, grow the bbox up
+  // by matT (same shape of adjustment as the high-side FB wall).
+  const sideTopTongueOverhang = (topTongues.length > 0 && isSlantedRoof && slantNsAxis) ? matT : 0;
   return {
     id: side === 'E' ? 'side_wall_east' : 'side_wall_west',
     name: side === 'E' ? 'Side Wall East' : 'Side Wall West',
@@ -6259,12 +6406,12 @@ function generateSideWall(cfg, plan, side) {
     bboxW: sideLen + 2 * matT,
     bboxH: isSideGableEnd
             ? H + sPitch + matT
-            : (isSlantedRoof && slantNsAxis) ? H + sPitch + matT
+            : (isSlantedRoof && slantNsAxis) ? H + sPitch + matT + sideTopTongueOverhang
             : H + 2 * matT,
     bboxOffsetX: matT,
     bboxOffsetY: isSideGableEnd
             ? sPitch
-            : (isSlantedRoof && slantNsAxis) ? sPitch
+            : (isSlantedRoof && slantNsAxis) ? sPitch + sideTopTongueOverhang
             : matT,
     paths: sideWallPaths,
     rects: rects,
@@ -6364,8 +6511,15 @@ function generateFrontBackWall(cfg, plan, which) {
 
   // Top edge: depending on roof style. flat_overhang uses the same wall-top
   // tongue + roof-slot mechanism as flat (the overhang is purely in the
-  // roof core's larger footprint; the tongue layout is identical).
-  const topTongues = (roofStyle === 'flat' || roofStyle === 'flat_overhang')
+  // roof core's larger footprint; the tongue layout is identical). Slanted
+  // roofs on the NS axis have FB walls with flat tops (the low side at H
+  // and the high side rectangular-extended up to H+pitch, but in both
+  // cases the top edge runs horizontally), so they too can carry tongues
+  // that key into the roof panel's eave-row slots.
+  const _earlySlopeDir = cfg.roofSlopeDirection || 'back';
+  const _earlySlantNs  = roofStyle === 'slanted'
+                       && (_earlySlopeDir === 'front' || _earlySlopeDir === 'back');
+  const topTongues = (roofStyle === 'flat' || roofStyle === 'flat_overhang' || _earlySlantNs)
     ? placeTongues(fbWidth, tw, margin, [], 3, tw / 2)
     : [];
 
@@ -6654,21 +6808,51 @@ function generateFrontBackWall(cfg, plan, which) {
   // land). Empty when there's no bay door or the door is 100% open.
   const wallLines = bayDoorAlignmentMarks(cfg, plan, which);
 
+  // Bbox extension: the high-side FB wall on a slanted-NS roof has its top
+  // edge raised by `pitch` (so the wall sits flush with the roof angle's
+  // upper end). When that wall ALSO carries top tongues (added above for
+  // slanted-NS so the FB walls key into the roof's eave slots), the
+  // tongues stick up another `matT` past the raised top, and the bbox has
+  // to grow to include them. `topTongueOverhang` is matT for any FB wall
+  // that actually has top tongues, 0 otherwise; the bbox offset + height
+  // both add it. Low-side walls already get a matT top overhang in the
+  // default branch (`matT` bboxOffsetY + `H + 2*matT` bboxH), so no extra
+  // adjustment is needed there.
+  const topTongueOverhang = (topTongues.length > 0) ? matT : 0;
   return {
     id: which + '_wall',
     name: which === 'front' ? 'Front Wall' : 'Back Wall',
     material: 'core',
     bboxW: fbWidth,
     bboxH: isGableEnd ? H + pitch + matT
-         : isHighSideFB ? H + pitch + matT
+         : isHighSideFB ? H + pitch + matT + topTongueOverhang
          : H + 2 * matT,
     bboxOffsetX: 0,
     bboxOffsetY: isGableEnd ? pitch
-                : isHighSideFB ? pitch
+                : isHighSideFB ? pitch + topTongueOverhang
                 : matT,
     paths: wallPaths,
     rects: rects,
     lines: wallLines,
+    // For EW-axis slanted roofs the trapezoidal front/back outlines are
+    // congruent in the wall coordinate system — both walls store the slope
+    // at the same end (e.g. east-high → `pitchR = pitch` for both). That
+    // makes the laser-cut sheet show two identical shapes, but the front
+    // wall's exterior face is south (east on the right when viewed from
+    // outside) and the back wall's exterior face is north (east on the
+    // LEFT when viewed from outside) — they need to be physical mirrors
+    // of each other for the trapezoid to slope in the same physical
+    // direction on both walls. The back panel gets a render-time
+    // horizontal mirror so its outline AND internal cuts (windows, doors,
+    // tongues, slots) all reflect together; front stays as cut, back is
+    // presented (and cut) as its mirror.
+    //
+    // Same trick as `side === 'W' && isSlantedRoof && slantNsAxis` does
+    // for the west side wall on NS-axis slanted roofs. Doesn't apply to
+    // NS-axis (FB walls are rectangular there — only their height differs
+    // and the extension is x-symmetric) or to gabled walls (pentagons are
+    // x-symmetric about the ridge).
+    mirrorX: which === 'back' && isSlantedFB && !isSlantedNS,
     windows: windowsToDraw.length,
     doors: doors.length,
   };
@@ -7018,8 +7202,125 @@ function generateRoof(cfg, plan) {
     const slantLen = slantLen0 + 2 * ohSlant;
     const perpLen  = perpLen0  + 2 * ohVerge;
 
-    // No tongue-slot joints: the panel simply rests on the wall tops.
-    // A plain rectangle is all that's needed.
+    // Tongue/slot joints at the eave edges: for NS-axis slope, the FB walls
+    // (front and back) have flat tops carrying tongues that key into slot
+    // rows in the roof panel here. Both FB walls' top edges sit at the same
+    // horizontal positions in the roof's perpendicular direction (along
+    // perpLen = fbWidth), and use the same `placeTongues(fbWidth, tw,
+    // margin, [], 3, tw/2)` layout as generateFrontBackWall's topTongues.
+    //
+    // The walls are inset from the roof's outer perimeter by `ohSlant` on
+    // each eave end (the eave overhang) and `ohVerge` on each verge side.
+    // So the front-wall row sits at roof y = ohSlant and the back-wall row
+    // sits at roof y = slantLen − ohSlant − matT, with each slot rect's x
+    // shifted by ohVerge to land at the wall's actual span. BLEED widens
+    // the y dimension slightly so the vertical wall tongue passes through
+    // the tilted roof's slot without binding at the slope angle.
+    //
+    // EW-axis slope skipped here — that case puts the trapezoidal walls on
+    // the FB axis and the flat-topped walls on the side axis; not all
+    // EW-axis geometry is finished (the side walls don't yet rise to
+    // H+pitch on the high-eave end), so we don't try to wire the joints
+    // for it. NS-axis is the common case and matches the user's setup.
+    const rects = [];
+    const lines = [];
+    if (nsAxis) {
+      const matT = plan.matT;
+      const tw = plan.tw;
+      const slotMargin = Math.max(matT * 2, 5);
+      const eaveSlots = placeTongues(perpLen0, tw, slotMargin, [], 3, tw / 2);
+      const BLEED = 0.6;
+      // Front-eave row. Wall sits inset from the eave by `ohSlant`, with its
+      // outer face at roof-y = ohSlant and its inner face at ohSlant + matT.
+      // The slot wraps the wall material with BLEED on each side, then
+      // clamps to the roof's outer edge so a zero-overhang build still
+      // produces a valid slot (the slot sits flush against the eave with
+      // no negative-y excursion past the perimeter).
+      {
+        let y = ohSlant - BLEED;
+        let h = matT + 2 * BLEED;
+        if (y < 0) { h += y; y = 0; }
+        for (const s of eaveSlots) {
+          rects.push({
+            type: 'cut',
+            x: ohVerge + s.start, y: y,
+            w: s.end - s.start, h: h,
+            compensateKerf: true,
+          });
+        }
+      }
+      // Back-eave row. Wall outer face at roof-y = slantLen − ohSlant;
+      // inner face at slantLen − ohSlant − matT. Same BLEED logic, but
+      // clamped on the slantLen end instead of the 0 end.
+      {
+        let y = slantLen - ohSlant - matT - BLEED;
+        let h = matT + 2 * BLEED;
+        if (y + h > slantLen) { h = slantLen - y; }
+        for (const s of eaveSlots) {
+          rects.push({
+            type: 'cut',
+            x: ohVerge + s.start, y: y,
+            w: s.end - s.start, h: h,
+            compensateKerf: true,
+          });
+        }
+      }
+      // Verge slot rows: the trapezoidal SIDE walls (east, west) carry
+      // perpendicular-to-edge tongues on their slanted tops (added in
+      // buildSlantedWallPath's slanted-top branch), and those need a
+      // matching slot row on each verge of the roof.
+      //
+      // Position mapping from wall-x to roof-y:
+      //   Side wall x runs from 0 (3D z=matT, just inside front wall) to
+      //   sideLen (3D z=depth-matT, just inside back wall). In the roof's
+      //   unrolled y, those map to y = ohSlant + matT and
+      //   y = ohSlant + slantLen0 − matT respectively. So roof-y for a
+      //   wall-x of `x` is approximately ohSlant + matT + x (using
+      //   slantLen0/depth ≈ 1; for typical pitch/depth < 0.25 the error
+      //   is under 3% and well within the BLEED tolerance).
+      //
+      //   The same `placeTongues(sideLen, tw, slotMargin, [], 3, tw/2)`
+      //   call that the side wall uses for its top tongues gives us slot
+      //   start/end positions in the wall's x-axis; offset them by
+      //   ohSlant + matT and they land on the roof's verge.
+      //
+      // West verge sits at roof x = ohVerge (= the west wall's outer
+      // face). East verge sits at roof x = perpLen − ohVerge (= the east
+      // wall's outer face). The slot rect extends matT INWARD from there
+      // to cover the wall material's thickness, plus BLEED on the inside
+      // for the same slope-angle clearance the eave slots use; the
+      // outward end clamps to the roof's perimeter when ohVerge = 0.
+      const vergeSlots = placeTongues(sideLen, tw, slotMargin, [], 3, tw / 2);
+      {
+        // West verge — slots at roof x ≈ ohVerge (the west wall's outer face)
+        let x = ohVerge - BLEED;
+        let w = matT + 2 * BLEED;
+        if (x < 0) { w += x; x = 0; }
+        for (const s of vergeSlots) {
+          rects.push({
+            type: 'cut',
+            x: x, y: ohSlant + matT + s.start,
+            w: w, h: s.end - s.start,
+            compensateKerf: true,
+          });
+        }
+      }
+      {
+        // East verge — slots at roof x ≈ perpLen − ohVerge − matT (east wall material)
+        let x = perpLen - ohVerge - matT - BLEED;
+        let w = matT + 2 * BLEED;
+        if (x + w > perpLen) { w = perpLen - x; }
+        for (const s of vergeSlots) {
+          rects.push({
+            type: 'cut',
+            x: x, y: ohSlant + matT + s.start,
+            w: w, h: s.end - s.start,
+            compensateKerf: true,
+          });
+        }
+      }
+    }
+
     const perimeter = rectPath(0, 0, perpLen, slantLen);
 
     const highLabel = { front:'front high', back:'back high', east:'east high', west:'west high' }[slopeDir];
@@ -7028,7 +7329,8 @@ function generateRoof(cfg, plan) {
       material: 'core',
       bboxW: perpLen, bboxH: slantLen, bboxOffsetX: 0, bboxOffsetY: 0,
       paths: [{ type: 'cut', d: perimeter }, ...holePathsForList(cfg.roofHoles), ...skylightHolePaths(cfg.skylights)],
-      rects: [], lines: [],
+      rects: rects,
+      lines: lines,
     };
     const claddingPanel = generateRoofCladdingPanel('roof_cladding', `Roof Cladding (slanted — ${highLabel})`,
       perpLen, slantLen, CLADDING_STYLES[cfg.roofCladdingStyle || cfg.claddingStyle], cfg);
@@ -9483,6 +9785,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
       cladOverrides.push({
         x: ov.x + cT, y: ov.y, w: ov.w, h: ov.h,
         claddingStyle: ov.claddingStyle,
+        layered: !!ov.layered,
       });
     }
   } else {
@@ -9553,6 +9856,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
       cladOverrides.push({
         x: _sideMirroredX(ov.x, ov.w), y: ov.y, w: ov.w, h: ov.h,
         claddingStyle: ov.claddingStyle,
+        layered: !!ov.layered,
       });
     }
   }
@@ -9630,11 +9934,37 @@ function generateCladdingPanel(cfg, plan, which, band) {
     rects.push({ type: 'cut', x: d.x, y: d.y, w: d.w, h: d.h, compensateKerf: false });
     cutOpenings.push({ x: d.x, y: d.y, w: d.w, h: d.h });
   }
-  // Cladding overrides cut a hole in the main cladding (same as a window
-  // would), and a separate piece in the secondary style is cut by
-  // generateCladdingOverrideParts to glue into the gap.
+  // Cladding overrides come in two mount modes:
+  //   • Flush (`layered === false`, the default): cut a rectangular hole
+  //     through the base cladding. The override piece — produced by
+  //     generateCladdingOverrideParts — slots into this hole and ends up
+  //     coplanar with the base cladding (sandwiched between the core and
+  //     the surrounding cladding, no thickness step).
+  //   • Layered (`layered === true`): no hole cut. Instead etch L-bracket
+  //     corner ticks at the four corners of the override's bbox — the
+  //     same alignment-mark idiom used for layered fixtures — so the user
+  //     can position the override piece accurately during assembly. The
+  //     override sits ON TOP of the base cladding (raised by one material
+  //     thickness in that patch). Either way we add the bbox to
+  //     `cutOpenings` so the base cladding's etched pattern is clipped
+  //     out of the override's footprint — in layered mode we don't want
+  //     the base pattern showing through under the override piece, and
+  //     in flush mode we don't want pattern lines inside the cut hole.
   for (const o of cladOverridesBand) {
-    rects.push({ type: 'cut', x: o.x, y: o.y, w: o.w, h: o.h, compensateKerf: false });
+    if (o.layered) {
+      const tickLen = Math.max(0.6, Math.min(1.5, Math.min(o.w, o.h) * 0.25));
+      const x1 = o.x, y1 = o.y, x2 = o.x + o.w, y2 = o.y + o.h;
+      lines.push({ type: 'etch', x1: x1, y1: y1, x2: x1 + tickLen, y2: y1 });
+      lines.push({ type: 'etch', x1: x1, y1: y1, x2: x1, y2: y1 + tickLen });
+      lines.push({ type: 'etch', x1: x2, y1: y1, x2: x2 - tickLen, y2: y1 });
+      lines.push({ type: 'etch', x1: x2, y1: y1, x2: x2, y2: y1 + tickLen });
+      lines.push({ type: 'etch', x1: x1, y1: y2, x2: x1 + tickLen, y2: y2 });
+      lines.push({ type: 'etch', x1: x1, y1: y2, x2: x1, y2: y2 - tickLen });
+      lines.push({ type: 'etch', x1: x2, y1: y2, x2: x2 - tickLen, y2: y2 });
+      lines.push({ type: 'etch', x1: x2, y1: y2, x2: x2, y2: y2 - tickLen });
+    } else {
+      rects.push({ type: 'cut', x: o.x, y: o.y, w: o.w, h: o.h, compensateKerf: false });
+    }
     cutOpenings.push({ x: o.x, y: o.y, w: o.w, h: o.h });
   }
   // Fixture markers on cladding — three branches by placement:
@@ -9866,6 +10196,20 @@ function generateCladdingPanel(cfg, plan, which, band) {
     paths: paths,
     rects: rects,
     lines: lines,
+    // For slanted roofs the trapezoidal wall pair (FB on EW-axis, sides on
+    // NS-axis) has the "non-canonical" wall — back for EW, west for NS —
+    // rendered as the horizontal mirror of its sibling. The CLADDING that
+    // glues onto that wall has to mirror in lockstep: its panel pattern,
+    // opening cuts, trim notches, fixture etches all need to land at the
+    // mirrored physical positions to align with the mirrored core. Without
+    // this, two walls' cladding panels can hash identical (centered doors
+    // and symmetric cladding patterns mirror to themselves), and the
+    // dedup collapses them under a misleading "Cut ×2 identical copies"
+    // hint while the cores sit in their own separate cards.
+    mirrorX: cfg.roofStyle === 'slanted' && (
+      (which === 'back' && (cfg.roofSlopeDirection === 'east' || cfg.roofSlopeDirection === 'west')) ||
+      (which === 'west' && (cfg.roofSlopeDirection === 'front' || cfg.roofSlopeDirection === 'back'))
+    ),
     windows: openingWindows.length,
     upperWindows: upperCount,
     groundWindows: groundCount,
@@ -12237,6 +12581,16 @@ function partSignature(p) {
     JSON.stringify(p.paths),
     JSON.stringify(p.rects  || []),
     JSON.stringify(p.lines  || []),
+    // mirrorX is a render-time horizontal flip used on slanted-wall pairs
+    // (west side wall on NS-axis, back wall on EW-axis) — the laser sheet
+    // gets a `scale(-1,1)` wrapper around the part contents. Two parts
+    // with the same paths/rects/lines but OPPOSITE mirrorX produce
+    // PHYSICALLY MIRRORED cut pieces, so they cannot be deduplicated into
+    // "Cut ×2 identical copies" — they're mirrors, not duplicates. If the
+    // user followed that advice they'd end up with two same-handed
+    // trapezoidal panels and a roof slope that ran the wrong way on one
+    // side of the building.
+    p.mirrorX ? 'M' : '.',
   ].join('|||');
 }
 
@@ -18688,7 +19042,7 @@ function openOpeningEditor(wall) {
     if (aws.length === 0 && bals.length === 0 && fxs.length === 0 && ovs.length === 0 && prs.length === 0) continue;
     if (!Array.isArray(oeOpenings[face])) oeOpenings[face] = [];
     for (const o of ovs)
-      oeOpenings[face].push({ type: 'cladding_override', x: o.x, y: o.y, w: o.w, h: o.h, claddingStyle: o.claddingStyle });
+      oeOpenings[face].push({ type: 'cladding_override', x: o.x, y: o.y, w: o.w, h: o.h, claddingStyle: o.claddingStyle, layered: !!o.layered });
     for (const a of aws)
       oeOpenings[face].push({ type: 'awning', x: a.x, y: a.y, w: a.w, h: a.d });
     for (const b of bals)
@@ -18758,7 +19112,7 @@ function oeApply() {
     CONFIG.manualFixtures[w]  = ops.filter(op => op.type === 'fixture')
                                    .map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h, style: op.style }));
     CONFIG.manualCladdingOverrides[w] = ops.filter(op => op.type === 'cladding_override')
-                                   .map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h, claddingStyle: op.claddingStyle }));
+                                   .map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h, claddingStyle: op.claddingStyle, layered: !!op.layered }));
     CONFIG.manualPrintedItems[w] = ops.filter(op => op.type === 'printed_item')
                                    .map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h, style: op.style }));
   }
@@ -20445,6 +20799,43 @@ function oePopulateTopbar() {
         cladWrap.appendChild(cladBtn);
         cladWrap.appendChild(cladPop);
         bar.appendChild(cladWrap);
+
+        // ---- Mount mode (flush vs layered) ----
+        // Mirrors the layered-fixture idiom: cladding overrides default to
+        // "flush" (the base cladding gets a rectangular hole cut, the
+        // override piece slots in coplanar). Toggling to "layered" stops
+        // cutting the hole and instead etches L-bracket alignment marks
+        // at the override's corners so the user can position the patch
+        // accurately as a glue-on-top layer. The base cladding pattern is
+        // suppressed under the override in both modes — in flush mode
+        // because the hole removes it, in layered mode because the
+        // override piece covers it.
+        sep();
+        label('Mount');
+
+        const mountToggle = document.createElement('button');
+        mountToggle.id = 'oeOverrideMountToggle';
+        mountToggle.className = 'oe-tb-btn';
+        mountToggle.title = 'Toggle between flush (cut a hole, piece slots in) and layered (alignment marks only, piece glued on top)';
+
+        function syncMountVisual() {
+          const on = !!primaryOp.layered;
+          mountToggle.classList.toggle('tb-active', on);
+          mountToggle.textContent = on ? '▣ Layered' : '⬚ Flush';
+        }
+        syncMountVisual();
+        mountToggle.addEventListener('click', () => {
+          const turnOn = !primaryOp.layered;
+          for (const i of oeSelectedSet) {
+            const op = (oeOpenings[oeWall] || [])[i];
+            if (!op || op.type !== 'cladding_override') continue;
+            op.layered = turnOn;
+          }
+          oePopulateTopbar();
+          oeRender();
+          oeCommit();
+        });
+        bar.appendChild(mountToggle);
       }
 
       // ---- Bay door (only for bay ops) ----
@@ -20938,9 +21329,16 @@ function oeWallShapeInfo() {
                gable:0, wallH: baseH };
     }
     if (isSide && !nsAxis) {
-      // Side walls rectangular but one is taller
+      // Side walls rectangular but one is taller. Same fix as the NS-axis
+      // FB-high case above: encode the extension as pitchL===pitchR so the
+      // rectangular extension renders as `peakAbove` above the building
+      // portion rather than stretching `wallH` and pushing window Y values
+      // toward the visual middle.
       const isHigh = (slopeDir==='east'&&oeWall==='east') || (slopeDir==='west'&&oeWall==='west');
-      return { ...none, wallH: isHigh ? baseH+pitch : baseH };
+      if (isHigh) {
+        return { pitchL: pitch, pitchR: pitch, gable: 0, wallH: baseH };
+      }
+      return { ...none, wallH: baseH };
     }
     if (!isSide && !nsAxis) {
       // Front/back walls trapezoidal for EW slope; x=0=west for front, x=0=east for back
@@ -20950,9 +21348,31 @@ function oeWallShapeInfo() {
       return { pitchL:pl, pitchR:pr, gable:0, wallH: baseH };
     }
     if (!isSide && nsAxis) {
-      // Front/back walls rectangular at different heights
+      // Front/back walls rectangular at different heights. The high-side
+      // wall extends UP by `pitch` past the building's top — that's an
+      // "attic" sliver above the wall's normal H, not part of the
+      // habitable wall itself. We render it the same way a gabled apex
+      // gets rendered: the extension sits ABOVE the wall's coord y=0,
+      // while `wallH` stays at the building height so window placements
+      // (stored in oeOpenings as building-relative y values) display at
+      // the same vertical fraction as on the flat-roof counterpart.
+      // Without this, the editor's coord system would stretch building-
+      // relative window Ys across the larger wallH+pitch range, pushing
+      // the ground floor visually toward the wall's middle instead of
+      // its bottom — even though the laser-cut wall puts the windows
+      // correctly at the bottom of the building portion.
+      //
+      // The extension is encoded as equal pitchL===pitchR so the wallPts
+      // polygon-builder draws a horizontal top edge raised by `pitch`,
+      // matching the rectangular shape (a single shared apex value would
+      // draw a gable triangle, which is the wrong silhouette). peakAbove
+      // = max(pitchL, pitchR, gable) then naturally accommodates the
+      // extra height above oe-coord y=0.
       const isHigh = (slopeDir==='back'&&oeWall==='back') || (slopeDir==='front'&&oeWall==='front');
-      return { ...none, wallH: isHigh ? baseH+pitch : baseH };
+      if (isHigh) {
+        return { pitchL: pitch, pitchR: pitch, gable: 0, wallH: baseH };
+      }
+      return { ...none, wallH: baseH };
     }
   }
 
@@ -23958,6 +24378,7 @@ function updateThreePreview(cfg) {
       alc_panel:           0xd4ccc0,
       ribbed_metal_wide:   0xa8a8a4,
       ribbed_metal_narrow: 0xa8a8a4,
+      corrugated_metal_overlap: 0xa8a098,
       cement_siding_lap:   0xe0d8c4,
       concrete_panel_large:0xc4bfb4,
       brick_running:       0xa05844,

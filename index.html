@@ -6519,15 +6519,26 @@ function generateFrontBackWall(cfg, plan, which) {
 
   // Top edge: depending on roof style. flat_overhang uses the same wall-top
   // tongue + roof-slot mechanism as flat (the overhang is purely in the
-  // roof core's larger footprint; the tongue layout is identical). Slanted
-  // roofs on the NS axis have FB walls with flat tops (the low side at H
-  // and the high side rectangular-extended up to H+pitch, but in both
-  // cases the top edge runs horizontally), so they too can carry tongues
-  // that key into the roof panel's eave-row slots.
-  const _earlySlopeDir = cfg.roofSlopeDirection || 'back';
-  const _earlySlantNs  = roofStyle === 'slanted'
-                       && (_earlySlopeDir === 'front' || _earlySlopeDir === 'back');
-  const topTongues = (roofStyle === 'flat' || roofStyle === 'flat_overhang' || _earlySlantNs)
+  // roof core's larger footprint; the tongue layout is identical).
+  //
+  // SLANTED roofs deliberately do NOT carry top tongues on the FB walls.
+  // The FB walls on an NS-axis slope have FLAT, HORIZONTAL tops (the low
+  // side at y=H, the high side rectangular-extended up to y=H+pitch but
+  // still with a horizontal top edge), and on an EW-axis slope the FB
+  // walls are themselves trapezoidal but that case isn't tongue-wired
+  // either. The reason in both cases is the same: a tongue rising
+  // straight UP from a horizontal wall top would meet the tilted roof
+  // PANEL at the slope angle, not at a right angle. That's a bad joint
+  // — the tongue would either bottom-out before it's seated or it'd
+  // wedge crooked against the slot's side. The slanted SIDE walls (for
+  // NS-axis slopes — handled in generateSideWall) DO get tongues,
+  // because their slanted top edge follows the roof's slope, so a
+  // tongue perpendicular to that edge points along the roof's normal
+  // and enters its verge slot at the right angle. For the FB walls
+  // here, the cleaner mechanical answer is to leave the top edge plain
+  // and let the wall rest against the underside of the roof — a glue
+  // joint with no mechanical key, but at the correct geometry.
+  const topTongues = (roofStyle === 'flat' || roofStyle === 'flat_overhang')
     ? placeTongues(fbWidth, tw, margin, [], 3, tw / 2)
     : [];
 
@@ -6817,15 +6828,16 @@ function generateFrontBackWall(cfg, plan, which) {
   const wallLines = bayDoorAlignmentMarks(cfg, plan, which);
 
   // Bbox extension: the high-side FB wall on a slanted-NS roof has its top
-  // edge raised by `pitch` (so the wall sits flush with the roof angle's
-  // upper end). When that wall ALSO carries top tongues (added above for
-  // slanted-NS so the FB walls key into the roof's eave slots), the
-  // tongues stick up another `matT` past the raised top, and the bbox has
-  // to grow to include them. `topTongueOverhang` is matT for any FB wall
-  // that actually has top tongues, 0 otherwise; the bbox offset + height
-  // both add it. Low-side walls already get a matT top overhang in the
-  // default branch (`matT` bboxOffsetY + `H + 2*matT` bboxH), so no extra
-  // adjustment is needed there.
+  // edge raised by `pitch` (so the wall reaches the roof angle's upper
+  // end). It does NOT carry top tongues — see the topTongues block above
+  // for why — so `topTongueOverhang` collapses to 0 for slanted roofs
+  // and the bbox is just `H + pitch + matT` (one matT for the bottom
+  // tongues into the floor). For flat / flat_overhang roofs the FB
+  // walls DO get top tongues that key into eave slots; in that case
+  // `topTongueOverhang` is matT and the bbox grows to fit. Low-side
+  // walls already get a matT top overhang in the default branch
+  // (`matT` bboxOffsetY + `H + 2*matT` bboxH), so no extra adjustment
+  // is needed there.
   const topTongueOverhang = (topTongues.length > 0) ? matT : 0;
   return {
     id: which + '_wall',
@@ -7236,43 +7248,18 @@ function generateRoof(cfg, plan) {
       const matT = plan.matT;
       const tw = plan.tw;
       const slotMargin = Math.max(matT * 2, 5);
-      const eaveSlots = placeTongues(perpLen0, tw, slotMargin, [], 3, tw / 2);
       const BLEED = 0.6;
-      // Front-eave row. Wall sits inset from the eave by `ohSlant`, with its
-      // outer face at roof-y = ohSlant and its inner face at ohSlant + matT.
-      // The slot wraps the wall material with BLEED on each side, then
-      // clamps to the roof's outer edge so a zero-overhang build still
-      // produces a valid slot (the slot sits flush against the eave with
-      // no negative-y excursion past the perimeter).
-      {
-        let y = ohSlant - BLEED;
-        let h = matT + 2 * BLEED;
-        if (y < 0) { h += y; y = 0; }
-        for (const s of eaveSlots) {
-          rects.push({
-            type: 'cut',
-            x: ohVerge + s.start, y: y,
-            w: s.end - s.start, h: h,
-            compensateKerf: true,
-          });
-        }
-      }
-      // Back-eave row. Wall outer face at roof-y = slantLen − ohSlant;
-      // inner face at slantLen − ohSlant − matT. Same BLEED logic, but
-      // clamped on the slantLen end instead of the 0 end.
-      {
-        let y = slantLen - ohSlant - matT - BLEED;
-        let h = matT + 2 * BLEED;
-        if (y + h > slantLen) { h = slantLen - y; }
-        for (const s of eaveSlots) {
-          rects.push({
-            type: 'cut',
-            x: ohVerge + s.start, y: y,
-            w: s.end - s.start, h: h,
-            compensateKerf: true,
-          });
-        }
-      }
+      // NOTE: NO front/back eave slot rows for a slanted roof. The FB
+      // walls have flat horizontal tops, and a tongue sticking straight
+      // up from a horizontal top would meet this tilted roof at the
+      // SLOPE angle rather than perpendicular — a bad, wedge-y joint.
+      // generateFrontBackWall correspondingly omits the FB walls' top
+      // tongues for the slanted style; the FB walls simply rest against
+      // the underside of the roof and get glued there. We still keep
+      // the VERGE slot rows below — those mate with the SIDE walls'
+      // slanted-top tongues, which DO follow the roof's slope and
+      // enter their slots perpendicular to the roof plane.
+
       // Verge slot rows: the trapezoidal SIDE walls (east, west) carry
       // perpendicular-to-edge tongues on their slanted tops (added in
       // buildSlantedWallPath's slanted-top branch), and those need a

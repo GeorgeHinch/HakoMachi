@@ -579,27 +579,105 @@
   <!-- LEFT PANEL: CONTROLS -->
   <div class="controls">
     <div class="controls-scroll">
-    <svg class="app-logo" viewBox="0 0 314.4 92.3" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="HakoMachi">
-      <style>
-        .logo-stroke    { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.2; }
-        .logo-text-bold { fill: currentColor; font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; font-weight: 500; font-size: 22px; letter-spacing: 0.2em; }
-        .logo-text-lite { fill: currentColor; font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; font-weight: 300; font-size: 22px; letter-spacing: 0.2em; }
-        .logo-text-jp   { fill: currentColor; font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif; font-size: 11px; letter-spacing: -0.4em; }
-        .logo-rule      { fill: none; stroke: currentColor; stroke-width: 0.8; opacity: 0.3; }
-      </style>
-      <g>
-        <rect class="logo-stroke" x="25.5" y="36.5" width="63" height="45"/>
-        <path class="logo-stroke" d="M16.5,36.5l40.5-18,40.5,18"/>
-        <path class="logo-stroke" d="M34.5,18.5l22.5-9,22.5,9"/>
-        <line class="logo-stroke" x1="57"   y1="19.2" x2="57"   y2="81.5"/>
-        <line class="logo-stroke" x1="25.5" y1="59"   x2="88.5" y2="59"/>
-        <rect class="logo-stroke" x="39" y="36.5" width="36" height="45"/>
+    <svg class="app-logo" viewBox="0 0 298 110" xmlns="http://www.w3.org/2000/svg"
+         style="cursor:pointer" role="img" aria-label="HakoMachi">
+      <!--
+        HakoMachi animated logo — SMIL SVG. The icon (house drawing)
+        plays once on load and replays from the start whenever the
+        user hovers over it. The wordmark, kanji subtitle, and the
+        two underline lines are STATIC — only the icon animates, so
+        the text reads instantly without waiting through the build-on
+        sequence. Colours are theme-aware: icon strokes use
+        var(--accent); wordmark, kanji, and underlines use currentColor
+        so they follow the body text colour and read against both
+        light and dark themes. Width/height attrs from the source asset
+        were removed so the .app-logo CSS (max-width 220px, height: auto)
+        controls layout. The hover-replay listener is attached from the
+        main app JS block (search "app-logo" in the JS) rather than
+        inlined here, so the offline test sandbox that greps for
+        opening/closing JS tags doesn't choke on `document.currentScript`
+        being undefined inside its VM context.
+      -->
+
+      <g transform="translate(4, 5) scale(0.9)"
+         fill="none" stroke="var(--accent)" stroke-width="2.8"
+         stroke-linecap="round" stroke-linejoin="round">
+
+        <!-- 1. Outer gable roof -->
+        <path stroke-dasharray="100" stroke-dashoffset="100"
+              d="M 5 35 L 50 15 L 95 35">
+          <animate attributeName="stroke-dashoffset"
+          from="100" to="0"
+          dur="0.65s" begin="0.05s" fill="freeze"
+          calcMode="spline" keyTimes="0;1" keySplines="0.4 0 0.2 1"/>
+        </path>
+
+        <!-- 2. Inner peak -->
+        <path stroke-dasharray="55" stroke-dashoffset="55"
+              d="M 25 15 L 50 5 L 75 15">
+          <animate attributeName="stroke-dashoffset"
+          from="55" to="0"
+          dur="0.45s" begin="0.45s" fill="freeze"
+          calcMode="spline" keyTimes="0;1" keySplines="0.4 0 0.2 1"/>
+        </path>
+
+        <!-- 3. Outer walls -->
+        <rect stroke-dasharray="242" stroke-dashoffset="242"
+              x="15" y="35" width="70" height="50">
+          <animate attributeName="stroke-dashoffset"
+          from="242" to="0"
+          dur="0.85s" begin="0.7s" fill="freeze"
+          calcMode="spline" keyTimes="0;1" keySplines="0.4 0 0.2 1"/>
+        </rect>
+
+        <!-- 4. Window/door frame -->
+        <rect stroke-dasharray="182" stroke-dashoffset="182"
+              x="30" y="35" width="40" height="50">
+          <animate attributeName="stroke-dashoffset"
+          from="182" to="0"
+          dur="0.7s" begin="1.2s" fill="freeze"
+          calcMode="spline" keyTimes="0;1" keySplines="0.4 0 0.2 1"/>
+        </rect>
+
+        <!-- 5. Centre ridge -->
+        <line stroke-dasharray="72" stroke-dashoffset="72"
+              x1="50" y1="15" x2="50" y2="85">
+          <animate attributeName="stroke-dashoffset"
+          from="72" to="0"
+          dur="0.38s" begin="1.65s" fill="freeze"
+          calcMode="spline" keyTimes="0;1" keySplines="0.4 0 0.2 1"/>
+        </line>
+
+        <!-- 6. Floor line -->
+        <line stroke-dasharray="72" stroke-dashoffset="72"
+              x1="15" y1="60" x2="85" y2="60">
+          <animate attributeName="stroke-dashoffset"
+          from="72" to="0"
+          dur="0.38s" begin="1.85s" fill="freeze"
+          calcMode="spline" keyTimes="0;1" keySplines="0.4 0 0.2 1"/>
+        </line>
+
       </g>
-      <text class="logo-text-bold" x="119.5" y="58">HAKO</text>
-      <text class="logo-text-lite" x="203.8" y="58">MACHI</text>
-      <line class="logo-rule" x1="226.5" y1="70" x2="296.8" y2="70"/>
-      <line class="logo-rule" x1="117"   y1="70" x2="187.3" y2="70"/>
-      <text class="logo-text-jp" x="194.4" y="73">箱　町</text>
+
+      <!-- Wordmark: static (no fade/rise — only the icon animates) -->
+      <g fill="currentColor">
+        <path d="M112.479 57L109.611 57L109.611 40.994L112.479 40.994L112.479 47.611L119.924 47.611L119.924 40.994L122.792 40.994L122.792 57L119.924 57L119.924 50.028L112.479 50.028 M133.577 57L130.440 57L136.026 40.994L139.668 40.994L145.383 57L142.235 57L139.389 48.686Q138.970 47.396 138.519 45.769Q138.067 44.142 137.520 42.068L138.121 42.068Q137.584 44.163 137.149 45.801Q136.714 47.439 136.327 48.686L133.577 57M142.128 53.036L133.695 53.036L133.695 50.727L142.128 50.727 M159.197 48.578L155.094 53.058L155.094 50.340Q155.609 49.502 156.109 48.766Q156.608 48.030 157.172 47.311Q157.736 46.591 158.435 45.785L162.635 40.994L166.201 40.994L159.412 48.653L159.197 48.578M155.889 57L153.021 57L153.021 40.994L155.889 40.994L155.889 45.742L155.835 49.599L155.889 51.006L155.889 57M166.309 57L162.925 57L157.833 49.470L159.638 47.311 M180.843 57.215Q178.737 57.215 177.072 56.237Q175.407 55.260 174.446 53.423Q173.484 51.586 173.484 49.008Q173.484 46.419 174.446 44.577Q175.407 42.734 177.072 41.757Q178.737 40.779 180.843 40.779Q182.938 40.779 184.597 41.757Q186.257 42.734 187.218 44.577Q188.180 46.419 188.180 49.008Q188.180 51.586 187.218 53.428Q186.257 55.271 184.597 56.243Q182.938 57.215 180.843 57.215M180.843 54.647Q182.143 54.647 183.147 53.998Q184.151 53.348 184.721 52.085Q185.290 50.823 185.290 49.008Q185.290 47.171 184.721 45.909Q184.151 44.646 183.147 43.997Q182.143 43.347 180.843 43.347Q179.532 43.347 178.522 44.002Q177.513 44.657 176.938 45.919Q176.363 47.182 176.363 49.008Q176.363 50.823 176.938 52.080Q177.513 53.337 178.522 53.992Q179.532 54.647 180.843 54.647"/>
+        <path d="M198.363 57L196.902 57L196.902 40.994L199.072 40.994L203.541 51.973Q203.691 52.327 203.858 52.805Q204.024 53.283 204.212 53.826Q204.400 54.368 204.572 54.905Q204.744 55.442 204.895 55.926L204.508 55.926Q204.658 55.464 204.830 54.938Q205.002 54.411 205.190 53.863Q205.378 53.315 205.550 52.827Q205.722 52.338 205.872 51.973L210.309 40.994L212.479 40.994L212.479 57L210.975 57L210.975 46.838Q210.975 46.365 210.975 45.796Q210.975 45.227 210.991 44.609Q211.007 43.991 211.018 43.368Q211.028 42.745 211.028 42.144L211.200 42.144Q210.985 42.788 210.754 43.449Q210.523 44.109 210.303 44.732Q210.083 45.355 209.879 45.898Q209.675 46.440 209.514 46.838L205.356 57L204.014 57L199.824 46.838Q199.663 46.440 199.464 45.914Q199.266 45.388 199.045 44.770Q198.825 44.152 198.594 43.486Q198.363 42.820 198.116 42.144L198.299 42.144Q198.310 42.691 198.320 43.304Q198.331 43.916 198.342 44.544Q198.353 45.173 198.358 45.758Q198.363 46.344 198.363 46.838 M222.329 57L220.707 57L226.572 40.994L228.377 40.994L234.296 57L232.685 57L228.882 46.537Q228.560 45.667 228.178 44.501Q227.797 43.336 227.303 41.692L227.625 41.692Q227.131 43.347 226.744 44.528Q226.357 45.710 226.067 46.537L222.329 57M231.567 52.241L223.436 52.241L223.436 50.888L231.567 50.888 M248.755 57.215Q246.735 57.215 245.167 56.210Q243.599 55.206 242.707 53.358Q241.815 51.511 241.815 49.008Q241.815 46.494 242.707 44.646Q243.599 42.799 245.167 41.789Q246.735 40.779 248.755 40.779Q250.033 40.779 251.113 41.177Q252.192 41.574 253.020 42.289Q253.847 43.003 254.378 43.959Q254.910 44.915 255.104 46.021L253.578 46.021Q253.406 45.194 252.987 44.501Q252.568 43.809 251.935 43.293Q251.301 42.777 250.500 42.493Q249.700 42.208 248.755 42.208Q247.251 42.208 246.010 42.992Q244.770 43.776 244.034 45.291Q243.298 46.806 243.298 49.008Q243.298 51.210 244.039 52.725Q244.780 54.239 246.021 55.013Q247.262 55.786 248.755 55.786Q249.700 55.786 250.500 55.501Q251.301 55.217 251.935 54.701Q252.568 54.186 252.987 53.487Q253.406 52.789 253.578 51.973L255.104 51.973Q254.921 53.068 254.389 54.019Q253.857 54.970 253.030 55.689Q252.203 56.409 251.124 56.812Q250.044 57.215 248.755 57.215 M265.566 57L264.041 57L264.041 40.994L265.566 40.994L265.566 48.138L274.568 48.138L274.568 40.994L276.094 40.994L276.094 57L274.568 57L274.568 49.502L265.566 49.502 M285.826 40.994L287.352 40.994L287.352 57L285.826 57"/>
+      </g>
+
+      <!-- Left underline: static, full length -->
+      <line x1="108.0" y1="70" x2="172.7" y2="70"
+            stroke="currentColor" stroke-width="0.75" opacity="0.35"/>
+
+      <!-- Kanji characters (箱街): static -->
+      <g fill="currentColor">
+        <path d="M187.332 69.254L187.244 68.935L190.665 68.935L191.127 68.341Q191.127 68.341 191.270 68.462Q191.413 68.583 191.617 68.754Q191.820 68.924 191.985 69.078Q191.941 69.254 191.688 69.254L187.332 69.254M189.224 74.358L189.224 67.186L190.346 67.296Q190.324 67.417 190.236 67.494Q190.148 67.571 189.939 67.604L189.939 74.094Q189.939 74.149 189.851 74.210Q189.763 74.270 189.631 74.314Q189.499 74.358 189.367 74.358L189.224 74.358M189.114 68.935L189.884 68.935L189.884 69.111Q189.532 70.288 188.872 71.300Q188.212 72.312 187.255 73.104L187.123 72.939Q187.607 72.389 187.981 71.740Q188.355 71.091 188.641 70.376Q188.927 69.661 189.114 68.935M189.829 69.980L189.950 69.892Q190.522 70.090 190.880 70.326Q191.237 70.563 191.408 70.794Q191.578 71.025 191.611 71.228Q191.644 71.432 191.562 71.558Q191.479 71.685 191.331 71.707Q191.182 71.729 191.006 71.608Q190.929 71.344 190.731 71.041Q190.533 70.739 190.291 70.459Q190.049 70.178 189.829 69.980M192.612 69.936L192.612 69.617L196.231 69.617L196.231 69.936L192.612 69.936M192.623 71.762L192.623 71.454L196.264 71.454L196.264 71.762L192.623 71.762M192.645 73.643L192.645 73.324L196.308 73.324L196.308 73.643L192.645 73.643M192.282 74.347L192.282 67.835L192.282 67.483L193.041 67.835L196.253 67.835L196.253 68.154L192.986 68.154L192.986 74.083Q192.986 74.127 192.904 74.188Q192.821 74.248 192.689 74.297Q192.557 74.347 192.403 74.347L192.282 74.347M195.846 74.259L195.846 67.835L195.736 67.835L196.143 67.384L197.012 68.066Q196.968 68.132 196.842 68.192Q196.715 68.253 196.561 68.286L196.561 73.995Q196.561 74.039 196.462 74.094Q196.363 74.149 196.220 74.204Q196.077 74.259 195.956 74.259L195.846 74.259M188.905 64.271L189.939 64.645Q189.906 64.733 189.802 64.793Q189.697 64.854 189.521 64.843Q189.114 65.756 188.531 66.510Q187.948 67.263 187.277 67.725L187.134 67.604Q187.651 67.032 188.135 66.152Q188.619 65.272 188.905 64.271M189.323 65.844L189.444 65.778Q189.906 65.954 190.170 66.168Q190.434 66.383 190.544 66.597Q190.654 66.812 190.638 66.993Q190.621 67.175 190.528 67.285Q190.434 67.395 190.291 67.406Q190.148 67.417 189.994 67.274Q189.972 66.922 189.763 66.515Q189.554 66.108 189.323 65.844M193.118 64.271L194.152 64.667Q194.108 64.755 194.004 64.816Q193.899 64.876 193.734 64.854Q193.316 65.657 192.761 66.344Q192.205 67.032 191.622 67.472L191.468 67.351Q191.930 66.812 192.370 65.993Q192.810 65.173 193.118 64.271M193.712 65.822L193.833 65.756Q194.339 65.910 194.647 66.119Q194.955 66.328 195.093 66.548Q195.230 66.768 195.236 66.960Q195.241 67.153 195.148 67.279Q195.054 67.406 194.900 67.428Q194.746 67.450 194.570 67.318Q194.537 66.933 194.273 66.515Q194.009 66.097 193.712 65.822M188.608 65.976L188.608 65.657L191.006 65.657L191.446 65.085Q191.446 65.085 191.589 65.201Q191.732 65.316 191.925 65.481Q192.117 65.646 192.271 65.800Q192.227 65.976 191.996 65.976L188.608 65.976M192.689 65.976L192.689 65.657L195.846 65.657L196.352 65.030Q196.352 65.030 196.512 65.151Q196.671 65.272 196.886 65.454Q197.100 65.635 197.276 65.800Q197.232 65.976 196.979 65.976 M200.653 73.181L200.653 65.217L200.653 64.865L201.390 65.217L204.844 65.217L204.844 65.547L201.335 65.547L201.335 72.928Q201.335 72.972 201.258 73.032Q201.181 73.093 201.055 73.137Q200.928 73.181 200.785 73.181L200.653 73.181M204.481 72.851L204.481 65.217L204.371 65.217L204.767 64.766L205.625 65.459Q205.581 65.525 205.449 65.585Q205.317 65.646 205.163 65.679L205.163 72.598Q205.163 72.631 205.064 72.697Q204.965 72.763 204.833 72.807Q204.701 72.851 204.580 72.851L204.481 72.851M202.534 71.850L202.534 65.217L203.194 65.217L203.194 71.850L202.534 71.850M200.983 68.748L200.983 68.418L204.778 68.418L204.778 68.748L200.983 68.748M200.983 72.026L200.983 71.707L204.734 71.707L204.734 72.026L200.983 72.026M207.847 73.159L207.847 65.481L208.551 65.481L208.551 73.192Q208.551 73.478 208.474 73.715Q208.397 73.951 208.139 74.100Q207.880 74.248 207.352 74.314Q207.330 74.138 207.275 73.995Q207.220 73.852 207.099 73.775Q206.956 73.676 206.720 73.605Q206.483 73.533 206.065 73.478L206.065 73.313Q206.065 73.313 206.258 73.329Q206.450 73.346 206.720 73.362Q206.989 73.379 207.226 73.395Q207.462 73.412 207.561 73.412Q207.726 73.412 207.787 73.352Q207.847 73.291 207.847 73.159M205.735 65.723L205.647 65.393L208.947 65.393L209.486 64.711Q209.486 64.711 209.585 64.788Q209.684 64.865 209.838 64.992Q209.992 65.118 210.157 65.267Q210.322 65.415 210.465 65.547Q210.443 65.635 210.366 65.679Q210.289 65.723 210.179 65.723"/>
+      </g>
+
+      <!-- Right underline: static, full length -->
+      <line x1="224.7" y1="70" x2="289.5" y2="70"
+            stroke="currentColor" stroke-width="0.75" opacity="0.35"/>
+
     </svg>
     <div class="small">For Japanese 1:150 N-scale layouts. Generates laser-cut SVG plans with tongue-and-slot joinery.</div>
 
@@ -704,6 +782,7 @@
         <select id="roofStyle">
           <option value="parapet" data-i18n-opt="opt_parapet">Parapet (recessed roof)</option>
           <option value="flat" data-i18n-opt="opt_flat">Flat (flush)</option>
+          <option value="flat_overhang" data-i18n-opt="opt_flat_overhang">Flat with overhang (metal-clad)</option>
           <option value="slanted" data-i18n-opt="opt_slanted">Slanted (single slope)</option>
           <option value="gabled" data-i18n-opt="opt_gabled">Gabled (peaked)</option>
         </select>
@@ -722,6 +801,11 @@
       <div class="field" id="roofPitchField" style="display:none">
         <label data-i18n="lbl_pitch">Roof pitch (mm rise)</label>
         <input type="number" id="roofPitch" min="3" max="40" step="1" value="10">
+      </div>
+      <div class="field" id="roofOverhangAllField" style="display:none">
+        <label data-i18n="lbl_roofOverhangAll">Roof overhang on all sides (mm)</label>
+        <input type="number" id="roofOverhangAll" min="1" max="20" step="0.5" value="5">
+        <div class="small" data-i18n="hlp_roofOverhangAll">How far the roof projects past the walls on every side. The cladding above will extend to cover the full overhang.</div>
       </div>
       <div class="field" id="roofCladdingStyleField">
         <label data-i18n="lbl_roofCladding">Roof cladding style</label>
@@ -825,6 +909,10 @@
         <label><input type="checkbox" id="trimBottom"> Bottom trim band</label>
       </div>
       <div class="field">
+        <label><input type="checkbox" id="cornerTrim"> Corner trim</label>
+        <div class="small" data-i18n="hlp_cornerTrim">Four narrow 3 mm strips with an etched centre fold line. Score along the etch, fold 90°, and glue 1.5 mm to each face that meets at the corner — hides the exposed cladding edges where two walls join.</div>
+      </div>
+      <div class="field">
         <label>Trim height (mm)</label>
         <input type="number" id="trimHeight" min="0.5" max="10" step="0.1" value="2">
       </div>
@@ -886,13 +974,11 @@
         <label><input type="checkbox" id="rooftopShieldEnabled"> Include shield wall</label>
       </div>
       <div id="rooftopShieldFields" style="display:none;">
-        <div class="field">
-          <label>Style</label>
-          <select id="rooftopShieldStyle">
-            <option value="solid" data-i18n-opt="opt_shieldSolid">Solid panels</option>
-            <option value="louvered" data-i18n-opt="opt_shieldLouvered">Louvered (horizontal slats)</option>
-            <option value="lattice" data-i18n-opt="opt_shieldLattice">Lattice / grid</option>
-          </select>
+        <div class="small" style="margin-bottom:8px;">
+          X-braced structural cores (1.5 mm) with corner tongue-and-slot joinery
+          and louvered cladding (0.28 mm) that glues on top. Drag handles in the
+          floor editor to resize the outline, move it, add walk-through openings,
+          or change per-wall length.
         </div>
         <div class="field">
           <label>Height (mm)</label>
@@ -901,6 +987,12 @@
         <div class="field">
           <label>Inset from roof edge (mm)</label>
           <input type="number" id="rooftopShieldOffset" min="0" max="15" step="0.5" value="3">
+          <div class="small">Default position only — once you drag the outline in the floor editor, that takes over.</div>
+        </div>
+        <div class="field">
+          <label>Cross-brace thickness (mm)</label>
+          <input type="number" id="rooftopShieldBraceThickness" min="0.3" max="1.5" step="0.05" value="0.7">
+          <div class="small">Diagonal strip width. Smaller = more delicate brace; 0.5–0.8 mm looks right for most walls.</div>
         </div>
       </div>
     </details>
@@ -1196,6 +1288,13 @@ const CLADDING_STYLES = {
     pattern: 'lines',
     seamSpacing: { vertical: 1.3, horizontal: null },
     notes: 'Bold vertical ribs only.',
+  },
+  standing_seam_metal: {
+    label: 'Standing-seam metal roof',
+    description: 'Long flat metal sheets joined by raised vertical seams every ~400-500mm real (~3mm at scale). Common on residential, light-commercial, and shop roofs across Japan. Pairs naturally with the flat-overhang roof style.',
+    pattern: 'lines',
+    seamSpacing: { vertical: 3, horizontal: null },
+    notes: 'Single bold seam direction. For a flat roof seen from above the seam direction is just visual — pick whichever orientation reads better with the building proportions.',
   },
   ribbed_metal_narrow: {
     label: 'Ribbed metal panel (narrow)',
@@ -1835,6 +1934,8 @@ const TRANSLATIONS = {
     lbl_parapetInner: 'Add inner parapet cladding',
     hlp_parapetInner: 'Four thin cladding strips that glue to the inside face of the parapet (the portion of the wall above the roof deck), so the parapet looks clad on both sides.',
     lbl_pitch: 'Roof pitch (mm rise)',
+    lbl_roofOverhangAll: 'Roof overhang on all sides (mm)',
+    hlp_roofOverhangAll: 'How far the roof projects past the walls on every side. The cladding above will extend to cover the full overhang.',
     lbl_ridge: 'Ridge direction',
     lbl_slope: 'High side',
     lbl_overhang: 'Roof overhang (mm)',
@@ -1855,6 +1956,8 @@ const TRANSLATIONS = {
     lbl_trimBottom: 'Bottom trim band',
     lbl_trimH: 'Trim height (mm)',
     lbl_trimOver: 'Corner overhang past cladding (mm)',
+    lbl_cornerTrim: 'Corner trim',
+    hlp_cornerTrim: 'Four narrow 3 mm strips with an etched centre fold line. Score along the etch, fold 90°, and glue 1.5 mm to each face that meets at the corner — hides the exposed cladding edges where two walls join.',
     /* inter-floor labels */
     lbl_floorPanels: 'Include inter-floor panels',
     lbl_lastWall: 'Last wall installed',
@@ -1894,6 +1997,7 @@ const TRANSLATIONS = {
     opt_floors: 'Number of floors',
     opt_parapet: 'Parapet (recessed roof)',
     opt_flat: 'Flat (flush)',
+    opt_flat_overhang: 'Flat with overhang (metal-clad)',
     opt_slanted: 'Slanted (single slope)',
     opt_gabled: 'Gabled (peaked)',
     opt_ridgeEW: 'East–West (slopes face front & back)',
@@ -1920,6 +2024,7 @@ const TRANSLATIONS = {
     opt_shieldSolid: 'Solid panels',
     opt_shieldLouvered: 'Louvered (horizontal slats)',
     opt_shieldLattice: 'Lattice / grid',
+    opt_shieldBraced: 'X-braced (structural with louvered cladding)',
     /* buttons */
     btn_shape: '⬡ Edit Shape',
     btn_open: '✏️ Edit Openings',
@@ -1994,6 +2099,8 @@ const TRANSLATIONS = {
     lbl_parapetInner: 'パラペット内側の壁材を追加',
     hlp_parapetInner: '屋根面より上の壁内側に貼る薄い壁材4枚。パラペットの両面が外装材で覆われた仕上がりになります。',
     lbl_pitch: '屋根勾配・立ち上がり（mm）',
+    lbl_roofOverhangAll: '四方の軒の出（mm）',
+    hlp_roofOverhangAll: '屋根が壁より外側にどれだけ張り出すか。上に貼る外装材も張り出し全体を覆います。',
     lbl_ridge: '棟の方向',
     lbl_slope: '高い側',
     lbl_overhang: '軒の出（mm）',
@@ -2014,6 +2121,8 @@ const TRANSLATIONS = {
     lbl_trimBottom: '下部モール',
     lbl_trimH: 'モール高さ（mm）',
     lbl_trimOver: 'コーナーオーバーハング（mm）',
+    lbl_cornerTrim: 'コーナーモール',
+    hlp_cornerTrim: '中央に折り目用エッチング線がある幅3mmの細長いストリップ4本。エッチング線に沿ってスコアし、90°に折り、コーナーで接する各面に1.5mmずつ接着します — 2つの壁が接合する場所の露出した外装エッジを隠します。',
     /* inter-floor labels */
     lbl_floorPanels: '中間床パネルを含める',
     lbl_lastWall: '最後に取り付ける壁',
@@ -2053,6 +2162,7 @@ const TRANSLATIONS = {
     opt_floors: '階数から計算',
     opt_parapet: 'パラペット（陸屋根）',
     opt_flat: 'フラット（平葺き）',
+    opt_flat_overhang: 'フラット＋庇（金属葺き）',
     opt_slanted: '片流れ',
     opt_gabled: '切妻',
     opt_ridgeEW: '東西棟（勾配は前後面）',
@@ -2079,6 +2189,7 @@ const TRANSLATIONS = {
     opt_shieldSolid: 'ソリッドパネル',
     opt_shieldLouvered: 'ルーバー（横スラット）',
     opt_shieldLattice: '格子',
+    opt_shieldBraced: 'X形ブレース（構造材＋ルーバー外装）',
     /* buttons */
     btn_shape: '⬡ 形状編集',
     btn_open: '✏️ 開口編集',
@@ -4083,12 +4194,21 @@ let CONFIG = {
   roofSlopeDirection: 'back',  // slanted: which side is high ('front','back','east','west')
   roofOverhangFB: 0,           // mm overhang beyond front / back walls
   roofOverhangEW: 0,           // mm overhang beyond east / west walls
+  // For the 'flat_overhang' roof style only — one symmetric value
+  // applied to all four sides. The roof core extends past every wall
+  // by this amount and the metal cladding above covers the full
+  // oversized footprint.
+  roofOverhang: 5,
   roofOverhangLinked: true,    // keep FB and EW in sync
   doorStyle: 'single',
   frontDoorCount: 0, backDoorCount: 0, sideDoorCount: 1,
   // Trim strips along top/bottom of building
   trimTop: false, trimBottom: false, trimBelt: false,
   trimHeight: 2, trimOverhang: 0.28,
+  // Corner trim — narrow 3 mm strips that wrap each building corner with
+  // a centred fold line, covering the exposed cladding edges where two
+  // adjacent faces meet.
+  cornerTrim: false,
   // Inter-floor core panels
   floorPanels: false,
   lastWallSide: 'back',
@@ -4127,8 +4247,18 @@ let CONFIG = {
   awnings: [],
   // Rooftop billboards: array of {type:'single'|'square', face, x, w, height, postHeight}
   billboards: [],
-  // Rooftop equipment shielding wall (Japanese kakoui / penthouse screen)
-  rooftopShield: { enabled: false, style: 'solid', height: 8, offset: 3 },
+  // Rooftop equipment shielding wall (Japanese kakoui / penthouse screen).
+  // Always uses the X-braced structural design: 1.5 mm framed bays with
+  // diagonal cross-bracing as the core, plus a separate 0.28 mm
+  // louvered cladding layer that glues on top. `edges` is the per-side
+  // enable map (Shield Wall tool toggles individual edges). `bounds`
+  // overrides `offset` once the user drags the outline — stored in
+  // iw-coords (inside-of-building plan frame). When null,
+  // getShieldBounds() falls back to an offset-based inset rectangle.
+  rooftopShield: { enabled: false, style: 'braced', height: 8, offset: 3,
+                   braceThickness: 0.7,
+                   bounds: null,
+                   edges: { front: true, back: true, east: true, west: true } },
   // Multi-block wings. Each wing attaches to one face of the main block.
   // face: 'front'|'back'|'east'|'west' — which face of the main block it extends from
   // offset: mm from the "start" corner along that face (0 = flush)
@@ -6694,6 +6824,62 @@ function generateRoof(cfg, plan) {
     };
   }
 
+  if (roofStyle === 'flat_overhang') {
+    // Flat-overhang roof: same construction as the flat roof but the core
+    // extends past every wall by `cfg.roofOverhang` mm on all four sides,
+    // forming an eave. The walls sit inset from the roof core's outer
+    // edge by O, so all slot positions get offset by O relative to the
+    // plain flat case. The cladding-roof panel (built later) matches the
+    // new larger footprint, so a metal-look pattern can be glued on top
+    // to span the full overhang.
+    const O  = Math.max(0, cfg.roofOverhang || 5);
+    const rW = fbWidth + 2 * O;
+    const rH = cfg.depth + 2 * O;
+    const margin = Math.max(matT * 2, 5);
+
+    // Slot count is based on the INNER wall span (the actual wall length),
+    // not the oversized core — otherwise tongues drift away from the wall
+    // ends and the slots miss the wall material.
+    const slotCountTop  = Math.max(2, Math.min(4, Math.floor(fbWidth / 30)));
+    const slotCountSide = Math.max(2, Math.min(4, Math.floor((cfg.depth - 2 * matT) / 30)));
+    const topSlots  = placeTongues(fbWidth,            tw, margin, [], slotCountTop,  tw / 2);
+    const sideSlots = placeTongues(cfg.depth - 2 * matT, tw, margin, [], slotCountSide, tw / 2);
+
+    const rects = [];
+    const BLEED = 0.6;
+    // Walls sit inset by O from the roof core's outer edge on every side.
+    // Front/back wall slots span the full matT depth of the wall material
+    // at roof-local y = O..O+matT (north) and y = O+depth-matT..O+depth
+    // (south). Side wall slots have an additional matT inset along their
+    // own axis to skip the front/back wall material at the building corner.
+    for (const s of topSlots) {
+      rects.push({ type: 'cut', x: O + s.start, y: O - BLEED, w: s.end - s.start, h: matT + 2 * BLEED, compensateKerf: true });
+    }
+    for (const s of topSlots) {
+      rects.push({ type: 'cut', x: O + s.start, y: O + cfg.depth - matT - BLEED, w: s.end - s.start, h: matT + 2 * BLEED, compensateKerf: true });
+    }
+    for (const s of sideSlots) {
+      rects.push({ type: 'cut', x: O - BLEED, y: O + matT + s.start, w: matT + 2 * BLEED, h: s.end - s.start, compensateKerf: true });
+    }
+    for (const s of sideSlots) {
+      rects.push({ type: 'cut', x: O + fbWidth - matT - BLEED, y: O + matT + s.start, w: matT + 2 * BLEED, h: s.end - s.start, compensateKerf: true });
+    }
+
+    const perimeter = rectPath(0, 0, rW, rH);
+    const lines = [];
+    addRoofMechRoomAndEquipment(plan, cfg, rects, lines, /*roofIsRecessed=*/false);
+    return {
+      id: 'roof',
+      name: 'Roof (flat, ' + O + 'mm overhang)',
+      material: 'core',
+      bboxW: rW, bboxH: rH,
+      bboxOffsetX: 0, bboxOffsetY: 0,
+      paths: [{ type: 'cut', d: perimeter }, ...holePathsForList(cfg.roofHoles), ...skylightHolePaths(cfg.skylights)],
+      rects: rects,
+      lines: lines,
+    };
+  }
+
   if (roofStyle === 'slanted') {
     const pitch    = cfg.roofPitch || 10;
     const slopeDir = cfg.roofSlopeDirection || 'back';
@@ -8142,51 +8328,427 @@ function generateBillboardParts(cfg) {
   return parts;
 }
 
+/* Normalize an edge's state into one or more (start, end) segments. The
+ * edge state can be `false`/missing (no shield), `true` (full length, no
+ * opening — legacy form, kept for backward compat), or an object
+ * `{ start, end, opening }` where start/end define the shield's extent
+ * along the edge (0..edgeLen) and opening is null or
+ * `{ start, end }` carving a gap. Returns an array of segments. Each
+ * segment also carries `leftAtCorner` / `rightAtCorner` flags so the
+ * caller knows whether to emit corner-joinery tongues at that end
+ * (corners are at edge-extents 0 and edgeLen). Tiny segments
+ * (< 1 mm) are dropped so a degenerate resize/opening doesn't leak
+ * micro-parts into the laser sheet.
+ */
+function shieldEdgeSegments(edgeState, edgeLen) {
+  const EPS = 0.5;  // mm — anything smaller than this is treated as zero-length
+  if (edgeState === false || edgeState == null) return [];
+  if (edgeState === true) {
+    return [{ start: 0, end: edgeLen, leftAtCorner: true, rightAtCorner: true }];
+  }
+  const segStart = Math.max(0, edgeState.start || 0);
+  const segEnd   = Math.min(edgeLen, edgeState.end != null ? edgeState.end : edgeLen);
+  if (segEnd <= segStart + EPS) return [];
+  const leftAtCorner  = segStart < EPS;
+  const rightAtCorner = segEnd   > edgeLen - EPS;
+  if (!edgeState.opening) {
+    return [{ start: segStart, end: segEnd, leftAtCorner, rightAtCorner }];
+  }
+  const oStart = Math.max(segStart, edgeState.opening.start || 0);
+  const oEnd   = Math.min(segEnd,   edgeState.opening.end   != null ? edgeState.opening.end : oStart);
+  if (oEnd <= oStart + EPS) {
+    return [{ start: segStart, end: segEnd, leftAtCorner, rightAtCorner }];
+  }
+  // Split into two segments around the opening. Internal endpoints
+  // (adjacent to the opening) are NEVER at a corner — only the two
+  // outermost endpoints can be.
+  const segs = [];
+  if (oStart - segStart > EPS) {
+    segs.push({ start: segStart, end: oStart, leftAtCorner, rightAtCorner: false });
+  }
+  if (segEnd - oEnd > EPS) {
+    segs.push({ start: oEnd, end: segEnd, leftAtCorner: false, rightAtCorner });
+  }
+  return segs;
+}
+
+/* Compute the shield enclosure's bounding rectangle in iw-coords (the
+ * inside-of-building plan-view frame: x=0 at the inside face of the
+ * west wall, y=0 at the inside face of the south wall, max x at the
+ * inside east face, max y at the inside north face).
+ *
+ * If `cfg.rooftopShield.bounds` is set (user dragged the outline), it's
+ * used directly (with clamping to stay on the roof). Otherwise the
+ * bounds default to a uniform inset by `cfg.rooftopShield.offset` from
+ * all four roof edges — preserving the original "always anchored to
+ * the perimeter" behaviour for any preset saved before bounds existed.
+ *
+ * Returns an object `{ x, y, w, h }` in iw-coords. The four shield
+ * walls sit ALONG this rect's perimeter: F wall outer face at y=bounds.y,
+ * B wall outer face at y=bounds.y+bounds.h, etc. So bounds.w and bounds.h
+ * are the F/B and E/W wall lengths respectively.
+ */
+function getShieldBounds(cfg, plan) {
+  const shield = cfg.rooftopShield;
+  if (!shield) return null;
+  const matT = cfg.coreThickness || 1.5;
+  const offset = (typeof shield.offset === 'number') ? shield.offset : 3;
+  const roofW = plan.fbWidth - 2 * matT;
+  const roofD = plan.sideLen;
+  const b = shield.bounds;
+  if (b && Number.isFinite(b.x) && Number.isFinite(b.y)
+        && Number.isFinite(b.w) && Number.isFinite(b.h)) {
+    const x = Math.max(0, Math.min(roofW - 6, b.x));
+    const y = Math.max(0, Math.min(roofD - 6, b.y));
+    return {
+      x, y,
+      w: Math.max(6, Math.min(roofW - x, b.w)),
+      h: Math.max(6, Math.min(roofD - y, b.h)),
+    };
+  }
+  return {
+    x: offset, y: offset,
+    w: Math.max(6, roofW - 2 * offset),
+    h: Math.max(6, roofD - 2 * offset),
+  };
+}
+
 /* =====================================================================
    ROOFTOP SHIELD WALL  (Japanese 囲い / kakoui / parapet screen)
    A low wall around the rooftop perimeter that hides equipment.
    Styles: 'solid' (plain panels), 'louvered' (horizontal slat cuts), 'lattice'.
    Generates 4 wall panels (front/back/east/west) sized to the roof perimeter.
    ===================================================================== */
-function generateRooftopShieldParts(cfg, plan) {
+function generateRooftopShieldParts(cfg, plan, parts) {
   if (!cfg.rooftopShield || !cfg.rooftopShield.enabled) return [];
-  const { height = 8, offset = 3, style = 'solid' } = cfg.rooftopShield;
+  const { height = 8 } = cfg.rooftopShield;
   const matT = cfg.coreThickness || 1.5;
-  const { fbWidth, sideLen } = plan;
+  const cT = cfg.claddingThickness || 0.28;
 
-  // Shield inner perimeter = roof inner perimeter minus offset
-  const shW = Math.max(6, fbWidth  - 2 * matT - 2 * offset);
-  const shD = Math.max(6, sideLen  - 2 * offset);
+  // Resolve the shield outline's bounding rect (in iw-coords). This is
+  // either the user-dragged bounds or an offset-based inset by default.
+  const bounds = getShieldBounds(cfg, plan);
+  const shW = bounds.w;   // F/B wall length
+  const shD = bounds.h;   // E/W wall length
 
-  function shieldWall(id, name, wLen) {
-    const rects = [];
-    if (style === 'louvered') {
-      // Horizontal slots every 2mm
-      const slotH = 0.8, slotSpacing = 2;
-      for (let y = slotSpacing; y < height - slotSpacing; y += slotSpacing) {
-        rects.push({ type: 'cut', x: matT, y, w: wLen - 2 * matT, h: slotH, compensateKerf: false });
-      }
-    } else if (style === 'lattice') {
-      // Diagonal cross-hatch
-      const sp = 3;
-      for (let x = sp; x < wLen; x += sp)
-        for (let y = sp; y < height; y += sp)
-          rects.push({ type: 'cut', x: x - 0.4, y: y - 0.4, w: 0.8, h: 0.8, compensateKerf: false });
+  // Always X-braced structural cores + louvered cladding now — the old
+  // solid/louvered/lattice styles were removed since the X-brace design
+  // is the only one that produces a real structural part with corner
+  // joinery and matching roof slots.
+  return generateBracedShieldParts(cfg, plan, parts, { height, bounds, matT, cT, shW, shD });
+}
+
+/* Braced shield wall: tiled X-brace structural core (1.5 mm strips forming
+ * an outer frame with diagonal cross-brace in each bay) + bottom tongues
+ * that key into matching slots cut in the roof core + corner tongue/slot
+ * joinery between F/B walls (tongues at ends) and E/W walls (matching
+ * openings) + a separate cladding layer with scaling louvers. The bay
+ * width auto-fits the wall length so adjacent bays meet cleanly and the
+ * count is approximately `target_width` mm per bay (default 12).
+ */
+function generateBracedShieldParts(cfg, plan, parts, ctx) {
+  const { height, offset, matT, cT, shW, shD } = ctx;
+  // Target *interior* (visible) width of a single bay's X-brace area.
+  // Each bay sits between two shared vertical columns (matT thick), so
+  // a wall of length wLen lays out as (N+1) columns + N bay interiors:
+  //   wLen = (N+1)*matT + N*interior
+  // We pick N so `interior` lands near this target, keeping the bays
+  // roughly square (~10 mm wide × ~5 mm tall on an 8 mm wall).
+  const bayTargetInterior = 10;
+
+  function computeBays(len) {
+    // Solve N from wLen = (N+1)*matT + N*interior ≈ (N+1)*matT + N*target
+    //   wLen - matT ≈ N * (matT + target)
+    //   N ≈ (wLen - matT) / (matT + target)
+    const N = Math.max(1, Math.round((len - matT) / (matT + bayTargetInterior)));
+    const interior = (len - (N + 1) * matT) / N;
+    // stride = column-left-edge to next column-left-edge (matT + interior).
+    // Useful for placing both the bottom tongues and the bays.
+    return { N, interior, stride: matT + interior };
+  }
+
+  // Cut paths for the X-brace pattern inside one bay. Four triangular
+  // cutouts between the bay's inner-frame rectangle (= top/bottom outer
+  // frame + the two shared columns flanking this bay) and the diagonal
+  // cross-brace. Geometry is derived by offsetting each diagonal's
+  // centreline by braceT/2 perpendicular to its direction. braceT is
+  // independent of matT — the diagonals are usually thinner than the
+  // outer frame so the X-brace reads as a delicate structural element.
+  const braceT = (typeof cfg.rooftopShield.braceThickness === 'number')
+                 ? cfg.rooftopShield.braceThickness
+                 : 0.7;
+  function bracedBayCuts(interiorL, interior, h) {
+    const hw = braceT / 2;
+    // The bay's clear interior, bounded by shared columns on left/right
+    // and the top/bottom outer frame above/below.
+    const innerL = interiorL;
+    const innerR = interiorL + interior;
+    const innerT = matT;
+    const innerB = h - matT;
+    const dx = innerR - innerL;
+    const dy = innerB - innerT;
+    if (dx <= 0 || dy <= 0) return [];
+    const L = Math.hypot(dx, dy);
+    // xOff/yOff = where each diagonal strip's outer edge meets the inner
+    // frame. apexX/apexY = how far the opposing strips' inner edges meet
+    // before reaching the bay centre (the "tip" of each triangular cutout).
+    const xOff   = hw * L / dy;
+    const yOff   = hw * L / dx;
+    const apexY  = hw * L / dx;
+    const apexX  = hw * L / dy;
+    // Degenerate: strips too thick to fit inside the bay
+    if (xOff > dx / 2 || yOff > dy / 2) return [];
+
+    const cx = (innerL + innerR) / 2;
+    const cy = (innerT + innerB) / 2;
+    const tri = (a, b, c) =>
+      `M ${a[0]},${a[1]} L ${b[0]},${b[1]} L ${c[0]},${c[1]} Z`;
+
+    return [
+      // top, bottom, left, right triangular cutouts
+      { type: 'cut', d: tri([innerL + xOff, innerT], [innerR - xOff, innerT], [cx, cy - apexY]) },
+      { type: 'cut', d: tri([innerL + xOff, innerB], [innerR - xOff, innerB], [cx, cy + apexY]) },
+      { type: 'cut', d: tri([innerL, innerT + yOff], [innerL, innerB - yOff], [cx - apexX, cy]) },
+      { type: 'cut', d: tri([innerR, innerT + yOff], [innerR, innerB - yOff], [cx + apexX, cy]) },
+    ];
+  }
+
+  // Compute tongue positions along the bottom edge — one at each shared
+  // vertical column (N+1 tongues for N bays). Each is matT wide and sits
+  // exactly under its column, so the column transmits load straight down
+  // into the roof slot.
+  function bottomTonguesFor(N, stride, wLen) {
+    const tongues = [];
+    for (let i = 0; i <= N; i++) {
+      const startX = i * stride;
+      tongues.push({ start: startX, end: startX + matT });
     }
+    return tongues;
+  }
+
+  // Build the structural core panel for one shield wall segment. The
+  // leftAtCorner / rightAtCorner flags say whether each end touches a
+  // building corner — only those ends get a corner-joinery tongue (for
+  // F/B walls) or matching opening (for E/W walls). Internal ends
+  // (terminating at an opening, or where the wall has been resized
+  // shorter than the corner-to-corner distance) terminate cleanly.
+  // Vertical corner-joint position: centred on the wall height —
+  // keeps it clear of the bottom-tab row and the top decorative edge.
+  function buildShieldWallPart(id, name, wLen, info, isFB, leftAtCorner, rightAtCorner) {
+    const { N, interior, stride } = info;
+    const bottomTongues = bottomTonguesFor(N, stride, wLen);
+
+    const corner = { start: height / 2 - matT / 2, end: height / 2 + matT / 2 };
+    const leftTongues   = (isFB  && leftAtCorner)  ? [corner] : [];
+    const leftOpenings  = (!isFB && leftAtCorner)  ? [corner] : [];
+    const rightTongues  = (isFB  && rightAtCorner) ? [corner] : [];
+    const rightOpenings = (!isFB && rightAtCorner) ? [corner] : [];
+
+    const spec = {
+      width: wLen,
+      height,
+      matT,
+      kerf: cfg.kerfComp || 0,
+      edges: {
+        top:    { tongues: [], openings: [] },
+        right:  { tongues: rightTongues, openings: rightOpenings },
+        bottom: { tongues: bottomTongues, openings: [] },
+        left:   { tongues: leftTongues, openings: leftOpenings },
+      },
+    };
+    const outline = buildWallPath(spec);
+
+    // X-brace cutouts (one set per bay) — generated in panel-local coords
+    // (x=0 at the wall's left main-panel edge, y=0 at top). Each bay's
+    // interior left edge is at i*stride + matT (right after column i),
+    // and the interior is `interior` wide. The outline path's tongues
+    // extend past x=0/x=wLen and below y=height, but the cutouts stay
+    // inside the panel's main rectangle.
+    const bayCuts = [];
+    for (let i = 0; i < N; i++) {
+      bayCuts.push(...bracedBayCuts(i * stride + matT, interior, height));
+    }
+
+    // bbox grows on the left only if leftAtCorner+isFB (left tongue),
+    // and on the right similarly. bboxOffsetX accounts for the left
+    // extension so the part's (0,0) lands at the main-panel west edge.
+    const leftExt  = (isFB && leftAtCorner)  ? matT : 0;
+    const rightExt = (isFB && rightAtCorner) ? matT : 0;
     return {
       id, name, material: 'core',
-      bboxW: wLen, bboxH: height, bboxOffsetX: 0, bboxOffsetY: 0,
-      paths: [{ type: 'cut', d: rectPath(0, 0, wLen, height) }],
-      rects, lines: [],
+      bboxW: wLen + leftExt + rightExt,
+      bboxH: height + matT,
+      bboxOffsetX: leftExt,
+      bboxOffsetY: 0,
+      paths: [{ type: 'cut', d: outline }, ...bayCuts],
+      rects: [], lines: [],
     };
   }
 
-  return [
-    shieldWall('shield_front', 'Shield wall — front', shW),
-    shieldWall('shield_back',  'Shield wall — back',  shW),
-    shieldWall('shield_east',  'Shield wall — east',  shD),
-    shieldWall('shield_west',  'Shield wall — west',  shD),
-  ];
+  // Louvered cladding panel — separate 0.28 mm part that glues to the
+  // outside face of the core. Louver count scales with the wall height
+  // (mirroring vent_louvered's algorithm exactly: 0.6 mm target pitch,
+  // 0.5 mm top/bottom margin). Width follows the wall length, so wider
+  // walls just get longer louvers, same count.
+  function makeLouverCladding(id, name, wLen) {
+    const margin = 0.5;
+    const targetPitch = 0.6;
+    const usable = Math.max(0, height - 2 * margin);
+    const count = Math.max(2, Math.round(usable / targetPitch) + 1);
+    const pitch = count > 1 ? usable / (count - 1) : 0;
+    const lines = [];
+    for (let i = 0; i < count; i++) {
+      const y = margin + i * pitch;
+      lines.push({ type: 'etch', x1: 0.5, y1: y, x2: wLen - 0.5, y2: y });
+    }
+    return {
+      id, name, material: 'cladding',
+      bboxW: wLen, bboxH: height, bboxOffsetX: 0, bboxOffsetY: 0,
+      paths: [{ type: 'cut', d: rectPath(0, 0, wLen, height) }],
+      rects: [], lines,
+    };
+  }
+
+  const fbInfoFull = computeBays(shW);
+  const ewInfoFull = computeBays(shD);
+
+  // Cut slots into the roof core to receive the bottom tongues. Slots
+  // are placed in build-frame coords (matching where each shield wall
+  // sits on the roof), then translated into the roof part's local frame
+  // by subtracting the roof's bbox origin. The roof part is generated
+  // earlier by generateRoof and lives in `parts` — we mutate its `rects`
+  // array to add the slot cuts in-place.
+  const edges = (cfg.rooftopShield.edges) || { front: true, back: true, east: true, west: true };
+  if (parts) {
+    addShieldRoofSlots(cfg, plan, parts, edges, ctx);
+  }
+
+  // Each side may produce 0, 1, or 2 wall segments (resize + opening
+  // splits the wall in two). Bay count for each segment is computed
+  // from its own length so the X-brace pattern stays roughly square
+  // regardless of segment size.
+  const out = [];
+  function emitFor(side, edgeLen, isFB) {
+    const segs = shieldEdgeSegments(edges[side], edgeLen);
+    if (!segs.length) return;
+    const suffix = isFB ? ['_west', '_east'] : ['_front', '_back'];
+    segs.forEach((s, i) => {
+      const segLen = s.end - s.start;
+      const info = computeBays(segLen);
+      const baseId = 'shield_' + side + (segs.length > 1 ? suffix[i] : '');
+      const baseName = 'Shield wall — ' + side
+        + (segs.length > 1 ? ' (' + suffix[i].slice(1) + ' segment)' : '');
+      out.push(buildShieldWallPart(baseId, baseName, segLen, info, isFB, s.leftAtCorner, s.rightAtCorner));
+      const cladId = 'shield_cladding_' + side + (segs.length > 1 ? suffix[i] : '');
+      const cladName = 'Shield cladding — ' + side
+        + (segs.length > 1 ? ' (' + suffix[i].slice(1) + ' segment)' : '');
+      out.push(makeLouverCladding(cladId, cladName, segLen));
+    });
+  }
+  emitFor('front', shW, true);
+  emitFor('back',  shW, true);
+  emitFor('east',  shD, false);
+  emitFor('west',  shD, false);
+  return out;
+}
+
+/* Add slot cuts to the roof core panel for the braced shield wall's
+ * bottom tongues. Looks up the roof part by id (parapet/flat → 'roof',
+ * slanted → 'roof', gabled → 'roof_slope0'/'roof_slope1'; for slanted
+ * and gabled the shield wall doesn't really make sense, so we just
+ * skip in those cases — leaving the tongues unmated, which is fine as
+ * they can be trimmed or glued flat).
+ *
+ * Slot positions in build frame:
+ *   F shield: z = offset, spans x = [matT+offset, matT+offset+shW]
+ *   B shield: z = sideLen+matT-offset, x = same range
+ *   E shield: x = fbWidth-matT-offset, z = [offset, offset+shD]
+ *   W shield: x = matT+offset, z = same range
+ * Bottom tongues live along the wall's bottom edge at tongue positions
+ * computed by bottomTonguesFor. Translate each tongue's wall-local x
+ * into build-frame x (or z), then into the roof part's local frame.
+ */
+function addShieldRoofSlots(cfg, plan, parts, edges, ctx) {
+  const { height, bounds, matT, cT, shW, shD } = ctx;
+  // Find the roof core — parapet/flat have a single 'roof' part with
+  // local coords starting at (0,0) at the front-west corner. Slanted
+  // and gabled are uncommon use-cases for shield walls and we leave
+  // those alone (no slots cut — the tongues can be trimmed off).
+  const roofPart = parts.find(p => p.id === 'roof');
+  if (!roofPart) return;
+  if (cfg.roofStyle !== 'parapet' && cfg.roofStyle !== 'flat' && cfg.roofStyle !== 'flat_overhang') return;
+
+  // Roof-local coord conversion. iw-coords ARE roof-local for parapet
+  // (both start at the inside-west / inside-south wall faces). For flat
+  // the core IS the building's footprint (no extension), so iw_x=0
+  // (inside-west face, at build_x=matT) maps to roof-local x = matT.
+  // For flat_overhang the core extends past every wall by `O` mm, so
+  // iw_x=0 maps to roof-local x = matT + O.
+  const isParapet = cfg.roofStyle === 'parapet';
+  const overhangPx = (cfg.roofStyle === 'flat_overhang')
+    ? Math.max(0, cfg.roofOverhang || 5)
+    : 0;
+  const iwToLocalX = (ix) => isParapet ? ix : (ix + matT + overhangPx);
+  const iwToLocalY = (iy) => isParapet ? iy : (iy + matT + overhangPx);
+
+  // Wall-local bottom tongue positions for a single segment of length
+  // wLen. Mirrors bottomTonguesFor / computeBays from the braced
+  // generator — duplicated here for locality, so the slot positions
+  // are obvious from this function alone. KEEP IN SYNC with those.
+  function bottomTongues(wLen) {
+    const bayTargetInterior = 10;
+    const N = Math.max(1, Math.round((wLen - matT) / (matT + bayTargetInterior)));
+    const interior = (wLen - (N + 1) * matT) / N;
+    const stride = matT + interior;
+    const tongues = [];
+    for (let i = 0; i <= N; i++) {
+      tongues.push({ start: i * stride, end: i * stride + matT });
+    }
+    return tongues;
+  }
+
+  // For each side, compute segments and cut a slot per tongue. Walls
+  // sit along the bounds rectangle's perimeter:
+  //   front: iw_y range [bounds.y, bounds.y + matT], iw_x along [bounds.x, bounds.x+bounds.w]
+  //   back:  iw_y range [bounds.y+bounds.h-matT, bounds.y+bounds.h]
+  //   west:  iw_x range [bounds.x, bounds.x + matT], iw_y along [bounds.y, bounds.y+bounds.h]
+  //   east:  iw_x range [bounds.x+bounds.w-matT, bounds.x+bounds.w]
+  function cutSlotsForSide(side, edgeLen) {
+    const segs = shieldEdgeSegments(edges[side], edgeLen);
+    if (!segs.length) return;
+    for (const seg of segs) {
+      const segLen = seg.end - seg.start;
+      const tongues = bottomTongues(segLen);
+      for (const t of tongues) {
+        const edgePos0 = seg.start + t.start;
+        const edgePos1 = seg.start + t.end;
+        let x, y, w, h;
+        if (side === 'front') {
+          x = iwToLocalX(bounds.x + edgePos0);
+          y = iwToLocalY(bounds.y);
+          w = edgePos1 - edgePos0; h = matT;
+        } else if (side === 'back') {
+          x = iwToLocalX(bounds.x + edgePos0);
+          y = iwToLocalY(bounds.y + bounds.h - matT);
+          w = edgePos1 - edgePos0; h = matT;
+        } else if (side === 'west') {
+          x = iwToLocalX(bounds.x);
+          y = iwToLocalY(bounds.y + edgePos0);
+          w = matT; h = edgePos1 - edgePos0;
+        } else {
+          x = iwToLocalX(bounds.x + bounds.w - matT);
+          y = iwToLocalY(bounds.y + edgePos0);
+          w = matT; h = edgePos1 - edgePos0;
+        }
+        roofPart.rects.push({ type: 'cut', x, y, w, h, compensateKerf: false });
+      }
+    }
+  }
+
+  cutSlotsForSide('front', shW);
+  cutSlotsForSide('back',  shW);
+  cutSlotsForSide('west',  shD);
+  cutSlotsForSide('east',  shD);
 }
 
 
@@ -8412,6 +8974,83 @@ function generateTrimStrips(cfg, plan, parts) {
     bboxOffsetX: 0, bboxOffsetY: 0,
     paths: [], rects: rects, lines: [],
     assemblyNote: 'Glue around the building at the marked outlines on each cladding panel. Notched segments fit between doors and other openings.',
+  }];
+}
+
+/* Corner trim — four narrow vertical strips that wrap each building corner.
+ *
+ * Each strip is 3 mm wide with an etched fold line down the centre at
+ * x = 1.5 mm, so the user can score-and-fold along the centre and glue
+ * 1.5 mm of cladding-thickness material to each adjacent face. Strips
+ * are sized to match each corner's own height — for parapet, flat, and
+ * gabled roofs that's `plan.H` on all four corners; for a slanted roof
+ * the high-side corners pick up the pitch (+`cfg.roofPitch` mm) and the
+ * low-side corners stay at `plan.H`. Wall corners on a gabled roof are
+ * always at the eave height (`plan.H`) because the ridge peaks lie in
+ * the middle of two walls rather than at a corner.
+ *
+ * The four strips are laid out horizontally on a single laser sheet
+ * (left → right = NE, NW, SE, SW) so the user can identify which strip
+ * goes to which corner by position (and by height, for slanted roofs).
+ */
+function generateCornerTrim(cfg, plan) {
+  if (!cfg.cornerTrim) return [];
+
+  const baseH = plan.H;
+  const pitch = cfg.roofPitch || 0;
+  const slopeDir = cfg.roofSlopeDirection || 'back';
+
+  function cornerHeight(corner /* 'ne' | 'nw' | 'se' | 'sw' */) {
+    if (cfg.roofStyle !== 'slanted') return baseH;
+    // slanted roof — exactly two of the four corners are at the high end
+    // (slopeDir names the high side). Other roof styles either have all
+    // corners equal (parapet, flat, gabled with corners at eave) or the
+    // pitch only affects the middle of the wall (gabled peak isn't at
+    // a corner), so they all use baseH.
+    const isHighCorner =
+      (slopeDir === 'back'  && corner.startsWith('n')) ||   // ne, nw  ←  back-high
+      (slopeDir === 'front' && corner.startsWith('s')) ||   // se, sw  ←  front-high
+      (slopeDir === 'east'  && corner.endsWith('e'))   ||   // ne, se  ←  east-high
+      (slopeDir === 'west'  && corner.endsWith('w'));       // nw, sw  ←  west-high
+    return baseH + (isHighCorner ? pitch : 0);
+  }
+
+  const corners = ['ne', 'nw', 'se', 'sw'];
+  const heights = corners.map(cornerHeight);
+
+  // Sheet layout — horizontal stack with 5 mm gutters. Strips are 3 mm wide
+  // (1.5 mm + 1.5 mm) so a row of 4 strips is only 4×3 + 5×5 = 37 mm wide
+  // even on a tall building, which fits any reasonable laser sheet.
+  const stripW = 3.0;     // 1.5 mm each side of the fold
+  const foldX  = 1.5;     // centre of the strip — fold line position
+  const gutter = 5;
+  const maxH   = Math.max(...heights);
+
+  const rects = [];
+  const lines = [];
+  let x = gutter;
+  corners.forEach((cornerName, i) => {
+    const h = heights[i];
+    // Cut rectangle for the strip
+    rects.push({ type: 'cut', x, y: gutter, w: stripW, h, compensateKerf: false });
+    // Etched fold line — full height of the strip
+    lines.push({ type: 'etch', x1: x + foldX, y1: gutter, x2: x + foldX, y2: gutter + h });
+    x += stripW + gutter;
+  });
+
+  // Per-corner height summary in the part name so the user can spot at a
+  // glance which strip is which (especially handy for slanted roofs where
+  // adjacent strips have different heights).
+  const heightsLbl = corners.map((c, i) => `${c.toUpperCase()} ${heights[i].toFixed(1)}`).join(' · ');
+
+  return [{
+    id: 'corner_trim',
+    name: `Corner trim — 4 strips, 3 mm wide (${heightsLbl} mm)`,
+    material: 'cladding',
+    bboxW: x, bboxH: maxH + 2 * gutter,
+    bboxOffsetX: 0, bboxOffsetY: 0,
+    paths: [], rects, lines,
+    assemblyNote: 'Score along the etched centre line of each strip, fold 90°, and glue 1.5 mm to each cladding face that meets at the corner. Strips are laid out left → right as NE · NW · SE · SW (back-east, back-west, front-east, front-west).',
   }];
 }
 
@@ -10609,6 +11248,12 @@ function generateBuilding(cfg) {
   const trimParts = generateTrimStrips(cfg, plan, parts);
   parts.push(...trimParts);
 
+  // Corner trim — four narrow vertical strips that wrap each corner,
+  // covering the cladding edges where two faces meet. Independent of
+  // the horizontal trim bands; user toggle is cfg.cornerTrim.
+  const cornerTrimParts = generateCornerTrim(cfg, plan);
+  parts.push(...cornerTrimParts);
+
   // Ground-floor depth offset sub-assembly (extension or recess)
   const gfoParts = generateGroundFloorOffsetParts(cfg, plan);
   parts.push(...gfoParts);
@@ -10621,7 +11266,7 @@ function generateBuilding(cfg) {
   parts.push(...generateAwningParts(cfg, plan));
   parts.push(...generateBalconyParts(cfg, plan));
   parts.push(...generateBillboardParts(cfg));
-  parts.push(...generateRooftopShieldParts(cfg, plan));
+  parts.push(...generateRooftopShieldParts(cfg, plan, parts));
 
   // Cladding roof (parapet/flat only — slanted and gabled emit their own
   // textured cladding panels via generateRoof). Apply the roof cladding
@@ -10629,7 +11274,7 @@ function generateBuilding(cfg) {
   // shows up on the laser-cut layer. Without this etching the parapet /
   // flat cladding roof was just a blank rectangle and changing the roof
   // cladding style appeared to do nothing.
-  if (cfg.roofStyle === 'parapet' || cfg.roofStyle === 'flat') {
+  if (cfg.roofStyle === 'parapet' || cfg.roofStyle === 'flat' || cfg.roofStyle === 'flat_overhang') {
     const cT = cfg.claddingThickness;
     let rW, rH;
     if (cfg.roofStyle === 'parapet') {
@@ -10639,6 +11284,14 @@ function generateBuilding(cfg) {
       // core piece (fbWidth - 2*matT × sideLen).
       rW = plan.fbWidth - 2 * plan.matT;
       rH = cfg.depth    - 2 * plan.matT;
+    } else if (cfg.roofStyle === 'flat_overhang') {
+      // Flat with overhang — the cladding covers the entire oversized
+      // core including the eave projection on every side. Matches the
+      // dimensions of the roof core part exactly so the metal-look
+      // pattern wraps to the outer edge with no exposed core showing.
+      const O = Math.max(0, cfg.roofOverhang || 5);
+      rW = plan.fbWidth + 2 * O;
+      rH = cfg.depth    + 2 * O;
     } else {
       // Flat roof sits ON TOP of the walls. Cladding spans the outer footprint
       // plus the usual cT overhang on each side.
@@ -10929,6 +11582,7 @@ function readForm() {
   CONFIG.roofSlopeDirection = val('roofSlopeDirection') || 'back';
   CONFIG.roofOverhangFB = num('roofOverhangFB') || 0;
   CONFIG.roofOverhangEW = num('roofOverhangEW') || 0;
+  CONFIG.roofOverhang = num('roofOverhangAll') || 5;
   CONFIG.claddingStyle = val('claddingStyle');
   CONFIG.roofCladdingStyle = val('roofCladdingStyle') || CONFIG.claddingStyle;
   CONFIG.windowStyle = val('windowStyle');
@@ -10957,6 +11611,7 @@ function readForm() {
   CONFIG.trimBelt = !!document.getElementById('trimBelt').checked;
   CONFIG.trimHeight = num('trimHeight');
   CONFIG.trimOverhang = num('trimOverhang');
+  CONFIG.cornerTrim = !!document.getElementById('cornerTrim')?.checked;
   // Inter-floor panels
   CONFIG.floorPanels = !!document.getElementById('floorPanels').checked;
   CONFIG.lastWallSide = val('lastWallSide');
@@ -10983,12 +11638,13 @@ function readForm() {
       CONFIG.rooftopEquipment[k] = 0;
     }
   }
-  // Rooftop shield wall
+  // Rooftop shield wall (always X-braced + louvered cladding now)
   CONFIG.rooftopShield = CONFIG.rooftopShield || {};
   CONFIG.rooftopShield.enabled = !!document.getElementById('rooftopShieldEnabled')?.checked;
-  CONFIG.rooftopShield.style  = document.getElementById('rooftopShieldStyle')?.value  || 'solid';
+  CONFIG.rooftopShield.style  = 'braced';
   CONFIG.rooftopShield.height = num('rooftopShieldHeight') || 8;
   CONFIG.rooftopShield.offset = num('rooftopShieldOffset') || 3;
+  CONFIG.rooftopShield.braceThickness = num('rooftopShieldBraceThickness') || 0.7;
   CONFIG.coreThickness     = (CONFIG.materials.find(m=>m.id==='core')    ?.thickness) || 1.5;
   CONFIG.claddingThickness = (CONFIG.materials.find(m=>m.id==='cladding')?.thickness) || 0.28;
   CONFIG.tongueWidth = num('tongueWidth');
@@ -11013,6 +11669,7 @@ function writeForm() {
   set('roofSlopeDirection', CONFIG.roofSlopeDirection || 'back');
   set('roofOverhangFB', CONFIG.roofOverhangFB || 0);
   set('roofOverhangEW', CONFIG.roofOverhangEW || 0);
+  set('roofOverhangAll', CONFIG.roofOverhang || 5);
   updateOverhangLinkBtn();
   set('claddingStyle', CONFIG.claddingStyle);
   set('roofCladdingStyle', CONFIG.roofCladdingStyle || CONFIG.claddingStyle);
@@ -11039,6 +11696,8 @@ function writeForm() {
   document.getElementById('trimBelt').checked = !!CONFIG.trimBelt;
   set('trimHeight', CONFIG.trimHeight);
   set('trimOverhang', CONFIG.trimOverhang);
+  const ctEl = document.getElementById('cornerTrim');
+  if (ctEl) ctEl.checked = !!CONFIG.cornerTrim;
   // Inter-floor panels
   document.getElementById('floorPanels').checked = !!CONFIG.floorPanels;
   set('lastWallSide', CONFIG.lastWallSide);
@@ -11056,14 +11715,13 @@ function writeForm() {
       if (el) el.value = CONFIG.rooftopEquipment[k] || 0;
     }
   }
-  // Rooftop shield
+  // Rooftop shield (always X-braced now — no style dropdown)
   const shield = CONFIG.rooftopShield || {};
   const shieldEn = document.getElementById('rooftopShieldEnabled');
   if (shieldEn) shieldEn.checked = !!shield.enabled;
-  const shieldStyle = document.getElementById('rooftopShieldStyle');
-  if (shieldStyle) shieldStyle.value = shield.style || 'solid';
   set('rooftopShieldHeight', shield.height ?? 8);
   set('rooftopShieldOffset', shield.offset ?? 3);
+  set('rooftopShieldBraceThickness', shield.braceThickness ?? 0.7);
   set('tongueWidth', CONFIG.tongueWidth);
   set('kerfComp', CONFIG.kerfComp);
   updateConditionalFields();
@@ -11103,6 +11761,7 @@ function updateConditionalFields() {
   document.getElementById('parapetHeightField').style.display = (roofStyle === 'parapet' || roofStyle === 'flat') ? '' : 'none';
   document.getElementById('parapetInnerCladdingField').style.display = (roofStyle === 'parapet') ? '' : 'none';
   document.getElementById('roofPitchField').style.display = (roofStyle === 'slanted' || roofStyle === 'gabled') ? '' : 'none';
+  document.getElementById('roofOverhangAllField').style.display = (roofStyle === 'flat_overhang') ? '' : 'none';
   // Roof cladding style only matters for slanted / gabled roofs — parapet
   // and flat roofs don't emit a cladding panel and reuse the wall texture
   // via 3D wrapping. Mirror the same visibility test the cladding panel
@@ -11447,6 +12106,28 @@ let iwDragPt = null;        // {x,y} mm — wall drag start
 let iwCurMM  = null;        // {x,y} mm — mouse position
 let iwDragItem = null;      // roof item being dragged from toolbox
 let iwCustomSizes = {};
+// Pan state — independent of the wall-draw / item-move gestures so a pan
+// in progress doesn't accidentally place walls or grab items. Triggered
+// by middle-mouse-drag or space-held + left-drag, both well-known
+// conventions from desktop graphics apps.
+let iwPanning      = false;
+let iwPanStartPx   = null;  // {x, y} in canvas pixels at mousedown
+let iwPanStartOff  = null;  // {x, y} = iwOffX/iwOffY at mousedown
+let iwSpaceDown    = false;
+// Shield Wall tool drag state. Non-null while a handle is being dragged.
+// `kind` is one of 'segStart' | 'segEnd' | 'openStart' | 'openEnd' and
+// `side` identifies which edge owns the handle. The actual drag math
+// runs in iwHandleMouseMove — it converts the cursor position into an
+// edge-position (0..edgeLen) and writes it back into the relevant
+// field of CONFIG.rooftopShield.edges[side].
+let iwShieldDrag   = null;
+// Outline drag state — for the four corner-resize handles and the
+// body-move handle on the shield's bounding rectangle. `kind` is one
+// of 'tl' | 'tr' | 'bl' | 'br' | 'move'. iwShieldBoundsStart captures
+// the initial mouse position and the bounds rect at mousedown so the
+// move arithmetic can be a simple delta-from-start.
+let iwShieldBoundsDrag = null;
+let iwShieldBoundsStart = null;
 // Placed-item interaction state. A placed item is either selected (highlighted,
 // removable via Delete/Backspace) or actively being moved (mouse held down
 // after a mousedown on its rect). Both default to -1 = "nothing selected".
@@ -11474,6 +12155,13 @@ function iwClose() {
   // Drop selection so it isn't carried into the next open of the modal.
   iwSelectedIdx = -1;
   iwMovingIdx   = -1;
+  // Reset transient pan state so a held space / mid-pan doesn't leak
+  // into the next open.
+  iwSpaceDown = false;
+  iwPanning   = false;
+  iwShieldDrag = null;
+  iwShieldBoundsDrag = null;
+  iwShieldBoundsStart = null;
   document.getElementById('iwModal').style.display = 'none';
 }
 function iwApply() { iwClose(); regenerate(); }
@@ -11490,6 +12178,18 @@ function iwKeyDown(e) {
   if (!modal || modal.style.display === 'none') return;
   const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  // Spacebar enters pan mode — held down so the user can drag with the
+  // left mouse button to scroll the view. Eats the default (which would
+  // be page scroll) so the gesture stays inside the editor.
+  if (e.key === ' ' || e.code === 'Space') {
+    if (!iwSpaceDown) {
+      iwSpaceDown = true;
+      const svg = document.getElementById('iwSvg');
+      if (svg && !iwPanning) svg.style.cursor = 'grab';
+    }
+    e.preventDefault();
+    return;
+  }
   if ((e.key === 'Delete' || e.key === 'Backspace') && iwSelectedIdx >= 0 && iwIsRoof()) {
     e.preventDefault();
     (CONFIG.rooftopItems || []).splice(iwSelectedIdx, 1);
@@ -11502,10 +12202,239 @@ function iwKeyDown(e) {
   }
 }
 
+function iwKeyUp(e) {
+  if (e.key === ' ' || e.code === 'Space') {
+    iwSpaceDown = false;
+    const svg = document.getElementById('iwSvg');
+    if (svg && !iwPanning) svg.style.cursor = '';
+  }
+}
+
 function iwFloorCount() { return lastPlan ? Math.max(1, lastPlan.floors || 1) : 1; }
 function iwIsRoof()     { return iwFloor === IW_ROOF; }
 function iwWalls() { return iwIsRoof() ? [] : ((CONFIG.internalWalls || {})[0] || []); }
 function iwIsFloor() { return !iwIsRoof(); }
+
+/* Ensure CONFIG.rooftopShield.bounds is set explicitly (not null).
+ * On first call this seeds it with the current default — the offset-
+ * based inset rectangle — so subsequent drags can mutate the bounds
+ * directly. Idempotent: if bounds is already set, this is a no-op.
+ */
+function iwShieldEnsureBounds() {
+  if (!CONFIG.rooftopShield) {
+    CONFIG.rooftopShield = { enabled: true, style: 'solid', height: 8, offset: 3,
+                             bounds: null,
+                             edges: { front: true, back: true, east: true, west: true } };
+  }
+  const s = CONFIG.rooftopShield;
+  if (s.bounds && Number.isFinite(s.bounds.x)) return;
+  const { bW, bD } = iwBounds();
+  const offset = (typeof s.offset === 'number') ? s.offset : 3;
+  s.bounds = {
+    x: offset, y: offset,
+    w: Math.max(6, bW - 2 * offset),
+    h: Math.max(6, bD - 2 * offset),
+  };
+}
+
+/* Clamp the shield bounds to the inside of the roof and ensure a
+ * minimum size. Called after any bounds mutation to keep the values
+ * sensible. Also clamps any per-edge segment start/end and openings
+ * that fall outside the new bounds — wall lengths track bounds.w/h
+ * so a shrunk bounds shouldn't leave segments protruding past their
+ * own edge.
+ */
+function iwShieldClampBounds() {
+  const s = CONFIG.rooftopShield;
+  if (!s || !s.bounds) return;
+  const { bW, bD } = iwBounds();
+  const b = s.bounds;
+  const MIN = 6;
+  b.x = Math.max(0, Math.min(bW - MIN, b.x));
+  b.y = Math.max(0, Math.min(bD - MIN, b.y));
+  b.w = Math.max(MIN, Math.min(bW - b.x, b.w));
+  b.h = Math.max(MIN, Math.min(bD - b.y, b.h));
+  // Clamp per-edge segments to the new bounds. Wall lengths are
+  // bounds.w (F/B) and bounds.h (E/W).
+  const edges = s.edges || {};
+  for (const side of ['front', 'back', 'east', 'west']) {
+    const len = (side === 'front' || side === 'back') ? b.w : b.h;
+    const e = edges[side];
+    if (e && typeof e === 'object') {
+      if (e.start != null) e.start = Math.max(0, Math.min(len, e.start));
+      if (e.end != null)   e.end   = Math.max(e.start || 0, Math.min(len, e.end));
+      if (e.opening) {
+        e.opening.start = Math.max(e.start || 0, Math.min(e.end || len, e.opening.start));
+        e.opening.end   = Math.max(e.opening.start, Math.min(e.end || len, e.opening.end));
+        if (e.opening.end - e.opening.start < 1) e.opening = null;
+      }
+    }
+  }
+}
+
+/* Convert a roof-plan-mm point into an edge-position (0..edgeLen) on a
+ * given side. The side's edge runs along the bounds rectangle's
+ * perimeter; for front/back the edge axis is x and the origin is at
+ * the bounds' west corner. For east/west it's y, origin at the
+ * bounds' south corner. Returns a raw (unclamped) value — the caller
+ * clamps as appropriate.
+ */
+function iwShieldEdgePos(side, pt) {
+  const s = CONFIG.rooftopShield;
+  let bx = 3, by = 3;
+  if (s) {
+    if (s.bounds && Number.isFinite(s.bounds.x)) {
+      bx = s.bounds.x; by = s.bounds.y;
+    } else {
+      const off = (typeof s.offset === 'number') ? s.offset : 3;
+      bx = off; by = off;
+    }
+  }
+  if (side === 'front' || side === 'back') return pt.x - bx;
+  return pt.y - by;
+}
+
+/* Convert the legacy `true` edge state into the object form so we can
+ * mutate individual fields (start, end, opening). Idempotent — already-
+ * object values pass through unchanged.
+ */
+function iwShieldNormalizeEdge(side) {
+  if (!CONFIG.rooftopShield) return;
+  if (!CONFIG.rooftopShield.edges) {
+    CONFIG.rooftopShield.edges = { front: true, back: true, east: true, west: true };
+  }
+  const raw = CONFIG.rooftopShield.edges[side];
+  if (raw === true || raw == null) {
+    const { bW, bD } = iwBounds();
+    const offset = CONFIG.rooftopShield.offset || 3;
+    const edgeLen = (side === 'front' || side === 'back') ? (bW - 2 * offset) : (bD - 2 * offset);
+    CONFIG.rooftopShield.edges[side] = { start: 0, end: edgeLen, opening: null };
+  }
+}
+
+/* Add an opening at the centre of the given side's segment. Default
+ * width: 8 mm — slightly wider than a typical N-scale door so the gap
+ * reads as "walk-through" on the model. The opening is clamped to fit
+ * inside the segment with at least 4 mm of wall on each side.
+ */
+function iwShieldAddOpening(side) {
+  iwShieldNormalizeEdge(side);
+  const e = CONFIG.rooftopShield.edges[side];
+  const segMid = (e.start + e.end) / 2;
+  const DEFAULT_W = 8;
+  const minWallEachSide = 4;
+  const maxOpenW = Math.max(0, (e.end - e.start) - 2 * minWallEachSide);
+  const w = Math.min(DEFAULT_W, maxOpenW);
+  if (w <= 0) return; // segment too small
+  e.opening = { start: segMid - w / 2, end: segMid + w / 2 };
+  // If the shield was disabled before, the click would have hit the
+  // dashed ghost first and gone through iwShieldwallEdgeClick — so by
+  // the time we get here the shield is definitely enabled.
+  iwRender();
+}
+
+
+/* Click handler for the Shield Wall tool. Maps the mouse position into
+ * roof-plan-mm coords, finds which of the four edges (front / back /
+ * east / west) it's closest to, and toggles that edge in
+ * CONFIG.rooftopShield.edges. A click within `EDGE_PROX` mm of any
+ * edge counts; clicks well inside the roof do nothing (return false so
+ * the caller can fall through to deselection).
+ *
+ * Auto-enables CONFIG.rooftopShield.enabled on first toggle so the
+ * user doesn't have to also tick the left-panel checkbox. Returns
+ * true if the click was within proximity of an edge (handled),
+ * false otherwise.
+ */
+function iwShieldwallEdgeClick(e) {
+  if (!lastPlan) return false;
+  const { bW, bD } = iwBounds();
+  const p = iwSvgPt(e);
+  // Proximity threshold scales with bay size — clicks anywhere within
+  // ~15% of the shorter roof dimension toward an edge register, capped
+  // to a reasonable range so big buildings don't make the dead zone
+  // unreasonably small.
+  const EDGE_PROX = Math.max(6, Math.min(20, Math.min(bW, bD) * 0.15));
+  // Distances from each edge (in roof-plan-mm). Negative if outside,
+  // but iwSvgPt + the rest of the editor clamps to the building so
+  // negative values rarely occur.
+  const dN = p.y;            // front / "south" / y=0 edge
+  const dS = bD - p.y;       // back  / "north" / y=bD edge
+  const dW = p.x;            // west  / x=0 edge
+  const dE = bW - p.x;       // east  / x=bW edge
+
+  // Find the nearest edge and require the click to be within proximity
+  // AND also in the band along that edge (between the corners).
+  const candidates = [
+    { dist: dN, key: 'front', within: p.x > 0 && p.x < bW },
+    { dist: dS, key: 'back',  within: p.x > 0 && p.x < bW },
+    { dist: dW, key: 'west',  within: p.y > 0 && p.y < bD },
+    { dist: dE, key: 'east',  within: p.y > 0 && p.y < bD },
+  ].filter(c => c.within && c.dist >= 0 && c.dist <= EDGE_PROX);
+
+  if (!candidates.length) return false;
+  candidates.sort((a, b) => a.dist - b.dist);
+  const hit = candidates[0];
+
+  // Ensure CONFIG.rooftopShield exists and has an edges sub-object.
+  if (!CONFIG.rooftopShield) {
+    CONFIG.rooftopShield = { enabled: true, style: 'solid', height: 8, offset: 3, edges: {} };
+  }
+  if (!CONFIG.rooftopShield.edges) {
+    CONFIG.rooftopShield.edges = { front: true, back: true, east: true, west: true };
+  }
+
+  // If the shield was disabled (no edges enabled yet), this is a fresh
+  // turn-on for just the clicked edge — start with all OFF then enable
+  // the clicked one so the user doesn't suddenly see all four sides.
+  if (!CONFIG.rooftopShield.enabled) {
+    CONFIG.rooftopShield.enabled = true;
+    CONFIG.rooftopShield.edges = { front: false, back: false, east: false, west: false };
+    CONFIG.rooftopShield.edges[hit.key] = true;
+    const cb = document.getElementById('rooftopShieldEnabled');
+    if (cb) cb.checked = true;
+    iwRender();
+    return true;
+  }
+
+  const cur = CONFIG.rooftopShield.edges[hit.key];
+  const edgeLen = (hit.key === 'front' || hit.key === 'back')
+    ? (bW - 2 * (CONFIG.rooftopShield.offset || 3))
+    : (bD - 2 * (CONFIG.rooftopShield.offset || 3));
+  const edgePos = (hit.key === 'front' || hit.key === 'back')
+    ? p.x - (CONFIG.rooftopShield.offset || 3)
+    : p.y - (CONFIG.rooftopShield.offset || 3);
+
+  if (cur === false || cur == null) {
+    // Disabled edge: enable it (full length)
+    CONFIG.rooftopShield.edges[hit.key] = true;
+  } else if (typeof cur === 'object' && cur.opening
+             && edgePos >= cur.opening.start && edgePos <= cur.opening.end) {
+    // Clicked inside the opening — remove it. Keeps the resize but
+    // closes the gap.
+    cur.opening = null;
+  } else {
+    // Click on enabled body but not in an opening — disable the edge.
+    // The user can re-enable with another click, and resize/openings
+    // are reached via the white handles + "+" badge.
+    CONFIG.rooftopShield.edges[hit.key] = false;
+  }
+
+  // If the user has just turned off the last remaining edge, also flip
+  // the enabled flag back off — otherwise the left-panel checkbox would
+  // stay ticked but generate nothing.
+  const anyOn = ['front', 'back', 'east', 'west'].some(k =>
+    CONFIG.rooftopShield.edges[k] !== false && CONFIG.rooftopShield.edges[k] != null
+  );
+  if (!anyOn) CONFIG.rooftopShield.enabled = false;
+
+  // Sync the writeForm-bound checkbox so the left panel reflects the
+  // new enabled state.
+  const cb = document.getElementById('rooftopShieldEnabled');
+  if (cb) cb.checked = !!CONFIG.rooftopShield.enabled;
+  iwRender();
+  return true;
+}
 
 function iwFloorIdxForPart(partId) {
   // All roof-related parts route to the Roof tab — the single 'roof' core
@@ -12131,7 +13060,7 @@ function iwPopulateTopbar() {
     addLbl('SHIELD WALL');
     const hint = document.createElement('span');
     hint.style.cssText = 'font-size:11px;color:var(--muted);padding:0 8px;';
-    hint.textContent = 'Click the North, South, East or West edge of the roof to toggle a parapet.';
+    hint.textContent = 'Drag the square corner handles to resize the enclosure, the dashed body to move it, the white round handles to resize each wall, click + to add an opening.';
     bar.appendChild(hint);
 
   } else if (iwDragItem) {
@@ -12257,7 +13186,178 @@ function iwRender() {
     }
   }
 
-  if (isRoof) h += `<text x="${((fp.x+fpR.x)/2).toFixed(1)}" y="${((fp.y+fpR.y)/2).toFixed(1)}" font-size="11" font-family="system-ui" fill="#6a8a6a" text-anchor="middle" dominant-baseline="middle" pointer-events="none">Roof plan</text>`;
+  // Shield wall visualization — draw segments along each edge of the
+  // shield's bounding rectangle, with gaps where openings are configured.
+  // When the Shield Wall tool is active, additionally show:
+  //   • the dashed bounding rect outline (so the user sees what to drag)
+  //   • 4 square corner handles to resize the entire outline
+  //   • a "move" handle inside the bounds to drag the whole thing around
+  //   • dashed ghost strips along disabled edges
+  //   • round drag handles at each wall segment's outer endpoints (resize)
+  //   • a "+" badge at gap-less segment centres (click to add an opening)
+  //   • round handles at the opening's endpoints (resize opening)
+  // Handles use pointer-events: all so the mousedown handler can hit-test
+  // them by reading e.target.dataset; everything else is pointer-events:
+  // none so it doesn't swallow clicks on the body.
+  if (isRoof) {
+    const shield = CONFIG.rooftopShield || {};
+    const sEnabled = !!shield.enabled;
+    const edges = shield.edges || { front: true, back: true, east: true, west: true };
+    const stripPx = Math.max(2, matT * iwScale);
+    const toolActive = (iwTool === 'shieldwall');
+    // Resolve the shield bounds in iw-coords (same fallback logic as
+    // getShieldBounds in the generator — uses explicit `bounds` if set,
+    // else an inset by `offset` from all four roof edges).
+    const sOffset = (typeof shield.offset === 'number') ? shield.offset : 3;
+    const bExplicit = shield.bounds && Number.isFinite(shield.bounds.x);
+    const sb = bExplicit ? {
+      x: Math.max(0, Math.min(bW - 6, shield.bounds.x)),
+      y: Math.max(0, Math.min(bD - 6, shield.bounds.y)),
+      w: Math.max(6, Math.min(bW - shield.bounds.x, shield.bounds.w)),
+      h: Math.max(6, Math.min(bD - shield.bounds.y, shield.bounds.h)),
+    } : {
+      x: sOffset, y: sOffset,
+      w: Math.max(6, bW - 2 * sOffset),
+      h: Math.max(6, bD - 2 * sOffset),
+    };
+    const shW = sb.w;
+    const shD = sb.h;
+
+    // Map an edge-position (0..edgeLen) on a given side to a canvas
+    // px point on the outer surface of the shield strip — the wall's
+    // outward-facing edge sits ON the bounds rectangle's perimeter.
+    function edgePointPx(side, edgePos) {
+      if (side === 'front') return iwPX(sb.x + edgePos, sb.y);
+      if (side === 'back')  return iwPX(sb.x + edgePos, sb.y + sb.h);
+      if (side === 'west')  return iwPX(sb.x, sb.y + edgePos);
+      /* east */            return iwPX(sb.x + sb.w, sb.y + edgePos);
+    }
+    // Returns {x, y, w, h} canvas-px for a strip running from edgePos a→b
+    // on the given side. Strip extends INWARD from the bounds perimeter
+    // so it visually represents the wall material thickness.
+    function stripRectPx(side, a, b) {
+      const p1 = edgePointPx(side, a);
+      const p2 = edgePointPx(side, b);
+      if (side === 'front') return { x: p1.x, y: p1.y,           w: p2.x - p1.x, h: stripPx };
+      if (side === 'back')  return { x: p1.x, y: p1.y - stripPx, w: p2.x - p1.x, h: stripPx };
+      if (side === 'west')  return { x: p1.x, y: p1.y,           w: stripPx, h: p2.y - p1.y };
+      /* east */            return { x: p1.x - stripPx, y: p1.y, w: stripPx, h: p2.y - p1.y };
+    }
+
+    function drawHandle(side, edgePos, kind, idx) {
+      // Place handles ON the bounds perimeter (where the wall's outer
+      // edge sits). data-attrs let the mousedown handler identify what
+      // to do without re-running hit math.
+      const p = edgePointPx(side, edgePos);
+      const r = (kind === 'open') ? 4.5 : 5.5;
+      const fill = (kind === 'open') ? '#f7a000' : '#fff';
+      const stroke = '#783718';
+      return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" `
+           + `fill="${fill}" stroke="${stroke}" stroke-width="1.5" `
+           + `data-shield-handle="${kind}" data-shield-side="${side}" data-shield-idx="${idx||0}" `
+           + `style="cursor:${(side==='front'||side==='back')?'ew-resize':'ns-resize'}" />`;
+    }
+
+    function drawPlusBadge(side, edgePos) {
+      const p = edgePointPx(side, edgePos);
+      // Centre the badge on the strip's inward face (offset half-strip
+      // away from the bounds perimeter).
+      let cx = p.x, cy = p.y;
+      if (side === 'front') cy += stripPx / 2;
+      if (side === 'back')  cy -= stripPx / 2;
+      if (side === 'west')  cx += stripPx / 2;
+      if (side === 'east')  cx -= stripPx / 2;
+      return `<g data-shield-plus="${side}" style="cursor:pointer;">`
+           + `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="6.5" fill="#fff" stroke="#783718" stroke-width="1.2"/>`
+           + `<text x="${cx.toFixed(1)}" y="${(cy + 1).toFixed(1)}" font-size="11" font-family="system-ui" font-weight="700" fill="#783718" text-anchor="middle" dominant-baseline="middle" pointer-events="none">+</text>`
+           + `</g>`;
+    }
+
+    // Bounds outline + move/resize affordances — visible only when the
+    // Shield Wall tool is active, since they'd clutter the view in
+    // normal use. The body-move rect covers the interior of the bounds
+    // (minus a small margin) so clicks/drags there translate the
+    // entire shield enclosure. The 4 corner squares resize the outline.
+    if (toolActive && sEnabled) {
+      const tlp = iwPX(sb.x, sb.y);
+      const trp = iwPX(sb.x + sb.w, sb.y);
+      const blp = iwPX(sb.x, sb.y + sb.h);
+      const brp = iwPX(sb.x + sb.w, sb.y + sb.h);
+      // Dashed outline shows the user the draggable region
+      h += `<rect x="${tlp.x.toFixed(1)}" y="${tlp.y.toFixed(1)}" width="${(brp.x - tlp.x).toFixed(1)}" height="${(brp.y - tlp.y).toFixed(1)}" fill="none" stroke="rgba(120,55,25,0.5)" stroke-width="0.8" stroke-dasharray="6 4" pointer-events="none"/>`;
+      // Body-move target: invisible rect inside the bounds, slightly
+      // smaller so it doesn't overlap the wall strips / handles.
+      const inset = stripPx + 4;
+      if (brp.x - tlp.x > inset * 2 && brp.y - tlp.y > inset * 2) {
+        h += `<rect x="${(tlp.x + inset).toFixed(1)}" y="${(tlp.y + inset).toFixed(1)}" `
+           + `width="${(brp.x - tlp.x - inset * 2).toFixed(1)}" height="${(brp.y - tlp.y - inset * 2).toFixed(1)}" `
+           + `fill="rgba(184,90,40,0.06)" stroke="none" `
+           + `data-shield-bounds="move" style="cursor:move;"/>`;
+      }
+      // Corner resize handles (squares, distinct from the circular
+      // wall-end handles so users can tell them apart at a glance).
+      function cornerHandle(p, corner) {
+        const s = 9;
+        return `<rect x="${(p.x - s / 2).toFixed(1)}" y="${(p.y - s / 2).toFixed(1)}" width="${s}" height="${s}" `
+             + `fill="#fff" stroke="#783718" stroke-width="1.5" `
+             + `data-shield-bounds="${corner}" `
+             + `style="cursor:${corner === 'tl' || corner === 'br' ? 'nwse-resize' : 'nesw-resize'};"/>`;
+      }
+      h += cornerHandle(tlp, 'tl');
+      h += cornerHandle(trp, 'tr');
+      h += cornerHandle(blp, 'bl');
+      h += cornerHandle(brp, 'br');
+    }
+
+    for (const side of ['front', 'back', 'east', 'west']) {
+      const edgeLen = (side === 'front' || side === 'back') ? shW : shD;
+      const edgeState = edges[side];
+      const segs = sEnabled ? shieldEdgeSegments(edgeState, edgeLen) : [];
+
+      // Disabled-edge ghost (only when tool is active so it doesn't
+      // clutter the view in normal use).
+      if (toolActive && !segs.length) {
+        const r = stripRectPx(side, 0, edgeLen);
+        h += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${r.h.toFixed(1)}" fill="rgba(184,90,40,0.10)" stroke="rgba(120,55,25,0.5)" stroke-width="0.6" stroke-dasharray="4 3" pointer-events="none"/>`;
+        continue;
+      }
+
+      // Solid strips for each segment of the enabled edge
+      for (const s of segs) {
+        const r = stripRectPx(side, s.start, s.end);
+        h += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${r.h.toFixed(1)}" fill="rgba(184,90,40,0.55)" stroke="rgba(120,55,25,0.85)" stroke-width="0.6" pointer-events="none"/>`;
+      }
+
+      // Tool-active extras: drag handles for resize + opening + plus badge
+      if (!toolActive || !sEnabled || !segs.length) continue;
+      // Resolve the explicit edgeState into a normalized form so we can
+      // surface segStart / segEnd / openingStart / openingEnd for handles.
+      let segStart, segEnd, hasOpening, openStart, openEnd;
+      if (edgeState === true) {
+        segStart = 0; segEnd = edgeLen; hasOpening = false;
+      } else {
+        segStart = Math.max(0, edgeState.start || 0);
+        segEnd   = Math.min(edgeLen, edgeState.end != null ? edgeState.end : edgeLen);
+        if (edgeState.opening) {
+          openStart = Math.max(segStart, edgeState.opening.start || 0);
+          openEnd   = Math.min(segEnd, edgeState.opening.end != null ? edgeState.opening.end : openStart);
+          hasOpening = openEnd > openStart + 0.5;
+        }
+      }
+      // Outer resize handles (segment start + end)
+      h += drawHandle(side, segStart, 'segStart');
+      h += drawHandle(side, segEnd,   'segEnd');
+      // Opening handles or "+" badge to add an opening
+      if (hasOpening) {
+        h += drawHandle(side, openStart, 'openStart');
+        h += drawHandle(side, openEnd,   'openEnd');
+      } else if (segEnd - segStart > 12) {
+        // Plus badge only if the segment is long enough to fit a
+        // reasonable opening (~8 mm) plus a bit of wall on each side
+        h += drawPlusBadge(side, (segStart + segEnd) / 2);
+      }
+    }
+  }
 
   // Dimension labels
   h += `<text x="${((fp.x+fpR.x)/2).toFixed(1)}" y="${(fp.y-8).toFixed(1)}" font-size="10" font-family="system-ui" fill="#888" text-anchor="middle">${bW.toFixed(1)} mm</text>`;
@@ -12537,6 +13637,10 @@ function iwRender() {
       svg.querySelectorAll('.iw-item').forEach(el => {
         el.addEventListener('mousedown', e => {
           if (e.button !== 0) return;
+          // Let pan gesture through even when the cursor is over a
+          // placed item — without this, space-held drag on an item
+          // would select it instead of scrolling the view.
+          if (iwSpaceDown) return;
           e.stopPropagation();
           const i = parseInt(el.dataset.i);
           const items = CONFIG.rooftopItems || [];
@@ -12552,6 +13656,49 @@ function iwRender() {
       });
     }
   }
+  // Shield-wall handles + plus-badges. Each carries data-shield-* attrs
+  // describing which side and which handle was clicked. Handles start
+  // drag operations (resize segment or opening), the plus-badge adds
+  // a new opening at the segment's centre. Stop propagation so the
+  // regular iwShieldwallEdgeClick / deselection doesn't also fire.
+  svg.querySelectorAll('[data-shield-handle]').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      if (iwSpaceDown) return;  // let pan gesture through
+      e.stopPropagation();
+      e.preventDefault();
+      iwShieldDrag = {
+        side: el.dataset.shieldSide,
+        kind: el.dataset.shieldHandle,
+      };
+    });
+  });
+  svg.querySelectorAll('[data-shield-plus]').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      if (iwSpaceDown) return;
+      e.stopPropagation();
+      e.preventDefault();
+      iwShieldAddOpening(el.dataset.shieldPlus);
+    });
+  });
+  // Shield bounds resize / move handles. Capture the initial bounds
+  // rectangle and mouse position so the drag math can apply a delta.
+  svg.querySelectorAll('[data-shield-bounds]').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      if (iwSpaceDown) return;
+      e.stopPropagation();
+      e.preventDefault();
+      iwShieldEnsureBounds();
+      iwShieldBoundsDrag = el.dataset.shieldBounds;
+      const b = CONFIG.rooftopShield.bounds;
+      iwShieldBoundsStart = {
+        mouse: iwSvgPt(e),
+        bounds: { x: b.x, y: b.y, w: b.w, h: b.h },
+      };
+    });
+  });
   // Building footprint minimap in the canvas corner. No active wall to
   // highlight in this editor (we're viewing the floor / roof from above,
   // not editing a single face), so pass null. Function is shared with
@@ -12565,6 +13712,95 @@ function iwSvgPt(e) {
 }
 
 function iwHandleMouseMove(e) {
+  // Pan gesture takes priority over normal hover / drag handling — once
+  // the user is mid-pan we just translate the offset and re-render, no
+  // wall snap-points or item-hover highlights to track.
+  if (iwPanning) {
+    const svg = document.getElementById('iwSvg');
+    const r = svg.getBoundingClientRect();
+    const px = e.clientX - r.left;
+    const py = e.clientY - r.top;
+    iwOffX = iwPanStartOff.x + (px - iwPanStartPx.x);
+    iwOffY = iwPanStartOff.y + (py - iwPanStartPx.y);
+    iwRender();
+    return;
+  }
+  // Shield-wall drag — translate cursor into edge-pos, write back the
+  // appropriate field of the edge state, re-render. The state object
+  // is normalized to the explicit form on first drag of an edge, so
+  // subsequent drags can read/write directly.
+  if (iwShieldDrag) {
+    const { side, kind } = iwShieldDrag;
+    iwShieldNormalizeEdge(side);
+    const edges = CONFIG.rooftopShield.edges;
+    iwShieldEnsureBounds();
+    const b = CONFIG.rooftopShield.bounds;
+    const edgeLen = (side === 'front' || side === 'back') ? b.w : b.h;
+    let pos = iwShieldEdgePos(side, iwSvgPt(e));
+    pos = Math.max(0, Math.min(edgeLen, iwSnap(pos)));
+    const eState = edges[side];
+    if (kind === 'segStart') {
+      eState.start = Math.min(pos, eState.end - 2);
+      if (eState.opening && eState.opening.start < eState.start) {
+        eState.opening.start = eState.start;
+        if (eState.opening.end - eState.opening.start < 2) eState.opening = null;
+      }
+    } else if (kind === 'segEnd') {
+      eState.end = Math.max(pos, eState.start + 2);
+      if (eState.opening && eState.opening.end > eState.end) {
+        eState.opening.end = eState.end;
+        if (eState.opening.end - eState.opening.start < 2) eState.opening = null;
+      }
+    } else if (kind === 'openStart' && eState.opening) {
+      eState.opening.start = Math.max(eState.start, Math.min(pos, eState.opening.end - 2));
+    } else if (kind === 'openEnd' && eState.opening) {
+      eState.opening.end = Math.min(eState.end, Math.max(pos, eState.opening.start + 2));
+    }
+    iwRender();
+    return;
+  }
+  // Shield bounds drag — move or resize the entire shield enclosure
+  // rectangle. Apply a delta from the drag-start position, clamp to
+  // the roof footprint, and clamp any segments/openings that fall
+  // outside the new bounds.
+  if (iwShieldBoundsDrag && iwShieldBoundsStart) {
+    const cur = iwSvgPt(e);
+    const dx = cur.x - iwShieldBoundsStart.mouse.x;
+    const dy = cur.y - iwShieldBoundsStart.mouse.y;
+    const orig = iwShieldBoundsStart.bounds;
+    const b = CONFIG.rooftopShield.bounds;
+    const snap = (v) => iwSnap(v);
+    switch (iwShieldBoundsDrag) {
+      case 'move':
+        b.x = snap(orig.x + dx);
+        b.y = snap(orig.y + dy);
+        b.w = orig.w; b.h = orig.h;
+        break;
+      case 'tl':  // top-left
+        b.x = snap(orig.x + dx);
+        b.y = snap(orig.y + dy);
+        b.w = orig.x + orig.w - b.x;
+        b.h = orig.y + orig.h - b.y;
+        break;
+      case 'tr':  // top-right
+        b.y = snap(orig.y + dy);
+        b.w = snap(orig.w + dx);
+        b.h = orig.y + orig.h - b.y;
+        break;
+      case 'bl':  // bottom-left
+        b.x = snap(orig.x + dx);
+        b.w = orig.x + orig.w - b.x;
+        b.h = snap(orig.h + dy);
+        break;
+      case 'br':  // bottom-right
+        b.w = snap(orig.w + dx);
+        b.h = snap(orig.h + dy);
+        break;
+    }
+    iwShieldClampBounds();
+    iwRender();
+    return;
+  }
   iwCurMM = iwSvgPt(e);
   // Move-in-progress: translate the originally-mousedown'd item by the
   // mouse delta, clamp to roof bounds, then snap to the editor grid. Once
@@ -12594,12 +13830,34 @@ function iwHandleMouseMove(e) {
 }
 
 function iwHandleMouseDown(e) {
+  // Pan triggers — middle mouse OR space-held left mouse. Started here
+  // before any normal interaction so it can short-circuit wall-draw and
+  // item-select. preventDefault stops middle-click from triggering the
+  // OS autoscroll affordance on Windows / Linux.
+  if (e.button === 1 || (e.button === 0 && iwSpaceDown)) {
+    e.preventDefault();
+    const svg = document.getElementById('iwSvg');
+    const r = svg.getBoundingClientRect();
+    iwPanning = true;
+    iwPanStartPx  = { x: e.clientX - r.left, y: e.clientY - r.top };
+    iwPanStartOff = { x: iwOffX, y: iwOffY };
+    svg.style.cursor = 'grabbing';
+    return;
+  }
   if (e.button !== 0) return;
   if (iwDragItem) return; // handled on mouseup from document
   // Background mousedown in roof view (not on an item) deselects whatever
   // was previously selected. The item rect's own mousedown stops propagation
   // before this runs, so this only fires when clicking empty roof area.
   if (iwIsRoof()) {
+    // Shield Wall tool: clicking near a roof edge toggles a parapet on
+    // that side. The Shield Wall toolbox card sets iwTool='shieldwall',
+    // and CONFIG.rooftopShield.enabled is auto-set true on first toggle
+    // so the user doesn't have to also tick the left-panel checkbox.
+    if (iwTool === 'shieldwall') {
+      const handled = iwShieldwallEdgeClick(e);
+      if (handled) return;
+    }
     if (iwSelectedIdx !== -1) {
       iwSelectedIdx = -1;
       iwRender();
@@ -12614,6 +13872,31 @@ function iwHandleMouseDown(e) {
 }
 
 function iwHandleMouseUp(e) {
+  // End pan first if one's in progress — must come before any
+  // wall-draw / item-move completion so a panning mouseup doesn't
+  // accidentally drop a wall at the cursor's release position.
+  if (iwPanning) {
+    iwPanning = false;
+    iwPanStartPx = null;
+    iwPanStartOff = null;
+    const svg = document.getElementById('iwSvg');
+    if (svg) svg.style.cursor = iwSpaceDown ? 'grab' : '';
+    return;
+  }
+  // Finish a shield-wall handle drag — clear the drag state and let
+  // iwRender redraw with the new positions. No persistence here; the
+  // state lives directly in CONFIG.rooftopShield.edges so it'll be
+  // saved with the preset like everything else.
+  if (iwShieldDrag) {
+    iwShieldDrag = null;
+    return;
+  }
+  // Same for the shield-bounds drag (outline resize / move).
+  if (iwShieldBoundsDrag) {
+    iwShieldBoundsDrag = null;
+    iwShieldBoundsStart = null;
+    return;
+  }
   // Finish a move-in-progress on a placed item. We clear the move state
   // regardless (mouseup always ends the gesture), but leave the selection
   // in place so the user can immediately press Delete/Backspace if they
@@ -13822,6 +15105,10 @@ function generateBuildingStl(cfg) {
   } else if (cfg.roofStyle === 'flat') {
     // Sits on top of walls, Z ∈ [H, H + matT]
     tris.box(0, W, 0, D, H, H + matT);
+  } else if (cfg.roofStyle === 'flat_overhang') {
+    // Same as flat but extends past each wall by `O` mm on all sides
+    const O = Math.max(0, cfg.roofOverhang || 5);
+    tris.box(-O, W + O, -O, D + O, H, H + matT);
   } else if (cfg.roofStyle === 'slanted') {
     const pitch = cfg.roofPitch || 10;
     const slopeDir = cfg.roofSlopeDirection || 'back';
@@ -14475,6 +15762,16 @@ function init() {
   CONFIG.buildingType = 'industrial_loading';
   Object.assign(CONFIG, BUILDING_TYPES.industrial_loading.defaults);
 
+  // Animated logo: replay the SMIL timeline from t=0 on every hover.
+  // The listener lives here (not inline in the SVG) so the offline
+  // test sandbox doesn't try to run document.currentScript.closest.
+  const logoSvg = document.querySelector('svg.app-logo');
+  if (logoSvg && typeof logoSvg.setCurrentTime === 'function') {
+    logoSvg.addEventListener('mouseenter', () => {
+      try { logoSvg.setCurrentTime(0); } catch (_) { /* older browsers */ }
+    });
+  }
+
   // Try loading a saved preset from browser cache (silent if none)
   tryAutoLoadPreset();
 
@@ -14504,6 +15801,31 @@ function init() {
   for (const id of conditionalFieldUpdaters) {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', updateConditionalFields);
+  }
+
+  // Auto-suggest the standing-seam metal cladding style when the user
+  // first picks 'flat_overhang' for the roof. The metal-clad look is
+  // the whole point of this roof type — a freshly-selected flat-overhang
+  // roof with the global default cladding (concrete_panel_small) would
+  // give the wrong first impression of what the style is for. Only the
+  // initial pick gets this treatment; once the user has explicitly chosen
+  // any roof cladding style, future toggles into flat_overhang leave the
+  // selection alone.
+  const roofStyleEl = document.getElementById('roofStyle');
+  const roofCladEl  = document.getElementById('roofCladdingStyle');
+  if (roofStyleEl && roofCladEl) {
+    roofStyleEl.addEventListener('change', () => {
+      if (roofStyleEl.value !== 'flat_overhang') return;
+      // Only auto-switch from the global default; respect any deliberate
+      // user choice on the roof cladding selector.
+      const cur = roofCladEl.value;
+      if (cur === 'concrete_panel_small' || cur === '' || cur == null) {
+        roofCladEl.value = 'standing_seam_metal';
+        // Fire the change event so the description text + dependent
+        // fields refresh as if the user had picked it themselves.
+        roofCladEl.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
   }
 
   // Auto-regenerate whenever any form control in the left panel changes.
@@ -14545,6 +15867,16 @@ function init() {
     }
   });
   document.addEventListener('keydown', iwKeyDown);
+  document.addEventListener('keyup',   iwKeyUp);
+  // Middle-mouse-button on Linux / some browsers triggers context-menu
+  // or paste-on-mouseup; suppress that on the SVG so it cleanly behaves
+  // as a pan gesture.
+  iwSvgEl.addEventListener('contextmenu', e => {
+    if (iwPanning) e.preventDefault();
+  });
+  iwSvgEl.addEventListener('auxclick', e => {
+    if (e.button === 1) e.preventDefault();
+  });
   document.getElementById('wingEditorBtn').addEventListener('click', openWingEditor);
   document.getElementById('exportBtn').addEventListener('click', exportZip);
   document.getElementById('saveBtn').addEventListener('click', () => { readForm(); savePreset(); });
@@ -15557,12 +16889,13 @@ function generateBuildingWithWings(cfg) {
   })();
 
   parts.push(...generateTrimStrips(cfg, plan, parts));
+  parts.push(...generateCornerTrim(cfg, plan));
   parts.push(...generateGroundFloorOffsetParts(cfg, plan));
   parts.push(...generateRooftopMechRoom(cfg, plan));
   parts.push(...generateAwningParts(cfg, plan));
   parts.push(...generateBalconyParts(cfg, plan));
   parts.push(...generateBillboardParts(cfg));
-  parts.push(...generateRooftopShieldParts(cfg, plan));
+  parts.push(...generateRooftopShieldParts(cfg, plan, parts));
 
   if (cfg.roofStyle !== 'gabled') {
     const cT = cfg.claddingThickness;
@@ -16913,6 +18246,13 @@ let oeWallLeftPx = 0;   // extra SVG px to the left of the main wall (coplanar w
 let oeTool = 'window';
 let oeSnapGrid = 1;             // mm; 0 = no snapping
 let oeZoom = 1.0;               // zoom multiplier for the opening editor canvas
+// Pan state — space-held + left drag, or middle-mouse drag, scrolls the
+// canvas container. Document-level mousemove/mouseup listeners are
+// attached during a pan and removed when it ends.
+let oePanning     = false;
+let oePanStartPx  = null;       // {x, y} = client coords at mousedown
+let oePanStartScroll = null;    // {l, t} = container.scrollLeft / scrollTop at mousedown
+let oeSpaceDown   = false;
 let oeCustomSizes = {};         // { styleKey: { w, h } } — per-style size overrides
 
 /** Round v to the nearest oeSnapGrid increment (or pass through if snap is off) */
@@ -17004,6 +18344,11 @@ function openOpeningEditor(wall) {
 function oeClose() {
   document.getElementById('openingEditorModal').style.display = 'none';
   document.removeEventListener('keydown', oeKeyDown);
+  document.removeEventListener('keyup',   oeKeyUp);
+  // Reset transient pan state so the editor opens cleanly next time
+  // (avoids stuck cursor if the user closed while holding space).
+  oeSpaceDown = false;
+  oePanning   = false;
   oeEditorOpen = false;
   const _tp = document.getElementById('threePreview');
   if (_tp) _tp.style.display = '';
@@ -19950,8 +21295,22 @@ function oeRender() {
   if (lbl) lbl.textContent = Math.round(oeZoom * 100) + '%';
   document.removeEventListener('keydown', oeKeyDown);
   document.addEventListener('keydown', oeKeyDown);
+  document.removeEventListener('keyup', oeKeyUp);
+  document.addEventListener('keyup', oeKeyUp);
+  // Suppress context-menu / auxclick when the user middle-clicks for a
+  // pan so the OS autoscroll / paste affordance doesn't pop up.
+  svg.oncontextmenu = e => { if (oePanning) e.preventDefault(); };
+  svg.onauxclick    = e => { if (e.button === 1) e.preventDefault(); };
   oePopulateTopbar();
   oeRenderFootprintMap();
+}
+
+function oeKeyUp(e) {
+  if (e.key === ' ' || e.code === 'Space') {
+    oeSpaceDown = false;
+    const svg = document.getElementById('openingEditorSvg');
+    if (svg && !oePanning) svg.style.cursor = 'crosshair';
+  }
 }
 
 /* ---- Building footprint mini-map (static element in the footer) ---- */
@@ -20203,6 +21562,41 @@ function oeDeleteLinkedBayPartner(op, sourceWall) {
 /* ---- Drag ---- */
 
 function oeMouseDown(e) {
+  // Pan triggers: middle mouse OR space-held + left mouse. The canvas
+  // container has overflow:auto, so panning is just translating
+  // scrollLeft / scrollTop while the user drags. Document-level
+  // listeners track the rest of the gesture so the user can release
+  // the button anywhere on the page without leaving pan mode stuck on.
+  if (e.button === 1 || (e.button === 0 && oeSpaceDown)) {
+    e.preventDefault();
+    const container = document.querySelector('.oe-canvas-area');
+    if (!container) return;
+    oePanning = true;
+    oePanStartPx = { x: e.clientX, y: e.clientY };
+    oePanStartScroll = { l: container.scrollLeft, t: container.scrollTop };
+    const svg = document.getElementById('openingEditorSvg');
+    if (svg) svg.style.cursor = 'grabbing';
+
+    function move(ev) {
+      if (!oePanning) return;
+      const dx = ev.clientX - oePanStartPx.x;
+      const dy = ev.clientY - oePanStartPx.y;
+      container.scrollLeft = oePanStartScroll.l - dx;
+      container.scrollTop  = oePanStartScroll.t - dy;
+    }
+    function up() {
+      oePanning = false;
+      oePanStartPx = null;
+      oePanStartScroll = null;
+      document.removeEventListener('mousemove', move, true);
+      document.removeEventListener('mouseup',   up, true);
+      const svg = document.getElementById('openingEditorSvg');
+      if (svg) svg.style.cursor = oeSpaceDown ? 'grab' : 'crosshair';
+    }
+    document.addEventListener('mousemove', move, true);
+    document.addEventListener('mouseup',   up, true);
+    return;
+  }
   if (e.button !== 0) return;
   const { x, y } = oeToMM(e);
 
@@ -20456,6 +21850,17 @@ function oeKeyDown(e) {
   // expect the OS-default Ctrl+C/V behaviour there.
   const tgt = e.target;
   const inField = tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable);
+  // Spacebar enters pan mode (cursor → grab; left-drag → scroll). Skip
+  // when typing in a form field so the user can still type spaces.
+  if ((e.key === ' ' || e.code === 'Space') && !inField) {
+    if (!oeSpaceDown) {
+      oeSpaceDown = true;
+      const svg = document.getElementById('openingEditorSvg');
+      if (svg && !oePanning) svg.style.cursor = 'grab';
+    }
+    e.preventDefault();
+    return;
+  }
   const modKey = e.ctrlKey || e.metaKey;
   if (modKey && !inField) {
     if (e.key === 'c' || e.key === 'C') { e.preventDefault(); oeCopy();  return; }
@@ -21652,6 +23057,21 @@ function updateThreePreview(cfg) {
       }
       group.add(rm);
     }
+  } else if (roofStyle3d === 'flat_overhang') {
+    // Flat slab oversized past the walls by `O` mm on every side, centred
+    // on the building footprint, sitting on top of the walls (y = h..h+t).
+    // The top face gets the chosen roof cladding texture (typically the
+    // new 'standing_seam_metal' style); edges + bottom stay plain grey
+    // since they're rarely seen and stretched textures look unrealistic.
+    const O = Math.max(0, cfg.roofOverhang || 5);
+    const topW = w + 2 * O;
+    const topD = d + 2 * O;
+    const rm = new THREE.Mesh(
+      new THREE.BoxGeometry(topW, t, topD),
+      makeRoofMats(topW, topD)
+    );
+    rm.position.set(0, h + t / 2, 0);
+    group.add(rm);
   } else {
     // Parapet / flat roof:
     // The main walls already extend to y=h (top of parapet).

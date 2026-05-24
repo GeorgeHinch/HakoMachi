@@ -2591,6 +2591,43 @@ function doorHasGlass(styleKey) {
   return spec && Array.isArray(spec.glassPanes) && spec.glassPanes.length > 0;
 }
 
+/** Forbidden-zone list for bottom-tongue placement.
+ *
+ *  Two conditions must BOTH hold for a door to block the bottom edge:
+ *    (1) the style requires a wall-core cutout (glass door), so the door
+ *        actually breaks the wall material rather than just gluing a
+ *        cladding insert onto an intact surface; AND
+ *    (2) the door reaches the bottom of the wall (op.y + op.h ≥ wallH),
+ *        so its cutout actually intersects the ground-level band where
+ *        bottom tongues live. A glass door floating in the middle of a
+ *        two-storey wall leaves the lower wall material continuous; a
+ *        bottom tongue can pass under it without intersecting anything.
+ *
+ *  Both criteria are necessary. Drop (1) and solid doors get treated as
+ *  obstacles even though they don't cut the core; drop (2) and upper-floor
+ *  glass doors interfere with ground-floor tongue spacing they don't
+ *  physically touch. The earlier version of this helper only checked (1).
+ *
+ *  Each door's `style` field is used when present, falling back to the
+ *  global `cfg.doorStyle` (which is what auto-generated doors carry when
+ *  they don't store a per-door style). Both manual ops (`w`,`h`) and
+ *  computeDoors output (`width`,`height`) are accepted. wallH may be
+ *  omitted; in that case (2) is skipped — included for callers that
+ *  haven't been threaded the value yet, conservatively keeping the door
+ *  in the forbidden list. The +/-2 mm padding around the door footprint
+ *  matches the rest of the forbidden-zone code. */
+function bottomTongueForbiddenZones(doors, cfg, wallH) {
+  return doors
+    .filter(d => {
+      if (!doorHasGlass(d.style || (cfg && cfg.doorStyle))) return false;
+      if (!wallH) return true;
+      const doorY = d.y || 0;
+      const doorH = (d.h !== undefined ? d.h : d.height) || 0;
+      return (doorY + doorH) >= wallH - 0.1;
+    })
+    .map(d => [d.x - 2, d.x + (d.w !== undefined ? d.w : d.width) + 2]);
+}
+
 /** Cut per-aperture core-wall holes for a glass door's glass panes.
  *
  *  Follows the same sandwich pattern as windows:
@@ -4347,27 +4384,78 @@ function placeTongues(edgeLength, tongueWidth, minMargin, forbidden, targetCount
   }, 0);
   if (totalCapacity === 0) return [];
 
+  // Two-pass distribution. The OLD greedy rounded `actualCount * cap / total`
+  // per region, which for two equal-capacity regions splitting around a
+  // centered obstacle (e.g. the default single side door) handed the first
+  // region its full Math.round(actualCount/2) share and left the second
+  // region short — producing visibly lopsided 2+1 tongue rows on side walls.
+  //
+  // New algorithm:
+  //   pass 1: give every region a baseline of floor(actualCount / numRegions)
+  //           tongues (capped at the region's capacity).
+  //   pass 2: distribute leftover tongues one at a time, always to the region
+  //           with the most REMAINING capacity (cap minus tongues already
+  //           assigned). Ties broken by visiting regions in their natural
+  //           left-to-right order; never assigns a remainder when the
+  //           pre-distributed counts already saturate the regions OR when
+  //           giving it would make a strictly-equal-capacity sibling visibly
+  //           emptier — i.e. for N equal regions with k < N remainder
+  //           tongues, those tongues are dropped to keep visual symmetry,
+  //           preferring fewer-but-balanced to more-but-lopsided.
   const actualCount = Math.min(targetCount, totalCapacity);
-  const tongues = [];
-  let remaining = actualCount;
-  // Distribute one tongue per region first, then more as capacity allows
-  // Sort regions by capacity descending so we fill bigger regions first
+  const numRegions = regions.length;
+  const baseShare = (numRegions > 0) ? Math.floor(actualCount / numRegions) : 0;
+  // Capacities aligned with the sorted-by-length region order used below
+  // (regions sorted by length desc → same order we'll iterate in pass 2).
   const sortedRegions = [...regions].sort((a, b) => (b.end - b.start) - (a.end - a.start));
-  // Greedy assignment: for each region, give it ceil(actualCount * regionCapacity / totalCapacity) tongues
-  for (const r of sortedRegions) {
-    if (remaining <= 0) break;
+  const regionCaps = sortedRegions.map(r => {
     const len = r.end - r.start;
-    const cap = Math.max(0, Math.floor((len + minSpacing) / (effectiveTongueWidth + minSpacing)));
-    if (cap === 0) continue;
-    let nForRegion = Math.min(cap, remaining, Math.max(1, Math.round(actualCount * cap / totalCapacity)));
+    return Math.max(0, Math.floor((len + minSpacing) / (effectiveTongueWidth + minSpacing)));
+  });
+  // assigned[i] = how many tongues region i has been given
+  const assigned = sortedRegions.map((_, i) => Math.min(baseShare, regionCaps[i]));
+  let remaining = actualCount - assigned.reduce((s, n) => s + n, 0);
+
+  // Distribute the remainder. Each iteration: pick the region whose REMAINING
+  // capacity (cap − assigned) is STRICTLY greater than every other region's,
+  // and add one tongue there. If no region uniquely wins (all candidates tied
+  // at the same remaining-capacity), stop — adding to one would unbalance
+  // against its equal sibling. This is the case that fires when a side wall
+  // door splits the bottom edge into two equal regions: both regions have
+  // the same leftover capacity, so no remainder is assigned and the result
+  // is a symmetric 1+1 layout instead of a lopsided 2+1.
+  while (remaining > 0) {
+    let bestIdx = -1, bestExcess = -1;
+    let bestUnique = false;
+    for (let i = 0; i < sortedRegions.length; i++) {
+      const excess = regionCaps[i] - assigned[i];
+      if (excess <= 0) continue;
+      if (excess > bestExcess) {
+        bestExcess = excess;
+        bestIdx = i;
+        bestUnique = true;
+      } else if (excess === bestExcess) {
+        bestUnique = false;
+      }
+    }
+    if (bestIdx === -1 || !bestUnique) break;
+    assigned[bestIdx] += 1;
+    remaining -= 1;
+  }
+
+  const tongues = [];
+  for (let i = 0; i < sortedRegions.length; i++) {
+    const r = sortedRegions[i];
+    const nForRegion = assigned[i];
+    if (nForRegion === 0) continue;
+    const len = r.end - r.start;
     const totalTongueWidth = nForRegion * effectiveTongueWidth;
     const totalGapSpace = len - totalTongueWidth;
     const gap = totalGapSpace / (nForRegion + 1);
-    for (let i = 0; i < nForRegion; i++) {
-      const start = r.start + gap + i * (effectiveTongueWidth + gap);
+    for (let i2 = 0; i2 < nForRegion; i2++) {
+      const start = r.start + gap + i2 * (effectiveTongueWidth + gap);
       tongues.push({ start, end: start + effectiveTongueWidth, center: start + effectiveTongueWidth / 2 });
     }
-    remaining -= nForRegion;
   }
   // Sort tongues by start position
   tongues.sort((a, b) => a.start - b.start);
@@ -5959,8 +6047,13 @@ function generateSideWall(cfg, plan, side) {
   // Top edge: depending on roof style
   // For slanted: side walls have different heights at each end (front lower, back higher)
   // For gabled:  side walls have a triangular peak in the centre
-  // Both: tongues point upward into the roof panel; for now treat like parapet slots (interior cuts)
-  const topTongues = (roofStyle === 'flat')
+  // Both: tongues point upward into the roof panel; for now treat like parapet slots (interior cuts).
+  // flat_overhang uses the same wall-top tongue + roof-slot mechanism as flat;
+  // the only difference is the roof core extends past the wall on every side
+  // (the overhang). The slot positions in the roof are offset by O but the
+  // tongue layout on the wall is identical, since both compute against the
+  // same edge length.
+  const topTongues = (roofStyle === 'flat' || roofStyle === 'flat_overhang')
     ? placeTongues(sideLen, tw, margin, [], 3, tw / 2)
     : [];
   
@@ -5978,7 +6071,7 @@ function generateSideWall(cfg, plan, side) {
   } else {
     _earlySideDoors = [];
   }
-  const _sideDoorForbidden = _earlySideDoors.map(d => [d.x - 2, d.x + (d.w !== undefined ? d.w : d.width) + 2]);
+  const _sideDoorForbidden = bottomTongueForbiddenZones(_earlySideDoors, cfg, H);
   const bottomTongues = placeTongues(sideLen, tw, margin, _sideDoorForbidden, 3, tw / 2);
   
   // Left/right edges: tongues into front/back wall slots
@@ -6269,8 +6362,10 @@ function generateFrontBackWall(cfg, plan, which) {
 
   const margin = Math.max(matT * 2, 5);
 
-  // Top edge: depending on roof style
-  const topTongues = (roofStyle === 'flat')
+  // Top edge: depending on roof style. flat_overhang uses the same wall-top
+  // tongue + roof-slot mechanism as flat (the overhang is purely in the
+  // roof core's larger footprint; the tongue layout is identical).
+  const topTongues = (roofStyle === 'flat' || roofStyle === 'flat_overhang')
     ? placeTongues(fbWidth, tw, margin, [], 3, tw / 2)
     : [];
 
@@ -6288,7 +6383,7 @@ function generateFrontBackWall(cfg, plan, which) {
   } else {
     _earlyFbDoors = [];
   }
-  const _fbDoorForbidden = _earlyFbDoors.map(d => [d.x - 2, d.x + (d.w !== undefined ? d.w : d.width) + 2]);
+  const _fbDoorForbidden = bottomTongueForbiddenZones(_earlyFbDoors, cfg, H);
   const bottomForbidden = [
     ...(hasBay ? [[bayXStart, bayXEnd]] : []),
     ..._fbDoorForbidden,
@@ -6297,8 +6392,18 @@ function generateFrontBackWall(cfg, plan, which) {
 
   // Left/right edges: SLOTS for side wall tongues.
   // Use the same vertical positions as the side wall vertical-edge tongues.
+  // The side wall computes one set of vertical-edge tongues per wall
+  // (East L = East R, West L = West R), driven by `(hasFrontBay ||
+  // hasBackBay)` — i.e. ANY bay on the building shrinks the available
+  // range to leave clearance above the bay ceiling. The slots on BOTH FB
+  // walls must match those side-wall tongues, so we use the same global
+  // criterion here. If we used only THIS wall's `hasBay`, an asymmetric
+  // bay (side-style on one wall only) would leave the no-bay FB wall's
+  // slots in the full-height range while the side-wall tongues sit in
+  // the bay-restricted range — they wouldn't align.
   const verticalEdgeMinMargin = Math.max(parapetH + matT + 2, 8);
-  const verticalEdgeMaxY = hasBay ? (bayCeilingY - 3) : (H - margin);
+  const anyBay = plan.hasFrontBay || plan.hasBackBay;
+  const verticalEdgeMaxY = anyBay ? (bayCeilingY - 3) : (H - margin);
   const vAvail = verticalEdgeMaxY - verticalEdgeMinMargin;
   const vTongueCount = Math.max(2, Math.min(4, Math.floor(vAvail / 40)));
   const verticalForbidden = [
@@ -6416,17 +6521,29 @@ function generateFrontBackWall(cfg, plan, which) {
   // Inter-floor panel slots — skipped if this wall IS the "last wall".
   // No bay forbidden zones needed: the bay opening is capped below the panel Y
   // so all slots land in solid wall material.
+  //
+  // CRITICAL: the inter-floor PANEL spans only the inner cavity between
+  // the two side walls — its width is bcW = fbWidth − 2·matT, not the
+  // full fbWidth that the FB wall material spans. The panel's tongues are
+  // placed across bcW; this wall's matching slots must use the SAME
+  // edge length (bcW) and the same target count, then offset the result
+  // by matT to land at wall-local x positions [matT, fbWidth−matT].
+  // Previously this code ran placeTongues on fbWidth, which produced a
+  // shifted layout that drifted apart from the panel tongues by up to
+  // ~matT/2 per side — tongues missed slots near the wall ends and the
+  // panel didn't seat cleanly.
   const skipInterFloorSlots = (plan.lastWallSide === which);
   if (!skipInterFloorSlots && plan.interFloorYs && plan.interFloorYs.length > 0) {
     const ifTw = 6;
     const ifMargin = 3;
-    const ifCount = Math.max(2, Math.min(4, Math.floor(fbWidth / 25)));
-    const ifPoss = placeTongues(fbWidth, ifTw, ifMargin, [], ifCount, ifTw);
+    const bcW = fbWidth - 2 * matT;
+    const ifCount = Math.max(2, Math.min(4, Math.floor(bcW / 25)));
+    const ifPoss = placeTongues(bcW, ifTw, ifMargin, [], ifCount, ifTw);
     for (const fy of plan.interFloorYs) {
       for (const t of ifPoss) {
         rects.push({
           type: 'cut',
-          x: t.start, y: fy - matT / 2,
+          x: t.start + matT, y: fy - matT / 2,
           w: t.end - t.start, h: matT,
           compensateKerf: true,
         });
@@ -7119,31 +7236,49 @@ function generateFloor(cfg, plan) {
   // tongues and slots will land in different positions.
   const doorStyle = cfg.doorStyle;
 
+  // Forbidden zones for bottom-edge floor slots: same rule as the wall's
+  // bottom-tongue placement — only glass doors that reach the bottom of
+  // the wall block the slot, since the wall material is continuous to
+  // the floor everywhere else.
   function doorForbiddenZones(wallDoors) {
-    return wallDoors.map(d => [d.x - 2, d.x + (d.w !== undefined ? d.w : d.width) + 2]);
+    return bottomTongueForbiddenZones(wallDoors, cfg, H);
   }
 
+  // Get a face's doors. PRIORITY: manual ops first, then auto-count fallback.
+  // The old version returned [] when count<=0, which missed manual doors on
+  // walls whose face-specific count was 0. The wall generator already checks
+  // manual ops first (see generateFrontBackWall / generateSideWall), so the
+  // floor must match that priority to avoid tongue/slot misalignment when
+  // the user has manually-placed doors but no auto door count.
   function getWallDoors(manualKey, edgeLen, wallH, count, hasBay) {
-    if (count <= 0 || !doorStyle || doorStyle === 'none') return [];
     const manual = manualStructuralOps(cfg, manualKey);
     if (manual) return manual.filter(o => o.type === 'door');
+    if (count <= 0 || !doorStyle || doorStyle === 'none') return [];
     if (hasBay) return [];
     return computeDoors(edgeLen, wallH, { doorStyle, doorCount: count, hasOpening: false, bayXStart: 0, bayXEnd: 0 });
   }
 
   const frontDoors = getWallDoors('front', fbWidth, H, cfg.frontDoorCount || 0, hasFrontBay);
   const backDoors  = getWallDoors('back',  fbWidth, H, cfg.backDoorCount  || 0, hasBackBay);
-  // Side walls are mirrored — east and west have the same door layout, use east
-  const sideDoors  = getWallDoors('east',  sideLen, H, cfg.sideDoorCount  || 0, false);
+  // East and west walls can have INDEPENDENT door layouts when the user
+  // places doors manually per-face. The floor needs separate slot lists for
+  // each side — the old code shared a single `sideSlots` derived from the
+  // east face only, which left the floor's left (west) edge with slots that
+  // didn't match the west wall's bottom tongues whenever the two faces
+  // diverged (e.g. east=1 door, west=3 doors in the same building).
+  const eastDoors  = getWallDoors('east',  sideLen, H, cfg.sideDoorCount  || 0, false);
+  const westDoors  = getWallDoors('west',  sideLen, H, cfg.sideDoorCount  || 0, false);
 
   const frontForbidden = [...(hasFrontBay ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(frontDoors)];
   const backForbidden  = [...(hasBackBay  ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(backDoors)];
-  const sideForbidden  = doorForbiddenZones(sideDoors);
+  const eastForbidden  = doorForbiddenZones(eastDoors);
+  const westForbidden  = doorForbiddenZones(westDoors);
 
   // Use count=3 for all edges, matching the targetCount used in the wall generators
   const frontSlots = placeTongues(floorW, tw, margin, frontForbidden, 3, tw / 2);
   const backSlots  = placeTongues(floorW, tw, margin, backForbidden,  3, tw / 2);
-  const sideSlots  = placeTongues(sideLen, tw, margin, sideForbidden, 3, tw / 2);
+  const eastSlots  = placeTongues(sideLen, tw, margin, eastForbidden, 3, tw / 2);
+  const westSlots  = placeTongues(sideLen, tw, margin, westForbidden, 3, tw / 2);
 
   // Build the floor perimeter with slot notches integrated into the path.
   // Each slot is drawn as an inward indent so there is NO separate closing line
@@ -7160,9 +7295,9 @@ function generateFloor(cfg, plan) {
     }
     d += ` L ${floorW.toFixed(3)},0`;
 
-    // RIGHT (top→bottom): right side-wall slots indent LEFT by matT
+    // RIGHT (top→bottom): east-wall slots indent LEFT by matT
     let y = 0;
-    for (const s of [...sideSlots].sort((a,b) => a.start - b.start)) {
+    for (const s of [...eastSlots].sort((a,b) => a.start - b.start)) {
       const y1 = matT + s.start, y2 = matT + s.end;
       if (y1 > y) d += ` L ${floorW.toFixed(3)},${y1.toFixed(3)}`;
       d += ` L ${(floorW-matT).toFixed(3)},${y1.toFixed(3)} L ${(floorW-matT).toFixed(3)},${y2.toFixed(3)} L ${floorW.toFixed(3)},${y2.toFixed(3)}`;
@@ -7179,9 +7314,9 @@ function generateFloor(cfg, plan) {
     }
     d += ` L 0,${floorH.toFixed(3)}`;
 
-    // LEFT (bottom→top): left side-wall slots indent RIGHT by matT
+    // LEFT (bottom→top): west-wall slots indent RIGHT by matT
     y = floorH;
-    for (const s of [...sideSlots].sort((a,b) => b.start - a.start)) {
+    for (const s of [...westSlots].sort((a,b) => b.start - a.start)) {
       const y1 = matT + s.start, y2 = matT + s.end;
       if (y2 < y) d += ` L 0,${y2.toFixed(3)}`;
       d += ` L ${matT.toFixed(3)},${y2.toFixed(3)} L ${matT.toFixed(3)},${y1.toFixed(3)} L 0,${y1.toFixed(3)}`;
@@ -7239,19 +7374,25 @@ function generateMergedFloor(cfg, plan) {
   }
 
   // ── Door forbidden zones, identical to generateFloor ──────────────────────
+  // Same rule: only glass doors reaching the wall's bottom edge block.
   function doorForbiddenZones(wallDoors) {
-    return wallDoors.map(d => [d.x - 2, d.x + (d.w !== undefined ? d.w : d.width) + 2]);
+    return bottomTongueForbiddenZones(wallDoors, cfg, H);
   }
+  // PRIORITY: manual ops first, then auto-count fallback. See generateFloor
+  // for the longer explanation; the rule must match so floor slots align
+  // with wall bottom tongues even when face-specific door counts are 0.
   function getWallDoors(manualKey, edgeLen, wallH, count, hasBay) {
-    if (count <= 0 || !doorStyle || doorStyle === 'none') return [];
     const manual = manualStructuralOps(cfg, manualKey);
     if (manual) return manual.filter(o => o.type === 'door');
+    if (count <= 0 || !doorStyle || doorStyle === 'none') return [];
     if (hasBay) return [];
     return computeDoors(edgeLen, wallH, { doorStyle, doorCount: count, hasOpening: false, bayXStart: 0, bayXEnd: 0 });
   }
   const frontDoors = getWallDoors('front', fbWidth, H, cfg.frontDoorCount || 0, hasFrontBay);
   const backDoors  = getWallDoors('back',  fbWidth, H, cfg.backDoorCount  || 0, hasBackBay);
-  const sideDoors  = getWallDoors('east',  sideLen, H, cfg.sideDoorCount  || 0, false);
+  // East and west computed independently — see generateFloor for rationale.
+  const eastDoors  = getWallDoors('east',  sideLen, H, cfg.sideDoorCount  || 0, false);
+  const westDoors  = getWallDoors('west',  sideLen, H, cfg.sideDoorCount  || 0, false);
 
   // Wing connection ranges (in WALL-LOCAL coords for each face)
   // Front/back walls: wall-local = main x (= floor x), range [offset, offset+span]
@@ -7263,8 +7404,8 @@ function generateMergedFloor(cfg, plan) {
 
   const frontForbidden = [...(hasFrontBay ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(frontDoors), ...frontWingF];
   const backForbidden  = [...(hasBackBay  ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(backDoors),  ...backWingF];
-  const eastForbidden  = [...doorForbiddenZones(sideDoors), ...eastWingF];
-  const westForbidden  = [...doorForbiddenZones(sideDoors), ...westWingF];
+  const eastForbidden  = [...doorForbiddenZones(eastDoors), ...eastWingF];
+  const westForbidden  = [...doorForbiddenZones(westDoors), ...westWingF];
 
   const frontSlots = placeTongues(fbWidth, tw, margin, frontForbidden, 3, tw / 2);
   const backSlots  = placeTongues(fbWidth, tw, margin, backForbidden,  3, tw / 2);
@@ -9304,7 +9445,17 @@ function generateCladdingPanel(cfg, plan, which, band) {
         doorReserveH: doorReserveH,
       });
       for (const w of wallWindows) {
-        cladWindows.push({ x: w.x + cT, y: w.y, w: w.width, h: w.height, isGround: w.isGround, style: cfg.windowStyle });
+        // Auto-mode windows on the ground floor pick up the first-floor
+        // style override when enabled — matches the legacy two-set generator
+        // which fed groundDims (carrying firstFloorWindowStyle) into the
+        // ground-floor parts. Without this, ground windows would carry the
+        // upper style downstream and the spec-grouping would put them in a
+        // (w_ground, h_ground, upperStyle) bucket instead of the correct
+        // (w_ground, h_ground, firstFloorWindowStyle) bucket.
+        const winStyle = (w.isGround && cfg.firstFloorWindowStyleEnabled && cfg.firstFloorWindowStyle)
+          ? cfg.firstFloorWindowStyle
+          : cfg.windowStyle;
+        cladWindows.push({ x: w.x + cT, y: w.y, w: w.width, h: w.height, isGround: w.isGround, style: winStyle });
       }
       if (!hasBay) {
         const wallDoors = computeDoors(fbWidth, H, {
@@ -9374,7 +9525,11 @@ function generateCladdingPanel(cfg, plan, which, band) {
         doorReserveH: doorReserveH,
       });
       for (const w of wallWindows) {
-        cladWindows.push({ x: _sideMirroredX(w.x, w.width), y: w.y, w: w.width, h: w.height, isGround: w.isGround, style: cfg.windowStyle });
+        // See FB-wall version above for rationale.
+        const winStyle = (w.isGround && cfg.firstFloorWindowStyleEnabled && cfg.firstFloorWindowStyle)
+          ? cfg.firstFloorWindowStyle
+          : cfg.windowStyle;
+        cladWindows.push({ x: _sideMirroredX(w.x, w.width), y: w.y, w: w.width, h: w.height, isGround: w.isGround, style: winStyle });
       }
       const wallDoors = computeDoors(sideLen, H, {
         doorStyle: doorStyle, doorCount: sideDoorCount,
@@ -9676,6 +9831,30 @@ function generateCladdingPanel(cfg, plan, which, band) {
   const blankedGround = blankedWindows.filter(w => w.isGround).length;
   const blankedUpper = blankedWindows.length - blankedGround;
 
+  // Per-window dimension records. The building-level glass/frame/backing
+  // generator groups these by (w, h, style) and emits one set of parts per
+  // distinct group, so a wall mixing 8×5 default-style windows, 12×9
+  // industrial_small windows, and 12×3 slit windows gets three sets of
+  // correctly-sized glass — not one set sized to the global windowStyle.
+  // The earlier code used only upper/ground counts plus cfg.windowStyle,
+  // which produced wrong-sized glass for any manually-placed window whose
+  // dimensions didn't match getWindowDims(cfg). Style falls back to
+  // cfg.windowStyle (or cfg.firstFloorWindowStyle on the ground floor when
+  // the override is enabled) when the manual op didn't set one.
+  const effectiveStyle = (w) => {
+    if (w.style) return w.style;
+    if (w.isGround && cfg.firstFloorWindowStyleEnabled && cfg.firstFloorWindowStyle) {
+      return cfg.firstFloorWindowStyle;
+    }
+    return cfg.windowStyle;
+  };
+  const windowSpecs = openingWindows.map(w => ({
+    w: w.w, h: w.h, style: effectiveStyle(w), isGround: !!w.isGround,
+  }));
+  const blankedSpecs = blankedWindows.map(w => ({
+    w: w.w, h: w.h, style: effectiveStyle(w), isGround: !!w.isGround,
+  }));
+
   return {
     id: cId,
     name: cName,
@@ -9692,6 +9871,8 @@ function generateCladdingPanel(cfg, plan, which, band) {
     groundWindows: groundCount,
     blankedUpper: blankedUpper,
     blankedGround: blankedGround,
+    windowSpecs,
+    blankedSpecs,
     doors: cladDoorsBand.length,
     doorStyleTallies: (() => {
       const t = {};
@@ -9792,6 +9973,92 @@ function generateBlankedWindowPanels(cfg, upperCount, groundCount) {
   }
   return parts;
 }
+
+/* Group a windowSpecs list by exact (w, h, style) and return an array of
+ * { w, h, style, count } summary records. A separate set of glass / backing
+ * / frame parts will be emitted for each distinct group, so manually-placed
+ * windows whose dimensions don't match the global windowStyle's size still
+ * get correctly-sized glass.
+ *
+ * Rounding to 0.01 mm via the toFixed in the key tolerates float drift
+ * between the editor's stored values and downstream recomputations; two
+ * 12-mm-wide windows whose w differs by 1e-12 are still one group. */
+function groupWindowSpecsBySize(specs) {
+  const groups = new Map();
+  for (const s of (specs || [])) {
+    if (!s || !(s.w > 0) || !(s.h > 0)) continue;
+    const key = s.w.toFixed(2) + '|' + s.h.toFixed(2) + '|' + (s.style || '');
+    if (!groups.has(key)) groups.set(key, { w: s.w, h: s.h, style: s.style || null, count: 0 });
+    groups.get(key).count += 1;
+  }
+  return [...groups.values()];
+}
+
+/* Build a winDims-like object from a (w, h, style) tuple, suitable for
+ * generateWindowPartsForDims. The mullion is pulled from the style spec
+ * so multi-pane lattice/kumiko windows still get their divider piece. */
+function winDimsFromSpec(spec) {
+  const styleSpec = spec.style ? WINDOW_STYLES[spec.style] : null;
+  return {
+    w: spec.w,
+    h: spec.h,
+    mullion: (styleSpec && styleSpec.mullion) || 'none',
+    styleKey: spec.style || null,
+    scaleKey: 'manual',
+  };
+}
+
+/* Build all window glass + backing + frame parts for a collection of
+ * windowSpecs (one entry per actual window, with its exact dimensions and
+ * style). Each unique (w, h, style) group becomes a separately-laid-out
+ * set, named so the model-maker can tell them apart on the laser sheet.
+ *
+ * Replaces the old path of "count upper, count ground, emit one or two sets
+ * at the globally-configured window size" — which produced wrong-sized
+ * glass for any custom-sized manual window. Falls back to the
+ * legacy upper/ground count path when no specs are available, so any
+ * caller still sending counts (legacy presets, edge-case wall types)
+ * keeps working. */
+function generateWindowPartsFromSpecs(cfg, openingSpecs) {
+  if (!openingSpecs || openingSpecs.length === 0) return [];
+  const groups = groupWindowSpecsBySize(openingSpecs);
+  // Sort groups by descending count so the dominant size gets the simplest
+  // suffix and shows up first in the part list — easier to scan.
+  groups.sort((a, b) => b.count - a.count || (b.w * b.h) - (a.w * a.h));
+  // Pick a human-readable suffix. If there's only one group, no suffix at
+  // all (matches the legacy single-set layout). For multiple groups,
+  // suffix with the dimensions so the model-maker can match the parts to
+  // their windows visually.
+  const out = [];
+  for (const g of groups) {
+    const suffix = (groups.length === 1)
+      ? ''
+      : ` (${g.w.toFixed(g.w % 1 === 0 ? 0 : 1)}×${g.h.toFixed(g.h % 1 === 0 ? 0 : 1)}${g.style ? ' ' + g.style : ''})`;
+    out.push(...generateWindowPartsForDims(cfg, winDimsFromSpec(g), g.count, suffix));
+  }
+  return out;
+}
+
+/* Spec-driven blanking-panel generator: same grouping logic as the glass
+ * version, since blanked windows also need panels sized to their exact
+ * core hole. */
+function generateBlankedWindowPanelsFromSpecs(cfg, blankedSpecs) {
+  if (!blankedSpecs || blankedSpecs.length === 0) return [];
+  const groups = groupWindowSpecsBySize(blankedSpecs);
+  groups.sort((a, b) => b.count - a.count || (b.w * b.h) - (a.w * a.h));
+  const out = [];
+  for (const g of groups) {
+    const suffix = (groups.length === 1)
+      ? ''
+      : ` (${g.w.toFixed(g.w % 1 === 0 ? 0 : 1)}×${g.h.toFixed(g.h % 1 === 0 ? 0 : 1)})`;
+    const w = g.w + 2 - 0.2;
+    const h = g.h + 2 - 0.2;
+    out.push(layoutPanes('blanking_panel' + suffixId(suffix), g.count, w, h, 'cladding',
+      'Blanking panel' + suffix + ' (fills core hole behind cladding — solid, no glass)'));
+  }
+  return out;
+}
+
 
 function generateWindowParts(cfg, totalWindows, groundFloorWindowCount) {
   if (totalWindows === 0 && (!groundFloorWindowCount || groundFloorWindowCount === 0)) return [];
@@ -9917,6 +10184,21 @@ function generateDoorInserts(cfg, doorTallies) {
   // doorTallies: { styleKey: count }
   const cT = cfg.claddingThickness;
   const parts = [];
+  // Trim margin around each insert. The door piece sits inside the
+  // cladding-hole (it doesn't cut through the wall core; it glues into the
+  // hole flush with the cladding face), so trimming during fitting is
+  // common: nudge the corners with a hobby knife so the piece settles flat
+  // without binding. The actual fit dimensions are `insetW × insetH`
+  // (already 0.2 mm smaller than the cladding hole on each side for slip-
+  // fit clearance). Cutting at exactly those dims leaves no material to
+  // remove if the laser singes the edge or the user wants to chamfer the
+  // back — once you've trimmed, the piece is undersized. So we cut at
+  // `insetW + 2·trim × insetH + 2·trim` and engrave the true fit outline
+  // at the inset dimensions so the user knows where to trim back to.
+  // 0.75 mm per side is a comfortable handling allowance — enough to
+  // recover from one or two passes of a knife, not so much that the piece
+  // is wildly oversized on the sheet.
+  const trim = 0.75;
   for (const [styleKey, count] of Object.entries(doorTallies)) {
     if (count <= 0) continue;
     const door = DOOR_STYLES[styleKey];
@@ -9926,26 +10208,43 @@ function generateDoorInserts(cfg, doorTallies) {
     // Insert is 0.2mm smaller than the cladding door hole on each side, for fit
     const insetW = door.width - 0.4;
     const insetH = door.height - 0.4;
+    // Outer cut dimensions (insert + trim margin on each side)
+    const cutW = insetW + 2 * trim;
+    const cutH = insetH + 2 * trim;
 
     const gutter = 5;
-    const cols = Math.min(total, Math.max(2, Math.floor((250 - gutter) / (insetW + gutter))));
+    const cols = Math.min(total, Math.max(2, Math.floor((250 - gutter) / (cutW + gutter))));
     const rows = Math.ceil(total / cols);
-    const sheetW = cols * (insetW + gutter) + gutter;
-    const sheetH = rows * (insetH + gutter) + gutter;
+    const sheetW = cols * (cutW + gutter) + gutter;
+    const sheetH = rows * (cutH + gutter) + gutter;
 
-    // Push the geometry for one door insert (outer rect + glass apertures +
-    // etched features) at a tile's local top-left coords. Used to build BOTH
-    // the tiled sheet AND the single-tile preview so the download keeps the
-    // tiled layout while the UI shows one card with a "Cut ×N" badge.
+    // Push the geometry for one door insert (outer cut + glass apertures +
+    // etched features + engraved trim-guide outline) at a tile's local
+    // top-left coords. The OUTER cut starts at (ox, oy) and is cutW × cutH;
+    // the inner door content (engraving outline, glass apertures, etched
+    // features) starts at (ox + trim, oy + trim) and is insetW × insetH.
+    // Used to build BOTH the tiled sheet AND the single-tile preview so
+    // the download keeps the tiled layout while the UI shows one card
+    // with a "Cut ×N" badge.
     function pushDoorTile(ox, oy, outRects, outLines) {
-      // Outer perimeter
-      outRects.push({ type: 'cut', x: ox, y: oy, w: insetW, h: insetH, compensateKerf: false });
-      // Glass apertures
+      // Outer perimeter — oversized by `trim` on every side
+      outRects.push({ type: 'cut', x: ox, y: oy, w: cutW, h: cutH, compensateKerf: false });
+      // Engraved trim-guide outline at the actual fit dimensions. The model-
+      // maker trims the outer cut back to this rectangle to seat the piece
+      // in its cladding hole with the intended 0.2 mm clearance per side.
+      const dx = ox + trim, dy = oy + trim;
+      outLines.push({ type: 'etch', x1: dx,           y1: dy,           x2: dx + insetW, y2: dy });
+      outLines.push({ type: 'etch', x1: dx + insetW,  y1: dy,           x2: dx + insetW, y2: dy + insetH });
+      outLines.push({ type: 'etch', x1: dx + insetW,  y1: dy + insetH,  x2: dx,          y2: dy + insetH });
+      outLines.push({ type: 'etch', x1: dx,           y1: dy + insetH,  x2: dx,          y2: dy });
+      // Glass apertures (positioned within the inner door content — NOT
+      // expanded by the trim margin, since they have to line up with the
+      // glass cuts in the wall core; the trim is only for the outer edge).
       const sx = insetW / door.width;
       const sy = insetH / door.height;
       for (const gp of door.glassPanes) {
-        const gx = ox + gp.x1 * sx;
-        const gy = oy + gp.y1 * sy;
+        const gx = dx + gp.x1 * sx;
+        const gy = dy + gp.y1 * sy;
         const gw = (gp.x2 - gp.x1) * sx;
         const gh = (gp.y2 - gp.y1) * sy;
         if (gw < 0.6 || gh < 0.6) continue;
@@ -9955,18 +10254,18 @@ function generateDoorInserts(cfg, doorTallies) {
       const shapes = doorFeatureShapes(door);
       for (const sh of shapes) {
         if (sh.type === 'rect') {
-          const x1 = ox + sh.x * sx, y1 = oy + sh.y * sy;
-          const x2 = ox + (sh.x + sh.w) * sx, y2 = oy + (sh.y + sh.h) * sy;
+          const x1 = dx + sh.x * sx, y1 = dy + sh.y * sy;
+          const x2 = dx + (sh.x + sh.w) * sx, y2 = dy + (sh.y + sh.h) * sy;
           outLines.push({ type: 'etch', x1, y1, x2, y2: y1 });
           outLines.push({ type: 'etch', x1: x2, y1, x2, y2 });
           outLines.push({ type: 'etch', x1: x2, y1: y2, x2: x1, y2 });
           outLines.push({ type: 'etch', x1, y1: y2, x2: x1, y2: y1 });
         } else if (sh.type === 'line') {
           outLines.push({ type: 'etch',
-            x1: ox + sh.x1 * sx, y1: oy + sh.y1 * sy,
-            x2: ox + sh.x2 * sx, y2: oy + sh.y2 * sy });
+            x1: dx + sh.x1 * sx, y1: dy + sh.y1 * sy,
+            x2: dx + sh.x2 * sx, y2: dy + sh.y2 * sy });
         } else if (sh.type === 'circle') {
-          const cx = ox + sh.cx * sx, cy = oy + sh.cy * sy;
+          const cx = dx + sh.cx * sx, cy = dy + sh.cy * sy;
           const rx = sh.r * sx, ry = sh.r * sy;
           const N = 12;
           let px = cx + rx, py = cy;
@@ -9986,15 +10285,15 @@ function generateDoorInserts(cfg, doorTallies) {
     for (let i = 0; i < total; i++) {
       const c = i % cols;
       const r = Math.floor(i / cols);
-      const ox = gutter + c * (insetW + gutter);
-      const oy = gutter + r * (insetH + gutter);
+      const ox = gutter + c * (cutW + gutter);
+      const oy = gutter + r * (cutH + gutter);
       pushDoorTile(ox, oy, rects, lines);
     }
     // Single-tile preview geometry (origin at 0,0).
     const tileRects = [], tileLines = [];
     pushDoorTile(0, 0, tileRects, tileLines);
     const tileGeom = {
-      bboxW: insetW, bboxH: insetH,
+      bboxW: cutW, bboxH: cutH,
       bboxOffsetX: 0, bboxOffsetY: 0,
       paths: [], rects: tileRects, lines: tileLines,
     };
@@ -11330,6 +11629,11 @@ function generateBuilding(cfg) {
   // Per-style door tallies — different walls may have different mixes when
   // the user places doors via the openings editor.
   const doorTallies = {};
+  // Per-window dimension records collected across all cladding parts. The
+  // glass/backing/frame generator groups these by (w, h, style) and emits a
+  // separately-sized set per group — see generateWindowPartsFromSpecs.
+  const allWindowSpecs = [];
+  const allBlankedSpecs = [];
   for (const p of parts) {
     if (p.material === 'cladding') {
       if (p.windows) totalWindows += p.windows;
@@ -11338,6 +11642,8 @@ function generateBuilding(cfg) {
       if (p.blankedUpper) blankedUpper += p.blankedUpper;
       if (p.blankedGround) blankedGround += p.blankedGround;
       if (p.doors) totalDoors += p.doors;
+      if (p.windowSpecs && p.windowSpecs.length) allWindowSpecs.push(...p.windowSpecs);
+      if (p.blankedSpecs && p.blankedSpecs.length) allBlankedSpecs.push(...p.blankedSpecs);
       if (p.doorStyleTallies) {
         for (const [s, n] of Object.entries(p.doorStyleTallies)) {
           doorTallies[s] = (doorTallies[s] || 0) + n;
@@ -11345,12 +11651,20 @@ function generateBuilding(cfg) {
       }
     }
   }
-  const windowParts = generateWindowParts(cfg, upperWindows, groundWindows);
+  // Spec-driven generation when wall parts reported per-window specs (the
+  // normal case); fall back to the legacy count-only path when no specs are
+  // available (defensive, for any cladding code that hasn't been updated to
+  // emit windowSpecs yet).
+  const windowParts = (allWindowSpecs.length > 0)
+    ? generateWindowPartsFromSpecs(cfg, allWindowSpecs)
+    : generateWindowParts(cfg, upperWindows, groundWindows);
   parts.push(...windowParts);
-  // Blanking panels for windows with placement: 'blanked' — single opaque
-  // piece that fills the slot behind the cladding. Sized to fit the core
-  // hole = visible opening + 1mm on each side, minus 0.2mm clearance.
-  parts.push(...generateBlankedWindowPanels(cfg, blankedUpper, blankedGround));
+  // Blanking panels for windows with placement: 'blanked' — same spec-vs-
+  // count split as above.
+  const blankedParts = (allBlankedSpecs.length > 0)
+    ? generateBlankedWindowPanelsFromSpecs(cfg, allBlankedSpecs)
+    : generateBlankedWindowPanels(cfg, blankedUpper, blankedGround);
+  parts.push(...blankedParts);
 
   const doorParts = generateDoorInserts(cfg, doorTallies);
   parts.push(...doorParts);
@@ -16524,7 +16838,7 @@ function generateBuildingWithWings(cfg) {
     const matT   = plan.matT;
     const tw     = cfg.tongueWidth || 15;
     const margin = Math.max(matT * 2, 5);
-    const ssRoofTop = (plan.roofStyle === 'flat');
+    const ssRoofTop = (plan.roofStyle === 'flat' || plan.roofStyle === 'flat_overhang');
 
     for (const face of ['front', 'back', 'east', 'west']) {
       const faceM = coreMerges[face];
@@ -16553,7 +16867,7 @@ function generateBuildingWithWings(cfg) {
         if (manual) doors = manual.filter(o => o.type === 'door');
         else if (!hasBay && fbDoorCount > 0 && cfg.doorStyle && cfg.doorStyle !== 'none')
           doors = computeDoors(plan.fbWidth, plan.H, { doorStyle: cfg.doorStyle, doorCount: fbDoorCount, hasOpening: false, bayXStart: 0, bayXEnd: 0 });
-        const doorForbidden = doors.map(d => [d.x - 2, d.x + (d.w !== undefined ? d.w : d.width) + 2]);
+        const doorForbidden = bottomTongueForbiddenZones(doors, cfg, plan.H);
         const bottomForbidden = [
           ...(hasBay ? [[plan.bayXStart, plan.bayXEnd]] : []),
           ...doorForbidden,
@@ -16567,7 +16881,7 @@ function generateBuildingWithWings(cfg) {
         if (manual) doors = manual.filter(o => o.type === 'door');
         else if ((cfg.sideDoorCount || 0) > 0 && cfg.doorStyle && cfg.doorStyle !== 'none')
           doors = computeDoors(plan.sideLen, plan.H, { doorStyle: cfg.doorStyle, doorCount: cfg.sideDoorCount, hasOpening: false, bayXStart: 0, bayXEnd: 0 });
-        const doorForbidden = doors.map(d => [d.x - 2, d.x + (d.w !== undefined ? d.w : d.width) + 2]);
+        const doorForbidden = bottomTongueForbiddenZones(doors, cfg, plan.H);
         mainBotT = placeTongues(plan.sideLen, tw, margin, doorForbidden, 3, tw / 2);
         mainTopT = ssRoofTop ? placeTongues(plan.sideLen, tw, margin, [], 3, tw / 2) : [];
       }
@@ -17703,8 +18017,11 @@ function weGenerateDividingWall(cfg, plan, wing) {
 
   const rects = [];
 
-  // Top tongues (roof connection)
-  const topTongues = (cfg.roofStyle === 'flat') ? placeTongues(wallW, tw, margin, [], 3, tw / 2) : [];
+  // Top tongues (roof connection) — flat and flat_overhang both use the
+  // wall-top-tongue + roof-slot mechanism, just with different roof footprints.
+  const topTongues = (cfg.roofStyle === 'flat' || cfg.roofStyle === 'flat_overhang')
+    ? placeTongues(wallW, tw, margin, [], 3, tw / 2)
+    : [];
   // Bottom tongues (floor connection) — these will slot into the shared floor panel
   const bottomTongues = placeTongues(wallW, tw, margin, [], 3, tw / 2);
 

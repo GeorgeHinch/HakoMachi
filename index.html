@@ -6438,9 +6438,12 @@ function generateSideWall(cfg, plan, side) {
  *   • Overhead doors (roller, paneled, sectional, tilt_up):
  *       Two short HORIZONTAL ticks, one just outside the left edge of
  *       the bay opening and one just outside the right edge, both at
- *       the Y of the panel's BOTTOM edge. The panel hangs from the bay
- *       opening's top edge; aligning the bottom with these ticks
- *       guarantees the correct vertical extent for the chosen "% open".
+ *       the Y of the panel's TOP edge. The panel sits with its BOTTOM
+ *       glued to the bay opening's bottom edge — that matches the
+ *       physical reality of an overhead door retracting upward: the
+ *       BOTTOM of the door fabric is what stays visible in the opening.
+ *       Aligning the panel's TOP edge with these ticks gives the correct
+ *       vertical extent for the chosen "% open".
  *
  *   • Side-sliding doors (slatted):
  *       A single short VERTICAL tick just above the bay opening at the
@@ -6488,15 +6491,20 @@ function bayDoorAlignmentMarks(cfg, plan, which) {
     const tickY2 = bayCeilingY;
     lines.push({ type: 'etch', x1: panelRight, y1: tickY1, x2: panelRight, y2: tickY2 });
   } else {
-    // Overhead door: panel hangs from the bay's TOP edge, extends
-    // downward to bayCeilingY + bayHeight * ratioClosed.
-    const panelBottom = bayCeilingY + bayHeight * ratioClosed;
+    // Overhead door: panel is anchored at the BAY OPENING's BOTTOM edge
+    // and rises upward by panelH = bayHeight * ratioClosed. The far edge
+    // (the top of the visible panel) sits at bayCeilingY + bayHeight *
+    // (1 − ratioClosed) — that's where the tick marks belong. Physically
+    // this matches what an overhead door looks like when partially open:
+    // the BOTTOM of the door is what stays in the opening, the top has
+    // retracted into the housing.
+    const panelTop = bayCeilingY + bayHeight * (1 - ratioClosed);
     const leftTickX1  = Math.max(0, bayXStart - tickLen);
     const leftTickX2  = bayXStart;
     const rightTickX1 = bayXEnd;
     const rightTickX2 = Math.min(fbWidth, bayXEnd + tickLen);
-    lines.push({ type: 'etch', x1: leftTickX1,  y1: panelBottom, x2: leftTickX2,  y2: panelBottom });
-    lines.push({ type: 'etch', x1: rightTickX1, y1: panelBottom, x2: rightTickX2, y2: panelBottom });
+    lines.push({ type: 'etch', x1: leftTickX1,  y1: panelTop, x2: leftTickX2,  y2: panelTop });
+    lines.push({ type: 'etch', x1: rightTickX1, y1: panelTop, x2: rightTickX2, y2: panelTop });
   }
   return lines;
 }
@@ -9786,6 +9794,11 @@ function generateCladdingPanel(cfg, plan, which, band) {
         x: ov.x + cT, y: ov.y, w: ov.w, h: ov.h,
         claddingStyle: ov.claddingStyle,
         layered: !!ov.layered,
+        // Per-override style params (e.g. corrugated sheet dimensions);
+        // forwarded so generateCladdingOverrideParts can group/render
+        // each variant on its own sheet. Undefined when unset → the
+        // override generator uses the style's defaults.
+        styleParams: ov.styleParams ? { ...ov.styleParams } : undefined,
       });
     }
   } else {
@@ -9857,6 +9870,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
         x: _sideMirroredX(ov.x, ov.w), y: ov.y, w: ov.w, h: ov.h,
         claddingStyle: ov.claddingStyle,
         layered: !!ov.layered,
+        styleParams: ov.styleParams ? { ...ov.styleParams } : undefined,
       });
     }
   }
@@ -10017,6 +10031,15 @@ function generateCladdingPanel(cfg, plan, which, band) {
 
     } else if (style.placement === 'etched') {
       // ── Etched fixture — walk pieces and emit features as cladding etches ──
+      // Block the underlying cladding pattern from running THROUGH the
+      // fixture's footprint by adding the bbox to cutOpenings. The fixture
+      // itself isn't cut; the bbox here only suppresses pattern lines so
+      // the etched features (hatch outline, beacon, warning triangle, etc.)
+      // read cleanly against an unbroken background. Without this, the
+      // base cladding's corrugations / lap lines / brick courses would
+      // run right across the emergency-hatch panel and visually compete
+      // with the etched detail.
+      cutOpenings.push({ x: f.x, y: f.y, w: f.w, h: f.h });
       const scaleX = f.w / style.width;
       const scaleY = f.h / style.height;
       for (const piece of style.pieces) {
@@ -11242,13 +11265,43 @@ function tallyCladdingOverrides(cfg) {
       const w = Number(ov.w) || 0;
       const h = Number(ov.h) || 0;
       if (w <= 0 || h <= 0) continue;
-      const key = `${ov.claddingStyle}|${w.toFixed(1)}|${h.toFixed(1)}`;
+      // Group key includes the per-override styleParams when present so
+      // two overrides of the same cladding style and dimensions but with
+      // different parameter tweaks (e.g. corrugated metal at different
+      // sheet sizes) end up on separate laser sheets with the appropriate
+      // pattern variant on each. Legacy ops without styleParams use the
+      // empty-string suffix and group together exactly as before.
+      const paramKey = ov.styleParams ? JSON.stringify(ov.styleParams) : '';
+      const key = `${ov.claddingStyle}|${w.toFixed(1)}|${h.toFixed(1)}|${paramKey}`;
       const existing = groups.get(key);
       if (existing) existing.count += 1;
-      else groups.set(key, { claddingStyle: ov.claddingStyle, w, h, count: 1 });
+      else groups.set(key, {
+        claddingStyle: ov.claddingStyle,
+        styleParams: ov.styleParams ? { ...ov.styleParams } : null,
+        w, h, count: 1,
+      });
     }
   }
   return Array.from(groups.values());
+}
+
+/* Returns a CLADDING_STYLES entry merged with per-override styleParams,
+ * if any. For styles that don't consume styleParams (anything other
+ * than the corrugated_overlap pattern at the moment), or when
+ * styleParams is null/undefined, the base style spec is returned
+ * unchanged. This keeps the override piece's etched pattern in sync
+ * with whatever sheet dimensions / corrugation density the user
+ * dialled in for that specific override via the wall-editor topbar. */
+function effectiveCladdingStyle(baseStyle, styleParams) {
+  if (!baseStyle) return null;
+  if (!styleParams || baseStyle.pattern !== 'corrugated_overlap') return baseStyle;
+  return {
+    ...baseStyle,
+    sheetW: styleParams.sheetW != null ? styleParams.sheetW : baseStyle.sheetW,
+    sheetH: styleParams.sheetH != null ? styleParams.sheetH : baseStyle.sheetH,
+    corrugationSpacing: styleParams.corrugationSpacing != null ? styleParams.corrugationSpacing : baseStyle.corrugationSpacing,
+    offsetFraction: styleParams.offsetFraction != null ? styleParams.offsetFraction : baseStyle.offsetFraction,
+  };
 }
 
 /* Generate four thin cladding strips that wrap the INSIDE face of the
@@ -11358,9 +11411,76 @@ function generateBayDoorParts(cfg, plan) {
     const panelH = isSide ? bay.h : (bay.h * ratioClosed);
     if (panelW < 1 || panelH < 1) continue;
 
-    // Stamp the etch features. The style returns geometry that already
-    // sits in the panel's local frame, sized to (panelW, panelH).
-    const feats = style.etchFn(panelW, panelH);
+    // Generate the etch features for the FULL door, then shift + clip to
+    // the visible region. Calling style.etchFn(bay.w, bay.h) returns
+    // features in the FULL door's local frame (top-left = (0,0)); we
+    // then map them into the cut piece's frame.
+    //
+    // For OVERHEAD doors (roller/paneled/sectional/tilt-up), the door
+    // retracts UPWARD as it opens — the top of the door slides into the
+    // housing and the BOTTOM stays in the opening. So the visible portion
+    // of the door fabric is its BOTTOM `panelH` worth; features above
+    // `bay.h − panelH` in the full-door frame remain visible, everything
+    // above that is hidden. We shift y by `−(bay.h − panelH)` so the
+    // door's bottom edge lands at the cut piece's bottom edge, then drop
+    // anything outside the panel's local rectangle.
+    //
+    // For SIDE-sliding doors (slatted), the door retracts to the right —
+    // the right of the door fabric slides out of the opening and the
+    // LEFT `panelW` worth stays visible. The cut piece's local origin
+    // already lines up with the door's left edge, so no shift is needed.
+    //
+    // The previous implementation called etchFn(panelW, panelH) directly
+    // and let the etcher build a SHORTER complete door for the visible
+    // size. That treated each partial-open state as its own self-similar
+    // mini-door, which put the paneled style's window row (always in the
+    // TOP panel) at the TOP of whatever portion remained visible — i.e.
+    // showing windows even at 80% open when, physically, the windowed
+    // top of the door has long since retracted out of sight.
+    const yShift = isSide ? 0 : -(bay.h - panelH);
+    const fullFeats = style.etchFn(bay.w, bay.h);
+    const feats = [];
+    for (const f of fullFeats) {
+      if (f.type === 'line') {
+        let x1 = f.x1, x2 = f.x2;
+        let y1 = f.y1 + yShift, y2 = f.y2 + yShift;
+        // Skip lines entirely outside the visible rect. We don't do
+        // segment-against-rect clipping for partial overlaps — etchFn
+        // outputs are typically axis-aligned or fully inside one of
+        // the panels, so a bbox-style drop is correct for them; a few
+        // diagonals (tilt_up bracing) might stick into the hidden
+        // region but those ones are inside the inset frame which sits
+        // well below the door's top, so they survive whole at any
+        // partial-open ratio we'd reasonably allow.
+        const yMin = Math.min(y1, y2), yMax = Math.max(y1, y2);
+        const xMin = Math.min(x1, x2), xMax = Math.max(x1, x2);
+        if (yMax < 0 || yMin > panelH) continue;
+        if (xMax < 0 || xMin > panelW) continue;
+        feats.push({ type: 'line', x1, y1, x2, y2 });
+      } else if (f.type === 'rect') {
+        const x = f.x, y = f.y + yShift, w = f.w, h = f.h;
+        // Drop if entirely outside; clip if it straddles the visible edge.
+        if (y + h <= 0 || y >= panelH) continue;
+        if (x + w <= 0 || x >= panelW) continue;
+        const cx1 = Math.max(0, x),     cy1 = Math.max(0, y);
+        const cx2 = Math.min(panelW, x + w), cy2 = Math.min(panelH, y + h);
+        const cw = cx2 - cx1, ch = cy2 - cy1;
+        if (cw > 0.05 && ch > 0.05) {
+          feats.push({ type: 'rect', x: cx1, y: cy1, w: cw, h: ch });
+        }
+      } else if (f.type === 'circle') {
+        const cx = f.cx, cy = f.cy + yShift, r = f.r;
+        // Circle bbox check — if any of the circle would intrude, keep
+        // it whole. Partial-circle clipping isn't worth the geometry
+        // here because the only style using circles (none currently;
+        // future-proofing) would be small handles or pulls that don't
+        // tend to straddle the visible edge.
+        if (cy + r <= 0 || cy - r >= panelH) continue;
+        if (cx + r <= 0 || cx - r >= panelW) continue;
+        feats.push({ type: 'circle', cx, cy, r });
+      }
+    }
+
     const rects = [{ type: 'cut', x: 0, y: 0, w: panelW, h: panelH, compensateKerf: false }];
     const lines = [];
     for (const f of feats) {
@@ -11390,8 +11510,13 @@ function generateBayDoorParts(cfg, plan) {
 
     const align = isSide
       ? `LEFT edge of the opening (door slides right when retracted)`
-      : `TOP edge of the opening (door slides up when retracted)`;
-    const farEdge = isSide ? 'right' : 'bottom';
+      : `BOTTOM edge of the opening (door retracts upward — the bottom of the door is what stays in the opening)`;
+    // The "far" edge is the one that moves as the door opens — that's
+    // where the wall etches its alignment tick marks. For side doors
+    // the door slides right, so the tick marks the panel's RIGHT edge.
+    // For overhead doors the door retracts UP, so the tick marks the
+    // panel's TOP edge (the bottom is anchored at the opening bottom).
+    const farEdge = isSide ? 'right' : 'top';
     parts.push({
       id: `bay_door_${face}`,
       name: `Bay door panel — ${face} (${style.label}${pct > 0 ? `, ${pct}% open` : ''})`,
@@ -11416,8 +11541,14 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
   const parts = [];
   for (const group of (overrideGroups || [])) {
     if (!group || group.count <= 0) continue;
-    const style = CLADDING_STYLES[group.claddingStyle];
-    if (!style) continue;
+    const baseStyle = CLADDING_STYLES[group.claddingStyle];
+    if (!baseStyle) continue;
+    // Merge in any per-override style params before generating the etch
+    // pattern, so corrugated overrides at custom sheet dimensions get the
+    // right pattern on their own sheet (groups are already keyed by
+    // styleParams in tallyCladdingOverrides so each variant lands here
+    // separately).
+    const style = effectiveCladdingStyle(baseStyle, group.styleParams);
 
     const pw = group.w, ph = group.h;
     const gutter = 3;
@@ -16482,12 +16613,23 @@ function init() {
   CONFIG.buildingType = 'industrial_loading';
   Object.assign(CONFIG, BUILDING_TYPES.industrial_loading.defaults);
 
-  // Animated logo: replay the SMIL timeline from t=0 on every hover.
-  // The listener lives here (not inline in the SVG) so the offline
-  // test sandbox doesn't try to run document.currentScript.closest.
+  // Animated logo: replay the SMIL timeline from t=0 on hover, but only
+  // once the previous cycle has finished. The build-on sequence takes 2.23s
+  // (final animate ends at begin 1.85s + dur 0.38s); we add a small buffer
+  // so a hover landing on the very tail of the animation doesn't chain
+  // into an immediate restart. The initial page-load animation counts as
+  // the first cycle — we seed lastTriggerTime to "now" so a hover within
+  // the first 2.3s post-load is also suppressed. The listener lives here
+  // (not inline in the SVG) so the offline test sandbox doesn't try to
+  // run document.currentScript.closest.
   const logoSvg = document.querySelector('svg.app-logo');
   if (logoSvg && typeof logoSvg.setCurrentTime === 'function') {
+    const LOGO_ANIM_DURATION_MS = 2300;
+    let lastTriggerTime = performance.now();
     logoSvg.addEventListener('mouseenter', () => {
+      const now = performance.now();
+      if (now - lastTriggerTime < LOGO_ANIM_DURATION_MS) return;
+      lastTriggerTime = now;
       try { logoSvg.setCurrentTime(0); } catch (_) { /* older browsers */ }
     });
   }
@@ -19042,7 +19184,16 @@ function openOpeningEditor(wall) {
     if (aws.length === 0 && bals.length === 0 && fxs.length === 0 && ovs.length === 0 && prs.length === 0) continue;
     if (!Array.isArray(oeOpenings[face])) oeOpenings[face] = [];
     for (const o of ovs)
-      oeOpenings[face].push({ type: 'cladding_override', x: o.x, y: o.y, w: o.w, h: o.h, claddingStyle: o.claddingStyle, layered: !!o.layered });
+      oeOpenings[face].push({
+        type: 'cladding_override', x: o.x, y: o.y, w: o.w, h: o.h,
+        claddingStyle: o.claddingStyle, layered: !!o.layered,
+        // Optional per-override style parameters. Currently only the
+        // corrugated_metal_overlap style consumes these (sheetW, sheetH,
+        // corrugationSpacing, offsetFraction). Older saves without the
+        // field load to undefined → cladding generator falls back to the
+        // style's defaults in effectiveCladdingStyle().
+        styleParams: o.styleParams ? { ...o.styleParams } : undefined,
+      });
     for (const a of aws)
       oeOpenings[face].push({ type: 'awning', x: a.x, y: a.y, w: a.w, h: a.d });
     for (const b of bals)
@@ -19112,7 +19263,18 @@ function oeApply() {
     CONFIG.manualFixtures[w]  = ops.filter(op => op.type === 'fixture')
                                    .map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h, style: op.style }));
     CONFIG.manualCladdingOverrides[w] = ops.filter(op => op.type === 'cladding_override')
-                                   .map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h, claddingStyle: op.claddingStyle, layered: !!op.layered }));
+                                   .map(op => ({
+                                     x: op.x, y: op.y, w: op.w, h: op.h,
+                                     claddingStyle: op.claddingStyle,
+                                     layered: !!op.layered,
+                                     // Pass through per-override style params
+                                     // (currently corrugated metal sheet
+                                     // dimensions / corrugation density);
+                                     // omitted entirely on save when unset
+                                     // so legacy .hako files don't grow a
+                                     // spurious empty field.
+                                     ...(op.styleParams ? { styleParams: { ...op.styleParams } } : {}),
+                                   }));
     CONFIG.manualPrintedItems[w] = ops.filter(op => op.type === 'printed_item')
                                    .map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h, style: op.style }));
   }
@@ -20836,6 +20998,79 @@ function oePopulateTopbar() {
           oeCommit();
         });
         bar.appendChild(mountToggle);
+
+        // ---- Corrugated metal style parameters (only when the override
+        // uses the corrugated_metal_overlap style) ----
+        // Lets the user tune the corrugated cladding per override right
+        // from the topbar — useful because the same building can have a
+        // tightly-corrugated wall patch AND a coarser corrugated roof
+        // patch, and the user shouldn't have to commit either choice
+        // globally to try them. Four params:
+        //   sheetW              mm — sheet width in the brick-stagger layout
+        //   sheetH              mm — sheet height (= row height)
+        //   corrugationSpacing  mm — vertical ridge pitch
+        //   offsetFraction      0..1 — how far adjacent rows stagger
+        // Values are stored on op.styleParams; absent values fall back
+        // to the CLADDING_STYLES.corrugated_metal_overlap defaults via
+        // effectiveCladdingStyle() at render time.
+        const curCladKey = primaryOp.claddingStyle || oeDefaultOverrideCladdingStyle();
+        const curCladStyle = CLADDING_STYLES[curCladKey];
+        if (curCladStyle && curCladStyle.pattern === 'corrugated_overlap') {
+          sep();
+          label('Corrugated');
+
+          // Build one small number input per parameter. Each input
+          // mutates op.styleParams on every selected cladding_override
+          // (creating the object on first touch) and triggers a regen
+          // so the laser preview, 3D view, and the editor's wall
+          // pattern all re-render with the new values.
+          function makeParamInput(field, displayLabel, step, min, max, unit) {
+            const wrap = document.createElement('span');
+            wrap.style.cssText = 'display:inline-flex;align-items:center;gap:3px;margin-left:6px;';
+            const lab = document.createElement('span');
+            lab.className = 'oe-topbar-label';
+            lab.textContent = displayLabel;
+            const inp = document.createElement('input');
+            inp.type = 'number';
+            inp.min = min.toString(); inp.max = max.toString(); inp.step = step.toString();
+            const current = (primaryOp.styleParams && primaryOp.styleParams[field] != null)
+              ? primaryOp.styleParams[field]
+              : curCladStyle[field];
+            inp.value = current != null ? current.toString() : '';
+            inp.className = 'oe-sel-size-input';
+            inp.style.width = '46px';
+            inp.title = `Corrugated metal — ${displayLabel.toLowerCase()} (${min}–${max}${unit})`;
+            function applyParam() {
+              const v = Math.max(min, Math.min(max, parseFloat(inp.value) || min));
+              inp.value = v.toString();
+              for (const i of oeSelectedSet) {
+                const op = (oeOpenings[oeWall] || [])[i];
+                if (!op || op.type !== 'cladding_override') continue;
+                if (!op.styleParams) op.styleParams = {};
+                op.styleParams[field] = v;
+              }
+              oeCommit();
+              oeRender();
+              regenerate();
+            }
+            inp.addEventListener('change', applyParam);
+            inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); applyParam(); } });
+            inp.addEventListener('keydown', e => e.stopPropagation(), true);
+            wrap.appendChild(lab);
+            wrap.appendChild(inp);
+            if (unit) {
+              const u = document.createElement('span');
+              u.className = 'oe-topbar-label';
+              u.textContent = unit;
+              wrap.appendChild(u);
+            }
+            bar.appendChild(wrap);
+          }
+          makeParamInput('sheetW',             'Sheet W',     0.5, 1,    20,   'mm');
+          makeParamInput('sheetH',             'Sheet H',     0.5, 2,    40,   'mm');
+          makeParamInput('corrugationSpacing', 'Ridge',       0.1, 0.3,  3.0,  'mm');
+          makeParamInput('offsetFraction',     'Stagger',     0.05, 0,   1,    '');
+        }
       }
 
       // ---- Bay door (only for bay ops) ----
@@ -21660,7 +21895,10 @@ function oeRender() {
           // Override region — main cladding pattern is suppressed here (via
           // cutOpenings), and a secondary-cladding piece fills the area.
           // Render its own etched pattern so the user sees the replacement.
-          const overStyle = CLADDING_STYLES[op.claddingStyle];
+          // Merge in any per-override styleParams (e.g. corrugated metal
+          // sheet dims) so the live editor preview matches what the laser
+          // piece will actually look like.
+          const overStyle = effectiveCladdingStyle(CLADDING_STYLES[op.claddingStyle], op.styleParams);
           const rx = ox + oeMirrorX(op.x, op.w)*s;
           const ry = oy + cy0*s;
           const rw = op.w*s, rh = (cy1-cy0)*s;
@@ -22861,7 +23099,16 @@ function oeCommit() {
   if (!CONFIG.manualCladdingOverrides) CONFIG.manualCladdingOverrides = { front: [], back: [], east: [], west: [] };
   CONFIG.manualCladdingOverrides[oeWall] = ops
     .filter(op => op.type === 'cladding_override')
-    .map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h, claddingStyle: op.claddingStyle }));
+    .map(op => ({
+      x: op.x, y: op.y, w: op.w, h: op.h,
+      claddingStyle: op.claddingStyle,
+      // Preserve the Mount-mode toggle (flush vs layered) and any
+      // per-override style params across the commit. Without this,
+      // every editor commit would discard those fields and the user's
+      // selections would silently revert to defaults after each edit.
+      layered: !!op.layered,
+      ...(op.styleParams ? { styleParams: { ...op.styleParams } } : {}),
+    }));
 
   if (!CONFIG.manualPrintedItems) CONFIG.manualPrintedItems = { front: [], back: [], east: [], west: [] };
   CONFIG.manualPrintedItems[oeWall] = ops
@@ -23163,7 +23410,16 @@ function get3DWallOpenings(cfg, plan, face) {
       if (op.type === 'window') {
         const style = op.style ? WINDOW_STYLES[op.style] : null;
         const placement = (style && style.placement) || 'opening';
-        if (placement === 'etched') continue;
+        // Blanked windows of EITHER variant (etched outline or filled
+        // panel) are kept out of the 3D hole list. blanked_etched isn't
+        // a real hole in the laser cut either, so a 3D hole would be
+        // wrong; blanked_filled IS cut in the laser path but a blanking
+        // panel fills it from behind — in 3D we render that as a solid
+        // dark panel on the wall surface (see getBlankedWindows3D), so
+        // cutting a hole would just expose interior the panel would
+        // hide anyway. Either way the result reads as "boarded-up" or
+        // "painted-on" window, which is the whole point of the style.
+        if (placement === 'etched' || placement === 'blanked') continue;
         wins.push({ x: op.x, y: op.y, w: op.w, h: op.h, type: 'window' });
       } else if (op.type === 'door') {
         doors.push({ x: op.x, y: op.y, w: op.w, h: op.h, type: 'door' });
@@ -23223,6 +23479,38 @@ function get3DWallOpenings(cfg, plan, face) {
   }
 
   return [...wins, ...doors, ...bayHoles, ...wingHoles];
+}
+
+/**
+ * Return blanked-window rectangles on a wall, in wall-local (x, y, w, h)
+ * coords (same convention as get3DWallOpenings). Used by the 3D scene to
+ * place a solid darker panel where each blanked window sits, so blanked
+ * windows read as boarded-up / painted-over rather than as see-through
+ * glass.
+ *
+ * Two flavours both qualify (style.placement === 'etched' OR 'blanked'):
+ *   • blanked_etched — etched outline on the cladding, no cut. The dark
+ *     panel sits flush with the cladding surface.
+ *   • blanked_filled — laser DOES cut a hole, but a blanking panel fills
+ *     it from behind. The dark panel covers the would-be hole. (Note:
+ *     get3DWallOpenings filters these out of the hole list above, so the
+ *     wall mesh stays solid in 3D too — no need to render through.)
+ *
+ * Auto-generated windows are never blanked; this only looks at the
+ * manual-mode opening list. Returns [] when no manual openings exist on
+ * the face. */
+function getBlankedWindows3D(cfg, face) {
+  const manual = manualStructuralOps(cfg, face);
+  if (!manual) return [];
+  const out = [];
+  for (const op of manual) {
+    if (op.type !== 'window') continue;
+    const style = op.style ? WINDOW_STYLES[op.style] : null;
+    const placement = (style && style.placement) || 'opening';
+    if (placement !== 'etched' && placement !== 'blanked') continue;
+    out.push({ x: op.x, y: op.y, w: op.w, h: op.h });
+  }
+  return out;
 }
 
 /**
@@ -23626,6 +23914,17 @@ function updateThreePreview(cfg) {
     color: 0x88bbdd, transparent: true, opacity: 0.45,
     roughness: 0.1, metalness: 0.05, side: THREE.DoubleSide,
   });
+  // Blanked windows (etched or filled — see WINDOW_STYLES) render as a
+  // solid, opaque, darker-than-wall panel instead of see-through glass.
+  // The colour is the wall base tone scaled 55% so it reads as "wall
+  // colour but shadowed", which matches how a boarded-up or painted-over
+  // window actually looks from outside. Tracking the wall colour means
+  // if wallMat ever picks up a different default the blanked panels
+  // follow without an extra hardcoded constant to keep in sync.
+  const blankedMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0xc9b89b).multiplyScalar(0.55),
+    roughness: 0.85, metalness: 0.0,
+  });
 
   const group = new THREE.Group();
 
@@ -23699,6 +23998,17 @@ function updateThreePreview(cfg) {
     pane.position.set(hx + op.w / 2, hy + op.h / 2, -d / 2 - 0.1);
     group.add(pane);
   }
+  // Blanked windows — solid dark panel, same wall-local frame as the glass
+  // loop above. Sits 0.05 mm proud of the wall surface so the panel reads
+  // as a distinct dark patch on the wall texture, not as wall-coloured
+  // bleed-through.
+  for (const op of getBlankedWindows3D(cfg, 'front')) {
+    const hx = op.x - w / 2;
+    const hy = h - op.y - op.h;
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), blankedMat);
+    panel.position.set(hx + op.w / 2, hy + op.h / 2, -d / 2 - 0.05);
+    group.add(panel);
+  }
 
   // Back wall (z = -d/2), shape is mirrored left/right when viewed from outside
   const backOps = get3DWallOpenings(cfg, plan, 'back');
@@ -23715,6 +24025,13 @@ function updateThreePreview(cfg) {
     const pane = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), glassMat);
     pane.position.set(hx + op.w / 2, hy + op.h / 2, d / 2 + 0.1);
     group.add(pane);
+  }
+  for (const op of getBlankedWindows3D(cfg, 'back')) {
+    const hx = w / 2 - op.x - op.w;   // mirrored, matches glass loop above
+    const hy = h - op.y - op.h;
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), blankedMat);
+    panel.position.set(hx + op.w / 2, hy + op.h / 2, d / 2 + 0.05);
+    group.add(panel);
   }
 
   // East wall (x = +w/2), rotated 90° around Y
@@ -23736,6 +24053,14 @@ function updateThreePreview(cfg) {
     pane.position.set(w / 2 + 0.1, hy + op.h / 2, hz + op.w / 2);
     group.add(pane);
   }
+  for (const op of getBlankedWindows3D(cfg, 'east')) {
+    const hz = op.x - sideLen / 2;
+    const hy = h - op.y - op.h;
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), blankedMat);
+    panel.rotation.y = Math.PI / 2;
+    panel.position.set(w / 2 + 0.05, hy + op.h / 2, hz + op.w / 2);
+    group.add(panel);
+  }
 
   // West wall (x = -w/2), rotated -90° around Y
   const westOps = get3DWallOpenings(cfg, plan, 'west');
@@ -23755,6 +24080,14 @@ function updateThreePreview(cfg) {
     pane.rotation.y = -Math.PI / 2;
     pane.position.set(-w / 2 - 0.1, hy + op.h / 2, hz + op.w / 2);
     group.add(pane);
+  }
+  for (const op of getBlankedWindows3D(cfg, 'west')) {
+    const hz = sideLen / 2 - op.x - op.w;
+    const hy = h - op.y - op.h;
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), blankedMat);
+    panel.rotation.y = -Math.PI / 2;
+    panel.position.set(-w / 2 - 0.05, hy + op.h / 2, hz + op.w / 2);
+    group.add(panel);
   }
 
   const roofStyle3d = cfg.roofStyle || 'parapet';

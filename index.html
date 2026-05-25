@@ -1282,6 +1282,37 @@ const CLADDING_STYLES = {
     seamSpacing: { vertical: 4, horizontal: 20 },  // 600mm wide × 3000mm tall at 1:150
     notes: 'Vertical primary seams every ~4mm; faint horizontal lines mark panel ends every ~20mm.',
   },
+  alc_panel_horizontal: {
+    label: 'ALC panel (horizontal, 4mm tall)',
+    description: 'Same 600×3000mm ALC panels as the standard vertical variant, but laid flat. Horizontal courses every ~4mm with faint vertical lines every ~20mm where each panel ends. Common on small commercial and modern residential — the rotated layout reads quite differently from vertical ALC and gives the building a stretched, low-slung feel.',
+    pattern: 'lines',
+    seamSpacing: { vertical: 20, horizontal: 4 },
+    notes: 'Horizontal primary seams every ~4mm; faint vertical lines mark panel ends every ~20mm. Swap with alc_panel for a different visual rhythm without changing material.',
+  },
+  alc_panel_wide: {
+    label: 'ALC panel (wide 1200mm)',
+    description: 'Wider 1200×3000mm ALC panels used on big-box retail, logistics centres, and modern large-format warehouses. Verticals spaced every ~8mm instead of 4mm gives a cleaner, more spacious read — fewer joints across a long elevation. Same material as standard ALC, different module size.',
+    pattern: 'lines',
+    seamSpacing: { vertical: 8, horizontal: 20 },
+    notes: 'Double-width ALC. Use on long elevations where the standard 4mm seams would look too busy.',
+  },
+  alc_panel_bolted: {
+    label: 'ALC panel (exposed fasteners)',
+    description: 'ALC with visible corner-bolt fasteners — heavier industrial spec used on factories, silos, and steel-frame warehouses where the panels are bolted through to the structural frame rather than concealed-fastened. Small etched dots mark each panel-corner intersection.',
+    pattern: 'lines',
+    seamSpacing: { vertical: 4, horizontal: 20 },
+    boltDots: true,
+    boltSize: 0.55,
+    notes: 'Standard 4mm ALC seams plus a small + tick at each panel corner representing the visible fastener. Bolts approach laser-etch resolution at 1:150 — they show as compact crosses rather than round dots, which still reads as "exposed-fastener industrial" without needing higher resolution than the laser can cleanly produce.',
+  },
+  alc_panel_ribbed: {
+    label: 'ALC panel (decorative ribs)',
+    description: 'Mid-grade commercial ALC with shallow decorative vertical grooves between each pair of panel seams. The grooves divide each 600mm panel into three narrower visual bands without changing the actual panel module. Common on storefronts and small office buildings.',
+    pattern: 'lines',
+    seamSpacing: { vertical: 4, horizontal: 20 },
+    verticalSubdivide: 3,
+    notes: 'Three decorative ribs etched within each ALC panel. Reads finer than plain ALC at the same panel spacing — gives a more refined commercial look without the busyness of corrugated metal.',
+  },
   ribbed_metal_wide: {
     label: 'Ribbed metal panel (wide)',
     description: 'Industrial sandwich panel with bold vertical ribs every ~150-200mm real (1-1.3mm at scale). Modern factories, large warehouses.',
@@ -1310,6 +1341,27 @@ const CLADDING_STYLES = {
     seamSpacing: { vertical: null, horizontal: 3 },
     notes: 'Horizontal courses only.',
   },
+  galvalume_vertical: {
+    label: 'Galvalume vertical (residential metal)',
+    description: 'Galvalume (zinc-aluminium-coated steel) sheets installed vertically with narrow seams every ~450mm = 3mm at scale. Modern residential and small commercial — the dominant cladding on contemporary Japanese houses since the early 2000s. Sits between standing-seam roof (wider seams) and ribbed metal (denser ribs) in the metal-cladding family.',
+    pattern: 'lines',
+    seamSpacing: { vertical: 3, horizontal: null },
+    notes: 'Vertical metal seams only. Pairs visually with metal-roof and flat-overhang styles.',
+  },
+  fluted_concrete: {
+    label: 'Fluted concrete (vertical ribs)',
+    description: 'Bold vertical concrete flutes / channels every ~750mm = 5mm at scale. Distinctive on 1960s-70s civic buildings, parking structures, brutalist commercial. Heavy-grain rhythm that contrasts strongly with smooth precast.',
+    pattern: 'lines',
+    seamSpacing: { vertical: 5, horizontal: null },
+    notes: 'Wide vertical ribs only. Use on government / civic / parking buildings for a period brutalist read.',
+  },
+  mosaic_tile: {
+    label: 'Mosaic tile (50mm)',
+    description: 'Small 50×50mm ceramic mosaic tiles in a tight grid — the classic 1970s-80s commercial-bathhouse-older-shop look, also seen on entry plinths of mid-century apartments. Grid at ~0.5mm sits at the edge of laser-etch resolution at 1:150; the result reads as a fine texture rather than individually-distinguishable tiles, which matches how it looks at viewing distance anyway.',
+    pattern: 'lines',
+    seamSpacing: { vertical: 0.5, horizontal: 0.5 },
+    notes: 'Fine 0.5mm grid — at the edge of laser resolution. Test-cut a small swatch before committing to a full elevation; you may need to thin the etch line or widen to 0.6mm depending on your laser and material combination.',
+  },
   concrete_panel_large: {
     label: 'Concrete panel (large)',
     description: 'Pre-cast concrete panels with grid joints. Real 3×3m panels = 20×20mm grid. Office buildings, modern retail.',
@@ -1331,11 +1383,33 @@ const CLADDING_STYLES = {
     seamSpacing: { vertical: 1.2, horizontal: null },
     notes: 'Tightly-spaced vertical plank seams.',
   },
+  board_batten: {
+    label: 'Board and batten (押縁張り)',
+    description: 'Vertical wood boards joined edge-to-edge with raised batten strips covering each joint. The battens read as paired etched lines marking each batten\'s left and right edge — a distinctive doubled-rhythm look that\'s hard to confuse with plain plank siding. Traditional storehouses (kura), country houses, modern accent walls and some contemporary architect-designed residences.',
+    pattern: 'board_batten',
+    boardWidth: 2.0,     // ~300mm board at 1:150
+    battenWidth: 0.6,    // ~90mm batten at 1:150 — exaggerated to be visible at scale; real battens (~50mm = 0.3mm) would etch as a single line and lose the doubled-line character that defines this cladding type
+    // Swatch-only hint for the editor's popover preview — the actual
+    // pattern is emitted by the `board_batten` branch in
+    // generateCladdingPattern using boardWidth/battenWidth above. The
+    // simple swatch can only draw evenly-spaced lines, so we use the
+    // cycle (board + batten) as the vertical spacing — close enough to
+    // "looks like vertical wood siding" for the picker thumbnail.
+    seamSpacing: { vertical: 2.6, horizontal: null },
+    notes: 'Battens slightly oversized at 1:150 so the paired lines read as two distinct etches rather than merging. The cycle (board + batten) is what matches the real-world rhythm.',
+  },
   namako_kabe: {
     label: 'Namako-kabe (diagonal tile)',
     description: 'Traditional diagonal tile pattern with raised plaster joints. Real ~225mm square tiles = 1.5mm. Storehouses (kura), historic merchant buildings.',
     pattern: 'diagonal_grid',
     tileSize: 1.5,
+  },
+  hira_gawara_wall: {
+    label: 'Hira-gawara wall (square tile)',
+    description: 'Flat square clay-tile wall cladding — distinct from the overlapping ridged kawara roof tile. Tiles laid edge-to-edge in a regular grid, ~265mm = 1.8mm at scale. Used on temple foundations, traditional commercial buildings, and some refined residential plinths. The square grid reads quite differently from offset stone courses.',
+    pattern: 'lines',
+    seamSpacing: { vertical: 1.8, horizontal: 1.8 },
+    notes: 'Wall cladding, NOT roof — use kawara_tile for overlapping ridged roof tile.',
   },
   kawara_tile: {
     label: 'Kawara (roof tile)',
@@ -5483,18 +5557,121 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
 
   if (pat === 'lines') {
     const ss = style.seamSpacing || {};
+    // Track primary seam positions so subdivides and bolt dots can use
+    // them as anchors. Subdivides emit secondary lines BETWEEN each pair
+    // of primary verticals/horizontals; bolt dots sit at the
+    // intersections of primary lines.
+    const xs = [];   // primary vertical seam x-positions (cladding-frame)
+    const ys = [];   // primary horizontal seam y-positions
     if (ss.vertical) {
       const n = Math.floor(W / ss.vertical);
       for (let i = 1; i < n; i++) {
         const x = panelLeft + i * (W / n);
+        xs.push(x);
         pushClippedV(x, panelTop, panelBottom);
+      }
+      // Optional decorative subdivision — emit (verticalSubdivide - 1)
+      // secondary verticals between each pair of primaries, including
+      // before the first and after the last so the leftmost and
+      // rightmost panel edges get the same subdivision pattern as
+      // every other panel. The seamSpacing math used to find the
+      // primary spacing also tells us the panel width: `step = W/n`.
+      const vSub = style.verticalSubdivide || 0;
+      if (vSub > 1 && xs.length >= 1) {
+        const step = W / n;
+        // Anchor positions include the panel-left edge, the
+        // primary seams, and the panel-right edge so every "panel"
+        // (the W/n strip between anchors) gets its subdivision.
+        const anchors = [panelLeft, ...xs, panelRight];
+        for (let i = 0; i < anchors.length - 1; i++) {
+          const a = anchors[i], b = anchors[i + 1];
+          for (let k = 1; k < vSub; k++) {
+            const x = a + (b - a) * (k / vSub);
+            pushClippedV(x, panelTop, panelBottom);
+          }
+        }
       }
     }
     if (ss.horizontal) {
       const n = Math.floor(H / ss.horizontal);
       for (let i = 1; i < n; i++) {
         const y = panelTop + i * (H / n);
+        ys.push(y);
         pushClippedH(y, panelLeft, panelRight);
+      }
+      const hSub = style.horizontalSubdivide || 0;
+      if (hSub > 1 && ys.length >= 1) {
+        const anchors = [panelTop, ...ys, panelBottom];
+        for (let i = 0; i < anchors.length - 1; i++) {
+          const a = anchors[i], b = anchors[i + 1];
+          for (let k = 1; k < hSub; k++) {
+            const y = a + (b - a) * (k / hSub);
+            pushClippedH(y, panelLeft, panelRight);
+          }
+        }
+      }
+    }
+    // Optional bolt dots — small etched + crosses at each primary-seam
+    // intersection (panel corner). For ALC and similar industrial
+    // cladding where the corner fasteners are visible to the eye. The
+    // size approaches laser resolution at 1:150 so we use a + rather
+    // than a circle (lines etch more cleanly than tight curves).
+    if (style.boltDots && xs.length > 0 && ys.length > 0) {
+      const sz = (style.boltSize != null) ? style.boltSize : 0.5;
+      const half = sz / 2;
+      for (const x of xs) {
+        for (const y of ys) {
+          // Skip bolts whose centre sits above the slanted top edge or
+          // inside a cut opening (window/door); the cut clippers handle
+          // partial overlaps too.
+          if (topEdge && y < topYAt(x)) continue;
+          let insideCut = false;
+          for (const c of cutOpenings || []) {
+            if (x > c.x - 0.1 && x < c.x + c.w + 0.1 &&
+                y > c.y - 0.1 && y < c.y + c.h + 0.1) {
+              insideCut = true; break;
+            }
+          }
+          if (insideCut) continue;
+          // Horizontal arm + vertical arm of the cross. Each clipped
+          // through the same machinery used by primary seams so they
+          // never spill into a cut.
+          pushClippedH(y, x - half, x + half);
+          pushClippedV(x, y - half, y + half);
+        }
+      }
+    }
+  }
+
+  else if (pat === 'board_batten') {
+    // Vertical board-and-batten siding (押縁張り). Boards sit flat
+    // between the battens; the battens are raised strips covering each
+    // joint between adjacent boards. We etch only the battens — each
+    // batten reads as TWO parallel vertical lines (its left and right
+    // edges), giving the cladding its distinctive doubled-rhythm look.
+    // The cycle = boardWidth + battenWidth, repeating across the panel.
+    //
+    // Centre the pattern in the panel so a full board sits on each
+    // edge — the run starts and ends on a board rather than half a
+    // batten, which matches how real siding is laid out on a wall.
+    const bw = style.boardWidth   || 2.0;
+    const tw = style.battenWidth  || 0.6;
+    const cycle = bw + tw;
+    if (cycle > 0.1) {
+      const nCycles = Math.floor((W - bw) / cycle);
+      if (nCycles >= 1) {
+        // Total run = nCycles*cycle + bw (one trailing board), leftover
+        // margin split evenly so the pattern centres on the panel.
+        const runW = nCycles * cycle + bw;
+        const leftPad = panelLeft + (W - runW) / 2;
+        for (let k = 0; k < nCycles; k++) {
+          // Batten left edge sits after the k-th board, batten right
+          // edge sits just before the (k+1)-th board.
+          const xLeft  = leftPad + bw + k * cycle;
+          const xRight = xLeft + tw;
+          pushClippedV(xLeft,  panelTop, panelBottom);
+          pushClippedV(xRight, panelTop, panelBottom);
+        }
       }
     }
   }
@@ -9776,9 +9953,29 @@ function generateCladdingPanel(cfg, plan, which, band) {
     // Pull user-placed cladding overrides — secondary-cladding patches that
     // replace the main cladding in a rectangular region. Same x shift as
     // windows/fixtures so the cut bbox lands where the editor showed it.
+    //
+    // Edge-flush extension: the cladding panel is `fbWidth + 2*cT` wide
+    // (cT overhang on each side covers the corner where the perpendicular
+    // wall's cladding ends), but the wall body itself is just `fbWidth`.
+    // A patch placed at wall x=0 with width=fbWidth lands at cladding
+    // x=[cT, cT+fbWidth] — leaving a cT-wide strip of base cladding
+    // visible at each corner. For FB this is only ~0.3 mm and barely
+    // perceptible, but the same logic on side walls (matT=1.5 mm) is
+    // clearly visible. We extend the cut out to the cladding panel edge
+    // on any side where the override sits flush with the wall, so a
+    // full-wall patch covers the full cladding panel cleanly. The
+    // matching override piece is enlarged by the same amount in
+    // tallyCladdingOverrides so it slots into the wider cut.
     for (const ov of ((cfg.manualCladdingOverrides || {})[which] || [])) {
+      const leftClFlush  = ov.x <= 0.001;
+      const rightClFlush = (ov.x + ov.w) >= (fbWidth - 0.001);
+      const leftExt  = leftClFlush  ? cT : 0;
+      const rightExt = rightClFlush ? cT : 0;
       cladOverrides.push({
-        x: ov.x + cT, y: ov.y, w: ov.w, h: ov.h,
+        x: (ov.x + cT) - leftExt,
+        y: ov.y,
+        w: ov.w + leftExt + rightExt,
+        h: ov.h,
         claddingStyle: ov.claddingStyle,
         layered: !!ov.layered,
         // Per-override style params (e.g. corrugated sheet dimensions);
@@ -9851,10 +10048,25 @@ function generateCladdingPanel(cfg, plan, which, band) {
         style: fx.style,
       });
     }
-    // Same for cladding overrides on side walls.
+    // Same for cladding overrides on side walls. Edge-flush extension
+    // works the same way as on FB walls (see comment in the FB branch),
+    // but the shift here is matT (the side cladding wraps the matT
+    // corner extension on each end). Detect flush in CLADDING-FRAME
+    // coords (after mirroring for the east wall) — that way the "left
+    // end" and "right end" of the cladding panel are unambiguous, and
+    // we don't have to reason about which stored x corresponds to which
+    // physical end for east-vs-west.
     for (const ov of ((cfg.manualCladdingOverrides || {})[which] || [])) {
+      const claddingX = _sideMirroredX(ov.x, ov.w);
+      const leftClFlush  = claddingX <= matT + 0.001;
+      const rightClFlush = (claddingX + ov.w) >= (cWidth - matT - 0.001);
+      const leftExt  = leftClFlush  ? matT : 0;
+      const rightExt = rightClFlush ? matT : 0;
       cladOverrides.push({
-        x: _sideMirroredX(ov.x, ov.w), y: ov.y, w: ov.w, h: ov.h,
+        x: claddingX - leftExt,
+        y: ov.y,
+        w: ov.w + leftExt + rightExt,
+        h: ov.h,
         claddingStyle: ov.claddingStyle,
         layered: !!ov.layered,
         styleParams: ov.styleParams ? { ...ov.styleParams } : undefined,
@@ -11243,29 +11455,115 @@ function generatePrintedSheets(cfg, printedGroups) {
  * (claddingStyle, w-to-0.1mm, h-to-0.1mm). Each override = exactly one
  * cut piece (no spares — these are big bespoke patches), so the count
  * field is just how many identical patches a single sheet should emit. */
-function tallyCladdingOverrides(cfg) {
+function tallyCladdingOverrides(cfg, plan) {
+  // Compute the same edge-flush extensions as the cladding panel
+  // generator — when an override sits flush against a wall edge, its
+  // cut is extended out to the cladding panel's edge (cT for FB, matT
+  // for sides). The piece we slot into that cut has to match those
+  // wider dimensions or it won't fill the hole. Same flush detection,
+  // same shift values: this is the "piece side" of the per-override
+  // extension stored on the cut side in generateCladdingPanel.
+  //
+  // We also collect per-override CUTOUTS: rectangular holes in the
+  // override piece where windows/doors pass through the wall behind
+  // it. Without these, the override piece would block the openings
+  // it's glued over. Reads from cfg.manualOpenings (the structural-op
+  // store the editor writes); auto-generated windows on walls the
+  // user hasn't touched in the editor aren't included, but in
+  // practice any wall the user dropped a cladding patch onto has
+  // already been opened in the editor — which materialises auto
+  // openings into manualOpenings — so this catches what the user
+  // expects to see.
+  //
+  // `plan` is optional only for backwards compatibility — callers
+  // should pass it. Without it we fall back to no extensions (legacy
+  // behaviour), which still produces correct piece-to-cut alignment
+  // when patches don't sit flush against any edge.
+  const cT = (cfg && cfg.claddingThickness > 0) ? cfg.claddingThickness : 0.28;
+  const fbWidth = plan ? plan.fbWidth : 0;
+  const sideLen = plan ? plan.sideLen : 0;
+  const matT    = plan ? plan.matT    : 0;
   const groups = new Map();
   const byFace = cfg.manualCladdingOverrides || {};
+  const byOpenings = cfg.manualOpenings || {};
   for (const face of ['front', 'back', 'east', 'west']) {
+    const isFB       = (face === 'front' || face === 'back');
+    const wallWidth  = isFB ? fbWidth : sideLen;
+    const shift      = isFB ? cT      : matT;
+    // Wall's structural openings — windows and doors only. Bays are
+    // excluded: a bay is bottom-anchored and occupies a large region,
+    // and the editor enforces bays + cladding patches on the same
+    // wall don't intersect in any sensible workflow. If a user does
+    // overlap them, they get the patch covering the bay opening — a
+    // visible bug they'll fix manually, not a silent miscut.
+    const wallOps = (byOpenings[face] || []).filter(op =>
+      op && (op.type === 'window' || op.type === 'door'));
     for (const ov of (byFace[face] || [])) {
       if (!ov.claddingStyle) continue;
       const w = Number(ov.w) || 0;
       const h = Number(ov.h) || 0;
       if (w <= 0 || h <= 0) continue;
+      // Flush detection lives in STORED-x space, which is fine for
+      // grouping: the extension amount on each side is just `shift`
+      // and doesn't depend on which physical end (east-vs-west mirror
+      // doesn't change the magnitude). For a full-wall patch both
+      // sides are flush → effectiveW = w + 2*shift.
+      const leftFlush  = wallWidth > 0 && ov.x <= 0.001;
+      const rightFlush = wallWidth > 0 && (ov.x + w) >= (wallWidth - 0.001);
+      const leftExt  = (leftFlush  && shift > 0) ? shift : 0;
+      const rightExt = (rightFlush && shift > 0) ? shift : 0;
+      const effectiveW = w + leftExt + rightExt;
+      const effectiveH = h;
+
+      // Cutouts in PIECE-LOCAL coords. Piece origin sits at wall
+      // (ov.x - leftExt, ov.y), so a wall-frame point (wx, wy) maps
+      // to piece-local (wx - ov.x + leftExt, wy - ov.y). Window/door
+      // bodies live within the wall body's x range [0, wallWidth];
+      // they never extend into the cladding overhang (the leftExt /
+      // rightExt regions), so the intersection only needs to clip
+      // against the patch's wall-coord bbox.
+      const cutouts = [];
+      for (const op of wallOps) {
+        const ix1 = Math.max(op.x,        ov.x);
+        const iy1 = Math.max(op.y,        ov.y);
+        const ix2 = Math.min(op.x + op.w, ov.x + w);
+        const iy2 = Math.min(op.y + op.h, ov.y + h);
+        if (ix2 <= ix1 + 0.001 || iy2 <= iy1 + 0.001) continue;
+        cutouts.push({
+          x: (ix1 - ov.x) + leftExt,
+          y: iy1 - ov.y,
+          w: ix2 - ix1,
+          h: iy2 - iy1,
+        });
+      }
+      // Stable order so the group key is deterministic regardless of
+      // the source op array order.
+      cutouts.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+      const cutoutsKey = cutouts
+        .map(c => `${c.x.toFixed(2)},${c.y.toFixed(2)},${c.w.toFixed(2)},${c.h.toFixed(2)}`)
+        .join(';');
+
       // Group key includes the per-override styleParams when present so
       // two overrides of the same cladding style and dimensions but with
       // different parameter tweaks (e.g. corrugated metal at different
       // sheet sizes) end up on separate laser sheets with the appropriate
       // pattern variant on each. Legacy ops without styleParams use the
-      // empty-string suffix and group together exactly as before.
+      // empty-string suffix and group together exactly as before. The
+      // effective dimensions are what's keyed (and emitted) so that
+      // patches with different flush configurations get separate sheets
+      // sized to fill their respective holes. The cutoutsKey is the last
+      // segment so patches with different window/door overlaps end up on
+      // distinct sheets — each piece has the cutouts it specifically
+      // needs.
       const paramKey = ov.styleParams ? JSON.stringify(ov.styleParams) : '';
-      const key = `${ov.claddingStyle}|${w.toFixed(1)}|${h.toFixed(1)}|${paramKey}`;
+      const key = `${ov.claddingStyle}|${effectiveW.toFixed(2)}|${effectiveH.toFixed(2)}|${paramKey}|${cutoutsKey}`;
       const existing = groups.get(key);
       if (existing) existing.count += 1;
       else groups.set(key, {
         claddingStyle: ov.claddingStyle,
         styleParams: ov.styleParams ? { ...ov.styleParams } : null,
-        w, h, count: 1,
+        w: effectiveW, h: effectiveH, count: 1,
+        cutouts,
       });
     }
   }
@@ -11547,6 +11845,7 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
 
     const rects = [];
     const lines = [];
+    const cutouts = group.cutouts || [];
 
     for (let i = 0; i < group.count; i++) {
       const c = i % cols;
@@ -11555,10 +11854,28 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
       const oy = gutter + r * (ph + gutter);
       // Outer cut for the piece
       rects.push({ type: 'cut', x: ox, y: oy, w: pw, h: ph, compensateKerf: false });
+      // Cutouts for window/door openings that pass through the wall
+      // behind this piece. Without these, the override piece would
+      // block the openings it covers. Clip to the piece's bbox as a
+      // floating-point safety; the tally already does the math but a
+      // 1e-3 mm overshoot here would leave a free-floating sliver in
+      // the laser path, so we re-clamp.
+      for (const co of cutouts) {
+        const cox = Math.max(0, co.x);
+        const coy = Math.max(0, co.y);
+        const cow = Math.min(pw - cox, co.w - (cox - co.x));
+        const coh = Math.min(ph - coy, co.h - (coy - co.y));
+        if (cow > 0.001 && coh > 0.001) {
+          rects.push({ type: 'cut', x: ox + cox, y: oy + coy, w: cow, h: coh, compensateKerf: false });
+        }
+      }
       // Etch the secondary cladding pattern. generateCladdingPattern returns
       // line segments in local (0..pw, 0..ph) coords for the given style.
-      // We pass no cutOpenings — the override piece is a clean rectangle.
-      const patLines = generateCladdingPattern(style, 0, 0, pw, ph, []);
+      // Pass the piece's cutouts as cutOpenings so the etched pattern is
+      // clipped around them — without this, the pattern lines would run
+      // through the window/door cutouts and waste laser time on lines
+      // that are about to be cut away anyway.
+      const patLines = generateCladdingPattern(style, 0, 0, pw, ph, cutouts);
       for (const l of patLines) {
         lines.push({
           type: 'etch',
@@ -11571,9 +11888,19 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
     const dimsTag = `${pw.toFixed(1)}×${ph.toFixed(1)}mm`;
     const idSuffix = `_${pw.toFixed(1)}x${ph.toFixed(1)}`.replace(/\./g, '_');
     // Single-tile preview: one override piece with its etched cladding
-    // pattern. Same geometry as one of the tiled cells above.
+    // pattern. Same geometry as one of the tiled cells above — including
+    // the cutouts so the preview matches what gets laser-cut.
     const tileRects = [{ type: 'cut', x: 0, y: 0, w: pw, h: ph, compensateKerf: false }];
-    const tileLines = (generateCladdingPattern(style, 0, 0, pw, ph, []) || [])
+    for (const co of cutouts) {
+      const cox = Math.max(0, co.x);
+      const coy = Math.max(0, co.y);
+      const cow = Math.min(pw - cox, co.w - (cox - co.x));
+      const coh = Math.min(ph - coy, co.h - (coy - co.y));
+      if (cow > 0.001 && coh > 0.001) {
+        tileRects.push({ type: 'cut', x: cox, y: coy, w: cow, h: coh, compensateKerf: false });
+      }
+    }
+    const tileLines = (generateCladdingPattern(style, 0, 0, pw, ph, cutouts) || [])
       .map(l => ({ type: 'etch', x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2 }));
     parts.push({
       id: 'cladding_override_' + group.claddingStyle + idSuffix,
@@ -12136,7 +12463,7 @@ function generateBuilding(cfg) {
   // since fixtures are placed manually by the user rather than auto-generated.
   parts.push(...generateFixtureParts(cfg, tallyFixtures(cfg)));
   parts.push(...generateShutterParts(cfg, tallyShutters(cfg)));
-  parts.push(...generateCladdingOverrideParts(cfg, tallyCladdingOverrides(cfg)));
+  parts.push(...generateCladdingOverrideParts(cfg, tallyCladdingOverrides(cfg, plan)));
   parts.push(...generateSkylightParts(cfg, tallySkylights(cfg)));
   parts.push(...generatePrintedSheets(cfg, tallyPrintedItems(cfg)));
 
@@ -17869,7 +18196,7 @@ function generateBuildingWithWings(cfg) {
   parts.push(...generateDoorInserts(cfg, doorTallies));
   parts.push(...generateFixtureParts(cfg, tallyFixtures(cfg)));
   parts.push(...generateShutterParts(cfg, tallyShutters(cfg)));
-  parts.push(...generateCladdingOverrideParts(cfg, tallyCladdingOverrides(cfg)));
+  parts.push(...generateCladdingOverrideParts(cfg, tallyCladdingOverrides(cfg, plan)));
   parts.push(...generateSkylightParts(cfg, tallySkylights(cfg)));
   parts.push(...generatePrintedSheets(cfg, tallyPrintedItems(cfg)));
 
@@ -21806,14 +22133,45 @@ function oeRender() {
   // first (under everything else) as a hatched zone with a hairline divider
   // so the user understands the placement constraint visually before they
   // try to drag a window into it.
+  //
+  // Cladding patches (op.type === 'cladding_override') deliberately
+  // ignore this buffer — they don't cut through the wall, they paint over
+  // its outer face. The perpendicular wall's core sitting behind doesn't
+  // block a surface patch the way it would block a through-cut. To make
+  // that visible at a glance, mask the hatched overlay out of any region
+  // a cladding patch covers: where a patch is, the hatch isn't drawn, so
+  // the user sees that the buffer constraint doesn't apply to the patch.
+  // The hatch still shows in the parts of the buffer not covered by
+  // patches, where it's a valid warning against placing windows/doors.
   {
     const buf = oeEdgeBuffer(oeWall);
     if (buf.left > 0 || buf.right > 0) {
       const yT = -peakAbove, yB = wallH;
+
+      // Build a mask out of any cladding patches that sit on this wall.
+      // White = hatch visible, black = hatch hidden. SVG masks composite
+      // by luminance; one big white background plus black-over-patches
+      // gives us "show hatch everywhere except patch interiors".
+      const editorOps = oeOpenings[oeWall] || [];
+      const patches = editorOps.filter(o => o && o.type === 'cladding_override');
+      let maskAttr = '';
+      if (patches.length > 0) {
+        const maskId = 'oe-buffer-mask';
+        let maskBody = `<rect x="0" y="0" width="100%" height="100%" fill="white"/>`;
+        for (const op of patches) {
+          const px = ox + oeMirrorX(op.x, op.w) * s;
+          const py = oy + op.y * s;
+          const pw = op.w * s, ph = op.h * s;
+          maskBody += `<rect x="${px.toFixed(1)}" y="${py.toFixed(1)}" width="${pw.toFixed(1)}" height="${ph.toFixed(1)}" fill="black"/>`;
+        }
+        html += `<defs><mask id="${maskId}">${maskBody}</mask></defs>`;
+        maskAttr = ` mask="url(#${maskId})"`;
+      }
+
       if (buf.left > 0) {
         html += `<rect x="${ox.toFixed(1)}" y="${(oy + yT * s).toFixed(1)}"`
               + ` width="${(buf.left * s).toFixed(1)}" height="${((yB - yT) * s).toFixed(1)}"`
-              + ` fill="url(#oe-buffer-hatch)" opacity="0.55" pointer-events="none"/>`;
+              + ` fill="url(#oe-buffer-hatch)" opacity="0.55" pointer-events="none"${maskAttr}/>`;
         html += `<line x1="${(ox + buf.left * s).toFixed(1)}" y1="${(oy + yT * s).toFixed(1)}"`
               + ` x2="${(ox + buf.left * s).toFixed(1)}" y2="${(oy + yB * s).toFixed(1)}"`
               + ` stroke="#7a6c5e" stroke-width="0.5" stroke-dasharray="3 2" pointer-events="none"/>`;
@@ -21821,7 +22179,7 @@ function oeRender() {
       if (buf.right > 0) {
         html += `<rect x="${(ox + (W - buf.right) * s).toFixed(1)}" y="${(oy + yT * s).toFixed(1)}"`
               + ` width="${(buf.right * s).toFixed(1)}" height="${((yB - yT) * s).toFixed(1)}"`
-              + ` fill="url(#oe-buffer-hatch)" opacity="0.55" pointer-events="none"/>`;
+              + ` fill="url(#oe-buffer-hatch)" opacity="0.55" pointer-events="none"${maskAttr}/>`;
         html += `<line x1="${(ox + (W - buf.right) * s).toFixed(1)}" y1="${(oy + yT * s).toFixed(1)}"`
               + ` x2="${(ox + (W - buf.right) * s).toFixed(1)}" y2="${(oy + yB * s).toFixed(1)}"`
               + ` stroke="#7a6c5e" stroke-width="0.5" stroke-dasharray="3 2" pointer-events="none"/>`;
@@ -24767,11 +25125,20 @@ function updateThreePreview(cfg) {
     // typical real-world tone (concrete grey, brick red, wood brown, etc.)
     const styleTintByKey = {
       alc_panel:           0xd4ccc0,
+      alc_panel_horizontal:0xd4ccc0,
+      alc_panel_wide:      0xd4ccc0,
+      alc_panel_bolted:    0xc8c0b4,
+      alc_panel_ribbed:    0xd4ccc0,
       ribbed_metal_wide:   0xa8a8a4,
       ribbed_metal_narrow: 0xa8a8a4,
+      galvalume_vertical:  0xb4b0a8,
       corrugated_metal_overlap: 0xa8a098,
       cement_siding_lap:   0xe0d8c4,
       concrete_panel_large:0xc4bfb4,
+      fluted_concrete:     0xb0aaa0,
+      mosaic_tile:         0xc0b09c,
+      hira_gawara_wall:    0x5a4838,
+      board_batten:        0xa88860,
       brick_running:       0xa05844,
       brick_stack:         0xa05844,
       vertical_planks:     0xa88860,

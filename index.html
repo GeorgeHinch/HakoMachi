@@ -20802,8 +20802,14 @@ function oePopulateTopbar() {
 
         const popover = document.createElement('div');
         popover.className = 'oe-shutter-popover';
+        // Same overflow-escape pattern as the cladding popover — see
+        // the comment there for the full explanation. Short version:
+        // .oe-topbar has overflow-x:auto, which the CSS spec promotes
+        // to overflow-y:auto too, which clips absolute-positioned
+        // children that extend past the topbar's bottom. Fixed
+        // positioning escapes that clip.
         popover.style.cssText =
-          'position:absolute;top:calc(100% + 4px);left:0;z-index:1000;background:var(--surface, #fff);'
+          'position:fixed;z-index:1000;background:var(--surface, #fff);'
           + 'border:1px solid var(--border, #ccc);border-radius:6px;padding:6px;display:none;'
           + 'box-shadow:0 4px 12px rgba(0,0,0,0.15);min-width:140px;';
 
@@ -20833,7 +20839,19 @@ function oePopulateTopbar() {
         styleBtn.addEventListener('click', e => {
           e.stopPropagation();
           if (styleBtn.disabled) return;
-          popover.style.display = popover.style.display === 'none' ? 'block' : 'none';
+          if (popover.style.display === 'none') {
+            // Pin the popover under the button — see cladding popover
+            // open handler for the same logic. The shutter popover is
+            // narrower (min-width 140px) and aligned to the button's
+            // LEFT edge rather than its right.
+            const rect = styleBtn.getBoundingClientRect();
+            popover.style.top  = (rect.bottom + 4) + 'px';
+            popover.style.left = Math.max(8, rect.left) + 'px';
+            popover.style.right = 'auto';
+            popover.style.display = 'block';
+          } else {
+            popover.style.display = 'none';
+          }
         });
         // Close popover on outside click
         document.addEventListener('click', () => { popover.style.display = 'none'; }, { once: true });
@@ -20893,8 +20911,19 @@ function oePopulateTopbar() {
 
         const cladPop = document.createElement('div');
         cladPop.className = 'oe-cladding-popover';
+        // `position: fixed` rather than absolute is intentional. The
+        // topbar (.oe-topbar) has `overflow-x: auto`, and per the CSS
+        // spec when one axis is non-visible the other is computed to
+        // `auto` too — so the topbar effectively has `overflow-y: auto`
+        // as well. An absolute-positioned popover that extends below
+        // the topbar would be clipped by that overflow, leaving the
+        // popover invisible even though display:block was set. Fixed
+        // positioning takes the popover out of the overflow-clipped
+        // ancestor chain and pins it to the viewport. We compute the
+        // top/left in the open-toggle handler below from the button's
+        // bounding rect at click time.
         cladPop.style.cssText =
-          'position:absolute;top:calc(100% + 4px);right:0;z-index:1000;background:var(--surface, #fff);'
+          'position:fixed;z-index:1000;background:var(--surface, #fff);'
           + 'border:1px solid var(--border, #ccc);border-radius:6px;padding:6px;display:none;'
           + 'box-shadow:0 4px 12px rgba(0,0,0,0.15);min-width:220px;max-height:320px;overflow-y:auto;';
 
@@ -20926,13 +20955,35 @@ function oePopulateTopbar() {
           opt.innerHTML = `<svg width="26" height="20" viewBox="0 0 24 18" style="display:block;flex-shrink:0;">${swatch}</svg>`
                        + `<span style="font-size:11px;">${st.label}</span>`;
           opt.addEventListener('click', () => {
+            // The new style — needed both for the loop body and for
+            // deciding whether to keep / discard any per-override
+            // styleParams the user dialled in for the previous style.
+            const newStyle = CLADDING_STYLES[key];
+            const newPattern = newStyle && newStyle.pattern;
             for (const i of oeSelectedSet) {
               const op = (oeOpenings[oeWall] || [])[i];
               if (!op || op.type !== 'cladding_override') continue;
               op.claddingStyle = key;
+              // Drop styleParams when switching to a style that doesn't
+              // consume them (anything other than the corrugated_overlap
+              // pattern at the moment). effectiveCladdingStyle would
+              // already ignore them silently, but clearing them here
+              // keeps the saved data clean and prevents stale params
+              // surfacing if the user later flips the override back to
+              // corrugated.
+              if (newPattern !== 'corrugated_overlap' && op.styleParams) {
+                delete op.styleParams;
+              }
             }
             cladPop.style.display = 'none';
             refreshCladBtn();
+            // Repopulate the whole topbar — the corrugated params section
+            // appears only when the override's style has the
+            // corrugated_overlap pattern, so a style change has to
+            // re-evaluate that visibility. Without this refresh the
+            // params section would either linger after switching away
+            // from corrugated, or fail to appear after switching TO it.
+            oePopulateTopbar();
             oeRender();
             oeCommit();
           });
@@ -20941,7 +20992,27 @@ function oePopulateTopbar() {
 
         cladBtn.addEventListener('click', e => {
           e.stopPropagation();
-          cladPop.style.display = cladPop.style.display === 'none' ? 'block' : 'none';
+          if (cladPop.style.display === 'none') {
+            // Position the popover just below the button. Because the
+            // popover is position:fixed (see comment on cladPop above),
+            // its coordinates are viewport-relative — read the button's
+            // bounding rect at click time and pin the popover's top to
+            // (button bottom + 4px), its right edge to the button's
+            // right edge so it grows leftward. Clamping the left to
+            // ≥ 8 prevents it from sliding off-screen when the button
+            // sits near the left side of the viewport (narrow windows /
+            // small popovers don't trigger this, but a 240-wide
+            // popover near x=100 would).
+            const rect = cladBtn.getBoundingClientRect();
+            cladPop.style.top  = (rect.bottom + 4) + 'px';
+            const popMinWidth = 240;
+            const leftPref = rect.right - popMinWidth;
+            cladPop.style.left = Math.max(8, leftPref) + 'px';
+            cladPop.style.right = 'auto';
+            cladPop.style.display = 'block';
+          } else {
+            cladPop.style.display = 'none';
+          }
         });
         document.addEventListener('click', () => { cladPop.style.display = 'none'; }, { once: true });
 

@@ -8071,6 +8071,20 @@ function generateTrussesForBlock(blockCfg, blockPlan, sfx, nameLbl) {
   const geom = generateTrussGeometry(blockCfg.roofStyle, span, spanDims, chordW);
   if (!geom) return [];
 
+  // When column supports are enabled, weave the bottom-chord bearing
+  // tabs into the truss outline so the truss locks into the columns'
+  // top notches. The same tabDepth (matT * 2) is computed in the
+  // column generator, keeping the two ends of the joint in sync.
+  // Falls back to the unmodified geom on tiny trusses where the helper
+  // can't fit tabs without overlap — see `injectTrussBearingTabs`.
+  let geomFinal = geom;
+  if (t.supports) {
+    const webDepth = (t.supportDepth != null) ? t.supportDepth : 4;
+    const tabDepth = matT_ * 2;
+    const injected = injectTrussBearingTabs(geom, matT_, webDepth, tabDepth);
+    if (injected) geomFinal = injected;
+  }
+
   const styleLabel = ({
     fink:             'Fink',
     monopitch_pratt:  'Mono-pitch Pratt',
@@ -8080,7 +8094,7 @@ function generateTrussesForBlock(blockCfg, blockPlan, sfx, nameLbl) {
   const parts = [];
   for (let i = 0; i < count; i++) {
     const part = trussGeometryToPart(
-      geom,
+      geomFinal,
       `truss_${i}${sfx}`,
       `${nameLbl}Truss ${i + 1}/${count} (${styleLabel}, ${span.toFixed(0)}mm span)`,
       'core',
@@ -8155,6 +8169,98 @@ function generateXBracesForBlock(blockCfg, blockPlan, sfx, nameLbl) {
 }
 
 /* ===========================================================================
+ * TRUSS BEARING TABS
+ *
+ * When column supports are enabled, the bottom chord at each bearing gets
+ * two downward tabs that drop into matching notches in the column's back
+ * flange and end cap. Both tabs are matT-thick (truss material thickness),
+ * tabDepth deep, with a gap between them at the column web's x range —
+ * the web is co-planar with the truss, so the gap lets the truss and the
+ * web coexist without overlapping in 3D space.
+ *
+ * Tab geometry at the left bearing (x increases away from the bearing
+ * wall):
+ *     ─────────  ← bottom chord (truss outline edge at y=h)
+ *    │A│ ░░░ │B│
+ *    │A│      │B│ ← tab A passes through back flange notch;
+ *    │A│      │B│   tab B passes through end cap notch;
+ *    └─┘      └─┘   ░░░ = gap above the web (web is co-planar)
+ *
+ *    0 ┼ matT     matT+webDepth ┼ matT*2+webDepth
+ *
+ * The right bearing is the mirror.
+ *
+ * The injection is a post-processing pass on the truss geometry's
+ * outline polygon. All three truss generators (Fink, MonoPitch,
+ * ParallelChord) start their outline with a `(0, h) → (L, h)` bottom
+ * chord edge, so this helper assumes that pattern and modifies the
+ * first two vertices' span to weave the tabs into the outline. CCW
+ * winding (y-down) is preserved.
+ * =========================================================================== */
+function injectTrussBearingTabs(geom, matT, webDepth, tabDepth) {
+  const outline = geom.outline;
+  if (!outline || outline.length < 3) return null;
+  const v0 = outline[0];
+  const v1 = outline[1];
+  // Required pattern: outline starts with horizontal bottom-chord edge
+  // from (0, h) to (L, h). Bail out (return original geom unchanged)
+  // if the truss generator's output doesn't match — better than emitting
+  // a malformed polygon.
+  if (Math.abs(v0.x) > 1e-6 || Math.abs(v1.y - v0.y) > 1e-6 || v1.x <= v0.x) return geom;
+  const h = v0.y;
+  const L = v1.x;
+  const footprintDepth = matT * 2 + webDepth;
+  // Sanity: the chord must be wide enough that the two end tab clusters
+  // don't overlap in the middle. Need 2 × footprintDepth < L with a
+  // small clearance for the central chord run. Falls back gracefully —
+  // tabs aren't injected on impossibly small trusses; user gets a plain
+  // truss + a column that has notches but nothing to fit into them, which
+  // is at least obvious during dry-fit assembly.
+  if (footprintDepth * 2 + 2 > L) return geom;
+
+  // Tab boundaries (CCW winding, y-down: walking rightward along the
+  // bottom edge of the truss, +y is "outward" away from the polygon
+  // interior — the tabs jut downward).
+  const lb0 = 0;
+  const lb1 = matT;
+  const lc0 = matT + webDepth;
+  const lc1 = matT * 2 + webDepth;
+  const rc0 = L - matT * 2 - webDepth;
+  const rc1 = L - matT - webDepth;
+  const rb0 = L - matT;
+  const rb1 = L;
+
+  const newOutline = [
+    v0,  // (0, h)  — left bearing corner
+    // Left tab A — drops into the back-flange notch on the wall side.
+    { x: lb0, y: h + tabDepth },
+    { x: lb1, y: h + tabDepth },
+    { x: lb1, y: h },
+    // Chord run over the column web (web is co-planar; nothing in this gap).
+    { x: lc0, y: h },
+    // Left tab B — drops into the end-cap notch on the room side.
+    { x: lc0, y: h + tabDepth },
+    { x: lc1, y: h + tabDepth },
+    { x: lc1, y: h },
+    // Long central chord run from the left column to the right column.
+    { x: rc0, y: h },
+    // Right tab B — mirror of left tab B.
+    { x: rc0, y: h + tabDepth },
+    { x: rc1, y: h + tabDepth },
+    { x: rc1, y: h },
+    // Chord run over the right column's web.
+    { x: rb0, y: h },
+    // Right tab A — mirror of left tab A.
+    { x: rb0, y: h + tabDepth },
+    { x: rb1, y: h + tabDepth },
+    v1,  // (L, h) — right bearing corner
+    ...outline.slice(2),
+  ];
+  return { ...geom, outline: newOutline };
+}
+
+
+/* ===========================================================================
  * VERTICAL TRUSS SUPPORTS (column system)
  *
  * Each truss bearing point gets a 3-piece I-beam-style column running
@@ -8196,9 +8302,29 @@ function generateXBracesForBlock(blockCfg, blockPlan, sfx, nameLbl) {
 
 /** A flat flange/cap piece: rectangle with N vertical slots cut into
  *  the middle to receive the web's tabs. Used for both the back-against-
- *  wall piece and the outer end cap; geometrically identical. */
-function generateColumnFlangePiece(H, flangeW, matT, slotPositions, slotLen) {
-  const paths = [{ type: 'cut', d: rectPath(0, 0, flangeW, H) }];
+ *  wall piece and the outer end cap; geometrically identical.
+ *
+ *  Optional `topNotch = { width, depth }` cuts an upward-opening rectangular
+ *  notch at the top centre to receive a tab from the truss bottom chord.
+ *  The notch is woven into the outer outline (not a separate hole) since
+ *  it must be open at the top edge so the tab can drop in vertically.
+ */
+function generateColumnFlangePiece(H, flangeW, matT, slotPositions, slotLen, topNotch) {
+  let paths;
+  if (topNotch && topNotch.width > 0 && topNotch.depth > 0) {
+    const nw = topNotch.width;
+    const nd = topNotch.depth;
+    const nx0 = (flangeW - nw) / 2;
+    const nx1 = nx0 + nw;
+    // Outline polygon with notch at top centre. Walk CCW (y-down):
+    // start TL → walk right to notch left → down into notch → across
+    // notch bottom → up out of notch → right to TR → down RH side →
+    // across bottom → up LH side back to TL.
+    const d = `M 0,0 L ${nx0},0 L ${nx0},${nd} L ${nx1},${nd} L ${nx1},0 L ${flangeW},0 L ${flangeW},${H} L 0,${H} Z`;
+    paths = [{ type: 'cut', d }];
+  } else {
+    paths = [{ type: 'cut', d: rectPath(0, 0, flangeW, H) }];
+  }
   const slotW = matT;
   const sx = (flangeW - slotW) / 2;
   for (const sy of slotPositions) {
@@ -8318,6 +8444,18 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl) {
   const slotLen = Math.min(colH / 4, matT * 3);
   const slotPositions = [colH / 6, colH / 2, 5 * colH / 6];
 
+  // Top notch: a rectangular cut at the top centre of the back flange
+  // and the end cap. The truss bottom chord has matching downward tabs
+  // at each bearing — the tab slides into this notch from above and
+  // locks the truss in place horizontally without glue. Notch width =
+  // matT (the truss material thickness, since the flange is perpendicular
+  // to the truss plane and the tab passes through the flange's matT
+  // thickness). Notch depth = tabDepth (the tab's vertical extent below
+  // the chord). The same tabDepth value is passed to the truss generator
+  // so the truss tab matches.
+  const tabDepth = matT * 2;
+  const topNotch = { width: matT, depth: tabDepth };
+
   // Pre-build one of each piece (every column shares geometry — the
   // dedup display will collapse them).
   function tagBack(part, label) {
@@ -8348,9 +8486,9 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl) {
   for (let i = 0; i < positions.length; i++) {
     for (const wall of bearingWalls) {
       const label = `truss ${i + 1} ${wall}`;
-      parts.push(tagBack(generateColumnFlangePiece(colH, flangeW, matT, slotPositions, slotLen), label));
+      parts.push(tagBack(generateColumnFlangePiece(colH, flangeW, matT, slotPositions, slotLen, topNotch), label));
       parts.push(tagWeb (generateColumnWebPiece   (colH, webDepth, matT, slotPositions, slotLen), label));
-      parts.push(tagCap (generateColumnFlangePiece(colH, flangeW, matT, slotPositions, slotLen), label));
+      parts.push(tagCap (generateColumnFlangePiece(colH, flangeW, matT, slotPositions, slotLen, topNotch), label));
     }
   }
 
@@ -13727,6 +13865,67 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
   const patternLines = generateCladdingPattern(styleSpec, 0, 0, panelW, panelH, cutOpenings, null);
   for (const ln of patternLines) {
     lines.push({ type: 'etch', x1: ln.x1, y1: ln.y1, x2: ln.x2, y2: ln.y2 });
+  }
+
+  // ── Column position indicators ─────────────────────────────────────────
+  // When column supports are enabled and THIS wall is a bearing wall, etch
+  // an outline of each column's back-flange footprint so the assembler
+  // knows where to glue each column on the room side. The indicators line
+  // up with the floor etchings the column generator already emits — same
+  // along-wall positions, same flangeW — so the column sits at the
+  // intersection of "floor mark" and "wall mark", a self-fixturing guide.
+  //
+  // The indicator is a hollow rectangle (4 etched edges) rather than a
+  // filled region so the cladding pattern still shows through. Width =
+  // flangeW (the column's along-wall dimension); height = colH (floor to
+  // eave). For roofs with a parapet the parapet band sits above the
+  // indicator — the column doesn't extend into the parapet.
+  const t = cfg.trusses;
+  if (t && t.enabled && t.supports) {
+    // Resolve axis the same way the truss generator does so the indicator
+    // always falls on the same wall the columns actually land on.
+    const isGable = cfg.roofStyle === 'gabled' || cfg.roofStyle === 'parapet_gable';
+    const ridge = effectiveRidgeDir(cfg);
+    let axis = t.axis;
+    if (!axis || (axis !== 'ns' && axis !== 'ew')) {
+      if (isGable) axis = ridge === 'ew' ? 'ns' : 'ew';
+      else         axis = cfg.width >= cfg.depth ? 'ns' : 'ew';
+    }
+    const isBearingFB   = (axis === 'ns' && (which === 'front' || which === 'back'));
+    const isBearingWall = isBearingFB
+                       || (axis === 'ew' && (which === 'east'  || which === 'west'));
+    if (isBearingWall) {
+      const flangeW    = (t.supportFlangeW != null) ? t.supportFlangeW : 4;
+      const lengthAlong = (axis === 'ns') ? cfg.width : cfg.depth;
+      const spacing    = Math.max(5, t.spacing || 30);
+      const margin     = matT + flangeW / 2;
+      const positions  = trussSupportPositions(lengthAlong, spacing, margin);
+
+      const parapetH = plan.parapetH || 0;
+      const colH     = panelH - parapetH;
+      const yTop     = panelH - colH;  // = parapetH (= 0 on no-parapet roofs)
+      const yBot     = panelH;
+      for (const wallCenter of positions) {
+        // trussSupportPositions returns positions in the outer floor frame
+        // (0..width for axis='ns', 0..depth for axis='ew'). For front/back
+        // walls the wall's local x equals width-coord, so wallCenter is
+        // already in wall_x. For east/west walls, the wall body starts at
+        // depth-coord = matT (because the FB walls' corners take up the
+        // first matT), so wall_x = depth-coord - matT. Without this
+        // conversion the indicators would shift by matT and the column
+        // at the far end could clip past the panel edge.
+        const wallCenterX = isBearingFB ? wallCenter : (wallCenter - matT);
+        const wallXL = wallCenterX - flangeW / 2;
+        const panelXL = wallToPanelX(wallXL, flangeW);
+        if (panelXL < -0.1 || panelXL + flangeW > panelW + 0.1) continue;
+        const panelXR = panelXL + flangeW;
+        // Four etched edges of the back-flange footprint rectangle.
+        lines.push({ type: 'etch', x1: panelXL, y1: yTop, x2: panelXR, y2: yTop });
+        lines.push({ type: 'etch', x1: panelXR, y1: yTop, x2: panelXR, y2: yBot });
+        lines.push({ type: 'etch', x1: panelXR, y1: yBot, x2: panelXL, y2: yBot });
+        lines.push({ type: 'etch', x1: panelXL, y1: yBot, x2: panelXL, y2: yTop });
+      }
+    }
   }
 
   // Resolve the material — the cladding style may pin itself to a heavier

@@ -1908,18 +1908,44 @@ function resolveBay(cfg, fbWidth) {
   }
 
   // Bay parameters come from whichever bay actually exists. When both exist
-  // (the twin entries created by a through-bay drop), the front entry is
-  // the canonical source — drag/resize syncing keeps the two identical.
-  // The laser-cut panels for both walls are drawn in their own local-X
-  // coordinate space starting at 0; the building's wall generator uses
-  // plan.bayXStart as-is for both walls, so we store the value un-mirrored.
+  // (the twin entries created by a through-bay drop), the FRONT entry is
+  // the canonical source — its x is the world position from west, which
+  // also equals the front wall's local x in the laser layout. The BACK
+  // wall's local x must be MIRRORED for a through-bay (fbWidth - x - w)
+  // because the back wall is assembled with its cladding face turned
+  // outward (north), which physically flips it horizontally relative to
+  // the front. Without that mirror, the two bay cuts end up at opposite
+  // corners of the building in 3D and the bay doesn't actually go through.
+  //
+  // The plan exposes bayXStart in the canonical (front-wall / world-from-west)
+  // frame; consumers that draw the back wall pass `which='back'` to
+  // planBayXFor() to get the mirrored coordinates. Side bays (no front
+  // partner, no through-bay style) use the bay's own stored x directly
+  // with no mirror — they're a single-wall feature.
   const src = frontBay || backBay;
   const bayWidth  = src.w;
   const bayHeight = src.h;
   const bayXStart = src.x;
   const bayXEnd   = bayXStart + bayWidth;
+  const bayIsThrough = !!(frontBay && frontBay.style === 'through')
+                    || !!(backBay  && backBay.style  === 'through');
 
-  return { hasFrontBay, hasBackBay, bayXStart, bayXEnd, bayWidth, bayHeight };
+  return { hasFrontBay, hasBackBay, bayXStart, bayXEnd, bayWidth, bayHeight, bayIsThrough };
+}
+
+/* For a through-bay the back wall's local-x must be mirrored so the cut
+ * aligns with the front-wall cut in 3D after the back wall is flipped
+ * during assembly. Front-wall consumers and side-bay back-wall consumers
+ * both use the canonical x as stored; only a back-wall consumer with a
+ * through-bay needs the mirror. Returns { bayXStart, bayXEnd } in the
+ * frame appropriate for `which`. */
+function planBayXFor(plan, which) {
+  if (which === 'back' && plan.bayIsThrough) {
+    const W = plan.fbWidth;
+    const xs = W - plan.bayXStart - plan.bayWidth;
+    return { bayXStart: xs, bayXEnd: xs + plan.bayWidth };
+  }
+  return { bayXStart: plan.bayXStart, bayXEnd: plan.bayXEnd };
 }
 
 
@@ -6384,7 +6410,7 @@ function buildEdgePlans(cfg) {
     roofStyle,
     sideLen, fbWidth,
     bayXStart, bayXEnd, bayWidth: resolvedBayWidth, bayHeight,
-    hasFrontBay, hasBackBay,
+    hasFrontBay, hasBackBay, bayIsThrough: bayResolved.bayIsThrough,
     bayCeilingY,
     interFloorYs,
     slotYs,
@@ -6814,7 +6840,12 @@ function bayDoorAlignmentMarks(cfg, plan, which) {
   const ratioClosed = 1 - pct / 100;
   if (ratioClosed <= 0.01) return [];  // 100% open — no panel, no mark
 
-  const { H, bayXStart, bayXEnd, bayWidth, bayHeight, bayCeilingY, fbWidth } = plan;
+  const { H, bayWidth, bayHeight, bayCeilingY, fbWidth } = plan;
+  // Through-bay alignment marks must follow the same mirror as the wall
+  // cut on the back wall — without it, the tick marks on the back wall
+  // would point at the mirror image of where the door panel actually
+  // sits in that wall's local frame.
+  const { bayXStart, bayXEnd } = planBayXFor(plan, which);
   const lines = [];
   const tickLen = 2.5;  // mm — long enough to spot, short enough not to clutter
 
@@ -6847,7 +6878,12 @@ function bayDoorAlignmentMarks(cfg, plan, which) {
 /* Generate front or back wall */
 function generateFrontBackWall(cfg, plan, which) {
   const { H, matT, tw, parapetH, roofStyle, fbWidth,
-          bayXStart, bayXEnd, bayWidth, bayHeight, bayCeilingY } = plan;
+          bayWidth, bayHeight, bayCeilingY } = plan;
+  // bayXStart / bayXEnd come from planBayXFor so the back wall sees the
+  // MIRRORED coords for a through-bay (so its cut aligns with the front
+  // in 3D after the wall is flipped during assembly). For side bays or
+  // for the front wall, this is identity-equal to plan.bayXStart.
+  const { bayXStart, bayXEnd } = planBayXFor(plan, which);
   const hasBay = (which === 'front' && plan.hasFrontBay) || (which === 'back' && plan.hasBackBay);
 
   const margin = Math.max(matT * 2, 5);
@@ -6925,6 +6961,11 @@ function generateFrontBackWall(cfg, plan, which) {
 
   const wallSpec = {
     width: fbWidth, height: H, matT, kerf: cfg.kerfComp,
+    // Bay coords go here so buildFBWallWithBay sees the wall-local (mirrored
+    // for back) coords from planBayXFor — without them it would read
+    // plan.bayXStart directly and miss the through-bay mirror for the back
+    // wall.
+    bayXStart, bayXEnd,
     edges: {
       top: { tongues: topTongues, openings: [] },
       right: { tongues: [], openings: sidewallSlots },
@@ -7278,7 +7319,12 @@ function buildFBWallWithBay(spec, plan) {
   const tk = -k;
   const sk = k;
 
-  const { bayXStart, bayXEnd, bayHeight } = plan;
+  // Prefer wall-local bay coords from spec — they carry the through-bay
+  // mirror for the back wall. Fall back to plan.bayXStart for callers that
+  // haven't been updated yet (none in current code, but defensive).
+  const bayXStart = (spec.bayXStart != null) ? spec.bayXStart : plan.bayXStart;
+  const bayXEnd   = (spec.bayXEnd   != null) ? spec.bayXEnd   : plan.bayXEnd;
+  const { bayHeight } = plan;
   // For slanted NS-axis high-side walls the top edge is raised by sPitch
   // above the regular eave (y=0) so the wall reaches the roof's high edge.
   // The extension is flat (no tongues), and the [0, H] region keeps all
@@ -10485,8 +10531,11 @@ function generateCladdingPanel(cfg, plan, which, band) {
   //       'ground' = only the ground-floor portion
   // When split is requested, the boundary is at H - firstFloorHeight in wall coords,
   // i.e. the boundary (in cladding y) is cT + (H - firstFloorHeight) below the cladding top.
-  const { matT, tw, parapetH, fbWidth, sideLen, bayXStart, bayXEnd, bayHeight, H,
+  const { matT, tw, parapetH, fbWidth, sideLen, bayHeight, H,
           hasFrontBay, hasBackBay } = plan;
+  // Through-bay mirror for back wall (see planBayXFor). For front, west,
+  // east, or side bays this returns plan.bayXStart unchanged.
+  const { bayXStart, bayXEnd } = planBayXFor(plan, which);
   const cT = cfg.claddingThickness;
   const splitMode = (band === 'upper' || band === 'ground');
   // Choose cladding style: ground band uses override style if enabled, otherwise default.

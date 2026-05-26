@@ -9389,17 +9389,23 @@ function generateFloor(cfg, plan) {
   const eastDoors  = getWallDoors('east',  sideLen, H, cfg.sideDoorCount  || 0, false);
   const westDoors  = getWallDoors('west',  sideLen, H, cfg.sideDoorCount  || 0, false);
 
-  const frontForbidden = [...(hasFrontBay ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(frontDoors)];
-  const backForbidden  = [...(hasBackBay  ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(backDoors)];
+  // Use the same wall-local bay coordinates as generateFrontBackWall().
+  // This matters for through-bays: the back wall's bay/tongue layout is
+  // mirrored in wall-local space, and the floor slot exclusions must match
+  // that wall part rather than reusing the front wall's canonical X range.
+  const frontBaySlotX = planBayXFor(plan, 'front');
+  const backBaySlotX  = planBayXFor(plan, 'back');
+  const frontForbidden = [...(hasFrontBay ? [[frontBaySlotX.bayXStart, frontBaySlotX.bayXEnd]] : []), ...doorForbiddenZones(frontDoors)];
+  const backForbidden  = [...(hasBackBay  ? [[backBaySlotX.bayXStart,  backBaySlotX.bayXEnd ]] : []), ...doorForbiddenZones(backDoors)];
   const eastForbidden  = doorForbiddenZones(eastDoors);
   const westForbidden  = doorForbiddenZones(westDoors);
 
   // Use count=3 for all edges, matching the targetCount used in the wall generators.
   // Front-wall tongues are generated in exterior-elevation coordinates. The
   // floor plan is viewed from above with the front edge at the top, so the
-  // front wall's left/right order is reversed on the floor panel. Mirror only
-  // the FRONT edge slots here; back/east/west already map to the floor edge
-  // coordinates used below.
+  // front wall's left/right order is reversed on the floor panel. The back
+  // wall uses its own wall-local bay exclusions above so through-bay back
+  // slots stay aligned with the generated back wall part.
   const frontWallLocalSlots = placeTongues(floorW, tw, margin, frontForbidden, 3, tw / 2);
   const splitRanges = floorSplitRangesByFace(cfg, matT, sideLen);
   let frontSlots = mirrorSlotsAlongEdge(frontWallLocalSlots, floorW);
@@ -9540,16 +9546,24 @@ function generateMergedFloorRaw(cfg, plan) {
   // floor perimeter naturally skips the connection span because it detours
   // around the wing; we add those skipped slots back as internal rectangular
   // holes below.
-  const frontForbidden = [...(hasFrontBay ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(frontDoors)];
-  const backForbidden  = [...(hasBackBay  ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(backDoors)];
+  // Use the same wall-local bay coordinates as generateFrontBackWall().
+  // This matters for through-bays: the back wall's bay/tongue layout is
+  // mirrored in wall-local space, and the floor slot exclusions must match
+  // that wall part rather than reusing the front wall's canonical X range.
+  const frontBaySlotX = planBayXFor(plan, 'front');
+  const backBaySlotX  = planBayXFor(plan, 'back');
+  const frontForbidden = [...(hasFrontBay ? [[frontBaySlotX.bayXStart, frontBaySlotX.bayXEnd]] : []), ...doorForbiddenZones(frontDoors)];
+  const backForbidden  = [...(hasBackBay  ? [[backBaySlotX.bayXStart,  backBaySlotX.bayXEnd ]] : []), ...doorForbiddenZones(backDoors)];
   const eastForbidden  = doorForbiddenZones(eastDoors);
   const westForbidden  = doorForbiddenZones(westDoors);
 
   // Same front-edge mirror as generateFloor(): wall-local front tongues are
   // exterior-elevation coordinates, while this merged floor outline is a
-  // top-down plan with the front edge at the top.  Keep an "all slots"
-  // list that matches the wall, then derive exterior-only slots by removing
-  // the wing connection spans from the perimeter pass.
+  // top-down plan with the front edge at the top. Back-wall bay exclusions
+  // are resolved separately with planBayXFor('back'), so the back edge stays
+  // aligned with the generated back wall part. Keep an "all slots" list that
+  // matches the wall, then derive exterior-only slots by removing the wing
+  // connection spans from the perimeter pass.
   const frontWallLocalSlots = placeTongues(fbWidth, tw, margin, frontForbidden, 3, tw / 2);
   const splitRanges = floorSplitRangesByFace(cfg, matT, sideLen);
   let frontSlotsAll = mirrorSlotsAlongEdge(frontWallLocalSlots, fbWidth);
@@ -9934,8 +9948,14 @@ function mainFloorSeamSlotsForWing(cfg, plan, wing) {
   const eastDoors  = getWallDoors('east',  sideLen, H, cfg.sideDoorCount  || 0, false);
   const westDoors  = getWallDoors('west',  sideLen, H, cfg.sideDoorCount  || 0, false);
 
-  const frontForbidden = [...(hasFrontBay ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(frontDoors)];
-  const backForbidden  = [...(hasBackBay  ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(backDoors)];
+  // Use the same wall-local bay coordinates as generateFrontBackWall().
+  // This matters for through-bays: the back wall's bay/tongue layout is
+  // mirrored in wall-local space, and the floor slot exclusions must match
+  // that wall part rather than reusing the front wall's canonical X range.
+  const frontBaySlotX = planBayXFor(plan, 'front');
+  const backBaySlotX  = planBayXFor(plan, 'back');
+  const frontForbidden = [...(hasFrontBay ? [[frontBaySlotX.bayXStart, frontBaySlotX.bayXEnd]] : []), ...doorForbiddenZones(frontDoors)];
+  const backForbidden  = [...(hasBackBay  ? [[backBaySlotX.bayXStart,  backBaySlotX.bayXEnd ]] : []), ...doorForbiddenZones(backDoors)];
   const eastForbidden  = doorForbiddenZones(eastDoors);
   const westForbidden  = doorForbiddenZones(westDoors);
 

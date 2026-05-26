@@ -4410,11 +4410,11 @@ let CONFIG = {
   rooftopItems:  [],        // [{ type, x,y,w,d, h?, label? }]   on-roof placements
   floorHoles:    [],        // [{ shape:'circle'|'square', x,y,d? | w?,h? }]  cut-outs in floor/inter-floor panels
   roofHoles:     [],        // same format, applied to the roof panel
-  // Skylights: rectangular roof openings with a 3-piece assembly (lower core
-  // frame, plexiglass pane, upper core frame). Each entry: { x, y, w, h }
-  // where (x, y) is the CENTRE of the hole on the roof in mm, and (w, h) is
-  // the hole size. The frames are 1.5mm wider than the hole on each side and
-  // sandwich the plexi which sits over the hole.
+  // Skylights: rectangular roof openings with a layered curb assembly.
+  // Each entry: { x, y, w, h } where (x, y) is the CENTRE of the roof hole
+  // in mm, and (w, h) is the hole size. The generated parts are: plexi
+  // pane = hole + 1.5mm overlap on every side; core curb frame around that
+  // pane; top cap = same outside size as the pane with a centred hole.
   skylights:     [],
   // Awnings: array of {face, x, w, depth, angle} — x and w in wall-local mm (0=left edge)
   awnings: [],
@@ -4448,16 +4448,16 @@ let CONFIG = {
   // cleanly; the default 4 mm reads well at N-scale viewing distance).
   // `xBraceWalls` is the set of wall faces that get crossed-diagonal
   // cladding strips (cladding-thickness; thinner than the core trusses).
-  // `supports` is the toggle for the vertical column-support system
-  // (3-piece I-beam columns at every truss bearing point, plus floor
-  // etchings marking each footprint). `supportDepth` is how far each
-  // column's web sticks out perpendicular from the wall (mm), and
-  // `supportFlangeW` is the width of the back flange and end cap
-  // (along the wall axis, mm). Defaults at 4 × 4 mm produce a column
-  // that reads as structural at N-scale viewing without overpowering
-  // the surrounding wall etch detail.
+  // `supports` is the toggle for the vertical column-support system.
+  // `supportColumnType` chooses the cross-section: 'i' = back flange +
+  // web + end cap (deeper I-beam), 't' = back flange + web only (shallower
+  // T-beam). `supportDepth` is how far the web sticks out perpendicular
+  // from the wall (mm), and `supportFlangeW` is the width of the wall-side
+  // flange (and the end cap for I-beams) along the wall axis. Defaults at
+  // 4 × 4 mm produce a column that reads as structural at N-scale viewing
+  // without overpowering the surrounding wall etch detail.
   trusses: { enabled: false, spacing: 30, axis: null, chordW: 2, xBraceWalls: [],
-             supports: false, supportDepth: 4, supportFlangeW: 4 },
+             supports: false, supportColumnType: 'i', supportDepth: 4, supportFlangeW: 4 },
   // Multi-block wings. Each wing attaches to one face of the main block.
   // face: 'front'|'back'|'east'|'west' — which face of the main block it extends from
   // offset: mm from the "start" corner along that face (0 = flush)
@@ -4468,11 +4468,11 @@ let CONFIG = {
   // Named material definitions — each becomes a subfolder in the ZIP export.
   // 'id' matches part.material values; 'name' is the human-readable label/folder name.
   materials: [
-    { id: 'core',     name: '1.5mm Plywood',          thickness: 1.5,  colour: '#c8b89a' },
-    { id: 'cladding', name: '0.28mm Basswood',         thickness: 0.28, colour: '#9abcda' },
-    { id: 'window',   name: '0.5mm Clear PVC',         thickness: 0.5,  colour: '#b8ddf0' },
-    { id: 'backing',  name: '0.28mm Black Card',       thickness: 0.28, colour: '#444444' },
-    { id: 'plaster',  name: '0.28mm Plaster Card',     thickness: 0.28, colour: '#e8e0d0' },
+    { id: 'core',     name: '1.5mm Plywood',          thickness: 1.5,  colour: '#c8b89a', maxWidthMm: 304.8, maxHeightMm: 304.8, sizeUnit: 'mm' },
+    { id: 'cladding', name: '0.28mm Basswood',         thickness: 0.28, colour: '#9abcda', maxWidthMm: 304.8, maxHeightMm: 304.8, sizeUnit: 'mm' },
+    { id: 'window',   name: '0.5mm Clear PVC',         thickness: 0.5,  colour: '#b8ddf0', maxWidthMm: 304.8, maxHeightMm: 304.8, sizeUnit: 'mm' },
+    { id: 'backing',  name: '0.28mm Black Card',       thickness: 0.28, colour: '#444444', maxWidthMm: 304.8, maxHeightMm: 304.8, sizeUnit: 'mm' },
+    { id: 'plaster',  name: '0.28mm Plaster Card',     thickness: 0.28, colour: '#e8e0d0', maxWidthMm: 304.8, maxHeightMm: 304.8, sizeUnit: 'mm' },
   ],
   // Per-cladding-style material override: { claddingStyleKey → materials[].id }
   // Any key not listed here defaults to 'cladding'.
@@ -8101,7 +8101,8 @@ function generateTrussesForBlock(blockCfg, blockPlan, sfx, nameLbl) {
   if (t.supports) {
     const webDepth = (t.supportDepth != null) ? t.supportDepth : 4;
     const tabDepth = matT_ * 2;
-    const injected = injectTrussBearingTabs(geom, matT_, webDepth, tabDepth);
+    const columnType = t.supportColumnType === 't' ? 't' : 'i';
+    const injected = injectTrussBearingTabs(geom, matT_, webDepth, tabDepth, columnType);
     if (injected) geomFinal = injected;
   }
 
@@ -8217,7 +8218,7 @@ function generateXBracesForBlock(blockCfg, blockPlan, sfx, nameLbl) {
  * first two vertices' span to weave the tabs into the outline. CCW
  * winding (y-down) is preserved.
  * =========================================================================== */
-function injectTrussBearingTabs(geom, matT, webDepth, tabDepth) {
+function injectTrussBearingTabs(geom, matT, webDepth, tabDepth, columnType) {
   const outline = geom.outline;
   if (!outline || outline.length < 3) return null;
   const v0 = outline[0];
@@ -8229,7 +8230,8 @@ function injectTrussBearingTabs(geom, matT, webDepth, tabDepth) {
   if (Math.abs(v0.x) > 1e-6 || Math.abs(v1.y - v0.y) > 1e-6 || v1.x <= v0.x) return geom;
   const h = v0.y;
   const L = v1.x;
-  const footprintDepth = matT * 2 + webDepth;
+  const type = columnType === 't' ? 't' : 'i';
+  const footprintDepth = (type === 't') ? (matT + webDepth) : (matT * 2 + webDepth);
   // Sanity: the chord must be wide enough that the two end tab clusters
   // don't overlap in the middle. Need 2 × footprintDepth < L with a
   // small clearance for the central chord run. Falls back gracefully —
@@ -8241,6 +8243,35 @@ function injectTrussBearingTabs(geom, matT, webDepth, tabDepth) {
   // Tab boundaries (CCW winding, y-down: walking rightward along the
   // bottom edge of the truss, +y is "outward" away from the polygon
   // interior — the tabs jut downward).
+  if (type === 't') {
+    // T-beam: one wall-side flange plus one perpendicular web. The truss
+    // gets a single tab at each bearing for the back flange, then a clear
+    // chord run over the web area. No room-side/end-cap tab is emitted.
+    const lb0 = 0;
+    const lb1 = matT;
+    const lc0 = matT + webDepth;
+    const rc0 = L - matT - webDepth;
+    const rb0 = L - matT;
+    const rb1 = L;
+    const newOutline = [
+      v0,
+      { x: lb0, y: h + tabDepth },
+      { x: lb1, y: h + tabDepth },
+      { x: lb1, y: h },
+      // Chord run over the left web, long centre span, then right web.
+      { x: lc0, y: h },
+      { x: rc0, y: h },
+      { x: rb0, y: h },
+      { x: rb0, y: h + tabDepth },
+      { x: rb1, y: h + tabDepth },
+      v1,
+      ...outline.slice(2),
+    ];
+    return { ...geom, outline: newOutline };
+  }
+
+  // I-beam: two tabs at each bearing, one for the back flange and one
+  // for the outer end cap, separated by a gap over the perpendicular web.
   const lb0 = 0;
   const lb1 = matT;
   const lc0 = matT + webDepth;
@@ -8283,8 +8314,9 @@ function injectTrussBearingTabs(geom, matT, webDepth, tabDepth) {
 /* ===========================================================================
  * VERTICAL TRUSS SUPPORTS (column system)
  *
- * Each truss bearing point gets a 3-piece I-beam-style column running
- * floor-to-eave along the wall:
+ * Each truss bearing point gets a vertical support column running
+ * floor-to-eave along the wall. Two cross-sections are available:
+ * I-beam = back flange + web + end cap; T-beam = back flange + web only.
  *
  *           ╔══════╗              ← back flange (against wall, slotted)
  *           ║  []  ║   ←matT       slot accepts web's inner tabs
@@ -8366,16 +8398,18 @@ function generateColumnFlangePiece(H, flangeW, matT, slotPositions, slotLen, top
  *  tab extensions on both long edges at the same y-positions that the
  *  flange's slots use. Outline is a single closed polygon walked CCW
  *  in y-down coords. */
-function generateColumnWebPiece(H, webDepth, matT, slotPositions, slotLen) {
+function generateColumnWebPiece(H, webDepth, matT, slotPositions, slotLen, outerTabs = true) {
   // Coordinate convention: the body of the web sits between x = matT
-  // and x = matT + webDepth. Tabs jut to x = 0 (inner tabs, into back
-  // flange) and x = matT + webDepth + matT (outer tabs, into end cap).
+  // and x = matT + webDepth. Inner tabs jut to x = 0 and slot into the
+  // back flange. For I-beams only, outer tabs also jut to
+  // x = matT + webDepth + matT and slot into the end cap. T-beams omit
+  // those outer tabs so the column has less depth.
   // Walk CCW (y-down).
   const xL  = matT;
   const xR  = matT + webDepth;
   const xTL = 0;            // left tab outer edge
-  const xTR = matT + webDepth + matT;  // right tab outer edge
-  const totalW = matT * 2 + webDepth;
+  const xTR = outerTabs ? (matT + webDepth + matT) : xR;  // right tab outer edge
+  const totalW = (outerTabs ? matT * 2 : matT) + webDepth;
 
   const sorted = [...slotPositions].sort((a, b) => a - b);
 
@@ -8384,14 +8418,16 @@ function generateColumnWebPiece(H, webDepth, matT, slotPositions, slotLen) {
   pts.push({ x: xL, y: 0 });
   // Across top to top-right
   pts.push({ x: xR, y: 0 });
-  // Down right edge with outer tabs
-  for (const sy of sorted) {
-    const ty0 = sy - slotLen / 2;
-    const ty1 = sy + slotLen / 2;
-    pts.push({ x: xR,  y: ty0 });
-    pts.push({ x: xTR, y: ty0 });
-    pts.push({ x: xTR, y: ty1 });
-    pts.push({ x: xR,  y: ty1 });
+  // Down right edge. I-beams get outer tabs; T-beams keep this edge plain.
+  if (outerTabs) {
+    for (const sy of sorted) {
+      const ty0 = sy - slotLen / 2;
+      const ty1 = sy + slotLen / 2;
+      pts.push({ x: xR,  y: ty0 });
+      pts.push({ x: xTR, y: ty0 });
+      pts.push({ x: xTR, y: ty1 });
+      pts.push({ x: xR,  y: ty1 });
+    }
   }
   pts.push({ x: xR, y: H });
   // Across bottom to bottom-left
@@ -8434,6 +8470,8 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl) {
 
   const flangeW   = (t.supportFlangeW != null) ? t.supportFlangeW : 4;
   const webDepth  = (t.supportDepth   != null) ? t.supportDepth   : 4;
+  const columnType = t.supportColumnType === 't' ? 't' : 'i';
+  const isTBeam = columnType === 't';
   if (flangeW <= 0 || webDepth <= 0) return { parts: [], etches: [] };
 
   const matT      = blockPlan.matT || blockCfg.coreThickness || 1.5;
@@ -8480,17 +8518,17 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl) {
   // dedup display will collapse them).
   function tagBack(part, label) {
     return { ...part, id: `col_back_${label}${sfx}`,
-             name: `${nameLbl}Column back flange — ${label}`,
+             name: `${nameLbl}Column ${isTBeam ? 'T-beam' : 'I-beam'} back flange — ${label}`,
              material: 'core' };
   }
   function tagWeb(part, label) {
     return { ...part, id: `col_web_${label}${sfx}`,
-             name: `${nameLbl}Column web — ${label}`,
+             name: `${nameLbl}Column ${isTBeam ? 'T-beam' : 'I-beam'} web — ${label}`,
              material: 'core' };
   }
   function tagCap(part, label) {
     return { ...part, id: `col_cap_${label}${sfx}`,
-             name: `${nameLbl}Column end cap — ${label}`,
+             name: `${nameLbl}Column I-beam end cap — ${label}`,
              material: 'core' };
   }
 
@@ -8499,16 +8537,18 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl) {
   // columns on east + west.
   const bearingWalls = axis === 'ns' ? ['front', 'back'] : ['east', 'west'];
 
-  // Generate parts — one back/web/cap per (truss × bearing wall). All
-  // copies are geometrically identical and the parts panel dedup
-  // collapses them into "Cut ×N copies".
+  // Generate parts — I-beam uses back/web/cap per bearing; T-beam uses
+  // back/web only. All copies are geometrically identical and the parts
+  // panel dedup collapses them into "Cut ×N copies".
   const parts = [];
   for (let i = 0; i < positions.length; i++) {
     for (const wall of bearingWalls) {
       const label = `truss ${i + 1} ${wall}`;
       parts.push(tagBack(generateColumnFlangePiece(colH, flangeW, matT, slotPositions, slotLen, topNotch), label));
-      parts.push(tagWeb (generateColumnWebPiece   (colH, webDepth, matT, slotPositions, slotLen), label));
-      parts.push(tagCap (generateColumnFlangePiece(colH, flangeW, matT, slotPositions, slotLen, topNotch), label));
+      parts.push(tagWeb (generateColumnWebPiece   (colH, webDepth, matT, slotPositions, slotLen, !isTBeam), label));
+      if (!isTBeam) {
+        parts.push(tagCap(generateColumnFlangePiece(colH, flangeW, matT, slotPositions, slotLen, topNotch), label));
+      }
     }
   }
 
@@ -8530,7 +8570,7 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl) {
   for (const pos of positions) {
     for (const wall of bearingWalls) {
       let rx0, ry0, rx1, ry1, midX, midY;
-      const footprintDepth = matT + webDepth + matT;
+      const footprintDepth = matT + webDepth + (isTBeam ? 0 : matT);
       const halfFlange = flangeW / 2;
       if (wall === 'front') {
         rx0 = pos - halfFlange; ry0 = matT;
@@ -8879,6 +8919,12 @@ function generateRoof(cfg, plan) {
     };
     const claddingPanel = generateRoofCladdingPanel('roof_cladding', `Roof Cladding (slanted — ${highLabel})`,
       perpLen, slantLen, CLADDING_STYLES[cfg.roofCladdingStyle || cfg.claddingStyle], cfg);
+    // Skylight openings cut through BOTH the roof core and the roof cladding.
+    // The slanted roof stores skylight coords directly in this unrolled roof
+    // panel frame, so the cladding uses the same rectangular cuts as the core.
+    if (claddingPanel && cfg.skylights && cfg.skylights.length > 0) {
+      claddingPanel.paths.push(...skylightHolePaths(cfg.skylights));
+    }
     return claddingPanel ? [corePanel, claddingPanel] : corePanel;
   }
 
@@ -9120,6 +9166,13 @@ function generateRoof(cfg, plan) {
     const panel0 = makeGablePanelParts('roof_slope0', `Roof ${slopeLabels[0]} (gabled ${ridgeDir} ridge)`);
     const panel1 = makeGablePanelParts('roof_slope1', `Roof ${slopeLabels[1]} (gabled ${ridgeDir} ridge)`);
 
+    // Matching skylight cut paths for the single folded roof-cladding piece.
+    // panel0 lives on the first half of the folded cladding (eave→ridge);
+    // panel1 is mirrored onto the second half (ridge→opposite eave).
+    const claddingSkylightPaths = [];
+    const claddingRidgeGap = 2 * matT * Math.tan(Math.atan2(pitch, halfSpan0));
+    const claddingTotalH = 2 * slantLen + claddingRidgeGap;
+
     // Skylights on a gabled roof: place each onto whichever slope panel
     // its CENTRE point lies on, transforming from footprint (x, y) to
     // panel (u, v) coords. Until this branch was added, gabled roofs
@@ -9174,7 +9227,20 @@ function generateRoof(cfg, plan) {
           u = sky.y + ohVerge - wPanel / 2;
           v = ohEaveS + d_h * slopeStretch - hPanel / 2;
         }
-        target.paths.push({ type: 'cut', d: rectPath(u, v, wPanel, hPanel) });
+        const skyCutPath = rectPath(u, v, wPanel, hPanel);
+        target.paths.push({ type: 'cut', d: skyCutPath });
+
+        // The gabled roof cladding is generated as one folded piece rather
+        // than two separate slope pieces, so duplicate the same skylight hole
+        // onto the correct half of that folded cladding. The first slope
+        // uses the same local y as the core panel; the second slope is flipped
+        // from the opposite eave back toward the ridge, leaving the extra
+        // ridge-wrap gap uncut.
+        if (target === panel0) {
+          claddingSkylightPaths.push({ type: 'cut', d: skyCutPath });
+        } else {
+          claddingSkylightPaths.push({ type: 'cut', d: rectPath(u, claddingTotalH - (v + hPanel), wPanel, hPanel) });
+        }
       }
     }
 
@@ -9182,6 +9248,11 @@ function generateRoof(cfg, plan) {
     const combinedClad = styleSpec
       ? generateGabledRoofCladding(perpLen, slantLen, halfSpan0, pitch, matT, styleSpec, ridgeDir)
       : null;
+    // Add matching cut-through holes to the folded roof cladding for every
+    // skylight cut into the gabled roof core panels.
+    if (combinedClad && claddingSkylightPaths.length > 0) {
+      combinedClad.paths.push(...claddingSkylightPaths);
+    }
 
     const parts = [panel0, panel1];
     if (combinedClad) parts.push(combinedClad);
@@ -9330,10 +9401,15 @@ function generateFloor(cfg, plan) {
   // the FRONT edge slots here; back/east/west already map to the floor edge
   // coordinates used below.
   const frontWallLocalSlots = placeTongues(floorW, tw, margin, frontForbidden, 3, tw / 2);
-  const frontSlots = mirrorSlotsAlongEdge(frontWallLocalSlots, floorW);
-  const backSlots  = placeTongues(floorW, tw, margin, backForbidden,  3, tw / 2);
-  const eastSlots  = placeTongues(sideLen, tw, margin, eastForbidden, 3, tw / 2);
-  const westSlots  = placeTongues(sideLen, tw, margin, westForbidden, 3, tw / 2);
+  const splitRanges = floorSplitRangesByFace(cfg, matT, sideLen);
+  let frontSlots = mirrorSlotsAlongEdge(frontWallLocalSlots, floorW);
+  let backSlots  = placeTongues(floorW, tw, margin, backForbidden,  3, tw / 2);
+  let eastSlots  = placeTongues(sideLen, tw, margin, eastForbidden, 3, tw / 2);
+  let westSlots  = placeTongues(sideLen, tw, margin, westForbidden, 3, tw / 2);
+  frontSlots = markSplitHalfSlotDepths(frontSlots, splitRanges.front);
+  backSlots  = markSplitHalfSlotDepths(backSlots,  splitRanges.back);
+  eastSlots  = markSplitHalfSlotDepths(eastSlots,  splitRanges.east);
+  westSlots  = markSplitHalfSlotDepths(westSlots,  splitRanges.west);
 
   // Build the floor perimeter with slot notches integrated into the path.
   // Each slot is drawn as an inward indent so there is NO separate closing line
@@ -9345,7 +9421,7 @@ function generateFloor(cfg, plan) {
     let x = 0;
     for (const s of [...frontSlots].sort((a,b) => a.start - b.start)) {
       if (s.start > x) d += ` L ${s.start.toFixed(3)},0`;
-      d += ` L ${s.start.toFixed(3)},${matT.toFixed(3)} L ${s.end.toFixed(3)},${matT.toFixed(3)} L ${s.end.toFixed(3)},0`;
+      { const sd = floorSlotDepth(s, matT); d += ` L ${s.start.toFixed(3)},${sd.toFixed(3)} L ${s.end.toFixed(3)},${sd.toFixed(3)} L ${s.end.toFixed(3)},0`; }
       x = s.end;
     }
     d += ` L ${floorW.toFixed(3)},0`;
@@ -9355,7 +9431,7 @@ function generateFloor(cfg, plan) {
     for (const s of [...eastSlots].sort((a,b) => a.start - b.start)) {
       const y1 = matT + s.start, y2 = matT + s.end;
       if (y1 > y) d += ` L ${floorW.toFixed(3)},${y1.toFixed(3)}`;
-      d += ` L ${(floorW-matT).toFixed(3)},${y1.toFixed(3)} L ${(floorW-matT).toFixed(3)},${y2.toFixed(3)} L ${floorW.toFixed(3)},${y2.toFixed(3)}`;
+      { const sd = floorSlotDepth(s, matT); d += ` L ${(floorW-sd).toFixed(3)},${y1.toFixed(3)} L ${(floorW-sd).toFixed(3)},${y2.toFixed(3)} L ${floorW.toFixed(3)},${y2.toFixed(3)}`; }
       y = y2;
     }
     d += ` L ${floorW.toFixed(3)},${floorH.toFixed(3)}`;
@@ -9364,7 +9440,7 @@ function generateFloor(cfg, plan) {
     x = floorW;
     for (const s of [...backSlots].sort((a,b) => b.start - a.start)) {
       if (s.end < x) d += ` L ${s.end.toFixed(3)},${floorH.toFixed(3)}`;
-      d += ` L ${s.end.toFixed(3)},${(floorH-matT).toFixed(3)} L ${s.start.toFixed(3)},${(floorH-matT).toFixed(3)} L ${s.start.toFixed(3)},${floorH.toFixed(3)}`;
+      { const sd = floorSlotDepth(s, matT); d += ` L ${s.end.toFixed(3)},${(floorH-sd).toFixed(3)} L ${s.start.toFixed(3)},${(floorH-sd).toFixed(3)} L ${s.start.toFixed(3)},${floorH.toFixed(3)}`; }
       x = s.start;
     }
     d += ` L 0,${floorH.toFixed(3)}`;
@@ -9374,7 +9450,7 @@ function generateFloor(cfg, plan) {
     for (const s of [...westSlots].sort((a,b) => b.start - a.start)) {
       const y1 = matT + s.start, y2 = matT + s.end;
       if (y2 < y) d += ` L 0,${y2.toFixed(3)}`;
-      d += ` L ${matT.toFixed(3)},${y2.toFixed(3)} L ${matT.toFixed(3)},${y1.toFixed(3)} L 0,${y1.toFixed(3)}`;
+      { const sd = floorSlotDepth(s, matT); d += ` L ${sd.toFixed(3)},${y2.toFixed(3)} L ${sd.toFixed(3)},${y1.toFixed(3)} L 0,${y1.toFixed(3)}`; }
       y = y1;
     }
     d += ' L 0,0 Z';
@@ -9397,7 +9473,7 @@ function generateFloor(cfg, plan) {
    Returns one connected polygon (with proper slot indents on every exterior
    wall edge and no slots on the interior wing-connection edges).
    Falls back to generateFloor() for the no-wing case or unsupported layouts. */
-function generateMergedFloor(cfg, plan) {
+function generateMergedFloorRaw(cfg, plan) {
   const wings = (cfg.wings || []).slice();
   if (wings.length === 0) return generateFloor(cfg, plan);
 
@@ -9457,19 +9533,97 @@ function generateMergedFloor(cfg, plan) {
   const eastWingF  = byFace.east .map(w => [Math.max(0, w.offset - matT), Math.min(sideLen, w.offset + w.span - matT)]);
   const westWingF  = byFace.west .map(w => [Math.max(0, w.offset - matT), Math.min(sideLen, w.offset + w.span - matT)]);
 
-  const frontForbidden = [...(hasFrontBay ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(frontDoors), ...frontWingF];
-  const backForbidden  = [...(hasBackBay  ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(backDoors),  ...backWingF];
-  const eastForbidden  = [...doorForbiddenZones(eastDoors), ...eastWingF];
-  const westForbidden  = [...doorForbiddenZones(westDoors), ...westWingF];
+  // Base wall-bottom forbidden zones must match the wall generators.  Do
+  // NOT add wing connection spans here: the physical main wall still exists
+  // across a `connection: 'wall'` wing joint, so any bottom tongues the wall
+  // generates under that span still need matching floor slots.  The merged
+  // floor perimeter naturally skips the connection span because it detours
+  // around the wing; we add those skipped slots back as internal rectangular
+  // holes below.
+  const frontForbidden = [...(hasFrontBay ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(frontDoors)];
+  const backForbidden  = [...(hasBackBay  ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(backDoors)];
+  const eastForbidden  = doorForbiddenZones(eastDoors);
+  const westForbidden  = doorForbiddenZones(westDoors);
 
   // Same front-edge mirror as generateFloor(): wall-local front tongues are
   // exterior-elevation coordinates, while this merged floor outline is a
-  // top-down plan with the front edge at the top.
+  // top-down plan with the front edge at the top.  Keep an "all slots"
+  // list that matches the wall, then derive exterior-only slots by removing
+  // the wing connection spans from the perimeter pass.
   const frontWallLocalSlots = placeTongues(fbWidth, tw, margin, frontForbidden, 3, tw / 2);
-  const frontSlots = mirrorSlotsAlongEdge(frontWallLocalSlots, fbWidth);
-  const backSlots  = placeTongues(fbWidth, tw, margin, backForbidden,  3, tw / 2);
-  const eastSlots  = placeTongues(sideLen, tw, margin, eastForbidden,  3, tw / 2);
-  const westSlots  = placeTongues(sideLen, tw, margin, westForbidden,  3, tw / 2);
+  const splitRanges = floorSplitRangesByFace(cfg, matT, sideLen);
+  let frontSlotsAll = mirrorSlotsAlongEdge(frontWallLocalSlots, fbWidth);
+  let backSlotsAll  = placeTongues(fbWidth, tw, margin, backForbidden,  3, tw / 2);
+  let eastSlotsAll  = placeTongues(sideLen, tw, margin, eastForbidden,  3, tw / 2);
+  let westSlotsAll  = placeTongues(sideLen, tw, margin, westForbidden,  3, tw / 2);
+  frontSlotsAll = markSplitHalfSlotDepths(frontSlotsAll, splitRanges.front);
+  backSlotsAll  = markSplitHalfSlotDepths(backSlotsAll,  splitRanges.back);
+  eastSlotsAll  = markSplitHalfSlotDepths(eastSlotsAll,  splitRanges.east);
+  westSlotsAll  = markSplitHalfSlotDepths(westSlotsAll,  splitRanges.west);
+
+  function slotIntersectsRanges(slot, ranges) {
+    return (ranges || []).some(r => slot.start < r[1] - 0.01 && slot.end > r[0] + 0.01);
+  }
+  function slotCenterInRange(slot, r) {
+    const c = (slot.start + slot.end) / 2;
+    return c >= r[0] - 0.01 && c <= r[1] + 0.01;
+  }
+  function slotsOutsideRanges(slots, ranges) {
+    return (slots || []).filter(s => !slotIntersectsRanges(s, ranges));
+  }
+  function slotsInsideRange(slots, r) {
+    return (slots || []).filter(s => slotCenterInRange(s, r));
+  }
+
+  // Exterior perimeter slots. Wing spans are excluded here because the
+  // connection line is no longer an outside edge of the merged floor.
+  const frontSlots = slotsOutsideRanges(frontSlotsAll, frontWingF);
+  const backSlots  = slotsOutsideRanges(backSlotsAll,  backWingF);
+  const eastSlots  = slotsOutsideRanges(eastSlotsAll,  eastWingF);
+  const westSlots  = slotsOutsideRanges(westSlotsAll,  westWingF);
+
+  // Internal floor slots for `wall` wing connections. These are the slots
+  // that were missing: the main wall section under the wing connection still
+  // has bottom tongues, but that edge became internal after the floor merge.
+  // Cut through-rect slots on the shared seam, matching the SAME wall-bottom
+  // slot coordinates used above. `open` connections intentionally get none.
+  const internalSlotRects = [];
+  function addInternalSlotRect(x, y, w, h) {
+    if (w <= 0.01 || h <= 0.01) return;
+    internalSlotRects.push({
+      type: 'cut', x, y, w, h,
+      compensateKerf: true,
+      _label: 'wing-wall-floor-slot',
+    });
+  }
+  function isWallConnection(w) { return !w || w.connection !== 'open'; }
+
+  for (const w of byFace.front.filter(isWallConnection)) {
+    const r = [w.offset, w.offset + w.span];
+    for (const s of slotsInsideRange(frontSlotsAll, r)) {
+      addInternalSlotRect(s.start, 0, s.end - s.start, matT);
+    }
+  }
+  for (const w of byFace.back.filter(isWallConnection)) {
+    const r = [w.offset, w.offset + w.span];
+    for (const s of slotsInsideRange(backSlotsAll, r)) {
+      addInternalSlotRect(s.start, floorH - matT, s.end - s.start, matT);
+    }
+  }
+  const eastSlotsFloorAll = eastSlotsAll.map(s => ({ start: matT + s.start, end: matT + s.end }));
+  for (const w of byFace.east.filter(isWallConnection)) {
+    const r = [w.offset, w.offset + w.span];
+    for (const s of slotsInsideRange(eastSlotsFloorAll, r)) {
+      addInternalSlotRect(floorW - matT, s.start, matT, s.end - s.start);
+    }
+  }
+  const westSlotsFloorAll = westSlotsAll.map(s => ({ start: matT + s.start, end: matT + s.end }));
+  for (const w of byFace.west.filter(isWallConnection)) {
+    const r = [w.offset, w.offset + w.span];
+    for (const s of slotsInsideRange(westSlotsFloorAll, r)) {
+      addInternalSlotRect(0, s.start, matT, s.end - s.start);
+    }
+  }
 
   // Wing-local outer-edge slot positions
   function wingSlots(w) {
@@ -9531,12 +9685,15 @@ function generateMergedFloor(cfg, plan) {
       // Walk straight to slot near-edge
       if (axis === 'x') d += ` L ${fx(slotNear)},${fx(fixed)}`;
       else              d += ` L ${fx(fixed)},${fx(slotNear)}`;
-      // Indent in (perpendicular to walk)
-      if (axis === 'x') d += ` L ${fx(slotNear)},${fx(fixed + indent)}`;
-      else              d += ` L ${fx(fixed + indent)},${fx(slotNear)}`;
+      // Indent in (perpendicular to walk). Panelized seam slots may
+      // request half-depth so the matching wing piece supplies the other
+      // half of the wall-tongue slot.
+      const slotIndent = indent * ((s && s.depthFactor) || 1);
+      if (axis === 'x') d += ` L ${fx(slotNear)},${fx(fixed + slotIndent)}`;
+      else              d += ` L ${fx(fixed + slotIndent)},${fx(slotNear)}`;
       // Across slot at indented level
-      if (axis === 'x') d += ` L ${fx(slotFar)},${fx(fixed + indent)}`;
-      else              d += ` L ${fx(fixed + indent)},${fx(slotFar)}`;
+      if (axis === 'x') d += ` L ${fx(slotFar)},${fx(fixed + slotIndent)}`;
+      else              d += ` L ${fx(fixed + slotIndent)},${fx(slotFar)}`;
       // Back out
       if (axis === 'x') d += ` L ${fx(slotFar)},${fx(fixed)}`;
       else              d += ` L ${fx(fixed)},${fx(slotFar)}`;
@@ -9675,9 +9832,243 @@ function generateMergedFloor(cfg, plan) {
     material: 'core',
     bboxW, bboxH, bboxOffsetX, bboxOffsetY,
     paths: [{ type: 'cut', d }, ...holePathsForList(cfg.floorHoles)],
-    rects: [],
+    rects: internalSlotRects,
     lines: [],
   };
+}
+
+
+const LASER_SAFETY_EDGE_BUFFER_MM = 6.35; // 1/4 in on every sheet edge
+
+function materialSheetSizeMm(materialId) {
+  const mat = (CONFIG.materials || []).find(m => m.id === materialId);
+  if (!mat) return null;
+  const w = parseFloat(mat.maxWidthMm != null ? mat.maxWidthMm : mat.maxW);
+  const h = parseFloat(mat.maxHeightMm != null ? mat.maxHeightMm : mat.maxH);
+  if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return null;
+  return { w, h };
+}
+
+function materialEffectiveSheetSizeMm(materialId) {
+  const raw = materialSheetSizeMm(materialId);
+  if (!raw) return null;
+  return {
+    w: Math.max(0, raw.w - 2 * LASER_SAFETY_EDGE_BUFFER_MM),
+    h: Math.max(0, raw.h - 2 * LASER_SAFETY_EDGE_BUFFER_MM),
+  };
+}
+
+function partFitsMaterial(part, materialId) {
+  const max = materialEffectiveSheetSizeMm(materialId || (part && part.material));
+  if (!max || !part) return true;
+  const w = part.bboxW || 0;
+  const h = part.bboxH || 0;
+  return (w <= max.w + 0.01 && h <= max.h + 0.01)
+      || (h <= max.w + 0.01 && w <= max.h + 0.01);
+}
+
+function floorPartExceedsMaterial(part, materialId) {
+  return !partFitsMaterial(part, materialId || 'core');
+}
+
+function addPartsToList(parts, maybePartOrList) {
+  if (!maybePartOrList) return;
+  if (Array.isArray(maybePartOrList)) parts.push(...maybePartOrList.filter(Boolean));
+  else parts.push(maybePartOrList);
+}
+
+function slotCenterInOneOfRanges(slot, ranges) {
+  const c = (slot.start + slot.end) / 2;
+  return (ranges || []).some(r => c >= r[0] - 0.01 && c <= r[1] + 0.01);
+}
+
+function markSplitHalfSlotDepths(slots, ranges) {
+  if (!ranges || ranges.length === 0) return slots || [];
+  return (slots || []).map(s => slotCenterInOneOfRanges(s, ranges)
+    ? Object.assign({}, s, { depthFactor: 0.5, splitHalfSlot: true })
+    : s);
+}
+
+function floorSplitRangesByFace(cfg, matT, sideLen) {
+  const out = { front: [], back: [], east: [], west: [] };
+  for (const w of (cfg && cfg._floorSplitHalfSlots) || []) {
+    if (!w || !out[w.face]) continue;
+    if (w.face === 'east' || w.face === 'west') {
+      out[w.face].push([
+        Math.max(0, w.offset - matT),
+        Math.min(sideLen, w.offset + w.span - matT),
+      ]);
+    } else {
+      out[w.face].push([w.offset, w.offset + w.span]);
+    }
+  }
+  return out;
+}
+
+function sortedSlotsByStart(slots, reverse) {
+  const a = [...(slots || [])];
+  a.sort(reverse ? ((x, y) => y.start - x.start) : ((x, y) => x.start - y.start));
+  return a;
+}
+
+function floorSlotDepth(slot, matT) {
+  return matT * ((slot && slot.depthFactor) || 1);
+}
+
+function mainFloorSeamSlotsForWing(cfg, plan, wing) {
+  const { H, matT, tw, sideLen, fbWidth, bayXStart, bayXEnd, hasFrontBay, hasBackBay } = plan;
+  const margin = Math.max(matT * 2, 5);
+  const doorStyle = cfg.doorStyle;
+  function doorForbiddenZones(wallDoors) {
+    return bottomTongueForbiddenZones(wallDoors, cfg, H);
+  }
+  function getWallDoors(manualKey, edgeLen, wallH, count, hasBay) {
+    const manual = manualStructuralOps(cfg, manualKey);
+    if (manual) return manual.filter(o => o.type === 'door');
+    if (count <= 0 || !doorStyle || doorStyle === 'none') return [];
+    if (hasBay) return [];
+    return computeDoors(edgeLen, wallH, { doorStyle, doorCount: count, hasOpening: false, bayXStart: 0, bayXEnd: 0 });
+  }
+  const frontDoors = getWallDoors('front', fbWidth, H, cfg.frontDoorCount || 0, hasFrontBay);
+  const backDoors  = getWallDoors('back',  fbWidth, H, cfg.backDoorCount  || 0, hasBackBay);
+  const eastDoors  = getWallDoors('east',  sideLen, H, cfg.sideDoorCount  || 0, false);
+  const westDoors  = getWallDoors('west',  sideLen, H, cfg.sideDoorCount  || 0, false);
+
+  const frontForbidden = [...(hasFrontBay ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(frontDoors)];
+  const backForbidden  = [...(hasBackBay  ? [[bayXStart, bayXEnd]] : []), ...doorForbiddenZones(backDoors)];
+  const eastForbidden  = doorForbiddenZones(eastDoors);
+  const westForbidden  = doorForbiddenZones(westDoors);
+
+  const frontSlots = mirrorSlotsAlongEdge(placeTongues(fbWidth, tw, margin, frontForbidden, 3, tw / 2), fbWidth);
+  const backSlots  = placeTongues(fbWidth, tw, margin, backForbidden,  3, tw / 2);
+  const eastSlots  = placeTongues(sideLen, tw, margin, eastForbidden,  3, tw / 2).map(s => ({ start: matT + s.start, end: matT + s.end }));
+  const westSlots  = placeTongues(sideLen, tw, margin, westForbidden,  3, tw / 2).map(s => ({ start: matT + s.start, end: matT + s.end }));
+
+  const all = { front: frontSlots, back: backSlots, east: eastSlots, west: westSlots }[wing.face] || [];
+  const r = [wing.offset, wing.offset + wing.span];
+  return all
+    .filter(s => {
+      const c = (s.start + s.end) / 2;
+      return c >= r[0] - 0.01 && c <= r[1] + 0.01;
+    })
+    .map(s => ({ start: Math.max(0, s.start - wing.offset), end: Math.min(wing.span, s.end - wing.offset) }))
+    .filter(s => s.end - s.start > 0.01);
+}
+
+function buildPanelizedWingFloorPart(cfg, plan, wing, index) {
+  const matT = plan.matT;
+  const tw = plan.tw;
+  const margin = Math.max(matT * 2, 5);
+  const W = wing.span;
+  const H = wing.depth + 2 * matT;
+  const halfD = matT / 2;
+  const seamSlots = (wing.connection === 'open') ? [] : mainFloorSeamSlotsForWing(cfg, plan, wing);
+  const farSlots  = placeTongues(W, tw, margin, [], 3, tw / 2);
+  const sideSlots = placeTongues(wing.depth, tw, margin, [], 3, tw / 2);
+  const fx = v => v.toFixed(3);
+  let d = 'M 0,0';
+
+  // Connection edge: half-depth slots. These oppose the half-depth slots
+  // cut in the main floor piece; together they make a full slot for the
+  // shared wall tongues while each sub-piece stays cleanly panelized.
+  let x = 0;
+  for (const s of sortedSlotsByStart(seamSlots, false)) {
+    if (s.start > x) d += ` L ${fx(s.start)},0`;
+    d += ` L ${fx(s.start)},${fx(halfD)} L ${fx(s.end)},${fx(halfD)} L ${fx(s.end)},0`;
+    x = s.end;
+  }
+  d += ` L ${fx(W)},0`;
+
+  // Right side wall slots, full depth.
+  let y = 0;
+  for (const s of sortedSlotsByStart(sideSlots, false)) {
+    const y1 = matT + s.start, y2 = matT + s.end;
+    if (y1 > y) d += ` L ${fx(W)},${fx(y1)}`;
+    d += ` L ${fx(W - matT)},${fx(y1)} L ${fx(W - matT)},${fx(y2)} L ${fx(W)},${fx(y2)}`;
+    y = y2;
+  }
+  d += ` L ${fx(W)},${fx(H)}`;
+
+  // Far edge slots, full depth.
+  x = W;
+  for (const s of sortedSlotsByStart(farSlots, true)) {
+    if (s.end < x) d += ` L ${fx(s.end)},${fx(H)}`;
+    d += ` L ${fx(s.end)},${fx(H - matT)} L ${fx(s.start)},${fx(H - matT)} L ${fx(s.start)},${fx(H)}`;
+    x = s.start;
+  }
+  d += ` L 0,${fx(H)}`;
+
+  // Left side wall slots, full depth.
+  y = H;
+  for (const s of sortedSlotsByStart(sideSlots, true)) {
+    const y1 = matT + s.start, y2 = matT + s.end;
+    if (y2 < y) d += ` L 0,${fx(y2)}`;
+    d += ` L ${fx(matT)},${fx(y2)} L ${fx(matT)},${fx(y1)} L 0,${fx(y1)}`;
+    y = y1;
+  }
+  d += ' L 0,0 Z';
+
+  const faceLabel = wing.face.charAt(0).toUpperCase() + wing.face.slice(1);
+  return {
+    id: `floor_split_wing_${wing.id || index}`,
+    name: `Floor split piece — ${faceLabel} wing (${W.toFixed(1)} × ${H.toFixed(1)}mm, half-slots at join)`,
+    material: 'core',
+    bboxW: W,
+    bboxH: H,
+    bboxOffsetX: 0,
+    bboxOffsetY: 0,
+    paths: [{ type: 'cut', d }],
+    rects: [],
+    lines: [
+      { type: 'etch', x1: 0, y1: halfD, x2: W, y2: halfD },
+    ],
+    _panelizedFloor: true,
+  };
+}
+
+function chooseFloorWingSplits(cfg, plan, wings) {
+  // Try the least invasive split set first: split the largest extension,
+  // then add more wings only if the main piece still exceeds the material.
+  const sorted = [...wings].sort((a, b) => ((b.depth + 2 * plan.matT) * b.span) - ((a.depth + 2 * plan.matT) * a.span));
+  const split = [];
+  for (const w of sorted) {
+    split.push(w);
+    const splitIds = new Set(split.map(x => x.id));
+    const remaining = wings.filter(x => !splitIds.has(x.id));
+    const mainCfg = Object.assign({}, cfg, {
+      wings: remaining,
+      _floorSplitHalfSlots: split,
+    });
+    const mainPart = generateMergedFloorRaw(mainCfg, plan);
+    mainPart.id = 'floor_main_panelized';
+    mainPart.name = split.length === 1
+      ? 'Floor split piece — main building (with matching half-slots)'
+      : `Floor split piece — main building (${split.length} wing joins with matching half-slots)`;
+    mainPart._panelizedFloor = true;
+
+    const wingParts = split.map((wing, i) => buildPanelizedWingFloorPart(cfg, plan, wing, i + 1));
+    const allParts = [mainPart, ...wingParts];
+    if (allParts.every(p => partFitsMaterial(p, 'core'))) return { parts: allParts, splitWings: split };
+  }
+  return null;
+}
+
+/* Generate a floor part, panelizing wing floors only when the completed floor
+ * exceeds the configured material sheet size. Wing splitting is deliberately
+ * conditional: a merged floor that fits the material stays one piece. When a
+ * split is needed, the split follows one or more wing connection seams and
+ * creates matching half-depth seam slots on the main-floor piece and on each
+ * separated wing-floor piece. */
+function generateMergedFloor(cfg, plan) {
+  const raw = generateMergedFloorRaw(cfg, plan);
+  if (!floorPartExceedsMaterial(raw, 'core')) return raw;
+
+  const wings = (cfg.wings || []).filter(Boolean);
+  if (!wings.length) return raw;
+
+  const split = chooseFloorWingSplits(cfg, plan, wings);
+  if (!split || !split.parts || split.parts.length === 0) return raw;
+  return split.parts;
 }
 
 /* Generate inter-floor core panels. These sit horizontally inside the building 
@@ -12378,7 +12769,13 @@ function generateCladdingPanel(cfg, plan, which, band) {
   // starts at y=0. The x-axis cT inset matches the front/back left/right
   // overhang region (still applies); for sides without left/right overhang
   // it acts as a small margin from the laser-cut edge.
-  const patEtchTop = 0;
+  // Etched cladding pattern. For ordinary rectangular panels the pattern
+  // starts at y=0. For gable-end cladding the cut outline rises above y=0
+  // into the triangular gable, so generate the pattern over that full
+  // pentagonal footprint and clip each segment to the gable polygon. Without
+  // this, ribbed/ALC/etc. etches stop at the eave line even though the cut
+  // cladding piece physically continues up into the roof triangle.
+  const patEtchTop = isCladdingGableEnd ? -clPitch : 0;
   const patEtchBottom = localCHeight;
   // For trapezoidal side cladding, hand the pattern generator the slanted
   // top edge so engrave lines stop at the cut line instead of extending up
@@ -12390,7 +12787,22 @@ function generateCladdingPanel(cfg, plan, which, band) {
         rightY: sideClTopLeftY  + (sideClTopRightY - sideClTopLeftY) * (localCWidth - cT) / localCWidth,
       }
     : undefined;
-  const patternLines = generateCladdingPattern(claddingStyleSpec, cT, patEtchTop, localCWidth - cT, patEtchBottom, cutOpenings, patEtchTopEdge);
+  let patternLines = generateCladdingPattern(claddingStyleSpec, cT, patEtchTop, localCWidth - cT, patEtchBottom, cutOpenings, patEtchTopEdge);
+  if (isCladdingGableEnd) {
+    const gablePoly = [
+      { x: 0, y: 0 },
+      { x: localCWidth / 2, y: -clPitch },
+      { x: localCWidth, y: 0 },
+      { x: localCWidth, y: localCHeight },
+      { x: 0, y: localCHeight },
+    ];
+    const clipped = [];
+    for (const ln of patternLines) {
+      const c = clipSegmentToConvexPolygon(ln.x1, ln.y1, ln.x2, ln.y2, gablePoly);
+      if (c) clipped.push(c);
+    }
+    patternLines = clipped;
+  }
   for (const ln of patternLines) {
     lines.push({ type: 'etch', x1: ln.x1, y1: ln.y1, x2: ln.x2, y2: ln.y2 });
   }
@@ -13712,6 +14124,50 @@ function clipSegmentToTriangle(x1, y1, x2, y2, halfSpan, pitch, mirror) {
   return { x1, y1, x2, y2 };
 }
 
+/* Clip a line segment to an arbitrary convex polygon.
+ * Used for gable-end cladding: the cladding pattern is generated over the
+ * full bounding rectangle, then trimmed back to the pentagonal wall outline
+ * so vertical ribs / panel seams continue cleanly into the triangular gable
+ * instead of stopping at the eave line.
+ *
+ * `poly` is an array of {x,y} points around the polygon. The function auto-
+ * detects clockwise vs counter-clockwise winding and keeps the correct side
+ * of each edge. Returns the clipped segment, or null when the segment misses
+ * the polygon entirely. */
+function clipSegmentToConvexPolygon(x1, y1, x2, y2, poly) {
+  if (!Array.isArray(poly) || poly.length < 3) return { x1, y1, x2, y2 };
+  const EPS = 1e-6;
+
+  // Signed polygon area: + for one winding, - for the other. We do not care
+  // which screen-space direction it represents; we only need consistency so
+  // the half-plane test keeps the inside of every edge.
+  let area = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length];
+    area += a.x * b.y - b.x * a.y;
+  }
+  const winding = area >= 0 ? 1 : -1;
+
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length];
+    const ex = b.x - a.x, ey = b.y - a.y;
+    // Signed distance-like value to the edge's half-plane. Multiplying by
+    // winding makes "inside" positive for either polygon orientation.
+    const dist = (x, y) => winding * (ex * (y - a.y) - ey * (x - a.x));
+    const d1 = dist(x1, y1);
+    const d2 = dist(x2, y2);
+    if (d1 < -EPS && d2 < -EPS) return null;
+    if (d1 >= -EPS && d2 >= -EPS) continue;
+    const t = d1 / (d1 - d2);
+    const nx = x1 + t * (x2 - x1);
+    const ny = y1 + t * (y2 - y1);
+    if (d1 < -EPS) { x1 = nx; y1 = ny; }
+    else           { x2 = nx; y2 = ny; }
+  }
+  if (Math.hypot(x2 - x1, y2 - y1) < 0.01) return null;
+  return { x1, y1, x2, y2 };
+}
+
 /* ===========================================================================
  * INTERIOR WALL CLADDING
  *
@@ -14456,20 +14912,22 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
 
 /* =====================================================================
    SKYLIGHTS
-   Each skylight produces FOUR things on the laser sheets:
-     1. A rectangular hole cut through the roof core (handled at the roof
-        panel level via skylightHolePaths — not part of this function).
-     2. A lower core frame piece — outer (w+3)×(h+3), inner w×h.
-        Sits on top of the roof, centred over the hole, providing a raised
-        rim. Cut from 1.5mm plywood.
-     3. A plexiglass pane piece — flat (w+3)×(h+3) rectangle. Sits inside
-        the lower frame's outer footprint, over the hole. Cut from window
-        material (clear acrylic).
-     4. An upper core frame piece — identical to the lower frame.
-        Glues on top of the plexi to hold it down — sandwich assembly.
+   Each skylight produces FOUR physical layers / operations:
+     1. A rectangular hole cut through the roof core/cladding at the exact
+        user-selected skylight opening size (handled at the roof panel level
+        via skylightHolePaths — not part of this function).
+     2. A clear plexi pane that overlaps the roof hole by 1.5 mm on every
+        side: (hole + 3) × (hole + 3). This gives a glue lip and prevents the
+        pane from falling through the roof opening.
+     3. A 1.5 mm core-material curb/surround frame that fits AROUND the plexi:
+        inner opening = plexi size, outer size = plexi + 1.5 mm on every side.
+        This creates the raised curb without stealing any visible glazing area.
+     4. A top retaining cap, cut from core material, with the SAME outside
+        size as the plexi and a centred hole equal to the skylight opening.
+        That leaves a 1.5 mm donut/rim on all sides, trapping the plexi below.
    ===================================================================== */
 
-const SKYLIGHT_FRAME_MARGIN = 1.5;  // mm — frame extends this far beyond hole on each side
+const SKYLIGHT_FRAME_MARGIN = 1.5;  // mm — overlap / rim / curb width on each side
 
 /* Bucket skylights by (w, h) so identical sizes share laser sheets. Returns
  * groups of { w, h, count } — same hybrid pattern as fixtures and shutters. */
@@ -14488,101 +14946,147 @@ function tallySkylights(cfg) {
 }
 
 /* Generate cut sheets for each skylight bucket. Per skylight we emit:
- *   - 2 × frame pieces on a single core sheet (lower + upper, identical)
- *   - 1 × plexi pane on a separate window-material sheet
- * Multiple skylights of the same size collapse into one sheet pair, with
- * 2*count frame pieces + count plexi panes. No spares — re-cut as needed.
+ *   - 1 × core curb/surround frame: outer = hole + 6, inner = hole + 3
+ *   - 1 × plexi pane:              outer = hole + 3, no inner cut
+ *   - 1 × core top retaining cap:  outer = hole + 3, inner = hole
+ * Multiple skylights of the same size collapse into one sheet per part type.
  */
 function generateSkylightParts(cfg, skylightGroups) {
   const parts = [];
+
+  function layoutRectTiles(count, cellW, cellH, gutter) {
+    const cols = Math.max(1, Math.floor((250 - gutter) / (cellW + gutter)));
+    const rows = Math.ceil(count / cols);
+    return {
+      cols,
+      rows,
+      sheetW: Math.min(250, cols * (cellW + gutter) + gutter),
+      sheetH: rows * (cellH + gutter) + gutter,
+    };
+  }
+
   for (const group of (skylightGroups || [])) {
     if (!group || group.count <= 0) continue;
-    const holeW = group.w, holeH = group.h;
-    const outerW = holeW + SKYLIGHT_FRAME_MARGIN * 2;  // frame piece outer
-    const outerH = holeH + SKYLIGHT_FRAME_MARGIN * 2;
+
+    const holeW = group.w;
+    const holeH = group.h;
+    const paneW = holeW + SKYLIGHT_FRAME_MARGIN * 2;
+    const paneH = holeH + SKYLIGHT_FRAME_MARGIN * 2;
+    const curbOuterW = paneW + SKYLIGHT_FRAME_MARGIN * 2;
+    const curbOuterH = paneH + SKYLIGHT_FRAME_MARGIN * 2;
     const dimsTag = `${holeW.toFixed(1)}×${holeH.toFixed(1)}mm hole`;
     const idSuffix = `_${holeW.toFixed(1)}x${holeH.toFixed(1)}`.replace(/\./g, '_');
-
-    // === Frame sheet (core material) — 2 pieces per skylight, no spares ===
-    const totalFrames = group.count * 2;
     const gutter = 3;
-    const cellW = outerW, cellH = outerH;
-    const fCols = Math.max(1, Math.floor((250 - gutter) / (cellW + gutter)));
-    const fRows = Math.ceil(totalFrames / fCols);
-    const fSheetW = Math.min(250, fCols * (cellW + gutter) + gutter);
-    const fSheetH = fRows * (cellH + gutter) + gutter;
 
-    const fRects = [];
-    for (let i = 0; i < totalFrames; i++) {
-      const c = i % fCols;
-      const r = Math.floor(i / fCols);
-      const ox = gutter + c * (cellW + gutter);
-      const oy = gutter + r * (cellH + gutter);
-      // Outer cut (frame perimeter)
-      fRects.push({ type: 'cut', x: ox, y: oy, w: outerW, h: outerH, compensateKerf: false });
-      // Inner cut (the opening — matches roof hole size, centred in frame)
-      fRects.push({ type: 'cut',
-        x: ox + SKYLIGHT_FRAME_MARGIN,
-        y: oy + SKYLIGHT_FRAME_MARGIN,
-        w: holeW, h: holeH, compensateKerf: false });
-    }
-    parts.push({
-      id: 'skylight_frame' + idSuffix,
-      name: `Skylight frame — ${group.count}× (×2 pcs · outer ${outerW.toFixed(1)}×${outerH.toFixed(1)}mm · ${dimsTag})`,
-      material: 'core',
-      bboxW: fSheetW, bboxH: fSheetH,
-      bboxOffsetX: 0, bboxOffsetY: 0,
-      paths: [], rects: fRects, lines: [],
-      assemblyNote: 'One frame glues to the roof centred over the hole; plexi rests on it; the second frame caps the plexi.',
-      // One frame tile: outer perimeter + inner hole. The whole tiled sheet
-      // is just identical copies of this shape, so the parts panel shows
-      // one frame plus a "Cut ×N" badge.
-      tileCount: totalFrames,
-      tileGeom: {
-        bboxW: outerW, bboxH: outerH,
+    // === Core curb/surround frame — fits AROUND the plexi pane ===
+    // Outer: hole + 6 mm. Inner: pane size (hole + 3 mm), offset 1.5 mm.
+    {
+      const layout = layoutRectTiles(group.count, curbOuterW, curbOuterH, gutter);
+      const rects = [];
+      for (let i = 0; i < group.count; i++) {
+        const c = i % layout.cols;
+        const r = Math.floor(i / layout.cols);
+        const ox = gutter + c * (curbOuterW + gutter);
+        const oy = gutter + r * (curbOuterH + gutter);
+        rects.push({ type: 'cut', x: ox, y: oy, w: curbOuterW, h: curbOuterH, compensateKerf: false });
+        rects.push({ type: 'cut',
+          x: ox + SKYLIGHT_FRAME_MARGIN,
+          y: oy + SKYLIGHT_FRAME_MARGIN,
+          w: paneW, h: paneH, compensateKerf: false });
+      }
+      parts.push({
+        id: 'skylight_curb_frame' + idSuffix,
+        name: `Skylight curb frame — ${group.count}× core (outer ${curbOuterW.toFixed(1)}×${curbOuterH.toFixed(1)}mm · inner plexi ${paneW.toFixed(1)}×${paneH.toFixed(1)}mm · ${dimsTag})`,
+        material: 'core',
+        bboxW: layout.sheetW, bboxH: layout.sheetH,
         bboxOffsetX: 0, bboxOffsetY: 0,
-        paths: [],
-        rects: [
-          { type: 'cut', x: 0, y: 0, w: outerW, h: outerH, compensateKerf: false },
-          { type: 'cut', x: SKYLIGHT_FRAME_MARGIN, y: SKYLIGHT_FRAME_MARGIN,
-            w: holeW, h: holeH, compensateKerf: false },
-        ],
-        lines: [],
-      },
-    });
-
-    // === Plexi sheet (window material) — 1 piece per skylight, no spares ===
-    const totalPlexi = group.count;
-    const pCols = Math.max(1, Math.floor((250 - gutter) / (outerW + gutter)));
-    const pRows = Math.ceil(totalPlexi / pCols);
-    const pSheetW = Math.min(250, pCols * (outerW + gutter) + gutter);
-    const pSheetH = pRows * (outerH + gutter) + gutter;
-
-    const pRects = [];
-    for (let i = 0; i < totalPlexi; i++) {
-      const c = i % pCols;
-      const r = Math.floor(i / pCols);
-      const ox = gutter + c * (outerW + gutter);
-      const oy = gutter + r * (outerH + gutter);
-      pRects.push({ type: 'cut', x: ox, y: oy, w: outerW, h: outerH, compensateKerf: false });
+        paths: [], rects, lines: [],
+        assemblyNote: 'Raised core curb that fits around the clear plexi pane; glue it to the roof around the skylight opening.',
+        tileCount: group.count,
+        tileGeom: {
+          bboxW: curbOuterW, bboxH: curbOuterH,
+          bboxOffsetX: 0, bboxOffsetY: 0,
+          paths: [],
+          rects: [
+            { type: 'cut', x: 0, y: 0, w: curbOuterW, h: curbOuterH, compensateKerf: false },
+            { type: 'cut', x: SKYLIGHT_FRAME_MARGIN, y: SKYLIGHT_FRAME_MARGIN,
+              w: paneW, h: paneH, compensateKerf: false },
+          ],
+          lines: [],
+        },
+      });
     }
-    parts.push({
-      id: 'skylight_plexi' + idSuffix,
-      name: `Skylight pane — ${group.count}× plexi (${outerW.toFixed(1)}×${outerH.toFixed(1)}mm)`,
-      material: 'window',
-      bboxW: pSheetW, bboxH: pSheetH,
-      bboxOffsetX: 0, bboxOffsetY: 0,
-      paths: [], rects: pRects, lines: [],
-      assemblyNote: 'Clear acrylic pane — sits between the two skylight frames.',
-      tileCount: totalPlexi,
-      tileGeom: {
-        bboxW: outerW, bboxH: outerH,
+
+    // === Plexi sheet (window material) — 1 piece per skylight ===
+    // Pane overlaps the roof hole by 1.5 mm in every direction.
+    {
+      const layout = layoutRectTiles(group.count, paneW, paneH, gutter);
+      const rects = [];
+      for (let i = 0; i < group.count; i++) {
+        const c = i % layout.cols;
+        const r = Math.floor(i / layout.cols);
+        const ox = gutter + c * (paneW + gutter);
+        const oy = gutter + r * (paneH + gutter);
+        rects.push({ type: 'cut', x: ox, y: oy, w: paneW, h: paneH, compensateKerf: false });
+      }
+      parts.push({
+        id: 'skylight_plexi' + idSuffix,
+        name: `Skylight pane — ${group.count}× plexi (${paneW.toFixed(1)}×${paneH.toFixed(1)}mm · ${dimsTag})`,
+        material: 'window',
+        bboxW: layout.sheetW, bboxH: layout.sheetH,
         bboxOffsetX: 0, bboxOffsetY: 0,
-        paths: [],
-        rects: [{ type: 'cut', x: 0, y: 0, w: outerW, h: outerH, compensateKerf: false }],
-        lines: [],
-      },
-    });
+        paths: [], rects, lines: [],
+        assemblyNote: 'Clear acrylic pane — 1.5 mm larger than the roof hole on every side.',
+        tileCount: group.count,
+        tileGeom: {
+          bboxW: paneW, bboxH: paneH,
+          bboxOffsetX: 0, bboxOffsetY: 0,
+          paths: [],
+          rects: [{ type: 'cut', x: 0, y: 0, w: paneW, h: paneH, compensateKerf: false }],
+          lines: [],
+        },
+      });
+    }
+
+    // === Core top retaining cap — same outer size as plexi, with a hole ===
+    // Outer: pane size. Inner: roof hole size, offset 1.5 mm — this creates
+    // the top donut/rim that traps the plexi and leaves the visible opening.
+    {
+      const layout = layoutRectTiles(group.count, paneW, paneH, gutter);
+      const rects = [];
+      for (let i = 0; i < group.count; i++) {
+        const c = i % layout.cols;
+        const r = Math.floor(i / layout.cols);
+        const ox = gutter + c * (paneW + gutter);
+        const oy = gutter + r * (paneH + gutter);
+        rects.push({ type: 'cut', x: ox, y: oy, w: paneW, h: paneH, compensateKerf: false });
+        rects.push({ type: 'cut',
+          x: ox + SKYLIGHT_FRAME_MARGIN,
+          y: oy + SKYLIGHT_FRAME_MARGIN,
+          w: holeW, h: holeH, compensateKerf: false });
+      }
+      parts.push({
+        id: 'skylight_top_cap' + idSuffix,
+        name: `Skylight top cap — ${group.count}× core donut (${paneW.toFixed(1)}×${paneH.toFixed(1)}mm outer · ${dimsTag})`,
+        material: 'core',
+        bboxW: layout.sheetW, bboxH: layout.sheetH,
+        bboxOffsetX: 0, bboxOffsetY: 0,
+        paths: [], rects, lines: [],
+        assemblyNote: 'Top retaining cap: same outside size as the plexi, with a centred skylight hole that leaves a 1.5 mm rim.',
+        tileCount: group.count,
+        tileGeom: {
+          bboxW: paneW, bboxH: paneH,
+          bboxOffsetX: 0, bboxOffsetY: 0,
+          paths: [],
+          rects: [
+            { type: 'cut', x: 0, y: 0, w: paneW, h: paneH, compensateKerf: false },
+            { type: 'cut', x: SKYLIGHT_FRAME_MARGIN, y: SKYLIGHT_FRAME_MARGIN,
+              w: holeW, h: holeH, compensateKerf: false },
+          ],
+          lines: [],
+        },
+      });
+    }
   }
   return parts;
 }
@@ -14839,7 +15343,7 @@ function generateBuilding(cfg) {
   parts.push(generateFrontBackWall(cfg, plan, 'back'));
   const roofResult = generateRoof(cfg, plan);
   if (Array.isArray(roofResult)) parts.push(...roofResult); else parts.push(roofResult);
-  parts.push(generateMergedFloor(cfg, plan));
+  addPartsToList(parts, generateMergedFloor(cfg, plan));
 
   // Inter-floor core panels (one per interFloorYs entry)
   const interFloorParts = generateInterFloorPanels(cfg, plan);
@@ -16669,21 +17173,23 @@ function iwSetFloor(f) {
  * collisions use the same 2 mm clearance as the original auto-placer.
  */
 function migrateEquipCountsToItems() {
-  if (!lastPlan) return;
-  const counts = CONFIG.rooftopEquipment || {};
-  const totalCount = Object.values(counts).reduce((s, n) => s + (Number(n) || 0), 0);
+  const plan = (iwWingIndex != null && iwWingPlan) ? iwWingPlan : lastPlan;
+  if (!plan) return;
+  const tgt = iwTarget();
+  const counts = tgt.rooftopEquipment || {};
+  const totalCount = Object.values(counts).reduce((sum, n) => sum + (Number(n) || 0), 0);
   if (totalCount <= 0) return;
-  if (!CONFIG.rooftopItems) CONFIG.rooftopItems = [];
-  const hasManualEquip = CONFIG.rooftopItems.some(it => it && it.type === 'equipment');
+  if (!tgt.rooftopItems) tgt.rooftopItems = [];
+  const hasManualEquip = tgt.rooftopItems.some(it => it && it.type === 'equipment');
   if (hasManualEquip) return;
-  // Pull roof bounds from the current plan to match the build's coord system.
-  const { fbWidth, sideLen, matT } = lastPlan;
-  const roofStyleNow = CONFIG.roofStyle || 'parapet';
-  const roofW = (roofStyleNow === 'parapet') ? fbWidth - 2 * matT : fbWidth;
-  const roofD = (roofStyleNow === 'parapet') ? sideLen  - 2 * matT : sideLen;
+
+  // Use the currently edited roof's canvas bounds, not the main roof's
+  // bounds. This matters in wing-roof mode: the editor routes writes
+  // through iwTarget(), so auto-migrated legacy counts must be laid out
+  // in the same roof-local coordinate frame the user is looking at.
+  const { bW: roofW, bD: roofD } = iwBounds();
   const edgeMargin = 3;
-  // Use the already-placed mech room (if any) as an obstacle.
-  const mechRoom = lastPlan.mechRoom || null;
+  const mechRoom = plan.mechRoom || null;
   const placed = [];
   const items = [];
   for (const [key, qty] of Object.entries(counts)) {
@@ -16714,7 +17220,7 @@ function migrateEquipCountsToItems() {
       for (let rx = edgeMargin; rx + rw <= roofW - edgeMargin && !put; rx++) {
         if (fits(rx, ry, rw, rd)) {
           placed.push({ key: it.key, eq: it.eq, x: rx, y: ry, w: rw, d: rd });
-          CONFIG.rooftopItems.push({
+          tgt.rooftopItems.push({
             type: 'equipment', equipKey: it.key,
             w: rw, d: rd, h: it.eq.h, label: it.eq.label,
             x: rx, y: ry,
@@ -16724,8 +17230,8 @@ function migrateEquipCountsToItems() {
       }
     }
   }
-  // Zero the legacy counts so the next open doesn't re-migrate.
-  for (const k of Object.keys(counts)) CONFIG.rooftopEquipment[k] = 0;
+  // Zero the legacy counts on the same target so the next open doesn't re-migrate.
+  for (const k of Object.keys(counts)) counts[k] = 0;
 }
 
 /**
@@ -16756,22 +17262,25 @@ function migrateEquipCountsToItems() {
  * Returns the count of items actually placed.
  */
 function iwAutoSeedRoofEquipment() {
-  if (!lastPlan) return 0;
-  if (!CONFIG.rooftopItems) CONFIG.rooftopItems = [];
-  // Drop only existing equipment items — keep mechroom/billboard/skylight
-  // placements, cutouts, etc. They were placed deliberately by the user.
-  CONFIG.rooftopItems = CONFIG.rooftopItems.filter(it => it.type !== 'equipment');
+  const plan = (iwWingIndex != null && iwWingPlan) ? iwWingPlan : lastPlan;
+  if (!plan) return 0;
+  const tgt = iwTarget();
+  if (!tgt.rooftopItems) tgt.rooftopItems = [];
+  // Drop only existing equipment items on the CURRENTLY EDITED roof — keep
+  // mechroom/billboard/skylight/cutout placements on that same roof. In wing
+  // mode this must mutate CONFIG.wings[iwWingIndex], not CONFIG.rooftopItems,
+  // otherwise clicking Auto-seed on a wing roof populates the main roof.
+  tgt.rooftopItems = tgt.rooftopItems.filter(it => it.type !== 'equipment');
 
-  const { fbWidth, sideLen, matT } = lastPlan;
-  const roofStyleNow = CONFIG.roofStyle || 'parapet';
-  const roofW = (roofStyleNow === 'parapet') ? fbWidth - 2 * matT : fbWidth;
-  const roofD = (roofStyleNow === 'parapet') ? sideLen  - 2 * matT : sideLen;
+  // Match the editor canvas and target roof-local coordinate frame. iwBounds()
+  // already switches between main and wing dimensions based on iwWingIndex.
+  const { bW: roofW, bD: roofD } = iwBounds();
   const edge = 3; // edge margin from roof boundary
-  const mechRoom = lastPlan.mechRoom || null;
+  const mechRoom = plan.mechRoom || null;
 
   // Also avoid any non-equipment rooftopItems (mechroom drag-placed in editor,
   // billboards, STL zones). These are user-placed obstacles to respect.
-  const obstacles = CONFIG.rooftopItems
+  const obstacles = tgt.rooftopItems
     .filter(it => it.type !== 'equipment')
     .map(it => ({
       x: it.x, y: it.y,
@@ -16802,7 +17311,7 @@ function iwAutoSeedRoofEquipment() {
     const ix = Math.round(x), iy = Math.round(y);
     if (!fits(ix, iy, eq.w, eq.d)) return false;
     placed.push({ key, x: ix, y: iy, w: eq.w, d: eq.d });
-    CONFIG.rooftopItems.push({
+    tgt.rooftopItems.push({
       type: 'equipment', equipKey: key,
       w: eq.w, d: eq.d, h: eq.h, label: eq.label,
       x: ix, y: iy,
@@ -17020,7 +17529,8 @@ function iwPopulateToolbox() {
        { label: 'H', key: 'h', val: 5, min: 0.5, max: 50, step: 0.5 }]);
     sec('3D-printed equipment');
     actionCard('🪄', 'Auto-seed layout', false, false, c => {
-      const existing = (CONFIG.rooftopItems || []).filter(it => it.type === 'equipment').length;
+      const target = iwTarget();
+      const existing = (target.rooftopItems || []).filter(it => it.type === 'equipment').length;
       if (existing > 0) {
         const ok = confirm('Replace ' + existing + ' existing equipment item' + (existing === 1 ? '' : 's') + ' with an auto-seeded layout?');
         if (!ok) return;
@@ -17033,10 +17543,11 @@ function iwPopulateToolbox() {
       if (status) status.textContent = 'Auto-seeded ' + n + ' equipment item' + (n === 1 ? '' : 's') + ' using traditional rooftop layout — drag any item to adjust.';
     });
     actionCard('🗑', 'Clear all equipment', false, true, c => {
-      const existing = (CONFIG.rooftopItems || []).filter(it => it.type === 'equipment').length;
+      const target = iwTarget();
+      const existing = (target.rooftopItems || []).filter(it => it.type === 'equipment').length;
       if (existing === 0) return;
       if (!confirm('Remove all ' + existing + ' placed equipment item' + (existing === 1 ? '' : 's') + '?')) return;
-      CONFIG.rooftopItems = (CONFIG.rooftopItems || []).filter(it => it.type !== 'equipment');
+      target.rooftopItems = (target.rooftopItems || []).filter(it => it.type !== 'equipment');
       iwSelection = [];
       iwDragMoving = null;
       iwRender();
@@ -20039,6 +20550,18 @@ function applyLoadedConfig(data) {
     for (const k of Object.keys(ROOFTOP_EQUIPMENT)) merged.rooftopEquipment[k] = 0;
   }
 
+  // Back-fill material sheet sizes for older .hako files saved before
+  // material limits existed. Store in mm; the UI can display/convert inches.
+  if (Array.isArray(merged.materials)) {
+    for (const m of merged.materials) {
+      if (m.maxWidthMm == null && m.maxW != null) m.maxWidthMm = m.maxW;
+      if (m.maxHeightMm == null && m.maxH != null) m.maxHeightMm = m.maxH;
+      if (m.maxWidthMm == null) m.maxWidthMm = 304.8;
+      if (m.maxHeightMm == null) m.maxHeightMm = 304.8;
+      if (!m.sizeUnit) m.sizeUnit = 'mm';
+    }
+  }
+
   Object.assign(CONFIG, merged);
   return warnings;
 }
@@ -20345,7 +20868,81 @@ function renderMaterialsForm() {
     row.appendChild(delCell);
 
     container.appendChild(row);
+
+    // Maximum sheet size. Values are stored internally in millimetres, but
+    // the unit selector lets the user type inches and have them converted
+    // automatically. Panelization uses the effective area after the 1/4 in
+    // safety border is removed from every edge.
+    if (mat.maxWidthMm == null) mat.maxWidthMm = 304.8;
+    if (mat.maxHeightMm == null) mat.maxHeightMm = 304.8;
+    if (!mat.sizeUnit) mat.sizeUnit = 'mm';
+    const unit = mat.sizeUnit === 'in' ? 'in' : 'mm';
+    const fmtSize = v => unit === 'in' ? (v / 25.4).toFixed(3).replace(/\.?0+$/, '') : Number(v).toFixed(1).replace(/\.0$/, '');
+    const parseSize = v => {
+      const n = parseFloat(v);
+      if (!isFinite(n) || n <= 0) return undefined;
+      return unit === 'in' ? n * 25.4 : n;
+    };
+
+    const sizeRow = document.createElement('div');
+    sizeRow.style.cssText = 'display:grid;grid-template-columns:26px 1fr 1fr 46px;gap:4px;align-items:center;margin:-2px 0 8px 0;';
+
+    const sizeLabel = document.createElement('div');
+    sizeLabel.textContent = 'Sheet';
+    sizeLabel.style.cssText = 'font-size:9px;color:var(--muted);text-transform:uppercase;';
+    sizeRow.appendChild(sizeLabel);
+
+    const sizeW = document.createElement('input');
+    sizeW.type = 'number';
+    sizeW.min = '0.1'; sizeW.step = unit === 'in' ? '0.125' : '1';
+    sizeW.value = fmtSize(mat.maxWidthMm);
+    sizeW.title = 'Maximum material width. Stored as mm; inch entries convert to mm.';
+    sizeW.style.cssText = 'padding:3px 4px;font-size:10px;border:1px solid var(--border);border-radius:3px;text-align:right;min-width:0;';
+    sizeRow.appendChild(sizeW);
+
+    const sizeH = document.createElement('input');
+    sizeH.type = 'number';
+    sizeH.min = '0.1'; sizeH.step = unit === 'in' ? '0.125' : '1';
+    sizeH.value = fmtSize(mat.maxHeightMm);
+    sizeH.title = 'Maximum material height. Stored as mm; inch entries convert to mm.';
+    sizeH.style.cssText = 'padding:3px 4px;font-size:10px;border:1px solid var(--border);border-radius:3px;text-align:right;min-width:0;';
+    sizeRow.appendChild(sizeH);
+
+    const unitSel = document.createElement('select');
+    unitSel.style.cssText = 'padding:3px 2px;font-size:10px;border:1px solid var(--border);border-radius:3px;';
+    for (const u of ['mm', 'in']) {
+      const opt = document.createElement('option');
+      opt.value = u; opt.textContent = u;
+      if (unit === u) opt.selected = true;
+      unitSel.appendChild(opt);
+    }
+    sizeRow.appendChild(unitSel);
+
+    function commitSizeInputs() {
+      const wv = parseSize(sizeW.value);
+      const hv = parseSize(sizeH.value);
+      if (wv != null) mat.maxWidthMm = wv;
+      if (hv != null) mat.maxHeightMm = hv;
+      regenerate();
+    }
+    sizeW.addEventListener('input', e => e.stopPropagation());
+    sizeH.addEventListener('input', e => e.stopPropagation());
+    sizeW.addEventListener('change', e => { e.stopPropagation(); commitSizeInputs(); });
+    sizeH.addEventListener('change', e => { e.stopPropagation(); commitSizeInputs(); });
+    unitSel.addEventListener('change', e => {
+      e.stopPropagation();
+      mat.sizeUnit = unitSel.value;
+      renderMaterialsForm();
+    });
+
+    container.appendChild(sizeRow);
   }
+
+  const sizeNote = document.createElement('div');
+  sizeNote.className = 'small';
+  sizeNote.style.cssText = 'margin:4px 0 8px;color:var(--muted);';
+  sizeNote.textContent = 'Max sheet sizes are stored in mm. The generator treats each sheet as 12.7mm smaller in width and height, leaving a 1/4in safety border on every edge.';
+  container.appendChild(sizeNote);
 
   // Column header hint
   const hdr = document.createElement('div');
@@ -20362,6 +20959,9 @@ function renderMaterialsForm() {
       id: 'mat_' + Date.now(),
       name: t('mat_newName'),
       thickness: undefined,
+      maxWidthMm: 304.8,
+      maxHeightMm: 304.8,
+      sizeUnit: 'mm',
       colour: PALETTE[CONFIG.materials.length % PALETTE.length],
     });
     renderMaterialsForm();
@@ -20566,7 +21166,7 @@ function buildWingCfg(cfg, wing) {
     // truss geometry without their own tuning). null = disabled inherit;
     // an explicit object on the wing fully overrides.
     trusses: wing.trusses || { enabled: false, spacing: 30, axis: null, chordW: 2, xBraceWalls: [],
-                                supports: false, supportDepth: 4, supportFlangeW: 4 },
+                                supports: false, supportColumnType: 'i', supportDepth: 4, supportFlangeW: 4 },
     // Per-wing rooftop / floor / skylight / roof-hole collections. Same
     // bug class as the wall manualOpenings leakage: without these
     // overrides, Object.assign carries the MAIN's skylights/rooftopItems
@@ -20862,7 +21462,7 @@ function generateBuildingWithWings(cfg) {
   }
   const roofResultMain = generateRoof(cfg, plan);
   if (Array.isArray(roofResultMain)) parts.push(...roofResultMain); else parts.push(roofResultMain);
-  parts.push(generateMergedFloor(cfg, plan));
+  addPartsToList(parts, generateMergedFloor(cfg, plan));
 
   /* Main block's trusses + X-bracing. The wing loop further down emits
      each wing's own trusses; this call is for the main block specifically
@@ -21857,15 +22457,49 @@ function weApply() {
   regenerate();
 }
 
+function weEventTargetIsEditable(e) {
+  const el = e && e.target;
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  const tag = (el.tagName || '').toUpperCase();
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return !!(el.closest && el.closest('[contenteditable="true"]'));
+}
+
+function weDeleteSelectedWingWithConfirm() {
+  if (!weSelectedWingId || weSelectedWingId === 'main') return false;
+
+  const idx = CONFIG.wings.findIndex(w => w.id === weSelectedWingId);
+  if (idx < 0) return false;
+
+  const wing = CONFIG.wings[idx];
+  const label = `Wing ${idx + 1} (${wing.face})`;
+  const ok = window.confirm(
+    `Delete ${label}?\n\nThis will remove the wing and its generated walls, roof, floor, openings, and per-wing settings. This cannot be undone.`
+  );
+  if (!ok) return false;
+
+  CONFIG.wings.splice(idx, 1);
+  weSelectedWingId = null;
+  weRender();
+  weRenderSidebar();
+  regenerate();
+  return true;
+}
+
 function weKeyDown(e) {
   const modal = document.getElementById('wingEditorModal');
   if (!modal || modal.style.display === 'none') return;
   if (e.key === 'Escape') { weClose(); return; }
+
+  // Let normal form editing win. Without this guard, Delete/Backspace while
+  // focused inside a wing property text/number box bubbles up to the document
+  // listener and deletes the selected wing instead of the field contents.
+  if ((e.key === 'Delete' || e.key === 'Backspace') && weEventTargetIsEditable(e)) return;
+
   if ((e.key === 'Delete' || e.key === 'Backspace') && weSelectedWingId && weSelectedWingId !== 'main') {
     e.preventDefault();
-    CONFIG.wings = CONFIG.wings.filter(w => w.id !== weSelectedWingId);
-    weSelectedWingId = null;
-    weRender(); weRenderSidebar(); regenerate();
+    weDeleteSelectedWingWithConfirm();
   }
 }
 
@@ -22378,7 +23012,8 @@ function weRenderSidebar() {
   // trusses object. Auto-initialised when missing so the user's first
   // toggle creates the field rather than throwing.
   if (!wing.trusses) {
-    wing.trusses = { enabled: false, spacing: 30, axis: null, chordW: 2, xBraceWalls: [] };
+    wing.trusses = { enabled: false, spacing: 30, axis: null, chordW: 2, xBraceWalls: [],
+                     supports: false, supportColumnType: 'i', supportDepth: 4, supportFlangeW: 4 };
   }
   weRenderTrussSection(sidebar, wing, () => { weRender(); weRenderSidebar(); regenerate(); });
 
@@ -22387,9 +23022,7 @@ function weRenderSidebar() {
   delBtn.textContent = '🗑 Remove Wing';
   delBtn.style.cssText = 'margin-top:12px;width:100%;padding:6px;font-size:12px;cursor:pointer;border:1px solid var(--accent);color:var(--accent);border-radius:3px;background:#fff3ee;';
   delBtn.onclick = () => {
-    CONFIG.wings = CONFIG.wings.filter(w => w.id !== weSelectedWingId);
-    weSelectedWingId = null;
-    weRender(); weRenderSidebar(); regenerate();
+    weDeleteSelectedWingWithConfirm();
   };
   sidebar.appendChild(delBtn);
 }
@@ -22402,9 +23035,13 @@ function weRenderSidebar() {
  * predate this feature get sensible defaults on first interaction. */
 function weRenderTrussSection(sidebar, blockObj, onChange) {
   if (!blockObj.trusses) {
-    blockObj.trusses = { enabled: false, spacing: 30, axis: null, chordW: 2, xBraceWalls: [] };
+    blockObj.trusses = { enabled: false, spacing: 30, axis: null, chordW: 2, xBraceWalls: [],
+                         supports: false, supportColumnType: 'i', supportDepth: 4, supportFlangeW: 4 };
   }
   const t = blockObj.trusses;
+  if (!t.supportColumnType) t.supportColumnType = 'i';
+  if (t.supportDepth == null) t.supportDepth = 4;
+  if (t.supportFlangeW == null) t.supportFlangeW = 4;
 
   const hdr = document.createElement('div');
   hdr.className = 'we-section-label';
@@ -22511,7 +23148,7 @@ function weRenderTrussSection(sidebar, blockObj, onChange) {
   const supField = document.createElement('div'); supField.className = 'field';
   supField.innerHTML = `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
     <input type="checkbox" ${t.supports ? 'checked' : ''}>
-    <span>Add 3-piece column at each truss</span>
+    <span>Add column supports at each truss</span>
   </label>`;
   const supInput = supField.querySelector('input');
   supInput.addEventListener('change', () => {
@@ -22521,18 +23158,35 @@ function weRenderTrussSection(sidebar, blockObj, onChange) {
   sidebar.appendChild(supField);
 
   if (t.supports) {
+    // Column cross-section: I-beam has back flange + web + end cap; T-beam
+    // omits the end cap so it projects less deeply into the model interior.
+    const typeField = document.createElement('div'); typeField.className = 'field';
+    const supportType = t.supportColumnType === 't' ? 't' : 'i';
+    typeField.innerHTML = `<label>Column cross-section</label>
+      <select>
+        <option value="i" ${supportType === 'i' ? 'selected' : ''}>I-beam — back + web + end cap</option>
+        <option value="t" ${supportType === 't' ? 'selected' : ''}>T-beam — back + web only</option>
+      </select>`;
+    const typeInput = typeField.querySelector('select');
+    typeInput.addEventListener('change', () => {
+      t.supportColumnType = typeInput.value === 't' ? 't' : 'i';
+      onChange();
+    });
+    sidebar.appendChild(typeField);
+
     // Depth: how far the web sticks out from the wall.
     const depthField = document.createElement('div'); depthField.className = 'field';
-    depthField.innerHTML = `<label>Column depth (mm)</label>
-      <input type="number" min="2" max="20" step="0.5" value="${t.supportDepth != null ? t.supportDepth : 4}">`;
+    depthField.innerHTML = `<label>Web depth (mm)</label>
+      <input type="number" min="1" max="20" step="0.5" value="${t.supportDepth != null ? t.supportDepth : 4}">`;
     const depthInput = depthField.querySelector('input');
     depthInput.addEventListener('change', () => {
-      t.supportDepth = Math.max(2, parseFloat(depthInput.value) || 4);
+      t.supportDepth = Math.max(1, parseFloat(depthInput.value) || 4);
       onChange();
     });
     sidebar.appendChild(depthField);
 
-    // Flange width: visual width of back + end cap along the wall.
+    // Flange width: visual width of the wall-side flange along the wall.
+    // For I-beams, the end cap uses the same width.
     const flangeField = document.createElement('div'); flangeField.className = 'field';
     flangeField.innerHTML = `<label>Flange width (mm)</label>
       <input type="number" min="2" max="20" step="0.5" value="${t.supportFlangeW != null ? t.supportFlangeW : 4}">`;
@@ -22545,7 +23199,9 @@ function weRenderTrussSection(sidebar, blockObj, onChange) {
 
     const supHint = document.createElement('div');
     supHint.style.cssText = 'font-size:10px;color:var(--muted);margin-top:-2px;';
-    supHint.textContent = 'Each column = back flange + perpendicular web + end cap (all core). The floor shows an etched footprint at each position.';
+    supHint.textContent = supportType === 't'
+      ? 'T-beam columns use only a wall-side flange and perpendicular web, so the etched floor footprint is shallower and no end-cap pieces are generated.'
+      : 'I-beam columns use back flange + perpendicular web + end cap (all core). The floor shows an etched footprint at each position.';
     sidebar.appendChild(supHint);
   }
 }

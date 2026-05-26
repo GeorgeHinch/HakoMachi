@@ -516,61 +516,9 @@
     font-size: 11px; color: var(--muted); flex-shrink: 0;
   }
 
-  /* ---- Wing Layout Editor ---- */
-  #wingLayoutModal {
-    position: fixed; inset: 0; z-index: 200;
-    background: rgba(0,0,0,0.55);
-    display: flex; align-items: stretch; justify-content: stretch;
-  }
-  .wl-dialog {
-    margin: 16px; flex: 1;
-    background: var(--panel); border-radius: 6px;
-    display: flex; flex-direction: column; overflow: hidden;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
-  }
-  .wl-header {
-    padding: 10px 14px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
-  }
-  .wl-header h2 { margin: 0; font-size: 14px; font-weight: 600; }
-  .wl-body { display: flex; flex: 1; overflow: hidden; min-height: 0; }
-  .wl-canvas-area {
-    flex: 1; overflow: auto;
-    display: flex; align-items: center; justify-content: center;
-    padding: 20px; background: #e8e8e0; position: relative;
-  }
-  #wingLayoutSvg { display: block; user-select: none; }
-  .wl-props {
-    width: 210px; min-width: 210px; border-left: 1px solid var(--border);
-    overflow-y: auto; padding: 10px; background: #fafaf7;
-    display: flex; flex-direction: column; gap: 6px;
-  }
-  .wl-props h3 { margin: 0 0 4px; font-size: 12px; color: var(--muted); text-transform: uppercase; font-weight: 600; }
-  .wl-props label { font-size: 11px; color: #555; display: flex; flex-direction: column; gap: 2px; }
-  .wl-props input[type=number], .wl-props select {
-    padding: 3px 6px; font-size: 12px; border: 1px solid var(--border); border-radius: 3px; width: 100%;
-  }
-  .wl-props .row2 { display: flex; gap: 6px; }
-  .wl-props .row2 label { flex: 1; }
-  .wl-add-btns { display: flex; flex-direction: column; gap: 4px; }
-  .wl-add-btn {
-    padding: 5px 8px; font-size: 11px; border: 1px solid var(--border);
-    border-radius: 3px; background: #fff; cursor: pointer; text-align: left;
-  }
-  .wl-add-btn:hover { background: #f0ede8; border-color: #888; }
-  .wl-connection-toggle {
-    display: flex; gap: 4px;
-  }
-  .wl-connection-toggle button {
-    flex: 1; padding: 4px 6px; font-size: 11px; border: 1px solid var(--border);
-    border-radius: 3px; cursor: pointer; background: #fff;
-  }
-  .wl-connection-toggle button.active { background: var(--accent); color: white; border-color: var(--accent-dark); }
-  .wl-footer {
-    padding: 6px 14px; border-top: 1px solid var(--border);
-    font-size: 11px; color: var(--muted); flex-shrink: 0;
-    display: flex; gap: 16px; align-items: center;
-  }
+  /* ---- Wing Layout Editor REMOVED — dead UI from previous design rev;
+     no DOM elements with these IDs/classes were ever defined in the
+     document, and the JS that read them has been deleted. ---- */
 </style>
 </head>
 <body>
@@ -6990,8 +6938,13 @@ function generateFrontBackWall(cfg, plan, which) {
   }
 
   // Gable-end walls: replace with pentagon (triangle above eave level).
+  // When a bay also sits on this wall (industrial through-bays etc.),
+  // the gable peak still applies — bay is bottom cutout, peak is top
+  // edge, they don't share geometry. The bay path builder accepts a
+  // `gablePitch` field on the wallSpec and grows the top edge into a
+  // pentagon instead of a flat rectangle when set.
   const pitch = cfg.roofPitch || 10;
-  const isGableEnd = isGableEndWall(cfg, which) && !hasBay;
+  const isGableEnd = isGableEndWall(cfg, which);
   // Parapet-hidden gable: same logic as the side wall — if this FB wall
   // carries a parapet under the chosen parapetSides, replace the top
   // with a flat extension `pitch + parapetH` above the eave. Wins over
@@ -7009,7 +6962,17 @@ function generateFrontBackWall(cfg, plan, which) {
     }
   } else if (isGableEnd) {
     const fbSlopeTabSpec = { tw, margin, kerf: cfg.kerfComp || 0 };
-    perimeter = buildGableWallPath(fbWidth, H, pitch, wallSpec, fbSlopeTabSpec);
+    if (hasBay) {
+      // Bay + gable-end: the rectangular base path already handled the bay
+      // notch in the previous block via buildFBWallWithBay (perimeter was
+      // set above). Re-emit through the bay builder with gablePitch set so
+      // the top edge becomes the triangular peak with verge tabs.
+      wallSpec.gablePitch = pitch;
+      wallSpec.gableSlopeTabSpec = fbSlopeTabSpec;
+      perimeter = buildFBWallWithBay(wallSpec, plan);
+    } else {
+      perimeter = buildGableWallPath(fbWidth, H, pitch, wallSpec, fbSlopeTabSpec);
+    }
   }
 
   // Slanted-roof: front/back walls perpendicular to an EW slope need trapezoidal tops.
@@ -7331,11 +7294,79 @@ function buildFBWallWithBay(spec, plan) {
   // its features so the bay notch, side-wall slots, and floor tongues land
   // exactly as they would without the slope.
   const tExt = (spec.topExtension > 0) ? spec.topExtension : 0;
+  // Gable-end FB walls that also carry a bay need a TRIANGULAR peak on
+  // top of the rectangular wall body — the bay is a cutout on the
+  // bottom edge, the gable peak is on top, and they don't interact.
+  // Before this was wired in, the FB wall generator's gable-end branch
+  // had a `&& !hasBay` guard (see "Gable-end walls" block) that flipped
+  // gable-end to false the moment a bay landed on the wall, leaving
+  // the wall body rectangular and silently dropping the peak — so the
+  // wall core stopped at the eave even though the cladding panel (which
+  // never had that guard) correctly drew its pentagon. The roof panels
+  // and gable-wall verge tabs then had nothing to slot into. The
+  // gablePitch field carries the rise from eave to apex; when > 0 the
+  // top edge below is replaced with two sloped edges meeting at
+  // (W/2, -gablePitch), with optional slope tabs from gableSlopeTabSpec
+  // mirroring buildGableWallPath's tab placement so the joinery matches.
+  const gablePitch    = spec.gablePitch > 0 ? spec.gablePitch : 0;
+  const gableTabSpec  = (gablePitch > 0) ? (spec.gableSlopeTabSpec || null) : null;
 
+  // Starting y: top extension shifts it up, gable peak doesn't (the
+  // peak is local to the top edge — the start corner stays at the eave
+  // y=0). Slanted topExtension and gabled peak are mutually exclusive
+  // styles (slanted is for non-gable-end walls of a slanted roof;
+  // gable-end is for gabled or parapet_gable), so we don't try to mix
+  // them in one wall here.
   let d = `M 0,${(-tExt).toFixed(3)}`;
 
   // Top edge
-  if (tExt > 0) {
+  if (gablePitch > 0) {
+    // Triangular peak: walk left slope up to apex, then right slope down.
+    // Apex sits at (W/2, -gablePitch). With slope tabs the walk pushes
+    // out along the slope's outward-pointing normal at each tab range,
+    // identical to buildGableWallPath so the slot positions line up.
+    const halfW    = W / 2;
+    const slantLen = Math.hypot(halfW, gablePitch);
+
+    if (gableTabSpec) {
+      const { tw: tabW, margin: tabMargin } = gableTabSpec;
+      const tabDepth = matT;
+      const tabK     = -(gableTabSpec.kerf || 0);
+      const tabCount = Math.max(2, Math.min(3, Math.floor(slantLen / 25)));
+      const tabs     = placeTongues(slantLen, tabW, tabMargin, [], tabCount, tabW / 2);
+
+      // Left slope: (0,0) → apex. Tangent (halfW, -gablePitch)/slantLen,
+      // outward normal (tanY, -tanX) (CW rotation).
+      const lTx = halfW / slantLen, lTy = -gablePitch / slantLen;
+      const lNx = lTy,              lNy = -lTx;
+      for (const tab of tabs) {
+        const s = tab.start + tabK, e = tab.end - tabK;
+        d += ` L ${(s*lTx).toFixed(3)},${(s*lTy).toFixed(3)}`;
+        d += ` L ${(s*lTx + tabDepth*lNx).toFixed(3)},${(s*lTy + tabDepth*lNy).toFixed(3)}`;
+        d += ` L ${(e*lTx + tabDepth*lNx).toFixed(3)},${(e*lTy + tabDepth*lNy).toFixed(3)}`;
+        d += ` L ${(e*lTx).toFixed(3)},${(e*lTy).toFixed(3)}`;
+      }
+      d += ` L ${halfW.toFixed(3)},${(-gablePitch).toFixed(3)}`;  // apex
+
+      // Right slope: apex → (W, 0). Tangent (halfW, gablePitch)/slantLen,
+      // outward normal (pitch, -halfW)/slantLen.
+      const rTx = halfW / slantLen, rTy = gablePitch / slantLen;
+      const rNx = rTy,              rNy = -rTx;
+      for (const tab of tabs) {
+        const s = tab.start + tabK, e = tab.end - tabK;
+        const ax = halfW + s*rTx, ay = -gablePitch + s*rTy;
+        const bx = halfW + e*rTx, by = -gablePitch + e*rTy;
+        d += ` L ${ax.toFixed(3)},${ay.toFixed(3)}`;
+        d += ` L ${(ax + tabDepth*rNx).toFixed(3)},${(ay + tabDepth*rNy).toFixed(3)}`;
+        d += ` L ${(bx + tabDepth*rNx).toFixed(3)},${(by + tabDepth*rNy).toFixed(3)}`;
+        d += ` L ${bx.toFixed(3)},${by.toFixed(3)}`;
+      }
+      d += ` L ${W.toFixed(3)},0`;
+    } else {
+      // Plain peak, no slope tabs.
+      d += ` L ${(W/2).toFixed(3)},${(-gablePitch).toFixed(3)} L ${W.toFixed(3)},0`;
+    }
+  } else if (tExt > 0) {
     // Slanted high side: flat extended top, no tongues
     d += ` L ${W},${(-tExt).toFixed(3)}`;
   } else {
@@ -8009,6 +8040,64 @@ function generateRoof(cfg, plan) {
 
     const panel0 = makeGablePanelParts('roof_slope0', `Roof ${slopeLabels[0]} (gabled ${ridgeDir} ridge)`);
     const panel1 = makeGablePanelParts('roof_slope1', `Roof ${slopeLabels[1]} (gabled ${ridgeDir} ridge)`);
+
+    // Skylights on a gabled roof: place each onto whichever slope panel
+    // its CENTRE point lies on, transforming from footprint (x, y) to
+    // panel (u, v) coords. Until this branch was added, gabled roofs
+    // silently dropped all cfg.skylights — the user would drop one in
+    // the rooftop placement panel and it would never appear on the
+    // laser output (and if the building had wings with a flat or
+    // parapet roof, the same skylights would leak onto those wing roofs
+    // until the buildWingCfg fix). Only the flat / parapet / slanted
+    // branches above piped skylights through.
+    //
+    // Geometry: the panel's u-axis runs along the ridge (= perpLen),
+    // its v-axis from eave (v=0) to ridge (v=slantLen). A skylight
+    // whose footprint dimensions are (w, h) is rectangular when
+    // projected onto the panel plane — but the dimension along the
+    // slope stretches by 1/cos θ = slantLen0/halfSpan0 because the
+    // panel is tilted at θ. The dimension across the ridge is
+    // unchanged. The eave overhang ohEaveS shifts v downward (v=0 is
+    // the eave overhang edge, the wall is at v=ohEaveS), and the
+    // verge overhang ohVerge shifts u (u=0 is the verge overhang edge,
+    // the gable wall is at u=ohVerge).
+    //
+    // Skylights whose footprint straddles the ridge are not split —
+    // the centre's side determines the whole assignment. A skylight
+    // wider than half the span across the ridge would produce a cut
+    // that extends past the panel's ridge edge; this is left for the
+    // user to handle (don't centre a skylight on the ridge).
+    if (cfg.skylights && cfg.skylights.length > 0) {
+      const slopeStretch = slantLen0 / halfSpan0;
+      for (const sky of cfg.skylights) {
+        if (!sky || !(sky.w > 0) || !(sky.h > 0)) continue;
+        let target, u, v, wPanel, hPanel;
+        if (ewRidge) {
+          // ridge-ew: ridge runs east-west; perpLen along cfg.width,
+          // slope axis = y. Front slope = small-y half (panel0),
+          // back slope = large-y half (panel1).
+          const isFront = sky.y < halfSpan0;
+          target = isFront ? panel0 : panel1;
+          const d_h = isFront ? sky.y : (cfg.depth - sky.y);  // horiz dist eave→centre
+          wPanel = sky.w;                       // along ridge, unchanged
+          hPanel = sky.h * slopeStretch;        // along slope, stretched
+          u = sky.x + ohVerge - wPanel / 2;
+          v = ohEaveS + d_h * slopeStretch - hPanel / 2;
+        } else {
+          // ridge-ns: ridge runs north-south; perpLen along cfg.depth,
+          // slope axis = x. East slope = large-x half (panel0),
+          // west slope = small-x half (panel1).
+          const isEast = sky.x >= halfSpan0;
+          target = isEast ? panel0 : panel1;
+          const d_h = isEast ? (cfg.width - sky.x) : sky.x;
+          wPanel = sky.h;                       // along ridge (=y), unchanged
+          hPanel = sky.w * slopeStretch;        // along slope (=x), stretched
+          u = sky.y + ohVerge - wPanel / 2;
+          v = ohEaveS + d_h * slopeStretch - hPanel / 2;
+        }
+        target.paths.push({ type: 'cut', d: rectPath(u, v, wPanel, hPanel) });
+      }
+    }
 
     const styleSpec = CLADDING_STYLES[cfg.roofCladdingStyle || cfg.claddingStyle];
     const combinedClad = styleSpec
@@ -14238,9 +14327,11 @@ function renderPartsOutput(parts) {
     html += `<div class="part-grid">`;
     const dedupedParts = deduplicatePartsForDisplay(grpParts);
     for (const { part, count } of dedupedParts) {
-      const ew = wallFromPartId(part.id);
-      const ea = ew ? ` data-editwall="${ew}"` : '';
-      const ec = ew ? ' wall-editable' : '';
+      const wi = wallFromPartId(part.id);
+      const ea = wi
+        ? ` data-editwall="${wi.wall}"` + (wi.wingIndex != null ? ` data-editwing="${wi.wingIndex}"` : '')
+        : '';
+      const ec = wi ? ' wall-editable' : '';
       const iwf = iwFloorIdxForPart(part.id);
       const iwAttr = iwf !== null ? ` data-iw-floor="${iwf}"` : '';
       const iwCls  = iwf !== null ? ' iw-editable' : '';
@@ -14279,9 +14370,11 @@ function renderPartsOutput(parts) {
     html += `<div class="mat-group-hdr"><span class="mat-hdr-swatch" style="background:#999"></span>Unassigned<span class="mat-count">${unassignedParts.length} part${unassignedParts.length!==1?'s':''}</span></div>`;
     html += `<div class="part-grid">`;
     for (const { part, count } of deduplicatePartsForDisplay(unassignedParts)) {
-      const ew = wallFromPartId(part.id);
-      const ea = ew ? ` data-editwall="${ew}"` : '';
-      const ec = ew ? ' wall-editable' : '';
+      const wi = wallFromPartId(part.id);
+      const ea = wi
+        ? ` data-editwall="${wi.wall}"` + (wi.wingIndex != null ? ` data-editwing="${wi.wingIndex}"` : '')
+        : '';
+      const ec = wi ? ' wall-editable' : '';
       const tileMult = (part.tileCount && part.tileCount > 0) ? part.tileCount : 1;
       const totalQty = count * tileMult;
       const dimW = (part.tileGeom ? part.tileGeom.bboxW : part.bboxW);
@@ -14303,7 +14396,12 @@ function renderPartsOutput(parts) {
   document.getElementById('output').innerHTML = html;
 
   document.querySelectorAll('.part[data-editwall]').forEach(card => {
-    card.addEventListener('click', () => openOpeningEditor(card.dataset.editwall));
+    card.addEventListener('click', () => {
+      const wall    = card.dataset.editwall;
+      const wRaw    = card.dataset.editwing;
+      const wingIdx = (wRaw != null && wRaw !== '') ? parseInt(wRaw, 10) : null;
+      openOpeningEditor(wall, wingIdx);
+    });
   });
   document.querySelectorAll('.part[data-iw-floor]').forEach(card => {
     card.addEventListener('click', () => {
@@ -18506,6 +18604,14 @@ function buildWingCfg(cfg, wing) {
       firstFloorHeightEnabled: true,
     } : {}),
     claddingStyle: wing.claddingStyle || cfg.claddingStyle,
+    // Wing-specific roof cladding style. Falls back to main's
+    // roofCladdingStyle when blank (= "inherit"), and that in turn falls
+    // back to claddingStyle at the point of use (see generateRoof's
+    // `cfg.roofCladdingStyle || cfg.claddingStyle` pattern). Without this
+    // override, every wing inherited the main's roof cladding via the
+    // base `...cfg` spread, with no way to set a different one even
+    // through hand-edited .hako files.
+    roofCladdingStyle: wing.roofCladdingStyle || cfg.roofCladdingStyle,
     windowDensity: wing.windowDensity || cfg.windowDensity,
     roofStyle:          wing.roofStyle          || cfg.roofStyle,
     parapetHeight:      (wing.parapetHeight     != null) ? wing.parapetHeight     : cfg.parapetHeight,
@@ -18517,6 +18623,32 @@ function buildWingCfg(cfg, wing) {
     sideDoorCount:  wing.sideDoorCount  || 0,
     doorStyle: wing.doorStyle || cfg.doorStyle,
     manualOpenings: wing.manualOpenings || { front: null, back: null, east: null, west: null },
+    // Per-face manual placement arrays: each wing carries its own copies
+    // so awnings/balconies/fixtures/cladding-overrides/printed-items
+    // dropped while editing a wing stay on that wing, and main-building
+    // placements stay on the main building. Without this clearing,
+    // Object.assign would carry the main's per-face arrays through to
+    // every wing's cfg — the main wall's "awning at x=20" would land at
+    // the wing-local x=20 on every wing wall (different geometry, wrong
+    // position). Same bug class as the skylight/roofHole leakage fix.
+    manualAwnings:           wing.manualAwnings           || { front: [], back: [], east: [], west: [] },
+    manualBalconies:         wing.manualBalconies         || { front: [], back: [], east: [], west: [] },
+    manualFixtures:          wing.manualFixtures          || { front: [], back: [], east: [], west: [] },
+    manualCladdingOverrides: wing.manualCladdingOverrides || { front: [], back: [], east: [], west: [] },
+    manualPrintedItems:      wing.manualPrintedItems      || { front: [], back: [], east: [], west: [] },
+    // The following arrays are placed in MAIN building coords by the user
+    // (via the rooftop/interior placement panel) and should not propagate to
+    // wings via Object.assign. Without this clearing, a skylight dropped on
+    // the main roof would also be cut into every wing roof at the same
+    // local x/y — either landing nonsensically inside the wing's footprint
+    // (small wings) or extending beyond it (long wings). Same applies to
+    // roof holes, floor holes, and rooftop equipment placements. Wings
+    // could grow their own per-wing rooftopItems/skylights schema later;
+    // until then, clear them so the main's placements stay on the main.
+    skylights:    [],
+    roofHoles:    [],
+    floorHoles:   [],
+    rooftopItems: [],
     wings: [],           // wings don't nest in V1
   });
 }
@@ -19314,11 +19446,24 @@ function generateBuildingWithWings(cfg) {
         wRW = wPlan.fbWidth + 2 * cT;
         wRH = wCfg.depth    + 2 * cT;
       }
+      // Etch the configured roof cladding pattern onto the wing's roof
+      // sheet. Mirrors the main building's flat/parapet roof cladding
+      // handling (see line ~13544): falls back to wall cladding when no
+      // roof-specific style is set. Without this, wing roofs shipped as
+      // blank sheets even when the main building emitted a tiled pattern
+      // — and there was no way to override roof cladding per-wing
+      // separately from wall cladding.
+      const wRoofStyleKey  = wCfg.roofCladdingStyle || wCfg.claddingStyle;
+      const wRoofStyleSpec = CLADDING_STYLES[wRoofStyleKey];
+      const wRoofLines = wRoofStyleSpec
+        ? generateCladdingPattern(wRoofStyleSpec, 0, 0, wRW, wRH, [], null)
+            .map(seg => ({ type: 'etch', x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2 }))
+        : [];
       parts.push({ id: 'cladding_roof' + sfx, name: `Wing ${wi+1} Cladding Roof`, material: 'cladding',
         bboxW: wRW, bboxH: wRH,
         bboxOffsetX: 0, bboxOffsetY: 0,
         paths: [{ type: 'cut', d: rectPath(0, 0, wRW, wRH) }],
-        rects: [], lines: [] });
+        rects: [], lines: wRoofLines });
     }
 
     /* ---- 3. Dividing wall (for 'wall' connections) ----
@@ -19433,389 +19578,6 @@ function generateDividingWall(cfg, mainPlan, wCfg, wPlan, wing, wingIdx) {
   };
 }
 
-/* ---- Apply wing opening cuts to main block walls ---- */
-// This is called by generateFrontBackWall / generateSideWall via cfg._wingOpenings
-/* =====================================================================
-   WING LAYOUT EDITOR
-   ===================================================================== */
-
-let wlSelectedWingId = null;
-let wlDragState = null;
-const WL_SCALE = 4.5; // SVG px per mm for layout preview
-const WL_PAD   = 40;  // px padding around the floor plan
-
-function openWingLayoutEditor() {
-  wlSelectedWingId = null;
-  wlDragState = null;
-  _populateWlCladOptions();
-  document.getElementById('wingLayoutModal').style.display = '';
-  wlRender();
-  wlUpdateAddButtons();
-  wlShowProps(null);
-  document.addEventListener('keydown', wlKeyDown);
-}
-
-function wlClose() {
-  document.getElementById('wingLayoutModal').style.display = 'none';
-  document.removeEventListener('keydown', wlKeyDown);
-}
-
-function wlApply() {
-  wlClose();
-  regenerate();
-}
-
-function _populateWlCladOptions() {
-  const sel = document.getElementById('wlPropCladding');
-  if (!sel) return;
-  // Keep the first "Same as main" option, clear the rest
-  while (sel.options.length > 1) sel.remove(1);
-  for (const [k, v] of Object.entries(CLADDING_STYLES || {})) {
-    const o = document.createElement('option');
-    o.value = k; o.textContent = v.label || k;
-    sel.appendChild(o);
-  }
-}
-
-/* ---- Floor plan geometry helpers ---- */
-function wlFloorPlan(cfg) {
-  // Returns array of { id, x, y, w, d, label, isMain, wing? }
-  const blocks = [{ id: 'main', x: 0, y: 0, w: cfg.width, d: cfg.depth, label: 'Main', isMain: true }];
-  for (const wing of (cfg.wings || [])) {
-    const pos = wlWingPos(wing, cfg.width, cfg.depth);
-    blocks.push({ id: wing.id, x: pos.x, y: pos.y, w: pos.w, d: pos.d, label: `Wing`, isMain: false, wing });
-  }
-  return blocks;
-}
-
-function wlWingPos(wing, mainW, mainD) {
-  if (wing.face === 'east')  return { x: mainW,          y: wing.offset,        w: wing.depth, d: wing.span };
-  if (wing.face === 'west')  return { x: -wing.depth,    y: wing.offset,        w: wing.depth, d: wing.span };
-  if (wing.face === 'front') return { x: wing.offset,    y: -wing.depth,        w: wing.span,  d: wing.depth };
-  if (wing.face === 'back')  return { x: wing.offset,    y: mainD,              w: wing.span,  d: wing.depth };
-  return { x: 0, y: 0, w: 0, d: 0 };
-}
-
-function wlBounds(blocks) {
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const b of blocks) {
-    minX = Math.min(minX, b.x); minY = Math.min(minY, b.y);
-    maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.d);
-  }
-  return { minX, minY, maxX, maxY };
-}
-
-/* ---- Render ---- */
-function wlRender() {
-  const svg = document.getElementById('wingLayoutSvg');
-  if (!svg) return;
-
-  const blocks = wlFloorPlan(CONFIG);
-  const bnd = wlBounds(blocks);
-  const s = WL_SCALE;
-  const W = (bnd.maxX - bnd.minX) * s + WL_PAD * 2;
-  const H = (bnd.maxY - bnd.minY) * s + WL_PAD * 2;
-
-  svg.setAttribute('width',   Math.max(300, W));
-  svg.setAttribute('height',  Math.max(200, H));
-  svg.setAttribute('viewBox', `0 0 ${Math.max(300, W)} ${Math.max(200, H)}`);
-
-  const ox = WL_PAD - bnd.minX * s;
-  const oy = WL_PAD - bnd.minY * s;
-
-  const WING_COLORS = ['#b5c9e8','#b5e8c9','#e8d9b5','#d4b5e8','#e8b5b5','#b5e8e8'];
-
-  let html = '';
-
-  // Grid hints
-  for (let gx = Math.floor(bnd.minX/10)*10; gx <= bnd.maxX; gx += 10) {
-    const px = ox + gx * s;
-    html += `<line x1="${px}" y1="${WL_PAD/2}" x2="${px}" y2="${H-WL_PAD/2}" stroke="#ccc" stroke-width="0.5" stroke-dasharray="2 4"/>`;
-  }
-  for (let gy = Math.floor(bnd.minY/10)*10; gy <= bnd.maxY; gy += 10) {
-    const py = oy + gy * s;
-    html += `<line x1="${WL_PAD/2}" y1="${py}" x2="${W-WL_PAD/2}" y2="${py}" stroke="#ccc" stroke-width="0.5" stroke-dasharray="2 4"/>`;
-  }
-
-  // Blocks
-  for (let bi = 0; bi < blocks.length; bi++) {
-    const b = blocks[bi];
-    const bx = ox + b.x * s, by = oy + b.y * s;
-    const bw = b.w * s, bd = b.d * s;
-    const isSelected = (!b.isMain && b.wing && b.wing.id === wlSelectedWingId);
-    const fill = b.isMain ? '#d4cfc8' : WING_COLORS[bi % WING_COLORS.length];
-    const stroke = isSelected ? '#e06000' : '#666';
-    const sw = isSelected ? 2.5 : 1.5;
-
-    html += `<rect x="${bx}" y="${by}" width="${bw}" height="${bd}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" rx="1" data-wing="${b.isMain ? '' : b.wing.id}" style="cursor:${b.isMain ? 'default' : 'pointer'}"/>`;
-
-    // Label
-    html += `<text x="${bx+bw/2}" y="${by+bd/2-5}" font-size="10" fill="#444" text-anchor="middle" font-family="system-ui" pointer-events="none" font-weight="600">${b.label}</text>`;
-    html += `<text x="${bx+bw/2}" y="${by+bd/2+7}" font-size="9" fill="#666" text-anchor="middle" font-family="system-ui" pointer-events="none">${b.w.toFixed(0)}×${b.d.toFixed(0)}</text>`;
-
-    if (!b.isMain && b.wing) {
-      const connLabel = b.wing.connection === 'open' ? '⬛ open' : '⬜ wall';
-      html += `<text x="${bx+bw/2}" y="${by+bd/2+18}" font-size="8" fill="#888" text-anchor="middle" font-family="system-ui" pointer-events="none">${connLabel}</text>`;
-    }
-
-    // Drag handles for wings (edge midpoints)
-    if (!b.isMain && b.wing && isSelected) {
-      const wing = b.wing;
-      // Outer edge handle (for depth resizing)
-      let hx, hy, hdir;
-      if (wing.face === 'east')  { hx = bx + bw; hy = by + bd/2; hdir = 'depth-e'; }
-      if (wing.face === 'west')  { hx = bx;       hy = by + bd/2; hdir = 'depth-w'; }
-      if (wing.face === 'front') { hx = bx + bw/2;hy = by;        hdir = 'depth-n'; }
-      if (wing.face === 'back')  { hx = bx + bw/2;hy = by + bd;   hdir = 'depth-s'; }
-      html += `<circle cx="${hx}" cy="${hy}" r="5" fill="#e06000" stroke="white" stroke-width="1.5" data-wl-handle="${hdir}" style="cursor:${wing.face==='east'||wing.face==='west'?'ew-resize':'ns-resize'}"/>`;
-
-      // Span handles (for span resize)
-      let sh1x, sh1y, sh2x, sh2y;
-      if (wing.face === 'east' || wing.face === 'west') {
-        sh1x = bx + bw/2; sh1y = by;       // top (adjust offset)
-        sh2x = bx + bw/2; sh2y = by + bd;  // bottom (adjust span)
-        html += `<circle cx="${sh1x}" cy="${sh1y}" r="4" fill="#2a64aa" stroke="white" stroke-width="1.5" data-wl-handle="span-start" style="cursor:ns-resize"/>`;
-        html += `<circle cx="${sh2x}" cy="${sh2y}" r="4" fill="#2a64aa" stroke="white" stroke-width="1.5" data-wl-handle="span-end" style="cursor:ns-resize"/>`;
-      } else {
-        sh1x = bx;       sh1y = by + bd/2;
-        sh2x = bx + bw;  sh2y = by + bd/2;
-        html += `<circle cx="${sh1x}" cy="${sh1y}" r="4" fill="#2a64aa" stroke="white" stroke-width="1.5" data-wl-handle="span-start" style="cursor:ew-resize"/>`;
-        html += `<circle cx="${sh2x}" cy="${sh2y}" r="4" fill="#2a64aa" stroke="white" stroke-width="1.5" data-wl-handle="span-end" style="cursor:ew-resize"/>`;
-      }
-    }
-  }
-
-  // Connection indicator lines
-  for (const wing of (CONFIG.wings || [])) {
-    const pos = wlWingPos(wing, CONFIG.width, CONFIG.depth);
-    let lx1, ly1, lx2, ly2;
-    if (wing.face === 'east')  { lx1=CONFIG.width; ly1=wing.offset+wing.span/2; lx2=pos.x+pos.w; ly2=ly1; }
-    if (wing.face === 'west')  { lx1=0;            ly1=wing.offset+wing.span/2; lx2=pos.x;       ly2=ly1; }
-    if (wing.face === 'front') { lx1=wing.offset+wing.span/2; ly1=0;            lx2=lx1;          ly2=pos.y; }
-    if (wing.face === 'back')  { lx1=wing.offset+wing.span/2; ly1=CONFIG.depth; lx2=lx1;          ly2=pos.y+pos.d; }
-    if (wing.connection === 'wall') {
-      html += `<line x1="${ox+lx1*s}" y1="${oy+ly1*s}" x2="${ox+lx2*s}" y2="${oy+ly2*s}" stroke="#e06000" stroke-width="2" stroke-dasharray="4 3" pointer-events="none"/>`;
-    }
-  }
-
-  // Dimension labels on main block
-  const mb = blocks[0];
-  const mbx = ox, mby = oy;
-  const mbw = mb.w * s, mbd = mb.d * s;
-  html += `<text x="${mbx+mbw/2}" y="${mby-8}" font-size="9" fill="#555" text-anchor="middle" font-family="system-ui">${CONFIG.width}mm</text>`;
-  html += `<text x="${mbx-10}" y="${mby+mbd/2}" font-size="9" fill="#555" text-anchor="middle" font-family="system-ui" transform="rotate(-90,${mbx-10},${mby+mbd/2})">${CONFIG.depth}mm</text>`;
-
-  // "Add wing" + face indicators on main block edges
-  const addSize = 14, addColor = '#2a64aa';
-  function addBtn(ax, ay, label) {
-    html += `<g data-wl-add="${label}" style="cursor:pointer">
-      <rect x="${ax-addSize/2}" y="${ay-addSize/2}" width="${addSize}" height="${addSize}" rx="3" fill="${addColor}" opacity="0.85"/>
-      <text x="${ax}" y="${ay+4}" font-size="11" fill="white" text-anchor="middle" font-family="system-ui" font-weight="bold" pointer-events="none">+</text>
-    </g>`;
-  }
-  addBtn(mbx + mbw/2, mby - 20, 'front');
-  addBtn(mbx + mbw/2, mby + mbd + 20, 'back');
-  addBtn(mbx + mbw + 20, mby + mbd/2, 'east');
-  addBtn(mbx - 20, mby + mbd/2, 'west');
-
-  svg.innerHTML = html;
-  svg.onmousedown = wlMouseDown;
-  svg.onclick = wlClick;
-  wlUpdateShapeLabel();
-}
-
-function wlUpdateShapeLabel() {
-  const n = (CONFIG.wings || []).length;
-  const el = document.getElementById('wlShapeLabel');
-  if (!el) return;
-  if (n === 0) el.textContent = '(single block)';
-  else if (n === 1) el.textContent = '(L-shape or similar)';
-  else if (n === 2) el.textContent = '(T-shape, U-shape, or similar)';
-  else el.textContent = `(${n} wings)`;
-}
-
-/* ---- Add wing buttons ---- */
-function wlUpdateAddButtons() {
-  const container = document.getElementById('wlAddBtns');
-  if (!container) return;
-  const faces = ['front', 'back', 'east', 'west'];
-  const icons = { front: '↑', back: '↓', east: '→', west: '←' };
-  container.innerHTML = '';
-  for (const f of faces) {
-    const btn = document.createElement('button');
-    btn.className = 'wl-add-btn';
-    btn.textContent = `${icons[f]} Add wing on ${f} face`;
-    btn.onclick = () => wlAddWing(f);
-    container.appendChild(btn);
-  }
-}
-
-function wlAddWing(face) {
-  if (!CONFIG.wings) CONFIG.wings = [];
-  const wing = newWing(face, CONFIG.width, CONFIG.depth);
-  CONFIG.wings.push(wing);
-  wlSelectedWingId = wing.id;
-  wlRender();
-  wlShowProps(wing);
-}
-
-/* ---- Click handling ---- */
-function wlClick(e) {
-  if (wlDragState && wlDragState.moved) return;
-  const el = e.target;
-
-  // Add wing button
-  const addFace = el.closest ? el.closest('[data-wl-add]')?.dataset?.wlAdd
-                 : el.getAttribute?.('data-wl-add');
-  if (addFace) { wlAddWing(addFace); return; }
-
-  // Wing click
-  const wingId = el.getAttribute?.('data-wing') || el.closest?.('[data-wing]')?.getAttribute?.('data-wing');
-  if (wingId) {
-    wlSelectedWingId = wingId;
-    const wing = (CONFIG.wings || []).find(w => w.id === wingId);
-    wlRender();
-    wlShowProps(wing);
-    return;
-  }
-
-  // Deselect
-  wlSelectedWingId = null;
-  wlRender();
-  wlShowProps(null);
-}
-
-/* ---- Drag for edge resizing ---- */
-function wlMouseDown(e) {
-  if (e.button !== 0) return;
-  const el = e.target;
-  const handle = el.getAttribute?.('data-wl-handle');
-  if (!handle) return;
-
-  const wing = (CONFIG.wings || []).find(w => w.id === wlSelectedWingId);
-  if (!wing) return;
-
-  wlDragState = { moved: false, handle, origWing: { ...wing } };
-
-  const svg = document.getElementById('wingLayoutSvg');
-  const svgRect = svg.getBoundingClientRect();
-  const startClient = { x: e.clientX, y: e.clientY };
-
-  const onMove = (me) => {
-    const dx = (me.clientX - startClient.x) / WL_SCALE;
-    const dy = (me.clientY - startClient.y) / WL_SCALE;
-    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) wlDragState.moved = true;
-    const ow = wlDragState.origWing;
-
-    if (handle === 'depth-e') wing.depth = Math.max(10, ow.depth + dx);
-    if (handle === 'depth-w') wing.depth = Math.max(10, ow.depth - dx);
-    if (handle === 'depth-s') wing.depth = Math.max(10, ow.depth + dy);
-    if (handle === 'depth-n') wing.depth = Math.max(10, ow.depth - dy);
-
-    if (handle === 'span-end') {
-      if (wing.face === 'east' || wing.face === 'west') {
-        wing.span = Math.max(10, ow.span + dy);
-      } else {
-        wing.span = Math.max(10, ow.span + dx);
-      }
-    }
-    if (handle === 'span-start') {
-      if (wing.face === 'east' || wing.face === 'west') {
-        const newOffset = Math.max(0, ow.offset + dy);
-        const newSpan = Math.max(10, ow.span - (newOffset - ow.offset));
-        wing.offset = newOffset; wing.span = newSpan;
-      } else {
-        const newOffset = Math.max(0, ow.offset + dx);
-        const newSpan = Math.max(10, ow.span - (newOffset - ow.offset));
-        wing.offset = newOffset; wing.span = newSpan;
-      }
-    }
-
-    wing.depth  = Math.round(wing.depth * 2) / 2;
-    wing.span   = Math.round(wing.span * 2) / 2;
-    wing.offset = Math.round(wing.offset * 2) / 2;
-    wlRender();
-    wlShowProps(wing);
-  };
-
-  const onUp = () => {
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-    setTimeout(() => { if (wlDragState) wlDragState.moved = false; }, 10);
-  };
-
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
-}
-
-/* ---- Properties panel ---- */
-function wlShowProps(wing) {
-  const panel = document.getElementById('wlWingProps');
-  if (!panel) return;
-  if (!wing) {
-    panel.style.display = 'none';
-    document.getElementById('wlAddBtns').parentElement.querySelector('h3').style.display = '';
-    return;
-  }
-  panel.style.display = '';
-
-  document.getElementById('wlPropOffset').value  = +(wing.offset).toFixed(1);
-  document.getElementById('wlPropSpan').value    = +(wing.span).toFixed(1);
-  document.getElementById('wlPropDepth').value   = +(wing.depth).toFixed(1);
-  document.getElementById('wlPropHeight').value  = wing.height || '';
-  document.getElementById('wlPropFloors').value  = wing.floors || '';
-  document.getElementById('wlPropCladding').value= wing.claddingStyle || '';
-  document.getElementById('wlPropRoof').value    = wing.roofStyle || '';
-  document.getElementById('wlPropWinDensity').value = wing.windowDensity || '';
-
-  const connWall = document.getElementById('wlConnWall');
-  const connOpen = document.getElementById('wlConnOpen');
-  connWall.classList.toggle('active', wing.connection === 'wall');
-  connOpen.classList.toggle('active', wing.connection === 'open');
-  document.getElementById('wlOpenNote').style.display = wing.connection === 'open' ? '' : 'none';
-
-  // Live-update on input change
-  const fields = [
-    ['wlPropOffset',  v => { wing.offset = +v; }],
-    ['wlPropSpan',    v => { wing.span   = Math.max(10, +v); }],
-    ['wlPropDepth',   v => { wing.depth  = Math.max(10, +v); }],
-    ['wlPropHeight',  v => { wing.height = v ? +v : null; }],
-    ['wlPropFloors',  v => { wing.floors = v ? +v : null; }],
-    ['wlPropCladding',v => { wing.claddingStyle = v || null; }],
-    ['wlPropRoof',    v => { wing.roofStyle     = v || null; }],
-    ['wlPropWinDensity',v=>{ wing.windowDensity = v || null; }],
-  ];
-  for (const [id, setter] of fields) {
-    const el = document.getElementById(id);
-    if (!el) continue;
-    el.oninput = el.onchange = () => { setter(el.value); wlRender(); };
-  }
-}
-
-function wlSetConnection(type) {
-  const wing = (CONFIG.wings || []).find(w => w.id === wlSelectedWingId);
-  if (!wing) return;
-  wing.connection = type;
-  wlShowProps(wing);
-  wlRender();
-}
-
-function wlDeleteSelectedWing() {
-  CONFIG.wings = (CONFIG.wings || []).filter(w => w.id !== wlSelectedWingId);
-  wlSelectedWingId = null;
-  wlRender();
-  wlShowProps(null);
-}
-
-function wlKeyDown(e) {
-  const modal = document.getElementById('wingLayoutModal');
-  if (!modal || modal.style.display === 'none') return;
-  if (e.key === 'Escape') { wlClose(); return; }
-  if ((e.key === 'Delete' || e.key === 'Backspace') && wlSelectedWingId) {
-    e.preventDefault();
-    wlDeleteSelectedWing();
-  }
-}
 </script>
 
 <script>
@@ -19886,6 +19648,7 @@ function weBuildWingCfg(cfg, wing) {
     floors:         wing.floors  || cfg.floors,
     floorHeight:    wing.floorHeight != null ? wing.floorHeight : cfg.floorHeight,
     claddingStyle:  wing.claddingStyle  || cfg.claddingStyle,
+    roofCladdingStyle: wing.roofCladdingStyle || cfg.roofCladdingStyle,
     firstFloorCladdingStyleEnabled: false,
     windowDensity:  wing.windowDensity  != null ? wing.windowDensity  : cfg.windowDensity,
     windowStyle:    wing.windowStyle    || cfg.windowStyle,
@@ -20517,6 +20280,13 @@ function weRenderSidebar() {
   }
 
   selectField('Cladding', 'claddingStyle', Object.entries(CLADDING_STYLES).map(([k, v]) => [k, v.label || k]));
+  // Roof cladding override: separate from wall cladding because the user
+  // may want, e.g., corrugated metal walls + tile roof on a wing while
+  // main has both metal. Falls back to wing.claddingStyle (and then main's
+  // roofCladdingStyle, then main's claddingStyle) via buildWingCfg's
+  // `roofCladdingStyle: wing.roofCladdingStyle || cfg.roofCladdingStyle`
+  // — which inherits down the same precedence chain as wing.claddingStyle.
+  selectField('Roof cladding', 'roofCladdingStyle', Object.entries(CLADDING_STYLES).map(([k, v]) => [k, v.label || k]));
   selectField('Roof',     'roofStyle',     [
     ['flat',    'Flat'],
     ['parapet', 'Parapet'],
@@ -20599,6 +20369,13 @@ function weRenderSidebar() {
    ===================================================================== */
 
 let oeWall = 'front';
+// When non-null, the editor is scoped to a wing's manualOpenings (the wing
+// at CONFIG.wings[oeWingIndex]) — its wall is the canvas, and oeApply
+// writes back to that wing's own manual* fields rather than the main
+// building's. null = main-building editing (the default mode).
+let oeWingIndex = null;
+let oeWingCfg   = null;   // cached buildWingCfg result for the active wing
+let oeWingPlan  = null;   // cached buildEdgePlans result for the active wing
 let oeEditorOpen = false;  // pause Three.js render loop while the opening editor is visible
 let oeExtraTop   = 0;   // SVG px above the eave level (for slant / gable peaks)
 let oeWallEffH   = 0;   // effective wall height (may exceed plan.H for high-eave walls)
@@ -20629,11 +20406,21 @@ let oeEditorScale = 4;
 
 /** Map a part id to a wall key ('front'|'back'|'east'|'west') or null. */
 function wallFromPartId(id) {
+  // Wing-suffix detection: wing parts get a `_wingN` suffix added in
+  // generateBuildingWithWings (e.g. `back_wall_wing0`, `cladding_side_east_wing1`).
+  // Peel it off to expose the underlying wall/cladding id, and capture the
+  // wing index so the caller can route the click to the wing's
+  // manualOpenings instead of the main building's.
+  const wm = id.match(/^(.*)_wing(\d+)$/);
+  const wingIndex = wm ? parseInt(wm[2], 10) : null;
+  const baseId    = wm ? wm[1] : id;
+
   // Core walls
-  if (id === 'front_wall'     || id.startsWith('front_wall_'))     return 'front';
-  if (id === 'back_wall'      || id.startsWith('back_wall_'))      return 'back';
-  if (id === 'side_wall_east' || id.startsWith('side_wall_east_')) return 'east';
-  if (id === 'side_wall_west' || id.startsWith('side_wall_west_')) return 'west';
+  let wall = null;
+  if (baseId === 'front_wall'     || baseId.startsWith('front_wall_'))     wall = 'front';
+  else if (baseId === 'back_wall'      || baseId.startsWith('back_wall_'))      wall = 'back';
+  else if (baseId === 'side_wall_east' || baseId.startsWith('side_wall_east_')) wall = 'east';
+  else if (baseId === 'side_wall_west' || baseId.startsWith('side_wall_west_')) wall = 'west';
   // Cladding panels (also clickable — same openings). Front/back use
   // `cladding_front` / `cladding_back`; sides use `cladding_side_east` /
   // `cladding_side_west` (per generateCladdingPanel's id-building logic at
@@ -20641,35 +20428,71 @@ function wallFromPartId(id) {
   // to be checked first — `cladding_side_east`.startsWith('cladding_east')
   // is false anyway, but listing the side variants explicitly keeps the
   // intent clear.
-  if (id.startsWith('cladding_front'))     return 'front';
-  if (id.startsWith('cladding_back'))      return 'back';
-  if (id.startsWith('cladding_side_east')) return 'east';
-  if (id.startsWith('cladding_side_west')) return 'west';
+  else if (baseId.startsWith('cladding_front'))     wall = 'front';
+  else if (baseId.startsWith('cladding_back'))      wall = 'back';
+  else if (baseId.startsWith('cladding_side_east')) wall = 'east';
+  else if (baseId.startsWith('cladding_side_west')) wall = 'west';
   // Inner parapet cladding — small strips that glue inside the parapet,
   // but they're per-face and a user clicking one is reasonable to take
   // them to the opening editor for that face.
-  if (id === 'cladding_parapet_inner_front') return 'front';
-  if (id === 'cladding_parapet_inner_back')  return 'back';
-  if (id === 'cladding_parapet_inner_east')  return 'east';
-  if (id === 'cladding_parapet_inner_west')  return 'west';
-  return null;
+  else if (baseId === 'cladding_parapet_inner_front') wall = 'front';
+  else if (baseId === 'cladding_parapet_inner_back')  wall = 'back';
+  else if (baseId === 'cladding_parapet_inner_east')  wall = 'east';
+  else if (baseId === 'cladding_parapet_inner_west')  wall = 'west';
+  if (!wall) return null;
+  return { wall, wingIndex };
 }
 
-function openOpeningEditor(wall) {
+/* Returns the object whose manualOpenings/manualAwnings/etc. the editor
+ * reads from and writes back to. For main-building editing this is the
+ * top-level CONFIG; for wing editing it's the wing object at
+ * CONFIG.wings[oeWingIndex]. The same fields exist on both shapes —
+ * manualOpenings, manualAwnings, manualBalconies, manualFixtures,
+ * manualCladdingOverrides, manualPrintedItems — so the editor's
+ * load/save code can use the returned target uniformly. */
+function oeEditTarget() {
+  if (oeWingIndex != null && CONFIG.wings && CONFIG.wings[oeWingIndex]) {
+    return CONFIG.wings[oeWingIndex];
+  }
+  return CONFIG;
+}
+
+function openOpeningEditor(wall, wingIndex) {
   if (typeof wall !== 'string') wall = null;
   if (!lastPlan) { readForm(); regenerate(); }
 
-  // Load structural openings (windows + doors) from manualOpenings
+  // Wing mode: cache the wing's per-wing cfg and plan so the editor's
+  // geometry helpers (oeGetWallDims, oeWallShapeInfo) can return wing
+  // dimensions and the wing's roof shape rather than the main's. The
+  // cache is invalidated each open so changes to wing.span / .depth /
+  // .floors / .height / .roofStyle (via the Edit Shape modal) are
+  // picked up the next time the user clicks a wing wall.
+  if (wingIndex != null && wingIndex >= 0 && CONFIG.wings && CONFIG.wings[wingIndex]) {
+    oeWingIndex = wingIndex;
+    oeWingCfg   = buildWingCfg(CONFIG, CONFIG.wings[wingIndex]);
+    oeWingPlan  = buildEdgePlans(oeWingCfg);
+  } else {
+    oeWingIndex = null;
+    oeWingCfg   = null;
+    oeWingPlan  = null;
+  }
+
+  // Load structural openings from the active edit target (main or wing).
+  const target = oeEditTarget();
   oeOpenings = JSON.parse(JSON.stringify(
-    CONFIG.manualOpenings || { front: null, back: null, east: null, west: null }
+    target.manualOpenings || { front: null, back: null, east: null, west: null }
   ));
 
   // Merge saved awnings, balconies, and fixtures into oeOpenings for editor display/interaction.
-  const savedAwnings   = CONFIG.manualAwnings   || { front: [], back: [], east: [], west: [] };
-  const savedBalconies = CONFIG.manualBalconies || { front: [], back: [], east: [], west: [] };
-  const savedFixtures  = CONFIG.manualFixtures  || { front: [], back: [], east: [], west: [] };
-  const savedOverrides = CONFIG.manualCladdingOverrides || { front: [], back: [], east: [], west: [] };
-  const savedPrinted   = CONFIG.manualPrintedItems || { front: [], back: [], east: [], west: [] };
+  // For wing editing these come from wing.manualAwnings etc.; if the wing
+  // doesn't have those fields yet (older saves or freshly-created wings),
+  // they default to empty arrays — the user can still place new items
+  // and oeApply will materialise the wing's own per-face arrays on save.
+  const savedAwnings   = target.manualAwnings   || { front: [], back: [], east: [], west: [] };
+  const savedBalconies = target.manualBalconies || { front: [], back: [], east: [], west: [] };
+  const savedFixtures  = target.manualFixtures  || { front: [], back: [], east: [], west: [] };
+  const savedOverrides = target.manualCladdingOverrides || { front: [], back: [], east: [], west: [] };
+  const savedPrinted   = target.manualPrintedItems || { front: [], back: [], east: [], west: [] };
   for (const face of ['front', 'back', 'east', 'west']) {
     const aws  = savedAwnings[face]   || [];
     const bals = savedBalconies[face] || [];
@@ -20682,11 +20505,6 @@ function openOpeningEditor(wall) {
       oeOpenings[face].push({
         type: 'cladding_override', x: o.x, y: o.y, w: o.w, h: o.h,
         claddingStyle: o.claddingStyle, layered: !!o.layered,
-        // Optional per-override style parameters. Currently only the
-        // corrugated_metal_overlap style consumes these (sheetW, sheetH,
-        // corrugationSpacing, offsetFraction). Older saves without the
-        // field load to undefined → cladding generator falls back to the
-        // style's defaults in effectiveCladdingStyle().
         styleParams: o.styleParams ? { ...o.styleParams } : undefined,
       });
     for (const a of aws)
@@ -20706,7 +20524,12 @@ function openOpeningEditor(wall) {
   if (_tp) _tp.style.display = 'none';
   oePopulateToolbox();
   oePopulateTopbar();
-  oeSetWall(wall || oeWall);
+  // For wing mode, the connection face ('front' in wing-local coords) is
+  // an interior wall with no laser part. If the caller didn't pin a wall,
+  // default to 'back' (the wing's outermost face — always editable).
+  let initialWall = wall;
+  if (oeWingIndex != null && !initialWall) initialWall = 'back';
+  oeSetWall(initialWall || oeWall);
   oeSetTool(oeTool === 'window' || oeTool === 'door' ? 'move' : oeTool);
 }
 
@@ -20738,26 +20561,27 @@ function oeClose() {
 }
 
 function oeApply() {
-  if (!CONFIG.manualOpenings) CONFIG.manualOpenings = { front: null, back: null, east: null, west: null };
-  if (!CONFIG.manualAwnings)  CONFIG.manualAwnings  = { front: [],  back: [],  east: [],  west: []  };
-  if (!CONFIG.manualBalconies) CONFIG.manualBalconies = { front: [], back: [], east: [], west: [] };
-  if (!CONFIG.manualFixtures)  CONFIG.manualFixtures  = { front: [], back: [], east: [], west: [] };
-  if (!CONFIG.manualCladdingOverrides) CONFIG.manualCladdingOverrides = { front: [], back: [], east: [], west: [] };
-  if (!CONFIG.manualPrintedItems) CONFIG.manualPrintedItems = { front: [], back: [], east: [], west: [] };
+  const target = oeEditTarget();
+  if (!target.manualOpenings) target.manualOpenings = { front: null, back: null, east: null, west: null };
+  if (!target.manualAwnings)  target.manualAwnings  = { front: [],  back: [],  east: [],  west: []  };
+  if (!target.manualBalconies) target.manualBalconies = { front: [], back: [], east: [], west: [] };
+  if (!target.manualFixtures)  target.manualFixtures  = { front: [], back: [], east: [], west: [] };
+  if (!target.manualCladdingOverrides) target.manualCladdingOverrides = { front: [], back: [], east: [], west: [] };
+  if (!target.manualPrintedItems) target.manualPrintedItems = { front: [], back: [], east: [], west: [] };
   for (const w of ['front', 'back', 'east', 'west']) {
     const ops = oeOpenings[w] || [];
     const structural = ops.filter(op =>
       op.type !== 'awning' && op.type !== 'balcony' &&
       op.type !== 'fixture' && op.type !== 'cladding_override' &&
       op.type !== 'printed_item');
-    CONFIG.manualOpenings[w]  = structural.length > 0 ? structural : null;
-    CONFIG.manualAwnings[w]   = ops.filter(op => op.type === 'awning')
+    target.manualOpenings[w]  = structural.length > 0 ? structural : null;
+    target.manualAwnings[w]   = ops.filter(op => op.type === 'awning')
                                    .map(op => ({ x: op.x, y: op.y, w: op.w, d: op.h }));
-    CONFIG.manualBalconies[w] = ops.filter(op => op.type === 'balcony')
+    target.manualBalconies[w] = ops.filter(op => op.type === 'balcony')
                                    .map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h, d: op.d, balconyType: op.balconyType }));
-    CONFIG.manualFixtures[w]  = ops.filter(op => op.type === 'fixture')
+    target.manualFixtures[w]  = ops.filter(op => op.type === 'fixture')
                                    .map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h, style: op.style }));
-    CONFIG.manualCladdingOverrides[w] = ops.filter(op => op.type === 'cladding_override')
+    target.manualCladdingOverrides[w] = ops.filter(op => op.type === 'cladding_override')
                                    .map(op => ({
                                      x: op.x, y: op.y, w: op.w, h: op.h,
                                      claddingStyle: op.claddingStyle,
@@ -20770,7 +20594,7 @@ function oeApply() {
                                      // spurious empty field.
                                      ...(op.styleParams ? { styleParams: { ...op.styleParams } } : {}),
                                    }));
-    CONFIG.manualPrintedItems[w] = ops.filter(op => op.type === 'printed_item')
+    target.manualPrintedItems[w] = ops.filter(op => op.type === 'printed_item')
                                    .map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h, style: op.style }));
   }
   oeClose();
@@ -20826,6 +20650,15 @@ function oeSetTool(tool) {
 }
 
 function oeGetWallDims(wall) {
+  // Wing mode: dims come from the wing's own plan/cfg (cached at open time).
+  // The wing's wall convention: span = front/back axis (wall along the
+  // attachment face), depth = east/west axis. Wing height comes from
+  // wingHeight() so an explicit override is respected.
+  if (oeWingIndex != null && oeWingCfg && oeWingPlan) {
+    const { H, fbWidth, sideLen } = oeWingPlan;
+    if (wall === 'front' || wall === 'back') return { W: fbWidth, H };
+    return { W: sideLen, H };
+  }
   if (!lastPlan) return { W: CONFIG.width, H: CONFIG.height };
   const { H, fbWidth, sideLen } = lastPlan;
   if (wall === 'front' || wall === 'back') return { W: fbWidth, H };
@@ -23053,6 +22886,10 @@ function oeToggleCladding() {
  *   west   : left=south, right=north
  */
 function oeComputeWingExtensions() {
+  // Wing edit mode: a wing has no sub-wings, so there are no coplanar
+  // extensions to render. Returning [] keeps the editor's main wall as
+  // the only canvas drawn — the wing's wall stands alone.
+  if (oeWingIndex != null) return [];
   const wings  = CONFIG.wings || [];
   const plan   = lastPlan;
   const mainW  = CONFIG.width, mainD = CONFIG.depth;
@@ -23106,12 +22943,15 @@ function oeComputeWingExtensions() {
  * For a plain rectangular wall all values are 0 / plan.H.
  */
 function oeWallShapeInfo() {
-  const plan = lastPlan;
-  const baseH = plan ? plan.H : CONFIG.height;
-  const roofStyle = CONFIG.roofStyle;
-  const pitch     = CONFIG.roofPitch || 0;
-  const slopeDir  = CONFIG.roofSlopeDirection || 'back';
-  const ridgeDir  = CONFIG.roofRidgeDirection || 'ew';
+  // In wing mode use the wing's cfg/plan; otherwise main's.
+  const inWing = (oeWingIndex != null && oeWingCfg && oeWingPlan);
+  const plan      = inWing ? oeWingPlan : lastPlan;
+  const srcCfg    = inWing ? oeWingCfg  : CONFIG;
+  const baseH     = plan ? plan.H : srcCfg.height;
+  const roofStyle = srcCfg.roofStyle;
+  const pitch     = srcCfg.roofPitch || 0;
+  const slopeDir  = srcCfg.roofSlopeDirection || 'back';
+  const ridgeDir  = srcCfg.roofRidgeDirection || 'ew';
   const nsAxis    = slopeDir === 'back' || slopeDir === 'front';
   const isSide    = oeWall === 'east' || oeWall === 'west';
 

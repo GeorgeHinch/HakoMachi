@@ -752,9 +752,9 @@
       <div class="field" id="parapetInnerCladdingField">
         <label style="display:flex; align-items:center; gap:6px;">
           <input type="checkbox" id="parapetInnerCladding" checked>
-          <span data-i18n="lbl_parapetInner">Add inner parapet cladding</span>
+          <span data-i18n="lbl_parapetInner">Add inner parapet top-wrap cladding</span>
         </label>
-        <div class="small" data-i18n="hlp_parapetInner">Four thin cladding strips that glue to the inside face of the parapet (the portion of the wall above the roof deck), so the parapet looks clad on both sides.</div>
+        <div class="small" data-i18n="hlp_parapetInner">Four foldable cladding strips that wrap over the parapet wall top and continue down the inside face to the roof deck, hiding both the exposed top edge and the inner parapet face.</div>
       </div>
       <div class="field" id="parapetCapField">
         <label style="display:flex; align-items:center; gap:6px;">
@@ -2040,8 +2040,8 @@ const TRANSLATIONS = {
     /* roof labels */
     lbl_roofStyle: 'Roof style',
     lbl_parapetH: 'Parapet height (mm)',
-    lbl_parapetInner: 'Add inner parapet cladding',
-    hlp_parapetInner: 'Four thin cladding strips that glue to the inside face of the parapet (the portion of the wall above the roof deck), so the parapet looks clad on both sides.',
+    lbl_parapetInner: 'Add inner parapet top-wrap cladding',
+    hlp_parapetInner: 'Four foldable cladding strips that wrap over the parapet wall top and continue down the inside face to the roof deck, hiding both the exposed top edge and the inner parapet face.',
     lbl_pitch: 'Roof pitch (mm rise)',
     lbl_roofOverhangAll: 'Roof overhang on all sides (mm)',
     hlp_roofOverhangAll: 'How far the roof projects past the walls on every side. The cladding above will extend to cover the full overhang.',
@@ -2205,8 +2205,8 @@ const TRANSLATIONS = {
     /* roof labels */
     lbl_roofStyle: '屋根スタイル',
     lbl_parapetH: 'パラペット高さ（mm）',
-    lbl_parapetInner: 'パラペット内側の壁材を追加',
-    hlp_parapetInner: '屋根面より上の壁内側に貼る薄い壁材4枚。パラペットの両面が外装材で覆われた仕上がりになります。',
+    lbl_parapetInner: 'パラペット上端回り込み内側壁材を追加',
+    hlp_parapetInner: 'パラペット壁の上端を回り込み、屋根面まで内側に下がる折り曲げ式の壁材4枚です。露出する上端と内側面の両方を隠します。',
     lbl_pitch: '屋根勾配・立ち上がり（mm）',
     lbl_roofOverhangAll: '四方の軒の出（mm）',
     hlp_roofOverhangAll: '屋根が壁より外側にどれだけ張り出すか。上に貼る外装材も張り出し全体を覆います。',
@@ -13986,13 +13986,24 @@ function generateInnerParapetCladding(cfg, plan) {
                   || 'cladding';
 
   // ─── Flat parapet roof ─────────────────────────────────────────────
-  // Four rectangular strips, one per wall. Height is the parapet band
-  // (parapetH) — flat roof has no pitch above the eave, so the parapet
-  // is a constant-height band around the building.
+  // Four foldable top-wrap strips, one per wall. Each strip is no longer
+  // just the visible INSIDE face of the parapet. It now includes:
+  //   • a top cap band = matT, which folds over the exposed core top edge;
+  //   • an inside drop = parapetH, which continues down the inner face to
+  //     the recessed roof deck.
+  // In flat layout the cap sits above the fold line and the patterned
+  // inner face sits below it:
+  //      y=0 ............. top-cap outer edge
+  //      y=matT .......... score/fold line over wall top
+  //      y=matT+parapetH . bottom edge at roof deck
+  // This keeps the exterior wall cladding unchanged while hiding both
+  // bare surfaces that are visible from above: the parapet's top edge and
+  // the vertical inside space between the roof and the top of the wall.
   if (cfg.roofStyle === 'parapet') {
     if (!parapetH || parapetH <= 0) return [];
     if (!styleSpec) return [];
     const parts = [];
+    const wrapDepth = matT;
     const faces = [
       { which: 'front', label: 'Front', width: fbWidth - 2 * matT },
       { which: 'back',  label: 'Back',  width: fbWidth - 2 * matT },
@@ -14002,12 +14013,22 @@ function generateInnerParapetCladding(cfg, plan) {
     for (const { which, label, width } of faces) {
       if (width <= 0) continue;
       const w = width;
-      const h = parapetH;
-      const patSegs = generateCladdingPattern(styleSpec, 0, 0, w, h, [], null);
-      const lines = patSegs.map(seg => ({ type: 'etch', x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2 }));
+      const h = wrapDepth + parapetH;
+      const lines = [
+        // Fold/score line: the narrow band above this folds over the top
+        // of the wall; the larger lower band glues to the inside face.
+        { type: 'etch', x1: 0, y1: wrapDepth, x2: w, y2: wrapDepth },
+      ];
+      // Etch the cladding pattern only on the vertical inside face. The
+      // horizontal top cap is deliberately left plain so it reads as a
+      // folded edge instead of another wall face.
+      const patSegs = generateCladdingPattern(styleSpec, 0, wrapDepth, w, h, [], null);
+      for (const seg of patSegs) {
+        lines.push({ type: 'etch', x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2 });
+      }
       parts.push({
         id: 'cladding_parapet_inner_' + which,
-        name: label + ' inner parapet cladding',
+        name: label + ' inner parapet top-wrap cladding',
         material: material,
         bboxW: w,
         bboxH: h,
@@ -14016,6 +14037,7 @@ function generateInnerParapetCladding(cfg, plan) {
         paths: [{ type: 'cut', d: rectPath(0, 0, w, h) }],
         rects: [],
         lines: lines,
+        assemblyNote: `Score the fold line ${wrapDepth.toFixed(1)} mm from the edge. Fold that narrow band over the parapet wall top, then glue the remaining ${parapetH.toFixed(1)} mm band down the inside face to the roof deck.`,
       });
     }
     return parts;
@@ -27751,7 +27773,11 @@ function updateThreePreview(cfg) {
       makeRoofMats(topW, topD)
     );
     rm.rotation.x = nsAxis ? (slopeDir === 'back' ? -angle : angle) : 0;
-    rm.rotation.z = nsAxis ? 0 : (slopeDir === 'east' ? -angle : angle);
+    // Z-axis rotations use the opposite sign convention from X-axis slopes:
+    // positive rotation around Z raises the +X/east side. The old code had
+    // this sign inverted, which made east/west sloped preview roofs render
+    // as if the high side were on the opposite edge.
+    rm.rotation.z = nsAxis ? 0 : (slopeDir === 'east' ? angle : -angle);
     rm.position.set(0, h + pitch / 2, 0);   // centre of slope above wall top (both eave ends equal)
     group.add(rm);
   } else if (roofStyle3d === 'gabled') {
@@ -27783,7 +27809,12 @@ function updateThreePreview(cfg) {
         rm.rotation.x = sign * slantAngle;
         rm.position.set(0, h + pitch / 2, sign * panelCentreOffset);
       } else {
-        rm.rotation.z = sign * slantAngle;
+        // For an N/S ridge the slope runs along world X. Positive rotation
+        // around Z raises +X, so the panel sitting on the +X/east side must
+        // use the NEGATIVE sign to put its high edge at the centre ridge.
+        // The previous sign made the ridge a low valley and the outside
+        // eaves high, so the 3D gable preview looked upside down.
+        rm.rotation.z = -sign * slantAngle;
         rm.position.set(sign * panelCentreOffset, h + pitch / 2, 0);
       }
       group.add(rm);

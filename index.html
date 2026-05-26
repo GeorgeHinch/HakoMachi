@@ -18437,11 +18437,23 @@ function newWing(face, mainW, mainD) {
   };
 }
 
-/* ---- Wing height (locked to main's floor heights) ----
-   Wings always inherit the main building's first-floor height and standard
-   floor height. Wing total height is therefore determined solely by its
-   floor count, never by an explicit height value. */
+/* ---- Wing height (with optional explicit override) ----
+   By default a wing inherits the main building's first-floor and standard
+   floor heights, and its total height is computed from its floor count.
+   This keeps the floors aligned with the main block — essential for the
+   'open' connection mode where the wing and main interiors share floor
+   bands.
+
+   If wing.height is set to a positive number, that value is used directly
+   as the wing's total height instead. This breaks floor alignment with
+   the main building, so it's intended for 'wall' connections (where the
+   wing is sealed off from the main interior) — used for things like a
+   shorter mechanical penthouse, a taller atrium wing, or any wing where
+   the main building's floor rhythm doesn't fit visually. buildWingCfg
+   scales the wing's per-floor heights proportionally so its own floor
+   bands still divide the override evenly. */
 function wingHeight(cfg, wing) {
+  if (wing.height && wing.height > 0) return wing.height;
   const floorH = (cfg.floorHeight && cfg.floorHeight > 0) ? cfg.floorHeight : 30;
   const firstH = (cfg.firstFloorHeightEnabled && cfg.firstFloorHeight && cfg.firstFloorHeight > 0)
     ? cfg.firstFloorHeight
@@ -18458,14 +18470,41 @@ function buildWingCfg(cfg, wing) {
   //   "width" in buildEdgePlans = the wing's front/back wall dimension = wing.span
   //   "depth" in buildEdgePlans = the wing's side wall dimension     = wing.depth
   // Roof overrides: each may be null (inherit from main cfg) or a wing-specific value.
-  // floorHeight / firstFloorHeight / firstFloorHeightEnabled are INHERITED from cfg
-  // via Object.assign and intentionally NOT overridden — wings use main's floor heights.
+
+  // Floor heights: by default a wing inherits the main's per-floor and
+  // first-floor heights so its floor bands align with the main's (open
+  // connections rely on this). When wing.height is set as an explicit
+  // override, the wing's TOTAL height no longer matches what the main's
+  // floor heights would produce — so we scale the wing's own floor heights
+  // proportionally to keep its band-count = floor-count math consistent.
+  // The first-floor-taller proportion (if main has it enabled) is preserved
+  // through the scale. Open connections to a height-overridden wing will
+  // look misaligned at floor levels — by design; the wall-connection mode
+  // is the intended use for overrides.
+  const mainFloorH = (cfg.floorHeight && cfg.floorHeight > 0) ? cfg.floorHeight : 30;
+  const mainFirstH = (cfg.firstFloorHeightEnabled && cfg.firstFloorHeight && cfg.firstFloorHeight > 0)
+    ? cfg.firstFloorHeight
+    : mainFloorH;
+  const inheritedTotal = mainFirstH + (fcount - 1) * mainFloorH;
+  const overrideActive = !!(wing.height && wing.height > 0
+                            && Math.abs(wing.height - inheritedTotal) > 0.01);
+  const scale = overrideActive ? (h / inheritedTotal) : 1;
+  const wingFloorH = mainFloorH * scale;
+  const wingFirstH = mainFirstH * scale;
+
   return Object.assign({}, cfg, {
     width:  wing.span,
     depth:  wing.depth,
     height: h,
     floors:     fcount,
     floorCount: fcount,    // buildEdgePlans reads floorCount, not floors
+    // Override floor heights only when wing.height is an explicit override;
+    // otherwise inherit cfg's via Object.assign (no override = identity).
+    ...(overrideActive ? {
+      floorHeight: wingFloorH,
+      firstFloorHeight: wingFirstH,
+      firstFloorHeightEnabled: true,
+    } : {}),
     claddingStyle: wing.claddingStyle || cfg.claddingStyle,
     windowDensity: wing.windowDensity || cfg.windowDensity,
     roofStyle:          wing.roofStyle          || cfg.roofStyle,
@@ -20407,21 +20446,38 @@ function weRenderSidebar() {
   numField('Offset (mm)',  'offset', 0,   500, 1);
   twoNumFields('Span (mm)', 'span', 'Depth (mm)', 'depth', 5, 500, 1);
   numField('Floors',       'floors',  1,   10, 1);
+  // Optional height override — leave blank to derive from Floors × main
+  // building floor heights. Set to a positive value to lock the wing's
+  // total height regardless of floor count. The wing's per-floor heights
+  // scale to fit, so the floor band positions still divide the override
+  // evenly. Best used with 'wall' connections; 'open' connections rely on
+  // floor heights matching the main building's, which a height override
+  // breaks by design.
+  numField('Height override (mm) — blank inherits', 'height', 10, 500, 1);
 
   // Show the derived total height as a read-only hint so users know what
-  // floor count maps to. Wing height is locked to main building floor heights:
-  // first floor matches main's first-floor height, each floor above is one
-  // standard main floor height.
+  // floor count / override maps to. The hint adapts to which mode is active.
   (function showDerivedHeight() {
     const h = wingHeight(CONFIG, wing);
     const floorH = (CONFIG.floorHeight && CONFIG.floorHeight > 0) ? CONFIG.floorHeight : 30;
     const firstH = (CONFIG.firstFloorHeightEnabled && CONFIG.firstFloorHeight && CONFIG.firstFloorHeight > 0)
       ? CONFIG.firstFloorHeight
       : floorH;
+    const inheritedTotal = firstH + ((wing.floors || 1) - 1) * floorH;
+    const overrideActive = !!(wing.height && wing.height > 0
+                              && Math.abs(wing.height - inheritedTotal) > 0.01);
     const hint = document.createElement('div');
     hint.className = 'we-hint';
     hint.style.cssText = 'font-size:11px;color:#666;margin:-4px 0 8px 0;line-height:1.4;';
-    hint.textContent = `Height: ${h} mm (1st floor ${firstH} mm + ${(wing.floors||1)-1} × ${floorH} mm) — locked to main building`;
+    if (overrideActive) {
+      const scale = h / inheritedTotal;
+      const scaledFirst = (firstH * scale).toFixed(1);
+      const scaledStd   = (floorH * scale).toFixed(1);
+      hint.textContent = `Height: ${h} mm (OVERRIDE — wing floors scaled to 1st ${scaledFirst} mm + ${(wing.floors||1)-1} × ${scaledStd} mm)`;
+      hint.style.color = '#a05000';
+    } else {
+      hint.textContent = `Height: ${h} mm (1st floor ${firstH} mm + ${(wing.floors||1)-1} × ${floorH} mm — inherited from main)`;
+    }
     sidebar.appendChild(hint);
   })();
 

@@ -4624,6 +4624,26 @@ function placeTongues(edgeLength, tongueWidth, minMargin, forbidden, targetCount
   return tongues;
 }
 
+/* Mirror slot positions along an edge while preserving slot widths.
+ * Used when converting wall-local tongue coordinates into floor-plan
+ * coordinates.  The front wall is edited/exported as an exterior elevation,
+ * but the floor plan is viewed from above with the front edge at the top;
+ * those two views face each other, so the front wall's left/right order is
+ * reversed on the floor panel. */
+function mirrorSlotsAlongEdge(slots, edgeLength) {
+  return (slots || [])
+    .map(s => {
+      const center = (s.center != null) ? s.center : (s.start + s.end) / 2;
+      return {
+        ...s,
+        start: edgeLength - s.end,
+        end:   edgeLength - s.start,
+        center: edgeLength - center,
+      };
+    })
+    .sort((a, b) => a.start - b.start);
+}
+
 /**
  * Build a wall path with tongues, slots, and openings.
  * The path starts at (0,0), goes around clockwise, and returns.
@@ -6179,22 +6199,22 @@ function buildEdgePlans(cfg) {
   const includeFloorPanels = !!cfg.floorPanels;
   const fcount  = (cfg.floorCount && cfg.floorCount > 0) ? cfg.floorCount : 1;
   const fheight = fheightCfg;
+  const hasSecondFloor = fcount >= 2;
 
   // ── Inter-floor panels ──────────────────────────────────────────────────────
-  // Placed purely from floor count/height — no bay dependency.
-  // The first (lowest) panel sits at H − firstBandH from the top; subsequent
-  // panels step upward by fheight. The bay opening fits BELOW the first panel;
-  // its height is auto-capped so the panel's tongue slots always land in solid
-  // wall material rather than in the bay void.
+  // Placed from floor count/height. The first (lowest) panel sits at
+  // H − firstBandH from the top; subsequent panels step upward by fheight.
+  // When a bay exists, this first panel can act as the bay ceiling /
+  // first-to-second-floor separator — but ONLY if the building actually has a
+  // second floor. Single-floor bay buildings should not get an automatic
+  // hidden inter-floor panel or the matching wall/floor slots.
   const interFloorYs = [];
-  // Bay ceiling panel is always required when a bay exists — it physically closes
-  // the top of the bay opening — regardless of the inter-floor panel toggle.
-  if (hasFrontBay || hasBackBay) {
+  if ((hasFrontBay || hasBackBay) && hasSecondFloor) {
     interFloorYs.push(H - firstBandH);
   }
   // Additional inter-floor panels above (only when the setting is on and fcount >= 2).
   // Deduplicated so the bay ceiling Y is never double-added.
-  if (includeFloorPanels && fcount >= 2) {
+  if (includeFloorPanels && hasSecondFloor) {
     const lowest     = H - firstBandH;
     const upperBound = parapetHeight + matT + 3;
     let y = lowest, safety = 20;
@@ -6232,7 +6252,7 @@ function buildEdgePlans(cfg) {
   // Use the fixed first-floor panel position as the base for visual floor bands —
   // NOT bayCeilingY (the opening top), which moves when the user adjusts bay height
   // and would incorrectly add/remove window rows.
-  const baseY = (hasFrontBay || hasBackBay) ? (H - firstBandH) : H;
+  const baseY = ((hasFrontBay || hasBackBay) && hasSecondFloor) ? (H - firstBandH) : H;
   const visTopBound = parapetHeight + matT + 3;
   let vy = baseY - fheight;
   let safety = 30;
@@ -9303,8 +9323,14 @@ function generateFloor(cfg, plan) {
   const eastForbidden  = doorForbiddenZones(eastDoors);
   const westForbidden  = doorForbiddenZones(westDoors);
 
-  // Use count=3 for all edges, matching the targetCount used in the wall generators
-  const frontSlots = placeTongues(floorW, tw, margin, frontForbidden, 3, tw / 2);
+  // Use count=3 for all edges, matching the targetCount used in the wall generators.
+  // Front-wall tongues are generated in exterior-elevation coordinates. The
+  // floor plan is viewed from above with the front edge at the top, so the
+  // front wall's left/right order is reversed on the floor panel. Mirror only
+  // the FRONT edge slots here; back/east/west already map to the floor edge
+  // coordinates used below.
+  const frontWallLocalSlots = placeTongues(floorW, tw, margin, frontForbidden, 3, tw / 2);
+  const frontSlots = mirrorSlotsAlongEdge(frontWallLocalSlots, floorW);
   const backSlots  = placeTongues(floorW, tw, margin, backForbidden,  3, tw / 2);
   const eastSlots  = placeTongues(sideLen, tw, margin, eastForbidden, 3, tw / 2);
   const westSlots  = placeTongues(sideLen, tw, margin, westForbidden, 3, tw / 2);
@@ -9436,7 +9462,11 @@ function generateMergedFloor(cfg, plan) {
   const eastForbidden  = [...doorForbiddenZones(eastDoors), ...eastWingF];
   const westForbidden  = [...doorForbiddenZones(westDoors), ...westWingF];
 
-  const frontSlots = placeTongues(fbWidth, tw, margin, frontForbidden, 3, tw / 2);
+  // Same front-edge mirror as generateFloor(): wall-local front tongues are
+  // exterior-elevation coordinates, while this merged floor outline is a
+  // top-down plan with the front edge at the top.
+  const frontWallLocalSlots = placeTongues(fbWidth, tw, margin, frontForbidden, 3, tw / 2);
+  const frontSlots = mirrorSlotsAlongEdge(frontWallLocalSlots, fbWidth);
   const backSlots  = placeTongues(fbWidth, tw, margin, backForbidden,  3, tw / 2);
   const eastSlots  = placeTongues(sideLen, tw, margin, eastForbidden,  3, tw / 2);
   const westSlots  = placeTongues(sideLen, tw, margin, westForbidden,  3, tw / 2);

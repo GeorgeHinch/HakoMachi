@@ -785,7 +785,17 @@
           <option value="flat_overhang" data-i18n-opt="opt_flat_overhang">Flat with overhang (metal-clad)</option>
           <option value="slanted" data-i18n-opt="opt_slanted">Slanted (single slope)</option>
           <option value="gabled" data-i18n-opt="opt_gabled">Gabled (peaked)</option>
+          <option value="parapet_gable" data-i18n-opt="opt_parapet_gable">Parapet-hidden gable (false-front)</option>
         </select>
+      </div>
+      <div class="field" id="parapetSidesField" style="display:none">
+        <label data-i18n="lbl_parapetSides">Parapet sides</label>
+        <select id="parapetSides">
+          <option value="all"  data-i18n-opt="opt_parapetSidesAll">All four walls (fully hidden gable)</option>
+          <option value="fb"   data-i18n-opt="opt_parapetSidesFB">Front &amp; back only (gable visible from sides)</option>
+          <option value="ew"   data-i18n-opt="opt_parapetSidesEW">East &amp; west only (gable visible from front)</option>
+        </select>
+        <div class="small" data-i18n="hlp_parapetSides">Which walls extend up as parapets to hide the gable peak behind. With FB or EW only, the gable's ridge runs perpendicular to the parapet wall so the parapets are on the peak-end sides; the other two walls show the roof slopes meeting their flat eave tops.</div>
       </div>
       <div class="field" id="parapetHeightField">
         <label data-i18n="lbl_parapetH">Parapet height (mm)</label>
@@ -797,6 +807,13 @@
           <span data-i18n="lbl_parapetInner">Add inner parapet cladding</span>
         </label>
         <div class="small" data-i18n="hlp_parapetInner">Four thin cladding strips that glue to the inside face of the parapet (the portion of the wall above the roof deck), so the parapet looks clad on both sides.</div>
+      </div>
+      <div class="field" id="parapetCapField">
+        <label style="display:flex; align-items:center; gap:6px;">
+          <input type="checkbox" id="parapetCap">
+          <span data-i18n="lbl_parapetCap">Add ridge cap</span>
+        </label>
+        <div class="small" data-i18n="hlp_parapetCap">A single 3 mm-wide strip with an etched centre fold line, sized to the roof's ridge length. Score along the etch, fold to match the ridge angle, and glue 1.5 mm to each slope along the seam where the two roof panels meet.</div>
       </div>
       <div class="field" id="roofPitchField" style="display:none">
         <label data-i18n="lbl_pitch">Roof pitch (mm rise)</label>
@@ -843,6 +860,20 @@
           <span style="width:30px;"></span>
           <span style="flex:1;text-align:center;" data-i18n="lbl_ohEW">East / west</span>
         </div>
+      </div>
+      <div class="field" id="soffitCladdingField" style="display:none">
+        <label style="display:flex; align-items:center; gap:6px;">
+          <input type="checkbox" id="soffitCladding">
+          <span data-i18n="lbl_soffitCladding">Add soffit cladding</span>
+        </label>
+        <div class="small" data-i18n="hlp_soffitCladding">Flat cladding pieces sized to the underside of each eave overhang (one per eave side). Glue to the bottom of the overhang where it sticks out past the wall — covers the otherwise-bare core material visible from below. Sized to the overhang's slope distance for gabled roofs (so it covers the full sloped underside).</div>
+      </div>
+      <div class="field" id="roofFasciaTrimField" style="display:none">
+        <label style="display:flex; align-items:center; gap:6px;">
+          <input type="checkbox" id="roofFasciaTrim">
+          <span data-i18n="lbl_roofFasciaTrim">Add fascia trim</span>
+        </label>
+        <div class="small" data-i18n="hlp_roofFasciaTrim">3 mm-wide trim strips that follow the roof's perimeter, hiding the exposed core material at the panel edges. Gabled: a chevron piece outlining each gable peak's V-shape (the "triangle on each gable") plus a straight strip along each eave (the "end cap"). Slanted: a parallelogram per slanted-top wall, with vertical short ends so the wall's top edge looks flat-finished rather than tapering inward to a thin point.</div>
       </div>
     </details>
 
@@ -4337,6 +4368,23 @@ let CONFIG = {
   // a centred fold line, covering the exposed cladding edges where two
   // adjacent faces meet.
   cornerTrim: false,
+  // Parapet cap — narrow 3 mm strips that fold over each parapet wall's
+  // top edge (or each plain-gabled wall's triangular peak), hiding the
+  // exposed core-material edge that the regular cladding doesn't cover.
+  parapetCap: false,
+  // Soffit cladding — flat cladding pieces sized to the underside of
+  // each eave overhang, covering the bare core material visible from
+  // below. Applies to flat_overhang (all 4 sides) and gabled roofs
+  // (the 2 eave sides under the current ridge direction).
+  soffitCladding: false,
+  // Roof fascia trim — 3 mm-wide trim strips following the roof's
+  // perimeter (the panel edges), hiding exposed core material there.
+  // For gabled: a chevron piece outlining each gable peak's V-shape
+  // (the "triangle on each gable") plus a straight strip along each
+  // eave (the "end cap"). For slanted: a parallelogram per
+  // slanted-top wall, with vertical short ends so the wall's top
+  // edge looks flat-finished rather than tapering inward.
+  roofFasciaTrim: false,
   // Inter-floor core panels
   floorPanels: false,
   lastWallSide: 'back',
@@ -5052,12 +5100,48 @@ function buildLShapePath(mainW, mainH, extW, extH, extRight) {
 
 /** Returns true when this wall face is the triangular GABLE END for a gabled roof. */
 function isGableEndWall(cfg, which) {
-  if (cfg.roofStyle !== 'gabled') return false;
-  const ridge = cfg.roofRidgeDirection || 'ew';
+  if (cfg.roofStyle !== 'gabled' && cfg.roofStyle !== 'parapet_gable') return false;
+  const ridge = effectiveRidgeDir(cfg);
   // EW ridge: slopes face N/S → eave walls are front/back; GABLE ENDS are east/west
   // NS ridge: slopes face E/W → eave walls are east/west; GABLE ENDS are front/back
   if (which === 'east'  || which === 'west') return ridge === 'ew';
   if (which === 'front' || which === 'back') return ridge === 'ns';
+  return false;
+}
+
+/* Effective ridge direction for gable-style roofs.
+ *
+ * For the plain `gabled` style, the user picks via cfg.roofRidgeDirection
+ * — either 'ew' or 'ns'.
+ *
+ * For `parapet_gable`, the user's parapet-sides choice constrains the
+ * ridge so the parapets always sit on the peak-end walls (otherwise the
+ * parapets wouldn't be hiding anything and the style would lose its
+ * purpose):
+ *   • parapetSides = 'fb' → ridge must be 'ns' (peaks on front/back)
+ *   • parapetSides = 'ew' → ridge must be 'ew' (peaks on east/west)
+ *   • parapetSides = 'all' → ridge is user-picked (defaults to 'ew')
+ *
+ * Returns 'ew' or 'ns'. */
+function effectiveRidgeDir(cfg) {
+  if (cfg.roofStyle === 'parapet_gable') {
+    const sides = cfg.parapetSides || 'all';
+    if (sides === 'fb') return 'ns';
+    if (sides === 'ew') return 'ew';
+    // 'all' — fall through to user pick
+  }
+  return cfg.roofRidgeDirection || 'ew';
+}
+
+/* True if the given wall should be extended upward as a parapet under
+ * the `parapet_gable` roof style. For other roof styles always false —
+ * the existing wall generators handle their tops in the usual way. */
+function wallHasParapet(cfg, which) {
+  if (cfg.roofStyle !== 'parapet_gable') return false;
+  const sides = cfg.parapetSides || 'all';
+  if (sides === 'all') return true;
+  if (sides === 'fb') return (which === 'front' || which === 'back');
+  if (sides === 'ew') return (which === 'east'  || which === 'west');
   return false;
 }
 
@@ -6428,7 +6512,19 @@ function generateSideWall(cfg, plan, side) {
   const slopeDir = cfg.roofSlopeDirection || 'back';
   const slantNsAxis = (slopeDir === 'front' || slopeDir === 'back');
   let perimeter;
-  if (isSlantedRoof && slantNsAxis) {
+  // Parapet-hidden gable: this wall's top depends on whether it has a
+  // parapet under the chosen `parapetSides`. With parapet, the wall
+  // extends flat upward by (pitch + parapetH) so its top sits above the
+  // hidden gable peak — same shape as the high-side FB wall of an NS
+  // slanted roof, just reused here. Without parapet, the wall keeps the
+  // standard gabled shape: triangular peak for gable ends, flat top
+  // at H for eave walls.
+  const isParapetGable = (roofStyle === 'parapet_gable');
+  const hasParapetHere = isParapetGable && wallHasParapet(cfg, sideWallFace);
+  if (isParapetGable && hasParapetHere) {
+    const ext = sPitch + (parapetH || 0);
+    perimeter = buildSlantedWallPath(sideLen, H, ext, ext, wallSpec);
+  } else if (isSlantedRoof && slantNsAxis) {
     // Side (E/W) walls need slanted tops for NS-axis slopes
     const pitchL = (slopeDir === 'front') ? sPitch : 0;  // south/left end pitch
     const pitchR = (slopeDir === 'back')  ? sPitch : 0;  // north/right end pitch
@@ -6565,6 +6661,59 @@ function generateSideWall(cfg, plan, side) {
   const sideWallPaths = [{ type: 'cut', d: perimeter }];
   cutFixtureHolesInCore(rects, sideWallPaths, cfg, _sideWallKey, sideMirrorFn);
 
+  // parapet_gable VERGE SLOTS — interior cuts in this gable wall that
+  // accept the roof panels' verge tongues. The slots run along the
+  // verge line (from corner up to peak at center) at the panel's
+  // slope angle, so the joint locks each panel at that angle rather
+  // than just glueing it flat against the wall.
+  //
+  // Geometry: the would-be triangular peak has its apex at
+  // (sideLen/2, -sPitch) and base corners at (0, 0) and (sideLen, 0).
+  // The south half's verge line runs from (0,0) to (sideLen/2, -sPitch);
+  // the north half's verge runs from (sideLen, 0) to (sideLen/2, -sPitch).
+  // Same `placeTongues(vergeSlantLen, ...)` call as the roof panel
+  // (see generateRoof's vergeTongues) so slot positions match the
+  // panel's tongue positions bit-for-bit.
+  //
+  // Each slot is drawn as a 4-corner path (parallelogram aligned with
+  // the verge), with kerf compensation applied directly to the corner
+  // math because the standard `compensateKerf: true` flag on rects
+  // only handles axis-aligned rectangles.
+  if (roofStyle === 'parapet_gable' && isSideGableEnd) {
+    const sP = sPitch;
+    const vergeSlantLen = Math.hypot(sideLen / 2, sP);
+    const cosA = (sideLen / 2) / vergeSlantLen;
+    const sinA = sP / vergeSlantLen;
+    const vergeMargin = Math.max(matT * 2, 5);
+    const slotCount = Math.max(2, Math.min(4, Math.floor(vergeSlantLen / 25)));
+    const slotPoss = placeTongues(vergeSlantLen, tw, vergeMargin, [], slotCount, tw / 2);
+    const k = cfg.kerfComp || 0;
+
+    for (const slot of slotPoss) {
+      const s1 = slot.start + k;
+      const s2 = slot.end - k;
+      const hw = matT / 2 - k;
+
+      // South half: verge from (0,0) → (sideLen/2, -sP). Corners at the
+      // slot's two ends, offset perpendicular by ±hw.
+      const sx2 = s2 * cosA, sy2 = -s2 * sinA;
+      const sx1 = s1 * cosA, sy1 = -s1 * sinA;
+      const px = hw * sinA, py = hw * cosA;
+      const sPath = `M ${(sx2 + px).toFixed(3)},${(sy2 + py).toFixed(3)} `
+                  + `L ${(sx2 - px).toFixed(3)},${(sy2 - py).toFixed(3)} `
+                  + `L ${(sx1 - px).toFixed(3)},${(sy1 - py).toFixed(3)} `
+                  + `L ${(sx1 + px).toFixed(3)},${(sy1 + py).toFixed(3)} Z`;
+      sideWallPaths.push({ type: 'cut', d: sPath });
+
+      // North half: mirror x around sideLen/2.
+      const nPath = `M ${(sideLen - sx2 + px).toFixed(3)},${(sy2 + py).toFixed(3)} `
+                  + `L ${(sideLen - sx2 - px).toFixed(3)},${(sy2 - py).toFixed(3)} `
+                  + `L ${(sideLen - sx1 - px).toFixed(3)},${(sy1 - py).toFixed(3)} `
+                  + `L ${(sideLen - sx1 + px).toFixed(3)},${(sy1 + py).toFixed(3)} Z`;
+      sideWallPaths.push({ type: 'cut', d: nPath });
+    }
+  }
+
   // Bbox extension: the slanted-NS side wall has its top edge slanted from
   // y=−pitchL at x=0 to y=−pitchR at x=sideLen — the bbox already covers
   // that via `H + sPitch + matT`/`bboxOffsetY = sPitch`. When the wall ALSO
@@ -6576,17 +6725,26 @@ function generateSideWall(cfg, plan, side) {
   // safe upper bound. So when topTongues are present, grow the bbox up
   // by matT (same shape of adjustment as the high-side FB wall).
   const sideTopTongueOverhang = (topTongues.length > 0 && isSlantedRoof && slantNsAxis) ? matT : 0;
+  // For parapet_gable walls that carry a parapet, the wall extends
+  // upward by `pitch + parapetH` — the perimeter draws that extension
+  // via buildSlantedWallPath, but the bbox needs to grow to match or
+  // the upward part gets clipped from the laser preview.
+  const parapetUpExt = (hasParapetHere) ? (sPitch + (parapetH || 0)) : 0;
   return {
     id: side === 'E' ? 'side_wall_east' : 'side_wall_west',
     name: side === 'E' ? 'Side Wall East' : 'Side Wall West',
     material: 'core',
     bboxW: sideLen + 2 * matT,
-    bboxH: isSideGableEnd
+    bboxH: hasParapetHere
+            ? H + parapetUpExt + matT
+            : isSideGableEnd
             ? H + sPitch + matT
             : (isSlantedRoof && slantNsAxis) ? H + sPitch + matT + sideTopTongueOverhang
             : H + 2 * matT,
     bboxOffsetX: matT,
-    bboxOffsetY: isSideGableEnd
+    bboxOffsetY: hasParapetHere
+            ? parapetUpExt
+            : isSideGableEnd
             ? sPitch
             : (isSlantedRoof && slantNsAxis) ? sPitch + sideTopTongueOverhang
             : matT,
@@ -6793,7 +6951,22 @@ function generateFrontBackWall(cfg, plan, which) {
   // Gable-end walls: replace with pentagon (triangle above eave level).
   const pitch = cfg.roofPitch || 10;
   const isGableEnd = isGableEndWall(cfg, which) && !hasBay;
-  if (isGableEnd) {
+  // Parapet-hidden gable: same logic as the side wall — if this FB wall
+  // carries a parapet under the chosen parapetSides, replace the top
+  // with a flat extension `pitch + parapetH` above the eave. Wins over
+  // both isGableEnd and the slanted-FB branches below: when the user
+  // picks parapet_gable, those alternate paths shouldn't apply.
+  const isParapetGable = (roofStyle === 'parapet_gable');
+  const hasParapetHere = isParapetGable && wallHasParapet(cfg, which);
+  if (hasParapetHere) {
+    const ext = pitch + (parapetH || 0);
+    if (hasBay) {
+      wallSpec.topExtension = ext;
+      perimeter = buildFBWallWithBay(wallSpec, plan);
+    } else {
+      perimeter = buildSlantedWallPath(fbWidth, H, ext, ext, wallSpec);
+    }
+  } else if (isGableEnd) {
     const fbSlopeTabSpec = { tw, margin, kerf: cfg.kerfComp || 0 };
     perimeter = buildGableWallPath(fbWidth, H, pitch, wallSpec, fbSlopeTabSpec);
   }
@@ -6999,6 +7172,44 @@ function generateFrontBackWall(cfg, plan, which) {
   const wallPaths = [{ type: 'cut', d: perimeter }];
   cutFixtureHolesInCore(rects, wallPaths, cfg, which, null);
 
+  // parapet_gable VERGE SLOTS — same construction as the side wall's
+  // verge slots (see generateSideWall for the rationale), but applied
+  // here when the FB wall is the gable wall (i.e. under ridge-ns:
+  // 'fb' mode, or 'all' mode with the user's ridge set to ns). The
+  // verge line geometry uses fbWidth instead of sideLen; everything
+  // else is identical.
+  if (roofStyle === 'parapet_gable' && isGableEndWall(cfg, which)) {
+    const sP = pitch;
+    const vergeSlantLen = Math.hypot(fbWidth / 2, sP);
+    const cosA = (fbWidth / 2) / vergeSlantLen;
+    const sinA = sP / vergeSlantLen;
+    const vergeMargin = Math.max(matT * 2, 5);
+    const slotCount = Math.max(2, Math.min(4, Math.floor(vergeSlantLen / 25)));
+    const slotPoss = placeTongues(vergeSlantLen, tw, vergeMargin, [], slotCount, tw / 2);
+    const k = cfg.kerfComp || 0;
+
+    for (const slot of slotPoss) {
+      const s1 = slot.start + k;
+      const s2 = slot.end - k;
+      const hw = matT / 2 - k;
+
+      const sx2 = s2 * cosA, sy2 = -s2 * sinA;
+      const sx1 = s1 * cosA, sy1 = -s1 * sinA;
+      const px = hw * sinA, py = hw * cosA;
+      const sPath = `M ${(sx2 + px).toFixed(3)},${(sy2 + py).toFixed(3)} `
+                  + `L ${(sx2 - px).toFixed(3)},${(sy2 - py).toFixed(3)} `
+                  + `L ${(sx1 - px).toFixed(3)},${(sy1 - py).toFixed(3)} `
+                  + `L ${(sx1 + px).toFixed(3)},${(sy1 + py).toFixed(3)} Z`;
+      wallPaths.push({ type: 'cut', d: sPath });
+
+      const nPath = `M ${(fbWidth - sx2 + px).toFixed(3)},${(sy2 + py).toFixed(3)} `
+                  + `L ${(fbWidth - sx2 - px).toFixed(3)},${(sy2 - py).toFixed(3)} `
+                  + `L ${(fbWidth - sx1 - px).toFixed(3)},${(sy1 - py).toFixed(3)} `
+                  + `L ${(fbWidth - sx1 + px).toFixed(3)},${(sy1 + py).toFixed(3)} Z`;
+      wallPaths.push({ type: 'cut', d: nPath });
+    }
+  }
+
   // Bay door alignment tick marks (etched on the core, adjacent to the
   // bay opening, indicating where the door panel's far edge should
   // land). Empty when there's no bay door or the door is 100% open.
@@ -7016,16 +7227,22 @@ function generateFrontBackWall(cfg, plan, which) {
   // (`matT` bboxOffsetY + `H + 2*matT` bboxH), so no extra adjustment
   // is needed there.
   const topTongueOverhang = (topTongues.length > 0) ? matT : 0;
+  // For parapet_gable walls with a parapet, the wall extends upward by
+  // `pitch + parapetH` — see the perimeter-build branch above. The bbox
+  // grows to match so the laser preview shows the full parapet.
+  const fbParapetUpExt = (hasParapetHere) ? (pitch + (parapetH || 0)) : 0;
   return {
     id: which + '_wall',
     name: which === 'front' ? 'Front Wall' : 'Back Wall',
     material: 'core',
     bboxW: fbWidth,
-    bboxH: isGableEnd ? H + pitch + matT
+    bboxH: hasParapetHere ? H + fbParapetUpExt + matT
+         : isGableEnd ? H + pitch + matT
          : isHighSideFB ? H + pitch + matT + topTongueOverhang
          : H + 2 * matT,
     bboxOffsetX: 0,
-    bboxOffsetY: isGableEnd ? pitch
+    bboxOffsetY: hasParapetHere ? fbParapetUpExt
+                : isGableEnd ? pitch
                 : isHighSideFB ? pitch + topTongueOverhang
                 : matT,
     paths: wallPaths,
@@ -7509,19 +7726,43 @@ function generateRoof(cfg, plan) {
     return claddingPanel ? [corePanel, claddingPanel] : corePanel;
   }
 
-  if (roofStyle === 'gabled') {
+  if (roofStyle === 'gabled' || roofStyle === 'parapet_gable') {
     const pitch    = cfg.roofPitch || 10;
-    const ridgeDir = cfg.roofRidgeDirection || 'ew';
+    const ridgeDir = effectiveRidgeDir(cfg);
     const ewRidge  = (ridgeDir === 'ew');
+    // For parapet_gable, no roof overhang — the roof sits BEHIND the
+    // parapet walls (where present) or flush against eave-wall tops
+    // (where not). Forcing zero overhang keeps the geometry simple at
+    // this MVP stage; user-controlled overhang is a later enhancement.
+    // Verge tabs are also suppressed for any wall that has a parapet,
+    // because that wall is a flat-top extension (no triangular peak
+    // for tabs to key into) — see the gableHasTabs flag below.
+    const isParapetGabled = (roofStyle === 'parapet_gable');
 
-    // Use OUTER building dimensions: each slope spans from outer wall face to ridge centre
-    const halfSpan0 = ewRidge ? cfg.depth / 2 : cfg.width / 2;
-    const perpLen0  = ewRidge ? cfg.width      : cfg.depth;
+    // Use OUTER building dimensions: each slope spans from outer wall face to ridge centre.
+    // For parapet_gable, the roof is RECESSED inside the walls (the
+    // parapets cover the verge ends, and on 'all' mode the eave ends
+    // too). Subtract 2*matT on both axes so the roof slides down inside
+    // the cavity, sitting at the eave height against either the
+    // parapet inner face or the eave wall top. Keeps the MVP geometry
+    // uniform across all three parapetSides modes; refining the
+    // dimensions for non-parapet eave walls (where the roof could
+    // technically extend out to the wall's outer face) is a later
+    // enhancement.
+    const halfSpan0 = isParapetGabled
+                      ? (ewRidge ? (cfg.depth - 2 * matT) / 2 : (cfg.width - 2 * matT) / 2)
+                      : (ewRidge ? cfg.depth / 2 : cfg.width / 2);
+    const perpLen0  = isParapetGabled
+                      ? (ewRidge ? cfg.width - 2 * matT : cfg.depth - 2 * matT)
+                      : (ewRidge ? cfg.width : cfg.depth);
     const slantLen0 = Math.hypot(halfSpan0, pitch);
 
-    // Overhang: eave = low end (beyond wall face); verge = ridge-end sides
-    const ohFB = cfg.roofOverhangFB || 0;
-    const ohEW = cfg.roofOverhangEW || 0;
+    // Overhang: eave = low end (beyond wall face); verge = ridge-end sides.
+    // Forced zero for parapet_gable — the roof can't extend past walls
+    // that are taller than it. User-set overhang values are ignored
+    // here (the field is hidden in the UI for this style anyway).
+    const ohFB = isParapetGabled ? 0 : (cfg.roofOverhangFB || 0);
+    const ohEW = isParapetGabled ? 0 : (cfg.roofOverhangEW || 0);
     const ohEave  = ewRidge ? ohFB : ohEW;
     const ohVerge = ewRidge ? ohEW : ohFB;
     const ohEaveS = ohEave > 0 ? ohEave * (slantLen0 / halfSpan0) : 0;
@@ -7538,9 +7779,75 @@ function generateRoof(cfg, plan) {
     // When ohVerge === 0 the slot lands on the panel edge → embed as an open notch in
     // the perimeter path (same approach as the floor panel).
     // When ohVerge  >  0 the slot is interior → use a closed-rect cut.
+    // For parapet_gable, verge slots are SUPPRESSED entirely: the
+    // gable-end walls under this style are always flat-top parapets
+    // (not triangular peaks), so there's no peak-edge with tabs to slot
+    // into. The roof's verge edges sit behind the parapet inner face
+    // and are glued.
     const vergeSlantLen = Math.hypot(halfSpan0, pitch);
-    const vergeSlotCount = Math.max(2, Math.min(3, Math.floor(vergeSlantLen / 25)));
-    const vergeSlots = placeTongues(vergeSlantLen, tw, margin, [], vergeSlotCount, tw / 2);
+    const vergeSlotCount = isParapetGabled
+                           ? 0
+                           : Math.max(2, Math.min(3, Math.floor(vergeSlantLen / 25)));
+    const vergeSlots = isParapetGabled
+                       ? []
+                       : placeTongues(vergeSlantLen, tw, margin, [], vergeSlotCount, tw / 2);
+
+    // parapet_gable EAVE slots: only when the eave walls don't have
+    // parapets (i.e. in 'fb' or 'ew' modes, not 'all'). The eave walls
+    // sit flat at H and the roof's bottom edge rests on them; the
+    // tongues on the wall top key into these slots so the roof aligns
+    // before glue-up. Walls under 'all' mode (eave walls also have
+    // parapets) skip this — the roof slides down behind the parapet
+    // and is glued.
+    //
+    // Same placeTongues call as the wall generators (interior length
+    // = perpLen for both side and FB eave walls) so the slot positions
+    // are bit-identical to the tongue positions and the joint mates
+    // without sub-mm misalignment. The slot extends slightly past the
+    // panel's bottom edge (matT + BLEED) so the cut is clean at the
+    // edge and the tongue can engage even after kerf compensation.
+    //
+    // Geometric caveat: the panel is tilted at angle θ to horizontal,
+    // and the tongue rises vertically from the wall top — so the
+    // tongue passes through the panel obliquely. The vertical extent
+    // of the tongue (matT) is shorter than the panel's slant thickness
+    // (matT/cos θ); the tongue won't fully poke through. For typical
+    // pitches (~10mm rise / 30mm half-span → θ≈18°) the under-engagement
+    // is fractions of a mm and glue takes up the rest. Steeper pitches
+    // will start to feel loose; a future enhancement can lengthen the
+    // parapet_gable verge joinery: panel verge edges grow tongues
+    // sticking OUT toward the gable walls, and the gable walls accept
+    // them through INTERIOR slot paths cut along the verge line.
+    //
+    // This is the "side that slants" the user pointed at — in 3D the
+    // verge edge runs from eave (low) up to ridge (high) along the
+    // gable wall, at the slope angle. Slots oriented along this line
+    // hold the panel at that angle. The eave and ridge sides aren't
+    // tongued: the eave meets its wall at the pitch angle (the panel
+    // tilts away from horizontal across that joint), and the ridge
+    // meets the other panel at twice that angle — both are too far
+    // from perpendicular for a simple slab tongue to hold.
+    //
+    // For PLAIN gabled, the same joint works the opposite way: the
+    // wall has a triangular peak in its PERIMETER and slope-tabs on
+    // those sloping perimeter edges; the panel's verge edge has
+    // matching slot notches. That can't work here because parapet_gable
+    // gable walls have flat parapet tops (no sloping perimeter edge),
+    // so the joinery direction inverts: tongues out from the panel,
+    // slots cut INTERIOR to the wall along the now-hidden verge line.
+    //
+    // Both panel and wall use the SAME placeTongues call against
+    // vergeSlantLen so positions match bit-for-bit. The dihedral angle
+    // along the verge between a vertical wall and a panel tilted at θ
+    // is 90° (the panel sticks out perpendicular to the wall — a
+    // surprising-but-true result from the cross-product geometry), so
+    // the tongue's natural direction in panel plane carries it
+    // straight through the wall thickness, perpendicular to the wall
+    // face. Slot orientation matches the verge slope.
+    const vergeTongueCount = Math.max(2, Math.min(4, Math.floor(vergeSlantLen / 25)));
+    const vergeTongues = isParapetGabled
+                         ? placeTongues(vergeSlantLen, tw, margin, [], vergeTongueCount, tw / 2)
+                         : [];
 
     const slopeLabels = ewRidge ? ['Front slope', 'Back slope'] : ['East slope', 'West slope'];
 
@@ -7549,7 +7856,9 @@ function generateRoof(cfg, plan) {
       const rects = [];
 
       if (ohVerge === 0 && vergeSlots.length > 0) {
-        // ---- Open-edge notches in the perimeter path ----
+        // ---- Plain gabled, no overhang: open-edge notches in the
+        // perimeter path (panel verge edges INDENT inward by matT to
+        // receive the wall's sloping perimeter tabs).
         // Top edge (left→right)
         let d = `M 0,0 L ${perpLen.toFixed(3)},0`;
 
@@ -7581,8 +7890,55 @@ function generateRoof(cfg, plan) {
         d += ` L 0,0 Z`;
         perimeter = d;
 
+      } else if (vergeTongues.length > 0) {
+        // ---- parapet_gable: verge edges PROTRUDE outward by matT at
+        // each tongue position. Panel y coords map to slant-distance
+        // s in [0, vergeSlantLen] by y = slantLen − s — i.e. s=0 is
+        // the eave end (panel y=slantLen) and s=vergeSlantLen is the
+        // ridge end (panel y=0). placeTongues returned positions in s;
+        // we convert to panel y for the perimeter walk.
+        //
+        // Kerf convention matches buildWallPath: tongue path is drawn
+        // slightly OUTSIDE the desired final dimension (tk = −kerf),
+        // and the laser cut eats it back to spec.
+        const kerf = cfg.kerfComp || 0;
+        const tk = -kerf;
+        // Pre-convert s-ranges to panel-y ranges and re-sort top→bottom
+        const rightTongues = vergeTongues.map(t => ({
+          y1: slantLen - t.end + tk,  // higher on panel (smaller y)
+          y2: slantLen - t.start - tk, // lower on panel (larger y)
+        })).sort((a, b) => a.y1 - b.y1);
+        const leftTongues = [...rightTongues]; // mirror — same y positions, opposite side
+
+        let d = `M 0,0 L ${perpLen.toFixed(3)},0`;
+
+        // Right edge (top→bottom): protrude RIGHT to perpLen+matT at each tongue
+        let ry = 0;
+        for (const t of rightTongues) {
+          if (t.y1 > ry) d += ` L ${perpLen.toFixed(3)},${t.y1.toFixed(3)}`;
+          d += ` L ${(perpLen + matT).toFixed(3)},${t.y1.toFixed(3)}`
+             + ` L ${(perpLen + matT).toFixed(3)},${t.y2.toFixed(3)}`
+             + ` L ${perpLen.toFixed(3)},${t.y2.toFixed(3)}`;
+          ry = t.y2;
+        }
+        d += ` L ${perpLen.toFixed(3)},${slantLen.toFixed(3)}`;
+        d += ` L 0,${slantLen.toFixed(3)}`;
+
+        // Left edge (bottom→top): protrude LEFT to -matT at each tongue
+        let ly = slantLen;
+        for (const t of [...leftTongues].reverse()) {
+          if (t.y2 < ly) d += ` L 0,${t.y2.toFixed(3)}`;
+          d += ` L ${(-matT).toFixed(3)},${t.y2.toFixed(3)}`
+             + ` L ${(-matT).toFixed(3)},${t.y1.toFixed(3)}`
+             + ` L 0,${t.y1.toFixed(3)}`;
+          ly = t.y1;
+        }
+        d += ` L 0,0 Z`;
+        perimeter = d;
+
       } else {
-        // ---- Interior closed-rect slots (overhang present) ----
+        // ---- Plain gabled with overhang OR no joinery: simple rect
+        // plus interior verge slot rects (when applicable).
         perimeter = rectPath(0, 0, perpLen, slantLen);
         const lx = ohVerge;               // left slot starts at the gable wall outer face
         const rx = perpLen - ohVerge - matT; // right slot starts at gable wall inner face
@@ -7594,8 +7950,13 @@ function generateRoof(cfg, plan) {
         }
       }
 
+      // Bbox grows on left/right when verge tongues protrude
+      const tongueOverhang = (vergeTongues.length > 0) ? matT : 0;
       return { id, name, material: 'core',
-               bboxW: perpLen, bboxH: slantLen, bboxOffsetX: 0, bboxOffsetY: 0,
+               bboxW: perpLen + 2 * tongueOverhang,
+               bboxH: slantLen,
+               bboxOffsetX: tongueOverhang,
+               bboxOffsetY: 0,
                paths: [{ type: 'cut', d: perimeter }],
                rects, lines: [] };
     }
@@ -9670,8 +10031,429 @@ function generateCornerTrim(cfg, plan) {
 }
 
 /* =====================================================================
-   CLADDING GENERATORS
-   ===================================================================== */
+   RIDGE CAP
+   =====================================================================
+   A single narrow strip with an etched centre fold line, sized to cap
+   the ROOF'S RIDGE — the line where the two slope panels meet at the
+   apex of the roof's cross-section triangle. User folds along the
+   etched centre line to match the dihedral angle of the roof (typically
+   ~140° from flat for default pitch — i.e. open to the angle that
+   leaves matT on each slope), then glues each half to the respective
+   slope along the ridge seam.
+
+   Length tracks the panel's `perpLen` (the along-ridge dimension):
+     - parapet_gable: perpLen = building dim − 2·matT  (panel recessed
+       inside the gable walls)
+     - plain gabled:  perpLen = building dim + 2·ohVerge (panel extends
+       past the gable walls by the verge overhang)
+   Width is `2·matT` (1.5 mm + 1.5 mm at default thickness) so when
+   folded each half lies matT-deep along its slope — matching the
+   thickness of the slope panel's exposed edge it's hiding.
+*/
+function generateParapetCap(cfg, plan) {
+  if (!cfg.parapetCap) return [];
+  if (cfg.roofStyle !== 'parapet_gable' && cfg.roofStyle !== 'gabled') return [];
+
+  const matT = cfg.coreThickness;
+  const ridgeDir = (cfg.roofStyle === 'parapet_gable')
+                   ? effectiveRidgeDir(cfg)
+                   : (cfg.roofRidgeDirection || 'ew');
+  const ewRidge = (ridgeDir === 'ew');
+
+  let ridgeLen;
+  if (cfg.roofStyle === 'parapet_gable') {
+    ridgeLen = ewRidge ? (cfg.width - 2 * matT) : (cfg.depth - 2 * matT);
+  } else {
+    // Plain gabled: ridge extends with verge overhang. ohVerge depends
+    // on ridge direction — overhangFB applies when slopes face F/B
+    // (ridge ew), overhangEW when slopes face E/W (ridge ns).
+    const ohVerge = ewRidge ? (cfg.roofOverhangEW || 0) : (cfg.roofOverhangFB || 0);
+    ridgeLen = (ewRidge ? cfg.width : cfg.depth) + 2 * ohVerge;
+  }
+
+  const stripW = 2 * matT;
+  const foldX  = matT;
+  const gutter = 5;
+
+  const rects = [{
+    type: 'cut',
+    x: gutter, y: gutter,
+    w: stripW, h: ridgeLen,
+    compensateKerf: false,
+  }];
+  const lines = [{
+    type: 'etch',
+    x1: gutter + foldX, y1: gutter,
+    x2: gutter + foldX, y2: gutter + ridgeLen,
+  }];
+
+  return [{
+    id: 'parapet_cap',
+    name: `Ridge cap — ${stripW.toFixed(1)} mm wide × ${ridgeLen.toFixed(1)} mm long`,
+    material: 'cladding',
+    bboxW: 2 * gutter + stripW,
+    bboxH: 2 * gutter + ridgeLen,
+    bboxOffsetX: 0, bboxOffsetY: 0,
+    paths: [], rects, lines,
+    assemblyNote: `Score along the etched centre line and fold to match the roof's ridge angle (open to the dihedral of the two slopes — ~140° from flat for default pitch). Glue ${matT.toFixed(1)} mm of each half to the corresponding roof slope along the ridge seam, hiding the joint between the two panels.`
+  }];
+}
+
+/* =====================================================================
+   SOFFIT CLADDING
+   =====================================================================
+   Flat cladding pieces sized to the underside of each eave overhang.
+   When the roof projects past the walls, the BOTTOM face of that
+   projection (the soffit) shows bare core material; this generator
+   produces a cladding strip per eave side to cover it.
+
+   Roof-style coverage:
+     • flat_overhang: roof projects on all 4 sides. The soffit on each
+       side is a horizontal strip — width = overhang amount on that
+       side, length = wall dimension along that side. Up to 4 pieces.
+     • gabled: roof projects on the EAVE sides only (FB sides under
+       ridge-ew, EW sides under ridge-ns); the verge sides project
+       too, but their "soffit" is just the underside of the tilted
+       panel at the gable end — different geometry, deferred. The
+       eave soffit is a strip in the PANEL plane, so its width is the
+       overhang's SLOPE distance (ohEave / cos θ), not the horizontal
+       projection. Length includes any verge extension so the soffit
+       runs the full eave length.
+     • flat / parapet / parapet_gable / slanted: no soffit (roof
+       doesn't project past walls, or the slanted case isn't handled
+       yet).
+
+   The cladding pattern is etched on each strip using the same
+   generator + line-mapping as the wall cladding so the soffit shows
+   the same visible texture (panel seams, board lines, etc.) as the
+   walls — the soffit reads as cladding, not as bare board.
+*/
+function generateSoffitCladding(cfg, plan) {
+  if (!cfg.soffitCladding) return [];
+  const styleKey  = cfg.claddingStyle;
+  const styleSpec = CLADDING_STYLES[styleKey];
+  const material  = (styleSpec && cfg.claddingMaterials && cfg.claddingMaterials[styleKey])
+                  || 'cladding';
+
+  const mkPiece = (id, label, w, h) => {
+    let lines = [];
+    if (styleSpec) {
+      const segs = generateCladdingPattern(styleSpec, 0, 0, w, h, [], null);
+      lines = segs.map(s => ({ type: 'etch', x1: s.x1, y1: s.y1, x2: s.x2, y2: s.y2 }));
+    }
+    return {
+      id: 'cladding_soffit_' + id,
+      name: label,
+      material: material,
+      bboxW: w, bboxH: h,
+      bboxOffsetX: 0, bboxOffsetY: 0,
+      paths: [{ type: 'cut', d: rectPath(0, 0, w, h) }],
+      rects: [],
+      lines: lines,
+    };
+  };
+
+  const parts = [];
+
+  if (cfg.roofStyle === 'flat_overhang') {
+    // Both ohFB and ohEW are independent in flat_overhang. Each side
+    // gets a strip of (wall_dim × overhang_amount). The corners
+    // technically have two soffits overlapping — keep both strips at
+    // wall_dim only (no corner extension) so the user can trim the
+    // overlap themselves rather than the generator pre-deciding.
+    const ohFB = cfg.roofOverhangFB || 0;
+    const ohEW = cfg.roofOverhangEW || 0;
+    if (ohFB > 0) {
+      for (const face of ['front', 'back']) {
+        parts.push(mkPiece(face, `${face[0].toUpperCase() + face.slice(1)} eave soffit cladding`,
+                           cfg.width, ohFB));
+      }
+    }
+    if (ohEW > 0) {
+      for (const face of ['east', 'west']) {
+        parts.push(mkPiece(face, `${face[0].toUpperCase() + face.slice(1)} eave soffit cladding`,
+                           cfg.depth, ohEW));
+      }
+    }
+    return parts;
+  }
+
+  if (cfg.roofStyle === 'gabled') {
+    const pitch    = cfg.roofPitch || 10;
+    const ridgeDir = cfg.roofRidgeDirection || 'ew';
+    const ewRidge  = (ridgeDir === 'ew');
+    const ohEave   = ewRidge ? (cfg.roofOverhangFB || 0) : (cfg.roofOverhangEW || 0);
+    const ohVerge  = ewRidge ? (cfg.roofOverhangEW || 0) : (cfg.roofOverhangFB || 0);
+
+    // halfSpan along the slope direction; slopeAngle θ is the panel's
+    // tilt from horizontal. The eave overhang continues the panel
+    // plane past the eave wall, so its underside is tilted too — the
+    // soffit's actual extent along the panel is ohEave / cos θ.
+    const halfSpan   = (ewRidge ? cfg.depth : cfg.width) / 2;
+    const slopeAngle = Math.atan2(pitch, halfSpan);
+    const ohEaveS    = ohEave / Math.cos(slopeAngle);
+    const slantLen0  = Math.hypot(halfSpan, pitch);
+
+    // Eave soffits: 2 pieces (one per eave wall). Length includes
+    // verge extensions on each end so the corner regions (where the
+    // eave overhang meets the verge overhang) are covered by the
+    // eave strip — the verge strip stays clear of those corners to
+    // avoid overlap.
+    if (ohEave > 0) {
+      const eaveLen   = (ewRidge ? cfg.width : cfg.depth) + 2 * ohVerge;
+      const eaveFaces = ewRidge ? ['front', 'back'] : ['east', 'west'];
+      for (const face of eaveFaces) {
+        parts.push(mkPiece(face,
+                           `${face[0].toUpperCase() + face.slice(1)} eave soffit cladding (slope distance)`,
+                           eaveLen, ohEaveS));
+      }
+    }
+
+    // Verge soffits: 4 pieces — one per (gable wall × slope panel)
+    // combination, since each gable wall has the verge overhangs of
+    // BOTH slope panels (the north and south panels for ridge ew),
+    // and those two overhangs meet at the ridge with opposite tilts.
+    // Each piece is a rectangle in its panel's plane: slantLen0 long
+    // (ridge to eave wall, NOT including the eave-overhang extension —
+    // that part is covered by the eave soffit's corner extension) by
+    // ohVerge wide (horizontal projection past the gable wall, which
+    // is parallel to the ridge so no slope conversion needed).
+    // All four pieces are congruent rectangles, so they dedupe to a
+    // single card × 4 in the parts panel.
+    if (ohVerge > 0) {
+      const vergeFaces = ewRidge ? ['east', 'west'] : ['front', 'back'];
+      // Slope labels reflect which slope panel each piece glues to,
+      // not the gable wall direction.
+      const slopeLbls  = ewRidge ? ['south', 'north'] : ['west', 'east'];
+      for (const face of vergeFaces) {
+        for (const slope of slopeLbls) {
+          parts.push(mkPiece(`${face}_${slope}`,
+                             `${face[0].toUpperCase() + face.slice(1)} verge soffit cladding (${slope} slope)`,
+                             slantLen0, ohVerge));
+        }
+      }
+    }
+    return parts;
+  }
+
+  if (cfg.roofStyle === 'slanted') {
+    // Slanted (mono-pitch / shed) roof: one panel tilting from a HIGH
+    // edge to a LOW edge. roofSlopeDirection picks which wall the
+    // LOW edge sits over — 'front'/'back' for an N-S slope (slope
+    // direction along depth), 'east'/'west' for an E-W slope (along
+    // width).
+    //
+    // Overhang convention follows the gable mapping: roofOverhangFB
+    // applies to front+back walls, roofOverhangEW to east+west, so
+    // depending on slopeDirection one pair becomes the EAVE pair
+    // (high+low along the slope) and the other becomes the SIDE pair
+    // (perpendicular to the slope). The "side" walls have slanted
+    // tops in 3D — overhangs there project horizontally past the
+    // slanted wall edge.
+    //
+    // For slanted, BOTH the high and low ends of the slope direction
+    // typically overhang by the same amount (whatever the user set
+    // for ohFB or ohEW). The geometry of the high-side soffit and
+    // the low-side soffit is identical in laser-flat form (same
+    // dimensions); the difference is only in 3D orientation, which
+    // doesn't matter for the cut piece. The two pieces dedupe to
+    // one card × 2.
+    const slopeDir   = cfg.roofSlopeDirection || 'back';
+    const isFBSlope  = (slopeDir === 'front' || slopeDir === 'back');
+    const ohEave     = isFBSlope ? (cfg.roofOverhangFB || 0) : (cfg.roofOverhangEW || 0);
+    const ohSide     = isFBSlope ? (cfg.roofOverhangEW || 0) : (cfg.roofOverhangFB || 0);
+    const pitch      = cfg.roofPitch || 10;
+    const dimAlong   = isFBSlope ? cfg.depth : cfg.width;   // along slope direction
+    const dimPerp    = isFBSlope ? cfg.width : cfg.depth;   // perpendicular to slope
+    const slopeAngle = Math.atan2(pitch, dimAlong);
+    const ohEaveS    = ohEave / Math.cos(slopeAngle);
+    const slantLen0  = Math.hypot(dimAlong, pitch);
+
+    // Eave-direction soffits (high + low ends of the slope): 2 pieces.
+    // Length includes the side overhangs on each end so corners are
+    // covered by the eave strips, mirroring the gabled convention.
+    if (ohEave > 0) {
+      const eaveLen   = dimPerp + 2 * ohSide;
+      const eaveFaces = isFBSlope ? ['front', 'back'] : ['east', 'west'];
+      for (const face of eaveFaces) {
+        parts.push(mkPiece(face,
+                           `${face[0].toUpperCase() + face.slice(1)} eave soffit cladding (slope distance)`,
+                           eaveLen, ohEaveS));
+      }
+    }
+
+    // Side-direction soffits (perpendicular to slope): 2 pieces.
+    // Length = slantLen0 (ridge to eave in panel plane, no overhang
+    // extension); width = ohSide (horizontal, no slope conversion
+    // because the side overhang's edge is parallel to the slope
+    // direction in the panel plane).
+    if (ohSide > 0) {
+      const sideFaces = isFBSlope ? ['east', 'west'] : ['front', 'back'];
+      for (const face of sideFaces) {
+        parts.push(mkPiece(face,
+                           `${face[0].toUpperCase() + face.slice(1)} verge soffit cladding`,
+                           slantLen0, ohSide));
+      }
+    }
+    return parts;
+  }
+
+  return [];
+}
+
+/* =====================================================================
+   ROOF FASCIA TRIM
+   =====================================================================
+   3 mm-wide trim strips that follow the roof's perimeter, hiding the
+   exposed core material at the panel edges (the rake, eave, and
+   slanted-top edges). Each style of roof gets a different trim shape:
+
+     • gabled — per gable wall, a CHEVRON-shaped polygon that outlines
+       the V of the gable peak (the "triangle on each gable"). The
+       chevron is a constant-width strip running along both rake
+       slopes, with the inner edges truncated at the eave line so it
+       doesn't extend below the wall body. Plus, per eave, a STRAIGHT
+       strip that runs along the full eave (the "end cap" — caps the
+       open bottom of the chevron and the panel's exposed eave edge).
+     • slanted — per slanted-top wall, a PARALLELOGRAM polygon that
+       follows the slanted top edge. The long sides are parallel and
+       slanted at the slope angle; the short ends are VERTICAL ("flat
+       end"), not perpendicular to the slope. This keeps the trim
+       from tapering to a point at the wall corners, so the slant
+       reads as a finished cap rather than a tapered cut.
+
+   Trim width is hardcoded at 3 mm regardless of matT — the user
+   asked for this dimension specifically. (The parapet cap, by
+   contrast, uses 2·matT to fold over the wall thickness; fascia trim
+   is a flat overlay, not a folded cap, so its width is independent.)
+*/
+function generateRoofFasciaTrim(cfg, plan) {
+  if (!cfg.roofFasciaTrim) return [];
+  const trimW = 3;
+
+  // Build a part from a polygon's vertex list. The bbox dimensions
+  // are the polygon's extent, used by the parts-panel layout.
+  const mkPart = (id, label, poly, bboxW, bboxH) => {
+    const d = poly.map((v, i) => `${i === 0 ? 'M' : 'L'} ${v[0]},${v[1]}`).join(' ') + ' Z';
+    return {
+      id: 'fascia_trim_' + id,
+      name: label,
+      material: 'cladding',
+      bboxW: bboxW, bboxH: bboxH,
+      bboxOffsetX: 0, bboxOffsetY: 0,
+      paths: [{ type: 'cut', d: d }],
+      rects: [],
+      lines: [],
+    };
+  };
+
+  const parts = [];
+
+  if (cfg.roofStyle === 'gabled') {
+    const pitch    = cfg.roofPitch || 10;
+    const ridgeDir = cfg.roofRidgeDirection || 'ew';
+    const ewRidge  = (ridgeDir === 'ew');
+    // The "gable wall width" is the building dim perpendicular to the
+    // ridge — depth for ridge-ew, width for ridge-ns. The chevron
+    // outlines THIS wall's V (not the panel's verge-extended outline
+    // — the gable wall itself is the substrate the trim mounts to).
+    const W        = ewRidge ? cfg.depth : cfg.width;
+    const halfSpan = W / 2;
+    const slantLen0  = Math.hypot(halfSpan, pitch);
+    const slopeAngle = Math.atan2(pitch, halfSpan);
+    const cosTheta   = Math.cos(slopeAngle);
+
+    // Chevron polygon — 6 vertices outlining the V with constant trimW
+    // perpendicular distance between outer and inner edge. The inner
+    // edge would, if continued, dip below the eave (y < 0) at the
+    // bottom corners; we truncate at y = 0 instead, giving the strip
+    // two small horizontal "feet" at the bottom corners along the
+    // eave line. Inner apex sits trimW / cos θ below the outer apex
+    // (the apex angle's perpendicular distance). Inner-eave x-offset
+    // from each outer corner is trimW · slantLen0 / pitch — derived
+    // from intersecting the inner offset line with y = 0.
+    const innerX = trimW * slantLen0 / pitch;
+    const innerY = pitch - trimW / cosTheta;
+    const chevron = [
+      [0, 0],
+      [innerX, 0],
+      [halfSpan, innerY],
+      [W - innerX, 0],
+      [W, 0],
+      [halfSpan, pitch],
+    ];
+
+    const gableFaces = ewRidge ? ['east', 'west'] : ['front', 'back'];
+    for (const face of gableFaces) {
+      parts.push(mkPart(`chevron_${face}`,
+                        `${face[0].toUpperCase() + face.slice(1)} gable fascia trim (chevron)`,
+                        chevron, W, pitch));
+    }
+
+    // Straight eave-cap strips — one per eave, running the full eave
+    // length including verge overhangs (so the strip extends past
+    // each gable corner to meet the chevron's bottom). Width = trimW.
+    const ohVerge = ewRidge ? (cfg.roofOverhangEW || 0) : (cfg.roofOverhangFB || 0);
+    const eaveLen = (ewRidge ? cfg.width : cfg.depth) + 2 * ohVerge;
+    const straight = [
+      [0, 0],
+      [eaveLen, 0],
+      [eaveLen, trimW],
+      [0, trimW],
+    ];
+    const eaveFaces = ewRidge ? ['front', 'back'] : ['east', 'west'];
+    for (const face of eaveFaces) {
+      parts.push(mkPart(`straight_${face}`,
+                        `${face[0].toUpperCase() + face.slice(1)} eave fascia trim (end cap)`,
+                        straight, eaveLen, trimW));
+    }
+    return parts;
+  }
+
+  if (cfg.roofStyle === 'slanted') {
+    const pitch     = cfg.roofPitch || 10;
+    const slopeDir  = cfg.roofSlopeDirection || 'back';
+    const isFBSlope = (slopeDir === 'front' || slopeDir === 'back');
+    // dimAlong is the building dimension in the slope direction —
+    // the wall's slanted top runs across this distance, with one
+    // corner at y = pitch (high) and the other at y = 0 (low).
+    const dimAlong  = isFBSlope ? cfg.depth : cfg.width;
+
+    // Parallelogram polygon — 4 vertices.
+    //   • Top edge: from (0, pitch + trimW) down to (dimAlong, trimW)
+    //     — this is the wall's slanted top edge, shifted up by trimW
+    //     in our normalized layout where y >= 0.
+    //   • Bottom edge: parallel slanted, from (0, pitch) down to
+    //     (dimAlong, 0) — offset by trimW vertically downward.
+    //   • Left/right short ends: VERTICAL (constant x). Length trimW.
+    //
+    // The short ends are vertical (not perpendicular to the slope) so
+    // the trim's ends look "flat" — they match the wall's vertical
+    // edges at each corner instead of tapering to a point. The
+    // perpendicular-to-slope thickness is trimW · cos θ (slightly
+    // less than trimW for shallow slopes), but the vertical height
+    // is exactly trimW so the trim reads as a clean horizontal band
+    // when viewed from a distance.
+    const parallelogram = [
+      [0, pitch + trimW],   // top-left (high corner, top edge)
+      [dimAlong, trimW],    // top-right (low corner, top edge)
+      [dimAlong, 0],        // bottom-right (low corner, bottom edge)
+      [0, pitch],           // bottom-left (high corner, bottom edge)
+    ];
+    const bboxW = dimAlong;
+    const bboxH = pitch + trimW;
+
+    const sideFaces = isFBSlope ? ['east', 'west'] : ['front', 'back'];
+    for (const face of sideFaces) {
+      parts.push(mkPart(`parallelogram_${face}`,
+                        `${face[0].toUpperCase() + face.slice(1)} wall slant fascia trim (parallelogram)`,
+                        parallelogram, bboxW, bboxH));
+    }
+    return parts;
+  }
+
+  return [];
+}
 
 /* Reverse the cladding-frame x transform back to wall-frame coords.
  *   - front/back: cladding-X = wall-X + cT → wall-X = cladding-X - cT
@@ -9737,7 +10519,16 @@ function generateCladdingPanel(cfg, plan, which, band) {
       (cladSlopeDir === 'front' && which === 'front') ||
       (cladSlopeDir === 'back'  && which === 'back')
     );
-    const slopeRise = cladIsHighSide ? (cfg.roofPitch || 10) : 0;
+    // Parapet-hidden gable: when this FB wall is a parapeted wall, the
+    // wall extends up by (pitch + parapetH). The cladding wraps the
+    // full visible face, so its height grows by the same amount. Same
+    // mechanism as the slanted high-side wall above — different reason
+    // (this is a flat extension above the eave, not a slope rise to
+    // meet a tilted roof).
+    const cladFBParapetUp = wallHasParapet(cfg, which)
+                            ? ((cfg.roofPitch || 10) + (cfg.parapetHeight || 0))
+                            : 0;
+    const slopeRise = cladIsHighSide ? (cfg.roofPitch || 10) : cladFBParapetUp;
     cWidth = fbWidth + 2 * cT;
     cHeight = H + slopeRise;
     cId = 'cladding_' + which;
@@ -9766,7 +10557,13 @@ function generateCladdingPanel(cfg, plan, which, band) {
     const sideClSlantedNS = cfg.roofStyle === 'slanted'
                           && ((cfg.roofSlopeDirection || 'back') === 'front'
                            || (cfg.roofSlopeDirection || 'back') === 'back');
-    const sideSlopeRise = sideClSlantedNS ? (cfg.roofPitch || 10) : 0;
+    // Same parapet-extension logic as the FB branch above — when this
+    // side wall is parapeted under parapet_gable, the cladding grows
+    // up by (pitch + parapetH) to wrap the extended wall.
+    const cladSideParapetUp = wallHasParapet(cfg, which)
+                              ? ((cfg.roofPitch || 10) + (cfg.parapetHeight || 0))
+                              : 0;
+    const sideSlopeRise = sideClSlantedNS ? (cfg.roofPitch || 10) : cladSideParapetUp;
     cWidth = sideLen + 2 * matT;
     cHeight = H + sideSlopeRise;
     cId = 'cladding_side_' + which;
@@ -9840,7 +10637,19 @@ function generateCladdingPanel(cfg, plan, which, band) {
   const _slopeDirLocal = cfg.roofSlopeDirection || 'back';
   const sideClTopLeftY  = isSideSlantedClad ? (_slopeDirLocal === 'front' ? 0 : clPitch) : 0;
   const sideClTopRightY = isSideSlantedClad ? (_slopeDirLocal === 'front' ? clPitch : 0) : 0;
-  const isCladdingGableEnd = isGableEndWall(cfg, which) && panelYStart === 0;
+  // A wall is a "cladding gable end" — meaning the cladding panel gets
+  // a triangular apex above the rectangle — only when the underlying
+  // wall actually has a triangular peak. Plain `gabled` walls do; the
+  // parapet_gable variant's gable-end walls instead carry a FLAT
+  // parapet that hides the would-be peak (we already extended cHeight
+  // up by pitch + parapetH above), so the cladding stays rectangular.
+  // Treating those as gable-end here would double-stack: cHeight grew
+  // by pitch+parapetH AND a clPitch triangle would be added on top of
+  // that, giving a sloped-top panel sitting above the parapet — both
+  // wrong visually and structurally.
+  const isCladdingGableEnd = isGableEndWall(cfg, which)
+                              && panelYStart === 0
+                              && !wallHasParapet(cfg, which);
   let perimPath;
   if (isCladdingGableEnd) {
     // Apex is above the rectangle by clPitch (in the panel's local coordinate frame).
@@ -11608,46 +12417,257 @@ function effectiveCladdingStyle(baseStyle, styleParams) {
  * no overhangs and no openings — they butt-join at the inside corners.
  * Returns [] when the roof isn't a parapet, when parapetH ≤ 0, or when
  * the user has opted out via cfg.parapetInnerCladding === false. */
+
+/* Clip a 2D line segment to the interior of one of two mirror-image
+ * right triangles inscribed in a halfSpan × pitch bounding rectangle:
+ *
+ *   mirror=false  →  vertices (0,0), (halfSpan,0), (halfSpan,pitch)
+ *                    Right angle at (halfSpan,0). Hypotenuse runs from
+ *                    (0,0) to (halfSpan,pitch) — the LOWER-LEFT-to-
+ *                    UPPER-RIGHT diagonal. The triangle is the
+ *                    RIGHT half of the rectangle (taller on the right).
+ *
+ *   mirror=true   →  vertices (0,0), (halfSpan,0), (0,pitch)
+ *                    Right angle at (0,0). Hypotenuse runs from
+ *                    (halfSpan,0) to (0,pitch) — the LOWER-RIGHT-to-
+ *                    UPPER-LEFT diagonal. The triangle is the LEFT
+ *                    half (taller on the left). Mirror image of the
+ *                    above across the vertical x = halfSpan/2.
+ *
+ * These are the two shapes a parapet_gable inner-cladding triangle can
+ * take so each piece glues directly to its slope without the user
+ * having to flip the cardstock (which would put the etched face
+ * against the wall, hiding the pattern).
+ *
+ * Uses iterative half-plane clipping: each of the triangle's three
+ * edges defines a "keep" half-plane. For each plane we compute the
+ * signed distance from the two endpoints to the boundary — positive
+ * = inside, negative = outside. Three cases:
+ *   • both inside  → leave segment unchanged, continue to next plane
+ *   • both outside → discard the segment entirely (returns null)
+ *   • mixed        → clip at the boundary by interpolating between
+ *                    the endpoints using t = d1 / (d1 − d2), and
+ *                    replace whichever endpoint was outside
+ *
+ * After three passes the segment is either fully inside the triangle
+ * or has been discarded. Returns the (possibly trimmed) segment as an
+ * {x1, y1, x2, y2} object, or null if the segment never entered the
+ * triangle in the first place. */
+function clipSegmentToTriangle(x1, y1, x2, y2, halfSpan, pitch, mirror) {
+  // Half-plane signed-distance functions, positive inside the triangle.
+  // For shape A: top edge (y≥0), right edge (x≤halfSpan), hypotenuse
+  //   y ≤ pitch·x/halfSpan  ⇔  pitch·x − halfSpan·y ≥ 0
+  // For shape B (mirrored across x=halfSpan/2): top edge (y≥0), LEFT
+  //   edge (x≥0), hypotenuse y ≤ pitch·(halfSpan−x)/halfSpan  ⇔
+  //   halfSpan·pitch − pitch·x − halfSpan·y ≥ 0
+  const planes = mirror
+    ? [
+        (x, y) => y,
+        (x, y) => x,
+        (x, y) => halfSpan * pitch - pitch * x - halfSpan * y,
+      ]
+    : [
+        (x, y) => y,
+        (x, y) => halfSpan - x,
+        (x, y) => pitch * x - halfSpan * y,
+      ];
+  for (const dist of planes) {
+    const d1 = dist(x1, y1);
+    const d2 = dist(x2, y2);
+    if (d1 < 0 && d2 < 0) return null;
+    if (d1 >= 0 && d2 >= 0) continue;
+    const t = d1 / (d1 - d2);
+    const nx = x1 + t * (x2 - x1);
+    const ny = y1 + t * (y2 - y1);
+    if (d1 < 0) { x1 = nx; y1 = ny; }
+    else        { x2 = nx; y2 = ny; }
+  }
+  return { x1, y1, x2, y2 };
+}
+
 function generateInnerParapetCladding(cfg, plan) {
-  if (cfg.roofStyle !== 'parapet') return [];
   if (cfg.parapetInnerCladding === false) return [];
   const { matT, parapetH, fbWidth, sideLen } = plan;
-  if (!parapetH || parapetH <= 0) return [];
-  const styleKey = cfg.claddingStyle;
+  const styleKey  = cfg.claddingStyle;
   const styleSpec = CLADDING_STYLES[styleKey];
-  if (!styleSpec) return [];
-  const material = (cfg.claddingMaterials && cfg.claddingMaterials[styleKey]) || 'cladding';
+  const material  = (styleSpec && cfg.claddingMaterials && cfg.claddingMaterials[styleKey])
+                  || 'cladding';
 
-  const parts = [];
-  const faces = [
-    { which: 'front', label: 'Front', width: fbWidth - 2 * matT },
-    { which: 'back',  label: 'Back',  width: fbWidth - 2 * matT },
-    { which: 'east',  label: 'East',  width: sideLen },
-    { which: 'west',  label: 'West',  width: sideLen },
-  ];
-  for (const { which, label, width } of faces) {
-    if (width <= 0) continue;
-    const w = width;
-    const h = parapetH;
-    // Etch the cladding pattern inside the rectangle. No cut openings —
-    // the inner parapet has no windows, doors, or fixtures. The pattern
-    // helper returns {x1,y1,x2,y2} segments which we wrap as etch lines.
-    const patSegs = generateCladdingPattern(styleSpec, 0, 0, w, h, [], null);
-    const lines = patSegs.map(seg => ({ type: 'etch', x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2 }));
-    parts.push({
-      id: 'cladding_parapet_inner_' + which,
-      name: label + ' inner parapet cladding',
-      material: material,
-      bboxW: w,
-      bboxH: h,
-      bboxOffsetX: 0,
-      bboxOffsetY: 0,
-      paths: [{ type: 'cut', d: rectPath(0, 0, w, h) }],
-      rects: [],
-      lines: lines,
-    });
+  // ─── Flat parapet roof ─────────────────────────────────────────────
+  // Four rectangular strips, one per wall. Height is the parapet band
+  // (parapetH) — flat roof has no pitch above the eave, so the parapet
+  // is a constant-height band around the building.
+  if (cfg.roofStyle === 'parapet') {
+    if (!parapetH || parapetH <= 0) return [];
+    if (!styleSpec) return [];
+    const parts = [];
+    const faces = [
+      { which: 'front', label: 'Front', width: fbWidth - 2 * matT },
+      { which: 'back',  label: 'Back',  width: fbWidth - 2 * matT },
+      { which: 'east',  label: 'East',  width: sideLen },
+      { which: 'west',  label: 'West',  width: sideLen },
+    ];
+    for (const { which, label, width } of faces) {
+      if (width <= 0) continue;
+      const w = width;
+      const h = parapetH;
+      const patSegs = generateCladdingPattern(styleSpec, 0, 0, w, h, [], null);
+      const lines = patSegs.map(seg => ({ type: 'etch', x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2 }));
+      parts.push({
+        id: 'cladding_parapet_inner_' + which,
+        name: label + ' inner parapet cladding',
+        material: material,
+        bboxW: w,
+        bboxH: h,
+        bboxOffsetX: 0,
+        bboxOffsetY: 0,
+        paths: [{ type: 'cut', d: rectPath(0, 0, w, h) }],
+        rects: [],
+        lines: lines,
+      });
+    }
+    return parts;
   }
-  return parts;
+
+  // ─── Parapet-hidden gable ──────────────────────────────────────────
+  // Mixed geometry: gable walls hide a triangular peak, eave walls in
+  // 'all' mode hide the slope's rise. From INSIDE the building looking
+  // up at each wall above the eave height:
+  //
+  //   • Gable wall: the roof slopes cut diagonally across the wall
+  //     from each base corner up to the apex at (gableWidth/2, pitch).
+  //     The roof material occupies the area ABOVE these slope lines,
+  //     so only the area BELOW (the triangular peak shape) is visible
+  //     from inside. We split that triangle along its vertical axis
+  //     of symmetry into two right triangles per wall — legs are
+  //     (gableWidth/2) and pitch — so each piece naturally covers ONE
+  //     slope side. Four right triangles total (2 per gable × 2 walls).
+  //
+  //   • Eave wall (parapeted only in 'all' mode): roof slopes UP and
+  //     AWAY from this wall toward the ridge, so it doesn't obstruct
+  //     the eave wall's interior face. The full parapet extension is
+  //     visible from inside — a rectangle of (eaveWidth) × (pitch +
+  //     parapetH). One rectangle per parapeted eave wall.
+  //
+  // Total piece count by parapetSides mode:
+  //   all  → 4 triangles + 2 rectangles = 6
+  //   fb   → 4 triangles only           = 4   (FB walls are gable)
+  //   ew   → 4 triangles only           = 4   (EW walls are gable)
+  //
+  // Cladding pattern is etched on the rectangles (matching the flat
+  // parapet behaviour above) but NOT on the triangles, because clipping
+  // line segments to a triangle would need new intersection plumbing
+  // and the pattern adds little inside a 28×10 mm shape anyway. Deferred.
+  if (cfg.roofStyle === 'parapet_gable') {
+    const pitch    = cfg.roofPitch || 10;
+    const parH     = parapetH || 0;
+    const ridgeDir = effectiveRidgeDir(cfg);
+    const ewRidge  = (ridgeDir === 'ew');
+    const parts    = [];
+
+    // Gable-end walls — always parapeted under parapet_gable. Each
+    // contributes two right triangles, mirror-image halves of the
+    // hidden peak.
+    const gableFaces  = ewRidge ? ['east', 'west'] : ['front', 'back'];
+    const gableWidth  = ewRidge ? sideLen : (fbWidth - 2 * matT);
+    const halfSpan    = gableWidth / 2;
+
+    for (const face of gableFaces) {
+      if (!wallHasParapet(cfg, face)) continue;
+      // Right triangle with legs halfSpan × pitch — cut as TWO mirror-
+      // image variants so each piece glues directly onto its slope
+      // without the user having to flip the cardstock (which would put
+      // the etched face against the wall and hide the pattern).
+      //
+      //   Shape A: vertices (0,0), (halfSpan,0), (halfSpan,pitch).
+      //            Right angle at (halfSpan,0). Hypotenuse rises to
+      //            the upper-right. Etched pattern (after clipping)
+      //            has tall vertical seams on the RIGHT side.
+      //   Shape B: vertices (0,0), (halfSpan,0), (0,pitch).
+      //            Right angle at (0,0). Hypotenuse rises to the
+      //            upper-left. Mirror image of A across x=halfSpan/2.
+      //            Etched seams tall on the LEFT.
+      //
+      // The two slopes of a gable wall meet at the apex with OPPOSITE
+      // chirality in the wall plane — going from one to the other in
+      // the wall is a reflection, not a rotation. So one piece of each
+      // shape is needed per wall: shape A fits the slope where the
+      // outer base corner is to the LEFT of the apex (in laser-flat
+      // orientation), shape B fits the slope where the outer base
+      // corner is to the RIGHT. When laid flat etched-side-up and
+      // placed on its slope, each piece's pattern reads correctly
+      // facing inward — no flip required.
+      //
+      // The cladding pattern is generated against the SAME bounding
+      // rectangle for both shapes, then clipped to each shape's
+      // interior independently. The pattern in shape B is therefore
+      // the mirror image (across x=halfSpan/2) of the pattern in
+      // shape A — exactly what you want when gluing them onto
+      // mirror-image slopes that meet at the apex.
+      const triPathA = `M 0,0 L ${halfSpan.toFixed(3)},0 L ${halfSpan.toFixed(3)},${pitch.toFixed(3)} Z`;
+      const triPathB = `M 0,0 L ${halfSpan.toFixed(3)},0 L 0,${pitch.toFixed(3)} Z`;
+      let linesA = [], linesB = [];
+      if (styleSpec) {
+        const patSegs = generateCladdingPattern(styleSpec, 0, 0, halfSpan, pitch, [], null);
+        for (const seg of patSegs) {
+          const cA = clipSegmentToTriangle(seg.x1, seg.y1, seg.x2, seg.y2, halfSpan, pitch, false);
+          if (cA) linesA.push({ type: 'etch', x1: cA.x1, y1: cA.y1, x2: cA.x2, y2: cA.y2 });
+          const cB = clipSegmentToTriangle(seg.x1, seg.y1, seg.x2, seg.y2, halfSpan, pitch, true);
+          if (cB) linesB.push({ type: 'etch', x1: cB.x1, y1: cB.y1, x2: cB.x2, y2: cB.y2 });
+        }
+      }
+      for (const sideLbl of ['A', 'B']) {
+        const isA = sideLbl === 'A';
+        parts.push({
+          id: `cladding_parapet_inner_${face}_${sideLbl}`,
+          name: `${face[0].toUpperCase() + face.slice(1)} inner parapet cladding (slope ${sideLbl})`,
+          material: material,
+          bboxW: halfSpan,
+          bboxH: pitch,
+          bboxOffsetX: 0,
+          bboxOffsetY: 0,
+          paths: [{ type: 'cut', d: isA ? triPathA : triPathB }],
+          rects: [],
+          lines: isA ? linesA : linesB,
+        });
+      }
+    }
+
+    // Eave walls — parapeted only in 'all' mode. Full rectangle, height
+    // = pitch + parapetH (the parapet extension above the eave).
+    const eaveFaces  = ewRidge ? ['front', 'back'] : ['east', 'west'];
+    const eaveWidth  = ewRidge ? (fbWidth - 2 * matT) : sideLen;
+    const eaveHeight = pitch + parH;
+
+    if (eaveHeight > 0 && eaveWidth > 0) {
+      for (const face of eaveFaces) {
+        if (!wallHasParapet(cfg, face)) continue;
+        // Etch the cladding pattern, matching the flat-parapet rect's
+        // behaviour. Same generator + line-mapping pattern.
+        let lines = [];
+        if (styleSpec) {
+          const patSegs = generateCladdingPattern(styleSpec, 0, 0, eaveWidth, eaveHeight, [], null);
+          lines = patSegs.map(seg => ({ type: 'etch', x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2 }));
+        }
+        parts.push({
+          id: 'cladding_parapet_inner_' + face,
+          name: `${face[0].toUpperCase() + face.slice(1)} inner parapet cladding`,
+          material: material,
+          bboxW: eaveWidth,
+          bboxH: eaveHeight,
+          bboxOffsetX: 0,
+          bboxOffsetY: 0,
+          paths: [{ type: 'cut', d: rectPath(0, 0, eaveWidth, eaveHeight) }],
+          rects: [],
+          lines: lines,
+        });
+      }
+    }
+
+    return parts;
+  }
+
+  return [];
 }
 
 /* Generate the thin door panels that close (or partially close) a bay
@@ -12342,6 +13362,29 @@ function generateBuilding(cfg) {
   const cornerTrimParts = generateCornerTrim(cfg, plan);
   parts.push(...cornerTrimParts);
 
+  // Parapet cap — narrow strips that fold over the top edge of each
+  // parapet wall (parapet_gable) or each gable peak (plain gabled),
+  // hiding the exposed core-material edge that regular cladding
+  // doesn't cover. User toggle is cfg.parapetCap.
+  const parapetCapParts = generateParapetCap(cfg, plan);
+  parts.push(...parapetCapParts);
+
+  // Soffit cladding — flat pieces sized to the underside of each
+  // eave overhang. Covers the bare core material visible from below
+  // when the roof projects past the walls (flat_overhang on all 4
+  // sides, gabled on the 2 eave sides). User toggle is cfg.soffitCladding.
+  const soffitCladdingParts = generateSoffitCladding(cfg, plan);
+  parts.push(...soffitCladdingParts);
+
+  // Roof fascia trim — 3 mm trim strips along the panel perimeter.
+  // For gabled: a chevron outlining each gable peak's V plus a
+  // straight strip along each eave. For slanted: a parallelogram per
+  // slanted-top wall with vertical "flat" short ends so the slant
+  // looks finished rather than tapering inward. User toggle is
+  // cfg.roofFasciaTrim.
+  const fasciaTrimParts = generateRoofFasciaTrim(cfg, plan);
+  parts.push(...fasciaTrimParts);
+
   // Ground-floor depth offset sub-assembly (extension or recess)
   const gfoParts = generateGroundFloorOffsetParts(cfg, plan);
   parts.push(...gfoParts);
@@ -12680,6 +13723,7 @@ function readForm() {
   CONFIG.roofStyle = val('roofStyle');
   CONFIG.parapetHeight = num('parapetHeight');
   CONFIG.parapetInnerCladding = !!document.getElementById('parapetInnerCladding')?.checked;
+  CONFIG.parapetSides = val('parapetSides') || 'all';
   CONFIG.roofPitch = num('roofPitch');
   CONFIG.roofRidgeDirection = val('roofRidgeDirection') || 'ew';
   CONFIG.roofSlopeDirection = val('roofSlopeDirection') || 'back';
@@ -12715,6 +13759,9 @@ function readForm() {
   CONFIG.trimHeight = num('trimHeight');
   CONFIG.trimOverhang = num('trimOverhang');
   CONFIG.cornerTrim = !!document.getElementById('cornerTrim')?.checked;
+  CONFIG.parapetCap = !!document.getElementById('parapetCap')?.checked;
+  CONFIG.soffitCladding = !!document.getElementById('soffitCladding')?.checked;
+  CONFIG.roofFasciaTrim = !!document.getElementById('roofFasciaTrim')?.checked;
   // Inter-floor panels
   CONFIG.floorPanels = !!document.getElementById('floorPanels').checked;
   CONFIG.lastWallSide = val('lastWallSide');
@@ -12819,6 +13866,7 @@ function writeForm() {
   set('parapetHeight', CONFIG.parapetHeight);
   const parapetInnerEl = document.getElementById('parapetInnerCladding');
   if (parapetInnerEl) parapetInnerEl.checked = (CONFIG.parapetInnerCladding !== false);
+  set('parapetSides', CONFIG.parapetSides || 'all');
   set('roofPitch', CONFIG.roofPitch);
   set('roofRidgeDirection', CONFIG.roofRidgeDirection || 'ew');
   set('roofSlopeDirection', CONFIG.roofSlopeDirection || 'back');
@@ -12853,6 +13901,12 @@ function writeForm() {
   set('trimOverhang', CONFIG.trimOverhang);
   const ctEl = document.getElementById('cornerTrim');
   if (ctEl) ctEl.checked = !!CONFIG.cornerTrim;
+  const pcEl = document.getElementById('parapetCap');
+  if (pcEl) pcEl.checked = !!CONFIG.parapetCap;
+  const scEl = document.getElementById('soffitCladding');
+  if (scEl) scEl.checked = !!CONFIG.soffitCladding;
+  const rftEl = document.getElementById('roofFasciaTrim');
+  if (rftEl) rftEl.checked = !!CONFIG.roofFasciaTrim;
   // Inter-floor panels
   document.getElementById('floorPanels').checked = !!CONFIG.floorPanels;
   set('lastWallSide', CONFIG.lastWallSide);
@@ -12913,9 +13967,22 @@ function updateConditionalFields() {
   const mrOn = !!document.getElementById('rooftopMechRoom').checked;
   document.getElementById('mechRoomDimsField').style.display = mrOn ? '' : 'none';
   document.getElementById('mechRoomPosField').style.display = mrOn ? '' : 'none';
-  document.getElementById('parapetHeightField').style.display = (roofStyle === 'parapet' || roofStyle === 'flat') ? '' : 'none';
-  document.getElementById('parapetInnerCladdingField').style.display = (roofStyle === 'parapet') ? '' : 'none';
-  document.getElementById('roofPitchField').style.display = (roofStyle === 'slanted' || roofStyle === 'gabled') ? '' : 'none';
+  document.getElementById('parapetHeightField').style.display = (roofStyle === 'parapet' || roofStyle === 'flat' || roofStyle === 'parapet_gable') ? '' : 'none';
+  document.getElementById('parapetInnerCladdingField').style.display = (roofStyle === 'parapet' || roofStyle === 'parapet_gable') ? '' : 'none';
+  document.getElementById('parapetCapField').style.display = (roofStyle === 'parapet_gable' || roofStyle === 'gabled') ? '' : 'none';
+  // Soffit cladding applies to any roof style that creates an overhang:
+  // flat_overhang (all 4 sides overhang) and gabled (eave sides
+  // overhang per ohFB/ohEW). For roofs without overhangs (flat,
+  // parapet, parapet_gable, slanted) we hide it — generateSoffit
+  // would return [] anyway, but hiding keeps the UI tidy.
+  document.getElementById('soffitCladdingField').style.display = (roofStyle === 'flat_overhang' || roofStyle === 'gabled' || roofStyle === 'slanted') ? '' : 'none';
+  // Fascia trim: 3 mm trim strips along the roof perimeter. Applies
+  // to gabled (chevron + eave cap) and slanted (parallelogram) only;
+  // flat_overhang doesn't get this trim feature (its eave edges are
+  // covered by the soffit cladding above).
+  document.getElementById('roofFasciaTrimField').style.display = (roofStyle === 'gabled' || roofStyle === 'slanted') ? '' : 'none';
+  document.getElementById('parapetSidesField').style.display = (roofStyle === 'parapet_gable') ? '' : 'none';
+  document.getElementById('roofPitchField').style.display = (roofStyle === 'slanted' || roofStyle === 'gabled' || roofStyle === 'parapet_gable') ? '' : 'none';
   document.getElementById('roofOverhangAllField').style.display = (roofStyle === 'flat_overhang') ? '' : 'none';
   // Roof cladding style only matters for slanted / gabled roofs — parapet
   // and flat roofs don't emit a cladding panel and reuse the wall texture
@@ -12926,7 +13993,16 @@ function updateConditionalFields() {
   // (previously only slanted / gabled emitted a textured panel, so the field
   // was hidden for the others). Always show it.
   document.getElementById('roofCladdingStyleField').style.display = '';
-  document.getElementById('roofRidgeDirectionField').style.display = (roofStyle === 'gabled') ? '' : 'none';
+  // Ridge direction is user-pickable for plain gabled and for the
+  // 'all-sides' variant of parapet_gable. For the 'fb' / 'ew' variants
+  // the ridge is forced perpendicular to the parapeted sides (so the
+  // parapets are on the peak-end walls, which is the whole point of
+  // those modes), and the dropdown is hidden to keep that constraint
+  // unambiguous.
+  const showRidge = (roofStyle === 'gabled') ||
+                    (roofStyle === 'parapet_gable' &&
+                     (document.getElementById('parapetSides')?.value || 'all') === 'all');
+  document.getElementById('roofRidgeDirectionField').style.display = showRidge ? '' : 'none';
   document.getElementById('roofSlopeDirectionField').style.display = (roofStyle === 'slanted') ? '' : 'none';
   document.getElementById('roofOverhangField').style.display = (roofStyle === 'slanted' || roofStyle === 'gabled') ? '' : 'none';
   // Rooftop shield sub-fields

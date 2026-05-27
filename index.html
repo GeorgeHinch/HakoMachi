@@ -1008,6 +1008,11 @@
         <label data-i18n="lbl_kerf">Kerf compensation (mm)</label>
         <input type="number" id="kerfComp" min="-0.2" max="0.2" step="0.001" value="-0.005">
       </div>
+      <div class="field">
+        <label>Surface feature trim offset (mm)</label>
+        <input type="number" id="surfaceFeatureTrimOffset" min="0" max="5" step="0.05" value="0.75">
+        <div class="small">Extra material around surface-fit feature pieces, such as solid door inserts that glue into cladding but do not cut through the wall core. The true fit outline is etched inside this oversized cut so you can trim to fit.</div>
+      </div>
     </details>
 
     <details id="materialsDetails">
@@ -4389,6 +4394,10 @@ let CONFIG = {
   claddingThickness: 0.28,
   tongueWidth: 15,
   kerfComp: -0.005,
+  // Extra handling margin around surface-mounted cut pieces such as solid
+  // door inserts. The generated part is oversized by this amount per side
+  // and gets an etched true-fit outline for trimming.
+  surfaceFeatureTrimOffset: 0.75,
   // Manual opening overrides per wall. null = use auto-placement; array = editor-placed openings.
   // Each entry: { type: 'window'|'door'|'bay', x, y, w, h, ... } in wall-local mm
   // coords (y=0 at top). The default seeds a through-bay across front/back to
@@ -14478,10 +14487,10 @@ function generateDoorInserts(cfg, doorTallies) {
   // back — once you've trimmed, the piece is undersized. So we cut at
   // `insetW + 2·trim × insetH + 2·trim` and engrave the true fit outline
   // at the inset dimensions so the user knows where to trim back to.
-  // 0.75 mm per side is a comfortable handling allowance — enough to
-  // recover from one or two passes of a knife, not so much that the piece
-  // is wildly oversized on the sheet.
-  const trim = 0.75;
+  // Default is 0.75 mm per side — enough to recover from one or two
+  // knife passes, not so much that the piece is wildly oversized on the
+  // sheet. User-adjustable under Laser Settings.
+  const trim = Math.max(0, Math.min(5, Number(cfg.surfaceFeatureTrimOffset ?? 0.75)));
   for (const [styleKey, count] of Object.entries(doorTallies)) {
     if (count <= 0) continue;
     const door = DOOR_STYLES[styleKey];
@@ -14583,8 +14592,9 @@ function generateDoorInserts(cfg, doorTallies) {
 
     parts.push({
       id: 'door_insert_' + styleKey,
-      name: `Door insert — ${door.label} (${count}×)`,
+      name: `Door insert — ${door.label} (${count}×, ${trim.toFixed(2)}mm trim offset)`,
       material: door.frameMaterial || 'cladding',
+      assemblyNote: `Surface-fit insert is cut ${trim.toFixed(2)}mm oversized per side and etched with the true fit outline.`,
       bboxW: sheetW, bboxH: sheetH,
       bboxOffsetX: 0, bboxOffsetY: 0,
       paths: [], rects: rects, lines: lines,
@@ -17172,6 +17182,13 @@ function readForm() {
   CONFIG.claddingThickness = (CONFIG.materials.find(m=>m.id==='cladding')?.thickness) || 0.28;
   CONFIG.tongueWidth = num('tongueWidth');
   CONFIG.kerfComp = num('kerfComp');
+  const sfTrimEl = document.getElementById('surfaceFeatureTrimOffset');
+  if (sfTrimEl) {
+    const sfTrim = parseFloat(sfTrimEl.value);
+    CONFIG.surfaceFeatureTrimOffset = isFinite(sfTrim) ? Math.max(0, Math.min(5, sfTrim)) : 0.75;
+  } else if (CONFIG.surfaceFeatureTrimOffset == null) {
+    CONFIG.surfaceFeatureTrimOffset = 0.75;
+  }
 
   // Drop any manually-placed openings / awnings / balconies / fixtures /
   // cladding overrides / printed items that no longer fit on their wall.
@@ -17313,6 +17330,7 @@ function writeForm() {
   set('rooftopShieldBraceThickness', shield.braceThickness ?? 0.7);
   set('tongueWidth', CONFIG.tongueWidth);
   set('kerfComp', CONFIG.kerfComp);
+  set('surfaceFeatureTrimOffset', CONFIG.surfaceFeatureTrimOffset ?? 0.75);
   updateConditionalFields();
 }
 
@@ -21897,6 +21915,7 @@ function applyLoadedConfig(data) {
   clampNum('coreThickness', 0.5, 5, 1.5);
   clampNum('claddingThickness', 0.05, 2, 0.28);
   clampNum('tongueWidth', 3, 50, 15);
+  clampNum('surfaceFeatureTrimOffset', 0, 5, 0.75);
   clampNum('trimHeight', 0.3, 20, 2);
   clampNum('trimOverhang', 0, 5, 0.28);
   clampNum('floorCount', 1, 20, 4);

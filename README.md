@@ -3,7 +3,7 @@
 **Boxes for a town.** That's what the name means — 箱 (*hako*) box, 街 (*machi*) town — and that's what HakoMachi makes. It's a browser-based design tool for Japanese N-scale (1:150) model railway buildings. Dial in the building you want and HakoMachi hands you a ready-to-cut kit.
 
 <!-- HERO IMAGE: full app screenshot — controls panel on the left, building preview on the right -->
-![HakoMachi main interface](img/HakoMachi - Hero.jpeg)
+![HakoMachi main interface](/img/HakoMachi_Hero.jpg)
 
 ## Build a Japanese streetscape, one box at a time
 

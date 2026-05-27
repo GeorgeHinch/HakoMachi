@@ -14803,7 +14803,8 @@ function generateDoorInserts(cfg, doorTallies) {
       // glass cuts in the wall core; the trim is only for the outer edge).
       const sx = insetW / door.width;
       const sy = insetH / door.height;
-      for (const gp of door.glassPanes) {
+      const doorGlassPanes = Array.isArray(door.glassPanes) ? door.glassPanes : [];
+      for (const gp of doorGlassPanes) {
         const gx = dx + gp.x1 * sx;
         const gy = dy + gp.y1 * sy;
         const gw = (gp.x2 - gp.x1) * sx;
@@ -14872,7 +14873,7 @@ function generateDoorInserts(cfg, doorTallies) {
     });
 
     // Glass pane sheet for this door style (if it has any glass apertures)
-    const glassApertures = door.glassPanes;
+    const glassApertures = Array.isArray(door.glassPanes) ? door.glassPanes : [];
     if (glassApertures.length > 0) {
       const sx = insetW / door.width;
       const sy = insetH / door.height;
@@ -16793,6 +16794,7 @@ function layoutDividerFrame(id, count, outerW, outerH, innerApW, innerApH, mulli
   };
   return {
     id: id, name: description, material: material,
+    assemblyNote: `Cut-through divider grid: ${validPanes.length} pane aperture${validPanes.length !== 1 ? 's' : ''} per frame; retained material forms the mullions.`,
     bboxW: sheetW, bboxH: sheetH,
     bboxOffsetX: 0, bboxOffsetY: 0,
     paths: [], rects: rects, lines: [],
@@ -17100,19 +17102,22 @@ function generateBuilding(cfg) {
   const allWindowSpecs = [];
   const allBlankedSpecs = [];
   for (const p of parts) {
-    if (p.material === 'cladding') {
-      if (p.windows) totalWindows += p.windows;
-      if (p.upperWindows) upperWindows += p.upperWindows;
-      if (p.groundWindows) groundWindows += p.groundWindows;
-      if (p.blankedUpper) blankedUpper += p.blankedUpper;
-      if (p.blankedGround) blankedGround += p.blankedGround;
-      if (p.doors) totalDoors += p.doors;
-      if (p.windowSpecs && p.windowSpecs.length) allWindowSpecs.push(...p.windowSpecs);
-      if (p.blankedSpecs && p.blankedSpecs.length) allBlankedSpecs.push(...p.blankedSpecs);
-      if (p.doorStyleTallies) {
-        for (const [s, n] of Object.entries(p.doorStyleTallies)) {
-          doorTallies[s] = (doorTallies[s] || 0) + n;
-        }
+    if (!p) continue;
+    // Window/door metadata can live on any cladding panel material. When a
+    // cladding style is routed to a custom material folder, p.material is no
+    // longer literally "cladding"; the previous guard skipped its metadata,
+    // so glass/frame/divider/door insert cut sheets were never emitted.
+    if (p.windows) totalWindows += p.windows;
+    if (p.upperWindows) upperWindows += p.upperWindows;
+    if (p.groundWindows) groundWindows += p.groundWindows;
+    if (p.blankedUpper) blankedUpper += p.blankedUpper;
+    if (p.blankedGround) blankedGround += p.blankedGround;
+    if (p.doors) totalDoors += p.doors;
+    if (p.windowSpecs && p.windowSpecs.length) allWindowSpecs.push(...p.windowSpecs);
+    if (p.blankedSpecs && p.blankedSpecs.length) allBlankedSpecs.push(...p.blankedSpecs);
+    if (p.doorStyleTallies) {
+      for (const [s, n] of Object.entries(p.doorStyleTallies)) {
+        doorTallies[s] = (doorTallies[s] || 0) + n;
       }
     }
   }
@@ -23921,24 +23926,37 @@ function generateBuildingWithWings(cfg) {
   let totalWindows = 0, upperWindows = 0, groundWindows = 0, totalDoors = 0;
   let blankedUpper = 0, blankedGround = 0;
   const doorTallies = {};
+  const allWindowSpecs = [];
+  const allBlankedSpecs = [];
   for (const p of parts) {
-    if (p.material === 'cladding') {
-      if (p.windows)      totalWindows += p.windows;
-      if (p.upperWindows) upperWindows += p.upperWindows;
-      if (p.groundWindows)groundWindows+= p.groundWindows;
-      if (p.blankedUpper) blankedUpper += p.blankedUpper;
-      if (p.blankedGround)blankedGround+= p.blankedGround;
-      if (p.doors)        totalDoors += p.doors;
-      if (p.doorStyleTallies) {
-        for (const [s, n] of Object.entries(p.doorStyleTallies)) {
-          doorTallies[s] = (doorTallies[s] || 0) + n;
-        }
+    if (!p) continue;
+    // Same rule as the main-building path: collect window/door metadata from
+    // any material. This is especially important for wings, where users often
+    // route cladding styles to custom material folders; otherwise multi-pane
+    // grid frames such as Office 3×2 and style-specific door inserts vanish
+    // from the cut sheets.
+    if (p.windows)       totalWindows += p.windows;
+    if (p.upperWindows)  upperWindows += p.upperWindows;
+    if (p.groundWindows) groundWindows += p.groundWindows;
+    if (p.blankedUpper)  blankedUpper += p.blankedUpper;
+    if (p.blankedGround) blankedGround += p.blankedGround;
+    if (p.doors)         totalDoors += p.doors;
+    if (p.windowSpecs && p.windowSpecs.length) allWindowSpecs.push(...p.windowSpecs);
+    if (p.blankedSpecs && p.blankedSpecs.length) allBlankedSpecs.push(...p.blankedSpecs);
+    if (p.doorStyleTallies) {
+      for (const [s, n] of Object.entries(p.doorStyleTallies)) {
+        doorTallies[s] = (doorTallies[s] || 0) + n;
       }
     }
   }
-  const windowParts = generateWindowParts(cfg, upperWindows, groundWindows);
+  const windowParts = (allWindowSpecs.length > 0)
+    ? generateWindowPartsFromSpecs(cfg, allWindowSpecs)
+    : generateWindowParts(cfg, upperWindows, groundWindows);
   parts.push(...windowParts);
-  parts.push(...generateBlankedWindowPanels(cfg, blankedUpper, blankedGround));
+  const blankedParts = (allBlankedSpecs.length > 0)
+    ? generateBlankedWindowPanelsFromSpecs(cfg, allBlankedSpecs)
+    : generateBlankedWindowPanels(cfg, blankedUpper, blankedGround);
+  parts.push(...blankedParts);
   parts.push(...generateDoorInserts(cfg, doorTallies));
   parts.push(...generateFixtureParts(cfg, tallyFixtures(cfg)));
   parts.push(...generateShutterParts(cfg, tallyShutters(cfg)));

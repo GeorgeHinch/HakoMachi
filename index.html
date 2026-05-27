@@ -15503,11 +15503,18 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
   const cornerInset = (which === 'front' || which === 'back') ? matT : 0;
 
   // Map a wall-frame opening to an interior-panel laser-flat x position.
-  // For FB: panel_x = wall_x - matT (interior starts matT inside the wall's left edge).
-  // For west: panel_x = wall_x (panel == wall length, no inset).
-  // For east: panel_x = sideLen - wall_x - w (mirror to match the east core panel).
+  // Interior panels are glued to the INSIDE face, so their visible face is the
+  // reverse side of the exterior cladding. Mirror every interior panel relative
+  // to its matching outside sheet:
+  //   front/back: exterior is wall_x - matT, interior is reversed across panelW
+  //   west:       exterior is wall_x,        interior is sideLen - wall_x - w
+  //   east:       exterior is mirrored,      interior becomes the unmirrored wall_x
   function wallToPanelX(wallX, oW) {
-    if (eastMirror) return sideLen - wallX - oW;
+    if (which === 'front' || which === 'back') {
+      return panelW - (wallX - cornerInset) - oW;
+    }
+    if (which === 'west') return sideLen - wallX - oW;
+    if (which === 'east') return wallX;
     return wallX - cornerInset;
   }
 

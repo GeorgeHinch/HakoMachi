@@ -9999,6 +9999,122 @@ function layoutCutsActive(cfg) {
   return Array.isArray(cfg && cfg.layoutCuts) && cfg.layoutCuts.some(c => c && c.enabled !== false);
 }
 
+
+function clampMm(v, min, max, fallback) {
+  v = Number(v);
+  if (!isFinite(v)) v = (fallback != null ? fallback : min);
+  if (v < min) return min;
+  if (v > max) return max;
+  return v;
+}
+
+function measuredArcTargetInfo(cfg, cut) {
+  cfg = cfg || CONFIG;
+  const targetId = (cut && cut.targetId) || 'main';
+  if (targetId !== 'main') {
+    const wing = ((cfg && cfg.wings) || []).find(w => w.id === targetId);
+    if (wing) {
+      return {
+        kind: 'wing',
+        id: wing.id,
+        wing,
+        bounds: weWingBounds(cfg, wing),
+        label: 'Wing ' + (((cfg.wings || []).indexOf(wing) + 1) || ''),
+      };
+    }
+  }
+  return {
+    kind: 'main',
+    id: 'main',
+    wing: null,
+    bounds: { x: 0, y: 0, w: Number(cfg.width) || 0, d: Number(cfg.depth) || 0 },
+    label: 'Main',
+  };
+}
+
+function resolveMeasuredArcCut(cut, cfg) {
+  if (!cut || cut.type !== 'arc' || cut.positionMode !== 'measured') return cut;
+  cfg = cfg || CONFIG;
+  const info = measuredArcTargetInfo(cfg, cut);
+  const b = info.bounds || { x: 0, y: 0, w: 0, d: 0 };
+  let p1, p2, maxOffset;
+
+  if (info.kind === 'wing' && info.wing) {
+    const wing = info.wing;
+    maxOffset = Math.max(0, Number(wing.depth) || 0);
+    const a = clampMm(cut.startOffset, 0, maxOffset, Math.min(20, maxOffset));
+    const e = clampMm(cut.endOffset,   0, maxOffset, Math.min(20, maxOffset));
+    // For wings, offsets are measured AWAY from the connection edge to the
+    // main body. The two arc endpoints land on the wing's two side edges.
+    if (wing.face === 'east') {
+      p1 = { x: (Number(cfg.width) || 0) + a, y: wing.offset };
+      p2 = { x: (Number(cfg.width) || 0) + e, y: wing.offset + wing.span };
+    } else if (wing.face === 'west') {
+      p1 = { x: 0 - a, y: wing.offset };
+      p2 = { x: 0 - e, y: wing.offset + wing.span };
+    } else if (wing.face === 'front') {
+      p1 = { x: wing.offset, y: 0 - a };
+      p2 = { x: wing.offset + wing.span, y: 0 - e };
+    } else { // back
+      p1 = { x: wing.offset, y: (Number(cfg.depth) || 0) + a };
+      p2 = { x: wing.offset + wing.span, y: (Number(cfg.depth) || 0) + e };
+    }
+  } else {
+    const edge = cut.referenceEdge || 'back';
+    maxOffset = (edge === 'front' || edge === 'back') ? Math.max(0, b.d) : Math.max(0, b.w);
+    const a = clampMm(cut.startOffset, 0, maxOffset, Math.min(20, maxOffset));
+    const e = clampMm(cut.endOffset,   0, maxOffset, Math.min(20, maxOffset));
+    // For the main block, offsets are measured INWARD from the chosen edge.
+    if (edge === 'front') {
+      p1 = { x: b.x,       y: b.y + a };
+      p2 = { x: b.x + b.w, y: b.y + e };
+    } else if (edge === 'back') {
+      p1 = { x: b.x,       y: b.y + b.d - a };
+      p2 = { x: b.x + b.w, y: b.y + b.d - e };
+    } else if (edge === 'east') {
+      p1 = { x: b.x + b.w - a, y: b.y };
+      p2 = { x: b.x + b.w - e, y: b.y + b.d };
+    } else { // west
+      p1 = { x: b.x + a, y: b.y };
+      p2 = { x: b.x + e, y: b.y + b.d };
+    }
+  }
+
+  const dx = p2.x - p1.x, dy = p2.y - p1.y;
+  const len = Math.max(0.0001, Math.hypot(dx, dy));
+  const bulge = Number(cut.bulge);
+  const bAmt = isFinite(bulge) ? bulge : 20;
+  const side = (Number(cut.bulgeSide) < 0) ? -1 : 1;
+  const nx = -dy / len, ny = dx / len;
+  const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+  return {
+    ...cut,
+    x1: p1.x,
+    y1: p1.y,
+    x2: p2.x,
+    y2: p2.y,
+    cx: mid.x + nx * bAmt * side,
+    cy: mid.y + ny * bAmt * side,
+    _measuredResolved: true,
+  };
+}
+
+function resolveLayoutCutGeometry(cut, cfg) {
+  return resolveMeasuredArcCut(cut, cfg || CONFIG);
+}
+
+function updateMeasuredArcCutGeometry(cut, cfg) {
+  if (!cut || cut.type !== 'arc' || cut.positionMode !== 'measured') return;
+  const r = resolveMeasuredArcCut(cut, cfg || CONFIG);
+  cut.x1 = r.x1; cut.y1 = r.y1;
+  cut.x2 = r.x2; cut.y2 = r.y2;
+  cut.cx = r.cx; cut.cy = r.cy;
+}
+
+function refreshMeasuredLayoutCuts(cfg) {
+  for (const cut of ((cfg && cfg.layoutCuts) || [])) updateMeasuredArcCutGeometry(cut, cfg);
+}
+
 function parseSvgPathToPoints(d) {
   if (!d || typeof d !== 'string') return [];
   const toks = d.match(/[AaCcHhLlMmQqSsTtVvZz]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g) || [];
@@ -10099,7 +10215,8 @@ function clipPolygonByHalfPlane(poly, a, b, keepSide) {
   return clean;
 }
 
-function sampleLayoutCutSegments(cut) {
+function sampleLayoutCutSegments(cut, cfg) {
+  cut = resolveLayoutCutGeometry(cut, cfg || CONFIG);
   if (!cut || cut.enabled === false) return [];
   if (cut.type !== 'arc') {
     return [[{ x: +cut.x1, y: +cut.y1 }, { x: +cut.x2, y: +cut.y2 }]];
@@ -10123,11 +10240,11 @@ function sampleLayoutCutSegments(cut) {
   return segs;
 }
 
-function clipPolygonByLayoutCuts(poly, cuts) {
+function clipPolygonByLayoutCuts(poly, cuts, cfg) {
   let out = (poly || []).map(p => ({ x: p.x, y: p.y }));
   for (const cut of (cuts || [])) {
     if (!cut || cut.enabled === false) continue;
-    const segs = sampleLayoutCutSegments(cut);
+    const segs = sampleLayoutCutSegments(cut, cfg || CONFIG);
     for (const [a, b] of segs) {
       out = clipPolygonByHalfPlane(out, a, b, cut.keepSide === 'right' ? 'right' : 'left');
       if (out.length < 3) return [];
@@ -10177,14 +10294,14 @@ function shouldLayoutClipPart(part) {
       || part.id === 'cladding_roof';
 }
 
-function applyLayoutCutsToPart(part, cuts) {
+function applyLayoutCutsToPart(part, cuts, cfg) {
   if (!shouldLayoutClipPart(part)) return;
   if (!Array.isArray(part.paths) || part.paths.length === 0) return;
   const idx = part.paths.findIndex(p => p && p.type === 'cut' && p.d);
   if (idx < 0) return;
   const basePoly = parseSvgPathToPoints(part.paths[idx].d);
   if (basePoly.length < 3) return;
-  const clipped = clipPolygonByLayoutCuts(basePoly, cuts);
+  const clipped = clipPolygonByLayoutCuts(basePoly, cuts, cfg || CONFIG);
   if (clipped.length < 3) { part._layoutCutOmit = true; return; }
   const clippedPath = pointsToSvgPath(clipped);
   part.paths[idx] = { ...part.paths[idx], d: clippedPath, _layoutClipped: true };
@@ -10214,9 +10331,10 @@ function applyLayoutCutsToPart(part, cuts) {
 
 function applyLayoutCutsToGeneratedParts(cfg, parts) {
   if (!layoutCutsActive(cfg) || !Array.isArray(parts)) return;
+  refreshMeasuredLayoutCuts(cfg);
   const cuts = (cfg.layoutCuts || []).filter(c => c && c.enabled !== false);
   if (!cuts.length) return;
-  for (const p of parts) applyLayoutCutsToPart(p, cuts);
+  for (const p of parts) applyLayoutCutsToPart(p, cuts, cfg);
   for (let i = parts.length - 1; i >= 0; i--) {
     if (parts[i] && parts[i]._layoutCutOmit) parts.splice(i, 1);
   }
@@ -20931,7 +21049,15 @@ function applyLoadedConfig(data) {
       cy: Number(c.cy) || ((Number(c.y1) || 0) + (Number(c.y2) || 0)) / 2,
       keepSide: c.keepSide === 'right' ? 'right' : 'left',
       enabled: c.enabled !== false,
+      positionMode: (c.type === 'arc' && c.positionMode === 'measured') ? 'measured' : 'free',
+      targetId: (typeof c.targetId === 'string' && c.targetId) ? c.targetId : 'main',
+      referenceEdge: ['front','back','east','west'].includes(c.referenceEdge) ? c.referenceEdge : 'back',
+      startOffset: isFinite(Number(c.startOffset)) ? Number(c.startOffset) : 0,
+      endOffset: isFinite(Number(c.endOffset)) ? Number(c.endOffset) : 0,
+      bulge: isFinite(Number(c.bulge)) ? Number(c.bulge) : 20,
+      bulgeSide: Number(c.bulgeSide) < 0 ? -1 : 1,
     }));
+  refreshMeasuredLayoutCuts(merged);
 
   Object.assign(CONFIG, merged);
   return warnings;
@@ -22793,8 +22919,9 @@ function weAddLayoutCut(type) {
   const y = b.minY + b.h * 0.65;
   const x1 = b.minX - pad, x2 = b.maxX + pad;
   const cut = type === 'arc'
-    ? { id, type: 'arc', x1, y1: y, x2, y2: y, cx: (x1 + x2) / 2, cy: y - Math.max(20, b.h * 0.28), keepSide: 'left', enabled: true }
-    : { id, type: 'line', x1, y1: y, x2, y2: y, keepSide: 'left', enabled: true };
+    ? { id, type: 'arc', x1, y1: y, x2, y2: y, cx: (x1 + x2) / 2, cy: y - Math.max(20, b.h * 0.28), keepSide: 'left', enabled: true,
+        positionMode: 'free', targetId: 'main', referenceEdge: 'back', startOffset: 20, endOffset: 20, bulge: Math.max(20, b.h * 0.18), bulgeSide: 1 }
+    : { id, type: 'line', x1, y1: y, x2, y2: y, keepSide: 'left', enabled: true, positionMode: 'free' };
   weEnsureLayoutCuts().push(cut);
   weSelectedCutId = id;
   weSelectedWingId = null;
@@ -22825,6 +22952,139 @@ function weToggleCutDirection(id) {
   regenerate();
 }
 
+
+function weInferMeasuredArcTarget(cut) {
+  if (!cut || cut.type !== 'arc') return;
+  const mid = { x: ((Number(cut.x1)||0) + (Number(cut.x2)||0)) / 2, y: ((Number(cut.y1)||0) + (Number(cut.y2)||0)) / 2 };
+  for (const wing of (CONFIG.wings || [])) {
+    const b = weWingBounds(CONFIG, wing);
+    if (mid.x >= b.x - 0.01 && mid.x <= b.x + b.w + 0.01 && mid.y >= b.y - 0.01 && mid.y <= b.y + b.d + 0.01) {
+      cut.targetId = wing.id;
+      if (wing.face === 'east')  { cut.startOffset = Math.max(0, (Number(cut.x1)||0) - CONFIG.width); cut.endOffset = Math.max(0, (Number(cut.x2)||0) - CONFIG.width); }
+      if (wing.face === 'west')  { cut.startOffset = Math.max(0, 0 - (Number(cut.x1)||0));          cut.endOffset = Math.max(0, 0 - (Number(cut.x2)||0)); }
+      if (wing.face === 'front') { cut.startOffset = Math.max(0, 0 - (Number(cut.y1)||0));          cut.endOffset = Math.max(0, 0 - (Number(cut.y2)||0)); }
+      if (wing.face === 'back')  { cut.startOffset = Math.max(0, (Number(cut.y1)||0) - CONFIG.depth); cut.endOffset = Math.max(0, (Number(cut.y2)||0) - CONFIG.depth); }
+      return;
+    }
+  }
+  cut.targetId = 'main';
+  const dFront = Math.abs(mid.y);
+  const dBack  = Math.abs(CONFIG.depth - mid.y);
+  const dWest  = Math.abs(mid.x);
+  const dEast  = Math.abs(CONFIG.width - mid.x);
+  const best = Math.min(dFront, dBack, dWest, dEast);
+  cut.referenceEdge = best === dFront ? 'front' : best === dBack ? 'back' : best === dEast ? 'east' : 'west';
+  if (cut.referenceEdge === 'front') { cut.startOffset = Math.max(0, Number(cut.y1)||0); cut.endOffset = Math.max(0, Number(cut.y2)||0); }
+  if (cut.referenceEdge === 'back')  { cut.startOffset = Math.max(0, CONFIG.depth - (Number(cut.y1)||0)); cut.endOffset = Math.max(0, CONFIG.depth - (Number(cut.y2)||0)); }
+  if (cut.referenceEdge === 'west')  { cut.startOffset = Math.max(0, Number(cut.x1)||0); cut.endOffset = Math.max(0, Number(cut.x2)||0); }
+  if (cut.referenceEdge === 'east')  { cut.startOffset = Math.max(0, CONFIG.width - (Number(cut.x1)||0)); cut.endOffset = Math.max(0, CONFIG.width - (Number(cut.x2)||0)); }
+}
+
+function weEnsureMeasuredArcDefaults(cut) {
+  if (!cut || cut.type !== 'arc') return;
+  if (!cut.targetId) weInferMeasuredArcTarget(cut);
+  if (!cut.targetId) cut.targetId = 'main';
+  if (!['front','back','east','west'].includes(cut.referenceEdge)) cut.referenceEdge = 'back';
+  if (!isFinite(Number(cut.startOffset))) cut.startOffset = 20;
+  if (!isFinite(Number(cut.endOffset))) cut.endOffset = 20;
+  if (!isFinite(Number(cut.bulge))) cut.bulge = 20;
+  if (Number(cut.bulgeSide) !== -1) cut.bulgeSide = 1;
+  updateMeasuredArcCutGeometry(cut, CONFIG);
+}
+
+function weRenderSelectedCutControls(sidebar, cut) {
+  if (!cut) return;
+  const dirBtn = document.createElement('button');
+  dirBtn.textContent = '↔ Toggle kept side';
+  dirBtn.style.cssText = 'width:100%;font-size:11px;margin-bottom:5px;';
+  dirBtn.onclick = () => weToggleCutDirection(cut.id);
+  sidebar.appendChild(dirBtn);
+
+  if (cut.type !== 'arc') return;
+
+  const mode = document.createElement('div');
+  mode.className = 'field';
+  mode.innerHTML = `<label>Arc positioning</label><select>
+    <option value="free">Drag handles</option>
+    <option value="measured">Measured offsets</option>
+  </select>`;
+  const modeSel = mode.querySelector('select');
+  modeSel.value = cut.positionMode === 'measured' ? 'measured' : 'free';
+  modeSel.onchange = () => {
+    cut.positionMode = modeSel.value;
+    if (cut.positionMode === 'measured') weEnsureMeasuredArcDefaults(cut);
+    weRender(); weRenderSidebar(); regenerate();
+  };
+  sidebar.appendChild(mode);
+
+  if (cut.positionMode !== 'measured') return;
+  weEnsureMeasuredArcDefaults(cut);
+
+  const targetWrap = document.createElement('div');
+  targetWrap.className = 'field';
+  let opts = `<option value="main">Main body</option>`;
+  (CONFIG.wings || []).forEach((w, i) => {
+    opts += `<option value="${w.id}">Wing ${i + 1} (${w.face})</option>`;
+  });
+  targetWrap.innerHTML = `<label>Measure on</label><select>${opts}</select>`;
+  const targetSel = targetWrap.querySelector('select');
+  targetSel.value = cut.targetId || 'main';
+  targetSel.onchange = () => {
+    cut.targetId = targetSel.value;
+    // Keep offsets but clamp/re-resolve against the new target.
+    weEnsureMeasuredArcDefaults(cut);
+    weRender(); weRenderSidebar(); regenerate();
+  };
+  sidebar.appendChild(targetWrap);
+
+  if ((cut.targetId || 'main') === 'main') {
+    const edgeWrap = document.createElement('div');
+    edgeWrap.className = 'field';
+    edgeWrap.innerHTML = `<label>Reference edge</label><select>
+      <option value="front">Main front edge</option>
+      <option value="back">Main back edge</option>
+      <option value="east">Main east/right edge</option>
+      <option value="west">Main west/left edge</option>
+    </select>`;
+    const edgeSel = edgeWrap.querySelector('select');
+    edgeSel.value = cut.referenceEdge || 'back';
+    edgeSel.onchange = () => { cut.referenceEdge = edgeSel.value; updateMeasuredArcCutGeometry(cut, CONFIG); weRender(); weRenderSidebar(); regenerate(); };
+    sidebar.appendChild(edgeWrap);
+  } else {
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:10px;color:var(--muted);line-height:1.35;margin:-3px 0 6px;';
+    note.textContent = 'Offsets are measured away from the wing connection to the main body. The two endpoints sit on the two side edges of that wing.';
+    sidebar.appendChild(note);
+  }
+
+  function arcNum(label, key, min, max, step) {
+    const d = document.createElement('div');
+    d.className = 'field';
+    d.innerHTML = `<label>${label}</label><input type="number" min="${min}" max="${max}" step="${step}" value="${cut[key] != null ? cut[key] : 0}">`;
+    const inp = d.querySelector('input');
+    inp.onchange = () => {
+      const v = parseFloat(inp.value);
+      cut[key] = isFinite(v) ? v : 0;
+      updateMeasuredArcCutGeometry(cut, CONFIG);
+      weRender(); weRenderSidebar(); regenerate();
+    };
+    sidebar.appendChild(d);
+  }
+
+  const info = measuredArcTargetInfo(CONFIG, cut);
+  const maxOffset = info.kind === 'wing' ? Math.max(0, Number(info.wing.depth) || 0)
+    : (['front','back'].includes(cut.referenceEdge || 'back') ? CONFIG.depth : CONFIG.width);
+  arcNum('Start offset from reference (mm)', 'startOffset', 0, Math.max(0, maxOffset), 0.5);
+  arcNum('End offset from reference (mm)',   'endOffset',   0, Math.max(0, maxOffset), 0.5);
+  arcNum('Arc bulge (mm)',                   'bulge',       -500, 500, 0.5);
+
+  const flip = document.createElement('button');
+  flip.textContent = '↕ Flip arc bow direction';
+  flip.style.cssText = 'width:100%;font-size:11px;margin-bottom:6px;';
+  flip.onclick = () => { cut.bulgeSide = Number(cut.bulgeSide) < 0 ? 1 : -1; updateMeasuredArcCutGeometry(cut, CONFIG); weRender(); weRenderSidebar(); regenerate(); };
+  sidebar.appendChild(flip);
+}
+
 function weCutSvgPoint(evt) {
   const svg = document.getElementById('wingEditorSvg');
   const rect = svg.getBoundingClientRect();
@@ -22839,9 +23099,12 @@ function weRenderLayoutCuts(ox, oy, s, minX, minY, maxX, maxY) {
   if (!cuts.length) return '';
   let html = '<g class="we-layout-cuts">';
   const f = v => Number(v).toFixed(2);
-  for (const cut of cuts) {
-    if (!cut || cut.enabled === false) continue;
-    const selected = cut.id === weSelectedCutId;
+  refreshMeasuredLayoutCuts(CONFIG);
+  for (const rawCut of cuts) {
+    if (!rawCut || rawCut.enabled === false) continue;
+    const cut = resolveLayoutCutGeometry(rawCut, CONFIG);
+    const selected = rawCut.id === weSelectedCutId;
+    const measuredArc = rawCut.type === 'arc' && rawCut.positionMode === 'measured';
     const x1 = ox + cut.x1 * s, y1 = oy + cut.y1 * s;
     const x2 = ox + cut.x2 * s, y2 = oy + cut.y2 * s;
     const stroke = selected ? '#d22' : '#a22';
@@ -22856,18 +23119,21 @@ function weRenderLayoutCuts(ox, oy, s, minX, minY, maxX, maxY) {
       const d = `M ${f(x1)},${f(y1)} Q ${f(cx)},${f(cy)} ${f(x2)},${f(y2)}`;
       html += `<path d="${d}" fill="none" stroke="transparent" stroke-width="${hitSw}" data-cutline="${cut.id}" pointer-events="stroke" style="cursor:pointer"/>`;
       html += `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-dasharray="7 4" data-cutline="${cut.id}" pointer-events="stroke" style="cursor:pointer"/>`;
-      if (selected) html += `<circle cx="${f(cx)}" cy="${f(cy)}" r="5" fill="#d22" stroke="#fff" stroke-width="1" data-cutid="${cut.id}" data-cuthandle="ctrl" style="cursor:move"/>`;
+      if (selected && !measuredArc) html += `<circle cx="${f(cx)}" cy="${f(cy)}" r="5" fill="#d22" stroke="#fff" stroke-width="1" data-cutid="${cut.id}" data-cuthandle="ctrl" style="cursor:move"/>`;
       // label near the control point
-      html += `<text x="${f(cx)}" y="${f(cy - 10)}" font-size="9" fill="#a22" text-anchor="middle" font-family="system-ui" pointer-events="none">keep ${cut.keepSide}</text>`;
+      html += `<text x="${f(cx)}" y="${f(cy - 10)}" font-size="9" fill="#a22" text-anchor="middle" font-family="system-ui" pointer-events="none">keep ${cut.keepSide}${measuredArc ? ' · measured' : ''}</text>`;
     } else {
       html += `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" stroke="transparent" stroke-width="${hitSw}" data-cutline="${cut.id}" pointer-events="stroke" style="cursor:pointer"/>`;
       html += `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" stroke="${stroke}" stroke-width="${sw}" stroke-dasharray="7 4" data-cutline="${cut.id}" pointer-events="stroke" style="cursor:pointer"/>`;
       const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
       html += `<text x="${f(mx)}" y="${f(my - 8)}" font-size="9" fill="#a22" text-anchor="middle" font-family="system-ui" pointer-events="none">keep ${cut.keepSide}</text>`;
     }
-    if (selected) {
+    if (selected && !measuredArc) {
       html += `<circle cx="${f(x1)}" cy="${f(y1)}" r="5" fill="#d22" stroke="#fff" stroke-width="1" data-cutid="${cut.id}" data-cuthandle="p1" style="cursor:move"/>`;
       html += `<circle cx="${f(x2)}" cy="${f(y2)}" r="5" fill="#d22" stroke="#fff" stroke-width="1" data-cutid="${cut.id}" data-cuthandle="p2" style="cursor:move"/>`;
+    } else if (selected && measuredArc) {
+      html += `<circle cx="${f(x1)}" cy="${f(y1)}" r="4" fill="#fff" stroke="#d22" stroke-width="2" pointer-events="none"/>`;
+      html += `<circle cx="${f(x2)}" cy="${f(y2)}" r="4" fill="#fff" stroke="#d22" stroke-width="2" pointer-events="none"/>`;
     }
   }
   html += '</g>';
@@ -23311,6 +23577,7 @@ function weRenderSidebar() {
       cutInfo.style.cssText = 'font-size:10px;color:#a22;background:#fff0f0;border:1px solid #e0b0b0;border-radius:4px;padding:5px;margin-bottom:5px;';
       cutInfo.textContent = `${cut.type === 'arc' ? 'Arc' : 'Straight'} cut selected — keeping ${cut.keepSide} side.`;
       sidebar.appendChild(cutInfo);
+      weRenderSelectedCutControls(sidebar, cut);
       const del = document.createElement('button');
       del.textContent = '🗑 Remove selected cut';
       del.style.cssText = 'width:100%;font-size:11px;margin-bottom:6px;border-color:#d22;color:#a22;background:#fff5f5;';

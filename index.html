@@ -377,7 +377,17 @@
   }
   .oe-toolbox-scale-row { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
   .oe-toolbox-scale-row label { font-size: 9px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
-  .oe-toolbox-scale-row select { font-size: 11px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 3px; width: 100%; }
+  .oe-toolbox-scale-row select,
+  .oe-toolbox-scale-row input[type="search"] {
+    font-size: 11px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 3px; width: 100%;
+    box-sizing: border-box; background: #fff;
+  }
+  .oe-toolbox-scale-row input[type="search"] { padding: 4px 6px; }
+  .oe-toolbox-empty {
+    font-size: 10px; color: var(--muted); text-align: center;
+    padding: 10px 4px; border: 1px dashed var(--border); border-radius: 4px;
+    background: rgba(255,255,255,0.55); line-height: 1.35;
+  }
   .oe-toolbox-section {
     font-size: 9px; font-weight: 700; text-transform: uppercase;
     color: var(--muted); letter-spacing: 0.06em;
@@ -11246,6 +11256,75 @@ function applyLayoutCutsToGeneratedParts(cfg, parts) {
   }
 }
 
+function layoutCutRetainedXIntervalForPart(part, cfg) {
+  if (!layoutCutsActive(cfg) || !part) return null;
+  const spec = layoutCutWallClipSpec(part, cfg || CONFIG);
+  if (!spec) return null;
+  refreshMeasuredLayoutCuts(cfg || CONFIG);
+  const cuts = ((cfg || CONFIG).layoutCuts || []).filter(c => c && c.enabled !== false);
+  if (!cuts.length) return null;
+
+  const footprint = spec.footprintWorld();
+  const clippedFootprint = clipPolygonByLayoutCuts(footprint, cuts, cfg || CONFIG);
+  if (!clippedFootprint || clippedFootprint.length < 3) {
+    return { omit: true, x0: 0, x1: 0 };
+  }
+
+  const p0 = spec.toWorld(0);
+  const p1 = spec.toWorld(spec.panelW);
+  const intervals = keptIntervalsOnSegmentInsidePolygon(p0, p1, clippedFootprint);
+  if (!intervals.length) return { omit: true, x0: 0, x1: 0 };
+
+  const t0 = Math.min(...intervals.map(r => r[0]));
+  const t1 = Math.max(...intervals.map(r => r[1]));
+  const x0 = Math.max(0, spec.panelW * t0);
+  const x1 = Math.min(spec.panelW, spec.panelW * t1);
+  if (x1 - x0 <= 0.01) return { omit: true, x0: 0, x1: 0 };
+  return { omit: false, x0, x1 };
+}
+
+function clipOpeningSpecsForLayoutCut(part, specs, cfg, minW = 1.0) {
+  if (!Array.isArray(specs) || specs.length === 0) return [];
+  const interval = layoutCutRetainedXIntervalForPart(part, cfg || CONFIG);
+  if (!interval) return specs.map(s => ({ ...s, partial: false, originalW: s.originalW || s.w, clipLeft: s.clipLeft || 0 }));
+  if (interval.omit) return [];
+
+  const out = [];
+  for (const s of specs) {
+    if (!s || !(s.w > 0) || !(s.h > 0)) continue;
+    const sx0 = s.x != null ? s.x : 0;
+    const sx1 = sx0 + s.w;
+    const k0 = Math.max(sx0, interval.x0);
+    const k1 = Math.min(sx1, interval.x1);
+    const w = k1 - k0;
+    if (w < minW) continue;
+    const clipLeft = (s.clipLeft || 0) + (k0 - sx0);
+    out.push({
+      ...s,
+      x: k0 - interval.x0,
+      w,
+      originalW: s.originalW || s.w,
+      clipLeft,
+      partial: Math.abs(w - (s.originalW || s.w)) > 0.01 || Math.abs(clipLeft) > 0.01,
+    });
+  }
+  return out;
+}
+
+function tallyDoorSpecs(doorSpecs) {
+  const t = {};
+  for (const d of (doorSpecs || [])) {
+    const s = d && d.style;
+    if (s && s !== 'none') t[s] = (t[s] || 0) + 1;
+  }
+  return t;
+}
+
+function mergeTallies(dst, src) {
+  for (const [s, n] of Object.entries(src || {})) dst[s] = (dst[s] || 0) + n;
+  return dst;
+}
+
 function slotCenterInOneOfRanges(slot, ranges) {
   const c = (slot.start + slot.end) / 2;
   return (ranges || []).some(r => c >= r[0] - 0.01 && c <= r[1] + 0.01);
@@ -14396,11 +14475,23 @@ function generateCladdingPanel(cfg, plan, which, band) {
     return cfg.windowStyle;
   };
   const windowSpecs = openingWindows.map(w => ({
-    w: w.w, h: w.h, style: effectiveStyle(w), isGround: !!w.isGround,
+    x: w.x, y: w.y,
+    w: w.w, h: w.h,
+    originalW: w.w, clipLeft: 0,
+    style: effectiveStyle(w), isGround: !!w.isGround,
   }));
   const blankedSpecs = blankedWindows.map(w => ({
-    w: w.w, h: w.h, style: effectiveStyle(w), isGround: !!w.isGround,
+    x: w.x, y: w.y,
+    w: w.w, h: w.h,
+    originalW: w.w, clipLeft: 0,
+    style: effectiveStyle(w), isGround: !!w.isGround,
   }));
+  const doorSpecs = cladDoorsBand.map(d => ({
+    x: d.x, y: d.y,
+    w: d.w, h: d.h,
+    originalW: d.w, clipLeft: 0,
+    style: d.style || cfg.doorStyle,
+  })).filter(d => d.style && d.style !== 'none');
 
   return {
     id: cId,
@@ -14434,15 +14525,9 @@ function generateCladdingPanel(cfg, plan, which, band) {
     blankedGround: blankedGround,
     windowSpecs,
     blankedSpecs,
-    doors: cladDoorsBand.length,
-    doorStyleTallies: (() => {
-      const t = {};
-      for (const d of cladDoorsBand) {
-        const s = d.style || cfg.doorStyle;
-        if (s && s !== 'none') t[s] = (t[s] || 0) + 1;
-      }
-      return t;
-    })(),
+    doors: doorSpecs.length,
+    doorSpecs,
+    doorStyleTallies: tallyDoorSpecs(doorSpecs),
     // Wall identity + opening data for downstream consumers (trim, etc.).
     // wallOpenings stores rects in WALL-frame coords (un-mirrored, un-shifted)
     // so the trim generator can compute notch positions per wall without
@@ -14548,8 +14633,20 @@ function groupWindowSpecsBySize(specs) {
   const groups = new Map();
   for (const s of (specs || [])) {
     if (!s || !(s.w > 0) || !(s.h > 0)) continue;
-    const key = s.w.toFixed(2) + '|' + s.h.toFixed(2) + '|' + (s.style || '');
-    if (!groups.has(key)) groups.set(key, { w: s.w, h: s.h, style: s.style || null, count: 0 });
+    const key = [
+      s.w.toFixed(2),
+      s.h.toFixed(2),
+      s.style || '',
+      (s.originalW || s.w).toFixed(2),
+      (s.clipLeft || 0).toFixed(2),
+    ].join('|');
+    if (!groups.has(key)) groups.set(key, {
+      w: s.w, h: s.h, style: s.style || null,
+      originalW: s.originalW || s.w,
+      clipLeft: s.clipLeft || 0,
+      partial: !!s.partial,
+      count: 0,
+    });
     groups.get(key).count += 1;
   }
   return [...groups.values()];
@@ -14912,6 +15009,251 @@ function generateDoorInserts(cfg, doorTallies) {
         parts.push({
           id: 'door_glass_' + styleKey,
           name: `Door glass — ${door.label} (slots into core holes, 0.2 mm clearance)`,
+          material: 'window',
+          bboxW: gSheetW, bboxH: gSheetH,
+          bboxOffsetX: 0, bboxOffsetY: 0,
+          paths: [], rects: gRects, lines: [],
+        });
+      }
+    }
+  }
+  return parts;
+}
+
+function cropDoorStyleForSpec(baseDoor, spec) {
+  const origW = Number(spec.originalW || baseDoor.width || spec.w);
+  const clipLeft = Number(spec.clipLeft || 0);
+  const clipRight = clipLeft + Number(spec.w || origW);
+  const out = { ...baseDoor, width: spec.w, height: spec.h, centerSplit: false };
+
+  function clipXRange(x1, x2) {
+    const a = Math.max(x1, clipLeft);
+    const b = Math.min(x2, clipRight);
+    if (b - a <= 0.05) return null;
+    return [a - clipLeft, b - clipLeft];
+  }
+
+  out.glassPanes = [];
+  for (const gp of (baseDoor.glassPanes || [])) {
+    const xr = clipXRange(gp.x1, gp.x2);
+    if (!xr) continue;
+    out.glassPanes.push({ ...gp, x1: xr[0], x2: xr[1] });
+  }
+
+  const features = [];
+  const maybeRect = (f, typeName) => {
+    const xr = clipXRange(f.x1, f.x2);
+    if (!xr) return;
+    features.push({ ...f, type: typeName || f.type, x1: xr[0], x2: xr[1] });
+  };
+  const maybeLine = (f) => {
+    const x1 = f.x1, x2 = f.x2;
+    if (Math.abs(x2 - x1) < 1e-9) {
+      if (x1 >= clipLeft - 0.01 && x1 <= clipRight + 0.01) {
+        features.push({ ...f, x1: x1 - clipLeft, x2: x2 - clipLeft });
+      }
+      return;
+    }
+    const xr = clipXRange(Math.min(x1, x2), Math.max(x1, x2));
+    if (!xr) return;
+    const nx1 = Math.max(clipLeft, Math.min(clipRight, x1)) - clipLeft;
+    const nx2 = Math.max(clipLeft, Math.min(clipRight, x2)) - clipLeft;
+    features.push({ ...f, x1: nx1, x2: nx2 });
+  };
+
+  if (baseDoor.centerSplit) {
+    const cx = origW / 2;
+    if (cx >= clipLeft - 0.01 && cx <= clipRight + 0.01) {
+      features.push({ type: 'rail', x1: cx - clipLeft, y1: 0.5, x2: cx - clipLeft, y2: spec.h - 0.5 });
+    }
+  }
+
+  // Procedural slats are regenerated across the retained partial width.
+  out.rollingSlats = !!baseDoor.rollingSlats;
+
+  for (const f of (baseDoor.features || [])) {
+    switch (f.type) {
+      case 'panel':
+      case 'kickPlate':
+      case 'lockPlate':
+      case 'hikite':
+      case 'ironBand':
+        maybeRect(f);
+        break;
+      case 'crashBar':
+      case 'rail':
+      case 'handle':
+        maybeLine(f);
+        break;
+      case 'track':
+        features.push({ ...f });
+        break;
+      case 'knob':
+      case 'stud':
+        if (f.cx >= clipLeft && f.cx <= clipRight) features.push({ ...f, cx: f.cx - clipLeft });
+        break;
+      case 'latticeVertical':
+      case 'latticeGrid':
+      case 'plankSeams':
+      case 'horizontalRails':
+        maybeRect(f);
+        break;
+      default:
+        features.push({ ...f });
+    }
+  }
+  out.features = features;
+  return out;
+}
+
+function groupDoorSpecsBySize(specs) {
+  const groups = new Map();
+  for (const s of (specs || [])) {
+    if (!s || !s.style || s.style === 'none' || !(s.w > 0) || !(s.h > 0)) continue;
+    const key = [
+      s.style,
+      (s.w || 0).toFixed(2),
+      (s.h || 0).toFixed(2),
+      (s.originalW || s.w || 0).toFixed(2),
+      (s.clipLeft || 0).toFixed(2),
+    ].join('|');
+    if (!groups.has(key)) {
+      groups.set(key, {
+        style: s.style, w: s.w, h: s.h,
+        originalW: s.originalW || s.w,
+        clipLeft: s.clipLeft || 0,
+        partial: !!s.partial,
+        count: 0,
+      });
+    }
+    groups.get(key).count++;
+  }
+  return [...groups.values()];
+}
+
+function generateDoorInsertsFromSpecs(cfg, doorSpecs) {
+  const groups = groupDoorSpecsBySize(doorSpecs);
+  if (!groups.length) return [];
+  const parts = [];
+  const trim = Math.max(0, Math.min(5, Number(cfg.surfaceFeatureTrimOffset ?? 0.75)));
+  const gutter = 5;
+
+  for (const g of groups) {
+    const baseDoor = DOOR_STYLES[g.style];
+    if (!baseDoor || g.count <= 0) continue;
+    const door = cropDoorStyleForSpec(baseDoor, g);
+    const total = g.count;
+
+    const insetW = Math.max(0.6, door.width - 0.4);
+    const insetH = Math.max(0.6, door.height - 0.4);
+    const cutW = insetW + 2 * trim;
+    const cutH = insetH + 2 * trim;
+    const cols = Math.min(total, Math.max(2, Math.floor((250 - gutter) / (cutW + gutter))));
+    const rows = Math.ceil(total / cols);
+    const sheetW = cols * (cutW + gutter) + gutter;
+    const sheetH = rows * (cutH + gutter) + gutter;
+    const partialLabel = g.partial ? ` partial ${g.w.toFixed(1)}mm of ${g.originalW.toFixed(1)}mm` : '';
+
+    function pushDoorTile(ox, oy, outRects, outLines) {
+      outRects.push({ type: 'cut', x: ox, y: oy, w: cutW, h: cutH, compensateKerf: false });
+      const dx = ox + trim, dy = oy + trim;
+      outLines.push({ type: 'etch', x1: dx,           y1: dy,           x2: dx + insetW, y2: dy });
+      outLines.push({ type: 'etch', x1: dx + insetW,  y1: dy,           x2: dx + insetW, y2: dy + insetH });
+      outLines.push({ type: 'etch', x1: dx + insetW,  y1: dy + insetH,  x2: dx,          y2: dy + insetH });
+      outLines.push({ type: 'etch', x1: dx,           y1: dy + insetH,  x2: dx,          y2: dy });
+
+      const sx = insetW / Math.max(0.01, door.width);
+      const sy = insetH / Math.max(0.01, door.height);
+      for (const gp of (door.glassPanes || [])) {
+        const gx = dx + gp.x1 * sx;
+        const gy = dy + gp.y1 * sy;
+        const gw = (gp.x2 - gp.x1) * sx;
+        const gh = (gp.y2 - gp.y1) * sy;
+        if (gw < 0.6 || gh < 0.6) continue;
+        outRects.push({ type: 'cut', x: gx, y: gy, w: gw, h: gh, compensateKerf: false });
+      }
+      const shapes = doorFeatureShapes(door);
+      for (const sh of shapes) {
+        if (sh.type === 'rect') {
+          const x1 = dx + sh.x * sx, y1 = dy + sh.y * sy;
+          const x2 = dx + (sh.x + sh.w) * sx, y2 = dy + (sh.y + sh.h) * sy;
+          outLines.push({ type: 'etch', x1, y1, x2, y2: y1 });
+          outLines.push({ type: 'etch', x1: x2, y1, x2, y2 });
+          outLines.push({ type: 'etch', x1: x2, y1: y2, x2: x1, y2 });
+          outLines.push({ type: 'etch', x1, y1: y2, x2: x1, y2: y1 });
+        } else if (sh.type === 'line') {
+          outLines.push({ type: 'etch',
+            x1: dx + sh.x1 * sx, y1: dy + sh.y1 * sy,
+            x2: dx + sh.x2 * sx, y2: dy + sh.y2 * sy });
+        } else if (sh.type === 'circle') {
+          const cx = dx + sh.cx * sx, cy = dy + sh.cy * sy;
+          const rx = sh.r * sx, ry = sh.r * sy;
+          const N = 12;
+          let px = cx + rx, py = cy;
+          for (let i = 1; i <= N; i++) {
+            const a = (i / N) * 2 * Math.PI;
+            const nx = cx + Math.cos(a) * rx;
+            const ny = cy + Math.sin(a) * ry;
+            outLines.push({ type: 'etch', x1: px, y1: py, x2: nx, y2: ny });
+            px = nx; py = ny;
+          }
+        }
+      }
+    }
+
+    const rects = [], lines = [];
+    for (let i = 0; i < total; i++) {
+      const c = i % cols;
+      const r = Math.floor(i / cols);
+      pushDoorTile(gutter + c * (cutW + gutter), gutter + r * (cutH + gutter), rects, lines);
+    }
+    const tileRects = [], tileLines = [];
+    pushDoorTile(0, 0, tileRects, tileLines);
+
+    const idSuffix = suffixId(`${g.style}_${g.w.toFixed(1)}x${g.h.toFixed(1)}_${g.clipLeft.toFixed(1)}of${g.originalW.toFixed(1)}`);
+    parts.push({
+      id: 'door_insert' + idSuffix,
+      name: `Door insert — ${baseDoor.label}${partialLabel} (${total}×, ${trim.toFixed(2)}mm trim offset)`,
+      material: baseDoor.frameMaterial || 'cladding',
+      assemblyNote: `Layout-cut-aware insert. ${g.partial ? `This is a partial door piece beginning ${g.clipLeft.toFixed(1)}mm from the original door's left edge. ` : ''}Surface-fit insert is cut ${trim.toFixed(2)}mm oversized per side and etched with the true fit outline.`,
+      bboxW: sheetW, bboxH: sheetH,
+      bboxOffsetX: 0, bboxOffsetY: 0,
+      paths: [], rects, lines,
+      tileCount: total,
+      tileGeom: { bboxW: cutW, bboxH: cutH, bboxOffsetX: 0, bboxOffsetY: 0, paths: [], rects: tileRects, lines: tileLines },
+    });
+
+    const glassApertures = Array.isArray(door.glassPanes) ? door.glassPanes : [];
+    if (glassApertures.length > 0) {
+      const sx = insetW / Math.max(0.01, door.width);
+      const sy = insetH / Math.max(0.01, door.height);
+      const glassPieces = [];
+      for (let pi = 0; pi < glassApertures.length; pi++) {
+        const gp = glassApertures[pi];
+        const gw = (gp.x2 - gp.x1) * sx + 2 - 0.2;
+        const gh = (gp.y2 - gp.y1) * sy + 2 - 0.2;
+        if (gw < 1 || gh < 1) continue;
+        for (let n = 0; n < total; n++) glassPieces.push({ w: gw, h: gh, paneIndex: pi });
+      }
+      if (glassPieces.length > 0) {
+        const maxW = Math.max(...glassPieces.map(gp => gp.w));
+        const maxH = Math.max(...glassPieces.map(gp => gp.h));
+        const gCols = Math.max(2, Math.floor((250 - gutter) / (maxW + gutter)));
+        const gRows = Math.ceil(glassPieces.length / gCols);
+        const gSheetW = gCols * (maxW + gutter) + gutter;
+        const gSheetH = gRows * (maxH + gutter) + gutter;
+        const gRects = [];
+        for (let i = 0; i < glassPieces.length; i++) {
+          const piece = glassPieces[i];
+          const c = i % gCols;
+          const r = Math.floor(i / gCols);
+          const ox = gutter + c * (maxW + gutter) + (maxW - piece.w) / 2;
+          const oy = gutter + r * (maxH + gutter) + (maxH - piece.h) / 2;
+          gRects.push({ type: 'cut', x: ox, y: oy, w: piece.w, h: piece.h, compensateKerf: false });
+        }
+        parts.push({
+          id: 'door_glass' + idSuffix,
+          name: `Door glass — ${baseDoor.label}${partialLabel} (slots into core holes, 0.2 mm clearance)`,
           material: 'window',
           bboxW: gSheetW, bboxH: gSheetH,
           bboxOffsetX: 0, bboxOffsetY: 0,
@@ -15354,10 +15696,37 @@ function tallyPrintedItems(cfg) {
 function generatePrintedSheets(cfg, printedGroups) {
   const parts = [];
   const PAGE_W = 200;       // mm — fits comfortably on A4 (210mm wide)
-  const GUTTER = 8;         // mm between items (room for crop marks + thumb)
+  const GUTTER = 4;         // mm between crop-mark carrier tiles
   const CROP_LEN = 2.5;     // mm length of each crop-mark arm
-  const CROP_GAP = 0.6;     // mm gap between artwork and crop mark
+  const CROP_GAP = 0.6;     // mm gap between artwork trim edge and crop mark
   const CROP_WIDTH = 0.1;   // mm crop-mark stroke
+  const CROP_MARGIN = CROP_LEN + CROP_GAP + 0.8; // waste margin that CONTAINS the marks
+
+  function pushFunctionalCropMarks(lines, x0, y0, w, h) {
+    const x1 = x0 + w;
+    const y1 = y0 + h;
+    const gp = CROP_GAP;
+    const ln = CROP_LEN;
+
+    // Functional crop marks align with the TRUE trim edges:
+    //   horizontal arms sit on y = top/bottom trim line
+    //   vertical arms sit on x = left/right trim line
+    // but stop short of the artwork by CROP_GAP. This is the standard
+    // print workflow: the marks live in the waste margin and point to the
+    // exact cut line instead of floating diagonally outside the object.
+    // Top-left
+    lines.push({ type: 'cut', x1: x0 - gp - ln, y1: y0, x2: x0 - gp, y2: y0, isCrop: true });
+    lines.push({ type: 'cut', x1: x0, y1: y0 - gp - ln, x2: x0, y2: y0 - gp, isCrop: true });
+    // Top-right
+    lines.push({ type: 'cut', x1: x1 + gp, y1: y0, x2: x1 + gp + ln, y2: y0, isCrop: true });
+    lines.push({ type: 'cut', x1: x1, y1: y0 - gp - ln, x2: x1, y2: y0 - gp, isCrop: true });
+    // Bottom-left
+    lines.push({ type: 'cut', x1: x0 - gp - ln, y1: y1, x2: x0 - gp, y2: y1, isCrop: true });
+    lines.push({ type: 'cut', x1: x0, y1: y1 + gp, x2: x0, y2: y1 + gp + ln, isCrop: true });
+    // Bottom-right
+    lines.push({ type: 'cut', x1: x1 + gp, y1: y1, x2: x1 + gp + ln, y2: y1, isCrop: true });
+    lines.push({ type: 'cut', x1: x1, y1: y1 + gp, x2: x1, y2: y1 + gp + ln, isCrop: true });
+  }
 
   for (const group of (printedGroups || [])) {
     if (!group || group.count <= 0) continue;
@@ -15365,9 +15734,14 @@ function generatePrintedSheets(cfg, printedGroups) {
     if (!style) continue;
 
     const w = group.w, h = group.h;
-    // How many fit per row (allowing for gutters)?
-    const cellW = w + GUTTER;
-    const cellH = h + GUTTER;
+    const tileW = w + 2 * CROP_MARGIN;
+    const tileH = h + 2 * CROP_MARGIN;
+
+    // How many fit per row. Each tile includes a waste/crop-mark margin, so
+    // crop marks are part of the printable carrier area instead of sitting
+    // outside the object's exported bbox.
+    const cellW = tileW + GUTTER;
+    const cellH = tileH + GUTTER;
     const cols = Math.max(1, Math.floor((PAGE_W - GUTTER) / cellW));
     const rows = Math.ceil(group.count / cols);
     const sheetW = Math.min(PAGE_W, cols * cellW + GUTTER);
@@ -15375,70 +15749,48 @@ function generatePrintedSheets(cfg, printedGroups) {
 
     // Build the printed sheet SVG body — full-colour artwork plus crop marks.
     let body = '';
-    // Crop marks emitted as proper cut lines so they print sharply and laser
-    // operators (if cutting on a paper-cutter or sticker-cutter that follows
-    // the same SVG) can use them as guides.
     const rects = [];
     const lines = [];
 
     for (let i = 0; i < group.count; i++) {
       const c = i % cols;
       const r = Math.floor(i / cols);
-      const ox = GUTTER + c * cellW;
-      const oy = GUTTER + r * cellH;
+      const tileX = GUTTER + c * cellW;
+      const tileY = GUTTER + r * cellH;
+      const ox = tileX + CROP_MARGIN;
+      const oy = tileY + CROP_MARGIN;
 
       // The artwork itself — transform-translate so the style's designSvg
-      // generates art in its local (0..w, 0..h) space.
+      // generates art in its local (0..w, 0..h) space. The surrounding
+      // CROP_MARGIN is deliberate waste paper/sticker material.
       body += `<g transform="translate(${ox.toFixed(2)} ${oy.toFixed(2)})">`
             + buildPrintedSvgBody(style, w, h)
             + `</g>`;
 
-      // L-shaped crop marks at each corner. Each L is two short lines
-      // perpendicular to each other, just outside the artwork bbox by CROP_GAP.
-      const gp = CROP_GAP, ln = CROP_LEN;
-      // Top-left
-      lines.push({ type: 'cut', x1: ox - gp - ln, y1: oy - gp, x2: ox - gp, y2: oy - gp, isCrop: true });
-      lines.push({ type: 'cut', x1: ox - gp, y1: oy - gp - ln, x2: ox - gp, y2: oy - gp, isCrop: true });
-      // Top-right
-      lines.push({ type: 'cut', x1: ox + w + gp, y1: oy - gp, x2: ox + w + gp + ln, y2: oy - gp, isCrop: true });
-      lines.push({ type: 'cut', x1: ox + w + gp, y1: oy - gp - ln, x2: ox + w + gp, y2: oy - gp, isCrop: true });
-      // Bottom-left
-      lines.push({ type: 'cut', x1: ox - gp - ln, y1: oy + h + gp, x2: ox - gp, y2: oy + h + gp, isCrop: true });
-      lines.push({ type: 'cut', x1: ox - gp, y1: oy + h + gp, x2: ox - gp, y2: oy + h + gp + ln, isCrop: true });
-      // Bottom-right
-      lines.push({ type: 'cut', x1: ox + w + gp, y1: oy + h + gp, x2: ox + w + gp + ln, y2: oy + h + gp, isCrop: true });
-      lines.push({ type: 'cut', x1: ox + w + gp, y1: oy + h + gp, x2: ox + w + gp, y2: oy + h + gp + ln, isCrop: true });
+      pushFunctionalCropMarks(lines, ox, oy, w, h);
     }
 
-    // Single-tile preview: one printed artwork at (0,0) with crop marks
-    // around it. The full sheet still ships every copy for printing.
-    const tileBody = buildPrintedSvgBody(style, w, h);
+    // Single-tile preview: include the same waste margin, artwork offset,
+    // and edge-aligned crop marks. No negative coordinates, so the preview
+    // and exported tile accurately show how the marks are meant to be used.
+    const tileBody = `<g transform="translate(${CROP_MARGIN.toFixed(2)} ${CROP_MARGIN.toFixed(2)})">`
+                   + buildPrintedSvgBody(style, w, h)
+                   + `</g>`;
     const tileLinesArr = [];
-    {
-      const gp = CROP_GAP, ln = CROP_LEN;
-      // Same four-corner L-shaped crop marks as the full sheet, but
-      // relative to a tile whose top-left sits at the origin.
-      tileLinesArr.push({ type: 'cut', x1: -gp - ln, y1: -gp, x2: -gp, y2: -gp, isCrop: true });
-      tileLinesArr.push({ type: 'cut', x1: -gp, y1: -gp - ln, x2: -gp, y2: -gp, isCrop: true });
-      tileLinesArr.push({ type: 'cut', x1: w + gp, y1: -gp, x2: w + gp + ln, y2: -gp, isCrop: true });
-      tileLinesArr.push({ type: 'cut', x1: w + gp, y1: -gp - ln, x2: w + gp, y2: -gp, isCrop: true });
-      tileLinesArr.push({ type: 'cut', x1: -gp - ln, y1: h + gp, x2: -gp, y2: h + gp, isCrop: true });
-      tileLinesArr.push({ type: 'cut', x1: -gp, y1: h + gp, x2: -gp, y2: h + gp + ln, isCrop: true });
-      tileLinesArr.push({ type: 'cut', x1: w + gp, y1: h + gp, x2: w + gp + ln, y2: h + gp, isCrop: true });
-      tileLinesArr.push({ type: 'cut', x1: w + gp, y1: h + gp, x2: w + gp, y2: h + gp + ln, isCrop: true });
-    }
+    pushFunctionalCropMarks(tileLinesArr, CROP_MARGIN, CROP_MARGIN, w, h);
+
     parts.push({
       id: 'printed_' + group.style + `_${w.toFixed(1)}x${h.toFixed(1)}`.replace(/\./g, '_'),
-      name: `Printed sheet — ${style.label} (${group.count}× · ${w.toFixed(1)}×${h.toFixed(1)}mm)`,
+      name: `Printed sheet — ${style.label} (${group.count}× · ${w.toFixed(1)}×${h.toFixed(1)}mm artwork, crop-margin carrier)`,
       material: 'printed',
       bboxW: sheetW, bboxH: sheetH,
       bboxOffsetX: 0, bboxOffsetY: 0,
       paths: [], rects: rects, lines: lines,
       svgContent: body,
-      assemblyNote: 'Print at 100% scale on inkjet/laser printer. Cut along the corner crop marks and glue to the building face.',
+      assemblyNote: 'Print at 100% scale. Crop marks now sit inside a waste margin and align to the true artwork trim edges; cut along the imaginary rectangle connecting the crop-mark arms, then glue to the building face.',
       tileCount: group.count,
       tileGeom: {
-        bboxW: w, bboxH: h,
+        bboxW: tileW, bboxH: tileH,
         bboxOffsetX: 0, bboxOffsetY: 0,
         paths: [], rects: [], lines: tileLinesArr,
         svgContent: tileBody,
@@ -15447,6 +15799,7 @@ function generatePrintedSheets(cfg, printedGroups) {
   }
   return parts;
 }
+
 
 /* Walk CONFIG.manualCladdingOverrides across all walls and bucket by
  * (claddingStyle, w-to-0.1mm, h-to-0.1mm). Each override = exactly one
@@ -17101,24 +17454,50 @@ function generateBuilding(cfg) {
   // separately-sized set per group — see generateWindowPartsFromSpecs.
   const allWindowSpecs = [];
   const allBlankedSpecs = [];
+  const allDoorSpecs = [];
   for (const p of parts) {
     if (!p) continue;
     // Window/door metadata can live on any cladding panel material. When a
     // cladding style is routed to a custom material folder, p.material is no
     // longer literally "cladding"; the previous guard skipped its metadata,
     // so glass/frame/divider/door insert cut sheets were never emitted.
-    if (p.windows) totalWindows += p.windows;
-    if (p.upperWindows) upperWindows += p.upperWindows;
-    if (p.groundWindows) groundWindows += p.groundWindows;
-    if (p.blankedUpper) blankedUpper += p.blankedUpper;
-    if (p.blankedGround) blankedGround += p.blankedGround;
-    if (p.doors) totalDoors += p.doors;
-    if (p.windowSpecs && p.windowSpecs.length) allWindowSpecs.push(...p.windowSpecs);
-    if (p.blankedSpecs && p.blankedSpecs.length) allBlankedSpecs.push(...p.blankedSpecs);
-    if (p.doorStyleTallies) {
-      for (const [s, n] of Object.entries(p.doorStyleTallies)) {
-        doorTallies[s] = (doorTallies[s] || 0) + n;
-      }
+    //
+    // Layout cuts can shorten a wall/cladding panel after openings were
+    // generated. Clip child window/door specs against the retained wall span
+    // now, so a partially cut window creates matching partial glass/frame/
+    // divider pieces and a partially cut door creates a matching partial
+    // insert, instead of exporting the full original child piece.
+    const clippedWindows = clipOpeningSpecsForLayoutCut(p, p.windowSpecs || [], cfg, 1.0);
+    const clippedBlanked = clipOpeningSpecsForLayoutCut(p, p.blankedSpecs || [], cfg, 1.0);
+    const clippedDoors   = clipOpeningSpecsForLayoutCut(p, p.doorSpecs   || [], cfg, 1.0);
+
+    if (clippedWindows.length) {
+      allWindowSpecs.push(...clippedWindows);
+      totalWindows += clippedWindows.length;
+      upperWindows += clippedWindows.filter(w => !w.isGround).length;
+      groundWindows += clippedWindows.filter(w => !!w.isGround).length;
+    } else if (!p.windowSpecs || p.windowSpecs.length === 0) {
+      if (p.windows) totalWindows += p.windows;
+      if (p.upperWindows) upperWindows += p.upperWindows;
+      if (p.groundWindows) groundWindows += p.groundWindows;
+    }
+
+    if (clippedBlanked.length) {
+      allBlankedSpecs.push(...clippedBlanked);
+      blankedUpper += clippedBlanked.filter(w => !w.isGround).length;
+      blankedGround += clippedBlanked.filter(w => !!w.isGround).length;
+    } else if (!p.blankedSpecs || p.blankedSpecs.length === 0) {
+      if (p.blankedUpper) blankedUpper += p.blankedUpper;
+      if (p.blankedGround) blankedGround += p.blankedGround;
+    }
+
+    if (clippedDoors.length) {
+      allDoorSpecs.push(...clippedDoors);
+      totalDoors += clippedDoors.length;
+      mergeTallies(doorTallies, tallyDoorSpecs(clippedDoors));
+    } else if (!p.doorSpecs || p.doorSpecs.length === 0) {
+      if (p.doors) totalDoors += p.doors;
+      mergeTallies(doorTallies, p.doorStyleTallies || {});
     }
   }
   // Spec-driven generation when wall parts reported per-window specs (the
@@ -17136,7 +17515,9 @@ function generateBuilding(cfg) {
     : generateBlankedWindowPanels(cfg, blankedUpper, blankedGround);
   parts.push(...blankedParts);
 
-  const doorParts = generateDoorInserts(cfg, doorTallies);
+  const doorParts = allDoorSpecs.length > 0
+    ? generateDoorInsertsFromSpecs(cfg, allDoorSpecs)
+    : generateDoorInserts(cfg, doorTallies);
   parts.push(...doorParts);
 
   // Fixtures (surface-mounted vents, meters, signs, lanterns, etc.).
@@ -25464,7 +25845,18 @@ let oeExtraTop   = 0;   // SVG px above the eave level (for slant / gable peaks)
 let oeWallEffH   = 0;   // effective wall height (may exceed plan.H for high-eave walls)
 let oeWallLeftPx = 0;   // extra SVG px to the left of the main wall (coplanar wing extensions)
 let oeTool = 'window';
-let oeSnapGrid = 1;             // mm; 0 = no snapping
+let oeSnapGrid = 1;             // legacy toolbox value; 0 = no snapping
+// Placement grid for the opening editor. Objects can snap either by their
+// top-left corner or by their centre/anchor point. X/Y spacing and origins
+// are controlled from the canvas top properties bar.
+let oeGrid = {
+  enabled: true,
+  xStep: 1,
+  yStep: 1,
+  xOrigin: 0,
+  yOrigin: 0,
+  anchor: 'center',             // 'center' or 'bottomLeft'
+};
 let oeZoom = 1.0;               // zoom multiplier for the opening editor canvas
 // Pan state — space-held + left drag, or middle-mouse drag, scrolls the
 // canvas container. Document-level mousemove/mouseup listeners are
@@ -25474,11 +25866,128 @@ let oePanStartPx  = null;       // {x, y} = client coords at mousedown
 let oePanStartScroll = null;    // {l, t} = container.scrollLeft / scrollTop at mousedown
 let oeSpaceDown   = false;
 let oeCustomSizes = {};         // { styleKey: { w, h } } — per-style size overrides
+let oeToolboxSearch = '';       // live filter for the opening-editor object toolbox
 
-/** Round v to the nearest oeSnapGrid increment (or pass through if snap is off) */
-function oeSnap(v) {
-  return oeSnapGrid > 0 ? Math.round(v / oeSnapGrid) * oeSnapGrid : v;
+/** Round v to the nearest placement-grid increment for a given axis. */
+function oeGridStep(axis) {
+  const raw = axis === 'y' ? oeGrid.yStep : oeGrid.xStep;
+  return Math.max(0, Number(raw) || 0);
 }
+function oeGridOrigin(axis) {
+  const raw = axis === 'y' ? oeGrid.yOrigin : oeGrid.xOrigin;
+  return isFinite(Number(raw)) ? Number(raw) : 0;
+}
+function oeWallMeasureHeight() {
+  try {
+    const dims = oeGetWallDims(oeWall);
+    return Number(dims && dims.H) || 0;
+  } catch (e) {
+    return 0;
+  }
+}
+function oeSnapAxis(v, axis = 'x') {
+  if (!oeGrid.enabled) return v;
+  const step = oeGridStep(axis);
+  if (step <= 0) return v;
+  const origin = oeGridOrigin(axis);
+  if (axis === 'y') {
+    // User-facing Y measurements always start at the BOTTOM-left of the
+    // wall. Internally wall coordinates are top-down, so convert the
+    // coordinate into bottom-up measurement space, snap there, then convert
+    // back to the internal top-down coordinate.
+    const H = oeWallMeasureHeight();
+    const measuredY = H - v;
+    const snappedMeasuredY = origin + Math.round((measuredY - origin) / step) * step;
+    return H - snappedMeasuredY;
+  }
+  return origin + Math.round((v - origin) / step) * step;
+}
+function oeSnapSize(v, axis = 'x') {
+  if (!oeGrid.enabled) return v;
+  const step = oeGridStep(axis);
+  if (step <= 0) return v;
+  return Math.round(v / step) * step;
+}
+// Backwards-compatible x-axis snap used by older editor code.
+function oeSnap(v) { return oeSnapAxis(v, 'x'); }
+function oeSnapX(v) { return oeSnapAxis(v, 'x'); }
+function oeSnapY(v) { return oeSnapAxis(v, 'y'); }
+function oeSnapSizeX(v) { return oeSnapSize(v, 'x'); }
+function oeSnapSizeY(v) { return oeSnapSize(v, 'y'); }
+function oeSnapPlacementX(x, w = 0) {
+  return (oeGrid.enabled && oeGrid.anchor === 'center')
+    ? oeSnapX(x + (Number(w) || 0) / 2) - (Number(w) || 0) / 2
+    : oeSnapX(x);
+}
+function oeSnapPlacementY(y, h = 0) {
+  const hh = Number(h) || 0;
+  if (!oeGrid.enabled) return y;
+  if (oeGrid.anchor === 'center') {
+    return oeSnapY(y + hh / 2) - hh / 2;
+  }
+  // Bottom-left anchor: snap the object's lower-left/bottom edge to a
+  // bottom-up Y measurement grid point.
+  return oeSnapY(y + hh) - hh;
+}
+function oeGridStart(min, step, origin) {
+  if (!(step > 0)) return min;
+  return origin + Math.ceil((min - origin) / step) * step;
+}
+function oeSyncLegacySnapGrid() {
+  // Keep old toolbox dropdowns roughly in sync when x/y are equal.
+  if (!oeGrid.enabled) oeSnapGrid = 0;
+  else if (Math.abs((Number(oeGrid.xStep) || 0) - (Number(oeGrid.yStep) || 0)) < 1e-9) oeSnapGrid = Number(oeGrid.xStep) || 0;
+}
+function oeOpAnchorPoint(op) {
+  const h = oeOpH(op);
+  if (oeGrid.anchor === 'center') return { x: op.x + (op.w || 0) / 2, y: op.y + h / 2 };
+  // Bottom-left anchor in internal top-down coordinates.
+  return { x: op.x || 0, y: (op.y || 0) + h };
+}
+function oeOpMeasurePoint(op) {
+  const p = oeOpAnchorPoint(op);
+  return { x: p.x, y: oeWallMeasureHeight() - p.y };
+}
+function oeClampOpToWall(op, x, y) {
+  const { W, H } = oeGetWallDims(oeWall);
+  const buf = oeEdgeBuffer(oeWall);
+  const isThroughCut = (op.type === 'window' || op.type === 'door' || op.type === 'bay');
+  const minX = isThroughCut ? buf.left : 0;
+  const maxX = isThroughCut ? (W - (op.w || 0) - buf.right) : (W - (op.w || 0));
+  const opH = oeOpH(op);
+  const maxY = Math.max(0, H - opH);
+  return {
+    x: Math.max(minX, Math.min(Math.max(minX, maxX), x)),
+    y: Math.max(0, Math.min(maxY, y)),
+  };
+}
+function oeMoveSelectionAnchorTo(anchorX, measuredYFromBottom) {
+  const ops = oeOpenings[oeWall] || [];
+  const primaryIdx = [...oeSelectedSet][0];
+  const primary = ops[primaryIdx];
+  if (!primary) return;
+  const H = oeWallMeasureHeight();
+  const targetInternalY = H - measuredYFromBottom;
+  const cur = oeOpAnchorPoint(primary);
+  const dx = anchorX - cur.x;
+  const dy = targetInternalY - cur.y;
+  for (const i of oeSelectedSet) {
+    const op = ops[i];
+    if (!op) continue;
+    if (op.type === 'bay') {
+      const c = oeClampOpToWall(op, op.x + dx, op.y);
+      op.x = oeSnapPlacementX(c.x, op.w || 0);
+      op.y = oeGetWallDims(oeWall).H - op.h;
+      continue;
+    }
+    const c = oeClampOpToWall(op, op.x + dx, op.y + dy);
+    op.x = oeSnapPlacementX(c.x, op.w || 0);
+    op.y = oeSnapPlacementY(c.y, oeOpH(op));
+  }
+  oeCommit();
+  oeRender();
+}
+
 let oeOpenings = {};
 let oeSelectedSet = new Set();   // indices of selected openings (multi-select)
 let oeClipboard = [];            // deep-cloned ops awaiting paste (cross-wall safe)
@@ -25836,7 +26345,37 @@ function oePopulateToolbox() {
   box.appendChild(snapRow);
   const snapEl = snapRow.querySelector('#oeSnapSelect');
   snapEl.value = String(oeSnapGrid);
-  snapEl.addEventListener('change', () => { oeSnapGrid = parseFloat(snapEl.value); oeRender(); });
+  snapEl.addEventListener('change', () => {
+    const v = parseFloat(snapEl.value) || 0;
+    oeSnapGrid = v;
+    oeGrid.enabled = v > 0;
+    if (v > 0) { oeGrid.xStep = v; oeGrid.yStep = v; }
+    oePopulateTopbar();
+    oeRender();
+  });
+
+  // ---- Search / filter ----
+  const searchRow = document.createElement('div');
+  searchRow.className = 'oe-toolbox-scale-row';
+  searchRow.innerHTML = `
+    <label>Search</label>
+    <input id="oeToolboxSearch" type="search" placeholder="window, bay, pipe…" autocomplete="off">`;
+  box.appendChild(searchRow);
+  const searchEl = searchRow.querySelector('#oeToolboxSearch');
+  searchEl.value = oeToolboxSearch || '';
+  searchEl.addEventListener('input', () => {
+    oeToolboxSearch = searchEl.value || '';
+    const cursor = searchEl.selectionStart || oeToolboxSearch.length;
+    oePopulateToolbox();
+    requestAnimationFrame(() => {
+      const next = document.getElementById('oeToolboxSearch');
+      if (next) {
+        next.focus();
+        try { next.setSelectionRange(cursor, cursor); } catch (e) {}
+      }
+    });
+  });
+  searchEl.addEventListener('keydown', e => e.stopPropagation(), true);
 
   // ---- Toolbox section / type decoupling ----
   // A style's TYPE (the dict it lives in: WINDOW/DOOR/FIXTURE/AWNING/
@@ -25885,6 +26424,39 @@ function oePopulateToolbox() {
       });
     }
     return items;
+  }
+
+  function oeToolboxSearchTerms(item, sectionId, sectionLabel) {
+    const style = item.style || {};
+    const raw = [
+      sectionLabel,
+      sectionId,
+      item.type,
+      item.key,
+      style.label,
+      style.description,
+      style.placement,
+      style.depthTier,
+      style.toolboxSection,
+      style.panelFill,
+      style.frameColor,
+      style.baseW != null ? `${style.baseW}w` : '',
+      style.baseH != null ? `${style.baseH}h` : '',
+      style.width != null ? `${style.width}w` : '',
+      style.height != null ? `${style.height}h` : '',
+      style.fullHeight ? 'full height tall downspout' : '',
+      style.rollingSlats ? 'rollup roller shutter slats bay garage' : '',
+      style.glassPanes && style.glassPanes.length ? 'glass window panes' : '',
+      style.features ? JSON.stringify(style.features) : '',
+    ];
+    return raw.filter(Boolean).join(' ').toLowerCase();
+  }
+
+  function oeToolboxItemMatches(item, sectionId, sectionLabel) {
+    const q = (oeToolboxSearch || '').trim().toLowerCase();
+    if (!q) return true;
+    const hay = oeToolboxSearchTerms(item, sectionId, sectionLabel);
+    return q.split(/\s+/).every(term => hay.includes(term));
   }
 
   // ---- Card builders, one per underlying TYPE (not per section) ----
@@ -26463,8 +27035,10 @@ function oePopulateToolbox() {
     bay:               buildBayCard,
   };
 
+  let renderedToolboxItems = 0;
   function renderSection(headerText, sectionId) {
-    const items = getStylesForSection(sectionId);
+    const items = getStylesForSection(sectionId)
+      .filter(item => oeToolboxItemMatches(item, sectionId, headerText));
     if (items.length === 0) return;
     const hdr = document.createElement('div');
     hdr.className = 'oe-toolbox-section';
@@ -26472,7 +27046,10 @@ function oePopulateToolbox() {
     box.appendChild(hdr);
     for (const item of items) {
       const card = builders[item.type](item.key, item.style);
-      if (card) box.appendChild(card);
+      if (card) {
+        box.appendChild(card);
+        renderedToolboxItems++;
+      }
     }
   }
 
@@ -26485,6 +27062,15 @@ function oePopulateToolbox() {
   renderSection('Cladding',          'cladding_overrides');
   renderSection('Printed items',     'printed_items');
   renderSection('Pass-throughs',     'passthroughs');
+
+  if (renderedToolboxItems === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'oe-toolbox-empty';
+    empty.textContent = oeToolboxSearch
+      ? `No objects match “${oeToolboxSearch}”.`
+      : 'No toolbox objects available.';
+    box.appendChild(empty);
+  }
 }
 
 /* ---- Drag from toolbox ---- */
@@ -26836,21 +27422,21 @@ function oeDropOpening(type, dims, x, y, styleKey) {
       ny = Math.max(2, Math.min(H - dims.h - 2, y - dims.h / 2));
     }
     oeOpenings[oeWall].push({ type: 'window',
-      x: oeSnap(Math.max(buf.left, Math.min(W - dims.w - buf.right, x - dims.w / 2))),
-      y: oeSnap(ny), w: dims.w, h: dims.h,
+      x: oeSnapPlacementX(Math.max(buf.left, Math.min(W - dims.w - buf.right, x - dims.w / 2)), dims.w),
+      y: oeSnapPlacementY(ny, dims.h), w: dims.w, h: dims.h,
       style: styleKey });
   } else if (type === 'awning') {
     // Place awning; y = attachment point on wall face. Snap x to grid.
     // h field stores the DEPTH (projection), not visual wall height.
     oeOpenings[oeWall].push({ type: 'awning',
-      x: oeSnap(Math.max(0, Math.min(W - dims.w, x - dims.w / 2))),
-      y: oeSnap(Math.max(0, Math.min(H - AWNING_DISP_H, y))),
+      x: oeSnapPlacementX(Math.max(0, Math.min(W - dims.w, x - dims.w / 2)), dims.w),
+      y: oeSnapPlacementY(Math.max(0, Math.min(H - AWNING_DISP_H, y)), AWNING_DISP_H),
       w: dims.w,
       h: dims.d });   // h = depth for awnings
   } else if (type === 'balcony') {
     oeOpenings[oeWall].push({ type: 'balcony',
-      x: oeSnap(Math.max(0, Math.min(W - dims.w, x - dims.w / 2))),
-      y: oeSnap(Math.max(0, Math.min(H - dims.h, y - dims.h / 2))),
+      x: oeSnapPlacementX(Math.max(0, Math.min(W - dims.w, x - dims.w / 2)), dims.w),
+      y: oeSnapPlacementY(Math.max(0, Math.min(H - dims.h, y - dims.h / 2)), dims.h),
       w: dims.w, h: dims.h, d: dims.d,
       balconyType: dims.balconyType });
   } else if (type === 'fixture') {
@@ -26872,14 +27458,14 @@ function oeDropOpening(type, dims, x, y, styleKey) {
       const topY = (isParapet && activePlan) ? (activePlan.parapetH || 0) : 0;
       const downH = Math.max(1, H - topY);
       oeOpenings[oeWall].push({ type: 'fixture',
-        x: oeSnap(Math.max(0, Math.min(W - dims.w, x - dims.w / 2))),
+        x: oeSnapPlacementX(Math.max(0, Math.min(W - dims.w, x - dims.w / 2)), dims.w),
         y: topY,
         w: dims.w, h: downH,
         style: styleKey });
     } else {
       oeOpenings[oeWall].push({ type: 'fixture',
-        x: oeSnap(Math.max(0, Math.min(W - dims.w, x - dims.w / 2))),
-        y: oeSnap(Math.max(0, Math.min(H - dims.h, y - dims.h / 2))),
+        x: oeSnapPlacementX(Math.max(0, Math.min(W - dims.w, x - dims.w / 2)), dims.w),
+        y: oeSnapPlacementY(Math.max(0, Math.min(H - dims.h, y - dims.h / 2)), dims.h),
         w: dims.w, h: dims.h,
         style: styleKey });
     }
@@ -26887,8 +27473,8 @@ function oeDropOpening(type, dims, x, y, styleKey) {
     // Free-placed rectangular patch of secondary cladding material. Clamps
     // to wall bounds; the user picks the actual style via the topbar picker.
     oeOpenings[oeWall].push({ type: 'cladding_override',
-      x: oeSnap(Math.max(0, Math.min(W - dims.w, x - dims.w / 2))),
-      y: oeSnap(Math.max(0, Math.min(H - dims.h, y - dims.h / 2))),
+      x: oeSnapPlacementX(Math.max(0, Math.min(W - dims.w, x - dims.w / 2)), dims.w),
+      y: oeSnapPlacementY(Math.max(0, Math.min(H - dims.h, y - dims.h / 2)), dims.h),
       w: dims.w, h: dims.h,
       claddingStyle: oeDefaultOverrideCladdingStyle(),
     });
@@ -26896,8 +27482,8 @@ function oeDropOpening(type, dims, x, y, styleKey) {
     // Free-placed printed item — prints on a separate sheet (not laser-cut)
     // and gets glued to the wall by the user.
     oeOpenings[oeWall].push({ type: 'printed_item',
-      x: oeSnap(Math.max(0, Math.min(W - dims.w, x - dims.w / 2))),
-      y: oeSnap(Math.max(0, Math.min(H - dims.h, y - dims.h / 2))),
+      x: oeSnapPlacementX(Math.max(0, Math.min(W - dims.w, x - dims.w / 2)), dims.w),
+      y: oeSnapPlacementY(Math.max(0, Math.min(H - dims.h, y - dims.h / 2)), dims.h),
       w: dims.w, h: dims.h,
       style: styleKey,
     });
@@ -26927,7 +27513,7 @@ function oeDropOpening(type, dims, x, y, styleKey) {
     const maxBayW = Math.max(2, W - buf.left - buf.right);
     const bw = Math.min(maxBayW, dims.w);
     const bh = Math.min(H - 2, dims.h);
-    const bx = oeSnap(Math.max(buf.left, Math.min(W - bw - buf.right, x - bw / 2)));
+    const bx = oeSnapPlacementX(Math.max(buf.left, Math.min(W - bw - buf.right, x - bw / 2)), bw);
     const bayEntry = { type: 'bay',
       x: bx, y: H - bh,            // bottom-anchored
       w: bw, h: bh,
@@ -26956,7 +27542,7 @@ function oeDropOpening(type, dims, x, y, styleKey) {
   } else {
     const buf = oeEdgeBuffer(oeWall);
     oeOpenings[oeWall].push({ type: 'door',
-      x: oeSnap(Math.max(buf.left, Math.min(W - dims.w - buf.right, x - dims.w / 2))),
+      x: oeSnapPlacementX(Math.max(buf.left, Math.min(W - dims.w - buf.right, x - dims.w / 2)), dims.w),
       y: oeDoorSnappedY(oeWall, dims.h, y), w: dims.w, h: dims.h,
       style: styleKey,
     });
@@ -27045,6 +27631,75 @@ function oePopulateTopbar() {
 
   sep();
 
+  // ---- Placement grid ----
+  label('Grid');
+  btn('oeGridToggle',
+      oeGrid.enabled ? 'Grid on' : 'Grid off',
+      'Toggle placement grid snapping and grid points',
+      () => {
+        oeGrid.enabled = !oeGrid.enabled;
+        oeSyncLegacySnapGrid();
+        oePopulateToolbox();
+        oePopulateTopbar();
+        oeRender();
+      },
+      false,
+      oeGrid.enabled);
+
+  function gridNum(id, title, value, step, min, max, onChange, width = 46) {
+    const inp = document.createElement('input');
+    inp.id = id;
+    inp.type = 'number';
+    inp.min = String(min);
+    inp.max = String(max);
+    inp.step = String(step);
+    inp.value = String(value);
+    inp.className = 'oe-sel-size-input';
+    inp.style.width = width + 'px';
+    inp.title = title;
+    function apply() {
+      const v = Math.max(min, Math.min(max, parseFloat(inp.value) || 0));
+      inp.value = String(v);
+      onChange(v);
+      oeSyncLegacySnapGrid();
+      oePopulateToolbox();
+      oeRender();
+    }
+    inp.addEventListener('change', apply);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
+    inp.addEventListener('keydown', e => e.stopPropagation(), true);
+    bar.appendChild(inp);
+    return inp;
+  }
+
+  label('X');
+  gridNum('oeGridXStep', 'Grid X spacing in mm', oeGrid.xStep, 0.5, 0.1, 100, v => { oeGrid.xStep = v; oeGrid.enabled = true; }, 42);
+  label('Y');
+  gridNum('oeGridYStep', 'Grid Y spacing in mm', oeGrid.yStep, 0.5, 0.1, 100, v => { oeGrid.yStep = v; oeGrid.enabled = true; }, 42);
+  label('Ox');
+  gridNum('oeGridXOrigin', 'Grid X origin/offset in mm', oeGrid.xOrigin, 0.5, -500, 500, v => { oeGrid.xOrigin = v; }, 44);
+  label('Y0');
+  gridNum('oeGridYOrigin', 'Grid Y origin/offset in mm, measured up from the bottom edge', oeGrid.yOrigin, 0.5, -500, 500, v => { oeGrid.yOrigin = v; }, 44);
+
+  const anchorSel = document.createElement('select');
+  anchorSel.className = 'oe-tb-btn';
+  anchorSel.style.cssText = 'padding:2px 4px;font-size:11px;height:24px;';
+  anchorSel.title = 'Which point of each object snaps to grid intersections. Coordinates are measured from the wall bottom-left.';
+  anchorSel.innerHTML = `
+    <option value="center">Snap centre</option>
+    <option value="bottomLeft">Snap lower-left</option>`;
+  if (oeGrid.anchor === 'topLeft') oeGrid.anchor = 'bottomLeft';
+  anchorSel.value = oeGrid.anchor || 'center';
+  anchorSel.addEventListener('change', () => {
+    oeGrid.anchor = anchorSel.value;
+    oePopulateTopbar();
+    oeRender();
+  });
+  anchorSel.addEventListener('keydown', e => e.stopPropagation(), true);
+  bar.appendChild(anchorSel);
+
+  sep();
+
   // ---- Align (needs ≥2 selected) ----
   label('Align');
 
@@ -27077,15 +27732,53 @@ function oePopulateTopbar() {
   btn('oeDistBtn', '⇔ Space', 'Evenly space all windows on the same floor band as the selected window',
     oeDistributeRow, !hasSelection);
 
-  // ---- Selected opening size (right-aligned, always visible) ----
+  // ---- Selected opening anchor point + size ----
   sep();
-  label('Size');
+  label('Point');
 
   if (hasSelection) {
     const primaryIdx = [...oeSelectedSet][0];
     const primaryOp  = (oeOpenings[oeWall] || [])[primaryIdx];
 
     if (primaryOp) {
+      // Anchor point position. The point is either the object's centre or
+      // top-left corner depending on the Grid anchor control above. Editing
+      // X/Y moves the full selection by the same delta as the primary item.
+      const anchorPt = oeOpMeasurePoint(primaryOp);
+      const posWrap = document.createElement('span');
+      posWrap.style.cssText = 'display:inline-flex;align-items:center;gap:3px;';
+      function addPosInput(axis, value) {
+        const lab = document.createElement('span');
+        lab.className = 'oe-topbar-label';
+        lab.textContent = axis.toUpperCase();
+        const inp = document.createElement('input');
+        inp.type = 'number';
+        inp.step = '0.5';
+        inp.value = value.toFixed(1);
+        inp.className = 'oe-sel-size-input';
+        inp.style.width = '54px';
+        inp.title = `${axis.toUpperCase()} coordinate of the selected object's ${oeGrid.anchor === 'center' ? 'centre' : 'lower-left'} grid point, measured from the wall bottom-left`;
+        function applyPos() {
+          const xNow = parseFloat(posWrap.querySelector('[data-axis=x]').value);
+          const yNow = parseFloat(posWrap.querySelector('[data-axis=y]').value);
+          if (!isFinite(xNow) || !isFinite(yNow)) return;
+          oeMoveSelectionAnchorTo(xNow, yNow);
+          oePopulateTopbar();
+        }
+        inp.dataset.axis = axis;
+        inp.addEventListener('change', applyPos);
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); applyPos(); } });
+        inp.addEventListener('keydown', e => e.stopPropagation(), true);
+        posWrap.appendChild(lab);
+        posWrap.appendChild(inp);
+      }
+      addPosInput('x', anchorPt.x);
+      addPosInput('y', anchorPt.y);
+      bar.appendChild(posWrap);
+
+      sep();
+      label('Size');
+
       // Multi-select badge
       if (oeSelectedSet.size > 1) {
         const badge = document.createElement('span');
@@ -27781,7 +28474,7 @@ function oeDistributeHorizontal() {
   const totalW = sel.reduce((s, { op }) => s + op.w, 0);
   const gap    = (rightX - leftX - totalW) / (sel.length - 1);
   let x = leftX;
-  for (const { op } of sel) { op.x = oeSnap(x); x += op.w + gap; }
+  for (const { op } of sel) { op.x = oeSnapPlacementX(x, op.w); x += op.w + gap; }
   oeCommit(); oeRender();
 }
 
@@ -27794,7 +28487,7 @@ function oeDistributeVertical() {
   const totalH  = sel.reduce((s, { op }) => s + oeOpH(op), 0);
   const gap     = (bottomY - topY - totalH) / (sel.length - 1);
   let y = topY;
-  for (const { op } of sel) { op.y = oeSnap(y); y += oeOpH(op) + gap; }
+  for (const { op } of sel) { op.y = oeSnapPlacementY(y, oeOpH(op)); y += oeOpH(op) + gap; }
   oeCommit(); oeRender();
 }
 
@@ -28311,15 +29004,23 @@ function oeRender() {
     }
   }
 
-  // Snap grid dots
-  if (oeSnapGrid > 0) {
-    let displayStep = oeSnapGrid;
-    while (displayStep * s < 4) displayStep *= 2;
-    const dotR = Math.min(1.2, displayStep * s * 0.12);
+  // Placement grid dots. X/Y spacing and origins are controlled from the
+  // top properties bar. Dots are grid INTERSECTIONS in bottom-left
+  // measurement space: X grows right, Y grows upward from the wall bottom.
+  if (oeGrid.enabled && oeGridStep('x') > 0 && oeGridStep('y') > 0) {
+    let displayStepX = oeGridStep('x');
+    let displayStepY = oeGridStep('y');
+    while (displayStepX * s < 4) displayStepX *= 2;
+    while (displayStepY * s < 4) displayStepY *= 2;
+    const dotR = Math.min(1.2, Math.min(displayStepX, displayStepY) * s * 0.12);
+    const gx0 = oeGridStart(0, displayStepX, oeGridOrigin('x'));
+    const yMeasureMax = wallH + peakAbove;
+    const gyMeasure0 = oeGridStart(0, displayStepY, oeGridOrigin('y'));
     html += `<g opacity="0.35" pointer-events="none">`;
-    for (let gx = 0; gx <= W + 0.01; gx += displayStep) {
-      for (let gy = -peakAbove; gy <= wallH + 0.01; gy += displayStep) {
-        html += `<circle cx="${(ox+gx*s).toFixed(1)}" cy="${(oy+gy*s).toFixed(1)}" r="${dotR}" fill="#666"/>`;
+    for (let gx = gx0; gx <= W + 0.01; gx += displayStepX) {
+      for (let gyMeasure = gyMeasure0; gyMeasure <= yMeasureMax + 0.01; gyMeasure += displayStepY) {
+        const gyInternal = wallH - gyMeasure;
+        html += `<circle cx="${(ox+gx*s).toFixed(1)}" cy="${(oy+gyInternal*s).toFixed(1)}" r="${dotR}" fill="#666"/>`;
       }
     }
     html += `</g>`;
@@ -29187,7 +29888,8 @@ function oeMouseDown(e) {
       // a wall-Y dimension). Resize semantics for awnings: NW/NE/SW/SE
       // change w and depth. We map h↔depth in math below.
       const orig = { x: op.x, y: op.y, w: op.w, h: op.h };
-      const opSnap = (v) => oeSnap(v);
+      const opSnapX = (v) => oeSnapSizeX(v);
+      const opSnapY = (v) => oeSnapSizeY(v);
       const MIN_W = 2, MIN_H = 2;
 
       function doResize(mx, my) {
@@ -29213,12 +29915,12 @@ function oeMouseDown(e) {
         const xRight  = isThroughCut ? (wallW - buf.right) : wallW;
         let newX = orig.x, newW = orig.w;
         if (east) {
-          newW = opSnap(Math.max(MIN_W, mx - orig.x));
+          newW = opSnapX(Math.max(MIN_W, mx - orig.x));
           newW = Math.min(newW, xRight - orig.x);
         } else if (west) {
           // Snap the cursor X first so newX is grid-aligned. The east edge
           // stays put at orig.x + orig.w; new width = east edge - new X.
-          newX = opSnap(Math.max(xMin, Math.min(orig.x + orig.w - MIN_W, mx)));
+          newX = opSnapX(Math.max(xMin, Math.min(orig.x + orig.w - MIN_W, mx)));
           newW = (orig.x + orig.w) - newX;
         }
 
@@ -29229,15 +29931,15 @@ function oeMouseDown(e) {
           // (which moves y up/down). South handles don't change y/h.
           if (north) {
             // Cursor Y is the new top edge of the bay; height = wallH - newY
-            newY = opSnap(Math.max(0, Math.min(wallH - MIN_H, my)));
+            newY = opSnapY(Math.max(0, Math.min(wallH - MIN_H, my)));
             newH = wallH - newY;
           }
         } else {
           if (south) {
-            newH = opSnap(Math.max(MIN_H, my - orig.y));
+            newH = opSnapY(Math.max(MIN_H, my - orig.y));
             newH = Math.min(newH, wallH - orig.y);
           } else if (north) {
-            newY = opSnap(Math.max(0, Math.min(orig.y + orig.h - MIN_H, my)));
+            newY = oeSnapY(Math.max(0, Math.min(orig.y + orig.h - MIN_H, my)));
             newH = (orig.y + orig.h) - newY;
           }
         }
@@ -29355,7 +30057,7 @@ function oeMouseDown(e) {
       const isThroughCut = (op.type === 'window' || op.type === 'door' || op.type === 'bay');
       const minX = isThroughCut ? buf.left : 0;
       const maxX = isThroughCut ? (W - op.w - buf.right) : (W - op.w);
-      op.x = oeSnap(Math.max(minX, Math.min(maxX, orig.x + dx)));
+      op.x = oeSnapPlacementX(Math.max(minX, Math.min(maxX, orig.x + dx)), op.w);
       if (op.type === 'bay') {
         // Bays stay bottom-anchored — Y never changes regardless of cursor.
         op.y = H - op.h;
@@ -29373,7 +30075,7 @@ function oeMouseDown(e) {
         // up or down a floor (and surprised users who tried). The auto-
         // generated layouts still center new windows in their band; the
         // user can now move them across band lines by hand.
-        op.y = oeSnap(Math.max(0, Math.min(H - opH, orig.y + dy)));
+        op.y = oeSnapPlacementY(Math.max(0, Math.min(H - opH, orig.y + dy)), opH);
       }
     }
     oeRender();
@@ -29474,7 +30176,7 @@ function oeKeyDown(e) {
   if (oeSelectedSet.size > 0 && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
     e.preventDefault();
     const { W, H } = oeGetWallDims(oeWall);
-    const unit = oeSnapGrid > 0 ? oeSnapGrid : 0.5;
+    const unit = oeGrid.enabled ? Math.min(oeGridStep('x') || 0.5, oeGridStep('y') || 0.5) : 0.5;
     const step = e.shiftKey ? unit * 5 : unit;
     const ops  = oeOpenings[oeWall];
     const doorBands = oeGetDoorBands(oeWall);
@@ -29484,8 +30186,8 @@ function oeKeyDown(e) {
       const isThroughCut = (op.type === 'window' || op.type === 'door' || op.type === 'bay');
       const xMin = isThroughCut ? buf.left : 0;
       const xMax = isThroughCut ? (W - op.w - buf.right) : (W - op.w);
-      if (e.key === 'ArrowLeft')  op.x = oeSnap(Math.max(xMin, op.x - step));
-      if (e.key === 'ArrowRight') op.x = oeSnap(Math.min(xMax, op.x + step));
+      if (e.key === 'ArrowLeft')  op.x = oeSnapPlacementX(Math.max(xMin, op.x - step), op.w);
+      if (e.key === 'ArrowRight') op.x = oeSnapPlacementX(Math.min(xMax, op.x + step), op.w);
       if (op.type === 'door') {
         // Up/Down jumps the door to the adjacent floor's surface. Door's
         // bottom sits on some band's yBottom; probe just above to find
@@ -29508,8 +30210,8 @@ function oeKeyDown(e) {
         const opH = oeOpH(op);
         const minY = 0;
         const maxY = H - opH;
-        if (e.key === 'ArrowUp')   op.y = oeSnap(Math.max(minY, op.y - step));
-        if (e.key === 'ArrowDown') op.y = oeSnap(Math.min(maxY, op.y + step));
+        if (e.key === 'ArrowUp')   op.y = oeSnapPlacementY(Math.max(minY, op.y - step), opH);
+        if (e.key === 'ArrowDown') op.y = oeSnapPlacementY(Math.min(maxY, op.y + step), opH);
       }
     }
     oeCommit(); oeRender();
@@ -29583,8 +30285,8 @@ function oePaste() {
   const rawDx = baseDelta * oePasteCount;
   const rawDy = baseDelta * oePasteCount;
   // Snap delta to grid (matches editor's snapping convention)
-  const dx = oeSnapGrid > 0 ? Math.round(rawDx / oeSnapGrid) * oeSnapGrid : rawDx;
-  const dy = oeSnapGrid > 0 ? Math.round(rawDy / oeSnapGrid) * oeSnapGrid : rawDy;
+  const dx = oeGrid.enabled ? oeSnapSizeX(rawDx) : rawDx;
+  const dy = oeGrid.enabled ? oeSnapSizeY(rawDy) : rawDy;
 
   if (!Array.isArray(oeOpenings[oeWall])) oeOpenings[oeWall] = [];
   const ops = oeOpenings[oeWall];
@@ -29594,8 +30296,8 @@ function oePaste() {
     // Apply offset and clamp to wall bounds (only x/y — width/height stay)
     const opH = (newOp.type === 'awning') ? (newOp.h || 5)  // awning h field stores depth; visual height is AWNING_DISP_H
                                           : (newOp.h || 0);
-    newOp.x = Math.max(0, Math.min(Math.max(0, W - (newOp.w || 0)), (newOp.x || 0) + dx));
-    newOp.y = Math.max(0, Math.min(Math.max(0, H - opH), (newOp.y || 0) + dy));
+    newOp.x = oeSnapPlacementX(Math.max(0, Math.min(Math.max(0, W - (newOp.w || 0)), (newOp.x || 0) + dx)), newOp.w || 0);
+    newOp.y = oeSnapPlacementY(Math.max(0, Math.min(Math.max(0, H - opH), (newOp.y || 0) + dy)), opH);
     ops.push(newOp);
     newIndices.push(ops.length - 1);
   }

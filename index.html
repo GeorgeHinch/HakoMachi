@@ -29913,6 +29913,142 @@ function updateThreePreview(cfg) {
     color: 0x88bbdd, transparent: true, opacity: 0.45,
     roughness: 0.1, metalness: 0.05, side: THREE.DoubleSide,
   });
+  const doorMatCache3D = new Map();
+  function getDoorMaterial3D(styleKey, doorW, doorH) {
+    const key = `${styleKey || 'single'}|${doorW}|${doorH}`;
+    if (doorMatCache3D.has(key)) return doorMatCache3D.get(key);
+
+    const style = DOOR_STYLES[styleKey] || DOOR_STYLES.single || {};
+    const cw = Math.max(128, Math.round((doorW || 7) * 28));
+    const ch = Math.max(192, Math.round((doorH || 18) * 28));
+    const canvas = document.createElement('canvas');
+    canvas.width = cw;
+    canvas.height = ch;
+    const ctx = canvas.getContext('2d');
+
+    const baseFill = style.panelFill
+      || (style.rollingSlats ? '#90979f'
+      : ((style.glassPanes && style.glassPanes.length) ? '#6b573f' : '#6c4f39'));
+    const frameStroke = style.frameColor || (style.rollingSlats ? '#555d65' : '#2e241c');
+    const panelFill = style.panelFill || '#7b6148';
+    const accentFill = '#4c3828';
+    const glassFill = style.glassFill || 'rgba(155, 201, 230, 0.82)';
+    const glassStroke = 'rgba(78, 108, 132, 0.95)';
+
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.fillStyle = baseFill;
+    ctx.fillRect(0, 0, cw, ch);
+
+    const sx = cw / Math.max(1, doorW || 1);
+    const sy = ch / Math.max(1, doorH || 1);
+    const px = v => v * sx;
+    const py = v => v * sy;
+
+    function strokeRectMM(x1, y1, x2, y2, widthPx = 2, stroke = frameStroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = widthPx;
+      ctx.strokeRect(px(x1), py(y1), px(x2 - x1), py(y2 - y1));
+    }
+    function fillRectMM(x1, y1, x2, y2, fill) {
+      ctx.fillStyle = fill;
+      ctx.fillRect(px(x1), py(y1), px(x2 - x1), py(y2 - y1));
+    }
+    function lineMM(x1, y1, x2, y2, widthPx = 2, stroke = frameStroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = widthPx;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(px(x1), py(y1));
+      ctx.lineTo(px(x2), py(y2));
+      ctx.stroke();
+    }
+    function circleMM(cx, cy, r, fill = accentFill) {
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      ctx.arc(px(cx), py(cy), Math.max(1.2, ((sx + sy) * 0.5) * r), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Outer door outline/frame.
+    ctx.strokeStyle = frameStroke;
+    ctx.lineWidth = Math.max(2, Math.round(cw * 0.012));
+    ctx.strokeRect(1.5, 1.5, cw - 3, ch - 3);
+
+    if (style.centerSplit) {
+      lineMM((doorW || 1) / 2, 0.8, (doorW || 1) / 2, (doorH || 1) - 0.8, Math.max(2, cw * 0.008), frameStroke);
+    }
+
+    if (style.rollingSlats) {
+      const insetX = 0.7, insetY = 1.0;
+      strokeRectMM(insetX, insetY, (doorW || 1) - insetX, (doorH || 1) - 0.7, Math.max(2, cw * 0.01), frameStroke);
+      const slatStep = Math.max(3, Math.round(py(0.9)));
+      ctx.strokeStyle = '#69717a';
+      ctx.lineWidth = Math.max(1, Math.round(ch * 0.004));
+      for (let y = py(1.5); y < py((doorH || 1) - 1.2); y += slatStep) {
+        ctx.beginPath();
+        ctx.moveTo(px(0.8), y);
+        ctx.lineTo(px((doorW || 1) - 0.8), y);
+        ctx.stroke();
+      }
+    }
+
+    for (const gp of (style.glassPanes || [])) {
+      fillRectMM(gp.x1, gp.y1, gp.x2, gp.y2, glassFill);
+      strokeRectMM(gp.x1, gp.y1, gp.x2, gp.y2, Math.max(2, cw * 0.007), glassStroke);
+    }
+
+    for (const feat of (style.features || [])) {
+      switch (feat.type) {
+        case 'panel':
+          fillRectMM(feat.x1, feat.y1, feat.x2, feat.y2, panelFill);
+          strokeRectMM(feat.x1, feat.y1, feat.x2, feat.y2, Math.max(1.5, cw * 0.006), frameStroke);
+          break;
+        case 'knob':
+          circleMM(feat.cx, feat.cy, feat.r || 0.3, '#c9b072');
+          break;
+        case 'handle':
+          lineMM(feat.x1, feat.y1, feat.x2, feat.y2, Math.max(3, cw * 0.012), '#dad7d1');
+          break;
+        case 'crashBar':
+          lineMM(feat.x1, feat.y, feat.x2, feat.y, Math.max(3, cw * 0.013), '#cfd3d8');
+          break;
+        case 'kickPlate':
+        case 'lockPlate':
+          fillRectMM(feat.x1, feat.y1, feat.x2, feat.y2, '#b8aa96');
+          strokeRectMM(feat.x1, feat.y1, feat.x2, feat.y2, Math.max(1.5, cw * 0.005), '#7c7266');
+          break;
+        case 'track':
+          lineMM(0.6, feat.y, (doorW || 1) - 0.6, feat.y, Math.max(2, cw * 0.009), '#4b5158');
+          break;
+        case 'rail':
+          lineMM(feat.x1, feat.y1, feat.x2, feat.y2, feat.thick ? Math.max(3, cw * 0.012) : Math.max(2, cw * 0.008), frameStroke);
+          break;
+        case 'latticeVertical': {
+          const count = Math.max(4, Math.floor((feat.x2 - feat.x1) / 0.9));
+          for (let i = 0; i <= count; i++) {
+            const x = feat.x1 + (feat.x2 - feat.x1) * (i / count);
+            lineMM(x, feat.y1, x, feat.y2, Math.max(1.5, cw * 0.005), frameStroke);
+          }
+          break;
+        }
+        case 'hikite':
+          strokeRectMM(feat.x1, feat.y1, feat.x2, feat.y2, Math.max(1.5, cw * 0.005), frameStroke);
+          break;
+      }
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    if ('colorSpace' in tex && THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    const mat = new THREE.MeshStandardMaterial({
+      map: tex,
+      roughness: style.rollingSlats ? 0.72 : 0.84,
+      metalness: style.rollingSlats ? 0.22 : 0.05,
+      side: THREE.DoubleSide,
+    });
+    doorMatCache3D.set(key, mat);
+    return mat;
+  }
   // Blanked windows (etched or filled — see WINDOW_STYLES) render as a
   // solid, opaque, darker-than-wall panel instead of see-through glass.
   // The colour is the wall base tone scaled 55% so it reads as "wall
@@ -29991,10 +30127,10 @@ function updateThreePreview(cfg) {
   group.add(frontMesh);
 
   // Window glass — front (just outside north outer face)
-  for (const op of frontVis.filter(o => o.type === 'window')) {
+  for (const op of frontVis.filter(o => o.type === 'window' || o.type === 'door')) {
     const hx = w / 2 - op.x - op.w;   // mirrored to match front outside/editor view
     const hy = h - op.y - op.h;
-    const pane = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), glassMat);
+    const pane = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), op.type === 'door' ? getDoorMaterial3D(op.style || cfg.doorStyle, op.w, op.h) : glassMat);
     pane.position.set(hx + op.w / 2, hy + op.h / 2, -d / 2 - 0.1);
     group.add(pane);
   }
@@ -30019,10 +30155,10 @@ function updateThreePreview(cfg) {
   backMesh.position.set(0, 0, d / 2 - t);
   group.add(backMesh);
 
-  for (const op of backVis.filter(o => o.type === 'window')) {
+  for (const op of backVis.filter(o => o.type === 'window' || o.type === 'door')) {
     const hx = w / 2 - op.x - op.w;   // mirrored
     const hy = h - op.y - op.h;
-    const pane = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), glassMat);
+    const pane = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), op.type === 'door' ? getDoorMaterial3D(op.style || cfg.doorStyle, op.w, op.h) : glassMat);
     pane.position.set(hx + op.w / 2, hy + op.h / 2, d / 2 + 0.1);
     group.add(pane);
   }
@@ -30045,10 +30181,10 @@ function updateThreePreview(cfg) {
   eastMesh.position.set(w / 2 - t, 0, 0);
   group.add(eastMesh);
 
-  for (const op of eastVis.filter(o => o.type === 'window')) {
+  for (const op of eastVis.filter(o => o.type === 'window' || o.type === 'door')) {
     const hz = op.x - sideLen / 2;          // z-flipped convention
     const hy = h - op.y - op.h;
-    const pane = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), glassMat);
+    const pane = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), op.type === 'door' ? getDoorMaterial3D(op.style || cfg.doorStyle, op.w, op.h) : glassMat);
     pane.rotation.y = Math.PI / 2;
     pane.position.set(w / 2 + 0.1, hy + op.h / 2, hz + op.w / 2);
     group.add(pane);
@@ -30073,16 +30209,16 @@ function updateThreePreview(cfg) {
   westMesh.position.set(-(w / 2 - t), 0, 0);
   group.add(westMesh);
 
-  for (const op of westVis.filter(o => o.type === 'window')) {
-    const hz = sideLen / 2 - op.x - op.w;   // z-flipped convention
+  for (const op of westVis.filter(o => o.type === 'window' || o.type === 'door')) {
+    const hz = op.x - sideLen / 2;   // west mesh is not mirrorX; keep same local x as the wall hole
     const hy = h - op.y - op.h;
-    const pane = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), glassMat);
+    const pane = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), op.type === 'door' ? getDoorMaterial3D(op.style || cfg.doorStyle, op.w, op.h) : glassMat);
     pane.rotation.y = -Math.PI / 2;
     pane.position.set(-w / 2 - 0.1, hy + op.h / 2, hz + op.w / 2);
     group.add(pane);
   }
   for (const op of getBlankedWindows3D(cfg, 'west')) {
-    const hz = sideLen / 2 - op.x - op.w;
+    const hz = op.x - sideLen / 2;
     const hy = h - op.y - op.h;
     const panel = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), blankedMat);
     panel.rotation.y = -Math.PI / 2;
@@ -30395,6 +30531,80 @@ function updateThreePreview(cfg) {
     const columnType = tCfg.supportColumnType === 't' ? 't' : 'i';
     const colInset = Math.max(webDepth / 2, matT / 2) + 0.05;
 
+    // Interior wall X-braces, rendered as thin metal strap braces on the
+    // bearing walls between adjacent truss stations.
+    if (wallXBracingEnabled(tCfg) && positions.length >= 2) {
+      const braceMat = new THREE.MeshStandardMaterial({
+        color: 0x8a9198,
+        roughness: 0.58,
+        metalness: 0.48,
+        transparent: true,
+        opacity: 0.96,
+        side: THREE.DoubleSide,
+      });
+      const memberW = Math.max(0.25, Number(tCfg.xBraceW) || 1.0);
+      const fitInset = tCfg.supports ? flangeW / 2 : 0;
+      const braceH = Math.max(5, blockH - (blockPlan.parapetH || 0));
+      const braceT = Math.max(0.12, Math.min(0.35, matT * 0.12));
+      const strapW = Math.max(0.3, memberW);
+      const faceOffset = 0.05;
+
+      function makeBraceMesh(bayW) {
+        const diagLen = Math.hypot(bayW, braceH);
+        if (!(diagLen > strapW * 2)) return null;
+        const angle = Math.atan2(braceH, bayW);
+        const strapGeo = new THREE.BoxGeometry(diagLen, strapW, braceT);
+        const g = new THREE.Group();
+        const a = new THREE.Mesh(strapGeo, braceMat);
+        a.rotation.z = angle;
+        g.add(a);
+        const b = new THREE.Mesh(strapGeo, braceMat);
+        b.rotation.z = -angle;
+        g.add(b);
+        const gusset = new THREE.Mesh(
+          new THREE.BoxGeometry(Math.max(strapW * 1.4, 0.6), Math.max(strapW * 1.4, 0.6), braceT * 1.2),
+          braceMat
+        );
+        g.add(gusset);
+        return g;
+      }
+
+      for (let i = 0; i < positions.length - 1; i++) {
+        const x0 = Math.max(0, positions[i] + fitInset);
+        const x1 = Math.min(alongLen, positions[i + 1] - fitInset);
+        const bayW = x1 - x0;
+        if (bayW < strapW * 2) continue;
+        const bayCenter = (x0 + x1) / 2;
+        const braceFront = makeBraceMesh(bayW);
+        const braceBack  = makeBraceMesh(bayW);
+        const braceWest  = makeBraceMesh(bayW);
+        const braceEast  = makeBraceMesh(bayW);
+
+        if (axis === 'ns') {
+          if (braceFront) {
+            braceFront.position.set(blockCX - innerW / 2 + bayCenter, braceH / 2, blockCZ - innerD / 2 + faceOffset);
+            group.add(braceFront);
+          }
+          if (braceBack) {
+            braceBack.rotation.y = Math.PI;
+            braceBack.position.set(blockCX - innerW / 2 + bayCenter, braceH / 2, blockCZ + innerD / 2 - faceOffset);
+            group.add(braceBack);
+          }
+        } else {
+          if (braceWest) {
+            braceWest.rotation.y = Math.PI / 2;
+            braceWest.position.set(blockCX - innerW / 2 + faceOffset, braceH / 2, blockCZ - innerD / 2 + bayCenter);
+            group.add(braceWest);
+          }
+          if (braceEast) {
+            braceEast.rotation.y = -Math.PI / 2;
+            braceEast.position.set(blockCX + innerW / 2 - faceOffset, braceH / 2, blockCZ - innerD / 2 + bayCenter);
+            group.add(braceEast);
+          }
+        }
+      }
+    }
+
     for (const pos of positions) {
       const tr = new THREE.Mesh(trussGeo, trussMat3d);
       if (axis === 'ns') {
@@ -30472,19 +30682,36 @@ function updateThreePreview(cfg) {
     const mkM = (tex) => tex
       ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 })
       : wallMat;
+    const sideOpsToBoxFrame = (ops) => (ops || []).map(op => ({ ...op, x: (op.x || 0) + t }));
+    const westOpsBox = sideOpsToBoxFrame(westOps);
+    const eastOpsBox = sideOpsToBoxFrame(eastOps);
+
     const oMat = mkM(fixBoxTex(buildWallTexture(wCfg, fW, wH, wH, outerOps, false), false));
-    const nMat = mkM(fixBoxTex(buildWallTexture(wCfg, bW, wH, wH, westOps,  false), false));
-    const sMat = mkM(fixBoxTex(buildWallTexture(wCfg, bW, wH, wH, eastOps,  false), true));
+    const nMat = mkM(fixBoxTex(buildWallTexture(wCfg, bW, wH, wH, westOpsBox, false), false));
+    const sMat = mkM(fixBoxTex(buildWallTexture(wCfg, bW, wH, wH, eastOpsBox, false), true));
     const cMat = wallMat;  // connection (interior) face — plain
+    const wingIsParapet3D = (wCfg.roofStyle || cfg.roofStyle || 'parapet') === 'parapet';
+    // The wing body is a BoxGeometry, so it has a +Y cap. For parapet wings
+    // that cap was covering the recessed roof well we added above, making the
+    // wing still read as a flat solid roof. Use an invisible +Y material in
+    // that case; the parapet helper then supplies the actual deck, inner faces,
+    // and top caps.
+    const hiddenTopMat = new THREE.MeshBasicMaterial({
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const wingTopMat = wingIsParapet3D ? hiddenTopMat : roofMat;
 
     // Map face roles to BoxGeometry material slots
     let mats;
     // Z-flip: north=-Z (slot 5), south=+Z (slot 4) — swap nMat/sMat vs. front/back oMat/cMat
     switch (wing.face) {
-      case 'east':  mats = [oMat, cMat, roofMat, wallMat, sMat, nMat]; break; // +X=outer
-      case 'west':  mats = [cMat, oMat, roofMat, wallMat, sMat, nMat]; break; // -X=outer
-      case 'front': mats = [sMat, nMat, roofMat, wallMat, cMat, oMat]; break; // -Z=outer (north)
-      case 'back':  mats = [nMat, sMat, roofMat, wallMat, oMat, cMat]; break; // +Z=outer (south)
+      case 'east':  mats = [oMat, cMat, wingTopMat, wallMat, sMat, nMat]; break; // +X=outer
+      case 'west':  mats = [cMat, oMat, wingTopMat, wallMat, sMat, nMat]; break; // -X=outer
+      case 'front': mats = [sMat, nMat, wingTopMat, wallMat, cMat, oMat]; break; // -Z=outer (north)
+      case 'back':  mats = [nMat, sMat, wingTopMat, wallMat, oMat, cMat]; break; // +Z=outer (south)
       default:      mats = wallMat;
     }
 
@@ -30493,7 +30720,7 @@ function updateThreePreview(cfg) {
     group.add(wingBox);
 
     // Wing roof
-    if ((wCfg.roofStyle || 'parapet') === 'parapet') {
+    if (wingIsParapet3D) {
       addParapetRoofPreview(bW, bD, wH, wPlan.parapetH || 0, wxC, wzC, makeRoofTopMat(Math.max(t, bW - 2 * t), Math.max(t, bD - 2 * t)));
     } else {
       const wRoof = new THREE.Mesh(
@@ -30507,9 +30734,12 @@ function updateThreePreview(cfg) {
     // Wing internal trusses / supports
     addTrussAndSupportPreview3D(wCfg, wPlan, bW, bD, wH, wxC, wzC);
 
-    // Helper: add glass pane
+    // Helper: add a window pane or a styled door leaf on the wing wall
     const addPane = (op, px, py, pz, ry) => {
-      const pane = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), glassMat);
+      const paneMat = (op.type === 'door')
+        ? getDoorMaterial3D(op.style || wCfg.doorStyle || cfg.doorStyle, op.w, op.h)
+        : glassMat;
+      const pane = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), paneMat);
       if (ry) pane.rotation.y = ry;
       pane.position.set(px, py, pz);
       group.add(pane);
@@ -30517,7 +30747,7 @@ function updateThreePreview(cfg) {
     const eps = 0.2;
 
     // Glass on outer face
-    for (const op of outerOps.filter(o => o.type === 'window')) {
+    for (const op of outerOps.filter(o => o.type === 'window' || o.type === 'door')) {
       const hx = op.x - fW / 2;
       const hy = wH - op.y - op.h / 2;
       switch (wing.face) {
@@ -30531,7 +30761,7 @@ function updateThreePreview(cfg) {
 
     // Glass on north parallel face (wing-local 'west')
     if (!cp3d.westCoplanar) {
-      for (const op of westOps.filter(o => o.type === 'window')) {
+      for (const op of westOps.filter(o => o.type === 'window' || o.type === 'door')) {
         const hy = wH - op.y - op.h / 2;
         const px = wx0 + t + op.x + op.w / 2;
         switch (wing.face) {
@@ -30545,7 +30775,7 @@ function updateThreePreview(cfg) {
 
     // Glass on south parallel face (wing-local 'east')
     if (!cp3d.eastCoplanar) {
-      for (const op of eastOps.filter(o => o.type === 'window')) {
+      for (const op of eastOps.filter(o => o.type === 'window' || o.type === 'door')) {
         const hy = wH - op.y - op.h / 2;
         const px = wx1 - t - op.x - op.w / 2;
         switch (wing.face) {
@@ -30978,7 +31208,10 @@ function updateThreePreview(cfg) {
         const worldY = h - Number(op.y || 0) - oh / 2;
         const pivot = new THREE.Object3D();
         switch (face) {
-          case 'front': pivot.position.set(centerX_wall - w/2, worldY, -d/2); break;
+          // Front/north wall is mirrored in the 3D wall rendering so it
+          // matches the editor/laser-flat orientation. Surface-applied layers
+          // must mirror their X placement the same way, or they appear reversed.
+          case 'front': pivot.position.set(w/2 - centerX_wall, worldY, -d/2); break;
           case 'back':  pivot.rotation.y = Math.PI;        pivot.position.set(w/2 - centerX_wall, worldY,  d/2); break;
           case 'east':  pivot.rotation.y =  Math.PI/2;     pivot.position.set( w/2, worldY, centerX_wall - sideLen/2); break;
           case 'west':  pivot.rotation.y = -Math.PI/2;     pivot.position.set(-w/2, worldY, sideLen/2 - centerX_wall); break;
@@ -31022,7 +31255,9 @@ function updateThreePreview(cfg) {
         const worldY = h - Number(op.y || 0) - oh / 2;
         const pivot = new THREE.Object3D();
         switch (face) {
-          case 'front': pivot.position.set(centerX_wall - w/2, worldY, -d/2); break;
+          // Front/north wall is mirrored in the 3D wall rendering so printed
+          // decal layers need the same mirrored X placement.
+          case 'front': pivot.position.set(w/2 - centerX_wall, worldY, -d/2); break;
           case 'back':  pivot.rotation.y = Math.PI;        pivot.position.set(w/2 - centerX_wall, worldY,  d/2); break;
           case 'east':  pivot.rotation.y =  Math.PI/2;     pivot.position.set( w/2, worldY, centerX_wall - sideLen/2); break;
           case 'west':  pivot.rotation.y = -Math.PI/2;     pivot.position.set(-w/2, worldY, sideLen/2 - centerX_wall); break;

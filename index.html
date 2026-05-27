@@ -10885,6 +10885,273 @@ function layoutCutTransformForPart(part, cfg) {
   };
 }
 
+function layoutCutWingIndexFromPart(part) {
+  const id = (part && part.id) || '';
+  const m = id.match(/_wing(\d+)/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+function layoutCutWallFromPart(part) {
+  const id = (part && part.id) || '';
+  const wi = wallFromPartId(id);
+  if (wi && wi.wall) return wi.wall;
+
+  if (id.startsWith('interior_cladding_front')) return 'front';
+  if (id.startsWith('interior_cladding_back')) return 'back';
+  if (id.startsWith('interior_cladding_east')) return 'east';
+  if (id.startsWith('interior_cladding_west')) return 'west';
+  return null;
+}
+
+function layoutCutPartWallKind(part) {
+  const id = (part && part.id) || '';
+  if (id === 'front_wall' || id === 'back_wall'
+      || id.startsWith('front_wall_') || id.startsWith('back_wall_')
+      || id === 'side_wall_east' || id === 'side_wall_west'
+      || id.startsWith('side_wall_east_') || id.startsWith('side_wall_west_')) {
+    return 'core';
+  }
+  if (id.startsWith('cladding_front') || id.startsWith('cladding_back')
+      || id.startsWith('cladding_side_east') || id.startsWith('cladding_side_west')) {
+    return 'exterior_cladding';
+  }
+  if (id.startsWith('interior_cladding_')) return 'interior_cladding';
+  return null;
+}
+
+function layoutCutWallClipSpec(part, cfg) {
+  const wall = layoutCutWallFromPart(part);
+  const kind = layoutCutPartWallKind(part);
+  if (!wall || !kind) return null;
+
+  const wingIndex = layoutCutWingIndexFromPart(part);
+  const wing = (wingIndex != null && cfg && cfg.wings) ? cfg.wings[wingIndex] : null;
+  const blockCfg = wing ? buildWingCfg(cfg, wing) : cfg;
+  if (!blockCfg) return null;
+  const blockPlan = buildEdgePlans(blockCfg);
+  const matT = Number(blockPlan.matT || blockCfg.coreThickness || 1.5);
+  const cT = Number(blockCfg.claddingThickness || 0);
+  const width = Number(blockCfg.width || 0);
+  const depth = Number(blockCfg.depth || 0);
+  const sideLen = Math.max(0, Number(blockPlan.sideLen || (depth - 2 * matT)));
+
+  // Convert this panel's local x-coordinate into the block's local footprint
+  // coordinate system. The panel's y/height coordinate is intentionally not
+  // used: layout cuts are top-down crop lines, so they shorten wall sheets
+  // along their length but do not change their vertical height.
+  function toBlockPoint(panelX) {
+    let x, y;
+    if (wall === 'front' || wall === 'back') {
+      y = (wall === 'front') ? 0 : depth;
+      if (kind === 'exterior_cladding') x = panelX - cT;         // FB cladding overhangs by cT
+      else if (kind === 'interior_cladding') x = matT + panelX;  // interior panel starts inside side walls
+      else x = panelX;                                           // core wall frame
+    } else {
+      x = (wall === 'west') ? 0 : width;
+      if (kind === 'exterior_cladding') y = panelX;              // side cladding spans full outside depth
+      else y = matT + panelX;                                    // core/interior side wall spans clear sideLen
+    }
+    return { x, y };
+  }
+
+  function toWorld(panelX) {
+    const p = toBlockPoint(panelX);
+    if (wing) {
+      return wingLocalToWorldPointForLayoutCut(cfg, {
+        kind: 'wing',
+        face: wing.face,
+        offset: wing.offset,
+        mainW: cfg.width,
+        mainD: cfg.depth,
+      }, p);
+    }
+    return p;
+  }
+
+  function footprintWorld() {
+    const rectLocal = [
+      { x: 0,     y: 0 },
+      { x: width, y: 0 },
+      { x: width, y: depth },
+      { x: 0,     y: depth },
+    ];
+    if (wing) {
+      const tr = { kind: 'wing', face: wing.face, offset: wing.offset, mainW: cfg.width, mainD: cfg.depth };
+      return rectLocal.map(p => wingLocalToWorldPointForLayoutCut(cfg, tr, p));
+    }
+    return rectLocal;
+  }
+
+  // The usable interval is based on the actual panel width, not just the
+  // nominal wall length, so split cladding bands and overhanging cladding
+  // are shortened in the same local frame they are drawn in.
+  const panelW = Number(part.bboxW || 0);
+  if (!(panelW > 0)) return null;
+
+  return { wall, kind, wingIndex, panelW, toWorld, footprintWorld };
+}
+
+function segmentParamIntersections(a, b, c, d) {
+  const out = [];
+  const rx = b.x - a.x, ry = b.y - a.y;
+  const sx = d.x - c.x, sy = d.y - c.y;
+  const den = rx * sy - ry * sx;
+  const qpx = c.x - a.x, qpy = c.y - a.y;
+  const len2 = rx * rx + ry * ry || 1;
+  if (Math.abs(den) < 1e-9) {
+    // Parallel. If collinear, add the overlap endpoints projected onto AB.
+    if (Math.abs(qpx * ry - qpy * rx) < 1e-7) {
+      const t0 = ((c.x - a.x) * rx + (c.y - a.y) * ry) / len2;
+      const t1 = ((d.x - a.x) * rx + (d.y - a.y) * ry) / len2;
+      const lo = Math.max(0, Math.min(t0, t1));
+      const hi = Math.min(1, Math.max(t0, t1));
+      if (hi >= lo - 1e-9) {
+        out.push(Math.max(0, Math.min(1, lo)));
+        out.push(Math.max(0, Math.min(1, hi)));
+      }
+    }
+    return out;
+  }
+  const t = (qpx * sy - qpy * sx) / den;
+  const u = (qpx * ry - qpy * rx) / den;
+  if (t >= -1e-9 && t <= 1 + 1e-9 && u >= -1e-9 && u <= 1 + 1e-9) {
+    out.push(Math.max(0, Math.min(1, t)));
+  }
+  return out;
+}
+
+function uniqueSortedParams(vals) {
+  const a = vals.filter(v => isFinite(v)).map(v => Math.max(0, Math.min(1, v))).sort((x, y) => x - y);
+  const out = [];
+  for (const v of a) {
+    if (!out.length || Math.abs(v - out[out.length - 1]) > 1e-5) out.push(v);
+  }
+  return out;
+}
+
+function keptIntervalsOnSegmentInsidePolygon(a, b, poly) {
+  if (!poly || poly.length < 3) return [];
+  const params = [0, 1];
+  for (let i = 0; i < poly.length; i++) {
+    const c = poly[i], d = poly[(i + 1) % poly.length];
+    params.push(...segmentParamIntersections(a, b, c, d));
+  }
+  const ts = uniqueSortedParams(params);
+  const intervals = [];
+  for (let i = 0; i < ts.length - 1; i++) {
+    const t0 = ts[i], t1 = ts[i + 1];
+    if (t1 - t0 < 1e-5) continue;
+    const tm = (t0 + t1) / 2;
+    const p = { x: a.x + (b.x - a.x) * tm, y: a.y + (b.y - a.y) * tm };
+    if (pointInPolygonWithNudge(p, poly)) intervals.push([t0, t1]);
+  }
+
+  // If the segment lies nearly exactly on the kept polygon boundary, the
+  // split params may contain only endpoints. Sample the midpoint as a guard.
+  if (!intervals.length) {
+    const p = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    if (pointInPolygonWithNudge(p, poly)) intervals.push([0, 1]);
+  }
+  return intervals;
+}
+
+function clipLocalPolygonToXInterval(poly, x0, x1) {
+  let out = (poly || []).map(p => ({ x: p.x, y: p.y }));
+  if (out.length < 3) return [];
+  // Keep x >= x0
+  out = clipPolygonByHalfPlane(out, { x: x0, y: -1000000 }, { x: x0, y: 1000000 }, 'right');
+  if (out.length < 3) return [];
+  // Keep x <= x1
+  out = clipPolygonByHalfPlane(out, { x: x1, y: -1000000 }, { x: x1, y: 1000000 }, 'left');
+  return out;
+}
+
+function clipRectToXInterval(r, x0, x1) {
+  if (!r || typeof r.x !== 'number' || typeof r.w !== 'number') return r;
+  const a = Math.max(x0, r.x);
+  const b = Math.min(x1, r.x + r.w);
+  if (b - a <= 0.01) return null;
+  return { ...r, x: a, w: b - a };
+}
+
+function clipLineToXInterval(l, x0, x1) {
+  if (!l || typeof l.x1 !== 'number' || typeof l.x2 !== 'number') return l;
+  let ax = l.x1, ay = l.y1, bx = l.x2, by = l.y2;
+  if (Math.abs(bx - ax) < 1e-9) {
+    return (ax >= x0 - 1e-7 && ax <= x1 + 1e-7) ? l : null;
+  }
+  let t0 = 0, t1 = 1;
+  const dx = bx - ax;
+  const tA = (x0 - ax) / dx;
+  const tB = (x1 - ax) / dx;
+  const lo = Math.min(tA, tB), hi = Math.max(tA, tB);
+  t0 = Math.max(t0, lo);
+  t1 = Math.min(t1, hi);
+  if (t1 < t0 - 1e-9) return null;
+  return {
+    ...l,
+    x1: ax + dx * t0,
+    y1: ay + (by - ay) * t0,
+    x2: ax + dx * t1,
+    y2: ay + (by - ay) * t1,
+  };
+}
+
+function applyLayoutCutsToWallPart(part, cuts, cfg) {
+  const spec = layoutCutWallClipSpec(part, cfg || CONFIG);
+  if (!spec) return false;
+  if (!Array.isArray(part.paths) || part.paths.length === 0) return false;
+  const idx = part.paths.findIndex(p => p && p.type === 'cut' && p.d);
+  if (idx < 0) return false;
+
+  const footprint = spec.footprintWorld();
+  const clippedFootprint = clipPolygonByLayoutCuts(footprint, cuts, cfg || CONFIG);
+  if (!clippedFootprint || clippedFootprint.length < 3) { part._layoutCutOmit = true; return true; }
+
+  const p0 = spec.toWorld(0);
+  const p1 = spec.toWorld(spec.panelW);
+  const intervals = keptIntervalsOnSegmentInsidePolygon(p0, p1, clippedFootprint);
+  if (!intervals.length) { part._layoutCutOmit = true; return true; }
+
+  // The kept footprint is convex under the current layout-cut model, so a
+  // wall edge has one continuous kept interval. Merge defensively anyway.
+  const t0 = Math.min(...intervals.map(r => r[0]));
+  const t1 = Math.max(...intervals.map(r => r[1]));
+  const x0 = Math.max(0, spec.panelW * t0);
+  const x1 = Math.min(spec.panelW, spec.panelW * t1);
+  if (x1 - x0 <= 0.01) { part._layoutCutOmit = true; return true; }
+
+  // Nothing to crop.
+  if (x0 <= 0.01 && x1 >= spec.panelW - 0.01) return true;
+
+  const pts = parseSvgPathToPoints(part.paths[idx].d);
+  if (pts.length >= 3) {
+    const clipped = clipLocalPolygonToXInterval(pts, x0, x1);
+    if (clipped.length < 3) { part._layoutCutOmit = true; return true; }
+    part.paths[idx] = { ...part.paths[idx], d: pointsToSvgPath(clipped), _layoutClipped: true };
+  }
+
+  if (Array.isArray(part.rects)) {
+    part.rects = part.rects
+      .map(r => (r && r.type === 'cut') ? clipRectToXInterval(r, x0, x1) : r)
+      .filter(Boolean);
+  }
+  if (Array.isArray(part.lines)) {
+    part.lines = part.lines.map(l => clipLineToXInterval(l, x0, x1)).filter(Boolean);
+  }
+
+  const outlinePts = parseSvgPathToPoints(part.paths[idx].d);
+  const b = polygonBounds(outlinePts);
+  if (isFinite(b.w) && isFinite(b.h) && b.w > 0 && b.h > 0) {
+    part.bboxW = b.w;
+    part.bboxH = b.h;
+    part.bboxOffsetX = -b.minX;
+    part.bboxOffsetY = -b.minY;
+    if (!/layout cut/.test(part.name || '')) part.name = (part.name || part.id) + ' — layout cut';
+  }
+  return true;
+}
+
 function polygonIsConvex(poly) {
   if (!Array.isArray(poly) || poly.length < 4) return true;
   let sign = 0;
@@ -10971,7 +11238,9 @@ function applyLayoutCutsToGeneratedParts(cfg, parts) {
   refreshMeasuredLayoutCuts(cfg);
   const cuts = (cfg.layoutCuts || []).filter(c => c && c.enabled !== false);
   if (!cuts.length) return;
-  for (const p of parts) applyLayoutCutsToPart(p, cuts, cfg);
+  for (const p of parts) {
+    if (!applyLayoutCutsToWallPart(p, cuts, cfg)) applyLayoutCutsToPart(p, cuts, cfg);
+  }
   for (let i = parts.length - 1; i >= 0; i--) {
     if (parts[i] && parts[i]._layoutCutOmit) parts.splice(i, 1);
   }
@@ -20581,6 +20850,92 @@ function verifyTongueSlotMatch(parts, matT) {
   };
 }
 
+/* Export ZIP filename/path helpers.
+ * ZIP paths are grouped by assembly target first:
+ *   00_Main/
+ *   01_Wing_01/
+ *   02_Wing_02/
+ *
+ * Inside each assembly folder, the file name carries the remaining sort layers:
+ *   Material_Wing_Wall_PartName.svg
+ *
+ * Example:
+ *   01_Wing_01/core_Wing_01_Back_Wing_1_Back_Wall__back_wall_wing0.svg
+ */
+function exportPartScopeInfo(part) {
+  const id = (part && part.id) || '';
+  const name = (part && part.name) || '';
+  const m = id.match(/_wing(\d+)/) || name.match(/\bWing\s+(\d+)\b/i);
+  if (!m) {
+    return { folder: '00_Main', label: 'Main', sortLabel: 'Main' };
+  }
+  const rawN = parseInt(m[1], 10);
+  // IDs are zero-based (_wing0), display names are one-based (Wing 1).
+  const n = id.match(/_wing(\d+)/) ? (rawN + 1) : rawN;
+  const nn = String(n).padStart(2, '0');
+  return {
+    folder: `${nn}_Wing_${nn}`,
+    label: `Wing_${nn}`,
+    sortLabel: `Wing ${nn}`,
+  };
+}
+
+function exportPartWallInfo(part) {
+  const id = (part && part.id) || '';
+  const name = (part && part.name) || '';
+  const wi = wallFromPartId(id);
+  const wall = wi && wi.wall;
+  const wallMap = {
+    front: { label: 'Front', sort: '01_Front' },
+    back:  { label: 'Back',  sort: '02_Back'  },
+    east:  { label: 'East',  sort: '03_East'  },
+    west:  { label: 'West',  sort: '04_West'  },
+  };
+  if (wall && wallMap[wall]) return wallMap[wall];
+
+  const lower = (id + ' ' + name).toLowerCase();
+  if (lower.includes('roof') || lower.includes('skylight')) return { label: 'Roof', sort: '05_Roof' };
+  if (lower.includes('floor')) return { label: 'Floor', sort: '06_Floor' };
+  if (lower.includes('internal wall') || lower.includes('iwall') || lower.includes('dividing')) return { label: 'Interior_Walls', sort: '07_Interior_Walls' };
+  if (lower.includes('truss') || lower.includes('column') || lower.includes('support')) return { label: 'Structure', sort: '08_Structure' };
+  if (lower.includes('window') || lower.includes('door') || lower.includes('fixture') || lower.includes('shutter') || lower.includes('printed')) return { label: 'Detail_Parts', sort: '09_Detail_Parts' };
+  return { label: 'General', sort: '00_General' };
+}
+
+function sanitiseFileName(str) {
+  return (str || 'part')
+    .trim()
+    .replace(/[/\\:*?"<>|]/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '') || 'part';
+}
+
+function exportPartZipPath(part, folderForMat, usedPaths) {
+  const scope = exportPartScopeInfo(part);
+  const wall = exportPartWallInfo(part);
+  const material = sanitiseFileName(folderForMat(part.material));
+  const partName = sanitiseFileName(part.name || part.id || 'part');
+  const safeId = sanitiseFileName(part.id || 'part');
+
+  let fileName = `${material}_${scope.label}_${wall.label}_${partName}__${safeId}.svg`;
+  let path = `${scope.folder}/${fileName}`;
+
+  if (usedPaths[path]) {
+    const base = fileName.replace(/\.svg$/i, '');
+    let n = usedPaths[path] + 1;
+    do {
+      fileName = `${base}__${String(n).padStart(2, '0')}.svg`;
+      path = `${scope.folder}/${fileName}`;
+      n++;
+    } while (usedPaths[path]);
+    usedPaths[path] = 1;
+  } else {
+    usedPaths[path] = 1;
+  }
+  return path;
+}
+
 /* Export ZIP */
 async function exportZip() {
   readForm();
@@ -20614,10 +20969,19 @@ async function exportZip() {
 
   const folderForMat = (matId) => matFolders[matId] || sanitiseFolderName(matId || 'misc');
 
-  // SVG parts → subfolders
+  // SVG parts → one folder per assembly target:
+  //   00_Main/<Material>_<Main>_<Wall>_<PartName>.svg
+  //   01_Wing_01/<Material>_<Wing_01>_<Wall>_<PartName>.svg
+  // This keeps the ZIP sorted by Main/Wing first while preserving Material,
+  // Wing, Wall, and PartName in the filename instead of nested folders.
+  const usedExportPaths = {};
+  const exportRows = [];
   for (const part of result.parts) {
     const svg = partToSvg(part, { strokeMm: 0.05, kerf: CONFIG.kerfComp });
-    zip.folder(folderForMat(part.material)).file(part.id + '.svg', svg);
+    const exportPath = exportPartZipPath(part, folderForMat, usedExportPaths);
+    zip.file(exportPath, svg);
+    part._exportPath = exportPath;
+    exportRows.push({ part, exportPath });
   }
 
   // --- README manifest ---
@@ -20626,21 +20990,21 @@ async function exportZip() {
   manifest += `Outer dimensions: ${CONFIG.width} × ${CONFIG.depth} × ${CONFIG.height} mm\n`;
   manifest += `Real-world (1:150): ${(CONFIG.width*0.15).toFixed(1)} × ${(CONFIG.depth*0.15).toFixed(1)} × ${(CONFIG.height*0.15).toFixed(1)} m\n\n`;
 
-  // Group parts by folder for the manifest
+  // Group parts by exported Main/Wing folder for the manifest.
   const byFolder = {};
-  for (const part of result.parts) {
-    const folder = folderForMat(part.material);
+  for (const row of exportRows) {
+    const folder = row.exportPath.split('/')[0];
     if (!byFolder[folder]) byFolder[folder] = [];
-    byFolder[folder].push(part);
+    byFolder[folder].push(row);
   }
-  manifest += `## Parts by material folder\n\n`;
-  for (const [folder, parts] of Object.entries(byFolder).sort()) {
-    // Find the material name for this folder
-    const matEntry = CONFIG.materials.find(m => sanitiseFolderName(m.name || m.id) === folder);
-    const matLabel = matEntry ? matEntry.name : folder;
-    manifest += `### ${folder}/  ← ${matLabel}\n`;
-    for (const p of parts) {
-      manifest += `- ${p.id}.svg — ${p.name} (${p.bboxW.toFixed(1)} × ${p.bboxH.toFixed(1)} mm)\n`;
+  manifest += `## Parts by Main/Wing folder\n\n`;
+  manifest += `SVG files are exported as \`Main/Wing folder → Material_Wing_Wall_PartName.svg\`.\n\n`;
+  for (const [folder, rows] of Object.entries(byFolder).sort()) {
+    manifest += `### ${folder}/\n`;
+    for (const row of rows.sort((a, b) => a.exportPath.localeCompare(b.exportPath))) {
+      const p = row.part;
+      const file = row.exportPath.split('/').pop();
+      manifest += `- ${file} — ${p.name} (${p.bboxW.toFixed(1)} × ${p.bboxH.toFixed(1)} mm)\n`;
     }
     manifest += '\n';
   }
@@ -20667,7 +21031,7 @@ async function exportZip() {
     }
   }
   if (CONFIG.rooftopMechRoom && result.plan.mechRoom) {
-    manifest += `\n## Rooftop mechanical room\nParts in \`core/\` folder. Tongue-and-slot into \`roof.svg\`.\n`;
+    manifest += `\n## Rooftop mechanical room\nCore parts are under the appropriate Main/Wing roof or detail folders. Tongue-and-slot into the roof panel.\n`;
   }
 
   manifest += `\n## Settings\n` + JSON.stringify(CONFIG, null, 2);

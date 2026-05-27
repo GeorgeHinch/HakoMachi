@@ -28,7 +28,7 @@ Tweak the dimensions, swap the cladding, change the roof, drag windows around un
 - **Save your work.** Cache configs in the browser, or export them as JSON to share or version.
 
 <!-- IMAGE: WYSIWYG opening editor with a wall preview and draggable window/door rectangles -->
-![Opening editor](docs/images/editor.png)
+![Opening editor](/img/HakoMachi_Editor.jpg)
 
 ## From browser to bench
 

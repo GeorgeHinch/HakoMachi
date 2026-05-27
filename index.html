@@ -8051,10 +8051,124 @@ function trussSupportPositions(lengthAlong, spacing, marginEachEnd) {
       positions.push(margin + i * usable / (count - 1));
     }
   }
+
   return positions;
 }
 
-function generateTrussesForBlock(blockCfg, blockPlan, sfx, nameLbl) {
+/* Layout-cut helper for trusses and their column supports.
+ *
+ * Floor/roof panels can be clipped directly in their own 2D sheet geometry,
+ * but trusses and columns are separate vertical assemblies. They need a
+ * small amount of footprint reasoning: at each truss station, find the kept
+ * span of that truss line after the layout cuts are applied. Trusses fully
+ * outside the kept footprint are omitted; trusses crossing the cut are
+ * regenerated with the shortened span so they no longer extend into the
+ * ghosted/cut-away area. */
+function layoutCropContextIsActive(cropCtx) {
+  return !!(cropCtx && cropCtx.rootCfg && layoutCutsActive(cropCtx.rootCfg));
+}
+
+function layoutCropToWorld(cropCtx, p) {
+  if (cropCtx && typeof cropCtx.toWorld === 'function') return cropCtx.toWorld(p);
+  return { x: p.x, y: p.y };
+}
+
+function clippedBlockFootprintForLayoutCrop(blockCfg, cropCtx) {
+  if (!layoutCropContextIsActive(cropCtx)) return null;
+  const rootCfg = cropCtx.rootCfg || CONFIG;
+  refreshMeasuredLayoutCuts(rootCfg);
+  const cuts = (rootCfg.layoutCuts || []).filter(c => c && c.enabled !== false);
+  if (!cuts.length) return null;
+  const rectLocal = [
+    { x: 0, y: 0 },
+    { x: blockCfg.width, y: 0 },
+    { x: blockCfg.width, y: blockCfg.depth },
+    { x: 0, y: blockCfg.depth },
+  ];
+  const rectWorld = rectLocal.map(p => layoutCropToWorld(cropCtx, p));
+  return clipPolygonByLayoutCuts(rectWorld, cuts, rootCfg);
+}
+
+function pointInPolygonWithNudge(pt, poly) {
+  if (!poly || poly.length < 3) return false;
+  if (pointInPolygon(pt, poly)) return true;
+  // Boundary points can fail the normal ray-cast test. Try a very small
+  // plus-shaped nudge so trusses/columns lying exactly on a wall edge are
+  // still treated as inside when that wall remains after the crop.
+  const eps = 0.05;
+  return pointInPolygon({ x: pt.x + eps, y: pt.y }, poly)
+      || pointInPolygon({ x: pt.x - eps, y: pt.y }, poly)
+      || pointInPolygon({ x: pt.x, y: pt.y + eps }, poly)
+      || pointInPolygon({ x: pt.x, y: pt.y - eps }, poly);
+}
+
+function trussSpanIntervalForLayoutCrop(blockCfg, axis, span, position, cropCtx) {
+  const clippedWorld = clippedBlockFootprintForLayoutCrop(blockCfg, cropCtx);
+  if (!clippedWorld) return { start: 0, end: span, clipped: false };
+  if (clippedWorld.length < 3) return null;
+
+  const localAt = axis === 'ns'
+    ? (s) => ({ x: position, y: s })
+    : (s) => ({ x: s, y: position });
+  const insideAt = (s) => pointInPolygonWithNudge(layoutCropToWorld(cropCtx, localAt(s)), clippedWorld);
+
+  // Sample by small cells and keep the largest contiguous inside interval.
+  // This is stable for straight, angled, and sampled arc layout cuts and avoids
+  // needing a full line/polygon boolean library for the truss station line.
+  const cells = Math.max(80, Math.min(600, Math.ceil(span * 3)));
+  const ds = span / cells;
+  const intervals = [];
+  let inRun = false, runStart = 0;
+  for (let i = 0; i < cells; i++) {
+    const s0 = i * ds;
+    const s1 = (i + 1) * ds;
+    const mid = (s0 + s1) / 2;
+    const inside = insideAt(mid);
+    if (inside && !inRun) { inRun = true; runStart = s0; }
+    if ((!inside || i === cells - 1) && inRun) {
+      const runEnd = inside && i === cells - 1 ? s1 : s0;
+      if (runEnd - runStart > 0.1) intervals.push({ start: runStart, end: runEnd });
+      inRun = false;
+    }
+  }
+  if (!intervals.length) return null;
+  let best = intervals[0];
+  for (const iv of intervals) if ((iv.end - iv.start) > (best.end - best.start)) best = iv;
+
+  // Refine boundaries against neighbouring outside samples when possible.
+  function refineBoundary(lo, hi, wantInsideAtHi) {
+    let a = lo, b = hi;
+    for (let k = 0; k < 14; k++) {
+      const m = (a + b) / 2;
+      const inside = insideAt(m);
+      if (inside === wantInsideAtHi) b = m; else a = m;
+    }
+    return b;
+  }
+  if (best.start > 0) best.start = refineBoundary(Math.max(0, best.start - ds), best.start, true);
+  if (best.end < span) best.end = refineBoundary(Math.min(span, best.end + ds), best.end, false);
+
+  best.start = Math.max(0, Math.min(span, best.start));
+  best.end   = Math.max(0, Math.min(span, best.end));
+  if (best.end - best.start < Math.max(5, (blockCfg.trusses && blockCfg.trusses.chordW || 2) * 4)) return null;
+  const clipped = best.start > 0.25 || best.end < span - 0.25;
+  return { start: best.start, end: best.end, clipped };
+}
+
+function columnBearingInsideLayoutCrop(blockCfg, axis, wall, pos, cropCtx, matT) {
+  const clippedWorld = clippedBlockFootprintForLayoutCrop(blockCfg, cropCtx);
+  if (!clippedWorld) return true;
+  if (clippedWorld.length < 3) return false;
+  const inset = Math.max(0.1, (matT || 1.5) + 0.1);
+  let p;
+  if (wall === 'front') p = { x: pos, y: inset };
+  else if (wall === 'back') p = { x: pos, y: Math.max(inset, blockCfg.depth - inset) };
+  else if (wall === 'west') p = { x: inset, y: pos };
+  else p = { x: Math.max(inset, blockCfg.width - inset), y: pos };
+  return pointInPolygonWithNudge(layoutCropToWorld(cropCtx, p), clippedWorld);
+}
+
+function generateTrussesForBlock(blockCfg, blockPlan, sfx, nameLbl, cropCtx) {
   const t = blockCfg.trusses;
   if (!t || !t.enabled) return [];
   const chordW = (t.chordW != null) ? t.chordW : 2;
@@ -8079,7 +8193,7 @@ function generateTrussesForBlock(blockCfg, blockPlan, sfx, nameLbl) {
   // Span = building dimension perpendicular to spacing direction.
   // axis='ns' → trusses run north-south → span = depth, spaced along width.
   // axis='ew' → trusses run east-west → span = width, spaced along depth.
-  const span         = axis === 'ns' ? blockCfg.depth : blockCfg.width;
+  const fullSpan     = axis === 'ns' ? blockCfg.depth : blockCfg.width;
   const lengthAlong  = axis === 'ns' ? blockCfg.width : blockCfg.depth;
   const spacing      = Math.max(5, t.spacing || 30);
 
@@ -8095,45 +8209,54 @@ function generateTrussesForBlock(blockCfg, blockPlan, sfx, nameLbl) {
   const positions = trussSupportPositions(lengthAlong, spacing, margin);
   const count = positions.length;
 
-  // Build the truss geometry once (all trusses share the same shape).
-  const spanDims = { roofPitch: blockCfg.roofPitch || 10 };
-  const geom = generateTrussGeometry(blockCfg.roofStyle, span, spanDims, chordW);
-  if (!geom) return [];
-
-  // When column supports are enabled, weave the bottom-chord bearing
-  // tabs into the truss outline so the truss locks into the columns'
-  // top notches. The same tabDepth (matT * 2) is computed in the
-  // column generator, keeping the two ends of the joint in sync.
-  // Falls back to the unmodified geom on tiny trusses where the helper
-  // can't fit tabs without overlap — see `injectTrussBearingTabs`.
-  let geomFinal = geom;
-  if (t.supports) {
-    const webDepth = (t.supportDepth != null) ? t.supportDepth : 4;
-    const tabDepth = matT_ * 2;
-    const columnType = t.supportColumnType === 't' ? 't' : 'i';
-    const injected = injectTrussBearingTabs(geom, matT_, webDepth, tabDepth, columnType);
-    if (injected) geomFinal = injected;
-  }
-
-  const styleLabel = ({
+  const styleLabelBase = {
     fink:             'Fink',
     monopitch_pratt:  'Mono-pitch Pratt',
     parallel_pratt:   'Pratt parallel-chord',
-  })[geom.style] || geom.style;
+  };
 
   const parts = [];
   for (let i = 0; i < count; i++) {
+    const crop = trussSpanIntervalForLayoutCrop(blockCfg, axis, fullSpan, positions[i], cropCtx);
+    if (!crop) continue;
+    const span = crop.end - crop.start;
+    const spanDims = { roofPitch: blockCfg.roofPitch || 10 };
+    const geom = generateTrussGeometry(blockCfg.roofStyle, span, spanDims, chordW);
+    if (!geom) continue;
+
+    // When column supports are enabled, weave the bottom-chord bearing
+    // tabs into the truss outline so the truss locks into the columns'
+    // top notches. Layout-clipped trusses are regenerated at the shortened
+    // span, so the tabs remain at the usable truss ends instead of landing
+    // in the cut-away area.
+    let geomFinal = geom;
+    if (t.supports) {
+      const webDepth = (t.supportDepth != null) ? t.supportDepth : 4;
+      const tabDepth = matT_ * 2;
+      const columnType = t.supportColumnType === 't' ? 't' : 'i';
+      const injected = injectTrussBearingTabs(geom, matT_, webDepth, tabDepth, columnType);
+      if (injected) geomFinal = injected;
+    }
+
+    const styleLabel = styleLabelBase[geom.style] || geom.style;
+    const clipNote = crop.clipped
+      ? `, layout-cut span ${span.toFixed(0)}mm from original ${fullSpan.toFixed(0)}mm`
+      : `, ${fullSpan.toFixed(0)}mm span`;
     const part = trussGeometryToPart(
       geomFinal,
       `truss_${i}${sfx}`,
-      `${nameLbl}Truss ${i + 1}/${count} (${styleLabel}, ${span.toFixed(0)}mm span)`,
+      `${nameLbl}Truss ${i + 1}/${count} (${styleLabel}${clipNote})`,
       'core',
     );
-    if (part) parts.push(part);
+    if (part) {
+      if (crop.clipped) {
+        part.assemblyNote = `Layout cut trimmed this truss station. Original top-down span interval was ${crop.start.toFixed(1)}–${crop.end.toFixed(1)}mm.`;
+      }
+      parts.push(part);
+    }
   }
   return parts;
 }
-
 /** Resolve truss axis using the same rules as the truss and column generators. */
 function resolveTrussAxis(blockCfg) {
   const t = blockCfg.trusses || {};
@@ -8554,7 +8677,7 @@ function generateColumnWebPiece(H, webDepth, matT, slotPositions, slotLen, outer
 /** Generate all vertical support parts for one block. Returns
  *  { parts, etches } where etches is the floor-etching segments to be
  *  merged onto the floor part by the caller. */
-function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl) {
+function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl, cropCtx) {
   const t = blockCfg.trusses;
   if (!t || !t.enabled || !t.supports) return { parts: [], etches: [] };
 
@@ -8627,18 +8750,25 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl) {
   // columns on east + west.
   const bearingWalls = axis === 'ns' ? ['front', 'back'] : ['east', 'west'];
 
+  const keptBearings = [];
+  for (let i = 0; i < positions.length; i++) {
+    for (const wall of bearingWalls) {
+      if (columnBearingInsideLayoutCrop(blockCfg, axis, wall, positions[i], cropCtx, matT)) {
+        keptBearings.push({ i, pos: positions[i], wall });
+      }
+    }
+  }
+
   // Generate parts — I-beam uses back/web/cap per bearing; T-beam uses
   // back/web only. All copies are geometrically identical and the parts
   // panel dedup collapses them into "Cut ×N copies".
   const parts = [];
-  for (let i = 0; i < positions.length; i++) {
-    for (const wall of bearingWalls) {
-      const label = `truss ${i + 1} ${wall}`;
-      parts.push(tagBack(generateColumnFlangePiece(colH, flangeW, matT, slotPositions, slotLen, topNotch), label));
-      parts.push(tagWeb (generateColumnWebPiece   (colH, webDepth, matT, slotPositions, slotLen, !isTBeam), label));
-      if (!isTBeam) {
-        parts.push(tagCap(generateColumnFlangePiece(colH, flangeW, matT, slotPositions, slotLen, topNotch), label));
-      }
+  for (const kb of keptBearings) {
+    const label = `truss ${kb.i + 1} ${kb.wall}`;
+    parts.push(tagBack(generateColumnFlangePiece(colH, flangeW, matT, slotPositions, slotLen, topNotch), label));
+    parts.push(tagWeb (generateColumnWebPiece   (colH, webDepth, matT, slotPositions, slotLen, !isTBeam), label));
+    if (!isTBeam) {
+      parts.push(tagCap(generateColumnFlangePiece(colH, flangeW, matT, slotPositions, slotLen, topNotch), label));
     }
   }
 
@@ -8657,8 +8787,10 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl) {
   const floorH = blockPlan.sideLen + 2 * matT;
   const etches = [];
 
-  for (const pos of positions) {
-    for (const wall of bearingWalls) {
+  for (const kb of keptBearings) {
+    const pos = kb.pos;
+    const wall = kb.wall;
+    {
       let rx0, ry0, rx1, ry1, midX, midY;
       const footprintDepth = matT + webDepth + (isTBeam ? 0 : matT);
       const halfFlange = flangeW / 2;
@@ -16094,7 +16226,8 @@ function generateBuilding(cfg) {
   // any walls are flagged, glue diagonally on those walls — separate
   // pieces so they can sit on top of the wall cladding without
   // interfering with the core tongues.
-  parts.push(...generateTrussesForBlock(cfg, plan, '', ''));
+  const mainLayoutCropCtx = { rootCfg: cfg, toWorld: p => ({ x: p.x, y: p.y }) };
+  parts.push(...generateTrussesForBlock(cfg, plan, '', '', mainLayoutCropCtx));
   parts.push(...generateXBracesForBlock(cfg, plan, '', ''));
 
   // Vertical column supports (3-piece I-beam at every truss bearing
@@ -16102,7 +16235,7 @@ function generateBuilding(cfg) {
   // applied to the floor part as etch-mode line segments — they cut
   // visible registration marks into the floor without removing
   // material so the user can lay each column down at assembly time.
-  const colSup_main = generateColumnSupportsForBlock(cfg, plan, '', '');
+  const colSup_main = generateColumnSupportsForBlock(cfg, plan, '', '', mainLayoutCropCtx);
   parts.push(...colSup_main.parts);
   applyColumnFloorEtchings(parts, colSup_main.etches);
 
@@ -22171,7 +22304,8 @@ function generateBuildingWithWings(cfg) {
      and runs whether or not any wing has trusses on. Empty when
      cfg.trusses.enabled is false (the default) so no parts are generated
      unless the user explicitly opted in. */
-  parts.push(...generateTrussesForBlock(cfg, plan, '', ''));
+  const mainLayoutCropCtx = { rootCfg: cfg, toWorld: p => ({ x: p.x, y: p.y }) };
+  parts.push(...generateTrussesForBlock(cfg, plan, '', '', mainLayoutCropCtx));
   parts.push(...generateXBracesForBlock(cfg, plan, '', ''));
 
   /* Main block's column supports + their floor etchings. The etchings
@@ -22179,7 +22313,7 @@ function generateBuildingWithWings(cfg) {
      wing extensions don't overlap main's footprint area, so writing
      main's etchings in the floor's main-coord region is safe with or
      without wings present. */
-  const colSupMain = generateColumnSupportsForBlock(cfg, plan, '', '');
+  const colSupMain = generateColumnSupportsForBlock(cfg, plan, '', '', mainLayoutCropCtx);
   parts.push(...colSupMain.parts);
   applyColumnFloorEtchings(parts, colSupMain.etches);
 
@@ -22780,8 +22914,16 @@ function generateBuildingWithWings(cfg) {
        the wing's own trusses object (carried on the wing). The sfx
        discriminator keeps part ids unique across wings, and the name
        prefix surfaces "Wing 1/2/…" in the parts panel so the user can
-       tell which truss belongs to which block at glue time. */
-    parts.push(...generateTrussesForBlock(wCfg, wPlan, sfx, `Wing ${wi + 1} `));
+       tell which truss belongs to which block at glue time. Layout cuts
+       are authored in main/world coordinates, so trusses are cropped by
+       converting each wing-local truss station into that shared footprint
+       frame before span/omission decisions are made. */
+    const wingTrussCropTransform = { kind: 'wing', face: wing.face, offset: wing.offset, mainW: cfg.width, mainD: cfg.depth };
+    const wingLayoutCropCtx = {
+      rootCfg: cfg,
+      toWorld: p => wingLocalToWorldPointForLayoutCut(cfg, wingTrussCropTransform, p),
+    };
+    parts.push(...generateTrussesForBlock(wCfg, wPlan, sfx, `Wing ${wi + 1} `, wingLayoutCropCtx));
     parts.push(...generateXBracesForBlock(wCfg, wPlan, sfx, `Wing ${wi + 1} `));
 
     /* Wing column supports. The PARTS get emitted just like main's, and
@@ -22790,7 +22932,7 @@ function generateBuildingWithWings(cfg) {
        panelization separated it, or transformed into the merged floor's
        global coordinate frame when the wing remains part of the combined
        floor. */
-    const colSupWing = generateColumnSupportsForBlock(wCfg, wPlan, sfx, `Wing ${wi + 1} `);
+    const colSupWing = generateColumnSupportsForBlock(wCfg, wPlan, sfx, `Wing ${wi + 1} `, wingLayoutCropCtx);
     parts.push(...colSupWing.parts);
     applyWingColumnFloorEtchings(parts, colSupWing.etches, cfg, wing);
   }

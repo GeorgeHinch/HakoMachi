@@ -13372,12 +13372,34 @@ function generateCladdingPanel(cfg, plan, which, band) {
     perimPath = rectPath(0, 0, localCWidth, localCHeight);
   }
   const paths = [{ type: 'cut', d: perimPath }];
-  if (baySpec) {
-    paths.push({ type: 'cut', d: rectPath(baySpec.x, baySpec.y, baySpec.w, baySpec.h) });
-  }
 
   const rects = [];
   const lines = [];
+  const BOTTOM_TOUCH_EPS = 0.02;
+  const bottomCutouts = [];
+  function addBottomCutout(cut) {
+    if (!cut || !(cut.x2 > cut.x1)) return;
+    cut.x1 = Math.max(0, Math.min(localCWidth, cut.x1));
+    cut.x2 = Math.max(0, Math.min(localCWidth, cut.x2));
+    if (cut.x2 - cut.x1 <= 0.01) return;
+    bottomCutouts.push(cut);
+  }
+  function addOpeningCut(x, y, w, h) {
+    if (!(w > 0 && h > 0)) return;
+    // If an opening reaches the bottom edge of the panel, do not draw it as
+    // a separate U-shaped path. Instead, store it and later rebuild the
+    // OUTER cladding perimeter so the bottom edge routes up and around that
+    // opening. This removes the visible surplus red bottom line on the
+    // cladding layer and also avoids any chance of double-cutting.
+    if (y + h >= localCHeight - BOTTOM_TOUCH_EPS) {
+      addBottomCutout({ kind: 'simple', x1: x, x2: x + w, yTop: y });
+    } else {
+      rects.push({ type: 'cut', x, y, w, h, compensateKerf: false });
+    }
+  }
+  if (baySpec) {
+    addOpeningCut(baySpec.x, baySpec.y, baySpec.w, baySpec.h);
+  }
 
   // We collect all "cut openings" first (windows + doors + bay) then use them to
   // clip etched seam lines so no etch falls inside a cut (which would be lost as scrap).
@@ -13651,12 +13673,12 @@ function generateCladdingPanel(cfg, plan, which, band) {
       // Standard opening (default) and blanked filled — both cut the hole.
       // For 'blanked', the difference is downstream: no glass/frame parts,
       // just a single opaque blanking panel cut on a separate sheet.
-      rects.push({ type: 'cut', x: w.x, y: w.y, w: w.w, h: w.h, compensateKerf: false });
+      addOpeningCut(w.x, w.y, w.w, w.h);
       cutOpenings.push({ x: w.x, y: w.y, w: w.w, h: w.h });
     }
   }
   for (const d of cladDoorsBand) {
-    rects.push({ type: 'cut', x: d.x, y: d.y, w: d.w, h: d.h, compensateKerf: false });
+    addOpeningCut(d.x, d.y, d.w, d.h);
     cutOpenings.push({ x: d.x, y: d.y, w: d.w, h: d.h });
   }
   // Cladding overrides come in two mount modes:
@@ -13809,8 +13831,19 @@ function generateCladdingPanel(cfg, plan, which, band) {
     cutOpenings.push({ x: baySpec.x, y: baySpec.y, w: baySpec.w, h: baySpec.h });
   }
 
-  // Wing coverage zones: where a wing panel sits against this face, blank the cladding
-  // (for 'wall' connections only; 'open' connections show the opening which is already cut)
+  // Wing coverage zones: where a wing sits against this face, blank the
+  // exterior cladding (for 'wall' connections only; 'open' connections show
+  // the opening which is already cut).
+  //
+  // Parapet-roof wings need a more complex opening than a plain rectangle.
+  // The shared wall is visible again INSIDE the wing's recessed roof well,
+  // from the top of the wing parapet down to the roof deck. To cover that
+  // visible inside face, leave a flap attached at the top of the wing cutout:
+  //   fold line 1 = along the top of the wing opening,
+  //   fold line 2 = matT below that,
+  //   remaining drop = wing parapet height down to the wing roof line.
+  // In flat laser form this looks like a notched opening with a hanging tab,
+  // rather than a simple rectangular hole cut all the way to the wing wall top.
   for (const wing of (cfg.wings || [])) {
     if (wing.face !== which) continue;
     if (wing.connection === 'open') continue;
@@ -13823,10 +13856,6 @@ function generateCladdingPanel(cfg, plan, which, band) {
       cx = Math.max(0, wing.offset - wMatT);
       const cx2 = Math.min(cWidth, wing.offset + wing.span - wMatT);
       cw = cx2 - cx;
-      // East cladding uses internal-view convention (north on right) to
-      // match the east laser core panel and the openings editor. Mirror
-      // the coverage zone so a wing at wing.offset=0 (north end) lands at
-      // the RIGHT of the cladding panel, not the LEFT.
       if (which === 'east') {
         cx = cWidth - cx - cw;
       }
@@ -13844,8 +13873,137 @@ function generateCladdingPanel(cfg, plan, which, band) {
     const ch = cyBottom - cyTop;
     if (ch <= 0) continue;
 
-    rects.push({ type: 'cut', x: cx, y: cyTop, w: cw, h: ch, compensateKerf: false });
-    cutOpenings.push({ x: cx, y: cyTop, w: cw, h: ch });
+    const wingCfg = buildWingCfg(cfg, wing);
+    const wingRoofStyle = wingCfg.roofStyle || wing.roofStyle || cfg.roofStyle;
+    const wingParapetH = Math.max(0, wingCfg.parapetHeight || 0);
+    const needsRoofWellFlap = (wingRoofStyle === 'parapet' || wingRoofStyle === 'parapet_gable')
+                              && wingParapetH > 0;
+
+    if (needsRoofWellFlap) {
+      // Hanging flap depth in the flat part:
+      //   matT to wrap over the parapet wall top + parapetH to drop to roof line.
+      const flapFold1Y = cyTop;
+      const flapBottom = Math.min(cyBottom, cyTop + matT + wingParapetH);
+
+      // Leave clearance at the two sides so the wing's side parapet walls can
+      // rise up through the opening. The remaining central strip becomes the
+      // fold-down flap that covers the visible inside face between those walls.
+      const wallClear = Math.max(0, Math.min(wMatT, (cw - 0.5) / 2));
+      const flapX = cx + wallClear;
+      const flapW = cw - 2 * wallClear;
+
+      if (wallClear > 0.01 && flapW > 0.5) {
+        const sideNotchH = Math.max(0, flapBottom - flapFold1Y);
+        if (sideNotchH > 0.01) {
+          // Keep separate hidden clip-openings for etch suppression, but render
+          // the actual laser cut as one unified polygon so we don't emit a pile
+          // of redundant overlapping red cut segments.
+          cutOpenings.push({ x: cx, y: flapFold1Y, w: wallClear, h: sideNotchH });
+          cutOpenings.push({ x: cx + cw - wallClear, y: flapFold1Y, w: wallClear, h: sideNotchH });
+        }
+
+        addBottomCutout({
+          kind: 'flap',
+          x1: cx,
+          x2: cx + cw,
+          yTop: flapFold1Y,
+          flapX,
+          flapW,
+          flapBottom,
+        });
+      } else {
+        // Extremely narrow wing opening: fall back to a simple bottom cutout.
+        addBottomCutout({ kind: 'simple', x1: cx, x2: cx + cw, yTop: flapFold1Y });
+      }
+
+      // Hidden clip-opening for the actual through-hole beneath the flap / notches.
+      const holeH = cyBottom - flapBottom;
+      if (holeH > 0.01) {
+        cutOpenings.push({ x: cx, y: flapBottom, w: cw, h: holeH });
+      }
+    } else {
+      addOpeningCut(cx, cyTop, cw, ch);
+      cutOpenings.push({ x: cx, y: cyTop, w: cw, h: ch });
+    }
+  }
+
+  if (bottomCutouts.length) {
+    // Rebuild the main cladding outline so every bottom-touching opening
+    // becomes part of the single exterior contour. This removes the apparent
+    // red cut line that used to continue across door/bay/wing openings.
+    const f3 = (n) => Number(n).toFixed(3);
+    function perimeterTopAndSidesPrefix() {
+      if (isCladdingGableEnd) {
+        return `M 0,0 L ${f3(localCWidth / 2)},${f3(-clPitch)} L ${f3(localCWidth)},0 L ${f3(localCWidth)},${f3(localCHeight)}`;
+      }
+      if (isSideSlantedClad && !splitMode) {
+        return `M 0,${f3(sideClTopLeftY)} L ${f3(localCWidth)},${f3(sideClTopRightY)} L ${f3(localCWidth)},${f3(localCHeight)}`;
+      }
+      return `M 0,0 L ${f3(localCWidth)},0 L ${f3(localCWidth)},${f3(localCHeight)}`;
+    }
+    function cutoutCovers(outer, inner) {
+      const eps = 0.01;
+      if (!outer || !inner) return false;
+      if (inner.x1 < outer.x1 - eps || inner.x2 > outer.x2 + eps) return false;
+      if (outer.kind === 'simple') {
+        return inner.yTop >= outer.yTop - eps;
+      }
+      // Flap cutout: the side strips are open from yTop downward, and the
+      // full width is open from flapBottom downward. Nested bottom openings
+      // fully inside those already-removed regions should not generate a
+      // second contour step.
+      const flapL = outer.flapX;
+      const flapR = outer.flapX + outer.flapW;
+      if (inner.yTop >= outer.flapBottom - eps) return true;
+      const inLeftStrip  = inner.x2 <= flapL + eps;
+      const inRightStrip = inner.x1 >= flapR - eps;
+      if ((inLeftStrip || inRightStrip) && inner.yTop >= outer.yTop - eps) return true;
+      return false;
+    }
+
+    const rawCuts = bottomCutouts
+      .filter(c => c.x2 > c.x1 + 0.01)
+      // Consider shallower / wider cutouts first so nested bottom openings
+      // inside a larger cladding gap can be suppressed.
+      .sort((a, b) => {
+        const dy = a.yTop - b.yTop;
+        if (Math.abs(dy) > 0.01) return dy;
+        const aw = (a.x2 - a.x1), bw = (b.x2 - b.x1);
+        return bw - aw;
+      });
+
+    const visibleCuts = [];
+    for (const c of rawCuts) {
+      if (visibleCuts.some(outer => cutoutCovers(outer, c))) continue;
+      visibleCuts.push(c);
+    }
+
+    const cuts = visibleCuts.sort((a, b) => b.x2 - a.x2);
+    let d = perimeterTopAndSidesPrefix();
+    let curX = localCWidth;
+    for (const c of cuts) {
+      const x1 = Math.max(0, Math.min(localCWidth, c.x1));
+      const x2 = Math.max(0, Math.min(localCWidth, c.x2));
+      if (x2 <= x1 + 0.01) continue;
+      if (curX > x2 + 0.01) d += ` L ${f3(x2)},${f3(localCHeight)}`;
+      if (c.kind === 'flap' && c.flapW > 0.5) {
+        d += ` L ${f3(x2)},${f3(c.yTop)}`
+          + ` L ${f3(c.flapX + c.flapW)},${f3(c.yTop)}`
+          + ` L ${f3(c.flapX + c.flapW)},${f3(c.flapBottom)}`
+          + ` L ${f3(c.flapX)},${f3(c.flapBottom)}`
+          + ` L ${f3(c.flapX)},${f3(c.yTop)}`
+          + ` L ${f3(x1)},${f3(c.yTop)}`
+          + ` L ${f3(x1)},${f3(localCHeight)}`;
+      } else {
+        d += ` L ${f3(x2)},${f3(c.yTop)}`
+          + ` L ${f3(x1)},${f3(c.yTop)}`
+          + ` L ${f3(x1)},${f3(localCHeight)}`;
+      }
+      curX = x1;
+    }
+    if (curX > 0.01) d += ` L 0,${f3(localCHeight)}`;
+    d += ' Z';
+    paths[0].d = d;
   }
 
   // Etched cladding pattern — dispatch by pattern type. All etches are clipped 
@@ -13892,11 +14050,12 @@ function generateCladdingPanel(cfg, plan, which, band) {
     lines.push({ type: 'etch', x1: ln.x1, y1: ln.y1, x2: ln.x2, y2: ln.y2 });
   }
 
-  // For gable-end panels: add a horizontal cap line at the eave level (y = 0)
-  // to visually terminate the vertical cladding lines where they meet the gable slopes.
-  if (isCladdingGableEnd) {
-    lines.push({ type: 'etch', x1: cT, y1: 0, x2: localCWidth - cT, y2: 0 });
-  }
+  // Gable-end panels intentionally do NOT add a horizontal eave/cap etch line.
+  // The cladding is one continuous sheet over the rectangular wall and the
+  // gable/parapet triangle above it, so the selected cladding pattern should
+  // read as continuous into that upper area instead of being visually cut off
+  // by an artificial eave line. Pattern seams still clip to the actual gable
+  // outline above.
 
   // Count windows by placement category on this PANEL.
   //   • opening  → standard cut-through, needs glass + frames

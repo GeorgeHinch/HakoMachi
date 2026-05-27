@@ -22846,14 +22846,22 @@ function weRenderLayoutCuts(ox, oy, s, minX, minY, maxX, maxY) {
     const x2 = ox + cut.x2 * s, y2 = oy + cut.y2 * s;
     const stroke = selected ? '#d22' : '#a22';
     const sw = selected ? 3 : 2;
+    // The visible dashed cut is intentionally thin, so draw a second invisible
+    // non-dashed stroke behind it as the hit target. Without this, only the
+    // painted dash segments are clickable, which makes an unselected cut feel
+    // almost impossible to pick back up once its handles are hidden.
+    const hitSw = 18;
     if (cut.type === 'arc') {
       const cx = ox + cut.cx * s, cy = oy + cut.cy * s;
-      html += `<path d="M ${f(x1)},${f(y1)} Q ${f(cx)},${f(cy)} ${f(x2)},${f(y2)}" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-dasharray="7 4" data-cutline="${cut.id}" style="cursor:pointer"/>`;
+      const d = `M ${f(x1)},${f(y1)} Q ${f(cx)},${f(cy)} ${f(x2)},${f(y2)}`;
+      html += `<path d="${d}" fill="none" stroke="transparent" stroke-width="${hitSw}" data-cutline="${cut.id}" pointer-events="stroke" style="cursor:pointer"/>`;
+      html += `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-dasharray="7 4" data-cutline="${cut.id}" pointer-events="stroke" style="cursor:pointer"/>`;
       if (selected) html += `<circle cx="${f(cx)}" cy="${f(cy)}" r="5" fill="#d22" stroke="#fff" stroke-width="1" data-cutid="${cut.id}" data-cuthandle="ctrl" style="cursor:move"/>`;
       // label near the control point
       html += `<text x="${f(cx)}" y="${f(cy - 10)}" font-size="9" fill="#a22" text-anchor="middle" font-family="system-ui" pointer-events="none">keep ${cut.keepSide}</text>`;
     } else {
-      html += `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" stroke="${stroke}" stroke-width="${sw}" stroke-dasharray="7 4" data-cutline="${cut.id}" style="cursor:pointer"/>`;
+      html += `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" stroke="transparent" stroke-width="${hitSw}" data-cutline="${cut.id}" pointer-events="stroke" style="cursor:pointer"/>`;
+      html += `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" stroke="${stroke}" stroke-width="${sw}" stroke-dasharray="7 4" data-cutline="${cut.id}" pointer-events="stroke" style="cursor:pointer"/>`;
       const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
       html += `<text x="${f(mx)}" y="${f(my - 8)}" font-size="9" fill="#a22" text-anchor="middle" font-family="system-ui" pointer-events="none">keep ${cut.keepSide}</text>`;
     }
@@ -23090,9 +23098,11 @@ function weRender() {
 
   svg.innerHTML = html;
 
-  // Event handling
-  svg.addEventListener('click',     weOnClick);
-  svg.addEventListener('mousedown', weOnMouseDown);
+  // Event handling — assign rather than stacking listeners each render.
+  // weRender() rebuilds the SVG often while dragging/toggling, and using
+  // addEventListener here caused each click to fire multiple old handlers.
+  svg.onclick = weOnClick;
+  svg.onmousedown = weOnMouseDown;
 }
 
 function weGetResizeHandles(cfg, wing, ox, oy, s) {

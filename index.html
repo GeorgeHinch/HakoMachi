@@ -10285,13 +10285,96 @@ function pathCentroidApprox(d) {
 
 function shouldLayoutClipPart(part) {
   if (!part || !part.id) return false;
-  // V1: top-down sheet parts only. Wall shortening and generated cut-face
-  // walls are intentionally left for a later phase because they require
-  // rebuilding wall panels from the clipped footprint perimeter.
+  // Top-down sheet parts only. Wall shortening / cut-face wall generation is
+  // still a separate later phase, but this list now includes the wing-local
+  // roof/floor pieces that Phase 1/2/4 introduced. Those wing parts carry a
+  // _layoutClipTransform so their local SVG coordinates can be mapped into
+  // the global shape-editor coordinate system before clipping.
+  if (part._layoutClipTransform) return true;
   return part.id === 'floor'
       || part.id === 'floor_main_panelized'
       || part.id === 'roof'
       || part.id === 'cladding_roof';
+}
+
+function wingLocalToWorldPointForLayoutCut(cfg, tr, p) {
+  const face = tr.face;
+  const off = Number(tr.offset) || 0;
+  const W = Number(tr.mainW != null ? tr.mainW : (cfg && cfg.width)) || 0;
+  const D = Number(tr.mainD != null ? tr.mainD : (cfg && cfg.depth)) || 0;
+  if (face === 'east')  return { x: W + p.y, y: off + p.x };
+  if (face === 'west')  return { x: -p.y,    y: off + p.x };
+  if (face === 'front') return { x: off + p.x, y: -p.y };
+  // back
+  return { x: off + p.x, y: D + p.y };
+}
+
+function worldToWingLocalPointForLayoutCut(cfg, tr, p) {
+  const face = tr.face;
+  const off = Number(tr.offset) || 0;
+  const W = Number(tr.mainW != null ? tr.mainW : (cfg && cfg.width)) || 0;
+  const D = Number(tr.mainD != null ? tr.mainD : (cfg && cfg.depth)) || 0;
+  if (face === 'east')  return { x: p.y - off, y: p.x - W };
+  if (face === 'west')  return { x: p.y - off, y: -p.x };
+  if (face === 'front') return { x: p.x - off, y: -p.y };
+  // back
+  return { x: p.x - off, y: p.y - D };
+}
+
+function layoutCutTransformForPart(part, cfg) {
+  cfg = cfg || CONFIG;
+  const tr = part && part._layoutClipTransform;
+  if (tr && tr.kind === 'wing') {
+    const ox = Number(tr.localOffsetX) || 0;
+    const oy = Number(tr.localOffsetY) || 0;
+    return {
+      toWorld: p => wingLocalToWorldPointForLayoutCut(cfg, tr, { x: p.x + ox, y: p.y + oy }),
+      toLocal: p => {
+        const q = worldToWingLocalPointForLayoutCut(cfg, tr, p);
+        return { x: q.x - ox, y: q.y - oy };
+      },
+    };
+  }
+  if (tr && tr.kind === 'translate') {
+    const dx = Number(tr.dx) || 0;
+    const dy = Number(tr.dy) || 0;
+    return {
+      toWorld: p => ({ x: p.x + dx, y: p.y + dy }),
+      toLocal: p => ({ x: p.x - dx, y: p.y - dy }),
+    };
+  }
+
+  // Main-block top-down parts. The floor is already in shape-editor world
+  // coordinates. Recessed parapet roofs are inset by core thickness; roof
+  // cladding is generally cut slightly oversize, so shift it by cladding
+  // thickness to make the crop line land in the same footprint frame.
+  let dx = 0, dy = 0;
+  if (part && part.id === 'roof' && cfg && cfg.roofStyle === 'parapet') {
+    dx = Number(cfg.coreThickness) || 0;
+    dy = Number(cfg.coreThickness) || 0;
+  } else if (part && part.id === 'cladding_roof') {
+    const cT = Number(cfg && cfg.claddingThickness) || 0;
+    dx = -cT;
+    dy = -cT;
+  }
+  return {
+    toWorld: p => ({ x: p.x + dx, y: p.y + dy }),
+    toLocal: p => ({ x: p.x - dx, y: p.y - dy }),
+  };
+}
+
+function polygonIsConvex(poly) {
+  if (!Array.isArray(poly) || poly.length < 4) return true;
+  let sign = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length], c = poly[(i + 2) % poly.length];
+    const cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+    if (Math.abs(cross) < 1e-6) continue;
+    const s = cross > 0 ? 1 : -1;
+    if (!sign) sign = s;
+    else if (sign !== s) return false;
+  }
+  return true;
 }
 
 function applyLayoutCutsToPart(part, cuts, cfg) {
@@ -10299,33 +10382,65 @@ function applyLayoutCutsToPart(part, cuts, cfg) {
   if (!Array.isArray(part.paths) || part.paths.length === 0) return;
   const idx = part.paths.findIndex(p => p && p.type === 'cut' && p.d);
   if (idx < 0) return;
-  const basePoly = parseSvgPathToPoints(part.paths[idx].d);
-  if (basePoly.length < 3) return;
-  const clipped = clipPolygonByLayoutCuts(basePoly, cuts, cfg || CONFIG);
-  if (clipped.length < 3) { part._layoutCutOmit = true; return; }
-  const clippedPath = pointsToSvgPath(clipped);
-  part.paths[idx] = { ...part.paths[idx], d: clippedPath, _layoutClipped: true };
 
-  // Keep secondary holes only when their approximate centre remains inside.
+  const tx = layoutCutTransformForPart(part, cfg || CONFIG);
+  const baseLocal = parseSvgPathToPoints(part.paths[idx].d);
+  if (baseLocal.length < 3) return;
+
+  // Layout cuts are authored in shape-editor/global floor-plan coordinates.
+  // Convert this part's SVG-local outline into that frame before clipping,
+  // then convert the clipped result back to the part's local SVG frame.
+  const baseWorld = baseLocal.map(p => tx.toWorld(p));
+  const clippedWorld = clipPolygonByLayoutCuts(baseWorld, cuts, cfg || CONFIG);
+  if (clippedWorld.length < 3) { part._layoutCutOmit = true; return; }
+  const clippedLocal = clippedWorld.map(p => tx.toLocal(p));
+  part.paths[idx] = { ...part.paths[idx], d: pointsToSvgPath(clippedLocal), _layoutClipped: true };
+
+  // Keep secondary holes only when their approximate centre remains inside
+  // the clipped world polygon.
   part.paths = part.paths.filter((p, i) => {
     if (i === idx) return true;
     if (!p || p.type !== 'cut' || !p.d) return true;
     const c = pathCentroidApprox(p.d);
-    return !c || pointInPolygon(c, clipped);
+    return !c || pointInPolygon(tx.toWorld(c), clippedWorld);
   });
+
   if (Array.isArray(part.rects)) {
-    part.rects = part.rects.filter(r => !r || r.type !== 'cut' || pointInPolygon({ x: r.x + r.w / 2, y: r.y + r.h / 2 }, clipped));
+    part.rects = part.rects.filter(r => !r || r.type !== 'cut' || pointInPolygon(tx.toWorld({ x: r.x + r.w / 2, y: r.y + r.h / 2 }), clippedWorld));
   }
+
+  // Etched cladding lines should not continue across the cropped-off area.
+  // For convex clipped roof/cladding polygons, trim each segment exactly;
+  // for non-convex floor outlines with slot notches, fall back to midpoint
+  // filtering so we avoid producing invalid segment fragments.
   if (Array.isArray(part.lines)) {
-    part.lines = part.lines.filter(l => !l || pointInPolygon({ x: (l.x1 + l.x2) / 2, y: (l.y1 + l.y2) / 2 }, clipped));
+    const convex = polygonIsConvex(clippedWorld);
+    const newLines = [];
+    for (const l of part.lines) {
+      if (!l) continue;
+      const aW = tx.toWorld({ x: l.x1, y: l.y1 });
+      const bW = tx.toWorld({ x: l.x2, y: l.y2 });
+      if (convex) {
+        const seg = clipSegmentToConvexPolygon(aW.x, aW.y, bW.x, bW.y, clippedWorld);
+        if (!seg) continue;
+        const aL = tx.toLocal({ x: seg.x1, y: seg.y1 });
+        const bL = tx.toLocal({ x: seg.x2, y: seg.y2 });
+        newLines.push({ ...l, x1: aL.x, y1: aL.y, x2: bL.x, y2: bL.y });
+      } else {
+        const midW = { x: (aW.x + bW.x) / 2, y: (aW.y + bW.y) / 2 };
+        if (pointInPolygon(midW, clippedWorld)) newLines.push(l);
+      }
+    }
+    part.lines = newLines;
   }
-  const b = polygonBounds(clipped);
+
+  const b = polygonBounds(clippedLocal);
   if (isFinite(b.w) && isFinite(b.h) && b.w > 0 && b.h > 0) {
     part.bboxW = b.w;
     part.bboxH = b.h;
     part.bboxOffsetX = -b.minX;
     part.bboxOffsetY = -b.minY;
-    part.name = (part.name || part.id) + ' — layout cut';
+    if (!/layout cut/.test(part.name || '')) part.name = (part.name || part.id) + ' — layout cut';
   }
 }
 

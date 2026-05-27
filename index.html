@@ -30686,9 +30686,18 @@ function updateThreePreview(cfg) {
     const westOpsBox = sideOpsToBoxFrame(westOps);
     const eastOpsBox = sideOpsToBoxFrame(eastOps);
 
+    // Wing local west/east wall openings are defined in the wing's SIDE-wall
+    // frame (clear inside length = depth - 2*matT). For the 3D BoxGeometry
+    // texture, those faces span the FULL outside wing depth, regardless of
+    // which side of the main block the wing is attached to. Using bW here only
+    // happened to work for east/west wings because there bW == depth; for
+    // front/back wings bW == span, which stretched the texture openings and
+    // made the glass panes no longer line up with the printed holes.
+    const sideFaceW = wCfg.depth;
+
     const oMat = mkM(fixBoxTex(buildWallTexture(wCfg, fW, wH, wH, outerOps, false), false));
-    const nMat = mkM(fixBoxTex(buildWallTexture(wCfg, bW, wH, wH, westOpsBox, false), false));
-    const sMat = mkM(fixBoxTex(buildWallTexture(wCfg, bW, wH, wH, eastOpsBox, false), true));
+    const nMat = mkM(fixBoxTex(buildWallTexture(wCfg, sideFaceW, wH, wH, westOpsBox, false), false));
+    const sMat = mkM(fixBoxTex(buildWallTexture(wCfg, sideFaceW, wH, wH, eastOpsBox, false), true));
     const cMat = wallMat;  // connection (interior) face — plain
     const wingIsParapet3D = (wCfg.roofStyle || cfg.roofStyle || 'parapet') === 'parapet';
     // The wing body is a BoxGeometry, so it has a +Y cap. For parapet wings

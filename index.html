@@ -25302,11 +25302,12 @@ function oeSetWall(wall) {
       if (autoOps && autoOps.length) oeOpenings[wall].push(...autoOps);
     }
   }
+  const targetForTabs = oeEditTarget();
   for (const w of ['front', 'back', 'east', 'west']) {
     const tab = document.getElementById('oeTab' + w.charAt(0).toUpperCase() + w.slice(1));
     if (!tab) continue;
     tab.classList.toggle('oe-active', w === wall);
-    tab.classList.toggle('oe-manual-indicator', Array.isArray((CONFIG.manualOpenings || {})[w]));
+    tab.classList.toggle('oe-manual-indicator', Array.isArray(((targetForTabs || {}).manualOpenings || {})[w]));
   }
   oeUpdateModeBadge();
   oeRender();
@@ -25314,7 +25315,8 @@ function oeSetWall(wall) {
 
 function oeUpdateModeBadge() {
   const badge = document.getElementById('oeModeBadge');
-  const isManual = Array.isArray((CONFIG.manualOpenings || {})[oeWall]);
+  const target = oeEditTarget();
+  const isManual = Array.isArray(((target || {}).manualOpenings || {})[oeWall]);
   badge.textContent = isManual ? '✎ Manual' : '⚙ Auto (live)';
   badge.className = 'oe-mode-badge ' + (isManual ? 'oe-mode-manual' : 'oe-mode-auto');
 }
@@ -26370,14 +26372,15 @@ function oeDropOpening(type, dims, x, y, styleKey) {
           onMakeTaller: () => {
             // Enable the first-floor height override and grow it just
             // enough to fit the opening (with the 2 mm top margin).
-            const wallH = CONFIG.height || 100;
+            const targetCfg = oeEditTarget();
+            const wallH = targetCfg.height || CONFIG.height || 100;
             const targetFFH = dims.h + 2;
             // Keep at least 8 mm of upper-floor space above the new
             // ground floor so the rest of the building doesn't collapse.
             const clampedFFH = Math.min(targetFFH, wallH - 8);
-            CONFIG.firstFloorHeightEnabled = true;
-            CONFIG.firstFloorHeight = Math.max(CONFIG.firstFloorHeight || 30, clampedFFH);
-            writeForm();
+            targetCfg.firstFloorHeightEnabled = true;
+            targetCfg.firstFloorHeight = Math.max(targetCfg.firstFloorHeight || 30, clampedFFH);
+            if (targetCfg === CONFIG) writeForm();
             regenerate();
             // Width is still subject to the wall clamp — there's no
             // building-wide widening option in this modal, so apply it
@@ -26561,8 +26564,9 @@ function oeDropOpening(type, dims, x, y, styleKey) {
         op.type !== 'awning' && op.type !== 'balcony' &&
         op.type !== 'fixture' && op.type !== 'cladding_override' &&
         op.type !== 'printed_item');
-      if (!CONFIG.manualOpenings) CONFIG.manualOpenings = { front: null, back: null, east: null, west: null };
-      CONFIG.manualOpenings[otherWall] = structural.length > 0 ? structural : null;
+      const target = oeEditTarget();
+      if (!target.manualOpenings) target.manualOpenings = { front: null, back: null, east: null, west: null };
+      target.manualOpenings[otherWall] = structural.length > 0 ? structural : null;
     }
     regenerate();
   }
@@ -29194,47 +29198,48 @@ function oePaste() {
 /* ---- Commit to CONFIG (without closing) ---- */
 
 function oeCommit() {
+  const target = oeEditTarget();
   const ops = oeOpenings[oeWall] || [];
 
-  // Structural openings (windows + doors) → manualOpenings
-  if (!CONFIG.manualOpenings) CONFIG.manualOpenings = { front: null, back: null, east: null, west: null };
+  // Structural openings (windows + doors) → manualOpenings on the active
+  // edit target. In wing mode this must be CONFIG.wings[oeWingIndex], not
+  // CONFIG; otherwise dropping a wing window writes it to the main building
+  // wall with the same local face name (usually main 'back'), which makes it
+  // look like the window jumped to the main building.
+  if (!target.manualOpenings) target.manualOpenings = { front: null, back: null, east: null, west: null };
   const structural = ops.filter(op =>
     op.type !== 'awning' && op.type !== 'balcony' &&
     op.type !== 'fixture' && op.type !== 'cladding_override' &&
     op.type !== 'printed_item');
-  CONFIG.manualOpenings[oeWall] = structural.length > 0 ? structural : null;
+  target.manualOpenings[oeWall] = structural.length > 0 ? structural : null;
 
-  if (!CONFIG.manualAwnings) CONFIG.manualAwnings = { front: [], back: [], east: [], west: [] };
-  CONFIG.manualAwnings[oeWall] = ops
+  if (!target.manualAwnings) target.manualAwnings = { front: [], back: [], east: [], west: [] };
+  target.manualAwnings[oeWall] = ops
     .filter(op => op.type === 'awning')
     .map(op => ({ x: op.x, y: op.y, w: op.w, d: op.h }));
 
-  if (!CONFIG.manualBalconies) CONFIG.manualBalconies = { front: [], back: [], east: [], west: [] };
-  CONFIG.manualBalconies[oeWall] = ops
+  if (!target.manualBalconies) target.manualBalconies = { front: [], back: [], east: [], west: [] };
+  target.manualBalconies[oeWall] = ops
     .filter(op => op.type === 'balcony')
     .map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h, d: op.d, balconyType: op.balconyType }));
 
-  if (!CONFIG.manualFixtures) CONFIG.manualFixtures = { front: [], back: [], east: [], west: [] };
-  CONFIG.manualFixtures[oeWall] = ops
+  if (!target.manualFixtures) target.manualFixtures = { front: [], back: [], east: [], west: [] };
+  target.manualFixtures[oeWall] = ops
     .filter(op => op.type === 'fixture')
     .map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h, style: op.style }));
 
-  if (!CONFIG.manualCladdingOverrides) CONFIG.manualCladdingOverrides = { front: [], back: [], east: [], west: [] };
-  CONFIG.manualCladdingOverrides[oeWall] = ops
+  if (!target.manualCladdingOverrides) target.manualCladdingOverrides = { front: [], back: [], east: [], west: [] };
+  target.manualCladdingOverrides[oeWall] = ops
     .filter(op => op.type === 'cladding_override')
     .map(op => ({
       x: op.x, y: op.y, w: op.w, h: op.h,
       claddingStyle: op.claddingStyle,
-      // Preserve the Mount-mode toggle (flush vs layered) and any
-      // per-override style params across the commit. Without this,
-      // every editor commit would discard those fields and the user's
-      // selections would silently revert to defaults after each edit.
       layered: !!op.layered,
       ...(op.styleParams ? { styleParams: { ...op.styleParams } } : {}),
     }));
 
-  if (!CONFIG.manualPrintedItems) CONFIG.manualPrintedItems = { front: [], back: [], east: [], west: [] };
-  CONFIG.manualPrintedItems[oeWall] = ops
+  if (!target.manualPrintedItems) target.manualPrintedItems = { front: [], back: [], east: [], west: [] };
+  target.manualPrintedItems[oeWall] = ops
     .filter(op => op.type === 'printed_item')
     .map(op => ({ x: op.x, y: op.y, w: op.w, h: op.h, style: op.style }));
 
@@ -29242,22 +29247,21 @@ function oeCommit() {
   const tab = document.getElementById('oeTab' + oeWall.charAt(0).toUpperCase() + oeWall.slice(1));
   if (tab) tab.classList.add('oe-manual-indicator');
 }
-
 function oeResetWall() {
+  const target = oeEditTarget();
   oeOpenings[oeWall] = oeGetAutoOpenings(oeWall);  // auto layout (no awnings/fixtures)
-  if (CONFIG.manualOpenings)  CONFIG.manualOpenings[oeWall]  = null;
-  if (CONFIG.manualAwnings)   CONFIG.manualAwnings[oeWall]   = [];
-  if (CONFIG.manualBalconies) CONFIG.manualBalconies[oeWall] = [];
-  if (CONFIG.manualFixtures)  CONFIG.manualFixtures[oeWall]  = [];
-  if (CONFIG.manualCladdingOverrides) CONFIG.manualCladdingOverrides[oeWall] = [];
-  if (CONFIG.manualPrintedItems) CONFIG.manualPrintedItems[oeWall] = [];
+  if (target.manualOpenings)  target.manualOpenings[oeWall]  = null;
+  if (target.manualAwnings)   target.manualAwnings[oeWall]   = [];
+  if (target.manualBalconies) target.manualBalconies[oeWall] = [];
+  if (target.manualFixtures)  target.manualFixtures[oeWall]  = [];
+  if (target.manualCladdingOverrides) target.manualCladdingOverrides[oeWall] = [];
+  if (target.manualPrintedItems) target.manualPrintedItems[oeWall] = [];
   oeSelectedSet.clear();
   oeUpdateModeBadge();
   const tab = document.getElementById('oeTab' + oeWall.charAt(0).toUpperCase() + oeWall.slice(1));
   if (tab) tab.classList.remove('oe-manual-indicator');
   oeRender();
 }
-
 function oeGetWinDims(styleKey) {
   const key = styleKey || Object.keys(WINDOW_STYLES)[0];
   const style = WINDOW_STYLES[key];

@@ -12,7 +12,7 @@ Drop a machiya next to a brick station next to a kura storehouse next to a corru
 Tweak the dimensions, swap the cladding, change the roof, drag windows around until the façade looks right. When you're happy, hit download. You get SVG cut files, STL parts for the rooftop gear, and a manifest that tells you what to send to which sheet of material.
 
 <!-- IMAGE: close-up of the configuration sidebar showing the building-type and dimension fields -->
-![Configuration panel](docs/images/controls.png)
+![Configuration panel](/img/HakoMachi_Shape.jpg)
 
 ## What's in the box
 

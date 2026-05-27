@@ -8717,6 +8717,68 @@ function applyColumnFloorEtchings(parts, etches) {
   for (const e of etches) floorPart.lines.push(e);
 }
 
+function transformColumnEtchLine(e, pointMapper) {
+  if (!e || typeof pointMapper !== 'function') return e;
+  const a = pointMapper({ x: e.x1, y: e.y1 });
+  const b = pointMapper({ x: e.x2, y: e.y2 });
+  return Object.assign({}, e, { x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+}
+
+function sameWingFloorTransform(part, cfg, wing) {
+  const tr = part && part._layoutClipTransform;
+  if (!tr || tr.kind !== 'wing' || !wing) return false;
+  const mainW = Number(tr.mainW != null ? tr.mainW : (cfg && cfg.width)) || 0;
+  const mainD = Number(tr.mainD != null ? tr.mainD : (cfg && cfg.depth)) || 0;
+  return tr.face === wing.face
+      && Math.abs((Number(tr.offset) || 0) - (Number(wing.offset) || 0)) < 0.01
+      && Math.abs(mainW - (Number(cfg && cfg.width) || 0)) < 0.01
+      && Math.abs(mainD - (Number(cfg && cfg.depth) || 0)) < 0.01
+      && Math.abs((Number(part.bboxW) || 0) - (Number(wing.span) || 0)) < 0.1;
+}
+
+function findPanelizedWingFloorPart(parts, cfg, wing) {
+  return (parts || []).find(p =>
+    p && p.material === 'core'
+      && String(p.id || '').startsWith('floor_split_wing_')
+      && sameWingFloorTransform(p, cfg, wing)
+  );
+}
+
+/** Append a wing block's column-footprint etches to the floor that actually
+ *  carries that wing. If the material-size panelizer has split this wing
+ *  into its own floor piece, the marks stay wing-local on that split piece.
+ *  Otherwise the marks are converted from wing-local floor coordinates into
+ *  the merged floor's global shape-editor coordinates and added to the main
+ *  merged floor. Layout cuts run later and will crop these etches together
+ *  with the floor outline. */
+function applyWingColumnFloorEtchings(parts, etches, cfg, wing) {
+  if (!etches || etches.length === 0 || !wing) return;
+
+  const splitWingFloor = findPanelizedWingFloorPart(parts, cfg, wing);
+  if (splitWingFloor) {
+    if (!Array.isArray(splitWingFloor.lines)) splitWingFloor.lines = [];
+    for (const e of etches) splitWingFloor.lines.push(e);
+    return;
+  }
+
+  const floorPart = parts.find(p =>
+    p && p.material === 'core' && (p.id === 'floor' || p.id === 'floor_main_panelized')
+  );
+  if (!floorPart) return;
+
+  const tr = {
+    kind: 'wing',
+    face: wing.face,
+    offset: wing.offset,
+    mainW: cfg.width,
+    mainD: cfg.depth,
+  };
+  if (!Array.isArray(floorPart.lines)) floorPart.lines = [];
+  for (const e of etches) {
+    floorPart.lines.push(transformColumnEtchLine(e, p => wingLocalToWorldPointForLayoutCut(cfg, tr, p)));
+  }
+}
+
 
 function generateRoof(cfg, plan) {
   const { H, matT, tw, parapetH, roofStyle, sideLen, fbWidth } = plan;
@@ -22722,15 +22784,15 @@ function generateBuildingWithWings(cfg) {
     parts.push(...generateTrussesForBlock(wCfg, wPlan, sfx, `Wing ${wi + 1} `));
     parts.push(...generateXBracesForBlock(wCfg, wPlan, sfx, `Wing ${wi + 1} `));
 
-    /* Wing column supports. The PARTS get emitted just like main's; the
-       floor etchings are deliberately dropped on the floor for V1
-       because wings share the merged floor with main and the
-       wing-local→merged-floor coordinate transform varies per wing
-       face. Wing columns are still positioned at the truss-position
-       set so the user can lay them down freehand against the wing's
-       interior walls. */
+    /* Wing column supports. The PARTS get emitted just like main's, and
+       the floor footprint etchings are now written onto the wing's actual
+       floor area: directly onto a split wing floor when material-size
+       panelization separated it, or transformed into the merged floor's
+       global coordinate frame when the wing remains part of the combined
+       floor. */
     const colSupWing = generateColumnSupportsForBlock(wCfg, wPlan, sfx, `Wing ${wi + 1} `);
     parts.push(...colSupWing.parts);
+    applyWingColumnFloorEtchings(parts, colSupWing.etches, cfg, wing);
   }
 
   /* ---- Window/door tallies ---- */

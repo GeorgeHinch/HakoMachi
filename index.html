@@ -8273,14 +8273,17 @@ function trimGeneratedTrussGeometryToSpanInterval(geom, start, end) {
   return { ...geom, outline, voids, layoutTrimInterval: { start: xMin, end: xMax } };
 }
 
-function trussSpanIntervalForLayoutCrop(blockCfg, axis, span, position, cropCtx) {
+function trussSpanIntervalForLayoutCrop(blockCfg, axis, span, position, cropCtx, interiorFrame) {
   const clippedWorld = clippedBlockFootprintForLayoutCrop(blockCfg, cropCtx);
   if (!clippedWorld) return { start: 0, end: span, clipped: false };
   if (clippedWorld.length < 3) return null;
 
+  const frame = interiorFrame || trussInteriorFrame(blockCfg, null);
+  // `span` and `position` are measured in the clear inside frame. Convert
+  // them back to the block's outer local frame before testing layout cuts.
   const localAt = axis === 'ns'
-    ? (s) => ({ x: position, y: s })
-    : (s) => ({ x: s, y: position });
+    ? (s) => ({ x: frame.x0 + position, y: frame.y0 + s })
+    : (s) => ({ x: frame.x0 + s, y: frame.y0 + position });
   const insideAt = (s) => pointInPolygonWithNudge(layoutCropToWorld(cropCtx, localAt(s)), clippedWorld);
 
   // Sample by small cells and keep the largest contiguous inside interval.
@@ -8326,16 +8329,19 @@ function trussSpanIntervalForLayoutCrop(blockCfg, axis, span, position, cropCtx)
   return { start: best.start, end: best.end, clipped };
 }
 
-function columnBearingInsideLayoutCrop(blockCfg, axis, wall, pos, cropCtx, matT) {
+function columnBearingInsideLayoutCrop(blockCfg, axis, wall, pos, cropCtx, matT, interiorFrame) {
   const clippedWorld = clippedBlockFootprintForLayoutCrop(blockCfg, cropCtx);
   if (!clippedWorld) return true;
   if (clippedWorld.length < 3) return false;
-  const inset = Math.max(0.1, (matT || 1.5) + 0.1);
+  const frame = interiorFrame || trussInteriorFrame(blockCfg, { matT: matT || blockCfg.coreThickness || 1.5 });
+  const eps = 0.1;
   let p;
-  if (wall === 'front') p = { x: pos, y: inset };
-  else if (wall === 'back') p = { x: pos, y: Math.max(inset, blockCfg.depth - inset) };
-  else if (wall === 'west') p = { x: inset, y: pos };
-  else p = { x: Math.max(inset, blockCfg.width - inset), y: pos };
+  // `pos` is in the clear inside frame. Test just inside the corresponding
+  // bearing wall, still in the block's outer footprint coordinates.
+  if (wall === 'front') p = { x: frame.x0 + pos, y: frame.y0 + eps };
+  else if (wall === 'back') p = { x: frame.x0 + pos, y: frame.y0 + frame.depth - eps };
+  else if (wall === 'west') p = { x: frame.x0 + eps, y: frame.y0 + pos };
+  else p = { x: frame.x0 + frame.width - eps, y: frame.y0 + pos };
   return pointInPolygonWithNudge(layoutCropToWorld(cropCtx, p), clippedWorld);
 }
 
@@ -8361,22 +8367,22 @@ function generateTrussesForBlock(blockCfg, blockPlan, sfx, nameLbl, cropCtx) {
     }
   }
 
-  // Span = building dimension perpendicular to spacing direction.
-  // axis='ns' → trusses run north-south → span = depth, spaced along width.
-  // axis='ew' → trusses run east-west → span = width, spaced along depth.
-  const fullSpan     = axis === 'ns' ? blockCfg.depth : blockCfg.width;
-  const lengthAlong  = axis === 'ns' ? blockCfg.width : blockCfg.depth;
+  // Span and station spacing use the clear INSIDE dimensions of the block,
+  // not the exterior footprint. Otherwise the truss panels are too long by
+  // 2× wall thickness and the first/last stations are offset into the walls.
+  const frame = trussInteriorFrame(blockCfg, blockPlan);
+  const fullSpan     = axis === 'ns' ? frame.depth : frame.width;
+  const lengthAlong  = axis === 'ns' ? frame.width : frame.depth;
   const spacing      = Math.max(5, t.spacing || 30);
 
   // Use the shared positioning so the floor etchings emitted by the
   // column-support generator align exactly with where the truss
-  // centrelines should land. Margin keeps the FLANGE clear of the
-  // wall material: matT for the wall itself, plus flangeW/2 for
-  // half the flange's own width along the wall. Without the matT
-  // term the end-column footprint runs into the side-wall block.
+  // centrelines should land. The frame already excludes the wall material,
+  // so when support columns are enabled the margin only needs half the
+  // flange width to keep the footprint clear of the inside wall face.
   const flangeW = (t.supportFlangeW != null) ? t.supportFlangeW : 4;
-  const matT_   = blockPlan.matT || blockCfg.coreThickness || 1.5;
-  const margin  = t.supports ? matT_ + flangeW / 2 : 0;
+  const matT_   = frame.matT;
+  const margin  = t.supports ? flangeW / 2 : 0;
   const positions = trussSupportPositions(lengthAlong, spacing, margin);
   const count = positions.length;
 
@@ -8388,7 +8394,7 @@ function generateTrussesForBlock(blockCfg, blockPlan, sfx, nameLbl, cropCtx) {
 
   const parts = [];
   for (let i = 0; i < count; i++) {
-    const crop = trussSpanIntervalForLayoutCrop(blockCfg, axis, fullSpan, positions[i], cropCtx);
+    const crop = trussSpanIntervalForLayoutCrop(blockCfg, axis, fullSpan, positions[i], cropCtx, frame);
     if (!crop) continue;
 
     // Generate the COMPLETE truss first. Layout cuts should behave like a
@@ -8453,6 +8459,23 @@ function resolveTrussAxis(blockCfg) {
   return axis;
 }
 
+
+function trussInteriorFrame(blockCfg, blockPlan) {
+  const matT = (blockPlan && blockPlan.matT) || blockCfg.coreThickness || 1.5;
+  const width = Number(blockCfg.width) || 0;
+  const depth = Number(blockCfg.depth) || 0;
+  // Trusses are installed inside the wall shell. Their spans and station
+  // spacing must therefore use the clear INSIDE dimensions, not the exterior
+  // footprint. The x0/y0 offsets convert back to the floor/footprint frame
+  // whenever we need etch marks, wall indicators, or layout-cut checks.
+  return {
+    matT,
+    x0: matT,
+    y0: matT,
+    width: Math.max(1, width - 2 * matT),
+    depth: Math.max(1, depth - 2 * matT),
+  };
+}
 
 function wallXBracingEnabled(t) {
   if (!t) return false;
@@ -8628,11 +8651,12 @@ function generateXBracesForBlock(blockCfg, blockPlan, sfx, nameLbl) {
   const walls = axis === 'ns' ? ['front', 'back'] : ['east', 'west'];
   const flangeW = (t.supportFlangeW != null) ? t.supportFlangeW : 4;
   const matT = blockPlan.matT || blockCfg.coreThickness || 1.5;
-  const margin = t.supports ? matT + flangeW / 2 : 0;
-  const lengthAlong = axis === 'ns' ? blockCfg.width : blockCfg.depth;
+  const frame = trussInteriorFrame(blockCfg, blockPlan);
+  const margin = t.supports ? flangeW / 2 : 0;
+  const lengthAlong = axis === 'ns' ? frame.width : frame.depth;
   const spacing = Math.max(5, t.spacing || 30);
-  const positionsOuter = trussSupportPositions(lengthAlong, spacing, margin);
-  if (positionsOuter.length < 2) return [];
+  const positionsInner = trussSupportPositions(lengthAlong, spacing, margin);
+  if (positionsInner.length < 2) return [];
 
   const braceH = Math.max(5, (blockPlan.H || blockCfg.height || 0) - (blockPlan.parapetH || 0));
   const fitInset = t.supports ? flangeW / 2 : 0;
@@ -8669,13 +8693,12 @@ function generateXBracesForBlock(blockCfg, blockPlan, sfx, nameLbl) {
     // spaced along the building width. East/west walls have multiple bays
     // only when trusses run E-W and are spaced along the building depth.
     if ((face === 'front' || face === 'back') && axis === 'ns') {
-      addPartsForFace(face, blockPlan.fbWidth, positionsOuter);
+      // X-brace bay widths are measured between truss stations inside the
+      // wall shell. No wall-thickness offset is needed for the cut part
+      // itself because each bay is emitted as an independent strip.
+      addPartsForFace(face, frame.width, positionsInner);
     } else if ((face === 'east' || face === 'west') && axis === 'ew') {
-      // Side wall laser panels are shorter than outer depth by the front and
-      // back wall thicknesses, so convert outer floor coordinates into the
-      // side-wall-local frame before building bays.
-      const positionsLocal = positionsOuter.map(p => p - matT);
-      addPartsForFace(face, blockPlan.sideLen, positionsLocal);
+      addPartsForFace(face, frame.depth, positionsInner);
     }
   }
   return out;
@@ -8984,9 +9007,10 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl, cropC
       ? (ridge === 'ew' ? 'ns' : 'ew')
       : (blockCfg.width >= blockCfg.depth ? 'ns' : 'ew');
   }
-  const lengthAlong = axis === 'ns' ? blockCfg.width : blockCfg.depth;
+  const frame = trussInteriorFrame(blockCfg, blockPlan);
+  const lengthAlong = axis === 'ns' ? frame.width : frame.depth;
   const spacing     = Math.max(5, t.spacing || 30);
-  const positions   = trussSupportPositions(lengthAlong, spacing, matT + flangeW / 2);
+  const positions   = trussSupportPositions(lengthAlong, spacing, flangeW / 2);
 
   // Slot positions on the flange/cap: 3 slots evenly along the height
   // (at H/6, H/2, 5H/6). Tab length = matT × 3 — long enough to grip
@@ -9032,7 +9056,7 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl, cropC
   const keptBearings = [];
   for (let i = 0; i < positions.length; i++) {
     for (const wall of bearingWalls) {
-      if (columnBearingInsideLayoutCrop(blockCfg, axis, wall, positions[i], cropCtx, matT)) {
+      if (columnBearingInsideLayoutCrop(blockCfg, axis, wall, positions[i], cropCtx, matT, frame)) {
         keptBearings.push({ i, pos: positions[i], wall });
       }
     }
@@ -9057,9 +9081,8 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl, cropC
   //   x = 0..floorW (west→east, where floorW = fbWidth)
   //   y = 0..floorH (front→back, where floorH = sideLen + 2*matT)
   // The interior usable area (inside the walls) is x ∈ [matT, floorW-matT]
-  // and y ∈ [matT, floorH-matT]. Truss positions returned by
-  // trussSupportPositions live in the OUTER frame (0..lengthAlong) so
-  // they double as floor x/y for column centrelines along the wall.
+  // and y ∈ [matT, floorH-matT]. Truss positions are stored in the INSIDE
+  // frame, then converted back to floor x/y with frame.x0/frame.y0 here.
   // The footprint depth is measured from the wall's INTERIOR surface
   // (y=matT for front wall, y=floorH-matT for back, etc.).
   const floorW = blockPlan.fbWidth;
@@ -9067,8 +9090,10 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl, cropC
   const etches = [];
 
   for (const kb of keptBearings) {
-    const pos = kb.pos;
     const wall = kb.wall;
+    // Convert inside-frame truss station coordinate back to the floor's
+    // outer frame. Front/back bearing walls use x; east/west use y.
+    const pos = (wall === 'front' || wall === 'back') ? (frame.x0 + kb.pos) : (frame.y0 + kb.pos);
     {
       let rx0, ry0, rx1, ry1, midX, midY;
       const footprintDepth = matT + webDepth + (isTBeam ? 0 : matT);
@@ -15626,9 +15651,10 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
                        || (axis === 'ew' && (which === 'east'  || which === 'west'));
     if (isBearingWall) {
       const flangeW    = (t.supportFlangeW != null) ? t.supportFlangeW : 4;
-      const lengthAlong = (axis === 'ns') ? cfg.width : cfg.depth;
+      const frame      = trussInteriorFrame(cfg, plan);
+      const lengthAlong = (axis === 'ns') ? frame.width : frame.depth;
       const spacing    = Math.max(5, t.spacing || 30);
-      const margin     = matT + flangeW / 2;
+      const margin     = flangeW / 2;
       const positions  = trussSupportPositions(lengthAlong, spacing, margin);
 
       const parapetH = plan.parapetH || 0;
@@ -15636,15 +15662,11 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
       const yTop     = panelH - colH;  // = parapetH (= 0 on no-parapet roofs)
       const yBot     = panelH;
       for (const wallCenter of positions) {
-        // trussSupportPositions returns positions in the outer floor frame
-        // (0..width for axis='ns', 0..depth for axis='ew'). For front/back
-        // walls the wall's local x equals width-coord, so wallCenter is
-        // already in wall_x. For east/west walls, the wall body starts at
-        // depth-coord = matT (because the FB walls' corners take up the
-        // first matT), so wall_x = depth-coord - matT. Without this
-        // conversion the indicators would shift by matT and the column
-        // at the far end could clip past the panel edge.
-        const wallCenterX = isBearingFB ? wallCenter : (wallCenter - matT);
+        // Positions are inside-frame coordinates. Front/back wall panels are
+        // full exterior width, so add the west-wall thickness to place the
+        // indicator in the clear interior. Side wall panels already start at
+        // the inside face between front/back walls, so no offset is needed.
+        const wallCenterX = isBearingFB ? (frame.x0 + wallCenter) : wallCenter;
         const wallXL = wallCenterX - flangeW / 2;
         const panelXL = wallToPanelX(wallXL, flangeW);
         if (panelXL < -0.1 || panelXL + flangeW > panelW + 0.1) continue;
@@ -29958,18 +29980,19 @@ function updateThreePreview(cfg) {
   const eastTexH  = eastH  + sideGable + Math.abs(eastSlant);
   const westTexH  = westH  + sideGable + Math.abs(westSlant);
 
-  // Front wall (z = +d/2)
+  // Front wall / north face (z = -d/2). Mirrored in X so the 3D exterior view
+  // matches the wall editor / laser-flat orientation instead of reading backward.
   const frontOps = get3DWallOpenings(cfg, plan, 'front');
   const frontVis  = visOnly(frontOps);
-  const frontTex  = buildWallTexture(cfg, w, frontTexH, h, frontVis, false);
-  const frontMesh = buildWallMesh3D(w, frontH, h, t, frontVis, wallMat, false, frontTex, fbGable, fbSlant);
+  const frontTex  = buildWallTexture(cfg, w, frontTexH, h, frontVis, true);
+  const frontMesh = buildWallMesh3D(w, frontH, h, t, frontVis, wallMat, true, frontTex, fbGable, fbSlant);
   // North outer face at z = -d/2; extrusion goes +z (inward) to -d/2+t
   frontMesh.position.set(0, 0, -d / 2);
   group.add(frontMesh);
 
   // Window glass — front (just outside north outer face)
   for (const op of frontVis.filter(o => o.type === 'window')) {
-    const hx = op.x - w / 2;
+    const hx = w / 2 - op.x - op.w;   // mirrored to match front outside/editor view
     const hy = h - op.y - op.h;
     const pane = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), glassMat);
     pane.position.set(hx + op.w / 2, hy + op.h / 2, -d / 2 - 0.1);
@@ -29980,7 +30003,7 @@ function updateThreePreview(cfg) {
   // as a distinct dark patch on the wall texture, not as wall-coloured
   // bleed-through.
   for (const op of getBlankedWindows3D(cfg, 'front')) {
-    const hx = op.x - w / 2;
+    const hx = w / 2 - op.x - op.w;   // mirrored to match front outside/editor view
     const hy = h - op.y - op.h;
     const panel = new THREE.Mesh(new THREE.PlaneGeometry(op.w, op.h), blankedMat);
     panel.position.set(hx + op.w / 2, hy + op.h / 2, -d / 2 - 0.05);
@@ -30097,6 +30120,69 @@ function updateThreePreview(cfg) {
     return [roofMat, roofMat, top, roofMat, roofMat, roofMat];
   }
 
+  // Parapet roof preview:
+  // show a recessed roof deck plus the parapet ring/top caps so it reads as a
+  // true parapet well in 3D instead of a plain flat slab.
+  function addParapetRoofPreview(boxW, boxD, totalH, parapetH, cx = 0, cz = 0, topMatOverride = null) {
+    const pH = Math.max(0.5, Number(parapetH) || 0);
+    const innerW = Math.max(t, boxW - 2 * t);
+    const innerD = Math.max(t, boxD - 2 * t);
+    const deckY = totalH - pH;
+    const roofTopMat = topMatOverride || makeRoofTopMat(innerW, innerD);
+
+    // Recessed roof deck.
+    const deck = new THREE.Mesh(
+      new THREE.BoxGeometry(innerW, t, innerD),
+      [roofMat, roofMat, roofTopMat, roofMat, roofMat, roofMat]
+    );
+    deck.position.set(cx, deckY + t / 2, cz);
+    group.add(deck);
+
+    // Simple top caps around the parapet.
+    const capMat = roofMat;
+    const northCap = new THREE.Mesh(new THREE.BoxGeometry(innerW, t, t), capMat);
+    northCap.position.set(cx, totalH - t / 2, cz - boxD / 2 + t / 2);
+    group.add(northCap);
+
+    const southCap = new THREE.Mesh(new THREE.BoxGeometry(innerW, t, t), capMat);
+    southCap.position.set(cx, totalH - t / 2, cz + boxD / 2 - t / 2);
+    group.add(southCap);
+
+    const westCap = new THREE.Mesh(new THREE.BoxGeometry(t, t, innerD), capMat);
+    westCap.position.set(cx - boxW / 2 + t / 2, totalH - t / 2, cz);
+    group.add(westCap);
+
+    const eastCap = new THREE.Mesh(new THREE.BoxGeometry(t, t, innerD), capMat);
+    eastCap.position.set(cx + boxW / 2 - t / 2, totalH - t / 2, cz);
+    group.add(eastCap);
+
+    // Inner parapet faces so the recess is visually obvious.
+    const innerMat = new THREE.MeshStandardMaterial({
+      color: 0xc8c4bd,
+      roughness: 0.9,
+      metalness: 0.0,
+      side: THREE.DoubleSide,
+    });
+    const northInner = new THREE.Mesh(new THREE.PlaneGeometry(innerW, pH), innerMat);
+    northInner.position.set(cx, deckY + pH / 2, cz - boxD / 2 + t + 0.02);
+    group.add(northInner);
+
+    const southInner = new THREE.Mesh(new THREE.PlaneGeometry(innerW, pH), innerMat);
+    southInner.rotation.y = Math.PI;
+    southInner.position.set(cx, deckY + pH / 2, cz + boxD / 2 - t - 0.02);
+    group.add(southInner);
+
+    const westInner = new THREE.Mesh(new THREE.PlaneGeometry(innerD, pH), innerMat);
+    westInner.rotation.y = Math.PI / 2;
+    westInner.position.set(cx - boxW / 2 + t + 0.02, deckY + pH / 2, cz);
+    group.add(westInner);
+
+    const eastInner = new THREE.Mesh(new THREE.PlaneGeometry(innerD, pH), innerMat);
+    eastInner.rotation.y = -Math.PI / 2;
+    eastInner.position.set(cx + boxW / 2 - t - 0.02, deckY + pH / 2, cz);
+    group.add(eastInner);
+  }
+
   if (roofStyle3d === 'slanted') {
     const pitch = cfg.roofPitch || 10;
     const slopeDir = cfg.roofSlopeDirection || 'back';
@@ -30180,23 +30266,173 @@ function updateThreePreview(cfg) {
     );
     rm.position.set(0, h + t / 2, 0);
     group.add(rm);
+  } else if (roofStyle3d === 'parapet') {
+    addParapetRoofPreview(w, d, h, plan.parapetH || 0, 0, 0);
   } else {
-    // Parapet / flat roof:
-    // The main walls already extend to y=h (top of parapet).
-    // The roof DECK sits recessed below the parapet tops, at y = h - parapetH.
-    // Show it as a panel inset by the wall thickness on each side.
-    const pH = plan.parapetH || 0;
-    const deckY  = h - pH;                      // world-Y of the roof deck surface
-    const deckW  = Math.max(t, w - 2 * t);      // inside the east/west walls
-    const deckDp = Math.max(t, d - 2 * t);      // inside the front/back walls
-
+    // Plain flat roof (no parapet): simple top slab.
     const roofMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(deckW, t, deckDp),
-      roofMat
+      new THREE.BoxGeometry(w, t, d),
+      [roofMat, roofMat, makeRoofTopMat(w, d), roofMat, roofMat, roofMat]
     );
-    roofMesh.position.set(0, deckY + t / 2, 0);
+    roofMesh.position.set(0, h + t / 2, 0);
     group.add(roofMesh);
   }
+
+
+  // ---- Internal trusses + column supports (3D preview) ----
+  // Renders any enabled truss systems inside the block so the lifted-roof
+  // preview shows the internal structure, not just the cut sheets.
+  function addTrussAndSupportPreview3D(blockCfg, blockPlan, blockW, blockD, blockH, blockCX, blockCZ) {
+    const tCfg = blockCfg.trusses;
+    if (!tCfg || !tCfg.enabled) return;
+
+    const matT     = blockPlan.matT || blockCfg.coreThickness || 1.5;
+    const chordW   = Math.max(0.4, Number(tCfg.chordW) || 2);
+    const flangeW  = Math.max(0.5, (tCfg.supportFlangeW != null) ? Number(tCfg.supportFlangeW) : 4);
+    const webDepth = Math.max(0.5, (tCfg.supportDepth   != null) ? Number(tCfg.supportDepth)   : 4);
+    const axis     = resolveTrussAxis(blockCfg);
+    const innerW   = Math.max(1, blockW - 2 * matT);
+    const innerD   = Math.max(1, blockD - 2 * matT);
+    const fullSpan = axis === 'ns' ? innerD : innerW;
+    const alongLen = axis === 'ns' ? innerW : innerD;
+    const spacing  = Math.max(5, Number(tCfg.spacing) || 30);
+    const margin   = tCfg.supports ? (flangeW / 2) : 0;
+    const positions = trussSupportPositions(alongLen, spacing, margin);
+    if (!positions.length) return;
+
+    const spanDims = { roofPitch: blockCfg.roofPitch || 10 };
+    const geom = generateTrussGeometry(blockCfg.roofStyle || 'parapet', fullSpan, spanDims, chordW);
+    if (!geom || !Array.isArray(geom.outline) || geom.outline.length < 3) return;
+
+    const ys = geom.outline.map(p => p.y);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const geomH = Math.max(1, maxY - minY);
+    const trussT3d = Math.max(0.45, Math.min(1.2, matT * 0.45));
+
+    function makeTrussShape() {
+      const outline = geom.outline;
+      const shape = new THREE.Shape();
+      shape.moveTo(outline[0].x - fullSpan / 2, maxY - outline[0].y);
+      for (let i = 1; i < outline.length; i++) {
+        shape.lineTo(outline[i].x - fullSpan / 2, maxY - outline[i].y);
+      }
+      shape.closePath();
+      for (const holePoly of (geom.voids || [])) {
+        if (!holePoly || holePoly.length < 3) continue;
+        const hole = new THREE.Path();
+        hole.moveTo(holePoly[0].x - fullSpan / 2, maxY - holePoly[0].y);
+        for (let i = 1; i < holePoly.length; i++) {
+          hole.lineTo(holePoly[i].x - fullSpan / 2, maxY - holePoly[i].y);
+        }
+        hole.closePath();
+        shape.holes.push(hole);
+      }
+      return shape;
+    }
+
+    const trussShape = makeTrussShape();
+    const trussGeo = new THREE.ExtrudeGeometry(trussShape, {
+      depth: trussT3d,
+      bevelEnabled: false,
+      curveSegments: 24,
+    });
+    trussGeo.translate(0, 0, -trussT3d / 2);
+    const trussMat3d = new THREE.MeshStandardMaterial({
+      color: 0x6d5641,
+      roughness: 0.86,
+      metalness: 0.05,
+      transparent: true,
+      opacity: 0.94,
+      side: THREE.DoubleSide,
+    });
+
+    function trussBaseY() {
+      const style = blockCfg.roofStyle || 'parapet';
+      const pH = blockPlan.parapetH || 0;
+      if (style === 'flat' || style === 'parapet' || style === 'flat_overhang') {
+        const roofUnderside = (style === 'parapet') ? (blockH - pH) : blockH;
+        return roofUnderside - geomH;
+      }
+      if (style === 'parapet_gable') return blockH - pH;
+      return blockH;
+    }
+    const baseY = trussBaseY();
+
+    function makeColumnMesh(columnType, height, orientY) {
+      const g = new THREE.Group();
+      const steelMat = new THREE.MeshStandardMaterial({
+        color: 0x70767c,
+        roughness: 0.72,
+        metalness: 0.35,
+        transparent: true,
+        opacity: 0.95,
+      });
+      const flangeT = Math.max(0.35, matT * 0.55);
+      const webT    = Math.max(0.35, matT * 0.45);
+      const hMid    = height / 2;
+
+      const web = new THREE.Mesh(new THREE.BoxGeometry(webT, height, webDepth), steelMat);
+      web.position.set(0, hMid, 0);
+      g.add(web);
+
+      if (columnType === 't') {
+        const flange = new THREE.Mesh(new THREE.BoxGeometry(flangeW, height, flangeT), steelMat);
+        flange.position.set(0, hMid, -webDepth / 2 + flangeT / 2);
+        g.add(flange);
+      } else {
+        const flangeA = new THREE.Mesh(new THREE.BoxGeometry(flangeW, height, flangeT), steelMat);
+        flangeA.position.set(0, hMid, -webDepth / 2 + flangeT / 2);
+        g.add(flangeA);
+        const flangeB = new THREE.Mesh(new THREE.BoxGeometry(flangeW, height, flangeT), steelMat);
+        flangeB.position.set(0, hMid, webDepth / 2 - flangeT / 2);
+        g.add(flangeB);
+      }
+      g.rotation.y = orientY || 0;
+      return g;
+    }
+
+    const colH = Math.max(5, blockH - (blockPlan.parapetH || 0));
+    const columnType = tCfg.supportColumnType === 't' ? 't' : 'i';
+    const colInset = Math.max(webDepth / 2, matT / 2) + 0.05;
+
+    for (const pos of positions) {
+      const tr = new THREE.Mesh(trussGeo, trussMat3d);
+      if (axis === 'ns') {
+        tr.rotation.y = Math.PI / 2;
+        tr.position.set(blockCX - innerW / 2 + pos, baseY, blockCZ);
+      } else {
+        tr.position.set(blockCX, baseY, blockCZ - innerD / 2 + pos);
+      }
+      group.add(tr);
+
+      if (tCfg.supports) {
+        if (axis === 'ns') {
+          const x = blockCX - innerW / 2 + pos;
+          const zN = blockCZ - innerD / 2 + colInset;
+          const zS = blockCZ + innerD / 2 - colInset;
+          const c1 = makeColumnMesh(columnType, colH, 0);
+          c1.position.set(x, 0, zN);
+          group.add(c1);
+          const c2 = makeColumnMesh(columnType, colH, Math.PI);
+          c2.position.set(x, 0, zS);
+          group.add(c2);
+        } else {
+          const z = blockCZ - innerD / 2 + pos;
+          const xW = blockCX - innerW / 2 + colInset;
+          const xE = blockCX + innerW / 2 - colInset;
+          const c1 = makeColumnMesh(columnType, colH, -Math.PI / 2);
+          c1.position.set(xW, 0, z);
+          group.add(c1);
+          const c2 = makeColumnMesh(columnType, colH, Math.PI / 2);
+          c2.position.set(xE, 0, z);
+          group.add(c2);
+        }
+      }
+    }
+  }
+
+  // Main block internal trusses / supports
+  addTrussAndSupportPreview3D(cfg, plan, w, d, h, 0, 0);
 
   // ---- Wings — solid box with per-face cladding texture + glass panes ----
   for (const wing of (cfg.wings || [])) {
@@ -30256,10 +30492,20 @@ function updateThreePreview(cfg) {
     wingBox.position.set(wxC, wH / 2, wzC);
     group.add(wingBox);
 
-    // Wing roof slab
-    const wRoof = new THREE.Mesh(new THREE.BoxGeometry(bW, t, bD), roofMat);
-    wRoof.position.set(wxC, wH + t / 2, wzC);
-    group.add(wRoof);
+    // Wing roof
+    if ((wCfg.roofStyle || 'parapet') === 'parapet') {
+      addParapetRoofPreview(bW, bD, wH, wPlan.parapetH || 0, wxC, wzC, makeRoofTopMat(Math.max(t, bW - 2 * t), Math.max(t, bD - 2 * t)));
+    } else {
+      const wRoof = new THREE.Mesh(
+        new THREE.BoxGeometry(bW, t, bD),
+        [roofMat, roofMat, makeRoofTopMat(bW, bD), roofMat, roofMat, roofMat]
+      );
+      wRoof.position.set(wxC, wH + t / 2, wzC);
+      group.add(wRoof);
+    }
+
+    // Wing internal trusses / supports
+    addTrussAndSupportPreview3D(wCfg, wPlan, bW, bD, wH, wxC, wzC);
 
     // Helper: add glass pane
     const addPane = (op, px, py, pz, ry) => {
@@ -30789,43 +31035,36 @@ function updateThreePreview(cfg) {
     }
   }
 
-  // ---- Skylights (roof hole with framed plexi pane) ----
-  // Roof items use x = along width (E-W), y = along depth (N-S). The 3D
-  // building is centred on the origin, so world x = sky.x - w/2, world z =
-  // sky.y - d/2. Roof top sits at y = h + t. We render three layers:
-  //   1. Lower frame: a thin grey rectangle at roof top (= the cut sheet's
-  //      visual stand-in; outer w+3 × h+3, hole is invisible since it's at
-  //      the same plane as the plexi above).
-  //   2. Plexi pane: translucent blue, sized to the outer (w+3 × h+3),
-  //      sitting 1.5mm above the roof to read as "framed glass".
-  //   3. Upper frame: another thin grey rectangle on top of the plexi.
+    // ---- Skylights (roof hole with framed plexi pane) ----
+  // Skylight x/y are stored as the CENTRE of the roof hole in plan view.
+  // In 3D, build each skylight as a small assembly that sits on top of the
+  // actual roof surface instead of floating at a single flat Y plane.
   {
     const FRAME_T = 1.5;
     const PLEXI_T = 0.5;
+    const SKY_EPS = 0.03;   // tiny lift to avoid z-fighting with the roof
     const skyFrameMat = new THREE.MeshStandardMaterial({ color: 0x6a6055, roughness: 0.7, metalness: 0.0 });
     const skyPlexiMat = new THREE.MeshStandardMaterial({
       color: 0x9bcfee, roughness: 0.15, metalness: 0.0,
       transparent: true, opacity: 0.55,
     });
-    const roofTopY_sky = h + t;
-    for (const sky of (cfg.skylights || [])) {
-      const sw = Number(sky.w) || 0;
-      const sh = Number(sky.h) || 0;
-      const sx_local = Number(sky.x) || 0;
-      const sy_local = Number(sky.y) || 0;
-      if (sw <= 0 || sh <= 0) continue;
+
+    function addSkylightAssembly(worldX, worldY, worldZ, sw, sh, rotX = 0, rotZ = 0) {
       const outerW_sky = sw + SKYLIGHT_FRAME_MARGIN * 2;
       const outerH_sky = sh + SKYLIGHT_FRAME_MARGIN * 2;
-      const worldX = sx_local - w / 2;
-      const worldZ = sy_local - d / 2;
+
+      const skyGroup = new THREE.Group();
+      skyGroup.position.set(worldX, worldY + SKY_EPS, worldZ);
+      skyGroup.rotation.x = rotX;
+      skyGroup.rotation.z = rotZ;
 
       // Plexi pane (sits between the two frames). Sized to the outer frame
       // footprint so it visually fills the framed area.
       const plexi = new THREE.Mesh(
         new THREE.BoxGeometry(outerW_sky, PLEXI_T, outerH_sky),
         skyPlexiMat);
-      plexi.position.set(worldX, roofTopY_sky + FRAME_T + PLEXI_T / 2, worldZ);
-      group.add(plexi);
+      plexi.position.set(0, FRAME_T + PLEXI_T / 2, 0);
+      skyGroup.add(plexi);
 
       // Render a four-bar outline for the lower frame and upper frame so
       // they read as a "frame around the plexi" without rendering a hole
@@ -30833,33 +31072,104 @@ function updateThreePreview(cfg) {
       const barTop  = SKYLIGHT_FRAME_MARGIN;
       const barSide = SKYLIGHT_FRAME_MARGIN;
       function addFrameBars(baseY) {
-        // Top bar (along +Z edge): wide along x, narrow along z
         const topBar = new THREE.Mesh(
           new THREE.BoxGeometry(outerW_sky, FRAME_T, barTop),
           skyFrameMat);
-        topBar.position.set(worldX, baseY + FRAME_T / 2, worldZ - sh / 2 - barTop / 2);
-        group.add(topBar);
-        // Bottom bar
+        topBar.position.set(0, baseY + FRAME_T / 2, -sh / 2 - barTop / 2);
+        skyGroup.add(topBar);
+
         const botBar = new THREE.Mesh(
           new THREE.BoxGeometry(outerW_sky, FRAME_T, barTop),
           skyFrameMat);
-        botBar.position.set(worldX, baseY + FRAME_T / 2, worldZ + sh / 2 + barTop / 2);
-        group.add(botBar);
-        // Left bar
+        botBar.position.set(0, baseY + FRAME_T / 2, sh / 2 + barTop / 2);
+        skyGroup.add(botBar);
+
         const lftBar = new THREE.Mesh(
           new THREE.BoxGeometry(barSide, FRAME_T, sh),
           skyFrameMat);
-        lftBar.position.set(worldX - sw / 2 - barSide / 2, baseY + FRAME_T / 2, worldZ);
-        group.add(lftBar);
-        // Right bar
+        lftBar.position.set(-sw / 2 - barSide / 2, baseY + FRAME_T / 2, 0);
+        skyGroup.add(lftBar);
+
         const rgtBar = new THREE.Mesh(
           new THREE.BoxGeometry(barSide, FRAME_T, sh),
           skyFrameMat);
-        rgtBar.position.set(worldX + sw / 2 + barSide / 2, baseY + FRAME_T / 2, worldZ);
-        group.add(rgtBar);
+        rgtBar.position.set(sw / 2 + barSide / 2, baseY + FRAME_T / 2, 0);
+        skyGroup.add(rgtBar);
       }
-      addFrameBars(roofTopY_sky);                     // lower frame
-      addFrameBars(roofTopY_sky + FRAME_T + PLEXI_T); // upper frame
+
+      addFrameBars(0);                         // lower frame
+      addFrameBars(FRAME_T + PLEXI_T);         // upper frame
+      group.add(skyGroup);
+    }
+
+    function skylightRoofSurfacePose(skyX, skyY) {
+      const worldX = skyX - w / 2;
+      const worldZ = skyY - d / 2;
+
+      if (roofStyle3d === 'slanted') {
+        const pitch = cfg.roofPitch || 10;
+        const slopeDir = cfg.roofSlopeDirection || 'back';
+        const nsAxis = (slopeDir === 'front' || slopeDir === 'back');
+        const span = nsAxis ? d : w;
+        const angle = Math.atan2(pitch, span);
+        const centerY = h + pitch / 2;
+
+        if (nsAxis) {
+          const rotX = (slopeDir === 'back' ? -angle : angle);
+          const surfaceY = centerY + (t / (2 * Math.cos(rotX))) - worldZ * Math.tan(rotX);
+          return { worldX, worldY: surfaceY, worldZ, rotX, rotZ: 0 };
+        } else {
+          const rotZ = (slopeDir === 'east' ? angle : -angle);
+          const surfaceY = centerY + (t / (2 * Math.cos(rotZ))) + worldX * Math.tan(rotZ);
+          return { worldX, worldY: surfaceY, worldZ, rotX: 0, rotZ };
+        }
+      }
+
+      if (roofStyle3d === 'gabled') {
+        const pitch = cfg.roofPitch || 10;
+        const ridgeDir = cfg.roofRidgeDirection || 'ew';
+        const ewRidge = (ridgeDir === 'ew');
+        const halfSpan = ewRidge ? d / 2 : w / 2;
+        const slantAngle = Math.atan2(pitch, halfSpan);
+        const ohEave  = ewRidge ? ohFB3 : ohEW3;
+        const ridgeShift = (t / 2) * Math.sin(slantAngle);
+        const panelCentreOffset = (halfSpan + ohEave) / 2 + ridgeShift;
+        const centerY = h + pitch / 2;
+
+        if (ewRidge) {
+          const sign = (worldZ < 0) ? -1 : 1;          // front half / back half
+          const rotX = sign * slantAngle;
+          const centerZ = sign * panelCentreOffset;
+          const surfaceY = centerY + (t / (2 * Math.cos(rotX))) - (worldZ - centerZ) * Math.tan(rotX);
+          return { worldX, worldY: surfaceY, worldZ, rotX, rotZ: 0 };
+        } else {
+          const sign = (worldX < 0) ? -1 : 1;          // west half / east half
+          const rotZ = -sign * slantAngle;
+          const centerX = sign * panelCentreOffset;
+          const surfaceY = centerY + (t / (2 * Math.cos(rotZ))) + (worldX - centerX) * Math.tan(rotZ);
+          return { worldX, worldY: surfaceY, worldZ, rotX: 0, rotZ };
+        }
+      }
+
+      if (roofStyle3d === 'flat_overhang') {
+        return { worldX, worldY: h + t, worldZ, rotX: 0, rotZ: 0 };
+      }
+
+      // Parapet / flat deck: skylights sit on the recessed roof deck inside
+      // the parapet rather than up at the parapet wall top.
+      const deckY = h - (plan.parapetH || 0) + t;
+      return { worldX, worldY: deckY, worldZ, rotX: 0, rotZ: 0 };
+    }
+
+    for (const sky of (cfg.skylights || [])) {
+      const sw = Number(sky.w) || 0;
+      const sh = Number(sky.h) || 0;
+      const sx_local = Number(sky.x) || 0;
+      const sy_local = Number(sky.y) || 0;
+      if (sw <= 0 || sh <= 0) continue;
+
+      const pose = skylightRoofSurfacePose(sx_local, sy_local);
+      addSkylightAssembly(pose.worldX, pose.worldY, pose.worldZ, sw, sh, pose.rotX, pose.rotZ);
     }
   }
 

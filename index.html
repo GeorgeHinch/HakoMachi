@@ -24981,6 +24981,14 @@ function oeEditTarget() {
   return CONFIG;
 }
 
+function oeActiveCfg() {
+  return (oeWingIndex != null && oeWingCfg) ? oeWingCfg : CONFIG;
+}
+
+function oeActivePlan() {
+  return (oeWingIndex != null && oeWingPlan) ? oeWingPlan : lastPlan;
+}
+
 function openOpeningEditor(wall, wingIndex) {
   if (typeof wall !== 'string') wall = null;
   if (!lastPlan) { readForm(); regenerate(); }
@@ -25174,17 +25182,13 @@ function oeSetTool(tool) {
 }
 
 function oeGetWallDims(wall) {
-  // Wing mode: dims come from the wing's own plan/cfg (cached at open time).
-  // The wing's wall convention: span = front/back axis (wall along the
-  // attachment face), depth = east/west axis. Wing height comes from
-  // wingHeight() so an explicit override is respected.
-  if (oeWingIndex != null && oeWingCfg && oeWingPlan) {
-    const { H, fbWidth, sideLen } = oeWingPlan;
-    if (wall === 'front' || wall === 'back') return { W: fbWidth, H };
-    return { W: sideLen, H };
-  }
-  if (!lastPlan) return { W: CONFIG.width, H: CONFIG.height };
-  const { H, fbWidth, sideLen } = lastPlan;
+  // Main and wing editing share this helper. In wing mode the active plan is
+  // built from the wing's own cfg, so explicit wing.height overrides are
+  // respected instead of falling back to the main building height.
+  const plan = oeActivePlan();
+  const cfg  = oeActiveCfg();
+  if (!plan) return { W: cfg.width || CONFIG.width, H: cfg.height || CONFIG.height };
+  const { H, fbWidth, sideLen } = plan;
   if (wall === 'front' || wall === 'back') return { W: fbWidth, H };
   return { W: sideLen, H };
 }
@@ -26029,12 +26033,13 @@ function oeToolboxDragStart(e, type, styleKey) {
  */
 function oeGetDoorBands(wall) {
   const bands = oeGetFloorBands(wall);
-  if (!lastPlan) return bands;
-  const hasBay = (wall === 'front' && lastPlan.hasFrontBay) ||
-                 (wall === 'back'  && lastPlan.hasBackBay);
+  const plan = oeActivePlan();
+  if (!plan) return bands;
+  const hasBay = (wall === 'front' && plan.hasFrontBay) ||
+                 (wall === 'back'  && plan.hasBackBay);
   if (!hasBay) return bands;
   const wallH = oeGetWallDims(wall).H;
-  const bayCeilingY = lastPlan.bayCeilingY;
+  const bayCeilingY = plan.bayCeilingY;
   if (bayCeilingY == null || bayCeilingY >= wallH - 0.5) return bands;
   // Append the ground-floor band. Order doesn't matter — oeDoorSnappedY
   // searches by containment then by closest centre.
@@ -26299,8 +26304,10 @@ function oeDropOpening(type, dims, x, y, styleKey) {
     // uses the full wall height.
     const fStyle = FIXTURE_STYLES[styleKey];
     if (fStyle && fStyle.fullHeight) {
-      const isParapet = (CONFIG.roofStyle === 'parapet');
-      const topY = (isParapet && lastPlan) ? (lastPlan.parapetH || 0) : 0;
+      const activeCfg = oeActiveCfg();
+      const activePlan = oeActivePlan();
+      const isParapet = (activeCfg.roofStyle === 'parapet');
+      const topY = (isParapet && activePlan) ? (activePlan.parapetH || 0) : 0;
       const downH = Math.max(1, H - topY);
       oeOpenings[oeWall].push({ type: 'fixture',
         x: oeSnap(Math.max(0, Math.min(W - dims.w, x - dims.w / 2))),
@@ -27232,8 +27239,8 @@ function oeDistributeVertical() {
    FLOOR BANDS
    ===================================================================== */
 function oeGetFloorBands(wall) {
-  if (!lastPlan) return [];
-  const plan = lastPlan;
+  const plan = oeActivePlan();
+  if (!plan) return [];
   const { H, matT, parapetH, visualFloorYs, hasFrontBay, hasBackBay, bayCeilingY } = plan;
 
   // Bottom of the usable wall (bay ceiling for a walled bay, otherwise floor)
@@ -27243,8 +27250,14 @@ function oeGetFloorBands(wall) {
 
   const topBound = parapetH + matT + 3;
 
-  // Rebuild the same deduplicated boundary list as buildEdgePlans
-  const rawBoundaries = [topBound, ...(visualFloorYs || []), baseY].sort((a, b) => a - b);
+  // Rebuild the same deduplicated boundary list as buildEdgePlans for the
+  // active edit target. This is critical for wing walls whose explicit
+  // height is shorter than the main building: using main.visualFloorYs here
+  // made door snapping choose a floor band below the wing's actual bottom.
+  const rawBoundaries = [topBound, ...(visualFloorYs || []), baseY]
+    .filter(v => v != null && isFinite(v))
+    .map(v => Math.max(0, Math.min(H, v)))
+    .sort((a, b) => a - b);
   const bounds = [];
   for (const b of rawBoundaries) {
     if (bounds.length === 0 || Math.abs(bounds[bounds.length - 1] - b) >= 0.5) bounds.push(b);
@@ -27269,8 +27282,9 @@ function oeYToBand(bands, y) {
 }
 
 function oeGetAutoOpenings(wall) {
-  if (!lastPlan) return [];
-  const cfg = CONFIG, plan = lastPlan;
+  const plan = oeActivePlan();
+  if (!plan) return [];
+  const cfg = oeActiveCfg();
   const { H, matT, fbWidth, sideLen } = plan;
   const winDims = getWindowDims(cfg);
   const groundWinDims = getGroundFloorWindowDims(cfg);
@@ -27587,6 +27601,8 @@ function oeRender() {
   const si      = oeWallShapeInfo();
   const pitchL  = si.pitchL, pitchR = si.pitchR, gable = si.gable;
   const wallH   = si.wallH;
+  const activePlan = oeActivePlan();
+  const activeCfg  = oeActiveCfg();
   const peakAbove = Math.max(pitchL, pitchR, gable);
 
   // ---- Coplanar wing extensions (joined / L-shaped walls) ----
@@ -27758,8 +27774,8 @@ function oeRender() {
   }
 
   // Parapet zone (extends across L-shape — clip path crops to wing's parapet height too)
-  if (lastPlan && lastPlan.parapetH > 0) {
-    const ph = lastPlan.parapetH * s;
+  if (activePlan && activePlan.parapetH > 0) {
+    const ph = activePlan.parapetH * s;
     html += `<rect x="${wxStart.toFixed(1)}" y="${oy}" width="${wxW.toFixed(1)}" height="${ph}" fill="url(#oe-hatch)" opacity="0.55" pointer-events="none"/>`;
     html += `<text x="${ox+4}" y="${oy+ph-3}" font-size="9" fill="#666" font-family="system-ui" pointer-events="none">parapet</text>`;
   }
@@ -27803,14 +27819,14 @@ function oeRender() {
   }
 
   // Floor centre lines
-  if (lastPlan && lastPlan.floorCenterYs) {
-    for (const cy of lastPlan.floorCenterYs)
+  if (activePlan && activePlan.floorCenterYs) {
+    for (const cy of activePlan.floorCenterYs)
       html += `<line x1="${ox}" y1="${oy+cy*s}" x2="${ox+W*s}" y2="${oy+cy*s}" stroke="rgba(80,140,100,0.4)" stroke-width="0.7" stroke-dasharray="5 4" pointer-events="none"/>`;
   }
 
   // Cladding overlay (extends across full L-shape — clip path crops naturally)
-  if (oeShowCladding && lastPlan) {
-    const cT = CONFIG.claddingThickness || 0.28;
+  if (oeShowCladding && activePlan) {
+    const cT = activeCfg.claddingThickness || CONFIG.claddingThickness || 0.28;
     const ops = oeOpenings[oeWall] || [];
     const cutOpenings = ops.filter(op => op.type !== 'awning' && op.type !== 'balcony')
                            .map(op => ({ x:op.x, y:op.y, w:op.w, h:op.h }));
@@ -27825,13 +27841,13 @@ function oeRender() {
     // Include the bay opening as a cut so cladding seam lines don't draw
     // across it (same fix we apply to the laser-panel cladding). Bays are
     // only on front/back so no mirror needed.
-    if (lastPlan && ((oeWall === 'front' && lastPlan.hasFrontBay) || (oeWall === 'back' && lastPlan.hasBackBay))) {
-      const bayW = lastPlan.bayXEnd - lastPlan.bayXStart;
+    if (activePlan && ((oeWall === 'front' && activePlan.hasFrontBay) || (oeWall === 'back' && activePlan.hasBackBay))) {
+      const bayW = activePlan.bayXEnd - activePlan.bayXStart;
       cladOps.push({
-        x: lastPlan.bayXStart + leftExtW,
-        y: wallH - lastPlan.bayHeight,
+        x: activePlan.bayXStart + leftExtW,
+        y: wallH - activePlan.bayHeight,
         w: bayW,
-        h: lastPlan.bayHeight,
+        h: activePlan.bayHeight,
       });
     }
 
@@ -27888,18 +27904,18 @@ function oeRender() {
       }
     }
 
-    const splitEnabled = !!(CONFIG.firstFloorCladdingStyleEnabled) &&
-      CONFIG.firstFloorCladdingStyle && CONFIG.firstFloorCladdingStyle !== CONFIG.claddingStyle;
-    const firstFloorH = lastPlan.firstFloorHeight || CONFIG.floorHeight || 30;
+    const splitEnabled = !!(activeCfg.firstFloorCladdingStyleEnabled) &&
+      activeCfg.firstFloorCladdingStyle && activeCfg.firstFloorCladdingStyle !== activeCfg.claddingStyle;
+    const firstFloorH = activePlan.firstFloorHeight || activeCfg.floorHeight || CONFIG.floorHeight || 30;
     const splitY = wallH - firstFloorH;
     if (splitEnabled && splitY > 2 && splitY < wallH - 2) {
-      drawCladdingBand(CONFIG.claddingStyle, 0, splitY);
-      drawCladdingBand(CONFIG.firstFloorCladdingStyle, splitY, wallH);
+      drawCladdingBand(activeCfg.claddingStyle, 0, splitY);
+      drawCladdingBand(activeCfg.firstFloorCladdingStyle, splitY, wallH);
       html += `<line x1="${ox}" y1="${oy+splitY*s}" x2="${ox+W*s}" y2="${oy+splitY*s}" stroke="rgba(60,40,20,0.5)" stroke-width="1" stroke-dasharray="4 2" pointer-events="none"/>`;
       html += `<text x="${ox+4}" y="${oy+splitY*s-3}" font-size="8" fill="rgba(60,40,20,0.6)" font-family="system-ui" pointer-events="none">upper cladding</text>`;
       html += `<text x="${ox+4}" y="${oy+splitY*s+9}" font-size="8" fill="rgba(60,40,20,0.6)" font-family="system-ui" pointer-events="none">ground cladding</text>`;
     } else {
-      drawCladdingBand(CONFIG.claddingStyle, 0, wallH);
+      drawCladdingBand(activeCfg.claddingStyle, 0, wallH);
     }
   }
 

@@ -8102,6 +8102,118 @@ function pointInPolygonWithNudge(pt, poly) {
       || pointInPolygon({ x: pt.x, y: pt.y - eps }, poly);
 }
 
+function polygonSignedArea(poly) {
+  if (!Array.isArray(poly) || poly.length < 3) return 0;
+  let a = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i], q = poly[(i + 1) % poly.length];
+    a += p.x * q.y - q.x * p.y;
+  }
+  return a / 2;
+}
+
+function polygonAbsArea(poly) {
+  return Math.abs(polygonSignedArea(poly));
+}
+
+function cleanPolygonVertices(poly, eps) {
+  eps = eps || 0.001;
+  const out = [];
+  for (const p of (poly || [])) {
+    const q = out[out.length - 1];
+    if (!q || Math.hypot(p.x - q.x, p.y - q.y) > eps) out.push({ x: p.x, y: p.y });
+  }
+  if (out.length > 2) {
+    const a = out[0], z = out[out.length - 1];
+    if (Math.hypot(a.x - z.x, a.y - z.y) <= eps) out.pop();
+  }
+  return out;
+}
+
+function clipPolygonByXMin(poly, xMin) {
+  if (!poly || poly.length < 3) return [];
+  const out = [];
+  const inside = p => p.x >= xMin - 1e-7;
+  const intersect = (a, b) => {
+    const dx = b.x - a.x;
+    if (Math.abs(dx) < 1e-9) return { x: xMin, y: b.y };
+    const t = (xMin - a.x) / dx;
+    return { x: xMin, y: a.y + t * (b.y - a.y) };
+  };
+  for (let i = 0; i < poly.length; i++) {
+    const cur = poly[i], prev = poly[(i + poly.length - 1) % poly.length];
+    const curIn = inside(cur), prevIn = inside(prev);
+    if (curIn) {
+      if (!prevIn) out.push(intersect(prev, cur));
+      out.push(cur);
+    } else if (prevIn) {
+      out.push(intersect(prev, cur));
+    }
+  }
+  return cleanPolygonVertices(out);
+}
+
+function clipPolygonByXMax(poly, xMax) {
+  if (!poly || poly.length < 3) return [];
+  const out = [];
+  const inside = p => p.x <= xMax + 1e-7;
+  const intersect = (a, b) => {
+    const dx = b.x - a.x;
+    if (Math.abs(dx) < 1e-9) return { x: xMax, y: b.y };
+    const t = (xMax - a.x) / dx;
+    return { x: xMax, y: a.y + t * (b.y - a.y) };
+  };
+  for (let i = 0; i < poly.length; i++) {
+    const cur = poly[i], prev = poly[(i + poly.length - 1) % poly.length];
+    const curIn = inside(cur), prevIn = inside(prev);
+    if (curIn) {
+      if (!prevIn) out.push(intersect(prev, cur));
+      out.push(cur);
+    } else if (prevIn) {
+      out.push(intersect(prev, cur));
+    }
+  }
+  return cleanPolygonVertices(out);
+}
+
+function clipPolygonToXRange(poly, xMin, xMax) {
+  if (!poly || poly.length < 3) return [];
+  let out = clipPolygonByXMin(poly, xMin);
+  if (out.length < 3) return [];
+  out = clipPolygonByXMax(out, xMax);
+  return out.length >= 3 ? cleanPolygonVertices(out) : [];
+}
+
+/** Trim an already-generated full truss to the layout-cut interval.
+ *
+ * Earlier layout-cut handling regenerated the truss at the shortened span.
+ * That made the internal web pattern re-space itself and it also injected
+ * bearing tabs at the new artificial cut edge. For layout crops we want the
+ * opposite: generate the complete truss exactly as if the building were whole,
+ * including tabs only at the original support-column bearings, then slice the
+ * finished geometry at the kept top-down interval. This preserves the original
+ * internal structure and automatically removes tabs on any side where the
+ * support column has been cropped away. */
+function trimGeneratedTrussGeometryToSpanInterval(geom, start, end) {
+  if (!geom || !geom.outline || geom.outline.length < 3) return null;
+  const xs = geom.outline.map(p => p.x);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const xMin = Math.max(minX, Number(start));
+  const xMax = Math.min(maxX, Number(end));
+  if (!isFinite(xMin) || !isFinite(xMax) || xMax - xMin < 1) return null;
+  if (xMin <= minX + 1e-6 && xMax >= maxX - 1e-6) return geom;
+
+  const outline = clipPolygonToXRange(geom.outline, xMin, xMax);
+  if (!outline || outline.length < 3 || polygonAbsArea(outline) < 1) return null;
+
+  const voids = [];
+  for (const v of (geom.voids || [])) {
+    const cv = clipPolygonToXRange(v, xMin, xMax);
+    if (cv && cv.length >= 3 && polygonAbsArea(cv) > 0.25) voids.push(cv);
+  }
+  return { ...geom, outline, voids, layoutTrimInterval: { start: xMin, end: xMax } };
+}
+
 function trussSpanIntervalForLayoutCrop(blockCfg, axis, span, position, cropCtx) {
   const clippedWorld = clippedBlockFootprintForLayoutCrop(blockCfg, cropCtx);
   if (!clippedWorld) return { start: 0, end: span, clipped: false };
@@ -8219,28 +8331,36 @@ function generateTrussesForBlock(blockCfg, blockPlan, sfx, nameLbl, cropCtx) {
   for (let i = 0; i < count; i++) {
     const crop = trussSpanIntervalForLayoutCrop(blockCfg, axis, fullSpan, positions[i], cropCtx);
     if (!crop) continue;
-    const span = crop.end - crop.start;
+
+    // Generate the COMPLETE truss first. Layout cuts should behave like a
+    // physical saw cut through an already-designed truss, not like a new
+    // shorter truss with all web bays remapped. This keeps the web rhythm and
+    // keeps bearing tabs only at the original ends that still exist.
     const spanDims = { roofPitch: blockCfg.roofPitch || 10 };
-    const geom = generateTrussGeometry(blockCfg.roofStyle, span, spanDims, chordW);
+    const geom = generateTrussGeometry(blockCfg.roofStyle, fullSpan, spanDims, chordW);
     if (!geom) continue;
 
-    // When column supports are enabled, weave the bottom-chord bearing
-    // tabs into the truss outline so the truss locks into the columns'
-    // top notches. Layout-clipped trusses are regenerated at the shortened
-    // span, so the tabs remain at the usable truss ends instead of landing
-    // in the cut-away area.
-    let geomFinal = geom;
+    // Bearing tabs are also injected on the full truss before trimming. If a
+    // layout cut removes one bearing wall, the tab on that side is clipped off
+    // with the discarded portion instead of being recreated on the new cut edge.
+    let geomWithTabs = geom;
     if (t.supports) {
       const webDepth = (t.supportDepth != null) ? t.supportDepth : 4;
       const tabDepth = matT_ * 2;
       const columnType = t.supportColumnType === 't' ? 't' : 'i';
       const injected = injectTrussBearingTabs(geom, matT_, webDepth, tabDepth, columnType);
-      if (injected) geomFinal = injected;
+      if (injected) geomWithTabs = injected;
     }
 
+    const geomFinal = crop.clipped
+      ? trimGeneratedTrussGeometryToSpanInterval(geomWithTabs, crop.start, crop.end)
+      : geomWithTabs;
+    if (!geomFinal) continue;
+
     const styleLabel = styleLabelBase[geom.style] || geom.style;
+    const keptSpan = crop.end - crop.start;
     const clipNote = crop.clipped
-      ? `, layout-cut span ${span.toFixed(0)}mm from original ${fullSpan.toFixed(0)}mm`
+      ? `, layout-cut trim ${keptSpan.toFixed(0)}mm kept from original ${fullSpan.toFixed(0)}mm span`
       : `, ${fullSpan.toFixed(0)}mm span`;
     const part = trussGeometryToPart(
       geomFinal,
@@ -8250,7 +8370,7 @@ function generateTrussesForBlock(blockCfg, blockPlan, sfx, nameLbl, cropCtx) {
     );
     if (part) {
       if (crop.clipped) {
-        part.assemblyNote = `Layout cut trimmed this truss station. Original top-down span interval was ${crop.start.toFixed(1)}–${crop.end.toFixed(1)}mm.`;
+        part.assemblyNote = `Layout cut physically trimmed this truss station from the full-size truss. Kept original span interval ${crop.start.toFixed(1)}–${crop.end.toFixed(1)}mm; web layout and bearing tabs were not regenerated at the cut edge.`;
       }
       parts.push(part);
     }

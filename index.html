@@ -4446,8 +4446,8 @@ let CONFIG = {
   // `chordW` is the visible width of each truss member on the laser sheet
   // (real-world scale is ~150 mm chord at 1:150 = 1 mm — too thin to cut
   // cleanly; the default 4 mm reads well at N-scale viewing distance).
-  // `xBraceWalls` is the set of wall faces that get crossed-diagonal
-  // cladding strips (cladding-thickness; thinner than the core trusses).
+  // `xBraceEnabled` toggles automatic crossed-diagonal wall braces on the
+  // truss-bearing walls. `xBraceWalls` is kept only for old .hako compatibility.
   // `supports` is the toggle for the vertical column-support system.
   // `supportColumnType` chooses the cross-section: 'i' = back flange +
   // web + end cap (deeper I-beam), 't' = back flange + web only (shallower
@@ -4456,7 +4456,8 @@ let CONFIG = {
   // flange (and the end cap for I-beams) along the wall axis. Defaults at
   // 4 × 4 mm produce a column that reads as structural at N-scale viewing
   // without overpowering the surrounding wall etch detail.
-  trusses: { enabled: false, spacing: 30, axis: null, chordW: 2, xBraceWalls: [],
+  trusses: { enabled: false, spacing: 30, axis: null, chordW: 2,
+             xBraceEnabled: false, xBraceW: 1.0, xBraceWalls: [],
              supports: false, supportColumnType: 'i', supportDepth: 4, supportFlangeW: 4 },
   // Multi-block wings. Each wing attaches to one face of the main block.
   // face: 'front'|'back'|'east'|'west' — which face of the main block it extends from
@@ -8184,6 +8185,64 @@ function clipPolygonToXRange(poly, xMin, xMax) {
   return out.length >= 3 ? cleanPolygonVertices(out) : [];
 }
 
+function clipPolygonByYMin(poly, yMin) {
+  if (!poly || poly.length < 3) return [];
+  const out = [];
+  const inside = p => p.y >= yMin - 1e-7;
+  const intersect = (a, b) => {
+    const dy = b.y - a.y;
+    if (Math.abs(dy) < 1e-9) return { x: b.x, y: yMin };
+    const t = (yMin - a.y) / dy;
+    return { x: a.x + t * (b.x - a.x), y: yMin };
+  };
+  for (let i = 0; i < poly.length; i++) {
+    const cur = poly[i], prev = poly[(i + poly.length - 1) % poly.length];
+    const curIn = inside(cur), prevIn = inside(prev);
+    if (curIn) {
+      if (!prevIn) out.push(intersect(prev, cur));
+      out.push(cur);
+    } else if (prevIn) {
+      out.push(intersect(prev, cur));
+    }
+  }
+  return cleanPolygonVertices(out);
+}
+
+function clipPolygonByYMax(poly, yMax) {
+  if (!poly || poly.length < 3) return [];
+  const out = [];
+  const inside = p => p.y <= yMax + 1e-7;
+  const intersect = (a, b) => {
+    const dy = b.y - a.y;
+    if (Math.abs(dy) < 1e-9) return { x: b.x, y: yMax };
+    const t = (yMax - a.y) / dy;
+    return { x: a.x + t * (b.x - a.x), y: yMax };
+  };
+  for (let i = 0; i < poly.length; i++) {
+    const cur = poly[i], prev = poly[(i + poly.length - 1) % poly.length];
+    const curIn = inside(cur), prevIn = inside(prev);
+    if (curIn) {
+      if (!prevIn) out.push(intersect(prev, cur));
+      out.push(cur);
+    } else if (prevIn) {
+      out.push(intersect(prev, cur));
+    }
+  }
+  return cleanPolygonVertices(out);
+}
+
+function clipPolygonToRect(poly, xMin, yMin, xMax, yMax) {
+  if (!poly || poly.length < 3) return [];
+  let out = clipPolygonByXMin(poly, xMin);
+  if (out.length < 3) return [];
+  out = clipPolygonByXMax(out, xMax);
+  if (out.length < 3) return [];
+  out = clipPolygonByYMin(out, yMin);
+  if (out.length < 3) return [];
+  out = clipPolygonByYMax(out, yMax);
+  return out.length >= 3 ? cleanPolygonVertices(out) : [];
+}
+
 /** Trim an already-generated full truss to the layout-cut interval.
  *
  * Earlier layout-cut handling regenerated the truss at the shortened span.
@@ -8394,75 +8453,136 @@ function resolveTrussAxis(blockCfg) {
   return axis;
 }
 
+
+function wallXBracingEnabled(t) {
+  if (!t) return false;
+  if (typeof t.xBraceEnabled === 'boolean') return t.xBraceEnabled;
+  // Backward compatibility for .hako files made while X-bracing used four
+  // per-wall checkboxes. Any checked wall means the simplified toggle is on.
+  return Array.isArray(t.xBraceWalls) && t.xBraceWalls.length > 0;
+}
+
 /**
  * One bay-based interior wall X-brace part.
  *
  * Each bay now outputs a single connected X-shaped part, with no surrounding
- * rectangular frame. The outline is the union of two diagonal brace strips
- * clipped to the bay rectangle, so the diagonals remain joined at the centre
- * while the strip ends land at the adjacent truss/column lines.
+ * rectangular frame. The outline is the union of two diagonal brace strips.
+ * Each strip is built with a true square cap, extended past the bay corner,
+ * then trimmed back to the bay rectangle. That makes the four outer ends land
+ * square to the bay edges/corners instead of square to the diagonal itself.
  */
-function pointInsideConnectedXBrace(x, y, w, h, memberW) {
-  if (x < -1e-7 || x > w + 1e-7 || y < -1e-7 || y > h + 1e-7) return false;
-  const L = Math.hypot(w, h) || 1;
-  const half = Math.max(0.15, memberW / 2);
-  // Distance to the two bay diagonals. The line equations are written in a
-  // form that avoids slope blow-ups on skinny/tall bays.
-  const dA = Math.abs(h * x - w * y) / L;           // top-left → bottom-right
-  const dB = Math.abs(h * x + w * y - w * h) / L;   // bottom-left → top-right
-  return dA <= half + 1e-7 || dB <= half + 1e-7;
+function squareCappedStripPolygon(x1, y1, x2, y2, width) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const L = Math.hypot(dx, dy);
+  if (!(L > 0)) return null;
+  const hw = Math.max(0.15, width / 2);
+  const px = -dy / L * hw;
+  const py =  dx / L * hw;
+  return [
+    { x: x1 + px, y: y1 + py },
+    { x: x2 + px, y: y2 + py },
+    { x: x2 - px, y: y2 - py },
+    { x: x1 - px, y: y1 - py },
+  ];
 }
 
-function rayDistanceToRect(cx, cy, ux, uy, w, h) {
-  let t = Infinity;
-  if (ux >  1e-9) t = Math.min(t, (w - cx) / ux);
-  if (ux < -1e-9) t = Math.min(t, (0 - cx) / ux);
-  if (uy >  1e-9) t = Math.min(t, (h - cy) / uy);
-  if (uy < -1e-9) t = Math.min(t, (0 - cy) / uy);
-  return isFinite(t) ? Math.max(0, t) : 0;
+function pointOnSegmentEps(p, a, b, eps) {
+  eps = eps || 1e-6;
+  const cross = (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x);
+  if (Math.abs(cross) > eps) return false;
+  const dot = (p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y);
+  if (dot < -eps) return false;
+  const len2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
+  return dot <= len2 + eps;
+}
+
+function pointOnPolygonBoundary(p, poly, eps) {
+  for (let i = 0; i < poly.length; i++) {
+    if (pointOnSegmentEps(p, poly[i], poly[(i + 1) % poly.length], eps)) return true;
+  }
+  return false;
+}
+
+function segmentIntersectionPoint(a, b, c, d) {
+  const rX = b.x - a.x, rY = b.y - a.y;
+  const sX = d.x - c.x, sY = d.y - c.y;
+  const den = rX * sY - rY * sX;
+  if (Math.abs(den) < 1e-9) return null;
+  const qX = c.x - a.x, qY = c.y - a.y;
+  const t = (qX * sY - qY * sX) / den;
+  const u = (qX * rY - qY * rX) / den;
+  if (t < -1e-8 || t > 1 + 1e-8 || u < -1e-8 || u > 1 + 1e-8) return null;
+  return { x: a.x + t * rX, y: a.y + t * rY };
+}
+
+function addUniquePoint(out, p, eps) {
+  eps = eps || 1e-5;
+  if (!p || !isFinite(p.x) || !isFinite(p.y)) return;
+  for (const q of out) {
+    if (Math.hypot(p.x - q.x, p.y - q.y) < eps) return;
+  }
+  out.push(p);
+}
+
+function removeNearlyCollinearPoints(poly, eps) {
+  eps = eps || 1e-5;
+  if (!poly || poly.length < 4) return poly || [];
+  const out = [];
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[(i - 1 + poly.length) % poly.length];
+    const b = poly[i];
+    const c = poly[(i + 1) % poly.length];
+    const abx = b.x - a.x, aby = b.y - a.y;
+    const bcx = c.x - b.x, bcy = c.y - b.y;
+    const cross = Math.abs(abx * bcy - aby * bcx);
+    const len = Math.hypot(abx, aby) + Math.hypot(bcx, bcy);
+    if (len > 0 && cross / len < eps) continue;
+    out.push(b);
+  }
+  return out;
+}
+
+function unionTwoStarPolygons(polyA, polyB) {
+  const pts = [];
+  const insideStrict = (p, poly) => pointInPolygon(p, poly) && !pointOnPolygonBoundary(p, poly, 1e-6);
+
+  for (const p of polyA) if (!insideStrict(p, polyB)) addUniquePoint(pts, { x: p.x, y: p.y });
+  for (const p of polyB) if (!insideStrict(p, polyA)) addUniquePoint(pts, { x: p.x, y: p.y });
+
+  for (let i = 0; i < polyA.length; i++) {
+    const a = polyA[i], b = polyA[(i + 1) % polyA.length];
+    for (let j = 0; j < polyB.length; j++) {
+      const c = polyB[j], d = polyB[(j + 1) % polyB.length];
+      addUniquePoint(pts, segmentIntersectionPoint(a, b, c, d));
+    }
+  }
+
+  if (pts.length < 3) return [];
+  const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+  const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+  pts.sort((p, q) => Math.atan2(p.y - cy, p.x - cx) - Math.atan2(q.y - cy, q.x - cx));
+  return removeNearlyCollinearPoints(pts, 1e-4);
 }
 
 function connectedXBraceOutline(w, h, memberW) {
-  const cx = w / 2, cy = h / 2;
-  const pts = [];
-  // The connected X is star-shaped from the centre. Sample enough rays that
-  // the laser path stays visually smooth while still being compact. More rays
-  // are used on larger bays so long diagonal edges do not look faceted.
-  const samples = Math.max(96, Math.min(220, Math.ceil(Math.hypot(w, h) * 1.2)));
-  for (let i = 0; i < samples; i++) {
-    const a = (Math.PI * 2 * i) / samples;
-    const ux = Math.cos(a), uy = Math.sin(a);
-    const tMax = rayDistanceToRect(cx, cy, ux, uy, w, h);
-    if (tMax <= 0) continue;
+  // Build the X from two square-capped diagonal members, but extend each
+  // member beyond the bay first and then clip it back to the bay rectangle.
+  // That preserves the nice connected X at the centre while making the outer
+  // ends terminate square to the wall bay edges/corners.
+  const diagLen = Math.hypot(w, h);
+  if (!(diagLen > 0)) return [];
+  const ext = Math.max(memberW * 2, 2);
 
-    // Find the last point along this ray that is inside the X. The centre is
-    // always inside; for these brace shapes the ray leaves the shape once.
-    let lo = 0, hi = tMax;
-    for (let k = 0; k < 18; k++) {
-      const mid = (lo + hi) / 2;
-      const x = cx + ux * mid;
-      const y = cy + uy * mid;
-      if (pointInsideConnectedXBrace(x, y, w, h, memberW)) lo = mid;
-      else hi = mid;
-    }
-    pts.push({
-      x: Math.max(0, Math.min(w, cx + ux * lo)),
-      y: Math.max(0, Math.min(h, cy + uy * lo)),
-    });
-  }
+  const uxA = w / diagLen, uyA = h / diagLen;
+  const rawA = squareCappedStripPolygon(-uxA * ext, -uyA * ext, w + uxA * ext, h + uyA * ext, memberW);
 
-  // Remove near-duplicate points introduced around rectangle corners or very
-  // short edges. Keep the outline simple and avoid zero-length laser moves.
-  const clean = [];
-  for (const p of pts) {
-    const q = clean[clean.length - 1];
-    if (!q || Math.hypot(p.x - q.x, p.y - q.y) > 0.08) clean.push(p);
-  }
-  if (clean.length > 2) {
-    const a = clean[0], z = clean[clean.length - 1];
-    if (Math.hypot(a.x - z.x, a.y - z.y) < 0.08) clean.pop();
-  }
-  return clean;
+  const uxB = w / diagLen, uyB = -h / diagLen;
+  const rawB = squareCappedStripPolygon(-uxB * ext, h - uyB * ext, w + uxB * ext, 0 + uyB * ext, memberW);
+
+  const stripA = rawA ? clipPolygonToRect(rawA, 0, 0, w, h) : [];
+  const stripB = rawB ? clipPolygonToRect(rawB, 0, 0, w, h) : [];
+  if (!stripA || !stripB || stripA.length < 3 || stripB.length < 3) return [];
+  return unionTwoStarPolygons(stripA, stripB);
 }
 
 function generateXBraceBayPart(bayW, wallH, memberW, id, name, note) {
@@ -8471,15 +8591,17 @@ function generateXBraceBayPart(bayW, wallH, memberW, id, name, note) {
   const m = Math.max(0.3, memberW || 2);
   if (w < m * 2 || h < m * 2) return null;
 
-  const outline = connectedXBraceOutline(w, h, m);
-  if (!outline || outline.length < 6 || polygonAbsArea(outline) < 1) return null;
+  const outlineRaw = connectedXBraceOutline(w, h, m);
+  if (!outlineRaw || outlineRaw.length < 6 || polygonAbsArea(outlineRaw) < 1) return null;
+  const b = polygonBounds(outlineRaw);
+  const outline = outlineRaw.map(p => ({ x: p.x - b.minX, y: p.y - b.minY }));
 
   return {
     id,
     name,
     material: 'cladding',
-    bboxW: w,
-    bboxH: h,
+    bboxW: b.w,
+    bboxH: b.h,
     bboxOffsetX: 0,
     bboxOffsetY: 0,
     paths: [{ type: 'cut', d: polygonToPath(outline) }],
@@ -8498,13 +8620,12 @@ function generateXBraceBayPart(bayW, wallH, memberW, id, name, note) {
  */
 function generateXBracesForBlock(blockCfg, blockPlan, sfx, nameLbl) {
   const t = blockCfg.trusses;
-  if (!t || !t.enabled) return [];
-  const walls = Array.isArray(t.xBraceWalls) ? t.xBraceWalls : [];
-  if (walls.length === 0) return [];
-  const memberW = (t.chordW != null) ? t.chordW : 2;
+  if (!t || !t.enabled || !wallXBracingEnabled(t)) return [];
+  const memberW = (t.xBraceW != null) ? t.xBraceW : 1.0;
   if (memberW <= 0) return [];
 
   const axis = resolveTrussAxis(blockCfg);
+  const walls = axis === 'ns' ? ['front', 'back'] : ['east', 'west'];
   const flangeW = (t.supportFlangeW != null) ? t.supportFlangeW : 4;
   const matT = blockPlan.matT || blockCfg.coreThickness || 1.5;
   const margin = t.supports ? matT + flangeW / 2 : 0;
@@ -8535,7 +8656,7 @@ function generateXBracesForBlock(blockCfg, blockPlan, sfx, nameLbl) {
         memberW,
         `xbrace_${face}_bay${i + 1}${sfx}`,
         `${nameLbl}Interior X-Brace ${faceTitle} bay ${i + 1}/${positionsLocal.length - 1} (${bayW.toFixed(0)}mm × ${braceH.toFixed(0)}mm)`,
-        `Glue this connected X brace to the inside ${face} wall cladding between truss stations ${i + 1} and ${i + 2}. Align the four ends to the adjacent column/truss lines.`,
+        `Glue this connected X brace to the inside ${face} wall cladding between truss stations ${i + 1} and ${i + 2}. Align the four outer ends to the adjacent column/truss and roof/floor edge lines; the ends are trimmed square to the bay corners/edges.`,
       );
       if (part) out.push(part);
     }
@@ -22158,7 +22279,8 @@ function buildWingCfg(cfg, wing) {
     // wing too (the wing's span+depth dimensions may not produce sensible
     // truss geometry without their own tuning). null = disabled inherit;
     // an explicit object on the wing fully overrides.
-    trusses: wing.trusses || { enabled: false, spacing: 30, axis: null, chordW: 2, xBraceWalls: [],
+    trusses: wing.trusses || { enabled: false, spacing: 30, axis: null, chordW: 2,
+                                xBraceEnabled: false, xBraceW: 1.0, xBraceWalls: [],
                                 supports: false, supportColumnType: 'i', supportDepth: 4, supportFlangeW: 4 },
     // Per-wing rooftop / floor / skylight / roof-hole collections. Same
     // bug class as the wall manualOpenings leakage: without these
@@ -24397,7 +24519,8 @@ function weRenderSidebar() {
   // trusses object. Auto-initialised when missing so the user's first
   // toggle creates the field rather than throwing.
   if (!wing.trusses) {
-    wing.trusses = { enabled: false, spacing: 30, axis: null, chordW: 2, xBraceWalls: [],
+    wing.trusses = { enabled: false, spacing: 30, axis: null, chordW: 2,
+                     xBraceEnabled: false, xBraceW: 1.0, xBraceWalls: [],
                      supports: false, supportColumnType: 'i', supportDepth: 4, supportFlangeW: 4 };
   }
   weRenderTrussSection(sidebar, wing, () => { weRender(); weRenderSidebar(); regenerate(); });
@@ -24420,10 +24543,13 @@ function weRenderSidebar() {
  * predate this feature get sensible defaults on first interaction. */
 function weRenderTrussSection(sidebar, blockObj, onChange) {
   if (!blockObj.trusses) {
-    blockObj.trusses = { enabled: false, spacing: 30, axis: null, chordW: 2, xBraceWalls: [],
+    blockObj.trusses = { enabled: false, spacing: 30, axis: null, chordW: 2,
+                         xBraceEnabled: false, xBraceW: 1.0, xBraceWalls: [],
                          supports: false, supportColumnType: 'i', supportDepth: 4, supportFlangeW: 4 };
   }
   const t = blockObj.trusses;
+  if (t.xBraceEnabled == null) t.xBraceEnabled = Array.isArray(t.xBraceWalls) && t.xBraceWalls.length > 0;
+  if (t.xBraceW == null) t.xBraceW = 1.0;
   if (!t.supportColumnType) t.supportColumnType = 'i';
   if (t.supportDepth == null) t.supportDepth = 4;
   if (t.supportFlangeW == null) t.supportFlangeW = 4;
@@ -24495,35 +24621,34 @@ function weRenderTrussSection(sidebar, blockObj, onChange) {
   });
   sidebar.appendChild(chordField);
 
-  // X-bracing walls (checkbox set)
-  const xbHdr = document.createElement('div');
-  xbHdr.style.cssText = 'font-size:11px;color:#555;margin-top:8px;';
-  xbHdr.textContent = 'Interior bay X-bracing (between trusses)';
-  sidebar.appendChild(xbHdr);
+  // Wall X-bracing — simplified to a single toggle. The generator automatically
+  // adds braces on the truss-bearing walls for the selected truss direction:
+  // N-S trusses = front/back walls; E-W trusses = east/west walls.
+  const xbField = document.createElement('div'); xbField.className = 'field';
+  xbField.innerHTML = `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+    <input type="checkbox" ${wallXBracingEnabled(t) ? 'checked' : ''}>
+    <span>Add wall X-bracing between trusses</span>
+  </label>
+  <div class="small">Automatically places connected X braces on the truss-bearing walls for the selected direction.</div>`;
+  const xbInput = xbField.querySelector('input');
+  xbInput.addEventListener('change', () => {
+    t.xBraceEnabled = xbInput.checked;
+    // Clear the old per-wall list so saved files use the new single-toggle model.
+    t.xBraceWalls = [];
+    onChange();
+  });
+  sidebar.appendChild(xbField);
 
-  const xbHint = document.createElement('div');
-  xbHint.style.cssText = 'font-size:10px;color:var(--muted);margin-top:-3px;margin-bottom:3px;line-height:1.35;';
-  xbHint.textContent = 'Generates one connected X-shaped brace per bay between adjacent truss stations, with no surrounding rectangular frame. Glue it directly onto the inside wall cladding. Only walls that actually have repeated truss stations for the selected direction will output brace parts.';
-  sidebar.appendChild(xbHint);
-
-  for (const face of ['front', 'back', 'east', 'west']) {
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:11px;';
-    const on = Array.isArray(t.xBraceWalls) && t.xBraceWalls.includes(face);
-    row.innerHTML = `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;">
-      <input type="checkbox" ${on ? 'checked' : ''}>
-      <span>${face.charAt(0).toUpperCase() + face.slice(1)}</span>
-    </label>`;
-    const cb = row.querySelector('input');
-    cb.addEventListener('change', () => {
-      if (!Array.isArray(t.xBraceWalls)) t.xBraceWalls = [];
-      const idx = t.xBraceWalls.indexOf(face);
-      if (cb.checked && idx === -1) t.xBraceWalls.push(face);
-      else if (!cb.checked && idx >= 0) t.xBraceWalls.splice(idx, 1);
-      onChange();
-    });
-    sidebar.appendChild(row);
-  }
+  const xbWidthField = document.createElement('div'); xbWidthField.className = 'field';
+  xbWidthField.innerHTML = `<label>Wall X-brace width (mm)</label>
+    <input type="number" min="0.3" max="10" step="0.1" value="${t.xBraceW ?? 1.0}">
+    <div class="small">Width of the wall X-brace strips only. This does not change the roof truss member width.</div>`;
+  const xbWidthInput = xbWidthField.querySelector('input');
+  xbWidthInput.addEventListener('change', () => {
+    t.xBraceW = Math.max(0.3, parseFloat(xbWidthInput.value) || 1.0);
+    onChange();
+  });
+  sidebar.appendChild(xbWidthField);
 
   // Vertical column supports — the 3-piece I-beam system that holds
   // each truss up against the wall. Default off so existing users

@@ -15502,6 +15502,15 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
   // FB walls have matT on each side hidden by the side walls; sides have 0.
   const cornerInset = (which === 'front' || which === 'back') ? matT : 0;
 
+  // Interior cladding is glued to the room-side face, so it should cover the
+  // CLEAR wall area rather than the full exterior wall height. Leave room for
+  // the bottom floor plate and the top roof/ceiling plate. For parapet roofs,
+  // the usable interior wall starts below the recessed roof deck/parapet well,
+  // not at the exterior parapet top.
+  const interiorTopWallY = Math.max(0, (cfg.roofStyle === 'parapet' ? (plan.parapetH || 0) : 0) + matT);
+  const interiorBottomWallY = Math.max(interiorTopWallY + 1, H - matT);
+  panelH = Math.max(1, interiorBottomWallY - interiorTopWallY);
+
   // Map a wall-frame opening to an interior-panel laser-flat x position.
   // Interior panels are glued to the INSIDE face, so their visible face is the
   // reverse side of the exterior cladding. Mirror every interior panel relative
@@ -15626,14 +15635,16 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
   const cutOpenings = [];
   for (const op of openings) {
     const px = wallToPanelX(op.x, op.w);
-    // Clip to the interior cladding panel instead of dropping any opening
-    // that slightly crosses the inset edge. Bay doors can legitimately run
-    // near the wall corners, while the interior cladding panel starts matT
-    // inside the full front/back wall frame.
+    // Clip to the clear-height interior cladding panel instead of dropping
+    // openings that overlap the floor/ceiling trim area. Convert from wall
+    // coordinates (y=0 at exterior top) into panel-local coordinates whose
+    // y=0 starts at interiorTopWallY.
     const x0 = Math.max(0, px);
     const x1 = Math.min(panelW, px + op.w);
-    const y0 = Math.max(0, op.y);
-    const y1 = Math.min(panelH, op.y + op.h);
+    const y0Wall = Math.max(interiorTopWallY, op.y);
+    const y1Wall = Math.min(interiorBottomWallY, op.y + op.h);
+    const y0 = y0Wall - interiorTopWallY;
+    const y1 = y1Wall - interiorTopWallY;
     const cw = x1 - x0;
     const ch = y1 - y0;
     if (cw <= 0.01 || ch <= 0.01) continue;
@@ -15717,10 +15728,11 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
 
   return {
     id: cId,
-    name: cName,
+    name: cName + ` (clear interior height ${panelH.toFixed(1)}mm)`,
     material,
     bboxW: panelW, bboxH: panelH,
     bboxOffsetX: 0, bboxOffsetY: 0,
+    assemblyNote: `Interior cladding is shortened to the clear room-side height: top offset ${interiorTopWallY.toFixed(1)}mm, bottom offset ${(H - interiorBottomWallY).toFixed(1)}mm from the exterior wall frame.`,
     paths: [{ type: 'cut', d: rectPath(0, 0, panelW, panelH) }],
     rects,
     lines,
@@ -30875,7 +30887,11 @@ function updateThreePreview(cfg) {
         break;
 
       case 'west':
-        addWingWallMesh(fW, wBackFaceH, wOuterTexH, wH, outerVis, true,  true,  wFbGable, wBackSlant, -Math.PI / 2, wx0 + t, 0, wzC);
+        // A west-attached wing's local back/outer wall runs along the main
+        // building depth with local x=0 at wing.offset. It should keep that
+        // same x direction in 3D; mirroring here made wing-0 back-wall
+        // openings appear reversed after committing from the wall editor.
+        addWingWallMesh(fW, wBackFaceH, wOuterTexH, wH, outerVis, false, false, wFbGable, wBackSlant, -Math.PI / 2, wx0 + t, 0, wzC);
         if (!cp3d.westCoplanar) addWingWallMesh(sLen, wWestFaceH, wWestTexH, wH, westVisW, false, false, wSideGable, wWestSlant, 0, wxC, 0, wz0);
         if (!cp3d.eastCoplanar) addWingWallMesh(sLen, wEastFaceH, wEastTexH, wH, eastVisW, true,  true,  wSideGable, wEastSlant, 0, wxC, 0, wz1 - t);
         break;
@@ -30927,7 +30943,7 @@ function updateThreePreview(cfg) {
       switch (wing.face) {
         // Z-flip: east/west outer face hx sign flips; front outer is at wz0 (north=-Z), back at wz1 (south=+Z)
         case 'east':  addPane(op, wx1+eps, hy, wzC + hx + op.w/2,  Math.PI/2); break;
-        case 'west':  addPane(op, wx0-eps, hy, wzC - hx - op.w/2, -Math.PI/2); break;
+        case 'west':  addPane(op, wx0-eps, hy, wzC + hx + op.w/2, -Math.PI/2); break;
         case 'front': addPane(op, wxC + hx + op.w/2, hy, wz0-eps, 0); break;
         case 'back':  addPane(op, wxC - hx - op.w/2, hy, wz1+eps, Math.PI); break;
       }

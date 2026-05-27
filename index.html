@@ -10293,6 +10293,7 @@ function shouldLayoutClipPart(part) {
   if (part._layoutClipTransform) return true;
   return part.id === 'floor'
       || part.id === 'floor_main_panelized'
+      || String(part.id || '').startsWith('floor_split_wing_')
       || part.id === 'roof'
       || part.id === 'cladding_roof';
 }
@@ -10353,9 +10354,23 @@ function layoutCutTransformForPart(part, cfg) {
     dx = Number(cfg.coreThickness) || 0;
     dy = Number(cfg.coreThickness) || 0;
   } else if (part && part.id === 'cladding_roof') {
+    // Main roof cladding can be either an oversized cap (flat), an
+    // overhang-sized panel (flat_overhang), or an interior recessed panel
+    // (parapet). Map its local SVG coordinates into the same outer-footprint
+    // coordinate frame used by the Shape Editor layout cuts.
     const cT = Number(cfg && cfg.claddingThickness) || 0;
-    dx = -cT;
-    dy = -cT;
+    const matT = Number(cfg && cfg.coreThickness) || 0;
+    if (cfg && cfg.roofStyle === 'parapet') {
+      dx = matT;
+      dy = matT;
+    } else if (cfg && cfg.roofStyle === 'flat_overhang') {
+      const O = Math.max(0, Number(cfg.roofOverhang) || 5);
+      dx = -O;
+      dy = -O;
+    } else {
+      dx = -cT;
+      dy = -cT;
+    }
   }
   return {
     toWorld: p => ({ x: p.x + dx, y: p.y + dy }),
@@ -10607,6 +10622,19 @@ function buildPanelizedWingFloorPart(cfg, plan, wing, index) {
       { type: 'etch', x1: 0, y1: halfD, x2: W, y2: halfD },
     ],
     _panelizedFloor: true,
+    // This split wing floor is drawn in wing-local coordinates. Layout cuts
+    // are authored in global Shape Editor coordinates, so give the cropper
+    // the transform it needs to clip this piece. Without this, a material-size
+    // split wing floor ignored arc/line layout cuts completely.
+    _layoutClipTransform: {
+      kind: 'wing',
+      face: wing.face,
+      offset: wing.offset,
+      mainW: cfg.width,
+      mainD: cfg.depth,
+      localOffsetX: 0,
+      localOffsetY: 0,
+    },
   };
 }
 
@@ -22552,6 +22580,32 @@ function generateBuildingWithWings(cfg) {
     const sfx = `_wing${wi}`;
     const wCfg = buildWingCfg(cfg, wing);
     const wPlan = buildEdgePlans(wCfg);
+    const wingLayoutClipTransform = (localOffsetX, localOffsetY) => ({
+      kind: 'wing',
+      face: wing.face,
+      offset: wing.offset,
+      mainW: cfg.width,
+      mainD: cfg.depth,
+      localOffsetX: localOffsetX || 0,
+      localOffsetY: localOffsetY || 0,
+    });
+    const wingRoofLocalOffset = () => {
+      if (wCfg.roofStyle === 'parapet') return { x: wPlan.matT, y: wPlan.matT };
+      if (wCfg.roofStyle === 'flat_overhang') {
+        const O = Math.max(0, Number(wCfg.roofOverhang) || 5);
+        return { x: -O, y: -O };
+      }
+      return { x: 0, y: 0 };
+    };
+    const wingRoofCladdingLocalOffset = () => {
+      if (wCfg.roofStyle === 'parapet') return { x: wPlan.matT, y: wPlan.matT };
+      if (wCfg.roofStyle === 'flat_overhang') {
+        const O = Math.max(0, Number(wCfg.roofOverhang) || 5);
+        return { x: -O, y: -O };
+      }
+      const cT = Number(wCfg.claddingThickness) || 0;
+      return { x: -cT, y: -cT };
+    };
     const connWall = wingConnectionWallKey(wing); // e.g. 'west' for east-face wing
 
     // Walls — skip the connection face; it's handled as a dividing wall (or nothing for 'open')
@@ -22583,11 +22637,22 @@ function generateBuildingWithWings(cfg) {
 
     /* Wing roof */
     const wRoof = generateRoof(wCfg, wPlan);
+    const wRoofOff = wingRoofLocalOffset();
     if (Array.isArray(wRoof)) {
-      wRoof.forEach((p, i) => { p.id += sfx; p.name = `Wing ${wi+1} ${p.name}`; });
+      wRoof.forEach((p, i) => {
+        p.id += sfx;
+        p.name = `Wing ${wi+1} ${p.name}`;
+        // Flat/parapet wing roof panels live in wing-local plan coordinates;
+        // mark them crop-aware so layout cut lines/arcs affect the exported
+        // core roof piece for this wing instead of only the main roof.
+        if (p.id.startsWith('roof' + sfx) || p.id.includes('roof')) {
+          p._layoutClipTransform = wingLayoutClipTransform(wRoofOff.x, wRoofOff.y);
+        }
+      });
       parts.push(...wRoof);
     } else {
       wRoof.id += sfx; wRoof.name = `Wing ${wi+1} Roof`;
+      wRoof._layoutClipTransform = wingLayoutClipTransform(wRoofOff.x, wRoofOff.y);
       parts.push(wRoof);
     }
 
@@ -22627,11 +22692,13 @@ function generateBuildingWithWings(cfg) {
         ? generateCladdingPattern(wRoofStyleSpec, 0, 0, wRW, wRH, [], null)
             .map(seg => ({ type: 'etch', x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2 }))
         : [];
+      const wCladOff = wingRoofCladdingLocalOffset();
       parts.push({ id: 'cladding_roof' + sfx, name: `Wing ${wi+1} Cladding Roof`, material: 'cladding',
         bboxW: wRW, bboxH: wRH,
         bboxOffsetX: 0, bboxOffsetY: 0,
         paths: [{ type: 'cut', d: rectPath(0, 0, wRW, wRH) }],
-        rects: [], lines: wRoofLines });
+        rects: [], lines: wRoofLines,
+        _layoutClipTransform: wingLayoutClipTransform(wCladOff.x, wCladOff.y) });
     }
 
     /* ---- 3. Dividing wall (for 'wall' connections) ----

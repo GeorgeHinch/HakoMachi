@@ -583,6 +583,52 @@
     border-radius: 4px;
   }
 
+
+  .preview {
+    position: relative;
+  }
+  .hako-drop-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    background: rgba(250, 250, 247, 0.72);
+    backdrop-filter: blur(2px);
+  }
+  .hako-drop-overlay.active {
+    display: flex;
+  }
+  .hako-drop-card {
+    border: 2px dashed var(--accent);
+    border-radius: 14px;
+    background: rgba(255,255,255,0.94);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.16);
+    padding: 24px 34px;
+    text-align: center;
+    max-width: min(520px, calc(100vw - 48px));
+  }
+  .hako-drop-card strong {
+    display: block;
+    font-size: 18px;
+    margin-bottom: 6px;
+    color: var(--fg);
+  }
+  .hako-drop-card span {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+
+  input.readonly-derived {
+    background: #f3f3ee;
+    color: var(--muted);
+    border-style: dashed;
+  }
+
 </style>
 </head>
 <body>
@@ -720,16 +766,18 @@
         </select>
       </div>
       <div class="field" id="heightField">
-        <label data-i18n="lbl_height">Height (mm)</label>
-        <input type="number" id="height" min="20" max="300" step="5">
+        <label data-i18n="lbl_height">Building height incl. parapet (mm)</label>
+        <input type="number" id="height" min="20" max="320" step="0.5">
+        <div class="small" id="heightModeHelp"></div>
       </div>
-      <div class="field" id="floorsField" style="display:none">
+      <div class="field" id="floorsField">
         <label data-i18n="lbl_floors">Number of floors</label>
         <input type="number" id="floors" min="1" max="10" step="1">
       </div>
-      <div class="field" id="floorHeightField" style="display:none">
-        <label data-i18n="lbl_floorH">Floor height (mm)</label>
-        <input type="number" id="floorHeight" min="10" max="50" step="1">
+      <div class="field" id="floorHeightField">
+        <label data-i18n="lbl_floorH">Upper floor height (mm)</label>
+        <input type="number" id="floorHeight" min="1" max="80" step="0.5">
+        <div class="small" id="floorHeightModeHelp"></div>
       </div>
     </details>
 
@@ -1145,7 +1193,7 @@
             <div class="overflow-sep"></div>
             <button id="exportConfigBtn" title="Download settings as a standalone .hako file">⬇ Export settings (.hako)</button>
             <button id="importConfigBtn" title="Import settings from a .hako file (or legacy .json)">⬆ Import settings (.hako)</button>
-            <input type="file" id="importConfigFile" accept=".hako,.json,application/json" style="display:none">
+            <input type="file" id="importConfigFile" accept=".hako,.hakoseed,.hakoplan,.json,application/json" style="display:none">
             <div class="overflow-sep"></div>
             <button id="resetBtn" title="Reset to building-type defaults">↺ Reset to defaults</button>
             <div class="overflow-sep"></div>
@@ -1160,7 +1208,13 @@
   </div>
 
   <!-- RIGHT PANEL: PREVIEW -->
-  <div class="preview">
+  <div class="preview" id="previewDropZone">
+    <div id="hakoDropOverlay" class="hako-drop-overlay" aria-hidden="true">
+      <div class="hako-drop-card">
+        <strong>Drop .hako / site seed file to import</strong>
+        <span>Building settings or HakoMachi site-plan seeds will load through the normal import/upgrade path.</span>
+      </div>
+    </div>
     <div class="legend">
       <span><span class="swatch" style="background:#c84a3a"></span> Cut</span>
       <span><span class="swatch" style="background:#2a64aa"></span> Etch / score</span>
@@ -2241,6 +2295,8 @@ function ensurePrintedMaterialDefinition(cfg) {
 
 function upgradeConfigToCurrentStorage(cfg) {
   if (!cfg || typeof cfg !== 'object') return cfg;
+  migrateHeightToIncludeParapet(cfg);
+  normalizeSegmentedWallExposureZones(cfg);
   convertLegacyWallBucketsToWallFeaturesOnce(cfg);
   ensurePrintedMaterialDefinition(cfg);
   for (const wing of (cfg.wings || [])) {
@@ -2422,7 +2478,7 @@ function embeddedRailWallLocalXToPhysical(cfg, face, x, w) {
 function embeddedRailBayOpsForFace(cfg, face, opts = {}) {
   const rails = embeddedRailsForCfg(cfg);
   if (!rails.length) return [];
-  const H = cfg.height || 60;
+  const H = wallBodyHeightFromConfig(cfg) || 60;
   const matT = cfg.coreThickness || 1.5;
   const bcW = (cfg.width || 80) - 2 * matT;
   const bcH = (cfg.depth || 80) - 2 * matT;
@@ -2514,17 +2570,25 @@ function findBayOnFace(cfg, face) {
 function manualStructuralOps(cfg, face) {
   if (!cfg) return null;
   const wf = ensureWallFeatureMap(cfg);
-  if (Array.isArray(wf[face]) && wf[face].length === 0) {
-    // Manual-empty wall: suppress generated default windows/doors.
-    return [];
+
+  // IMPORTANT: in the unified wallFeatures model, the presence of an array
+  // means this face is manually controlled. That includes:
+  //   - []                     => intentionally no wall features
+  //   - [fixtures only]         => no manually placed windows/doors
+  //   - [cladding overrides...] => no manually placed windows/doors
+  //
+  // Previously this returned null when the array had only surface features,
+  // which sent the wall core generator back into auto mode and re-created
+  // default windows. That is why an east/west wall with vents/cladding patches
+  // but no windows still generated auto window holes. Return the filtered
+  // structural list even when empty so auto windows/doors stay suppressed.
+  if (Array.isArray(wf[face])) {
+    return wf[face].filter(op => op && (op.type === 'window' || op.type === 'door'));
   }
 
-  // Only persisted manual windows/doors count here. Generated embedded-rail bay
-  // handles are structural cut contributors, but they should not make a wall
-  // look manually windowed/door'ed or revive defaults after a clear operation.
-  const stored = Array.isArray(wf[face]) ? wf[face] : [];
-  const filtered = stored.filter(op => op && (op.type === 'window' || op.type === 'door'));
-  return filtered.length > 0 ? filtered : null;
+  // null means the face has never been manually controlled and may use the
+  // global auto window/door settings.
+  return null;
 }
 
 /* Resolve the building's effective bay state.
@@ -4007,7 +4071,7 @@ const FIXTURE_STYLES = {
 
   downspout: {
     label: 'Downspout',
-    description: 'Vertical drainpipe with bracket bands. Auto-sizes to the full wall height when placed — the gutter sits at the eaves and the spout vents at ground level, just like a real downspout. Width is still user-tunable.',
+    description: 'Vertical drainpipe with bracket bands. Auto-sizes to the full wall height when placed. On parapet and parapet-gable roofs it terminates into a small scupper box at the roof line; on other roofs it behaves like a normal eaves downspout. Width is still user-tunable.',
     width: 0.8, height: 16,
     depthTier: 'shallow',
     resizable: 'height',
@@ -4370,6 +4434,270 @@ const FIXTURE_STYLES = {
       },
     ],
   },
+
+  /* ---- INDUSTRIAL FIXTURES: non-opening wall features / glue-on details ---- */
+
+  louver_bank_industrial: {
+    label: 'Louver bank',
+    description: 'Large industrial louver bank. Glue-on cladding piece with dense horizontal louvers; does not cut the core.',
+    width: 18, height: 10,
+    depthTier: 'medium',
+    toolboxSection: 'industrial_fixtures',
+    pieces: [
+      { material: 'cladding', panelFill: '#b8bab3', frameColor: '#424640', features: [] },
+      {
+        material: 'cladding', panelFill: '#c7c9c0', frameColor: '#424640',
+        featureGenerator: (w, h) => {
+          const out = [
+            { type: 'panel', x1: 0.5, y1: 0.5, x2: w - 0.5, y2: h - 0.5 },
+          ];
+          const margin = 1.1;
+          const usable = Math.max(0.5, h - 2 * margin);
+          const count = Math.max(5, Math.round(usable / 0.7));
+          for (let i = 0; i < count; i++) {
+            const y = margin + (i + 0.5) * (usable / count);
+            out.push({ type: 'rail', x1: 1.0, y1: y, x2: w - 1.0, y2: y, thick: true });
+          }
+          return out;
+        },
+      },
+    ],
+  },
+
+  large_vent_grille: {
+    label: 'Large vent grille',
+    description: 'Large square/rectangular ventilation grille. Glue-on layer with grid etching; no core cut.',
+    width: 14, height: 12,
+    depthTier: 'medium',
+    toolboxSection: 'industrial_fixtures',
+    pieces: [
+      {
+        material: 'cladding', panelFill: '#aeb2ad', frameColor: '#3e433f',
+        featureGenerator: (w, h) => [
+          { type: 'panel', x1: 0.5, y1: 0.5, x2: w - 0.5, y2: h - 0.5 },
+          { type: 'latticeGrid', x1: 1.0, y1: 1.0, x2: w - 1.0, y2: h - 1.0, targetCell: 2.0 },
+        ],
+      },
+      {
+        material: 'cladding', panelFill: '#777d78', frameColor: '#333733',
+        offsetX: 1.0, offsetY: 1.0, width: 12, height: 10,
+        featureGenerator: (w, h) => [
+          { type: 'horizontalRails', x1: 0.4, y1: 0.6, x2: w - 0.4, y2: h - 0.6, spacing: 0.9 },
+        ],
+      },
+    ],
+  },
+
+  pipe_penetration_ring: {
+    label: 'Pipe penetration ring',
+    description: 'Through-wall pipe opening with a glue-on circular flange ring. This is explicitly marked as a through-penetration and cuts cladding + core.',
+    width: 7, height: 7,
+    depthTier: 'medium',
+    toolboxSection: 'industrial_fixtures',
+    throughCore: true,
+    throughHole: { shape: 'circle', xRatio: 0.28, yRatio: 0.28, wRatio: 0.44, hRatio: 0.44 },
+    pieces: [
+      {
+        material: 'cladding', panelFill: '#9aa0a0', frameColor: '#333838',
+        shape: 'circle',
+        innerCut: { shape: 'circle', xRatio: 0.28, yRatio: 0.28, wRatio: 0.44, hRatio: 0.44 },
+        features: [
+          { type: 'stud', cx: 3.5, cy: 0.8, r: 0.18 },
+          { type: 'stud', cx: 6.2, cy: 3.5, r: 0.18 },
+          { type: 'stud', cx: 3.5, cy: 6.2, r: 0.18 },
+          { type: 'stud', cx: 0.8, cy: 3.5, r: 0.18 },
+        ],
+      },
+      {
+        material: 'cladding', panelFill: '#6f7777', frameColor: '#303535',
+        shape: 'circle', offsetX: 2.15, offsetY: 2.15, width: 2.7, height: 2.7,
+        innerCut: { shape: 'circle', xRatio: 0.22, yRatio: 0.22, wRatio: 0.56, hRatio: 0.56 },
+        features: [],
+      },
+    ],
+  },
+
+  cable_tray_wall: {
+    label: 'Cable tray',
+    description: 'Wall-mounted cable tray / conduit rack. Glue-on long strip with cross-rungs; no core cut.',
+    width: 28, height: 3,
+    depthTier: 'medium',
+    toolboxSection: 'industrial_fixtures',
+    pieces: [
+      { material: 'cladding', panelFill: '#8f938d', frameColor: '#363a36', features: [] },
+      {
+        material: 'cladding', panelFill: '#a4a8a1', frameColor: '#363a36',
+        featureGenerator: (w, h) => {
+          const out = [
+            { type: 'rail', x1: 0.3, y1: 0.55, x2: w - 0.3, y2: 0.55, thick: true },
+            { type: 'rail', x1: 0.3, y1: h - 0.55, x2: w - 0.3, y2: h - 0.55, thick: true },
+          ];
+          const count = Math.max(5, Math.round(w / 3));
+          for (let i = 1; i < count; i++) {
+            const x = (i / count) * w;
+            out.push({ type: 'rail', x1: x, y1: 0.6, x2: x, y2: h - 0.6 });
+          }
+          return out;
+        },
+      },
+    ],
+  },
+
+  exterior_electrical_cabinet: {
+    label: 'Electrical cabinet',
+    description: 'Exterior wall-mounted industrial electrical/control cabinet with door seams, handle, vents, and warning plate.',
+    width: 9, height: 13,
+    depthTier: 'deep',
+    toolboxSection: 'industrial_fixtures',
+    pieces: [
+      { material: 'cladding', panelFill: '#b9beb8', frameColor: '#3c423d', features: [] },
+      { material: 'cladding', panelFill: '#b9beb8', frameColor: '#3c423d', features: [] },
+      {
+        material: 'cladding', panelFill: '#cbd0c8', frameColor: '#3c423d',
+        featureGenerator: (w, h) => [
+          { type: 'panel', x1: 0.5, y1: 0.5, x2: w - 0.5, y2: h - 0.5 },
+          { type: 'rail', x1: w * 0.5, y1: 0.7, x2: w * 0.5, y2: h - 0.7 },
+          { type: 'handle', x1: w - 1.5, y1: h * 0.44, x2: w - 1.5, y2: h * 0.58 },
+          { type: 'horizontalRails', x1: 1.0, y1: h - 3.0, x2: w - 1.0, y2: h - 1.2, spacing: 0.55 },
+          { type: 'panel', x1: 1.0, y1: 1.1, x2: 3.4, y2: 2.3 },
+        ],
+      },
+    ],
+  },
+
+  dust_collector_box: {
+    label: 'Dust collector box',
+    description: 'Boxy wall-mounted dust collector / filter housing. Laser-cut as stacked cladding layers with grille lines.',
+    width: 13, height: 11,
+    depthTier: 'deep',
+    toolboxSection: 'industrial_fixtures',
+    pieces: [
+      { material: 'cladding', panelFill: '#9a968c', frameColor: '#3c3831', features: [] },
+      { material: 'cladding', panelFill: '#9a968c', frameColor: '#3c3831', features: [] },
+      {
+        material: 'cladding', panelFill: '#b2ada1', frameColor: '#3c3831',
+        featureGenerator: (w, h) => [
+          { type: 'panel', x1: 0.7, y1: 0.7, x2: w - 0.7, y2: h - 0.7 },
+          { type: 'horizontalRails', x1: 1.1, y1: 1.4, x2: w - 1.1, y2: h * 0.55, spacing: 0.75 },
+          { type: 'panel', x1: w * 0.32, y1: h * 0.68, x2: w * 0.68, y2: h - 1.0 },
+        ],
+      },
+      {
+        material: 'cladding', panelFill: '#6f6a61', frameColor: '#302d28',
+        offsetX: 4.0, offsetY: 8.0, width: 5.0, height: 2.0,
+        features: [],
+      },
+    ],
+  },
+
+  wall_mounted_duct: {
+    label: 'Wall duct',
+    description: 'Rectangular wall-mounted duct run with band clamps. Glue-on strip; no wall cut by default.',
+    width: 22, height: 4.5,
+    depthTier: 'deep',
+    toolboxSection: 'industrial_fixtures',
+    pieces: [
+      { material: 'cladding', panelFill: '#8e958f', frameColor: '#303632', features: [] },
+      { material: 'cladding', panelFill: '#8e958f', frameColor: '#303632', features: [] },
+      {
+        material: 'cladding', panelFill: '#a9b0aa', frameColor: '#303632',
+        featureGenerator: (w, h) => {
+          const out = [
+            { type: 'panel', x1: 0.4, y1: 0.5, x2: w - 0.4, y2: h - 0.5 },
+            { type: 'rail', x1: 0.5, y1: h * 0.35, x2: w - 0.5, y2: h * 0.35 },
+            { type: 'rail', x1: 0.5, y1: h * 0.65, x2: w - 0.5, y2: h * 0.65 },
+          ];
+          const bands = Math.max(3, Math.round(w / 6));
+          for (let i = 1; i < bands; i++) {
+            const x = (i / bands) * w;
+            out.push({ type: 'ironBand', x1: x - 0.18, y1: 0.2, x2: x + 0.18, y2: h - 0.2 });
+          }
+          return out;
+        },
+      },
+    ],
+  },
+
+  ladder_strip: {
+    label: 'Ladder strip',
+    description: 'Flat wall ladder strip with side rails and rungs. Laser-cut as glue-on/etched layers; no core cut.',
+    width: 4, height: 24,
+    depthTier: 'medium',
+    toolboxSection: 'industrial_fixtures',
+    pieces: [
+      {
+        material: 'cladding', panelFill: '#707872', frameColor: '#252b27',
+        featureGenerator: (w, h) => {
+          const out = [
+            { type: 'rail', x1: 0.8, y1: 0.2, x2: 0.8, y2: h - 0.2, thick: true },
+            { type: 'rail', x1: w - 0.8, y1: 0.2, x2: w - 0.8, y2: h - 0.2, thick: true },
+          ];
+          const count = Math.max(5, Math.round(h / 2.6));
+          for (let i = 1; i < count; i++) {
+            const y = (i / count) * h;
+            out.push({ type: 'rail', x1: 0.8, y1: y, x2: w - 0.8, y2: y, thick: true });
+          }
+          return out;
+        },
+      },
+    ],
+  },
+
+  safety_cage: {
+    label: 'Safety cage',
+    description: 'Ladder safety cage overlay. Laser-cut as flat cage ribs; best as suggestive relief, not a true round cage.',
+    width: 8, height: 24,
+    depthTier: 'deep',
+    toolboxSection: 'industrial_fixtures',
+    laserCaveat: 'A true cylindrical safety cage is not practical in flat laser-cut sheet; this generates a flat relief approximation.',
+    pieces: [
+      {
+        material: 'cladding', panelFill: 'rgba(110,118,112,0.55)', frameColor: '#28302b',
+        featureGenerator: (w, h) => {
+          const out = [
+            { type: 'rail', x1: w * 0.28, y1: 0.2, x2: w * 0.28, y2: h - 0.2, thick: true },
+            { type: 'rail', x1: w * 0.72, y1: 0.2, x2: w * 0.72, y2: h - 0.2, thick: true },
+            { type: 'rail', x1: w * 0.5, y1: 0.4, x2: w * 0.5, y2: h - 0.4 },
+          ];
+          const hoops = Math.max(4, Math.round(h / 5));
+          for (let i = 1; i < hoops; i++) {
+            const y = (i / hoops) * h;
+            out.push({ type: 'rail', x1: 0.4, y1: y, x2: w - 0.4, y2: y, thick: true });
+          }
+          return out;
+        },
+      },
+      {
+        material: 'cladding', panelFill: 'rgba(120,128,122,0.4)', frameColor: '#28302b',
+        offsetX: 1.0, offsetY: 1.0, width: 6.0, height: 22.0,
+        featureGenerator: (w, h) => [
+          { type: 'latticeVertical', x1: 0.5, y1: 0.2, x2: w - 0.5, y2: h - 0.2 },
+        ],
+      },
+    ],
+  },
+
+  service_platform_brackets: {
+    label: 'Platform brackets',
+    description: 'Pair of triangular wall brackets for a small service platform. Glue-on detail; no wall cut.',
+    width: 12, height: 6,
+    depthTier: 'medium',
+    toolboxSection: 'industrial_fixtures',
+    pieces: [
+      {
+        material: 'cladding', panelFill: '#6d746e', frameColor: '#242a26',
+        features: [
+          { type: 'rail', x1: 1.0, y1: 1.0, x2: 1.0, y2: 5.2, thick: true },
+          { type: 'rail', x1: 1.0, y1: 5.2, x2: 5.0, y2: 1.0, thick: true },
+          { type: 'rail', x1: 1.0, y1: 1.0, x2: 5.0, y2: 1.0, thick: true },
+          { type: 'rail', x1: 7.0, y1: 1.0, x2: 7.0, y2: 5.2, thick: true },
+          { type: 'rail', x1: 7.0, y1: 5.2, x2: 11.0, y2: 1.0, thick: true },
+          { type: 'rail', x1: 7.0, y1: 1.0, x2: 11.0, y2: 1.0, thick: true },
+        ],
+      },
+    ],
+  },
+
 };
 
 /* Default fixture dimensions for a given style, mirroring getWindowDims().
@@ -4418,6 +4746,25 @@ function buildFixtureSvgBody(style, w, h, opts) {
         svg += `<rect x="${(px * sx).toFixed(2)}" y="${(py * sy).toFixed(2)}"`
              + ` width="${(pw * sx).toFixed(2)}" height="${(ph * sy).toFixed(2)}"`
              + ` fill="${fill}" stroke="${stroke}" stroke-width="${sw.toFixed(3)}"/>`;
+      }
+    }
+
+    // Optional internal cut preview, used by rings/flanges. In the physical
+    // fixture sheet this becomes an actual cut path; here it is shown as a
+    // dark/empty hole so the toolbox/editor icon matches the part.
+    if (!isEtched && piece.innerCut) {
+      const ic = piece.innerCut;
+      const ix = px + ((ic.x != null) ? ic.x : ((ic.xRatio || 0) * pw));
+      const iy = py + ((ic.y != null) ? ic.y : ((ic.yRatio || 0) * ph));
+      const iw = (ic.w != null) ? ic.w : ((ic.wRatio || 0.5) * pw);
+      const ih = (ic.h != null) ? ic.h : ((ic.hRatio || 0.5) * ph);
+      if (ic.shape === 'circle') {
+        const cx = (ix + iw / 2) * sx;
+        const cy = (iy + ih / 2) * sy;
+        const r  = Math.min(iw * sx, ih * sy) / 2;
+        svg += `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${r.toFixed(2)}" fill="#1a1814" stroke="${stroke}" stroke-width="${sw.toFixed(3)}"/>`;
+      } else {
+        svg += `<rect x="${(ix * sx).toFixed(2)}" y="${(iy * sy).toFixed(2)}" width="${(iw * sx).toFixed(2)}" height="${(ih * sy).toFixed(2)}" fill="#1a1814" stroke="${stroke}" stroke-width="${sw.toFixed(3)}"/>`;
       }
     }
 
@@ -5120,6 +5467,8 @@ let CONFIG = {
   buildingType: 'industrial_loading',
   buildingName: null,
   width: 80, depth: 80, height: 120,
+  heightIncludesParapet: true,
+  wallExposureZones: [],
   heightMode: 'absolute', floorCount: 4, floorHeight: 30,
   claddingStyle: 'alc_panel',
   // Roof cladding style — independent from wall cladding so a building can
@@ -7061,6 +7410,245 @@ function slotPath(x, y, w, h, kerf) {
    matches one of the floorCenterYs, that floor's windows use groundWinDims instead 
    of winDims. Each window in the result has isGround=true if it sits on the ground 
    floor (lets callers tag them for the correct window-parts file). */
+
+/* =====================================================================
+   SEGMENTED WALL EXPOSURE
+   Replaces the older idea of a whole-wall / partial-height exposure with
+   true zones along both wall length (T) and vertical floors.
+   ===================================================================== */
+
+const WALL_EXPOSURE_TYPES = {
+  partyWall:    { claddingMode: 'none',        allowWindows: false, allowDoors: false, allowFixtures: false, allowSigns: false },
+  exposedSide:  { claddingMode: 'plain',       allowWindows: true,  allowDoors: false, allowFixtures: true,  allowSigns: false },
+  rearService:  { claddingMode: 'plain',       allowWindows: true,  allowDoors: true,  allowFixtures: true,  allowSigns: false },
+  alley:        { claddingMode: 'detailed',    allowWindows: true,  allowDoors: true,  allowFixtures: true,  allowSigns: true  },
+  serviceGap:   { claddingMode: 'plain',       allowWindows: false, allowDoors: false, allowFixtures: true,  allowSigns: false },
+  sideStreet:   { claddingMode: 'detailed',    allowWindows: true,  allowDoors: true,  allowFixtures: true,  allowSigns: true  },
+  mainStreet:   { claddingMode: 'fullFacade',  allowWindows: true,  allowDoors: true,  allowFixtures: true,  allowSigns: true  },
+};
+
+function defaultExposureForEdge(edgeId) {
+  if (edgeId === 'front') return 'mainStreet';
+  if (edgeId === 'back') return 'rearService';
+  return 'exposedSide';
+}
+
+function exposureDefaults(exposure, edgeId) {
+  return WALL_EXPOSURE_TYPES[exposure] || WALL_EXPOSURE_TYPES[defaultExposureForEdge(edgeId)] || WALL_EXPOSURE_TYPES.exposedSide;
+}
+
+function normalizeWallExposureZone(raw, fallbackEdge = 'front', floorCount = 1) {
+  if (!raw || typeof raw !== 'object') return null;
+  const edgeId = ['front','back','east','west'].includes(raw.edgeId || raw.edge || raw.face)
+    ? (raw.edgeId || raw.edge || raw.face)
+    : fallbackEdge;
+  const exposure = WALL_EXPOSURE_TYPES[raw.exposure] ? raw.exposure : defaultExposureForEdge(edgeId);
+  const defs = exposureDefaults(exposure, edgeId);
+
+  let fromT = Number(raw.fromT);
+  let toT = Number(raw.toT);
+  if (!Number.isFinite(fromT)) fromT = 0;
+  if (!Number.isFinite(toT)) toT = 1;
+  fromT = Math.max(0, Math.min(1, fromT));
+  toT = Math.max(0, Math.min(1, toT));
+  if (toT < fromT) [fromT, toT] = [toT, fromT];
+  if (toT - fromT < 0.0005) return null;
+
+  let fromFloor = Number(raw.fromFloor);
+  let toFloor = Number(raw.toFloor);
+  if (!Number.isFinite(fromFloor)) fromFloor = 0;
+  if (!Number.isFinite(toFloor)) toFloor = Math.max(1, floorCount || 1);
+  fromFloor = Math.max(0, Math.floor(fromFloor));
+  toFloor = Math.max(fromFloor + 1, Math.floor(toFloor));
+
+  return {
+    edgeId,
+    fromT,
+    toT,
+    fromFloor,
+    toFloor,
+    exposure,
+    claddingMode: raw.claddingMode || defs.claddingMode,
+    allowWindows: raw.allowWindows != null ? !!raw.allowWindows : !!defs.allowWindows,
+    allowDoors: raw.allowDoors != null ? !!raw.allowDoors : !!defs.allowDoors,
+    allowFixtures: raw.allowFixtures != null ? !!raw.allowFixtures : !!defs.allowFixtures,
+    allowSigns: raw.allowSigns != null ? !!raw.allowSigns : !!defs.allowSigns,
+  };
+}
+
+function normalizeSegmentedWallExposureZones(cfg) {
+  if (!cfg || typeof cfg !== 'object') return cfg;
+  const floorCount = Math.max(1, Number(cfg.floorCount || cfg.floors || 1));
+
+  // Current canonical key.
+  let zones = Array.isArray(cfg.wallExposureZones) ? cfg.wallExposureZones.slice() : [];
+
+  // Legacy/experimental aliases accepted from Site Planner seeds.
+  if (!zones.length && Array.isArray(cfg.wallExposure)) zones = cfg.wallExposure.slice();
+  if (!zones.length && Array.isArray(cfg.partialHeightExposureZones)) zones = cfg.partialHeightExposureZones.slice();
+  if (!zones.length && cfg.wallExposure && typeof cfg.wallExposure === 'object' && !Array.isArray(cfg.wallExposure)) {
+    for (const [edgeId, val] of Object.entries(cfg.wallExposure)) {
+      if (Array.isArray(val)) {
+        for (const z of val) zones.push({ edgeId, ...z });
+      } else if (val && typeof val === 'object') {
+        zones.push({ edgeId, ...val });
+      } else if (typeof val === 'string') {
+        zones.push({ edgeId, exposure: val, fromT: 0, toT: 1, fromFloor: 0, toFloor: floorCount });
+      }
+    }
+  }
+
+  const normalized = [];
+  for (const raw of zones) {
+    const z = normalizeWallExposureZone(raw, raw && (raw.edgeId || raw.edge || raw.face), floorCount);
+    if (z) normalized.push(z);
+  }
+
+  // Keep only explicit zones; default exposure is computed at query time.
+  cfg.wallExposureZones = normalized;
+  delete cfg.partialHeightExposureZones;
+  return cfg;
+}
+
+function floorIndexAtWallY(plan, y) {
+  if (!plan) return 0;
+  const H = Number(plan.H) || 1;
+  const distFromGround = Math.max(0, Math.min(H, H - y));
+  const firstH = Math.max(1, Number(plan.firstFloorHeight || plan.floorHeight || H));
+  const upperH = Math.max(1, Number(plan.floorHeight || firstH));
+  if (distFromGround <= firstH + 0.001) return 0;
+  return 1 + Math.floor((distFromGround - firstH) / upperH);
+}
+
+function yRangeForFloorSpan(plan, fromFloor, toFloor) {
+  const H = Number(plan && plan.H) || 1;
+  const floors = Math.max(1, Number(plan && plan.floors) || Number(CONFIG && CONFIG.floorCount) || 1);
+  const firstH = Math.max(1, Number(plan && (plan.firstFloorHeight || plan.floorHeight)) || (H / floors));
+  const upperH = Math.max(1, Number(plan && plan.floorHeight) || firstH);
+  const f0 = Math.max(0, Math.min(floors, Number(fromFloor) || 0));
+  const f1 = Math.max(f0, Math.min(floors, Number(toFloor) || floors));
+  function floorBottomDistance(f) {
+    if (f <= 0) return 0;
+    return firstH + Math.max(0, f - 1) * upperH;
+  }
+  const d0 = floorBottomDistance(f0);
+  const d1 = floorBottomDistance(f1);
+  return {
+    yTop: Math.max(0, H - d1),
+    yBottom: Math.min(H, H - d0),
+  };
+}
+
+function wallExposureAt(cfg, plan, edgeId, t, floorIndex) {
+  const exposure = defaultExposureForEdge(edgeId);
+  const base = { edgeId, fromT: 0, toT: 1, fromFloor: 0, toFloor: Math.max(1, Number(cfg && cfg.floorCount) || 1), exposure,
+    ...exposureDefaults(exposure, edgeId) };
+  const zones = (cfg && Array.isArray(cfg.wallExposureZones)) ? cfg.wallExposureZones : [];
+  let found = base;
+  for (const raw of zones) {
+    const z = normalizeWallExposureZone(raw, edgeId, Math.max(1, Number(cfg && cfg.floorCount) || 1));
+    if (!z || z.edgeId !== edgeId) continue;
+    if (t < z.fromT - 1e-6 || t > z.toT + 1e-6) continue;
+    if (floorIndex < z.fromFloor || floorIndex >= z.toFloor) continue;
+    found = z; // later zones override earlier zones
+  }
+  return found;
+}
+
+function wallExposureAllowsRect(cfg, plan, edgeId, x, y, w, h, kind, wallW, wallH) {
+  if (!cfg || !Array.isArray(cfg.wallExposureZones) || !cfg.wallExposureZones.length) return true;
+  const prop = kind === 'window' ? 'allowWindows'
+            : kind === 'door' ? 'allowDoors'
+            : kind === 'fixture' ? 'allowFixtures'
+            : kind === 'sign' ? 'allowSigns'
+            : null;
+  if (!prop) return true;
+  const samples = [
+    [x + w * 0.5, y + h * 0.5],
+    [x + w * 0.15, y + h * 0.5],
+    [x + w * 0.85, y + h * 0.5],
+  ];
+  for (const [sx, sy] of samples) {
+    const t = Math.max(0, Math.min(1, sx / Math.max(0.001, wallW || 1)));
+    const fl = floorIndexAtWallY(plan, sy);
+    const z = wallExposureAt(cfg, plan, edgeId, t, fl);
+    if (z && z[prop] === false) return false;
+  }
+  return true;
+}
+
+function filterWallExposureRects(items, cfg, plan, edgeId, kind, wallW, wallH, xKey = 'x', yKey = 'y', wKey = 'width', hKey = 'height') {
+  if (!Array.isArray(items) || !items.length) return items;
+  return items.filter(it => wallExposureAllowsRect(cfg, plan, edgeId,
+    Number(it[xKey]) || 0, Number(it[yKey]) || 0,
+    Number(it[wKey]) || 0, Number(it[hKey]) || 0,
+    kind, wallW, wallH));
+}
+
+function wallExposureNoCladdingWallRects(cfg, plan, edgeId, wallW, wallH) {
+  if (!cfg || !Array.isArray(cfg.wallExposureZones) || !cfg.wallExposureZones.length) return [];
+  const out = [];
+  for (const raw of cfg.wallExposureZones) {
+    const z = normalizeWallExposureZone(raw, edgeId, Math.max(1, Number(cfg.floorCount) || 1));
+    if (!z || z.edgeId !== edgeId) continue;
+    if (!(z.exposure === 'partyWall' || z.claddingMode === 'none' || z.claddingMode === 'structuralOnly')) continue;
+    const yr = yRangeForFloorSpan(plan, z.fromFloor, z.toFloor);
+    const x0 = z.fromT * wallW;
+    const x1 = z.toT * wallW;
+    const y0 = yr.yTop;
+    const y1 = yr.yBottom;
+    if (x1 > x0 + 0.01 && y1 > y0 + 0.01) {
+      out.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0, exposure: z.exposure, claddingMode: z.claddingMode });
+    }
+  }
+  return out;
+}
+
+function computeSegmentedExposureFromNeighbors(current, neighbors = [], opts = {}) {
+  // Utility for Site Planner / seeds: derive wallExposureZones from rectangles.
+  // Coordinates are model/site-plan units in the current building's local frame:
+  // current = {x,y,w,d,floors}
+  // neighbor = {x,y,w,d,floors, gapType?}
+  // This intentionally returns zones only; HakoMachi still makes the building
+  // structurally independent and valid.
+  const zones = [];
+  if (!current) return zones;
+  const eps = opts.touchEpsilon != null ? Number(opts.touchEpsilon) : 0.25;
+  const alleyMax = opts.alleyMaxGap != null ? Number(opts.alleyMaxGap) : 6;
+  const serviceGapMax = opts.serviceGapMaxGap != null ? Number(opts.serviceGapMaxGap) : 2;
+  const curFloors = Math.max(1, Number(current.floors || current.floorCount || 1));
+  function add(edgeId, a0, a1, len, nFloors, exposure, gap = 0) {
+    const fromT = Math.max(0, Math.min(1, a0 / Math.max(0.001, len)));
+    const toT = Math.max(0, Math.min(1, a1 / Math.max(0.001, len)));
+    if (toT <= fromT + 0.001) return;
+    const nf = Math.max(1, Math.min(curFloors, Math.round(Number(nFloors) || curFloors)));
+    zones.push(normalizeWallExposureZone({ edgeId, fromT, toT, fromFloor: 0, toFloor: nf, exposure }, edgeId, curFloors));
+    if (nf < curFloors) zones.push(normalizeWallExposureZone({ edgeId, fromT, toT, fromFloor: nf, toFloor: curFloors, exposure: 'exposedSide' }, edgeId, curFloors));
+  }
+  for (const n of neighbors || []) {
+    const nf = Math.max(1, Number(n.floors || n.floorCount || 1));
+    // west/east side contacts: overlap along depth axis
+    const y0 = Math.max(current.y, n.y), y1 = Math.min(current.y + current.d, n.y + n.d);
+    if (y1 > y0) {
+      const westGap = Math.abs((current.x) - (n.x + n.w));
+      const eastGap = Math.abs((current.x + current.w) - n.x);
+      const exposureForGap = g => g <= eps ? 'partyWall' : (g <= serviceGapMax ? 'serviceGap' : (g <= alleyMax ? 'alley' : 'exposedSide'));
+      if (westGap <= alleyMax) add('west', y0 - current.y, y1 - current.y, current.d, nf, exposureForGap(westGap), westGap);
+      if (eastGap <= alleyMax) add('east', y0 - current.y, y1 - current.y, current.d, nf, exposureForGap(eastGap), eastGap);
+    }
+    // front/back contacts: overlap along width axis
+    const x0 = Math.max(current.x, n.x), x1 = Math.min(current.x + current.w, n.x + n.w);
+    if (x1 > x0) {
+      const frontGap = Math.abs((current.y) - (n.y + n.d));
+      const backGap = Math.abs((current.y + current.d) - n.y);
+      const exposureForGap = g => g <= eps ? 'partyWall' : (g <= serviceGapMax ? 'serviceGap' : (g <= alleyMax ? 'alley' : 'exposedSide'));
+      if (frontGap <= alleyMax) add('front', x0 - current.x, x1 - current.x, current.w, nf, exposureForGap(frontGap), frontGap);
+      if (backGap <= alleyMax) add('back', x0 - current.x, x1 - current.x, current.w, nf, exposureForGap(backGap), backGap);
+    }
+  }
+  return zones;
+}
+
 function computeWindows(wallW, wallH, opts) {
   const { density, hasOpening, openingH, slotYs, floorCenterYs, doorReserveH, winDims, groundWinDims, groundFloorCenterY, matT } = opts;
   if (density === 'none') return [];
@@ -7131,6 +7719,9 @@ function computeWindows(wallW, wallH, opts) {
       windows.push({ x, y, width: win.w, height: win.h, isGround: isGround });
     }
   }
+  if (opts && opts.cfg && opts.plan && opts.edgeId) {
+    return filterWallExposureRects(windows, opts.cfg, opts.plan, opts.edgeId, 'window', wallW, wallH);
+  }
   return windows;
 }
 
@@ -7182,16 +7773,21 @@ function computeDoors(wallW, wallH, opts) {
     }
     remaining -= nForRegion;
   }
+  if (opts && opts.cfg && opts.plan && opts.edgeId) {
+    return filterWallExposureRects(doors, opts.cfg, opts.plan, opts.edgeId, 'door', wallW, wallH);
+  }
   return doors;
 }
 
 /* Build the basic edge feature plan for the building, used by all wall generators */
 function buildEdgePlans(cfg) {
-  const { width, depth, height, coreThickness: matT, tongueWidth: tw,
+  const { width, depth, coreThickness: matT, tongueWidth: tw,
           parapetHeight, roofStyle } = cfg;
 
-  // Wall heights all = building height
-  const H = height;
+  // Canonical cfg.height is total building height including parapet. The wall
+  // generators still need the body/wall height below the parapet, so derive it
+  // here in exactly one place.
+  const H = wallBodyHeightFromConfig(cfg);
 
   // The bay opening, ground level, and first floor are all the SAME floor of the 
   // building (the lowest visible level from the outside). When the first-floor 
@@ -7705,6 +8301,7 @@ function generateSideWall(cfg, plan, side) {
       parapetH: plan.parapetH,
       matT: matT,
       doorReserveH: doorReserveH,
+      cfg, plan, edgeId: _sideManualKey,
     });
     sideWindowsToDraw = windows;
     for (const w of sideWindowsToDraw) {
@@ -7722,6 +8319,7 @@ function generateSideWall(cfg, plan, side) {
       doorCount: sideDoorCount,
       hasOpening: false,
       bayXStart: 0, bayXEnd: 0,
+      cfg, plan, edgeId: _sideManualKey,
     });
     for (const d of sideDoors) {
       // Per-aperture core holes for glass doors; nothing for solid doors.
@@ -8249,6 +8847,7 @@ function generateFrontBackWall(cfg, plan, which) {
       parapetH: plan.parapetH,
       matT: matT,
       doorReserveH: doorReserveH,
+      cfg, plan, edgeId: which,
     });
     // Front and back walls now produce the same windows by default (aligned). 
     // We no longer slice the front in half — that broke floor alignment. If the user 
@@ -8269,6 +8868,7 @@ function generateFrontBackWall(cfg, plan, which) {
         doorCount: fbDoorCount,
         hasOpening: false,
         bayXStart: 0, bayXEnd: 0,
+        cfg, plan, edgeId: which,
       });
       for (const d of doors) {
         // Per-aperture core holes for glass doors; nothing for solid doors.
@@ -10637,26 +11237,37 @@ function gableRoofAngleLockStations(cfg, plan, perpLen, ohVerge) {
   return stations;
 }
 
-function generateGableRoofAngleLockOutline(run, rise, tabAlong, tabDepth) {
-  // Clean CCW polygon for a triangular gable brace with one tab protruding
-  // outward from each sloped edge. The earlier implementation used mixed
-  // normal directions, which could put a tab inside the triangle and cause a
-  // self-intersecting outline. Here every edge uses the RIGHT-hand normal of
-  // the CCW edge walk (that is the exterior side of the triangle).
+function generateGableRoofAngleLockOutline(edgeLen, roofCos, roofSin, tabAlong, tabDepth, tabCenterFromApex, webDepth = null) {
+  // Underside roof-angle gusset. The TOP contact edges follow the exact roof
+  // pitch and the tabs are centered from the exact roof-panel slot position.
+  //
+  // Earlier versions made the whole part a literal triangle whose height was
+  // determined by the roof pitch. On shallow parapet-gable roofs that produced
+  // a nearly-flat piece; the tab positions were mathematically near the slots,
+  // but the part had no useful vertical body and was very hard to fit/interpret.
+  //
+  // This version keeps the roof-contact V exact, then extends a deeper web
+  // downward below that V. The tabs still sit on the true roof-slope edges.
+  const run = edgeLen * roofCos;
+  const rise = edgeLen * roofSin;
+  const webH = Math.max(webDepth == null ? 0 : webDepth, rise + 4.5, tabDepth + 3.2);
+
   const L = { x: 0, y: rise };
   const A = { x: run, y: 0 };
   const R = { x: 2 * run, y: rise };
+  const RB = { x: 2 * run, y: webH };
+  const LB = { x: 0, y: webH };
 
-  function slopedEdgeWithOutwardTab(a, b) {
+  function slopedEdgeWithOutwardTab(a, b, tabCenterFromA) {
     const dx = b.x - a.x, dy = b.y - a.y;
     const len = Math.max(0.001, Math.hypot(dx, dy));
     const ux = dx / len, uy = dy / len;
-    // For a CCW polygon, exterior is the right-hand normal.
+    // For this CCW outline, exterior of the top V is the right-hand normal.
     const nx = uy;
     const ny = -ux;
 
-    const half = Math.min(len * 0.18, Math.max(0.8, tabAlong / 2));
-    const center = len * 0.56;
+    const half = Math.min(len * 0.28, Math.max(0.7, tabAlong / 2));
+    const center = Math.max(half + 0.3, Math.min(len - half - 0.3, tabCenterFromA));
     const d = Math.max(0.6, tabDepth);
 
     const p1 = { x: a.x + ux * (center - half), y: a.y + uy * (center - half) };
@@ -10667,15 +11278,19 @@ function generateGableRoofAngleLockOutline(run, rise, tabAlong, tabDepth) {
     return [a, p1, q1, q2, p2, b];
   }
 
-  const leftEdge = slopedEdgeWithOutwardTab(L, A);
-  const rightEdge = slopedEdgeWithOutwardTab(A, R);
+  const tabFromApex = Math.max(0.3, Math.min(edgeLen - 0.3, tabCenterFromApex));
+  const leftTabFromL = edgeLen - tabFromApex;
+  const rightTabFromA = tabFromApex;
 
-  // Walk the outside boundary once: left base → left tab → apex → right tab
-  // → right base → back along the bottom base. Do not add an extra duplicate
-  // start point; the SVG path's Z closes the bottom edge cleanly.
+  const leftEdge = slopedEdgeWithOutwardTab(L, A, leftTabFromL);
+  const rightEdge = slopedEdgeWithOutwardTab(A, R, rightTabFromA);
+
   return [
-    ...leftEdge,
+    LB,
+    L,
+    ...leftEdge.slice(1),
     ...rightEdge.slice(1),
+    RB,
   ];
 }
 
@@ -10683,21 +11298,42 @@ function pointsToPath(pts, ox = 0, oy = 0) {
   return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${(ox + p.x).toFixed(3)},${(oy + p.y).toFixed(3)}`).join(' ') + ' Z';
 }
 
-function generateGableRoofAngleLockParts(cfg, plan, stationCount, halfSpan, pitch, ridgeDir) {
+function generateGableRoofAngleLockParts(cfg, plan, stationCount, halfSpan, pitch, ridgeDir, slotSpec = null) {
   if (!stationCount || stationCount <= 0) return [];
   const matT = (cfg && cfg.coreThickness) || (plan && plan.matT) || 1.5;
   const clearance = (cfg && cfg.slotClearance != null) ? Number(cfg.slotClearance) : 0.08;
-  const run = Math.max(5, Math.min(11, halfSpan * 0.28));
-  const rise = Math.max(2.5, Math.min(8, run * (pitch / Math.max(1, halfSpan))));
-  const tabAlong = Math.max(3.2, Math.min(5.2, Math.hypot(run, rise) * 0.32));
-  const tabDepth = Math.max(1.0, matT + clearance);
-  const pts = generateGableRoofAngleLockOutline(run, rise, tabAlong, tabDepth);
+  const slantLen = slotSpec && slotSpec.slantLen ? Number(slotSpec.slantLen) : Math.hypot(halfSpan, pitch);
+  const roofCos = halfSpan / Math.max(0.001, slantLen);
+  const roofSin = pitch / Math.max(0.001, slantLen);
+
+  const tabAlong = slotSpec && (slotSpec.tabLen || slotSpec.slotLen)
+    ? Number(slotSpec.tabLen || slotSpec.slotLen)
+    : Math.max(3.2, Math.min(5.2, Math.hypot(Math.max(5, Math.min(11, halfSpan * 0.28)), Math.max(0.5, Math.min(8, halfSpan ? Math.max(5, Math.min(11, halfSpan * 0.28)) * (pitch / halfSpan) : 2))) * 0.32));
+  const tabDepth = slotSpec && slotSpec.slotW
+    ? Number(slotSpec.slotW)
+    : Math.max(1.0, matT + clearance);
+
+  // Distance from the ridge/apex to the centre of the roof-panel slot along
+  // the roof slope. This is the critical alignment value.
+  const slotY = slotSpec && slotSpec.slotY != null ? Number(slotSpec.slotY) : Math.max(0, slantLen - tabAlong - matT);
+  const slotLenForCenter = slotSpec && slotSpec.slotLen ? Number(slotSpec.slotLen) : tabAlong;
+  const tabCenterFromApex = Math.max(tabAlong / 2 + 0.3, slantLen - (slotY + slotLenForCenter / 2));
+
+  // Keep the roof-contact edge compact, but make the vertical web deep enough
+  // to be a real gusset. This avoids the shallow-roof failure where the lock
+  // became almost flat even though the slot math was correct.
+  const edgeLen = Math.max(tabCenterFromApex + tabAlong / 2 + 1.2, tabAlong + 2.0, 5.0);
+  const webDepth = Math.max(5.5, matT * 3.4, pitch > 0 ? Math.min(9, pitch + matT * 1.5) : 5.5);
+  const pts = generateGableRoofAngleLockOutline(edgeLen, roofCos, roofSin, tabAlong, tabDepth, tabCenterFromApex, webDepth);
+
   const minX = Math.min(...pts.map(p => p.x));
   const maxX = Math.max(...pts.map(p => p.x));
   const minY = Math.min(...pts.map(p => p.y));
   const maxY = Math.max(...pts.map(p => p.y));
   const cellW = maxX - minX;
   const cellH = maxY - minY;
+  const apexX = edgeLen * roofCos;
+  const apexY = 0;
   const gutter = 4;
   const cols = Math.max(1, Math.min(stationCount, Math.floor((250 - gutter) / (cellW + gutter))));
   const rows = Math.ceil(stationCount / cols);
@@ -10712,13 +11348,12 @@ function generateGableRoofAngleLockParts(cfg, plan, stationCount, halfSpan, pitc
     const ox = gutter + c * (cellW + gutter) - minX;
     const oy = gutter + r * (cellH + gutter) - minY;
     paths.push({ type: 'cut', d: pointsToPath(pts, ox, oy) });
-    // Etched center/ridge mark makes orientation obvious.
-    lines.push({ type: 'etch', x1: ox + run, y1: oy + 0.4, x2: ox + run, y2: oy + Math.max(0.8, rise - 0.6) });
+    lines.push({ type: 'etch', x1: ox + apexX, y1: oy + apexY + 0.25, x2: ox + apexX, y2: oy + Math.max(apexY + 0.75, maxY - minY - 0.4) });
   }
 
   return [createPart({
     id: 'gable_roof_angle_locks',
-    name: `Gable roof angle-lock triangles with tabs — ${stationCount}× (${ridgeDir} ridge)`,
+    name: `Gable roof angle-locks with aligned tabs — ${stationCount}× (${ridgeDir} ridge)`,
     material: 'core',
     bboxW: sheetW,
     bboxH: sheetH,
@@ -10735,10 +11370,20 @@ function generateGableRoofAngleLockParts(cfg, plan, stationCount, halfSpan, pitc
       bboxOffsetY: -minY,
       paths: [{ type: 'cut', d: pointsToPath(pts, -minX, -minY) }],
       rects: [],
-      lines: [{ type: 'etch', x1: run - minX, y1: 0.4 - minY, x2: run - minX, y2: Math.max(0.8, rise - 0.6) - minY }],
+      lines: [{ type: 'etch', x1: apexX - minX, y1: apexY + 0.25 - minY, x2: apexX - minX, y2: Math.max(apexY + 0.75, maxY - 0.4) - minY }],
     },
-    meta: { area: 'roof', role: 'roof_angle_lock' },
-    assemblyNote: `Tabbed underside gable-angle locks. Each sloped-edge tab keys into the matching slot on a roof slope panel; the center etched line points toward the ridge. Dry-fit before gluing so both roof panels are locked at the pitch angle.`
+    meta: {
+      area: 'roof',
+      role: 'roof_angle_lock',
+      slotY,
+      slotLen: slotSpec && slotSpec.slotLen ? Number(slotSpec.slotLen) : tabAlong,
+      tabLen: tabAlong,
+      slotW: tabDepth,
+      slotEndClearance: slotSpec && slotSpec.slotEndClearance ? Number(slotSpec.slotEndClearance) : 0,
+      tabCenterFromApex,
+      roofPitchRatio: roofSin / Math.max(0.0001, roofCos),
+    },
+    assemblyNote: `Deep underside gable-angle gussets. The top V follows the exact roof pitch. The tab center is derived from the roof slot center, and the roof slot includes extra along-slope end clearance so the protruding tab does not sit 1–2 mm away from the slot. The centre etched line points toward the ridge.`
   })];
 }
 
@@ -10991,8 +11636,28 @@ function generateGabledRoof(cfg, plan) {
     const angleLockStations = gableRoofAngleLockStations(cfg, plan, perpLen, ohVerge);
     const angleLockClearance = (cfg.slotClearance != null) ? Number(cfg.slotClearance) : 0.08;
     const angleLockSlotW = Math.max(matT + 0.12, matT + angleLockClearance);
-    const angleLockSlotLen = Math.max(3.2, Math.min(5.2, Math.hypot(Math.max(5, Math.min(11, halfSpan0 * 0.28)), Math.max(2.5, Math.min(8, Math.max(5, Math.min(11, halfSpan0 * 0.28)) * (pitch / Math.max(1, halfSpan0))))) * 0.32));
-    const angleLockSlotY = Math.max(0.8, slantLen - angleLockSlotLen - Math.max(1.0, matT * 0.8));
+
+    // The lock tab and the roof slot need two related but not identical sizes.
+    // The tab is the physical protrusion on the lock piece. The roof slot gets
+    // extra length along the roof slope so a 1–2 mm visual/assembly offset does
+    // not leave the tab missing the slot. Previously the tight slot and the
+    // protruding tab could sit just apart on the panel preview.
+    const angleLockTabLen = Math.max(3.2, Math.min(5.2, matT * 2.6));
+    const angleLockSlotEndClearance = Math.max(0.8, Math.min(1.4, matT * 0.75));
+    const angleLockSlotLen = angleLockTabLen + 2 * angleLockSlotEndClearance;
+
+    // Keep the slot close to the ridge. The tab center is derived from the
+    // slot center, so the lock and panel now share one along-slope datum.
+    const angleLockRidgeInset = Math.max(0.2, Math.min(0.5, matT * 0.2));
+    const angleLockSlotY = Math.max(0.2, slantLen - angleLockSlotLen - angleLockRidgeInset);
+    const angleLockSlotSpec = {
+      slantLen,
+      slotY: angleLockSlotY,
+      slotLen: angleLockSlotLen,
+      tabLen: angleLockTabLen,
+      slotEndClearance: angleLockSlotEndClearance,
+      slotW: angleLockSlotW,
+    };
     for (const st of angleLockStations) {
       const x = st - angleLockSlotW / 2;
       if (x < 0.3 || x + angleLockSlotW > perpLen - 0.3) continue;
@@ -11092,7 +11757,7 @@ function generateGabledRoof(cfg, plan) {
     }
 
     const parts = [panel0, panel1];
-    parts.push(...generateGableRoofAngleLockParts(cfg, plan, angleLockStations.length, halfSpan0, pitch, ridgeDir));
+    parts.push(...generateGableRoofAngleLockParts(cfg, plan, angleLockStations.length, halfSpan0, pitch, ridgeDir, angleLockSlotSpec));
     if (combinedClad) parts.push(combinedClad);
     return parts;
 }
@@ -12060,6 +12725,70 @@ function parseSvgPathToPoints(d) {
       if (i >= toks.length) break;
       let ny = num(); if (rel) ny += y;
       y = ny; pts.push({ x, y });
+    } else if (C === 'A') {
+      // Elliptical arc support is needed for round pass-through / fixture
+      // holes. Without this, sheet-split physical cropping saw only the
+      // first M point of paths like "M ... A ... A ... Z" and dropped the
+      // circular hole from split wall segments.
+      if (i + 6 >= toks.length) break;
+      let rx = Math.abs(num()), ry = Math.abs(num());
+      const phiDeg = num();
+      const largeArc = !!num();
+      const sweep = !!num();
+      let nx = num(), ny = num();
+      if (rel) { nx += x; ny += y; }
+
+      if (rx < 1e-9 || ry < 1e-9) {
+        x = nx; y = ny; pts.push({ x, y });
+      } else {
+        const phi = phiDeg * Math.PI / 180;
+        const cosPhi = Math.cos(phi), sinPhi = Math.sin(phi);
+        const dx2 = (x - nx) / 2;
+        const dy2 = (y - ny) / 2;
+        let x1p = cosPhi * dx2 + sinPhi * dy2;
+        let y1p = -sinPhi * dx2 + cosPhi * dy2;
+
+        // Ensure radii are large enough per SVG spec.
+        const lam = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry);
+        if (lam > 1) {
+          const s = Math.sqrt(lam);
+          rx *= s; ry *= s;
+        }
+
+        const sign = (largeArc === sweep) ? -1 : 1;
+        const denom = (rx * rx * y1p * y1p) + (ry * ry * x1p * x1p);
+        const factor = denom <= 1e-12 ? 0 : sign * Math.sqrt(Math.max(0,
+          ((rx * rx * ry * ry) - (rx * rx * y1p * y1p) - (ry * ry * x1p * x1p)) / denom
+        ));
+        const cxp = factor * (rx * y1p / ry);
+        const cyp = factor * (-ry * x1p / rx);
+
+        const cx = cosPhi * cxp - sinPhi * cyp + (x + nx) / 2;
+        const cy = sinPhi * cxp + cosPhi * cyp + (y + ny) / 2;
+
+        function angleBetween(ux, uy, vx, vy) {
+          const dot = ux * vx + uy * vy;
+          const det = ux * vy - uy * vx;
+          return Math.atan2(det, dot);
+        }
+        const ux = (x1p - cxp) / rx;
+        const uy = (y1p - cyp) / ry;
+        const vx = (-x1p - cxp) / rx;
+        const vy = (-y1p - cyp) / ry;
+        let theta1 = angleBetween(1, 0, ux, uy);
+        let dtheta = angleBetween(ux, uy, vx, vy);
+        if (!sweep && dtheta > 0) dtheta -= 2 * Math.PI;
+        if (sweep && dtheta < 0) dtheta += 2 * Math.PI;
+
+        const steps = Math.max(8, Math.min(48, Math.ceil(Math.abs(dtheta) / (Math.PI / 12))));
+        for (let s = 1; s <= steps; s++) {
+          const t = theta1 + dtheta * (s / steps);
+          const px = cx + cosPhi * rx * Math.cos(t) - sinPhi * ry * Math.sin(t);
+          const py = cy + sinPhi * rx * Math.cos(t) + cosPhi * ry * Math.sin(t);
+          pts.push({ x: px, y: py });
+        }
+        x = nx; y = ny;
+      }
     } else if (C === 'Z') {
       if (pts.length && (Math.abs(pts[0].x - x) > 1e-6 || Math.abs(pts[0].y - y) > 1e-6)) {
         x = sx; y = sy; pts.push({ x, y });
@@ -15455,6 +16184,36 @@ function generateCladdingPanel(cfg, plan, which, band) {
   // clip etched seam lines so no etch falls inside a cut (which would be lost as scrap).
   const cutOpenings = [];
 
+  // Segmented Wall Exposure: partyWall / structuralOnly zones do not receive
+  // exterior cladding. We cut those rectangles out of the cladding panel
+  // instead of treating the whole side wall as one exposure condition.
+  const exposureNoCladding = wallExposureNoCladdingWallRects(
+    cfg, plan, which,
+    (which === 'front' || which === 'back') ? fbWidth : sideLen,
+    H
+  );
+  function wallRectToCladdingLocal(r) {
+    let x;
+    if (which === 'front' || which === 'back') {
+      x = r.x + cT;
+    } else if (which === 'west') {
+      x = r.x + matT;
+    } else {
+      x = (sideLen - r.x - r.w) + matT;
+    }
+    const yFull = r.y + cladTopOverhang;
+    const y0 = Math.max(panelYStart, yFull);
+    const y1 = Math.min(panelYEnd, yFull + r.h);
+    if (y1 <= y0 + 0.01) return null;
+    return { x, y: y0 - panelYStart, w: r.w, h: y1 - y0, exposure: r.exposure };
+  }
+  for (const zr of exposureNoCladding) {
+    const cr = wallRectToCladdingLocal(zr);
+    if (!cr) continue;
+    rects.push({ type: 'cut', x: cr.x, y: cr.y, w: cr.w, h: cr.h, compensateKerf: false });
+    cutOpenings.push({ x: cr.x, y: cr.y, w: cr.w, h: cr.h, kind: 'exposure_' + cr.exposure });
+  }
+
   // Wing side-cladding connection relief. For wings, the connection-face core
   // wall is omitted and the wing's east/west side cladding runs all the way
   // back to the main-wall plane. The main wall already has exterior cladding
@@ -15544,6 +16303,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
         parapetH: plan.parapetH,
         matT: plan.matT,
         doorReserveH: doorReserveH,
+        cfg, plan, edgeId: which,
       });
       for (const w of wallWindows) {
         // Auto-mode windows on the ground floor pick up the first-floor
@@ -15562,6 +16322,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
         const wallDoors = computeDoors(fbWidth, H, {
           doorStyle: doorStyle, doorCount: fbDoorCount,
           hasOpening: false, bayXStart: 0, bayXEnd: 0,
+          cfg, plan, edgeId: which,
         });
         for (const d of wallDoors) {
           cladDoors.push({ x: d.x + cT, y: d.y, w: d.width, h: d.height, style: d.style });
@@ -15650,6 +16411,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
         parapetH: plan.parapetH,
         matT: plan.matT,
         doorReserveH: doorReserveH,
+        cfg, plan, edgeId: which,
       });
       for (const w of wallWindows) {
         // See FB-wall version above for rationale.
@@ -15661,6 +16423,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
       const wallDoors = computeDoors(sideLen, H, {
         doorStyle: doorStyle, doorCount: sideDoorCount,
         hasOpening: false, bayXStart: 0, bayXEnd: 0,
+        cfg, plan, edgeId: which,
       });
       for (const d of wallDoors) {
         cladDoors.push({ x: _sideMirroredX(d.x, d.width), y: d.y, w: d.width, h: d.height, style: d.style });
@@ -15822,6 +16585,16 @@ function generateCladdingPanel(cfg, plan, which, band) {
   for (const f of cladFixturesBand) {
     const style = FIXTURE_STYLES[f.style];
     if (!style) continue;
+    const hasDownspoutScupper = downspoutHasScupperBox(cfg, which, f.style);
+    const scupper = hasDownspoutScupper ? downspoutScupperLocalSpec(f.w, f.h) : null;
+
+    if (style.throughCore) {
+      const th = fixtureThroughHoleSpec(style, f.w, f.h);
+      if (th) {
+        addFixtureThroughHoleGeometry(rects, paths, f.x, f.y, f.w, f.h, th);
+        cutOpenings.push({ x: f.x + th.x, y: f.y + th.y, w: th.w, h: th.h });
+      }
+    }
 
     if (style.placement === 'cutout') {
       // ── Cutout — clean hole through the cladding panel ──
@@ -15868,7 +16641,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
       cutOpenings.push({ x: f.x, y: f.y, w: f.w, h: f.h });
       const scaleX = f.w / style.width;
       const scaleY = f.h / style.height;
-      for (const piece of style.pieces) {
+      for (const piece of fixturePieces) {
         const pcOx = ((piece.offsetX != null) ? piece.offsetX : 0) * scaleX;
         const pcOy = ((piece.offsetY != null) ? piece.offsetY : 0) * scaleY;
         const pcW  = ((piece.width   != null) ? piece.width   : style.width)  * scaleX;
@@ -15918,6 +16691,35 @@ function generateCladdingPanel(cfg, plan, which, band) {
       lines.push({ type: 'etch', x1: x1, y1: y2, x2: x1, y2: y2 - tickLen });
       lines.push({ type: 'etch', x1: x2, y1: y2, x2: x2 - tickLen, y2: y2 });
       lines.push({ type: 'etch', x1: x2, y1: y2, x2: x2, y2: y2 - tickLen });
+
+      if (hasDownspoutScupper && scupper) {
+        rects.push({
+          type: 'cut',
+          x: f.x + scupper.holeX,
+          y: f.y + scupper.holeY,
+          w: scupper.holeW,
+          h: scupper.holeH,
+          compensateKerf: false,
+        });
+        cutOpenings.push({
+          x: f.x + scupper.boxX,
+          y: f.y + scupper.boxY,
+          w: scupper.boxW,
+          h: scupper.boxH,
+        });
+
+        const bx1 = f.x + scupper.boxX, by1 = f.y + scupper.boxY;
+        const bx2 = bx1 + scupper.boxW, by2 = by1 + scupper.boxH;
+        const bt  = Math.max(0.6, Math.min(1.2, Math.min(scupper.boxW, scupper.boxH) * 0.22));
+        lines.push({ type: 'etch', x1: bx1, y1: by1, x2: bx1 + bt, y2: by1 });
+        lines.push({ type: 'etch', x1: bx1, y1: by1, x2: bx1, y2: by1 + bt });
+        lines.push({ type: 'etch', x1: bx2, y1: by1, x2: bx2 - bt, y2: by1 });
+        lines.push({ type: 'etch', x1: bx2, y1: by1, x2: bx2, y2: by1 + bt });
+        lines.push({ type: 'etch', x1: bx1, y1: by2, x2: bx1 + bt, y2: by2 });
+        lines.push({ type: 'etch', x1: bx1, y1: by2, x2: bx1, y2: by2 - bt });
+        lines.push({ type: 'etch', x1: bx2, y1: by2, x2: bx2 - bt, y2: by2 });
+        lines.push({ type: 'etch', x1: bx2, y1: by2, x2: bx2, y2: by2 - bt });
+      }
     }
   }
   if (baySpec) {
@@ -17050,13 +17852,82 @@ function generateDoorInsertsFromSpecs(cfg, doorSpecs) {
  * features are produced at the SCALED piece size, so featureGenerators
  * see the right dimensions and adapt density correctly.
  */
+
+function downspoutHasScupperBox(cfg, face, styleKey) {
+  if (styleKey !== 'downspout') return false;
+  if (!cfg) return false;
+  if (cfg.roofStyle === 'parapet') return true;
+  if (cfg.roofStyle === 'parapet_gable') {
+    return face ? wallHasParapet(cfg, face) : true;
+  }
+  return false;
+}
+
+function downspoutScupperLocalSpec(totalW, totalH) {
+  const spW = Math.max(0.4, Number(totalW) || 0.8);
+  const spH = Math.max(4, Number(totalH) || 16);
+  const boxW  = Math.max(spW * 3.4, spW + 2.0, 2.6);
+  const boxH  = Math.max(2.2, Math.min(3.4, spH * 0.18));
+  const capH  = Math.max(0.45, Math.min(0.85, boxH * 0.24));
+  const lipH  = Math.max(0.6, Math.min(1.2, boxH * 0.36));
+  const lipW  = Math.max(spW * 1.35, Math.min(boxW * 0.55, spW + 0.9));
+  const holeW = Math.max(0.9, Math.min(boxW - 0.8, spW * 1.5));
+  const holeH = Math.max(0.8, Math.min(boxH - 0.7, 1.25));
+  const boxX  = (spW - boxW) / 2;
+  const boxY  = 0;
+  const holeX = boxX + (boxW - holeW) / 2;
+  const holeY = Math.max(0.35, Math.min(boxH - holeH - 0.25, boxH * 0.46 - holeH / 2 + 0.35));
+  const lipX  = (spW - lipW) / 2;
+  const lipY  = Math.max(0.25, boxH - lipH - 0.25);
+  return { spW, spH, boxW, boxH, capH, lipW, lipH, boxX, boxY, lipX, lipY, holeW, holeH, holeX, holeY };
+}
+
+function effectiveFixturePieces(cfg, face, styleKey, instW, instH, forceScupper = null) {
+  const style = FIXTURE_STYLES[styleKey];
+  if (!style) return [];
+  const base = (style.pieces || []).map(p => ({ ...p }));
+  const useScupper = (forceScupper == null)
+    ? downspoutHasScupperBox(cfg, face, styleKey)
+    : !!forceScupper;
+  if (!useScupper) return base;
+
+  const s = downspoutScupperLocalSpec(instW != null ? instW : style.width,
+                                      instH != null ? instH : style.height);
+  const extras = [
+    {
+      material: 'cladding', panelFill: '#8f8f86', frameColor: '#4a4a44',
+      width: s.boxW, height: s.boxH, offsetX: s.boxX, offsetY: s.boxY,
+    },
+    {
+      material: 'cladding', panelFill: '#a0a097', frameColor: '#4a4a44',
+      width: s.boxW, height: s.capH, offsetX: s.boxX, offsetY: s.boxY,
+    },
+    {
+      material: 'cladding', panelFill: '#7b7b73', frameColor: '#4a4a44',
+      width: s.lipW, height: s.lipH, offsetX: s.lipX, offsetY: s.lipY,
+    },
+  ];
+  return extras.concat(base);
+}
+
+function downspoutRooflineTopY(cfg, plan, face, styleKey) {
+  if (!cfg || !plan || styleKey !== 'downspout') return 0;
+  if (cfg.roofStyle === 'parapet') return Number(plan.parapetH) || 0;
+  if (cfg.roofStyle === 'parapet_gable' && wallHasParapet(cfg, face)) {
+    return Number(plan.parapetH) || 0;
+  }
+  return 0;
+}
+
 function generateFixtureParts(cfg, fixtureGroups) {
+
   const parts = [];
 
   for (const group of (fixtureGroups || [])) {
     if (!group || group.count <= 0) continue;
     const style = FIXTURE_STYLES[group.style];
     if (!style) continue;
+    const fixturePieces = effectiveFixturePieces(cfg, null, group.style, group.w, group.h, group.scupper);
     // Etched and cutout placements don't produce separate cut pieces:
     //   • etched  → features land on the cladding panel
     //   • cutout  → hole cut through both cladding and core, no insert
@@ -17066,9 +17937,11 @@ function generateFixtureParts(cfg, fixtureGroups) {
     const scaleX = group.w / style.width;
     const scaleY = group.h / style.height;
 
-    // Group this style's pieces by material so we emit one sheet per material
+    // Group this style's pieces by material so we emit one sheet per material.
+    // Use `fixturePieces`, not `style.pieces`: fixturePieces may include
+    // generated add-on layers such as parapet scupper/gutter boxes.
     const piecesByMaterial = {};
-    for (const piece of style.pieces) {
+    for (const piece of fixturePieces) {
       const mat = piece.material || 'cladding';
       if (!piecesByMaterial[mat]) piecesByMaterial[mat] = [];
       piecesByMaterial[mat].push(piece);
@@ -17122,6 +17995,23 @@ function generateFixtureParts(cfg, fixtureGroups) {
         } else {
           outRects.push({ type: 'cut', x: ox, y: oy, w: pw, h: ph, compensateKerf: false });
         }
+        if (piece.innerCut) {
+          const ic = piece.innerCut;
+          const ix = ox + ((ic.x != null) ? ic.x : ((ic.xRatio || 0) * pw));
+          const iy = oy + ((ic.y != null) ? ic.y : ((ic.yRatio || 0) * ph));
+          const iw = (ic.w != null) ? ic.w : ((ic.wRatio || 0.5) * pw);
+          const ih = (ic.h != null) ? ic.h : ((ic.hRatio || 0.5) * ph);
+          if (ic.shape === 'circle') {
+            const cx = ix + iw / 2, cy = iy + ih / 2;
+            const rx = iw / 2, ry = ih / 2;
+            const d = `M ${(cx - rx).toFixed(3)},${cy.toFixed(3)}`
+                    + ` A ${rx.toFixed(3)},${ry.toFixed(3)} 0 1,1 ${(cx + rx).toFixed(3)},${cy.toFixed(3)}`
+                    + ` A ${rx.toFixed(3)},${ry.toFixed(3)} 0 1,1 ${(cx - rx).toFixed(3)},${cy.toFixed(3)} Z`;
+            outPaths.push({ type: 'cut', d, compensateKerf: false });
+          } else {
+            outRects.push({ type: 'cut', x: ix, y: iy, w: iw, h: ih, compensateKerf: false });
+          }
+        }
         const pieceFeatures = piece.featureGenerator
           ? piece.featureGenerator(pw, ph)
           : (piece.features || []);
@@ -17174,6 +18064,7 @@ function generateFixtureParts(cfg, fixtureGroups) {
       }
 
       const pcCount = pieceList.length;
+      const scupperLabel = group.scupper ? ' · scupper box' : '';
       const matLabel = material === 'cladding' ? '' : ` · ${material}`;
       let breakdown;
       if (group.isDefault) {
@@ -17190,12 +18081,14 @@ function generateFixtureParts(cfg, fixtureGroups) {
           : `${group.count} · custom ${dimsStr}mm`;
       }
       // Sanitize dims into the id so part records stay unique-keyable
-      const idSuffix = group.isDefault ? '' : `_${group.w.toFixed(1)}x${group.h.toFixed(1)}`.replace(/\./g, '_');
+      const dimSuffix = group.isDefault ? '' : `_${group.w.toFixed(1)}x${group.h.toFixed(1)}`.replace(/\./g, '_');
+      const scupperIdSuffix = group.scupper ? '_scupper_box' : '';
+      const idSuffix = scupperIdSuffix + dimSuffix;
       const tileW = Math.max(0, tileCursor - gutter); // remove trailing gutter
       const tileH = tileMaxH;
       parts.push({
         id: 'fixture_' + group.style + '_' + material + idSuffix,
-        name: `Fixture — ${style.label} (${breakdown}${matLabel})`,
+        name: `Fixture — ${style.label}${scupperLabel} (${breakdown}${matLabel})`,
         material: material,
         bboxW: sheetW, bboxH: sheetH,
         bboxOffsetX: 0, bboxOffsetY: 0,
@@ -17224,16 +18117,63 @@ function generateFixtureParts(cfg, fixtureGroups) {
  * @param face      'front' | 'back' | 'east' | 'west'
  * @param xMirror   optional fn(x, w) → mirroredX for the east-side wall
  */
+
+function fixtureThroughHoleSpec(style, fW, fH) {
+  const th = style && style.throughHole;
+  if (!th) return null;
+  const x = (th.x != null) ? Number(th.x) : ((Number(th.xRatio) || 0) * fW);
+  const y = (th.y != null) ? Number(th.y) : ((Number(th.yRatio) || 0) * fH);
+  const w = (th.w != null) ? Number(th.w) : ((Number(th.wRatio) || 0.5) * fW);
+  const h = (th.h != null) ? Number(th.h) : ((Number(th.hRatio) || 0.5) * fH);
+  return { shape: th.shape || 'rect', x, y, w, h };
+}
+
+function addFixtureThroughHoleGeometry(rects, paths, x, y, w, h, spec) {
+  if (!spec) return;
+  const hx = x + spec.x, hy = y + spec.y;
+  if (spec.shape === 'circle') {
+    const cx = hx + spec.w / 2, cy = hy + spec.h / 2;
+    const rx = spec.w / 2, ry = spec.h / 2;
+    const d = `M ${(cx - rx).toFixed(3)},${cy.toFixed(3)}`
+            + ` A ${rx.toFixed(3)},${ry.toFixed(3)} 0 1,1 ${(cx + rx).toFixed(3)},${cy.toFixed(3)}`
+            + ` A ${rx.toFixed(3)},${ry.toFixed(3)} 0 1,1 ${(cx - rx).toFixed(3)},${cy.toFixed(3)} Z`;
+    paths.push({ type: 'cut', d, compensateKerf: false });
+  } else {
+    rects.push({ type: 'cut', x: hx, y: hy, w: spec.w, h: spec.h, compensateKerf: false });
+  }
+}
+
 function cutFixtureHolesInCore(rects, paths, cfg, face, xMirror) {
   const fxs = surfaceWallFeaturesForFace(cfg, face, 'fixture');
   for (const fx of fxs) {
     const style = FIXTURE_STYLES[fx.style];
-    if (!style || style.placement !== 'cutout') continue;
+    if (!style) continue;
     const w = Number(fx.w) || style.width;
     const h = Number(fx.h) || style.height;
     const xRaw = Number(fx.x) || 0;
     const yRaw = Number(fx.y) || 0;
     const x = xMirror ? xMirror(xRaw, w) : xRaw;
+
+    if (downspoutHasScupperBox(cfg, face, fx.style)) {
+      const sc = downspoutScupperLocalSpec(w, h);
+      rects.push({
+        type: 'cut',
+        x: x + sc.holeX,
+        y: yRaw + sc.holeY,
+        w: sc.holeW,
+        h: sc.holeH,
+        compensateKerf: false,
+      });
+      continue;
+    }
+
+    if (style.throughCore) {
+      const th = fixtureThroughHoleSpec(style, w, h);
+      addFixtureThroughHoleGeometry(rects, paths, x, yRaw, w, h, th);
+      continue;
+    }
+
+    if (style.placement !== 'cutout') continue;
     const piece0 = style.pieces && style.pieces[0];
     if (piece0 && piece0.shape === 'circle') {
       const cx = x + w / 2, cy = yRaw + h / 2;
@@ -17265,14 +18205,15 @@ function tallyFixtures(cfg) {
       const h = Number(f.h) || style.height;
       // Bucket key — round to 0.1mm so float-jitter on close-but-not-equal
       // sizes still collapses correctly.
-      const key = `${f.style}|${w.toFixed(1)}|${h.toFixed(1)}`;
+      const scupper = downspoutHasScupperBox(cfg, face, f.style);
+      const key = `${f.style}|${w.toFixed(1)}|${h.toFixed(1)}|S${scupper ? 1 : 0}`;
       const existing = groups.get(key);
       if (existing) {
         existing.count += 1;
       } else {
         const isDefault = Math.abs(w - style.width)  < 0.05 &&
                           Math.abs(h - style.height) < 0.05;
-        groups.set(key, { style: f.style, w, h, count: 1, isDefault });
+        groups.set(key, { style: f.style, w, h, count: 1, isDefault, scupper });
       }
     }
   }
@@ -17962,6 +18903,7 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
         const wallDoors = computeDoors(fbWidth, H, {
           doorStyle, doorCount: fbDoorCount,
           hasOpening: false, bayXStart: 0, bayXEnd: 0,
+          cfg, plan, edgeId: which,
         });
         for (const d of wallDoors) {
           openings.push({ type: 'door', x: d.x, y: d.y, w: d.width, h: d.height });
@@ -17996,6 +18938,7 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
       const wallDoors = computeDoors(sideLen, H, {
         doorStyle, doorCount: sideDoorCount,
         hasOpening: false, bayXStart: 0, bayXEnd: 0,
+        cfg, plan, edgeId: which,
       });
       for (const d of wallDoors) {
         openings.push({ type: 'door', x: d.x, y: d.y, w: d.width, h: d.height });
@@ -18128,6 +19071,67 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
   };
 }
 
+
+function pointInPolygonEvenOdd(x, y, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].x, yi = poly[i].y;
+    const xj = poly[j].x, yj = poly[j].y;
+    const intersects = ((yi > y) !== (yj > y)) &&
+      (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-12) + xi);
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
+function clipSegmentToPolygonPieces(x1, y1, x2, y2, poly) {
+  // Generic segment clipper for both convex and concave polygons. It collects
+  // all segment/edge intersection parameters, sorts them, then keeps the
+  // sub-intervals whose midpoint lies inside the polygon. This is intentionally
+  // small and local because the connected parapet-gable crown has a concave
+  // V-shaped lower edge; simple rectangle or triangle clippers are not enough.
+  const dx = x2 - x1, dy = y2 - y1;
+  const ts = [0, 1];
+  const EPS = 1e-8;
+
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i];
+    const b = poly[(i + 1) % poly.length];
+    const ex = b.x - a.x, ey = b.y - a.y;
+    const denom = dx * ey - dy * ex;
+    if (Math.abs(denom) < EPS) continue; // parallel / collinear
+    const qx = a.x - x1, qy = a.y - y1;
+    const t = (qx * ey - qy * ex) / denom;
+    const u = (qx * dy - qy * dx) / denom;
+    if (t > -EPS && t < 1 + EPS && u > -EPS && u < 1 + EPS) {
+      ts.push(Math.max(0, Math.min(1, t)));
+    }
+  }
+
+  ts.sort((a, b) => a - b);
+  const uniq = [];
+  for (const t of ts) {
+    if (!uniq.length || Math.abs(t - uniq[uniq.length - 1]) > 1e-6) uniq.push(t);
+  }
+
+  const pieces = [];
+  for (let i = 0; i < uniq.length - 1; i++) {
+    const a = uniq[i], b = uniq[i + 1];
+    if (b - a < 1e-6) continue;
+    const mid = (a + b) / 2;
+    const mx = x1 + dx * mid;
+    const my = y1 + dy * mid;
+    if (!pointInPolygonEvenOdd(mx, my, poly)) continue;
+    pieces.push({
+      x1: x1 + dx * a,
+      y1: y1 + dy * a,
+      x2: x1 + dx * b,
+      y2: y1 + dy * b,
+    });
+  }
+  return pieces;
+}
+
 function generateInnerParapetCladding(cfg, plan) {
   if (cfg.parapetInnerCladding === false) return [];
   const { matT, parapetH, fbWidth, sideLen } = plan;
@@ -18245,36 +19249,71 @@ function generateInnerParapetCladding(cfg, plan) {
 
     for (const face of gableFaces) {
       if (!wallHasParapet(cfg, face)) continue;
-      // Right triangle with legs halfSpan × pitch — cut as TWO mirror-
-      // image variants so each piece glues directly onto its slope
-      // without the user having to flip the cardstock (which would put
-      // the etched face against the wall and hide the pattern).
-      //
-      //   Shape A: vertices (0,0), (halfSpan,0), (halfSpan,pitch).
-      //            Right angle at (halfSpan,0). Hypotenuse rises to
-      //            the upper-right. Etched pattern (after clipping)
-      //            has tall vertical seams on the RIGHT side.
-      //   Shape B: vertices (0,0), (halfSpan,0), (0,pitch).
-      //            Right angle at (0,0). Hypotenuse rises to the
-      //            upper-left. Mirror image of A across x=halfSpan/2.
-      //            Etched seams tall on the LEFT.
-      //
-      // The two slopes of a gable wall meet at the apex with OPPOSITE
-      // chirality in the wall plane — going from one to the other in
-      // the wall is a reflection, not a rotation. So one piece of each
-      // shape is needed per wall: shape A fits the slope where the
-      // outer base corner is to the LEFT of the apex (in laser-flat
-      // orientation), shape B fits the slope where the outer base
-      // corner is to the RIGHT. When laid flat etched-side-up and
-      // placed on its slope, each piece's pattern reads correctly
-      // facing inward — no flip required.
-      //
-      // The cladding pattern is generated against the SAME bounding
-      // rectangle for both shapes, then clipped to each shape's
-      // interior independently. The pattern in shape B is therefore
-      // the mirror image (across x=halfSpan/2) of the pattern in
-      // shape A — exactly what you want when gluing them onto
-      // mirror-image slopes that meet at the apex.
+
+      // If the parapet continues above the roof peak, the two triangular
+      // inside-gable pieces do not need to be separate. The visible inside
+      // face is one connected crown/bowtie-ish panel: full-width parapet top
+      // band, with a V-shaped lower edge following the two roof slopes down
+      // to the eave corners. This is cleaner and avoids the four undersized
+      // little triangles that were generated for low-pitch / tall-parapet
+      // buildings such as 149×112×40 with pitch 4 and parapet 5.
+      const capAbovePeak = Math.max(0, parH - matT);
+      const canUseConnectedCrown = capAbovePeak > 0.35 && gableWidth > 1 && pitch > 0.35;
+      if (canUseConnectedCrown) {
+        const crownH = pitch + capAbovePeak;
+        const crownPath =
+          `M 0,0 L ${gableWidth.toFixed(3)},0 ` +
+          `L ${gableWidth.toFixed(3)},${crownH.toFixed(3)} ` +
+          `L ${(gableWidth / 2).toFixed(3)},${capAbovePeak.toFixed(3)} ` +
+          `L 0,${crownH.toFixed(3)} Z`;
+
+        const crownPoly = [
+          { x: 0, y: 0 },
+          { x: gableWidth, y: 0 },
+          { x: gableWidth, y: crownH },
+          { x: gableWidth / 2, y: capAbovePeak },
+          { x: 0, y: crownH },
+        ];
+
+        let crownLines = [];
+        if (styleSpec) {
+          const patSegs = generateCladdingPattern(styleSpec, 0, 0, gableWidth, crownH, [], null);
+          for (const seg of patSegs) {
+            const clipped = clipSegmentToPolygonPieces(seg.x1, seg.y1, seg.x2, seg.y2, crownPoly);
+            for (const c of clipped) {
+              crownLines.push({ type: 'etch', x1: c.x1, y1: c.y1, x2: c.x2, y2: c.y2 });
+            }
+          }
+        }
+        // Light reference mark at the roof-peak height so the user can align
+        // the centre notch above the gable ridge. Keep it short and clipped
+        // to the crown so it does not become a visible stray segment.
+        for (const c of clipSegmentToPolygonPieces(
+          Math.max(0, gableWidth / 2 - 3), capAbovePeak,
+          Math.min(gableWidth, gableWidth / 2 + 3), capAbovePeak,
+          crownPoly
+        )) {
+          crownLines.push({ type: 'etch', x1: c.x1, y1: c.y1, x2: c.x2, y2: c.y2 });
+        }
+
+        parts.push({
+          id: `cladding_parapet_inner_${face}_crown`,
+          name: `${face[0].toUpperCase() + face.slice(1)} inner parapet cladding (connected gable crown)`,
+          material: material,
+          bboxW: gableWidth,
+          bboxH: crownH,
+          bboxOffsetX: 0,
+          bboxOffsetY: 0,
+          paths: [{ type: 'cut', d: crownPath }],
+          rects: [],
+          lines: crownLines,
+          assemblyNote: `One-piece inside gable parapet insert. The V-shaped lower edge follows the two roof slopes; the cladding texture is clipped to the crown shape. The small centre etch marks the roof peak/ridge alignment. This replaces two separate triangular inserts because the parapet extends ${capAbovePeak.toFixed(1)} mm above the roof peak.`,
+        });
+        continue;
+      }
+
+      // Fallback for cases where the roof peak reaches the parapet top:
+      // two right triangles per gable wall, one for each slope side.
       const triPathA = `M 0,0 L ${halfSpan.toFixed(3)},0 L ${halfSpan.toFixed(3)},${pitch.toFixed(3)} Z`;
       const triPathB = `M 0,0 L ${halfSpan.toFixed(3)},0 L 0,${pitch.toFixed(3)} Z`;
       let linesA = [], linesB = [];
@@ -19217,6 +20256,186 @@ function sheetSplitBoundaries(lengthMm, maxMm, minSegMm, staggerMm = 0) {
   return out;
 }
 
+function sheetSplitFeatureRectsForAxis(part, axis) {
+  // Candidate keep-out zones for sheet split lines. These are through-cuts
+  // and visible feature openings; splitting through them makes windows/doors
+  // look broken across segment boundaries. Best effort only: if there is no
+  // legal place to move the split, we keep the original balanced split.
+  const rects = [];
+  function addRect(r) {
+    if (!r) return;
+    const x = Number(r.x), y = Number(r.y), w = Number(r.w), h = Number(r.h);
+    if (![x, y, w, h].every(Number.isFinite) || w <= 0.05 || h <= 0.05) return;
+    rects.push({ x, y, w, h });
+  }
+  for (const r of (part.rects || [])) {
+    if (!r) continue;
+    const typ = String(r.type || 'cut').toLowerCase();
+    // Keep out of through-cuts and explicit opening marks. Etch-only detail
+    // lines are allowed to cross a split.
+    if (typ === 'cut' || typ === 'hole' || typ === 'opening') addRect(r);
+  }
+  // Some wall/cladding parts keep wall-frame opening metadata for trim and
+  // downstream logic. Include it when it appears to share this part's local
+  // coordinate frame.
+  for (const o of ((part.meta && part.meta.wallOpenings) || part.wallOpenings || [])) {
+    addRect(o);
+  }
+  return rects;
+}
+
+function sheetSplitBoundaryHitsFeature(boundary, rects, axis, pad = 1.25) {
+  for (const r of rects) {
+    const a0 = axis === 'x' ? r.x - pad : r.y - pad;
+    const a1 = axis === 'x' ? r.x + r.w + pad : r.y + r.h + pad;
+    if (boundary > a0 && boundary < a1) return r;
+  }
+  return null;
+}
+
+function sheetSplitAdjustedBoundaryCandidate(raw, rect, axis, prev, next, minSeg, maxSeg) {
+  const pad = 1.25;
+  const a0 = axis === 'x' ? rect.x : rect.y;
+  const a1 = axis === 'x' ? rect.x + rect.w : rect.y + rect.h;
+  const candidates = [a0 - pad, a1 + pad]
+    .filter(v => Number.isFinite(v))
+    .filter(v => v > prev + minSeg && v < next - minSeg)
+    .filter(v => !maxSeg || (v - prev <= maxSeg + 0.01 && next - v <= maxSeg + 0.01));
+  if (!candidates.length) return raw;
+  candidates.sort((a, b) => Math.abs(a - raw) - Math.abs(b - raw));
+  return candidates[0];
+}
+
+function sheetSplitAvoidFeatureBoundaries(bounds, part, axis, minSeg, maxSeg) {
+  if (!bounds || bounds.length <= 2) return bounds;
+  const rects = sheetSplitFeatureRectsForAxis(part, axis);
+  if (!rects.length) return bounds;
+
+  const out = bounds.slice();
+  for (let i = 1; i < out.length - 1; i++) {
+    let b = out[i];
+    for (let iter = 0; iter < 8; iter++) {
+      const hit = sheetSplitBoundaryHitsFeature(b, rects, axis, 1.25);
+      if (!hit) break;
+      const prev = out[i - 1];
+      const next = out[i + 1];
+      const moved = sheetSplitAdjustedBoundaryCandidate(b, hit, axis, prev, next, minSeg, maxSeg);
+      if (Math.abs(moved - b) < 0.001) break;
+      b = moved;
+    }
+    // Do not allow the fixup to break ordering or sheet constraints.
+    if (b > out[i - 1] + minSeg && b < out[i + 1] - minSeg &&
+        (!maxSeg || (b - out[i - 1] <= maxSeg + 0.01 && out[i + 1] - b <= maxSeg + 0.01))) {
+      out[i] = b;
+    }
+  }
+  return out;
+}
+
+
+function svgPathLooksClosed(d) {
+  return /[Zz]\s*$/.test(String(d || '').trim());
+}
+
+function translatePathPointsToLocal(pts, x0, y0) {
+  return (pts || []).map(p => ({ x: p.x - x0, y: p.y - y0 }));
+}
+
+function clippedSegmentPathsToBox(x1, y1, x2, y2, x0, y0, x1b, y1b) {
+  const boxPoly = [
+    { x: x0,  y: y0  },
+    { x: x1b, y: y0  },
+    { x: x1b, y: y1b },
+    { x: x0,  y: y1b },
+  ];
+  const pieces = clipSegmentToPolygonPieces(x1, y1, x2, y2, boxPoly);
+  return pieces.map(s => `M ${(s.x1 - x0).toFixed(3)},${(s.y1 - y0).toFixed(3)} L ${(s.x2 - x0).toFixed(3)},${(s.y2 - y0).toFixed(3)}`);
+}
+
+function sheetSplitClipPartGeometryToBox(part, x0, x1, y0, y1, cfg) {
+  // Produce real, sheet-sized SVG geometry instead of relying on <clipPath>.
+  // Many laser workflows ignore clipPath when calculating cut extents, which
+  // left exports as one oversized wall with a line down the middle. This
+  // function converts the visible clipped geometry into actual cut/etch paths,
+  // rects, and lines inside the segment's local 0,0 coordinate frame.
+  const out = { paths: [], rects: [], lines: [] };
+  const EPS = 1e-6;
+  const addPath = (type, d) => {
+    if (d && String(d).trim()) out.paths.push({ type: type || 'cut', d });
+  };
+
+  function translateSimplePathFallback(d, dx, dy) {
+    // Best-effort translation for unsupported but wholly-contained paths.
+    // It only rewrites coordinate pairs after common drawing commands; if it
+    // cannot safely parse the path, it returns null and the path is skipped.
+    try {
+      return String(d).replace(/([ML])\s*(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g, (m, c, x, y) =>
+        `${c} ${(Number(x) + dx).toFixed(3)},${(Number(y) + dy).toFixed(3)}`
+      ).replace(/(A\s*-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?\s+[-+]?\d+(?:\.\d+)?\s+[01],\s*[01]\s+)(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g,
+        (m, pre, x, y) => `${pre}${(Number(x) + dx).toFixed(3)},${(Number(y) + dy).toFixed(3)}`
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function pathPointsBBox(pts) {
+    if (!pts || !pts.length) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of pts) {
+      minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+    }
+    return { minX, minY, maxX, maxY };
+  }
+
+  for (const p of ((part && part.paths) || [])) {
+    if (!p || !p.d) continue;
+    const pts = parseSvgPathToPoints(p.d);
+    if (pts.length >= 3 && svgPathLooksClosed(p.d)) {
+      const clipped = clipPolygonToRect(pts, x0, y0, x1, y1);
+      if (clipped.length >= 3) {
+        addPath(p.type || 'cut', pointsToSvgPath(translatePathPointsToLocal(clipped, x0, y0)));
+      } else {
+        // If a closed hole is wholly inside the segment but clipping became
+        // numerically degenerate, keep the original translated geometry.
+        const bb = pathPointsBBox(pts);
+        if (bb && bb.minX >= x0 - EPS && bb.maxX <= x1 + EPS && bb.minY >= y0 - EPS && bb.maxY <= y1 + EPS) {
+          const translated = translateSimplePathFallback(p.d, -x0, -y0);
+          if (translated) addPath(p.type || 'cut', translated);
+        }
+      }
+    } else if (pts.length >= 2) {
+      for (let i = 0; i < pts.length - 1; i++) {
+        for (const d of clippedSegmentPathsToBox(pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y, x0, y0, x1, y1)) addPath(p.type || 'cut', d);
+      }
+    }
+  }
+
+  for (const r of ((part && part.rects) || [])) {
+    if (!r) continue;
+    const rx0 = Number(r.x), ry0 = Number(r.y), rx1 = rx0 + Number(r.w), ry1 = ry0 + Number(r.h);
+    if (![rx0, ry0, rx1, ry1].every(Number.isFinite)) continue;
+    const cx0 = Math.max(rx0, x0), cy0 = Math.max(ry0, y0), cx1 = Math.min(rx1, x1), cy1 = Math.min(ry1, y1);
+    if (cx1 - cx0 > EPS && cy1 - cy0 > EPS) {
+      out.rects.push({ ...r, x: cx0 - x0, y: cy0 - y0, w: cx1 - cx0, h: cy1 - cy0 });
+    }
+  }
+
+  const boxPoly = [
+    { x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 },
+  ];
+  for (const l of ((part && part.lines) || [])) {
+    if (!l) continue;
+    const pieces = clipSegmentToPolygonPieces(Number(l.x1), Number(l.y1), Number(l.x2), Number(l.y2), boxPoly);
+    for (const s of pieces) {
+      out.lines.push({ ...l, x1: s.x1 - x0, y1: s.y1 - y0, x2: s.x2 - x0, y2: s.y2 - y0 });
+    }
+  }
+
+  return out;
+}
+
 function makeSheetSplitSegmentPart(part, col, row, x0Local, x1Local, y0Local, y1Local, totalCols, totalRows, cfg) {
   const minX = -(part.bboxOffsetX || 0);
   const minY = -(part.bboxOffsetY || 0);
@@ -19228,12 +20447,30 @@ function makeSheetSplitSegmentPart(part, col, row, x0Local, x1Local, y0Local, y1
   const h = Math.max(0.01, y1 - y0);
   const segN = (row * totalCols) + col + 1;
   const segTotal = totalCols * totalRows;
-  const clipId = `clip_${String(part.id || 'part').replace(/[^A-Za-z0-9_]/g, '_')}_${segN}_${Math.floor(Math.random()*1e6)}`;
-  const raw = partRawGeometrySvg(part, { strokeMm: 0.05, kerf: cfg && cfg.kerfComp });
-  const translated = `<clipPath id="${clipId}"><rect x="0" y="0" width="${w.toFixed(3)}" height="${h.toFixed(3)}"/></clipPath>`
-    + `<g clip-path="url(#${clipId})"><g transform="translate(${(-x0).toFixed(3)},${(-y0).toFixed(3)})">${raw}</g></g>`;
+  const clippedGeom = sheetSplitClipPartGeometryToBox(part, x0, x1, y0, y1, cfg);
   const label = segTotal > 1 ? ` Segment ${segN} of ${segTotal}` : '';
-  const splitBoundary = `M 0,0 L ${w.toFixed(3)},0 L ${w.toFixed(3)},${h.toFixed(3)} L 0,${h.toFixed(3)} Z`;
+
+  // Do NOT add a full rectangular boundary around every split segment.
+  // That was cutting straight exterior edges over the original clipped wall
+  // perimeter, which destroyed tabs/slots/notched wall edges on outer segments.
+  //
+  // The clipped source geometry already supplies the true exterior outline
+  // wherever the segment touches the original part boundary. We only add cut
+  // lines along edges that are created by the sheet split itself.
+  const splitBoundaryPaths = [];
+  if (col > 0) {
+    splitBoundaryPaths.push({ type: 'cut', d: `M 0,0 L 0,${h.toFixed(3)}` });
+  }
+  if (col < totalCols - 1) {
+    splitBoundaryPaths.push({ type: 'cut', d: `M ${w.toFixed(3)},0 L ${w.toFixed(3)},${h.toFixed(3)}` });
+  }
+  if (row > 0) {
+    splitBoundaryPaths.push({ type: 'cut', d: `M 0,0 L ${w.toFixed(3)},0` });
+  }
+  if (row < totalRows - 1) {
+    splitBoundaryPaths.push({ type: 'cut', d: `M 0,${h.toFixed(3)} L ${w.toFixed(3)},${h.toFixed(3)}` });
+  }
+
   const sp = {
     id: `${part.id}_sheetseg_${segN}`,
     name: `${part.name || part.id}${label}`,
@@ -19242,45 +20479,96 @@ function makeSheetSplitSegmentPart(part, col, row, x0Local, x1Local, y0Local, y1
     bboxH: h,
     bboxOffsetX: 0,
     bboxOffsetY: 0,
-    paths: [{ type: 'cut', d: splitBoundary }],
-    rects: [],
-    lines: [
-      { type: 'etch', x1: 1, y1: 3, x2: Math.min(w - 1, 20), y2: 3 },
-    ].filter(l => l.x2 > l.x1),
-    svgContent: translated,
-    meta: { ...(part.meta || {}), sheetSplit: true, sheetSegment: segN, sheetSegmentTotal: segTotal, sourcePartId: part.id },
-    assemblyNote: `Sheet-split segment ${segN}/${segTotal}. The grey/blue/red geometry is clipped from the full generated part so openings and cladding patterns stay aligned.`,
+    paths: clippedGeom.paths.concat(splitBoundaryPaths),
+    rects: clippedGeom.rects,
+    // Do not add a generic segment marker line here. The clipped source
+    // geometry is already enough to identify the piece, and the old marker
+    // appeared as a stray horizontal blue line on many split cladding/floor
+    // parts.
+    lines: clippedGeom.lines,
+    meta: {
+      ...(part.meta || {}),
+      sheetSplit: true,
+      sheetSegment: segN,
+      sheetSegmentTotal: segTotal,
+      sheetCol: col + 1,
+      sheetRow: row + 1,
+      sheetCols: totalCols,
+      sheetRows: totalRows,
+      sourcePartId: part.id,
+      // Used by display dedupe: sheet-split pieces from different walls or
+      // different source parts must not collapse into "×2 identical copies"
+      // merely because a clipped SVG wrapper has the same outer size.
+      dedupeSourceKey: String(part.id || part.name || 'part'),
+    },
+    assemblyNote: `Sheet-split segment ${segN}/${segTotal}. This SVG contains real clipped cut/etch geometry for this segment, not a visual-only clip mask, so the exported piece fits on the selected material sheet.`,
   };
   return normalizePartMetadata(sp);
 }
 
-function makeSheetSplitSplicePlate(part, splitAtLocalX, index, cfg, maxH = null) {
+function makeSheetSplitSplicePlate(part, splitAtLocal, index, cfg, maxAlong = null, axis = 'x') {
   normalizePartMetadata(part);
   const spliceW = Math.max(6, Math.min(40, Number(cfg.sheetSplitSpliceWidthMm) || 16));
-  const h = Math.max(4, part.bboxH || 0);
-  const maxSegH = maxH && maxH > 0 ? maxH : h;
-  const countY = sheetSplitCount(h, maxSegH, Math.max(20, Number(cfg.sheetSplitMinSegmentMm) || 40));
-  const ys = sheetSplitBoundaries(h, maxSegH, Math.max(20, Number(cfg.sheetSplitMinSegmentMm) || 40), 0);
+
+  // axis='x': a vertical joint between left/right panel segments. Plate is
+  // narrow × tall and may be segmented along Y.
+  // axis='y': a horizontal joint between top/bottom panel segments. Plate is
+  // wide × narrow and may be segmented along X.
+  const sourceW = Math.max(4, Number(part.bboxW) || 0);
+  const sourceH = Math.max(4, Number(part.bboxH) || 0);
+  const alongLen = axis === 'y' ? sourceW : sourceH;
+  const maxSegAlong = maxAlong && maxAlong > 0 ? maxAlong : alongLen;
+  const minSeg = Math.max(20, Number(cfg.sheetSplitMinSegmentMm) || 40);
+  const alongCuts = sheetSplitBoundaries(alongLen, maxSegAlong, minSeg, 0);
+  const countAlong = alongCuts.length - 1;
   const out = [];
-  for (let j = 0; j < ys.length - 1; j++) {
-    const sh = ys[j+1] - ys[j];
-    const d = `M 0,0 L ${spliceW.toFixed(3)},0 L ${spliceW.toFixed(3)},${sh.toFixed(3)} L 0,${sh.toFixed(3)} Z`;
+
+  const safeSourceId = String(part.id || 'part').replace(/[^A-Za-z0-9_]+/g, '_');
+  const axisLabel = axis === 'y' ? 'Y' : 'X';
+  const nameAxis = axis === 'y' ? 'horizontal' : 'vertical';
+
+  for (let j = 0; j < alongCuts.length - 1; j++) {
+    const segAlong = alongCuts[j+1] - alongCuts[j];
+
+    const bboxW = axis === 'y' ? segAlong : spliceW;
+    const bboxH = axis === 'y' ? spliceW : segAlong;
+    const d = `M 0,0 L ${bboxW.toFixed(3)},0 L ${bboxW.toFixed(3)},${bboxH.toFixed(3)} L 0,${bboxH.toFixed(3)} Z`;
+
+    const lines = axis === 'y'
+      ? [
+          { type: 'etch', x1: 1, y1: spliceW/2, x2: bboxW - 1, y2: spliceW/2 },
+          { type: 'etch', x1: Math.min(6, bboxW/2), y1: 1, x2: Math.min(6, bboxW/2), y2: spliceW - 1 },
+        ]
+      : [
+          { type: 'etch', x1: spliceW/2, y1: 1, x2: spliceW/2, y2: bboxH - 1 },
+          { type: 'etch', x1: 1, y1: Math.min(6, bboxH/2), x2: spliceW - 1, y2: Math.min(6, bboxH/2) },
+        ];
+
     out.push(normalizePartMetadata({
-      id: `${part.id}_splice_${index}_${j+1}`,
-      name: `${part.name || part.id} Interior Splice Plate ${index}${countY > 1 ? ' ' + (j+1) + '/' + countY : ''}`,
+      id: `${safeSourceId}_splice_${axisLabel}_${index}_${j+1}`,
+      name: `${part.name || part.id} ${axisLabel} ${nameAxis} splice plate ${index}${countAlong > 1 ? ' ' + (j+1) + '/' + countAlong : ''}`,
       material: 'core',
-      bboxW: spliceW,
-      bboxH: sh,
+      bboxW,
+      bboxH,
       bboxOffsetX: 0,
       bboxOffsetY: 0,
       paths: [{ type: 'cut', d }],
       rects: [],
-      lines: [
-        { type: 'etch', x1: spliceW/2, y1: 1, x2: spliceW/2, y2: sh - 1 },
-        { type: 'etch', x1: 1, y1: Math.min(6, sh/2), x2: spliceW - 1, y2: Math.min(6, sh/2) },
-      ].filter(l => l.x2 !== l.x1 || l.y2 !== l.y1),
-      meta: { ...(part.meta || {}), role: 'splice_plate', area: 'structure', sourcePartId: part.id, splitAtLocalX },
-      assemblyNote: `Glue this plate across the back/inside of ${part.name || part.id} split joint ${index}. The center etch marks the butt joint line.`,
+      lines: lines.filter(l => l.x2 !== l.x1 || l.y2 !== l.y1),
+      meta: {
+        ...(part.meta || {}),
+        role: 'splice_plate',
+        area: 'structure',
+        sourcePartId: part.id,
+        splitAxis: axisLabel,
+        splitIndex: index,
+        splitAtLocal,
+        spliceSegment: j + 1,
+        spliceSegmentCount: countAlong,
+      },
+      assemblyNote: axis === 'y'
+        ? `Glue this plate across the back/underside of ${part.name || part.id} horizontal split joint ${index}. The center etch marks the butt joint line.`
+        : `Glue this plate across the back/inside of ${part.name || part.id} vertical split joint ${index}. The center etch marks the butt joint line.`,
     }));
   }
   return out;
@@ -19306,8 +20594,10 @@ function splitPartForSheet(part, cfg) {
   const role = (part.meta && part.meta.role) || inferPartRole(part);
   const isCladding = role === 'exterior_cladding' || role === 'interior_cladding';
   const stagger = isCladding ? (Number(cfg.sheetSplitStaggerCladdingMm) || 24) : 0;
-  const xs = sheetSplitBoundaries(w, max.w, minSeg, stagger);
-  const ys = sheetSplitBoundaries(h, max.h, Math.min(minSeg, Math.max(10, h / 2)), 0);
+  let xs = sheetSplitBoundaries(w, max.w, minSeg, stagger);
+  let ys = sheetSplitBoundaries(h, max.h, Math.min(minSeg, Math.max(10, h / 2)), 0);
+  xs = sheetSplitAvoidFeatureBoundaries(xs, part, 'x', minSeg, max.w);
+  ys = sheetSplitAvoidFeatureBoundaries(ys, part, 'y', Math.min(minSeg, Math.max(10, h / 2)), max.h);
   if (xs.length <= 2 && ys.length <= 2) return [part];
 
   const segs = [];
@@ -19325,23 +20615,16 @@ function splitPartForSheet(part, cfg) {
     // decks these become underside/backing splice plates across the break cut.
     if (xs.length > 2) {
       for (let i = 1; i < xs.length - 1; i++) {
-        segs.push(...makeSheetSplitSplicePlate(part, xs[i], i, cfg, max.h));
+        segs.push(...makeSheetSplitSplicePlate(part, xs[i], i, cfg, max.h, 'x'));
       }
     }
-    // Y-boundary splits need splice plates too. Reuse the same rectangular
-    // plate generator against a virtual rotated part; the output is just a
-    // generic plate with an etched centerline, so orientation is not critical.
+    // Y-boundary splits need their own horizontal splice plates. The earlier
+    // implementation reused a rotated virtual part and then rewrote IDs, which
+    // could collapse or hide expected cards. Generate true Y-axis splice plates
+    // directly so every floor/roof/wall joint has a unique card.
     if (ys.length > 2) {
-      const rotatedForY = { ...part, id: `${part.id}_y`, name: `${part.name || part.id} Y`, bboxW: part.bboxH, bboxH: part.bboxW };
       for (let j = 1; j < ys.length - 1; j++) {
-        const plates = makeSheetSplitSplicePlate(rotatedForY, ys[j], j, cfg, max.w);
-        for (const pl of plates) {
-          pl.id = `${part.id}_splice_y_${j}_${pl.id.split('_').pop()}`;
-          pl.name = `${part.name || part.id} Interior/underside Splice Plate Y${j}`;
-          pl.meta = { ...(pl.meta || {}), sourcePartId: part.id, splitAtLocalY: ys[j], role: 'splice_plate', area: 'structure' };
-          pl.assemblyNote = `Glue this plate across the back/underside of ${part.name || part.id} Y split joint ${j}. The center etch marks the butt joint line.`;
-        }
-        segs.push(...plates);
+        segs.push(...makeSheetSplitSplicePlate(part, ys[j], j, cfg, max.w, 'y'));
       }
     }
   }
@@ -19763,24 +21046,146 @@ function initDropdowns() {
   }
 }
 
+function roofParapetHeightFromFormOrConfig() {
+  const roofStyle = val('roofStyle') || (CONFIG && CONFIG.roofStyle) || 'flat';
+  if (!(roofStyle === 'parapet' || roofStyle === 'parapet_gable' || roofStyle === 'flat')) return 0;
+  const p = num('parapetHeight');
+  if (Number.isFinite(p) && p > 0) return p;
+  return Number((CONFIG && CONFIG.parapetHeight) || 0) || 0;
+}
+
+function configHeightIncludesParapet(cfg) {
+  return !!(cfg && cfg.heightIncludesParapet);
+}
+
+function wallBodyHeightFromConfig(cfg) {
+  if (!cfg) return 1;
+  const total = Math.max(1, Number(cfg.height) || 1);
+  const roofStyle = cfg.roofStyle || 'flat';
+  const p = (roofStyle === 'parapet' || roofStyle === 'parapet_gable' || roofStyle === 'flat')
+    ? Math.max(0, Number(cfg.parapetHeight) || 0)
+    : 0;
+  return Math.max(1, total - p);
+}
+
+function migrateHeightToIncludeParapet(cfg) {
+  if (!cfg || typeof cfg !== 'object') return cfg;
+  if (cfg.heightIncludesParapet === true) return cfg;
+  const roofStyle = cfg.roofStyle || 'flat';
+  const p = (roofStyle === 'parapet' || roofStyle === 'parapet_gable' || roofStyle === 'flat')
+    ? Math.max(0, Number(cfg.parapetHeight) || 0)
+    : 0;
+  cfg.height = Math.max(1, Number(cfg.height) || 1) + p;
+  cfg.heightIncludesParapet = true;
+  return cfg;
+}
+
+function groundFloorHeightFromFormOrConfig(stdFloorH) {
+  const enabled = !!document.getElementById('firstFloorHeightEnabled')?.checked;
+  if (!enabled) return Number(stdFloorH) || 0;
+  const gf = num('firstFloorHeight');
+  if (Number.isFinite(gf) && gf > 0) return gf;
+  return Number((CONFIG && CONFIG.firstFloorHeight) || stdFloorH || 0) || 0;
+}
+
+function derivedFloorHeightFromAbsolute(totalHeightInclParapet, floors, parapetH, groundHOverrideOrNull) {
+  const n = Math.max(1, Math.round(Number(floors) || 1));
+  const bodyH = Math.max(1, (Number(totalHeightInclParapet) || 0) - (Number(parapetH) || 0));
+  if (groundHOverrideOrNull != null && n > 1) {
+    return Math.max(1, (bodyH - Number(groundHOverrideOrNull)) / (n - 1));
+  }
+  return Math.max(1, bodyH / n);
+}
+
+function totalHeightFromFloors(floors, floorH, parapetH, groundHOverrideOrNull) {
+  const n = Math.max(1, Math.round(Number(floors) || 1));
+  const upperH = Math.max(1, Number(floorH) || 1);
+  const groundH = (groundHOverrideOrNull != null) ? Math.max(1, Number(groundHOverrideOrNull) || upperH) : upperH;
+  const bodyH = n <= 1 ? groundH : groundH + upperH * (n - 1);
+  return bodyH + Math.max(0, Number(parapetH) || 0);
+}
+
+function syncHeightFloorModeFields({ writeComputed = true } = {}) {
+  const mode = val('heightMode') || 'absolute';
+  const heightEl = document.getElementById('height');
+  const floorsEl = document.getElementById('floors');
+  const floorHEl = document.getElementById('floorHeight');
+  const heightHelp = document.getElementById('heightModeHelp');
+  const floorHelp = document.getElementById('floorHeightModeHelp');
+  if (!heightEl || !floorsEl || !floorHEl) return;
+
+  const floors = Math.max(1, Math.round(parseFloat(floorsEl.value) || CONFIG.floorCount || 1));
+  floorsEl.value = String(floors);
+  const parapetH = roofParapetHeightFromFormOrConfig();
+  const floorHCurrent = Math.max(1, parseFloat(floorHEl.value) || CONFIG.floorHeight || 30);
+  const gfOverride = document.getElementById('firstFloorHeightEnabled')?.checked
+    ? groundFloorHeightFromFormOrConfig(floorHCurrent)
+    : null;
+
+  if (mode === 'absolute') {
+    heightEl.readOnly = false;
+    heightEl.disabled = false;
+    floorHEl.readOnly = true;
+    floorHEl.disabled = false;
+    const total = Math.max(1, parseFloat(heightEl.value) || CONFIG.height || 50);
+    if (writeComputed) floorHEl.value = derivedFloorHeightFromAbsolute(total, floors, parapetH, gfOverride).toFixed(2);
+    if (heightHelp) heightHelp.textContent = 'Edit total building height. This includes the parapet where present.';
+    if (floorHelp) {
+      floorHelp.textContent = gfOverride != null
+        ? 'Read-only: (height − parapet − ground floor) ÷ upper-floor count.'
+        : 'Read-only: (height − parapet) ÷ floor count.';
+    }
+  } else {
+    heightEl.readOnly = true;
+    heightEl.disabled = false;
+    floorHEl.readOnly = false;
+    floorHEl.disabled = false;
+    const total = totalHeightFromFloors(floors, floorHCurrent, parapetH, gfOverride);
+    if (writeComputed) heightEl.value = total.toFixed(2);
+    if (heightHelp) {
+      heightHelp.textContent = gfOverride != null
+        ? 'Read-only: ground floor + upper floor height × (floors − 1) + parapet.'
+        : 'Read-only: floor height × floors + parapet.';
+    }
+    if (floorHelp) floorHelp.textContent = 'Edit the repeated upper-floor height.';
+  }
+
+  heightEl.classList.toggle('readonly-derived', heightEl.readOnly);
+  floorHEl.classList.toggle('readonly-derived', floorHEl.readOnly);
+}
+
 /* Read the form into CONFIG */
 function readForm() {
   CONFIG.buildingType = val('buildingType');
   CONFIG.width = num('width');
   CONFIG.depth = num('depth');
-  CONFIG.heightMode = val('heightMode');
-  if (CONFIG.heightMode === 'absolute') {
-    CONFIG.height = num('height');
-    // floorCount/floorHeight are still read for inter-floor panel computation
-    CONFIG.floorCount = num('floors') || CONFIG.floorCount || 1;
-    CONFIG.floorHeight = num('floorHeight') || CONFIG.floorHeight || 30;
-  } else {
-    CONFIG.floorCount = num('floors');
-    CONFIG.floorHeight = num('floorHeight');
-    CONFIG.height = CONFIG.floorCount * CONFIG.floorHeight;
-  }
+  CONFIG.heightMode = val('heightMode') || 'absolute';
   CONFIG.roofStyle = val('roofStyle');
   CONFIG.parapetHeight = num('parapetHeight');
+
+  // Height mode is now a true either/or:
+  // - absolute: user edits total building height incl. parapet; floorHeight is derived.
+  // - floors: user edits floor count + upper floor height; total height is derived.
+  // Internally CONFIG.height remains the wall/body height EXCLUDING parapet, because
+  // the generator still models parapet as plan.parapetH above the wall core.
+  const parapetForHeight = roofParapetHeightFromFormOrConfig();
+  const floorsForHeight = Math.max(1, Math.round(num('floors') || CONFIG.floorCount || 1));
+  const rawFloorHeight = Math.max(1, num('floorHeight') || CONFIG.floorHeight || 30);
+  const gfOverrideForHeight = !!document.getElementById('firstFloorHeightEnabled')?.checked
+    ? groundFloorHeightFromFormOrConfig(rawFloorHeight)
+    : null;
+
+  CONFIG.floorCount = floorsForHeight;
+  if (CONFIG.heightMode === 'absolute') {
+    const totalHeight = Math.max(1, num('height') || CONFIG.height || 50);
+    CONFIG.floorHeight = derivedFloorHeightFromAbsolute(totalHeight, floorsForHeight, parapetForHeight, gfOverrideForHeight);
+    CONFIG.height = totalHeight;
+  } else {
+    CONFIG.floorHeight = rawFloorHeight;
+    const totalHeight = totalHeightFromFloors(floorsForHeight, CONFIG.floorHeight, parapetForHeight, gfOverrideForHeight);
+    CONFIG.height = totalHeight;
+  }
+  CONFIG.heightIncludesParapet = true;
   CONFIG.parapetInnerCladding = !!document.getElementById('parapetInnerCladding')?.checked;
   CONFIG.parapetSides = val('parapetSides') || 'all';
   CONFIG.roofPitch = num('roofPitch');
@@ -19932,12 +21337,12 @@ function writeForm() {
   set('buildingType', CONFIG.buildingType);
   set('width', CONFIG.width);
   set('depth', CONFIG.depth);
-  set('heightMode', CONFIG.heightMode);
-  set('height', CONFIG.height);
+  set('heightMode', CONFIG.heightMode || 'absolute');
   set('floors', CONFIG.floorCount);
-  set('floorHeight', CONFIG.floorHeight);
   set('roofStyle', CONFIG.roofStyle);
   set('parapetHeight', CONFIG.parapetHeight);
+  set('height', Number(CONFIG.height) || 0);
+  set('floorHeight', CONFIG.floorHeight);
   const parapetInnerEl = document.getElementById('parapetInnerCladding');
   if (parapetInnerEl) parapetInnerEl.checked = (CONFIG.parapetInnerCladding !== false);
   set('parapetSides', CONFIG.parapetSides || 'all');
@@ -19972,6 +21377,7 @@ function writeForm() {
   set('firstFloorCladdingStyle', CONFIG.firstFloorCladdingStyle);
   document.getElementById('groundFloorOffsetEnabled').checked = !!CONFIG.groundFloorOffsetEnabled;
   set('groundFloorOffsetAmount', CONFIG.groundFloorOffsetAmount);
+  syncHeightFloorModeFields({ writeComputed: true });
   set('doorStyle', CONFIG.doorStyle);
   set('frontDoorCount', CONFIG.frontDoorCount);
   set('backDoorCount', CONFIG.backDoorCount);
@@ -20038,11 +21444,12 @@ function updateConditionalFields() {
   const windowStyle = val('windowStyle');
   const doorStyle = val('doorStyle');
 
-  document.getElementById('heightField').style.display = (heightMode === 'absolute') ? '' : 'none';
-  // Floor count and floor height controls are always visible — they affect 
-  // window alignment and inter-floor panel positions in both height modes.
+  // Height mode is either/or, but both values remain visible: one is editable
+  // and the other is a read-only derived value.
+  document.getElementById('heightField').style.display = '';
   document.getElementById('floorsField').style.display = '';
   document.getElementById('floorHeightField').style.display = '';
+  syncHeightFloorModeFields({ writeComputed: true });
   // First-floor height field only shown when override checkbox is checked
   const ffhOn = !!document.getElementById('firstFloorHeightEnabled').checked;
   document.getElementById('firstFloorHeightField').style.display = ffhOn ? '' : 'none';
@@ -20160,6 +21567,7 @@ function applyBuildingTypeDefaults() {
   }
 
   stripLegacyWallBuckets(CONFIG);
+  CONFIG.heightIncludesParapet = true;
   CONFIG.storageVersion = Math.max(Number(CONFIG.storageVersion) || 0, 2);
 
   // Also recalc height mode if needed
@@ -20189,6 +21597,7 @@ function isKnownMat(matId) {
    Identical geometry → one card with ×N badge.
    The full parts array (lastParts) is unchanged so export still includes all copies. */
 function partSignature(p) {
+  const isSplit = !!(p && p.meta && p.meta.sheetSplit);
   return [
     effectiveMat(p.id, p.material),
     p.bboxW.toFixed(3),
@@ -20196,15 +21605,20 @@ function partSignature(p) {
     JSON.stringify(p.paths),
     JSON.stringify(p.rects  || []),
     JSON.stringify(p.lines  || []),
+    // Sheet-split cards often have the same outer boundary but different
+    // clipped SVG content inside. Include source/segment identity and the
+    // clipped content so front/back or floor panels do not collapse into a
+    // misleading "Cut ×2 identical copies" card unless they are truly the
+    // same generated split segment.
+    isSplit ? (p.meta.dedupeSourceKey || p.meta.sourcePartId || p.id || '') : '',
+    isSplit ? (p.meta.sheetSegment || '') : '',
+    isSplit ? (p.svgContent || '') : '',
     // mirrorX is a render-time horizontal flip used on slanted-wall pairs
     // (west side wall on NS-axis, back wall on EW-axis) — the laser sheet
     // gets a `scale(-1,1)` wrapper around the part contents. Two parts
     // with the same paths/rects/lines but OPPOSITE mirrorX produce
     // PHYSICALLY MIRRORED cut pieces, so they cannot be deduplicated into
-    // "Cut ×2 identical copies" — they're mirrors, not duplicates. If the
-    // user followed that advice they'd end up with two same-handed
-    // trapezoidal panels and a roof slope that ran the wrong way on one
-    // side of the building.
+    // "Cut ×2 identical copies" — they're mirrors, not duplicates.
     p.mirrorX ? 'M' : '.',
   ].join('|||');
 }
@@ -24986,10 +26400,12 @@ function generateBuildingStl(cfg) {
         floorCenterYs: plan.floorCenterYs,
         matT: matT,
         doorReserveH: doorReserveH,
+        cfg, plan, edgeId: which,
       });
       doors = computeDoors(sideLen, H, {
         doorStyle: cfg.doorStyle, doorCount: sideDoorCount,
         hasOpening: false, bayXStart: 0, bayXEnd: 0,
+        cfg, plan, edgeId: which,
       });
     }
     // Convert to {u0, u1, v0, v1} where u=Y in 3D, v=Z in 3D
@@ -25093,6 +26509,7 @@ function generateBuildingStl(cfg) {
         floorCenterYs: floorCenterYsForThisWall,
         matT: matT,
         doorReserveH: doorReserveH,
+        cfg, plan, edgeId: which,
       });
       for (const w of allWins) {
         holes.push({
@@ -25104,6 +26521,7 @@ function generateBuildingStl(cfg) {
         const doors = computeDoors(plan.fbWidth, H, {
           doorStyle: cfg.doorStyle, doorCount: fbDoorCount,
           hasOpening: false, bayXStart: 0, bayXEnd: 0,
+          cfg, plan, edgeId: which,
         });
         for (const d of doors) {
           holes.push({
@@ -25433,7 +26851,7 @@ function generateBuildingStl(cfg) {
           }
         }
       } else {
-        const auto = computeWindows(wallLen, wH, { ...baseOpts, winDims: wWinDims, groundWinDims: wGWinDims });
+        const auto = computeWindows(wallLen, wH, { ...baseOpts, winDims: wWinDims, groundWinDims: wGWinDims, cfg: wCfg, plan: wPlan, edgeId: faceKey });
         for (const w of auto) wins.push(w);
       }
       return { wins, doors };
@@ -25621,6 +27039,13 @@ function exportConfigFile() {
 /* Import a .hako (or legacy .json) settings file picked by the user.
    Both are JSON internally — same payload, different extension. */
 function importConfigFile(file) {
+  if (!file) return;
+  const name = (file.name || '').toLowerCase();
+  const looksLikeConfig = /\.(hako|hakoseed|hakoplan|json)$/i.test(name) || file.type === 'application/json' || file.type === '';
+  if (!looksLikeConfig) {
+    flashMessage('Drop a .hako, .hakoseed, .hakoplan, or .json settings/seed file.', 'warn');
+    return;
+  }
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
@@ -25639,6 +27064,80 @@ function importConfigFile(file) {
   };
   reader.onerror = () => flashMessage('File read error.', 'err');
   reader.readAsText(file);
+}
+
+
+function setupHakoDragDropImport() {
+  const dropZone = document.getElementById('previewDropZone') || document.querySelector('.preview');
+  const overlay = document.getElementById('hakoDropOverlay');
+  if (!dropZone || !overlay) return;
+
+  let dragDepth = 0;
+  const hasConfigFile = (dt) => {
+    if (!dt) return false;
+    const items = Array.from(dt.items || []);
+    if (items.length) {
+      return items.some(item => item.kind === 'file');
+    }
+    const files = Array.from(dt.files || []);
+    return files.length > 0;
+  };
+
+  const show = () => {
+    overlay.classList.add('active');
+    overlay.setAttribute('aria-hidden', 'false');
+  };
+  const hide = () => {
+    dragDepth = 0;
+    overlay.classList.remove('active');
+    overlay.setAttribute('aria-hidden', 'true');
+  };
+
+  ['dragenter', 'dragover'].forEach(type => {
+    dropZone.addEventListener(type, (e) => {
+      if (!hasConfigFile(e.dataTransfer)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (type === 'dragenter') dragDepth++;
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      show();
+    });
+  });
+
+  dropZone.addEventListener('dragleave', (e) => {
+    if (!hasConfigFile(e.dataTransfer)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) hide();
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+    if (!hasConfigFile(e.dataTransfer)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const files = Array.from(e.dataTransfer.files || []);
+    hide();
+    const file = files.find(f => /\.(hako|hakoseed|hakoplan|json)$/i.test(f.name || '')) || files[0];
+    if (!file) return;
+    importConfigFile(file);
+  });
+
+  // Prevent the browser from navigating away if the user misses the preview
+  // panel by a few pixels while dropping a .hako file.
+  window.addEventListener('dragover', (e) => {
+    if (hasConfigFile(e.dataTransfer)) e.preventDefault();
+  });
+  window.addEventListener('drop', (e) => {
+    if (!hasConfigFile(e.dataTransfer)) return;
+    if (dropZone.contains(e.target)) return;
+    e.preventDefault();
+    hide();
+    const files = Array.from(e.dataTransfer.files || []);
+    const file = files.find(f => /\.(hako|hakoseed|hakoplan|json)$/i.test(f.name || ''));
+    if (file) importConfigFile(file);
+    else flashMessage('Drop a .hako, .hakoseed, .hakoplan, or .json file to import.', 'warn');
+  });
 }
 
 /* Try to auto-load a saved preset on startup. Silent if none exists. */
@@ -25693,6 +27192,194 @@ function tryAutoLoadPreset() {
   return false;
 }
 
+
+function isLikelyHakoMachiSitePlanSeed(data) {
+  if (!data || typeof data !== 'object') return false;
+  if (data.buildingType && BUILDING_TYPES[data.buildingType]) return false;
+  const gen = String(data.generator || data.app || data.tool || data.kind || '').toLowerCase();
+  if (gen.includes('hakomachi') && (gen.includes('site') || gen.includes('plan') || gen.includes('fabric') || gen.includes('seed'))) return true;
+  if (data.sitePlanSeedVersion || data.siteSeedVersion || data.hakoMachiSiteSeedVersion) return true;
+  if (data.fabricType && (data.lots || data.parcels || data.buildings || data.block || data.site)) return true;
+  if (Array.isArray(data.buildings) && (data.fabricType || data.site || data.plan || data.layout || data.blocks)) return true;
+  if (data.seed && typeof data.seed === 'object' && isLikelyHakoMachiSitePlanSeed(data.seed)) return true;
+  return false;
+}
+
+function asNumOrNull(v) {
+  const n = Number(v);
+  return isFinite(n) ? n : null;
+}
+function pickNum(obj, keys) {
+  if (!obj || typeof obj !== 'object') return null;
+  for (const k of keys) {
+    if (obj[k] != null) {
+      const n = asNumOrNull(obj[k]);
+      if (n != null) return n;
+    }
+  }
+  return null;
+}
+function pickFirstObject() {
+  for (const item of arguments) if (item && typeof item === 'object') return item;
+  return null;
+}
+function validKeyOrFallback(key, dict, fallback) {
+  return (key && dict && dict[key]) ? key : fallback;
+}
+
+function hakoSiteFabricDefaults(fabricType) {
+  const f = String(fabricType || '').trim();
+  const common = {
+    buildingType: 'industrial_loading',
+    width: 80, depth: 60, height: 36,
+    floorCount: 2, floorHeight: 18,
+    roofStyle: 'parapet', parapetHeight: 2,
+    claddingStyle: 'alc_panel', roofCladdingStyle: 'concrete_panel_small',
+    windowStyle: 'industrial_small', windowDensity: 'sparse',
+    doorStyle: 'industrial_metal',
+    frontDoorCount: 0, backDoorCount: 0, sideDoorCount: 1,
+    sheetSplitEnabled: true,
+  };
+  const byFabric = {
+    lowRiseResidentialFabric: {
+      width: 48, depth: 42, height: 18, floorCount: 2, floorHeight: 9,
+      roofStyle: 'gabled', roofPitch: 9, roofRidgeDirection: 'ew', roofOverhangFB: 2, roofOverhangEW: 2,
+      claddingStyle: 'cement_siding_lap', roofCladdingStyle: 'standing_seam', windowStyle: 'residential_small', windowDensity: 'normal',
+      doorStyle: 'single', frontDoorCount: 1, sideDoorCount: 0,
+    },
+    localMixedUseFabric: {
+      width: 64, depth: 50, height: 30, floorCount: 3, floorHeight: 10,
+      roofStyle: 'parapet', parapetHeight: 2.5, claddingStyle: 'cement_siding_lap', windowStyle: 'industrial_small', windowDensity: 'normal',
+      firstFloorWindowStyleEnabled: true, firstFloorWindowStyle: 'storefront', firstFloorHeightEnabled: true, firstFloorHeight: 12,
+      doorStyle: 'glass_storefront', frontDoorCount: 1,
+    },
+    edgeEnclosedPocketFabric: {
+      width: 74, depth: 48, height: 28, floorCount: 2, floorHeight: 14,
+      roofStyle: 'parapet', parapetHeight: 3, claddingStyle: 'alc_panel', windowStyle: 'industrial_small', windowDensity: 'sparse',
+    },
+    stationCommercialStack: {
+      width: 70, depth: 45, height: 48, floorCount: 4, floorHeight: 12,
+      roofStyle: 'parapet', parapetHeight: 3, claddingStyle: 'alc_panel_wide', windowStyle: 'industrial_band', windowDensity: 'dense',
+      firstFloorWindowStyleEnabled: true, firstFloorWindowStyle: 'storefront', firstFloorHeightEnabled: true, firstFloorHeight: 14,
+    },
+    shopWorkshopStreet: {
+      width: 72, depth: 42, height: 26, floorCount: 2, floorHeight: 13,
+      roofStyle: 'parapet', parapetHeight: 2, claddingStyle: 'corrugated_metal', windowStyle: 'industrial_small', windowDensity: 'sparse',
+      doorStyle: 'rolling_shutter', frontDoorCount: 1,
+    },
+    signHeavyCommercialCanyon: {
+      width: 62, depth: 40, height: 42, floorCount: 4, floorHeight: 10.5,
+      roofStyle: 'parapet', parapetHeight: 2, claddingStyle: 'alc_panel', windowStyle: 'industrial_small', windowDensity: 'normal',
+      firstFloorWindowStyleEnabled: true, firstFloorWindowStyle: 'storefront',
+    },
+    midRiseMixedUseStreet: {
+      width: 86, depth: 54, height: 60, floorCount: 5, floorHeight: 12,
+      roofStyle: 'parapet', parapetHeight: 3, claddingStyle: 'alc_panel_horizontal', windowStyle: 'industrial_band', windowDensity: 'normal',
+      firstFloorWindowStyleEnabled: true, firstFloorWindowStyle: 'storefront', firstFloorHeightEnabled: true, firstFloorHeight: 14,
+    },
+    perimeterLanewayBlock: {
+      width: 96, depth: 64, height: 38, floorCount: 3, floorHeight: 12.5,
+      roofStyle: 'parapet', parapetHeight: 2.5, claddingStyle: 'alc_panel', windowStyle: 'industrial_small', windowDensity: 'sparse',
+    },
+    underViaductInfill: {
+      width: 90, depth: 24, height: 18, floorCount: 1, floorHeight: 18,
+      roofStyle: 'flat', claddingStyle: 'corrugated_metal', windowStyle: 'industrial_small', windowDensity: 'sparse',
+      doorStyle: 'rolling_shutter', frontDoorCount: 2, sideDoorCount: 0,
+    },
+    industrialServiceFabric: {
+      width: 110, depth: 62, height: 34, floorCount: 2, floorHeight: 17,
+      roofStyle: 'parapet_gable', parapetHeight: 4, roofPitch: 6, roofRidgeDirection: 'ew',
+      claddingStyle: 'ribbed_metal_fasteners', roofCladdingStyle: 'standing_seam', windowStyle: 'industrial_small', windowDensity: 'sparse',
+      doorStyle: 'industrial_metal', frontDoorCount: 0, sideDoorCount: 1,
+    },
+  };
+  return { ...common, ...(byFabric[f] || {}) };
+}
+
+function findHakoSiteBuildingSeed(data) {
+  if (!data || typeof data !== 'object') return null;
+  if (data.building && typeof data.building === 'object') return data.building;
+  if (data.selectedBuilding && typeof data.selectedBuilding === 'object') return data.selectedBuilding;
+  if (data.currentBuilding && typeof data.currentBuilding === 'object') return data.currentBuilding;
+  const arrays = [data.buildings, data.generatedBuildings, data.buildingSeeds, data.lots, data.parcels, data.structures]
+    .filter(Array.isArray);
+  for (const arr of arrays) {
+    const picked = arr.find(b => b && typeof b === 'object' && (b.selected || b.active || b.primary || b.export === true || b.hakoConfig || b.config || b.buildingType));
+    if (picked) return picked;
+  }
+  for (const arr of arrays) {
+    const picked = arr.find(b => b && typeof b === 'object');
+    if (picked) return picked;
+  }
+  if (data.seed && typeof data.seed === 'object') return findHakoSiteBuildingSeed(data.seed);
+  return data;
+}
+
+function normalizeHakoMachiSitePlanSeedToConfig(input, warnings) {
+  if (!isLikelyHakoMachiSitePlanSeed(input)) return input;
+  const root = (input.seed && typeof input.seed === 'object') ? input.seed : input;
+  const b = findHakoSiteBuildingSeed(root) || root;
+  const embeddedConfig = b.hakoConfig || b.config || b.buildingConfig || b.hako || b.generatorConfig;
+  if (embeddedConfig && typeof embeddedConfig === 'object' && (embeddedConfig.buildingType || embeddedConfig.width || embeddedConfig.depth)) {
+    warnings.push('Imported embedded building config from HakoMachi site-plan seed.');
+    return { ...embeddedConfig, sitePlanSeedSource: root.fabricType || input.fabricType || true };
+  }
+
+  const fabricType = b.fabricType || b.fabric || root.fabricType || root.fabric || root.FabricType || 'industrialServiceFabric';
+  const defaults = hakoSiteFabricDefaults(fabricType);
+  const dims = pickFirstObject(b.dimensions, b.size, b.footprint, b.bounds, b.rect, root.defaultBuildingDimensions) || {};
+  const lot = pickFirstObject(b.lot, b.parcel, b.plot, b.cell) || {};
+  const style = pickFirstObject(b.style, b.rules, b.generationRules, root.style, root.rules) || {};
+  const levels = pickNum(b, ['floorCount','floors','levels','storeys','stories']) ?? pickNum(style, ['floorCount','floors','levels','storeys','stories']);
+  const floorH = pickNum(b, ['floorHeight','floorHeightMm']) ?? pickNum(style, ['floorHeight','floorHeightMm']);
+  let width = pickNum(b, ['width','widthMm','w','modelWidth','modelWidthMm']) ?? pickNum(dims, ['width','widthMm','w']) ?? pickNum(lot, ['width','widthMm','w']);
+  let depth = pickNum(b, ['depth','depthMm','d','modelDepth','modelDepthMm']) ?? pickNum(dims, ['depth','depthMm','d','height','heightMm','h']) ?? pickNum(lot, ['depth','depthMm','d','height','heightMm','h']);
+  let height = pickNum(b, ['height','heightMm','h','modelHeight','modelHeightMm']) ?? pickNum(dims, ['modelHeight','heightMm','h']) ?? null;
+  if (height == null && levels && floorH) height = levels * floorH;
+  if (width == null) width = defaults.width;
+  if (depth == null) depth = defaults.depth;
+  if (height == null) height = defaults.height;
+
+  const roof = b.roof || style.roof || {};
+  const cladding = b.cladding || style.cladding || {};
+  const win = b.windows || b.window || style.windows || style.window || {};
+  const doors = b.doors || b.door || style.doors || style.door || {};
+  const out = {
+    ...defaults,
+    buildingName: b.name || b.buildingName || root.name || root.seedName || null,
+    width, depth, height,
+    floorCount: levels || defaults.floorCount,
+    floorHeight: floorH || (levels ? height / Math.max(1, levels) : defaults.floorHeight),
+    roofStyle: (['flat','parapet','gabled','parapet_gable','slanted','flat_overhang'].includes(b.roofStyle || roof.style || roof.roofStyle) ? (b.roofStyle || roof.style || roof.roofStyle) : defaults.roofStyle),
+    roofPitch: pickNum(b, ['roofPitch']) ?? pickNum(roof, ['pitch','roofPitch']) ?? defaults.roofPitch,
+    parapetHeight: pickNum(b, ['parapetHeight']) ?? pickNum(roof, ['parapetHeight']) ?? defaults.parapetHeight,
+    roofRidgeDirection: ['ew','ns'].includes(b.roofRidgeDirection || roof.ridgeDirection) ? (b.roofRidgeDirection || roof.ridgeDirection) : defaults.roofRidgeDirection,
+    claddingStyle: validKeyOrFallback(b.claddingStyle || cladding.style || cladding.claddingStyle, CLADDING_STYLES, defaults.claddingStyle),
+    roofCladdingStyle: validKeyOrFallback(b.roofCladdingStyle || roof.claddingStyle || roof.roofCladdingStyle, CLADDING_STYLES, defaults.roofCladdingStyle),
+    windowStyle: validKeyOrFallback(b.windowStyle || win.style || win.windowStyle, WINDOW_STYLES, defaults.windowStyle),
+    windowDensity: ['none','sparse','normal','dense'].includes(b.windowDensity || win.density) ? (b.windowDensity || win.density) : defaults.windowDensity,
+    doorStyle: validKeyOrFallback(b.doorStyle || doors.style || doors.doorStyle, DOOR_STYLES, defaults.doorStyle),
+    sitePlanSeedSource: {
+      generator: input.generator || input.app || 'HakoMachi Site Planner',
+      fabricType,
+      sourceId: b.id || b.buildingId || b.lotId || null,
+    },
+  };
+
+  // Manual features can be passed through if a site planner already produced
+  // HakoMachi-compatible wall features/openings.
+  if (b.wallFeatures && typeof b.wallFeatures === 'object') out.wallFeatures = b.wallFeatures;
+  if (b.manualOpenings && typeof b.manualOpenings === 'object') out.manualOpenings = b.manualOpenings;
+  if (Array.isArray(b.embeddedRails)) out.embeddedRails = b.embeddedRails;
+  if (Array.isArray(b.rooftopItems)) out.rooftopItems = b.rooftopItems;
+
+  warnings.push(`Converted HakoMachi site-plan seed${fabricType ? ' (' + fabricType + ')' : ''} into a single building config.`);
+  if (Array.isArray(root.buildings) && root.buildings.length > 1) {
+    warnings.push(`Site seed contains ${root.buildings.length} buildings; imported the selected/first building only.`);
+  }
+  return out;
+}
+
 /* Validate and merge a loaded config object onto CONFIG, falling back to 
    building-type defaults for any field that's missing or references a key that no 
    longer exists in our enums. Returns a list of warnings about anything that was reset. */
@@ -25701,6 +27388,7 @@ function applyLoadedConfig(data) {
   if (typeof data !== 'object' || data === null) {
     throw new Error('Config data is not an object.');
   }
+  data = normalizeHakoMachiSitePlanSeedToConfig(data, warnings);
 
   // Start from defaults of the building type (fallback for missing fields)
   const typeKey = (data.buildingType && BUILDING_TYPES[data.buildingType]) ? data.buildingType : 'industrial_loading';
@@ -25849,7 +27537,13 @@ function applyLoadedConfig(data) {
     }));
   refreshMeasuredLayoutCuts(merged);
 
+  const importedHadLegacyHeight = merged.heightIncludesParapet !== true;
+  const importedLegacyHeightBefore = Number(merged.height) || 0;
+  const importedParapetBefore = Number(merged.parapetHeight) || 0;
   upgradeConfigToCurrentStorage(merged);
+  if (importedHadLegacyHeight && importedParapetBefore > 0) {
+    warnings.push(`Converted legacy height ${importedLegacyHeightBefore.toFixed(1)} mm + parapet ${importedParapetBefore.toFixed(1)} mm to total height ${Number(merged.height).toFixed(1)} mm.`);
+  }
   Object.assign(CONFIG, merged);
   upgradeConfigToCurrentStorage(CONFIG);
   return warnings;
@@ -25929,6 +27623,13 @@ function init() {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', updateConditionalFields);
   }
+  for (const id of ['height', 'floors', 'floorHeight', 'parapetHeight', 'firstFloorHeight']) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', () => syncHeightFloorModeFields({ writeComputed: true }));
+      el.addEventListener('change', () => syncHeightFloorModeFields({ writeComputed: true }));
+    }
+  }
 
   // Auto-suggest the standing-seam metal cladding style when the user
   // first picks 'flat_overhang' for the roof. The metal-clad look is
@@ -25958,7 +27659,9 @@ function init() {
   // Auto-regenerate whenever any form control in the left panel changes.
   // Uses a short debounce so typing in a number field doesn't spam generation.
   let _regenTimer = null;
-  function scheduleRegen() {
+  function scheduleRegen(e) {
+    if (e && e.target && (e.target.id === 'height' || e.target.id === 'floorHeight') && e.target.readOnly) return;
+    syncHeightFloorModeFields({ writeComputed: true });
     clearTimeout(_regenTimer);
     _regenTimer = setTimeout(() => { readForm(); regenerate(); }, 300);
   }
@@ -26027,6 +27730,7 @@ function init() {
     if (f) importConfigFile(f);
     fileInput.value = '';
   });
+  setupHakoDragDropImport();
 
   document.getElementById('resetBtn').addEventListener('click', reset);
 
@@ -26973,7 +28677,7 @@ function mainWallOpeningsFromWings(cfg) {
   const result = { front: [], back: [], east: [], west: [] };
   for (const wing of (cfg.wings || [])) {
     if (wing.connection !== 'open') continue;
-    const wallH = cfg.height;
+    const wallH = wallBodyHeightFromConfig(cfg);
     const wingH = wingHeight(cfg, wing);
     // In wall-local coords, y=0 is top, y=wallH is bottom
     // The opening sits at the bottom of the wall, spanning from y=wallH-wingH to y=wallH
@@ -28061,7 +29765,7 @@ function weRenamePartForWing(part, wing) {
  * wing connection, and add wall-to-wing structural attachment slots.
  */
 function weInjectWingConnections(part, cfg, plan, mainFace, wings) {
-  const H = cfg.height;
+  const H = plan.H;
   const matT = plan.matT;
 
   for (const wing of wings) {
@@ -28114,9 +29818,10 @@ function weInjectWingConnections(part, cfg, plan, mainFace, wings) {
 
 // ---- Dividing wall between main and wing ('wall' connection) -----------
 function weGenerateDividingWall(cfg, plan, wing) {
-  const wingH   = wing.height || cfg.height;
+  const mainBodyH = wallBodyHeightFromConfig(cfg);
+  const wingH   = wing.height || mainBodyH;
   const wallW   = wing.span;          // along the attachment face
-  const wallH   = Math.min(cfg.height, wingH);
+  const wallH   = Math.min(mainBodyH, wingH);
   const matT    = plan.matT;
   const tw      = plan.tw;
   const margin  = Math.max(matT * 2, 5);
@@ -29393,6 +31098,7 @@ let oeGrid = {
   yOrigin: 0,
   anchor: 'center',             // 'center' or 'bottomLeft'
 };
+let oeShowExposureZones = true;   // visibility toggle for segmented exposure overlays
 let oeZoom = 1.0;               // zoom multiplier for the opening editor canvas
 // Pan state — space-held + left drag, or middle-mouse drag, scrolls the
 // canvas container. Document-level mousemove/mouseup listeners are
@@ -29851,7 +31557,7 @@ function oeGetWallDims(wall) {
   // respected instead of falling back to the main building height.
   const plan = oeActivePlan();
   const cfg  = oeActiveCfg();
-  if (!plan) return { W: cfg.width || CONFIG.width, H: cfg.height || CONFIG.height };
+  if (!plan) return { W: cfg.width || CONFIG.width, H: wallBodyHeightFromConfig(cfg || CONFIG) };
   const { H, fbWidth, sideLen } = plan;
   if (wall === 'front' || wall === 'back') return { W: fbWidth, H };
   return { W: sideLen, H };
@@ -30040,6 +31746,8 @@ function oeToolboxPopulateImpl() {
       style.width != null ? `${style.width}w` : '',
       style.height != null ? `${style.height}h` : '',
       style.fullHeight ? 'full height tall downspout' : '',
+      style.throughCore ? 'through penetration cut core hole pipe pass-through' : '',
+      style.laserCaveat || '',
       style.rollingSlats ? 'rollup roller shutter slats bay garage' : '',
       style.glassPanes && style.glassPanes.length ? 'glass window panes' : '',
       style.features ? JSON.stringify(style.features) : '',
@@ -30652,6 +32360,7 @@ function oeToolboxPopulateImpl() {
   renderSection('Doors',             'doors');
   renderSection('Bays',              'bays');
   renderSection('Fixtures',          'fixtures');
+  renderSection('Industrial Fixtures','industrial_fixtures');
   renderSection('Awnings',           'awnings');
   renderSection('Balconies',         'balconies');
   renderSection('Cladding',          'cladding_overrides');
@@ -30968,7 +32677,7 @@ function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
             // Enable the first-floor height override and grow it just
             // enough to fit the opening (with the 2 mm top margin).
             const targetCfg = oeEditTarget();
-            const wallH = targetCfg.height || CONFIG.height || 100;
+            const wallH = wallBodyHeightFromConfig(targetCfg || CONFIG) || 100;
             const targetFFH = dims.h + 2;
             // Keep at least 8 mm of upper-floor space above the new
             // ground floor so the rest of the building doesn't collapse.
@@ -31050,8 +32759,7 @@ function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
     if (fStyle && fStyle.fullHeight) {
       const activeCfg = oeActiveCfg();
       const activePlan = oeActivePlan();
-      const isParapet = (activeCfg.roofStyle === 'parapet');
-      const topY = (isParapet && activePlan) ? (activePlan.parapetH || 0) : 0;
+      const topY = downspoutRooflineTopY(activeCfg, activePlan, oeWall, styleKey);
       const downH = Math.max(1, H - topY);
       oeOpenings[oeWall].push({ type: 'fixture',
         x: oeSnapPlacementX(Math.max(0, Math.min(W - dims.w, x - dims.w / 2)), dims.w),
@@ -31184,6 +32892,20 @@ function oeTopbarPopulateImpl() {
   function btn(id, html, title, onClick, disabledWhen, activeWhen) {
     return tb.button({ id, html, title, onClick, disabled: !!disabledWhen, active: !!activeWhen });
   }
+
+  btn(
+    'oeToggleExposureZones',
+    'Zones',
+    'Show or hide segmented wall exposure overlays',
+    () => {
+      oeShowExposureZones = !oeShowExposureZones;
+      oePopulateTopbar();
+      oeRender();
+    },
+    false,
+    oeShowExposureZones
+  );
+  label('Exposure');
 
   // ---- Sync floating action bar button states ----
   const eraseBtn = document.getElementById('oeEraseBtn');
@@ -32396,14 +34118,14 @@ function oeGetAutoOpenings(wall) {
     const doorReserveH = (cnt > 0 && !hasBay) ? dh + 3 : 0;
     const sYs = hasBay ? (plan.slotYs || []).filter(y => y < (H - bayHeight) - 1) : (plan.slotYs || []);
     const fYs = hasBay ? (plan.floorCenterYs || []).filter(y => y < (H - bayHeight) - 1) : (plan.floorCenterYs || []);
-    pushW(computeWindows(fbWidth, H, { density: cfg.windowDensity, winDims, groundWinDims, groundFloorCenterY: plan.groundFloorCenterY, hasOpening: hasBay, openingY: H - bayHeight, openingH: bayHeight, slotYs: sYs, floorCenterYs: fYs, parapetH: plan.parapetH, matT, doorReserveH }));
-    if (!hasBay) pushD(computeDoors(fbWidth, H, { doorStyle, doorCount: cnt, hasOpening: false, bayXStart: 0, bayXEnd: 0 }));
+    pushW(computeWindows(fbWidth, H, { density: cfg.windowDensity, winDims, groundWinDims, groundFloorCenterY: plan.groundFloorCenterY, hasOpening: hasBay, openingY: H - bayHeight, openingH: bayHeight, slotYs: sYs, floorCenterYs: fYs, parapetH: plan.parapetH, matT, doorReserveH, cfg, plan, edgeId: wall }));
+    if (!hasBay) pushD(computeDoors(fbWidth, H, { doorStyle, doorCount: cnt, hasOpening: false, bayXStart: 0, bayXEnd: 0, cfg, plan, edgeId: wall }));
   } else {
     const cnt = cfg.sideDoorCount || 0;
     const dh = DOOR_STYLES[doorStyle] ? DOOR_STYLES[doorStyle].height : 0;
     const doorReserveH = cnt > 0 ? dh + 3 : 0;
-    pushW(computeWindows(sideLen, H, { density: cfg.windowDensity, winDims, groundWinDims, groundFloorCenterY: plan.groundFloorCenterY, hasOpening: false, openingY: 0, openingH: 0, slotYs: plan.slotYs, floorCenterYs: plan.floorCenterYs, parapetH: plan.parapetH, matT, doorReserveH }));
-    pushD(computeDoors(sideLen, H, { doorStyle, doorCount: cnt, hasOpening: false, bayXStart: 0, bayXEnd: 0 }));
+    pushW(computeWindows(sideLen, H, { density: cfg.windowDensity, winDims, groundWinDims, groundFloorCenterY: plan.groundFloorCenterY, hasOpening: false, openingY: 0, openingH: 0, slotYs: plan.slotYs, floorCenterYs: plan.floorCenterYs, parapetH: plan.parapetH, matT, doorReserveH, cfg, plan, edgeId: wall }));
+    pushD(computeDoors(sideLen, H, { doorStyle, doorCount: cnt, hasOpening: false, bayXStart: 0, bayXEnd: 0, cfg, plan, edgeId: wall }));
   }
   return result;
 }
@@ -32653,6 +34375,103 @@ function oeWallShapeInfo() {
 }
 
 /* ---- OpeningEditorCanvas implementation ---- */
+
+function oeExposureZoneVisual(zone) {
+  const exp = (zone && zone.exposure) || 'exposedSide';
+  const vis = {
+    partyWall:   { fill: 'rgba(120,120,120,0.28)', stroke: 'rgba(85,85,85,0.95)', hatch: 'diag',  label: 'Party wall' },
+    serviceGap:  { fill: 'rgba(120,135,155,0.18)', stroke: 'rgba(85,100,120,0.90)', hatch: 'grid',  label: 'Service gap' },
+    alley:       { fill: 'rgba(214,166,68,0.16)',  stroke: 'rgba(170,120,30,0.95)', hatch: 'diag2', label: 'Alley' },
+    rearService: { fill: 'rgba(120,165,195,0.16)', stroke: 'rgba(65,115,145,0.95)', hatch: 'h',     label: 'Rear service' },
+    sideStreet:  { fill: 'rgba(96,160,112,0.12)',  stroke: 'rgba(48,120,70,0.95)',  hatch: 'v',     label: 'Side street' },
+    mainStreet:  { fill: 'rgba(70,160,110,0.10)',  stroke: 'rgba(42,116,82,0.90)',  hatch: '',      label: 'Main street' },
+    exposedSide: { fill: 'rgba(90,125,185,0.12)',  stroke: 'rgba(70,100,150,0.92)', hatch: '',      label: 'Exposed side' },
+  };
+  return vis[exp] || vis.exposedSide;
+}
+
+function oeExposureZoneOverlaySvg(cfg, plan, wall, ox, oy, s, wallW, wallH) {
+  if (!oeShowExposureZones) return '';
+  if (!cfg) return '';
+  normalizeSegmentedWallExposureZones(cfg);
+  const zoneCount = Array.isArray(cfg.wallExposureZones) ? cfg.wallExposureZones.length : 0;
+  if (!zoneCount) return '';
+
+  const zones = cfg.wallExposureZones
+    .map(z => normalizeWallExposureZone(z, wall, Math.max(1, Number(cfg.floorCount) || 1)))
+    .filter(z => z && z.edgeId === wall);
+
+  if (!zones.length) return '';
+
+  const patternIds = {
+    diag: 'oe-exp-hatch-diag',
+    diag2: 'oe-exp-hatch-diag2',
+    grid: 'oe-exp-hatch-grid',
+    h: 'oe-exp-hatch-h',
+    v: 'oe-exp-hatch-v',
+  };
+
+  let out = '<g pointer-events="none">';
+  out += `<defs>`;
+  out += `<pattern id="${patternIds.diag}" patternUnits="userSpaceOnUse" width="8" height="8"><path d="M-2,8 l10,-10 M0,10 l10,-10 M6,12 l10,-10" stroke="rgba(70,70,70,0.35)" stroke-width="1"/></pattern>`;
+  out += `<pattern id="${patternIds.diag2}" patternUnits="userSpaceOnUse" width="8" height="8"><path d="M-2,0 l10,10 M0,-2 l10,10 M6,-4 l10,10" stroke="rgba(120,90,25,0.30)" stroke-width="1"/></pattern>`;
+  out += `<pattern id="${patternIds.grid}" patternUnits="userSpaceOnUse" width="8" height="8"><path d="M0 0H8 M0 4H8 M0 8H8 M0 0V8 M4 0V8 M8 0V8" stroke="rgba(65,85,105,0.25)" stroke-width="0.8"/></pattern>`;
+  out += `<pattern id="${patternIds.h}" patternUnits="userSpaceOnUse" width="8" height="8"><path d="M0 2H8 M0 6H8" stroke="rgba(55,105,135,0.26)" stroke-width="1"/></pattern>`;
+  out += `<pattern id="${patternIds.v}" patternUnits="userSpaceOnUse" width="8" height="8"><path d="M2 0V8 M6 0V8" stroke="rgba(45,110,65,0.24)" stroke-width="1"/></pattern>`;
+  out += `</defs>`;
+
+  const legendMap = new Map();
+
+  for (const z of zones) {
+    const yr = yRangeForFloorSpan(plan, z.fromFloor, z.toFloor);
+    const x = ox + z.fromT * wallW * s;
+    const y = oy + yr.yTop * s;
+    const w = Math.max(0, (z.toT - z.fromT) * wallW * s);
+    const h = Math.max(0, (yr.yBottom - yr.yTop) * s);
+    if (w < 2 || h < 2) continue;
+    const vis = oeExposureZoneVisual(z);
+    legendMap.set(vis.label || z.exposure, vis);
+
+    out += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="${vis.fill}" stroke="${vis.stroke}" stroke-width="1" stroke-dasharray="5 3"/>`;
+    if (vis.hatch && patternIds[vis.hatch]) {
+      out += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="url(#${patternIds[vis.hatch]})" opacity="0.9"/>`;
+    }
+    if (w >= 34 && h >= 16) {
+      const label = vis.label || z.exposure;
+      const flags = [];
+      if ((z.exposure === 'partyWall') || z.claddingMode === 'none' || z.claddingMode === 'structuralOnly') flags.push('no cladding');
+      if (!z.allowWindows) flags.push('no windows');
+      if (!z.allowDoors) flags.push('no doors');
+      out += `<text x="${(x + w/2).toFixed(1)}" y="${(y + 11).toFixed(1)}" text-anchor="middle" fill="${vis.stroke}" font-size="11" font-weight="700" font-family="system-ui">${label}</text>`;
+      if (flags.length && h >= 28) {
+        out += `<text x="${(x + w/2).toFixed(1)}" y="${(y + 23).toFixed(1)}" text-anchor="middle" fill="${vis.stroke}" font-size="9" font-family="system-ui">${flags.join(' • ')}</text>`;
+      }
+    }
+  }
+
+  const legendItems = [...legendMap.entries()];
+  if (legendItems.length) {
+    const boxW = 162;
+    const rowH = 14;
+    const boxH = 18 + legendItems.length * rowH;
+    const lx = ox + 6;
+    const ly = oy + 6;
+    out += `<rect x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" width="${boxW}" height="${boxH}" rx="6" fill="rgba(255,255,255,0.88)" stroke="rgba(70,70,70,0.35)"/>`;
+    out += `<text x="${(lx+8).toFixed(1)}" y="${(ly+12).toFixed(1)}" fill="#333" font-size="10" font-weight="700" font-family="system-ui">Exposure zones</text>`;
+    legendItems.forEach(([lab, vis], i) => {
+      const yy = ly + 18 + i * rowH;
+      out += `<rect x="${(lx+8).toFixed(1)}" y="${yy.toFixed(1)}" width="10" height="10" fill="${vis.fill}" stroke="${vis.stroke}" stroke-width="1"/>`;
+      if (vis.hatch && patternIds[vis.hatch]) {
+        out += `<rect x="${(lx+8).toFixed(1)}" y="${yy.toFixed(1)}" width="10" height="10" fill="url(#${patternIds[vis.hatch]})"/>`;
+      }
+      out += `<text x="${(lx+24).toFixed(1)}" y="${(yy+8).toFixed(1)}" fill="#333" font-size="10" font-family="system-ui">${lab}</text>`;
+    });
+  }
+
+  out += `</g>`;
+  return out;
+}
+
 function oeCanvasRenderImpl() {
   const svg = document.getElementById('openingEditorSvg');
   if (!svg) return;
@@ -32939,9 +34758,12 @@ function oeCanvasRenderImpl() {
       html += `<line x1="${ox}" y1="${oy+cy*s}" x2="${ox+W*s}" y2="${oy+cy*s}" stroke="rgba(80,140,100,0.4)" stroke-width="0.7" stroke-dasharray="5 4" pointer-events="none"/>`;
   }
 
+  html += oeExposureZoneOverlaySvg(activeCfg, activePlan, oeWall, ox, oy, s, W, wallH);
+
   // Cladding overlay (extends across full L-shape — clip path crops naturally)
   if (oeShowCladding && activePlan) {
     const cT = activeCfg.claddingThickness || CONFIG.claddingThickness || 0.28;
+
     const ops = oeOpenings[oeWall] || [];
     const cutOpenings = ops.filter(op => op.type !== 'awning' && op.type !== 'balcony')
                            .map(op => ({ x:op.x, y:op.y, w:op.w, h:op.h }));
@@ -33328,7 +35150,7 @@ function oeCanvasRenderImpl() {
         const sw = isSel ? 2.5 : 1.2;
         // Selection rectangle (transparent fill — actual fill comes from the
         // SVG body that follows). Kept as the click target.
-        html += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="transparent" stroke="${stroke}" stroke-width="${sw}" data-oe-idx="${i}"/>`;
+        html += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="rgba(255,255,255,0.001)" stroke="${stroke}" stroke-width="${sw}" data-oe-idx="${i}" pointer-events="all" style="cursor:move"/>`;
         if (styleSpec && rw > 4 && rh > 3) {
           const scaleX = rw / op.w;   // px/mm in displayed window
           const scaleY = rh / op.h;
@@ -33733,6 +35555,16 @@ function oeFixtureHitBounds(op) {
   return { x0, y0, x1, y1 };
 }
 
+function oeEventTargetOpeningIndex(e) {
+  const t = e && e.target;
+  if (!t || typeof t.closest !== 'function') return -1;
+  const el = t.closest('[data-oe-idx]');
+  if (!el || el.dataset.oeIdx == null) return -1;
+  const idx = parseInt(el.dataset.oeIdx, 10);
+  const ops = oeOpenings[oeWall] || [];
+  return (Number.isFinite(idx) && idx >= 0 && idx < ops.length) ? idx : -1;
+}
+
 function oeCanvasHitTestImpl(mx, my) {
   const ops = oeOpenings[oeWall] || [];
   // First pass — non-override ops (windows/doors/fixtures/awnings/balconies)
@@ -33749,7 +35581,17 @@ function oeCanvasHitTestImpl(mx, my) {
       continue;
     }
     const hitH = op.type === 'awning' ? AWNING_DISP_H : op.h;
-    if (mx >= op.x && mx <= op.x + op.w && my >= op.y && my <= op.y + hitH) return i;
+    let hx0 = op.x, hx1 = op.x + op.w, hy0 = op.y, hy1 = op.y + hitH;
+    if (op.type === 'window') {
+      const ws = WINDOW_STYLES[op.style || CONFIG.windowStyle];
+      if (ws && (ws.placement === 'blanked' || ws.placement === 'etched')) {
+        // Blanked/faux windows are often just engraved outlines or dark fill
+        // and can feel hard to grab. Pad only the editor hit target.
+        const pad = 2;
+        hx0 -= pad; hx1 += pad; hy0 -= pad; hy1 += pad;
+      }
+    }
+    if (mx >= hx0 && mx <= hx1 && my >= hy0 && my <= hy1) return i;
   }
   // Second pass — cladding overrides (only hit when no feature is at this point)
   for (let i = ops.length - 1; i >= 0; i--) {
@@ -33783,7 +35625,8 @@ let _oeDragMoved = false;
 function oeCanvasClickImpl(e) {
   if (_oeDragMoved) return;
   const { x, y } = oeToMM(e);
-  const hitIdx = oeHitTest(x, y);
+  const directIdx = oeEventTargetOpeningIndex(e);
+  const hitIdx = directIdx >= 0 ? directIdx : oeHitTest(x, y);
 
   if (oeTool === 'erase') {
     if (hitIdx >= 0) {
@@ -34114,7 +35957,11 @@ function oeCanvasMouseDownImpl(e) {
   // Bays go through this path just like any other opening; the standard
   // selection, multi-select, and delete behaviours all apply. Bay-specific
   // Y locking happens inside onMove below (bays stay bottom-anchored).
-  const hitIdx = oeHitTest(x, y);
+  // Prefer explicit data-oe-idx from the SVG target; this avoids transparent
+  // fill / faux-window outline quirks where a blanked window visually exists
+  // but the background SVG receives the mouse event.
+  const directIdx = oeEventTargetOpeningIndex(e);
+  const hitIdx = directIdx >= 0 ? directIdx : oeHitTest(x, y);
   if (hitIdx < 0) {
     // Miss on empty canvas — start rubber-band selection
     _oeDragMoved = false;
@@ -34925,6 +36772,7 @@ function get3DWallOpenings(cfg, plan, face) {
       hasOpening: hasBay, openingY: H - bayH, openingH: bayH,
       slotYs, floorCenterYs: floorCYs, parapetH: plan.parapetH,
       matT, doorReserveH: doorRes,
+      cfg, plan, edgeId: face,
     });
     for (const w of autoWins) {
       wins.push({
@@ -34933,7 +36781,7 @@ function get3DWallOpenings(cfg, plan, face) {
       });
     }
     if (!hasBay && dCnt > 0) {
-      const autoDoors = computeDoors(wallW, H, { doorStyle, doorCount: dCnt, hasOpening: false, bayXStart: 0, bayXEnd: 0 });
+      const autoDoors = computeDoors(wallW, H, { doorStyle, doorCount: dCnt, hasOpening: false, bayXStart: 0, bayXEnd: 0, cfg, plan, edgeId: face });
       for (const d of autoDoors) {
         const op = { x: d.x, y: d.y, w: d.width, h: d.height, style: doorStyle };
         const rollingBay = doorOpeningAs3DBayDoor(op, doorStyle);
@@ -35508,7 +37356,7 @@ function buildGeneratedStlPreviewGroup(cfg) {
     const isParapet = cfg.roofStyle === 'parapet';
     const roofW = isParapet ? (cfg.width - 2 * t) : cfg.width;
     const roofD = isParapet ? (cfg.depth - 2 * t) : cfg.depth;
-    const deckTop = isParapet ? ((plan.H || cfg.height) - (plan.parapetH || 0) + t) : ((plan.H || cfg.height) + t);
+    const deckTop = (plan.H || wallBodyHeightFromConfig(cfg)) + t;
     const eqMat = new THREE.MeshStandardMaterial({
       color: 0xd0c3a0,
       roughness: 0.72,
@@ -37059,8 +38907,9 @@ function updateThreePreview(cfg) {
         // full bases at their own offset, NOT adding to the stack height.
         // We grow zOut as we go through base-shaped pieces; accent pieces
         // get their own zOut atop the current stack.
+        const renderPieces = effectiveFixturePieces(cfg, face, fx.style, fW, fH);
         let baseZOut = 0;
-        for (const piece of style.pieces) {
+        for (const piece of renderPieces) {
           const hasOffset = (piece.offsetX != null) || (piece.offsetY != null) ||
                             (piece.width   != null) || (piece.height  != null);
           // Piece bounds (in fixture-local mm, top-left origin)
@@ -37105,6 +38954,33 @@ function updateThreePreview(cfg) {
           // Place outward: local -Z is outward, so negate zOut
           mesh.position.set(localX, localY, -zOut);
           pivot.add(mesh);
+
+          // Visualize internal cutouts in glue-on ring/flange pieces as a dark
+          // shallow patch on top. Actual laser cut is generated in fixture SVG.
+          if (piece.innerCut) {
+            const ic = piece.innerCut;
+            const ix = ((ic.x != null) ? ic.x : ((ic.xRatio || 0) * pW)) * scaleX;
+            const iy = ((ic.y != null) ? ic.y : ((ic.yRatio || 0) * pH)) * scaleY;
+            const iw = ((ic.w != null) ? ic.w : ((ic.wRatio || 0.5) * pW)) * scaleX;
+            const ih = ((ic.h != null) ? ic.h : ((ic.hRatio || 0.5) * pH)) * scaleY;
+            const holeX = (pOx * scaleX + ix + iw / 2) - fW / 2;
+            const holeY = fH / 2 - (pOy * scaleY + iy + ih / 2);
+            const hmat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.95, metalness: 0.0 });
+            let hmesh;
+            if (ic.shape === 'circle') {
+              const rad = Math.min(iw, ih) / 2;
+              hmesh = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad, LAYER_T * 0.18, 18), hmat);
+              hmesh.rotation.x = Math.PI / 2;
+              if (Math.abs(iw - ih) > 0.05) {
+                hmesh.scale.x = (iw / 2) / rad;
+                hmesh.scale.y = (ih / 2) / rad;
+              }
+            } else {
+              hmesh = new THREE.Mesh(new THREE.BoxGeometry(iw, ih, LAYER_T * 0.18), hmat);
+            }
+            hmesh.position.set(holeX, holeY, -zOut - LAYER_T * 0.11);
+            pivot.add(hmesh);
+          }
         }
 
         group.add(pivot);

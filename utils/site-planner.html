@@ -677,10 +677,11 @@
   }
   .toolVariantTrigger:hover { background: #f0f0ec; }
   .toolFlyout {
-    position: absolute; left: 52px; top: 0; z-index: 60;
+    position: fixed; left: 0; top: 0; z-index: 10050;
     min-width: 210px; display: none; padding: 4px;
     background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
     box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    max-width: min(260px, calc(100vw - 16px));
   }
   .toolFlyout.open { display: block; }
   .toolFlyout button {
@@ -693,11 +694,78 @@
   @media (max-width: 720px) {
     .toolGroup { width: 40px; height: 40px; }
     .toolVariantTrigger { width: 14px; height: 14px; min-height: 14px; font-size: 8px; }
-    .toolFlyout { left: 44px; min-width: 190px; }
+    .toolFlyout { min-width: 190px; }
   }
   @media (max-width: 520px) {
     .toolGroup { width: 36px; height: 38px; }
-    .toolFlyout { left: 40px; }
+    .toolFlyout { min-width: 180px; }
+  }
+
+
+
+  /* v30/v33 rebuilt export split-button sizing
+     Match the HakoMachi top-bar button height while keeping the chevron compact. */
+  .top .splitExport{
+    height:36px !important;
+    min-height:36px !important;
+    align-items:stretch !important;
+  }
+  .top .splitExport #svgBtn,
+  .top .splitExport #exportMenuBtn{
+    height:36px !important;
+    min-height:36px !important;
+    margin:0 !important;
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    line-height:1 !important;
+    box-sizing:border-box !important;
+  }
+  .top .splitExport #svgBtn{
+    padding:8px 11px !important;
+    border-top-right-radius:0 !important;
+    border-bottom-right-radius:0 !important;
+    border-right:0 !important;
+  }
+  .top .splitExport #exportMenuBtn{
+    width:28px !important;
+    min-width:28px !important;
+    max-width:28px !important;
+    flex:0 0 28px !important;
+    padding:0 !important;
+    border-top-left-radius:0 !important;
+    border-bottom-left-radius:0 !important;
+    border-left:1px solid #745237 !important;
+    font-size:14px !important;
+  }
+  .top .splitExport #exportMenu{
+    position:absolute !important;
+    top:calc(100% + 4px) !important;
+    left:0 !important;
+    right:auto !important;
+    bottom:auto !important;
+    transform:none !important;
+    min-width:190px !important;
+  }
+  .sidebar .section[data-detail-panel="true"].detailMode{
+    margin-bottom:0;
+  }
+  .sidebarBackBtn{
+    margin:0 0 10px 0;
+    min-height:31px;
+    padding:6px 10px;
+  }
+  @media(max-width:900px){
+    .top .splitExport{height:34px !important;min-height:34px !important;}
+    .top .splitExport #svgBtn,
+    .top .splitExport #exportMenuBtn{height:34px !important;min-height:34px !important;}
+    .top .splitExport #svgBtn{padding:7px 9px !important;max-width:132px;overflow:hidden;text-overflow:ellipsis;}
+    .top .splitExport #exportMenuBtn{width:28px !important;min-width:28px !important;max-width:28px !important;flex-basis:28px !important;}
+    .top .splitExport #exportMenu{position:absolute !important;top:calc(100% + 4px) !important;left:0 !important;right:auto !important;max-width:min(280px, calc(100vw - 16px));}
+  }
+  @media(max-width:560px){
+    .top .splitExport #svgBtn{max-width:105px;}
+    .top .splitExport #exportMenuBtn{width:26px !important;min-width:26px !important;max-width:26px !important;flex-basis:26px !important;}
   }
 
 </style>
@@ -1102,7 +1170,7 @@
   function finishRoadOutline(){
     if(state.roadDraft.length<3) return;
     const r=normalizeRoad({id:uid('road'), name:`Road Outline ${state.roads.length+1}`, mode:'outline', pointsPx:state.roadDraft.slice(), widthMm:0, widthPx:0, sidewalkSide:'none', sidewalkWidthMm:0, sidewalkWidthPx:0, color:'#6f6a5e'});
-    state.roads.push(r); state.selectedRoadId=r.id; state.selectedId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedRoadId=null; state.roadDraft=[]; syncAll();
+    state.roads.push(r); state.selectedRoadId=r.id; state.selectedId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.roadDraft=[]; syncAll();
   }
   function drawRoad(r){
     r=normalizeRoad(r); if(r.hidden) return;
@@ -1126,7 +1194,7 @@
     const box=$('roadList'); if(!box) return;
     if(!state.roads.length){box.innerHTML='<div class="small muted">No roads yet.</div>'; return;}
     box.innerHTML='';
-    state.roads.forEach(raw=>{const r=normalizeRoad(raw); const el=document.createElement('div'); el.className='buildingItem '+(r.id===state.selectedRoadId?'selected':''); el.innerHTML=`<span class="swatch" style="background:${r.color||'#6f6a5e'}"></span><div><b>${escapeHtml(r.name||'Road')}</b><br><span class="small muted">${r.mode==='outline'?'outline':'centerline'}${r.sidewalkSide&&r.sidewalkSide!=='none'?' · sidewalk '+r.sidewalkSide:''}${r.locked?' · locked':''}</span></div><span class="pill">${r.mode==='centerline'?fmt(r.widthMm||0)+'mm':'poly'}</span>`; el.onclick=()=>{state.selectedRoadId=r.id; state.selectedId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedRoadId=null; renderRoads(); renderList(); renderStreetlights(); renderSelected(); draw();}; box.appendChild(el);});
+    state.roads.forEach(raw=>{const r=normalizeRoad(raw); const el=document.createElement('div'); el.className='buildingItem '+(r.id===state.selectedRoadId?'selected':''); el.innerHTML=`<span class="swatch" style="background:${r.color||'#6f6a5e'}"></span><div><b>${escapeHtml(r.name||'Road')}</b><br><span class="small muted">${r.mode==='outline'?'outline':'centerline'}${r.sidewalkSide&&r.sidewalkSide!=='none'?' · sidewalk '+r.sidewalkSide:''}${r.locked?' · locked':''}</span></div><span class="pill">${r.mode==='centerline'?fmt(r.widthMm||0)+'mm':'poly'}</span>`; el.onclick=()=>{state.selectedRoadId=r.id; state.selectedId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; renderRoads(); renderList(); renderStreetlights(); renderSelected(); draw();}; box.appendChild(el);});
   }
 
   function hitStreetlight(p,pointerType='mouse'){
@@ -1683,7 +1751,7 @@
   }
 
   function renderList(){const box=$('buildingList'); box.innerHTML=''; if(!state.buildings.length){box.innerHTML='<div class="small muted">No building pads yet.</div>'; return;} state.buildings.forEach(raw=>{const b=normalizeBuilding(raw); const el=document.createElement('div'); el.className='buildingItem '+(b.id===state.selectedId?'selected':''); const hakoBadge=b.hakoFile?'<span class="pill">.hako</span>':''; el.innerHTML=`<span class="swatch" style="background:${b.color}"></span><div><b>${escapeHtml(b.name||'Building')}</b><br><span class="small muted">${buildingStateLabel(b.state)} · ${b.padType}${b.hidden?' · hidden':''}${b.locked?' · locked':''}</span></div><span class="pill">${b.padType==='rect'?`${fmt(b.widthMm)}×${fmt(b.depthMm)}`:fmt(b.derived?.areaMm2||0)+' mm²'}</span>${hakoBadge}`; el.onclick=()=>{state.selectedId=b.id; state.selectedStreetlightId=null; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});}
-  function renderSelected(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const road=selectedRoad(); const light=selectedStreetlight(); if(!b){if(road){normalizeRoad(road); box.innerHTML=`
+  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const road=selectedRoad(); const light=selectedStreetlight(); if(!b){if(road){normalizeRoad(road); box.innerHTML=`
       <b>${road.mode==='outline'?'Road outline':'Road centerline'} selected</b>
       <label>Name</label><input id="roadName" value="${escapeAttr(road.name||'Road')}">
       <div class="row"><div><label>Width (mm)</label><input id="roadWidth" type="number" step="0.1" value="${fmt(road.widthMm||0)}" ${road.mode==='outline'?'disabled':''}></div><div><label>Sidewalk</label><select id="roadSidewalk" ${road.mode==='outline'?'disabled':''}><option value="none">None</option><option value="left">Left</option><option value="right">Right</option><option value="both">Both sides</option></select></div></div>
@@ -1746,6 +1814,81 @@
     $('hideB').onclick=()=>{b.hidden=!b.hidden; syncAll();}; $('lockB').onclick=()=>{b.locked=!b.locked; syncAll();}; $('delB').onclick=()=>{state.buildings=state.buildings.filter(x=>x.id!==b.id); state.selectedId=null; syncAll();};
     const poly=$('polyB'); if(poly) poly.onclick=()=>{b.padType='polygon'; b.pointsPx=transformedRect(b); delete b.widthPx; delete b.depthPx; syncAll();};
   }
+
+  function activeSidebarDetailKind(){
+    if(state.selectedId) return 'building';
+    if(state.selectedRoadId) return 'road';
+    if(state.selectedStreetlightId) return 'streetlight';
+    if(state.selectedAnnotationId) return 'annotation';
+    return null;
+  }
+  function activeSidebarDetailTitle(kind){
+    if(kind==='building') return 'Building';
+    if(kind==='road') return 'Road';
+    if(kind==='streetlight') return 'Streetlight';
+    if(kind==='annotation') return 'Annotation';
+    return 'Selected';
+  }
+  function clearSidebarDetailSelection(){
+    state.selectedId=null;
+    state.selectedRoadId=null;
+    state.selectedStreetlightId=null;
+    state.selectedAnnotationId=null;
+    hideContextMenu();
+    renderList();
+    renderRoads();
+    renderStreetlights();
+    renderSelected();
+    updateHandoff();
+    draw();
+  }
+  function applySidebarDrillIn(){
+    const sidebar=document.querySelector('.sidebar');
+    if(!sidebar) return;
+    const sections=[...sidebar.querySelectorAll(':scope > .section')];
+    let detailSection=sections.find(sec=>sec.dataset.detailPanel==='true');
+    if(!detailSection){
+      detailSection=sections.find(sec=>{
+        const h=sec.querySelector('h3');
+        return h && h.textContent.trim()==='Selected Building';
+      });
+      if(detailSection) detailSection.dataset.detailPanel='true';
+    }
+    if(!detailSection) return;
+    const kind=activeSidebarDetailKind();
+    const h3=detailSection.querySelector('h3');
+    let back=detailSection.querySelector('#sidebarBackBtn');
+    if(kind){
+      sections.forEach(sec=>{ sec.style.display = (sec===detailSection) ? '' : 'none'; });
+      detailSection.classList.add('detailMode');
+      if(h3) h3.textContent=activeSidebarDetailTitle(kind);
+      if(!back){
+        back=document.createElement('button');
+        back.id='sidebarBackBtn';
+        back.type='button';
+        back.textContent='Back';
+        back.className='sidebarBackBtn';
+        back.onclick=clearSidebarDetailSelection;
+        if(h3) h3.insertAdjacentElement('afterend', back);
+        else detailSection.prepend(back);
+      }
+      back.style.display='inline-flex';
+      if(window.matchMedia && window.matchMedia('(max-width:900px)').matches && !state.sidebarOpen){
+        setSidebarOpen(true);
+      }
+    } else {
+      sections.forEach(sec=>{ sec.style.display=''; });
+      detailSection.style.display='none';
+      detailSection.classList.remove('detailMode');
+      if(h3) h3.textContent='Selected Building';
+      if(back) back.style.display='none';
+    }
+  }
+  function renderSelected(){
+    renderSelectedCore();
+    applySidebarDrillIn();
+  }
+
   function updateHandoff(){const b=selected(); $('handoffPreview').textContent=b? JSON.stringify(makeSeed(b),null,2):'';}
   function makeSeed(b){normalizeBuilding(b); syncBuildingMetrics(b); const seed={source:'HakoMachi Site Planner',version:1,buildingId:b.id,name:b.name,padType:b.padType,category:b.category,state:b.state||'notStarted',hakoFileId:b.hakoFileId||null,rotationDeg:b.rotationDeg||0,notes:b.notes||'',units:'mm',hakoUnits:'model_mm'}; if(b.padType==='rect'){Object.assign(seed,{widthMm:b.widthMm,depthMm:b.depthMm,footprint:{type:'rect',widthMm:b.widthMm,depthMm:b.depthMm,rotationDeg:b.rotationDeg||0}});} else {const xs=b.pointsMm.map(p=>p.x),ys=b.pointsMm.map(p=>p.y); Object.assign(seed,{footprint:{type:'polygon',pointsMm:b.pointsMm},boundingRectMm:{widthMm:Math.max(...xs)-Math.min(...xs),depthMm:Math.max(...ys)-Math.min(...ys)},warning:'Polygon footprints should be refined with HakoMachi shape editor/cut lines if arbitrary polygon cores are not yet supported.'});} seed.linkedHakoConfig=b.hakoConfig||null; return seed;}
   function isNearSquare(w,h){const m=Math.max(w,h); return m>0 && Math.abs(w-h)/m<0.06;}
@@ -1923,6 +2066,31 @@
   }
   document.querySelectorAll('.toolbtn').forEach(btn=>btn.onclick=()=>setActiveTool(btn.dataset.tool));
   function hideToolFlyouts(){document.querySelectorAll('.toolFlyout').forEach(m=>m.classList.remove('open'));}
+  function positionToolFlyout(menu, anchor){
+    if(!menu || !anchor) return;
+    // Open as a fixed popover so it is not laid out under the canvas or clipped by the toolbar/canvas grid.
+    menu.classList.add('open');
+    menu.style.left='0px';
+    menu.style.top='0px';
+    const ar=anchor.getBoundingClientRect();
+    const mr=menu.getBoundingClientRect();
+    const gap=8;
+    let left=ar.right + gap;
+    let top=ar.top;
+    // If there is not enough room to the right, open to the left of the toolbar button.
+    if(left + mr.width > window.innerWidth - gap) left = Math.max(gap, ar.left - mr.width - gap);
+    // Keep it vertically inside the viewport.
+    top = clamp(top, gap, Math.max(gap, window.innerHeight - mr.height - gap));
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+  }
+  function toggleToolFlyout(menuId, anchor){
+    const menu=$(menuId);
+    if(!menu) return;
+    const shouldOpen=!menu.classList.contains('open');
+    hideToolFlyouts();
+    if(shouldOpen) positionToolFlyout(menu, anchor);
+  }
 
   let roadToolPressTimer=null;
   function updateRoadToolButton(){
@@ -1933,12 +2101,12 @@
     if(btn){btn.title=outline?'Road Outline':'Road Centerline'; btn.setAttribute('aria-label', outline?'Road Outline':'Road Centerline');}
     document.querySelectorAll('#roadToolMenu button').forEach(b=>b.classList.toggle('active', b.dataset.roadMode===state.roadMode));
   }
-  function showRoadToolMenu(){const m=$('roadToolMenu'); if(m){m.classList.toggle('open'); updateRoadToolButton();}}
-  $('roadVariantBtn')?.addEventListener('click', e=>{e.preventDefault(); e.stopPropagation(); showRoadToolMenu();});
-  $('roadToolBtn')?.addEventListener('pointerdown', e=>{clearTimeout(roadToolPressTimer); roadToolPressTimer=setTimeout(()=>showRoadToolMenu(), 420);});
+  function showRoadToolMenu(anchor=$('roadToolGroup')||$('roadToolBtn')){toggleToolFlyout('roadToolMenu', anchor); updateRoadToolButton();}
+  $('roadVariantBtn')?.addEventListener('click', e=>{e.preventDefault(); e.stopPropagation(); showRoadToolMenu($('roadToolGroup')||$('roadVariantBtn'));});
+  $('roadToolBtn')?.addEventListener('pointerdown', e=>{clearTimeout(roadToolPressTimer); roadToolPressTimer=setTimeout(()=>showRoadToolMenu($('roadToolGroup')||$('roadToolBtn')), 420);});
   $('roadToolBtn')?.addEventListener('pointerup', ()=>clearTimeout(roadToolPressTimer));
   $('roadToolBtn')?.addEventListener('pointerleave', ()=>clearTimeout(roadToolPressTimer));
-  $('roadToolBtn')?.addEventListener('contextmenu', e=>{e.preventDefault(); showRoadToolMenu();});
+  $('roadToolBtn')?.addEventListener('contextmenu', e=>{e.preventDefault(); showRoadToolMenu($('roadToolGroup')||$('roadVariantBtn'));});
   document.querySelectorAll('#roadToolMenu button').forEach(btn=>btn.onclick=e=>{e.stopPropagation(); state.roadMode=btn.dataset.roadMode||'centerline'; updateRoadToolButton(); setActiveTool('road');});
   updateRoadToolButton();
 
@@ -1950,15 +2118,17 @@
     if(btn){btn.title=anchored?'Anchored Streetlight':'Streetlight'; btn.setAttribute('aria-label', anchored?'Anchored Streetlight':'Streetlight');}
     document.querySelectorAll('#streetlightToolMenu button').forEach(b=>b.classList.toggle('active', b.dataset.streetlightMode===state.streetlightMode));
   }
-  function showStreetlightToolMenu(){const m=$('streetlightToolMenu'); if(m){m.classList.toggle('open'); updateStreetlightToolButton();}}
-  $('streetlightVariantBtn')?.addEventListener('click', e=>{e.preventDefault(); e.stopPropagation(); showStreetlightToolMenu();});
+  function showStreetlightToolMenu(anchor=$('streetlightToolGroup')||$('streetlightToolBtn')){toggleToolFlyout('streetlightToolMenu', anchor); updateStreetlightToolButton();}
+  $('streetlightVariantBtn')?.addEventListener('click', e=>{e.preventDefault(); e.stopPropagation(); showStreetlightToolMenu($('streetlightToolGroup')||$('streetlightVariantBtn'));});
   let streetlightToolPressTimer=null;
-  $('streetlightToolBtn')?.addEventListener('pointerdown', e=>{clearTimeout(streetlightToolPressTimer); streetlightToolPressTimer=setTimeout(()=>showStreetlightToolMenu(), 420);});
+  $('streetlightToolBtn')?.addEventListener('pointerdown', e=>{clearTimeout(streetlightToolPressTimer); streetlightToolPressTimer=setTimeout(()=>showStreetlightToolMenu($('streetlightToolGroup')||$('streetlightToolBtn')), 420);});
   $('streetlightToolBtn')?.addEventListener('pointerup', ()=>clearTimeout(streetlightToolPressTimer));
   $('streetlightToolBtn')?.addEventListener('pointercancel', ()=>clearTimeout(streetlightToolPressTimer));
-  $('streetlightToolBtn')?.addEventListener('contextmenu', e=>{e.preventDefault(); showStreetlightToolMenu();});
+  $('streetlightToolBtn')?.addEventListener('contextmenu', e=>{e.preventDefault(); showStreetlightToolMenu($('streetlightToolGroup')||$('streetlightVariantBtn'));});
   document.querySelectorAll('#streetlightToolMenu button').forEach(btn=>btn.onclick=e=>{e.stopPropagation(); state.streetlightMode=btn.dataset.streetlightMode||'free'; updateStreetlightToolButton(); setActiveTool('streetlight');});
-  document.addEventListener('pointerdown', e=>{if(!e.target.closest('.toolGroup')) hideToolFlyouts();});
+  document.addEventListener('pointerdown', e=>{if(!e.target.closest('.toolGroup') && !e.target.closest('.toolFlyout')) hideToolFlyouts();});
+  window.addEventListener('resize', hideToolFlyouts);
+  window.addEventListener('scroll', hideToolFlyouts, true);
   updateStreetlightToolButton();
   function setImageStatus(message, kind='muted'){
     const el=$('imageImportStatus');
@@ -2239,8 +2409,7 @@
     setTimeout(()=>updateAutosaveStatus(), 1200);
   }
   function csvExport(){syncAll(); const rows=[['id','name','state','type','category','widthMm','depthMm','areaMm2','rotationDeg','hakoFile','notes']]; state.buildings.forEach(raw=>{const b=normalizeBuilding(raw); rows.push([b.id,b.name,b.state,b.padType,b.category,b.widthMm||'',b.depthMm||'',b.derived?.areaMm2||'',b.rotationDeg||0,b.hakoFile?.fileName||'',b.notes||'']);}); return rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\n');}
-  function svgExport(){syncAll(); const w=state.image?.width||1200,h=state.image?.height||800; const img=state.imageMeta?.dataUrl?`<image href="${state.imageMeta.dataUrl}" x="0" y="0" width="${w}" height="${h}" opacity="${state.imageOpacity}"/>`:''; const notes=state.annotations.map(st=>`<polyline points="${(st.points||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="${st.color||'#6f4326'}" stroke-width="${st.baseWidth||2.2}" stroke-linecap="round" stroke-linejoin="round"/>`).join('\n'); const roads=state.roads.map(r=>{normalizeRoad(r); const side=(r.sidewalkPolygonsPx||[]).map(sw=>`<polygon points="${(sw.polygon||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="rgba(226,214,188,.62)" stroke="#b9aa86" stroke-width="1"/>`).join(''); const road=`<polygon points="${(r.roadPolygonPx||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="rgba(111,106,94,.26)" stroke="#6f6a5e" stroke-width="2"/>`; return side+road;}).join('
-'); const lights=state.streetlights.map(l=>{normalizeStreetlight(l); const r=(state.pxPerMm?mmToPx((l.mode==='anchored'?(l.anchor?.mountMode==='roadEdgeBulbMount'?(l.anchor?.bulbMountDiameterMm||3):(l.anchor?.cutHoleDiameterMm||1.2)):(l.poleDiameterMm||.45))/2):3); return `<circle cx="${l.x}" cy="${l.y}" r="${Math.max(2,r)}" fill="${l.color||'#c84a3a'}" stroke="#3a2b1e" stroke-width="1"/><text x="${l.x+5}" y="${l.y-5}" font-size="10" fill="#3a2b1e">${escapeHtml(l.name||'Streetlight')}</text>`;}).join('\n'); const pads=state.buildings.map(b=>{const pts=(b.padType==='rect'?transformedRect(b):b.pointsPx).map(p=>`${p.x},${p.y}`).join(' '); const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(b.pointsPx); return `<polygon points="${pts}" fill="${b.color}33" stroke="${b.color}" stroke-width="3"/><text x="${c.x+5}" y="${c.y-5}" font-size="12" fill="white">${escapeHtml(b.name)}</text>`;}).join('\n'); return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${img}${notes}${roads}${pads}${lights}</svg>`;}
+  function svgExport(){syncAll(); const w=state.image?.width||1200,h=state.image?.height||800; const img=state.imageMeta?.dataUrl?`<image href="${state.imageMeta.dataUrl}" x="0" y="0" width="${w}" height="${h}" opacity="${state.imageOpacity}"/>`:''; const notes=state.annotations.map(st=>`<polyline points="${(st.points||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="${st.color||'#6f4326'}" stroke-width="${st.baseWidth||2.2}" stroke-linecap="round" stroke-linejoin="round"/>`).join('\n'); const roads=state.roads.map(r=>{normalizeRoad(r); const side=(r.sidewalkPolygonsPx||[]).map(sw=>`<polygon points="${(sw.polygon||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="rgba(226,214,188,.62)" stroke="#b9aa86" stroke-width="1"/>`).join(''); const road=`<polygon points="${(r.roadPolygonPx||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="rgba(111,106,94,.26)" stroke="#6f6a5e" stroke-width="2"/>`; return side+road;}).join('\n'); const lights=state.streetlights.map(l=>{normalizeStreetlight(l); const r=(state.pxPerMm?mmToPx((l.mode==='anchored'?(l.anchor?.mountMode==='roadEdgeBulbMount'?(l.anchor?.bulbMountDiameterMm||3):(l.anchor?.cutHoleDiameterMm||1.2)):(l.poleDiameterMm||.45))/2):3); return `<circle cx="${l.x}" cy="${l.y}" r="${Math.max(2,r)}" fill="${l.color||'#c84a3a'}" stroke="#3a2b1e" stroke-width="1"/><text x="${l.x+5}" y="${l.y-5}" font-size="10" fill="#3a2b1e">${escapeHtml(l.name||'Streetlight')}</text>`;}).join('\n'); const pads=state.buildings.map(b=>{const pts=(b.padType==='rect'?transformedRect(b):b.pointsPx).map(p=>`${p.x},${p.y}`).join(' '); const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(b.pointsPx); return `<polygon points="${pts}" fill="${b.color}33" stroke="${b.color}" stroke-width="3"/><text x="${c.x+5}" y="${c.y-5}" font-size="12" fill="white">${escapeHtml(b.name)}</text>`;}).join('\n'); return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${img}${notes}${roads}${pads}${lights}</svg>`;}
   function download(content,name,type){const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([content],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
   function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));} function escapeAttr(s){return escapeHtml(s).replace(/'/g,'&#39;');} function slug(s){return String(s||'building').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'building';}
 

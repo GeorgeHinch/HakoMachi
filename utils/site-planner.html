@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>HakoMachi Site Planner v51</title>
+<title>HakoMachi Site Planner v68</title>
 <style>
   :root{
     /* HakoMachi warm chipboard / laser-cut planning theme */
@@ -64,13 +64,16 @@
   .toolbar{grid-column:1;grid-row:2/3;background:linear-gradient(180deg,#3a2b1e,#2e231a);border-right:1px solid #1f1711;display:flex;flex-direction:column;gap:8px;padding:8px;box-shadow:2px 0 9px rgba(47,35,24,.16)}
   .toolbtn{width:48px;height:48px;padding:0;font-size:22px;line-height:1;display:flex;align-items:center;justify-content:center;text-align:center;background:#57402c;color:#fff3df;border-color:#87623e;border-radius:12px;position:relative}
   .toolbtn .toolIcon{display:block;line-height:1;transform:translateY(-.5px)}
+  .toolIcon svg,.toolFlyout [data-icon] svg{width:22px;height:22px;display:block;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .toolFlyout [data-icon] svg{width:18px;height:18px;flex:0 0 18px}
+  .toolbtn.active .toolIcon svg{stroke-width:2.25}
   .toolbtn .toolLabel{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
   .toolbtn::after{content:attr(aria-label);position:absolute;left:56px;top:50%;transform:translateY(-50%);background:#2f241c;color:#fff3df;border:1px solid #87623e;border-radius:8px;padding:6px 8px;font-size:12px;line-height:1;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .12s ease;z-index:20}
   .toolbtn:hover::after,.toolbtn:focus-visible::after{opacity:1}
   .toolbtn:hover{background:#694b31}.toolbtn.active{background:var(--accent);border-color:#f1bb78;color:#fff7ed}
   .canvasWrap{grid-column:2;grid-row:2/3;position:relative;overflow:hidden;background:var(--canvas);background-image:radial-gradient(circle at 1px 1px,rgba(107,81,57,.12) 1px,transparent 0);background-size:18px 18px}
   canvas{display:block;width:100%;height:100%;cursor:crosshair;touch-action:none}
-  .hint{position:absolute;left:12px;bottom:12px;background:rgba(255,248,234,.94);border:1px solid #cdae83;border-radius:12px;padding:9px 11px;color:#574634;font-size:12px;max-width:520px;pointer-events:none;box-shadow:var(--shadow)}
+  .hint{display:none !important}
   .sidebar{grid-column:3;grid-row:2/3;background:var(--panel);border-left:1px solid var(--line);overflow:auto;padding:12px;box-shadow:-4px 0 14px rgba(47,35,24,.09)}
   .bottom{grid-column:1/4;grid-row:3;background:#fff8ea;border-top:1px solid var(--line);padding:7px 10px;display:flex;gap:14px;align-items:center;font-size:12px;color:#6d5a45;overflow-x:auto;white-space:nowrap;box-shadow:0 -1px 7px rgba(47,35,24,.06)}
   .section{background:linear-gradient(180deg,#fffaf0,#f8eddc);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:12px;box-shadow:var(--shadow)}
@@ -375,6 +378,93 @@
   .canvasWrap {
     background: #e8e8e0;
     background-image: none;
+  }
+
+  .emptyImageOverlay {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 18;
+    pointer-events: none;
+  }
+
+  .emptyImageOverlay.visible { display: flex; }
+
+  .emptyImageCard {
+    width: min(520px, calc(100vw - 120px));
+    max-width: 100%;
+    background: rgba(255,255,255,.96);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 12px 34px rgba(0,0,0,.12);
+    padding: 24px;
+    text-align: center;
+    color: var(--text);
+    pointer-events: auto;
+  }
+
+  .emptyImageCard.dragOver {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(200,74,58,.16), 0 12px 34px rgba(0,0,0,.12);
+    background: #fff9f7;
+  }
+
+  .emptyImageIcon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 12px;
+    display: grid;
+    place-items: center;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    color: var(--accent);
+    font-size: 28px;
+    background: #fafaf7;
+  }
+
+  .emptyImageCard h2 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    line-height: 1.25;
+  }
+
+  .emptyImageCard p {
+    margin: 0 auto 16px;
+    color: var(--muted);
+    max-width: 420px;
+    font-size: 13px;
+  }
+
+  .emptyImageDropHint {
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    color: var(--muted);
+    background: #fafaf7;
+    margin-top: 12px;
+  }
+
+  .emptyImageActions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .emptyImageActions .fileButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+  }
+
+  @media(max-width:560px){
+    .emptyImageOverlay{padding:14px}
+    .emptyImageCard{width:100%;padding:18px}
   }
 
   .sidebar {
@@ -830,6 +920,9 @@
 
 
 #canvas.panning{cursor:grabbing;}
+
+    .checkboxRow input[type="checkbox"]{width:auto;min-width:0;margin:0;}
+    .checkboxRow span{font-weight:600;color:var(--text);}
 </style>
 </head>
 <body>
@@ -979,32 +1072,32 @@
     </div>
   </div>
   <div class="toolbar" aria-label="Drawing tools">
-    <button class="toolbtn active" data-tool="select" aria-label="Select" title="Select"><span class="toolIcon">↖</span><span class="toolLabel">Select</span></button>
-    <button class="toolbtn" data-tool="pan" aria-label="Pan" title="Pan"><span class="toolIcon">✋</span><span class="toolLabel">Pan</span></button>
-    <button class="toolbtn" data-tool="calibrate" aria-label="Calibration" title="Calibration"><span class="toolIcon">📏</span><span class="toolLabel">Calibrate</span></button>
-    <button class="toolbtn" data-tool="rect" aria-label="Rectangle pad" title="Rectangle pad"><span class="toolIcon">▭</span><span class="toolLabel">Rect Pad</span></button>
-    <button class="toolbtn" data-tool="polygon" aria-label="Polygon pad" title="Polygon pad"><span class="toolIcon">⬟</span><span class="toolLabel">Polygon</span></button>
-    <button class="toolbtn" data-tool="measure" aria-label="Measure" title="Measure"><span class="toolIcon">⟷</span><span class="toolLabel">Measure</span></button>
-    <button class="toolbtn" data-tool="annotate" aria-label="Annotate" title="Annotate"><span class="toolIcon">✎</span><span class="toolLabel">Annotate</span></button>
-    <button class="toolbtn" data-tool="benchwork" aria-label="Benchwork outline" title="Benchwork outline"><span class="toolIcon">⛶</span><span class="toolLabel">Benchwork Outline</span></button>
+    <button class="toolbtn active" data-tool="select" aria-label="Select" title="Select"><span class="toolIcon" data-icon="select"></span><span class="toolLabel">Select</span></button>
+    <button class="toolbtn" data-tool="pan" aria-label="Pan" title="Pan"><span class="toolIcon" data-icon="pan"></span><span class="toolLabel">Pan</span></button>
+    <button class="toolbtn" data-tool="calibrate" aria-label="Calibration" title="Calibration"><span class="toolIcon" data-icon="ruler"></span><span class="toolLabel">Calibrate</span></button>
+    <button class="toolbtn" data-tool="rect" aria-label="Rectangle pad" title="Rectangle pad"><span class="toolIcon" data-icon="rectangle"></span><span class="toolLabel">Rect Pad</span></button>
+    <button class="toolbtn" data-tool="polygon" aria-label="Polygon pad" title="Polygon pad"><span class="toolIcon" data-icon="polygon"></span><span class="toolLabel">Polygon</span></button>
+    <button class="toolbtn" data-tool="measure" aria-label="Measure" title="Measure"><span class="toolIcon" data-icon="measure"></span><span class="toolLabel">Measure</span></button>
+    <button class="toolbtn" data-tool="annotate" aria-label="Annotate" title="Annotate"><span class="toolIcon" data-icon="pencil"></span><span class="toolLabel">Annotate</span></button>
+    <button class="toolbtn" data-tool="benchwork" aria-label="Benchwork outline" title="Benchwork outline"><span class="toolIcon" data-icon="benchwork"></span><span class="toolLabel">Benchwork Outline</span></button>
     <div class="toolGroup" id="roadToolGroup">
-      <button class="toolbtn" id="roadToolBtn" data-tool="road" aria-label="Road Centerline" title="Road Centerline"><span class="toolIcon" id="roadToolIcon">═</span><span class="toolLabel" id="roadToolLabel">Road Centerline</span></button>
+      <button class="toolbtn" id="roadToolBtn" data-tool="road" aria-label="Road Centerline" title="Road Centerline"><span class="toolIcon" id="roadToolIcon" data-icon="road"></span><span class="toolLabel" id="roadToolLabel">Road Centerline</span></button>
       <button class="toolVariantTrigger" id="roadVariantBtn" title="Road variants" aria-label="Road variants">▾</button>
       <div class="toolFlyout" id="roadToolMenu">
-        <button data-road-mode="centerline"><span>═</span><span>Road Centerline</span></button>
-        <button data-road-mode="outline"><span>▰</span><span>Road Outline</span></button>
+        <button data-road-mode="centerline"><span data-icon="road"></span><span>Road Centerline</span></button>
+        <button data-road-mode="outline"><span data-icon="road"></span><span>Road Outline</span></button>
       </div>
     </div>
     <div class="toolGroup" id="streetlightToolGroup">
-      <button class="toolbtn" id="streetlightToolBtn" data-tool="streetlight" aria-label="Streetlight" title="Streetlight"><span class="toolIcon" id="streetlightToolIcon">💡</span><span class="toolLabel" id="streetlightToolLabel">Streetlight</span></button>
+      <button class="toolbtn" id="streetlightToolBtn" data-tool="streetlight" aria-label="Streetlight" title="Streetlight"><span class="toolIcon" id="streetlightToolIcon" data-icon="lamp"></span><span class="toolLabel" id="streetlightToolLabel">Streetlight</span></button>
       <button class="toolVariantTrigger" id="streetlightVariantBtn" title="Streetlight variants" aria-label="Streetlight variants">▾</button>
       <div class="toolFlyout" id="streetlightToolMenu">
-        <button data-streetlight-mode="free"><span>💡</span><span>Streetlight</span></button>
-        <button data-streetlight-mode="anchored"><span>⚓</span><span>Anchored Streetlight</span></button>
+        <button data-streetlight-mode="free"><span data-icon="lamp"></span><span>Streetlight</span></button>
+        <button data-streetlight-mode="anchored"><span data-icon="lampAnchored"></span><span>Anchored Streetlight</span></button>
       </div>
     </div>
   </div>
-  <div class="canvasWrap"><canvas id="canvas"></canvas><button id="sidebarToggle" class="sidebarToggle" title="Open properties panel" aria-label="Open properties panel">‹</button><div id="hint" class="hint"></div><div id="contextMenu" class="contextMenu"></div></div>
+  <div class="canvasWrap"><canvas id="canvas"></canvas><div id="emptyImageOverlay" class="emptyImageOverlay" aria-live="polite"><div id="emptyImageCard" class="emptyImageCard"><div class="emptyImageIcon">▧</div><h2>Import a reference image to start</h2><p>The Site Planner needs a PNG, JPG, SVG, or WEBP plan image before you trace buildings, roads, benchwork, and site objects.</p><div class="emptyImageActions"><label class="fileButton" for="imageFile">Import Image</label></div><div class="emptyImageDropHint">Drop an image here, or use <strong>Import Image</strong> in the header.</div></div></div><button id="sidebarToggle" class="sidebarToggle" title="Open properties panel" aria-label="Open properties panel">‹</button><div id="contextMenu" class="contextMenu"></div></div>
   <aside class="sidebar">
     <div class="section">
       <h3>Image</h3>
@@ -1012,7 +1105,7 @@
       <div id="imageImportStatus" class="small muted" style="margin-top:8px">No image loaded.</div>
       <div id="imagePortableStatus" class="small muted" style="margin-top:4px">Portable save: no image.</div>
     </div>
-    <div class="section">
+    <div class="section" id="ipadInputSection" style="display:none">
       <h3>Input / iPad Pencil</h3>
       <label>Input mode</label>
       <select id="inputMode">
@@ -1029,7 +1122,7 @@
       </div>
       <div class="small muted" style="margin-top:8px">Recommended for iPad: Apple Pencil draws/edits pads, one finger pans, two fingers pinch-zoom. Snap replaces the keyboard Shift key. Use Annotate for pressure-aware Pencil markup that does not affect building geometry.</div>
     </div>
-    <div class="section">
+    <div class="section" id="calibrationSection" style="display:none">
       <h3>Calibration</h3>
       <div id="scaleStatus" class="small warning">Not calibrated. Draw a calibration line.</div>
       <div class="row3">
@@ -1071,6 +1164,29 @@
   const ctx = canvas.getContext('2d');
   const wrap = canvas.parentElement;
   const $ = id => document.getElementById(id);
+  const ICONS={
+    road:'<svg viewBox="0 0 24 24"><path d="M6 21c3-5 9-5 12-18"/><path d="M11 21c2-5 7-6 9-17"/><path d="M8.5 20l1-3"/><path d="M12 15l1-3"/><path d="M15 10l1-3"/></svg>',
+    select:'<svg viewBox="0 0 24 24"><path d="M4 3l9 18 2.1-7.1L22 12 4 3z"/></svg>',
+    pan:'<svg viewBox="0 0 24 24"><path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12"/><path d="M11 12V5.5a1.5 1.5 0 0 1 3 0V12"/><path d="M14 12V7.5a1.5 1.5 0 0 1 3 0V13"/><path d="M17 13v-2.5a1.5 1.5 0 0 1 3 0V15c0 4-2.4 7-7 7h-1.8c-2.2 0-3.9-.9-5.1-2.5L3 15.5a1.7 1.7 0 0 1 2.6-2.1L8 16"/></svg>',
+    ruler:'<svg viewBox="0 0 24 24"><path d="M3 17l14-14 4 4L7 21l-4-4z"/><path d="M14 6l2 2"/><path d="M11 9l2 2"/><path d="M8 12l2 2"/><path d="M5 15l2 2"/></svg>',
+    rectangle:'<svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/></svg>',
+    polygon:'<svg viewBox="0 0 24 24"><path d="M12 3l8 6-3 10H7L4 9l8-6z"/></svg>',
+    measure:'<svg viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M8 8l-4 4 4 4"/><path d="M16 8l4 4-4 4"/><path d="M4 5v14"/><path d="M20 5v14"/></svg>',
+    pencil:'<svg viewBox="0 0 24 24"><path d="M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20z"/><path d="M13.5 7.5l3 3"/></svg>',
+    benchwork:'<svg viewBox="0 0 24 24"><path d="M5 5h14v14H5z" stroke-dasharray="3 2"/><path d="M9 3H3v6"/><path d="M15 3h6v6"/><path d="M21 15v6h-6"/><path d="M9 21H3v-6"/></svg>',
+    roadCenterline:'<svg viewBox="0 0 24 24"><path d="M4 19c4-6 12-4 16-14"/><path d="M7 18l1-1"/><path d="M10 15l1-1"/><path d="M13 12l1-1"/><path d="M16 9l1-1"/></svg>',
+    roadOutline:'<svg viewBox="0 0 24 24"><path d="M6 21c3-5 9-5 12-18"/><path d="M11 21c2-5 7-6 9-17"/><path d="M8.5 20l1-3"/><path d="M12 15l1-3"/><path d="M15 10l1-3"/></svg>',
+    lamp:'<svg viewBox="0 0 24 24"><path d="M7 22h8"/><path d="M11 22V8"/><path d="M11 8h6l2 3"/><path d="M17 8v5"/><path d="M14 13h6"/><path d="M16 16h2"/></svg>',
+    lampAnchored:'<svg viewBox="0 0 24 24"><path d="M7 22h8"/><path d="M11 22V8"/><path d="M11 8h6l2 3"/><path d="M17 8v5"/><path d="M14 13h6"/><circle cx="11" cy="22" r="2"/><path d="M4 22h14"/></svg>'
+  };
+  function setIcon(el, key){ if(el) el.innerHTML = ICONS[key] || ''; }
+  function hydrateIcons(root=document){ root.querySelectorAll('[data-icon]').forEach(el=>setIcon(el, el.dataset.icon)); }
+  function isLikelyIPad(){
+    const ua = navigator.userAgent || '';
+    const platform = navigator.platform || '';
+    const touch = navigator.maxTouchPoints || 0;
+    return /iPad/i.test(ua) || (platform === 'MacIntel' && touch > 1);
+  }
   const state = {
     tool:'select', image:null, imageMeta:null, imageOpacity:.75, imageLocked:true,
     view:{x:0,y:0,scale:1}, pxPerMm:null, calibrationLine:null, lastCalibrationLine:null,
@@ -1154,6 +1270,10 @@
     if(mm!=null){ road.sidewalkWidthMm = mm; road.sidewalkWidthPx = state.pxPerMm ? mmToPx(mm) : (road.sidewalkWidthPx || mm); rebuildRoadGeometry(road); }
   }
   function updateStatus(){
+    const calibrationSection=$('calibrationSection');
+    if(calibrationSection) calibrationSection.style.display = state.tool==='calibrate' ? '' : 'none';
+    const ipadInputSection=$('ipadInputSection');
+    if(ipadInputSection) ipadInputSection.style.display = isLikelyIPad() ? '' : 'none';
     $('statusTool').textContent='Tool: '+state.tool;
     $('statusZoom').textContent='Zoom: '+Math.round(state.view.scale*100)+'%';
     $('statusScale').textContent=state.pxPerMm ? `Calibration: ${fmt(state.pxPerMm)} px/mm` : 'Calibration: unset';
@@ -1169,7 +1289,7 @@
     if(state.tool==='benchwork') h.push('Benchwork Outline: click points around the layout edge, then click near the first point or press Enter to close. Select an outline, then hover/drag an edge segment to curve it. Future exports can trim roads, scenery, and other layout parts to this boundary.');
     if(state.tool==='road') h.push(state.roadMode==='outline'?'Road Outline: click points around the road surface, then click near the first point or press Enter to close.':'Road Centerline: click connected points to draw the centerline. Press Enter or double-click to finish. Hover between points and drag to curve a selected road segment; adjust road and sidewalk width in the properties pane.');
     if(state.tool==='streetlight') h.push(state.streetlightMode==='anchored'?'Anchored Streetlight: click to place a pole with sidewalk cut-hole or street-edge bulb mount metadata.':'Streetlight: click to place a free-standing streetlight marker.');
-    $('hint').textContent=h.join(' ');
+    if($('hint')) $('hint').textContent=h.join(' ');
   }
   function transformedRect(b){const c={x:b.x,y:b.y}, w=b.widthPx, h=b.depthPx, a=rad(b.rotationDeg||0), ca=Math.cos(a), sa=Math.sin(a); const local=[{x:-w/2,y:-h/2},{x:w/2,y:-h/2},{x:w/2,y:h/2},{x:-w/2,y:h/2}]; return local.map(p=>({x:c.x+p.x*ca-p.y*sa,y:c.y+p.x*sa+p.y*ca}));}
   function rectLocal(b,p){const a=rad(-(b.rotationDeg||0)), ca=Math.cos(a), sa=Math.sin(a), dx=p.x-b.x, dy=p.y-b.y; return {x:dx*ca-dy*sa,y:dx*sa+dy*ca};}
@@ -1444,6 +1564,68 @@
     }
     return best.distance<=tol ? best : null;
   }
+  function hitRoadPoint(p,r,pointerType='mouse'){
+    if(!r || r.mode!=='centerline' || !Array.isArray(r.pointsPx) || !r.pointsPx.length) return null;
+    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
+    const tol=(coarse?18:11)/state.view.scale;
+    let best={distance:Infinity,index:-1};
+    r.pointsPx.forEach((pt,i)=>{
+      const d=dist(p,pt);
+      if(d<best.distance) best={distance:d,index:i};
+    });
+    return best.distance<=tol ? best : null;
+  }
+
+  function closestPointOnSegment(p,a,b){
+    const vx=b.x-a.x, vy=b.y-a.y;
+    const len2=vx*vx+vy*vy;
+    if(len2<=1e-9) return {point:{x:a.x,y:a.y}, t:0, distance:dist(p,a)};
+    const t=clamp(((p.x-a.x)*vx+(p.y-a.y)*vy)/len2,0,1);
+    const point={x:a.x+vx*t,y:a.y+vy*t};
+    return {point,t,distance:dist(p,point)};
+  }
+  function nearestPointOnRoadPath(p, road, includeEndpoints=true){
+    if(!road || road.hidden || road.mode!=='centerline') return null;
+    const samples=roadCenterlineSamples(road, 20);
+    if(!samples || samples.length<2) return null;
+    let best={distance:Infinity, point:null, roadId:road.id, kind:'segment'};
+    if(includeEndpoints && road.pointsPx?.length){
+      [0, road.pointsPx.length-1].forEach(idx=>{
+        const ep=road.pointsPx[idx];
+        const d=dist(p,ep);
+        if(d<best.distance) best={distance:d,point:{x:ep.x,y:ep.y},roadId:road.id,kind:idx===0?'endpointStart':'endpointEnd',pointIndex:idx};
+      });
+    }
+    for(let i=0;i<samples.length-1;i++){
+      const hit=closestPointOnSegment(p,samples[i],samples[i+1]);
+      if(hit.distance<best.distance) best={distance:hit.distance,point:hit.point,roadId:road.id,kind:'segment'};
+    }
+    return best.point ? best : null;
+  }
+  function findRoadConnectionSnap(p, excludeRoadId=null, pointerType='mouse'){
+    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
+    const tol=(coarse?20:14)/state.view.scale;
+    let best=null;
+    state.roads.forEach(raw=>{
+      const r=normalizeRoad(raw);
+      if(r.id===excludeRoadId || r.hidden || r.mode!=='centerline') return;
+      const hit=nearestPointOnRoadPath(p,r,true);
+      if(hit && hit.distance<=tol && (!best || hit.distance<best.distance)) best=hit;
+    });
+    return best;
+  }
+  function snapRoadPointForConnection(p, excludeRoadId=null, pointerType='mouse'){
+    const hit=findRoadConnectionSnap(p, excludeRoadId, pointerType);
+    return hit ? {x:hit.point.x,y:hit.point.y, connection:{roadId:hit.roadId, kind:hit.kind, pointIndex:hit.pointIndex ?? null}} : {x:p.x,y:p.y, connection:null};
+  }
+  function setRoadEndpointConnection(r, index, snap){
+    if(!r || !snap || !Number.isInteger(index)) return;
+    r.endpointConnections = r.endpointConnections || {};
+    const key = index===0 ? 'start' : (index===(r.pointsPx?.length||0)-1 ? 'end' : null);
+    if(!key) return;
+    if(snap.connection) r.endpointConnections[key]=snap.connection;
+    else delete r.endpointConnections[key];
+  }
   function selectedRoad(){return state.roads.find(r=>r.id===state.selectedRoadId)||null;}
   function hitRoad(p){
     for(let i=state.roads.length-1;i>=0;i--){
@@ -1522,6 +1704,80 @@
       right.push({x:p.x-nx*hw,y:p.y-ny*hw});
     });
     return {left,right};
+  }
+
+  function roadHasSidewalk(r){
+    return !!(r && r.mode==='centerline' && r.sidewalkSide && r.sidewalkSide!=='none' && Number(r.sidewalkWidthPx)>0);
+  }
+  function roadEndpointJunctions(){
+    const out=[];
+    const seen=new Set();
+    state.roads.forEach(raw=>{
+      const r=normalizeRoad(raw);
+      if(r.hidden || r.mode!=='centerline' || !r.pointsPx || r.pointsPx.length<2) return;
+      const endpoints=[{point:r.pointsPx[0], key:'start'}, {point:r.pointsPx[r.pointsPx.length-1], key:'end'}];
+      endpoints.forEach(ep=>{
+        let best=null;
+        state.roads.forEach(otherRaw=>{
+          const other=normalizeRoad(otherRaw);
+          if(other.id===r.id || other.hidden || other.mode!=='centerline') return;
+          const hit=nearestPointOnRoadPath(ep.point, other, true);
+          const tol=Math.max(3, Math.min((r.widthPx||20),(other.widthPx||20))*0.35);
+          if(hit && hit.distance<=tol && (!best || hit.distance<best.distance)) best={...hit, other};
+        });
+        if(best){
+          const x=(ep.point.x+best.point.x)/2, y=(ep.point.y+best.point.y)/2;
+          const k=`${Math.round(x*10)/10},${Math.round(y*10)/10}`;
+          if(!seen.has(k)){
+            seen.add(k);
+            const roadRadius=Math.max((r.widthPx||20),(best.other?.widthPx||20))*0.58;
+            const sw=Math.max(roadHasSidewalk(r)?(r.sidewalkWidthPx||0):0, roadHasSidewalk(best.other)?(best.other.sidewalkWidthPx||0):0);
+            const hasSidewalkBulb=sw>0;
+            out.push({
+              x,y,
+              radius:roadRadius,
+              sidewalkRadius:hasSidewalkBulb ? roadRadius + sw : 0,
+              sidewalkWidth:sw,
+              hasSidewalkBulb,
+              selected:r.id===state.selectedRoadId || best.other?.id===state.selectedRoadId
+            });
+          }
+        }
+      });
+    });
+    return out;
+  }
+  function drawRoadJunctions(){
+    const junctions=roadEndpointJunctions();
+    if(!junctions.length) return;
+    ctx.save();
+    junctions.forEach(j=>{
+      const roadR=Math.max(4/state.view.scale,j.radius);
+      if(j.hasSidewalkBulb){
+        // Sidewalk corner bulbs: draw one rounded joined sidewalk mass around the
+        // junction first, then repaint the road mouth through the middle. This
+        // visually splits sidewalks back from the road while joining touching
+        // sidewalk corners into one continuous crossing bulb.
+        const bulbR=Math.max(roadR + 2/state.view.scale, j.sidewalkRadius);
+        ctx.fillStyle='rgba(226,214,188,.84)';
+        ctx.strokeStyle=j.selected?'#c84a3a':'rgba(154,140,105,.85)';
+        ctx.lineWidth=(j.selected?1.8:1.1)/state.view.scale;
+        ctx.beginPath();
+        ctx.arc(j.x,j.y,bulbR,0,Math.PI*2);
+        ctx.fill(); ctx.stroke();
+      }
+      ctx.fillStyle=j.selected?'rgba(200,74,58,.30)':'rgba(111,106,94,.52)';
+      ctx.strokeStyle=j.selected?'#c84a3a':'rgba(70,68,62,.82)';
+      ctx.lineWidth=(j.selected?2.2:1.4)/state.view.scale;
+      ctx.beginPath();
+      ctx.arc(j.x,j.y,roadR,0,Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle=j.selected?'#c84a3a':'#6f6a5e';
+      ctx.beginPath();
+      ctx.arc(j.x,j.y,3.5/state.view.scale,0,Math.PI*2);
+      ctx.fill();
+    });
+    ctx.restore();
   }
   function drawRoad(r){
     r=normalizeRoad(r); if(r.hidden) return;
@@ -2741,7 +2997,7 @@
     const c=structuredClone(normalizeStreetlight(l)); c.id=uid('light'); c.name=(c.name||'Streetlight')+' copy'; c.x+=16; c.y+=16; state.streetlights.push(c); state.selectedStreetlightId=c.id; clearBuildingSelection(); state.selectedAnnotationId=null; return c;
   }
 
-  function draw(){const r=canvas.getBoundingClientRect(); const dpr=devicePixelRatio||1; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.benchworkOutlines.forEach(drawBenchwork); state.roads.forEach(drawRoad); state.buildings.forEach(drawBuilding); state.streetlights.forEach(drawStreetlight); if(state.roadDraft.length){ctx.save();ctx.strokeStyle='#6f6a5e';ctx.fillStyle='rgba(111,106,94,.18)';ctx.lineWidth=3/state.view.scale;if(state.roadMode==='centerline'&&state.roadDraft.length>=2){const temp=createRoadCenterlineFromPoints(state.roadDraft); temp.id='road_draft'; drawRoad(temp);} else {ctx.beginPath();state.roadDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();}state.roadDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.benchworkDraft.length){ctx.save();ctx.strokeStyle='#2f6f4e';ctx.fillStyle='rgba(47,111,78,.12)';ctx.lineWidth=3/state.view.scale;ctx.setLineDash([8/state.view.scale,6/state.view.scale]);ctx.beginPath();state.benchworkDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.setLineDash([]);state.benchworkDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview){ if(state.drag.type==='roadCenterline') drawRoad(state.drag.preview); else drawBuilding(state.drag.preview); } drawSelectionMarquee(); drawHoverPreview(); ctx.restore(); updateStatus();}
+  function draw(){const r=canvas.getBoundingClientRect(); const dpr=devicePixelRatio||1; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.benchworkOutlines.forEach(drawBenchwork); state.roads.forEach(drawRoad); drawRoadJunctions(); state.buildings.forEach(drawBuilding); state.streetlights.forEach(drawStreetlight); if(state.roadDraft.length){ctx.save();ctx.strokeStyle='#6f6a5e';ctx.fillStyle='rgba(111,106,94,.18)';ctx.lineWidth=3/state.view.scale;if(state.roadMode==='centerline'&&state.roadDraft.length>=2){const temp=createRoadCenterlineFromPoints(state.roadDraft); temp.id='road_draft'; drawRoad(temp);} else {ctx.beginPath();state.roadDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();}state.roadDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.benchworkDraft.length){ctx.save();ctx.strokeStyle='#2f6f4e';ctx.fillStyle='rgba(47,111,78,.12)';ctx.lineWidth=3/state.view.scale;ctx.setLineDash([8/state.view.scale,6/state.view.scale]);ctx.beginPath();state.benchworkDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.setLineDash([]);state.benchworkDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview){ if(state.drag.type==='roadCenterline') drawRoad(state.drag.preview); else drawBuilding(state.drag.preview); } drawSelectionMarquee(); drawHoverPreview(); ctx.restore(); updateEmptyImageOverlay(); updateStatus();}
   function fitImage(){const r=canvas.getBoundingClientRect(); if(!state.image){state.view={x:r.width/2,y:r.height/2,scale:1}; draw(); return;} const s=Math.min(r.width/state.image.width,r.height/state.image.height)*.9; state.view.scale=s; state.view.x=(r.width-state.image.width*s)/2; state.view.y=(r.height-state.image.height*s)/2; draw();}
 
   function renderStreetlights(){
@@ -2798,16 +3054,17 @@
       drop.addEventListener('drop', ev=>{const files=Array.from(ev.dataTransfer&&ev.dataTransfer.files||[]); const f=files.find(file=>/\.(hako|hakoseed|hakoplan|json)$/i.test(file.name||''))||files[0]; if(f) importHakoAsBuilding(f);});
     }
   }
-  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const road=selectedRoad(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const selIds=currentSelectedBuildingIds(); if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use Copy/Paste or Delete to manage the selected set.</span><div class="buttons" style="margin-top:8px"><button id="copyMultiB">Copy</button><button id="pasteMultiB" ${state.footprintClipboard?'':'disabled'}>Paste</button><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('copyMultiB').onclick=()=>{copySelectedFootprint(); renderSelected();}; $('pasteMultiB').onclick=()=>pasteFootprintFromClipboard(); $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(road){normalizeRoad(road); box.innerHTML=`
+  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const road=selectedRoad(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const selIds=currentSelectedBuildingIds(); if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use Copy/Paste or Delete to manage the selected set.</span><div class="buttons" style="margin-top:8px"><button id="copyMultiB">Copy</button><button id="pasteMultiB" ${state.footprintClipboard?'':'disabled'}>Paste</button><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('copyMultiB').onclick=()=>{copySelectedFootprint(); renderSelected();}; $('pasteMultiB').onclick=()=>pasteFootprintFromClipboard(); $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(road){normalizeRoad(road); const roadPresetKey=road.roadWidthPreset||'custom'; const sidewalkPresetKey=road.sidewalkWidthPreset||'custom'; const showRoadOverride=road.mode!=='outline' && roadPresetKey==='custom'; const showSidewalkOverride=road.mode!=='outline' && sidewalkPresetKey==='custom'; box.innerHTML=`
       <b>${road.mode==='outline'?'Road outline':'Road centerline'} selected</b>
       <label>Name</label><input id="roadName" value="${escapeAttr(road.name||'Road')}">
-      <label>Road width preset</label><select id="roadWidthPreset" ${road.mode==='outline'?'disabled':''}>${presetOptionsHtml(ROAD_WIDTH_PRESETS, road.roadWidthPreset||'custom')}</select>
-      <div class="row"><div><label>Width override (mm)</label><input id="roadWidth" type="number" step="0.1" value="${fmt(road.widthMm||0)}" ${road.mode==='outline'?'disabled':''}></div><div><label>Sidewalk</label><select id="roadSidewalk" ${road.mode==='outline'?'disabled':''}><option value="none">None</option><option value="left">Left</option><option value="right">Right</option><option value="both">Both sides</option></select></div></div>
-      <label>Sidewalk width preset</label><select id="roadSidewalkPreset" ${road.mode==='outline'?'disabled':''}>${presetOptionsHtml(SIDEWALK_WIDTH_PRESETS, road.sidewalkWidthPreset||'custom')}</select>
-      <label>Sidewalk width override (mm)</label><input id="roadSidewalkWidth" type="number" step="0.1" value="${fmt(road.sidewalkWidthMm||0)}" ${road.mode==='outline'?'disabled':''}>
-      <label style="display:flex;align-items:center;gap:6px;margin-top:6px"><input id="roadLocked" type="checkbox" ${road.locked?'checked':''}> Locked</label>
+      <label>Road width preset</label><select id="roadWidthPreset" ${road.mode==='outline'?'disabled':''}>${presetOptionsHtml(ROAD_WIDTH_PRESETS, roadPresetKey)}</select>
+      <div id="roadWidthOverrideWrap" style="display:${showRoadOverride?'block':'none'}"><label>Width override (mm)</label><input id="roadWidth" type="number" step="0.1" value="${fmt(road.widthMm||0)}" ${road.mode==='outline'?'disabled':''}></div>
+      <label>Sidewalk</label><select id="roadSidewalk" ${road.mode==='outline'?'disabled':''}><option value="none">None</option><option value="left">Left</option><option value="right">Right</option><option value="both">Both sides</option></select>
+      <label>Sidewalk width preset</label><select id="roadSidewalkPreset" ${road.mode==='outline'?'disabled':''}>${presetOptionsHtml(SIDEWALK_WIDTH_PRESETS, sidewalkPresetKey)}</select>
+      <div id="roadSidewalkOverrideWrap" style="display:${showSidewalkOverride?'block':'none'}"><label>Sidewalk width override (mm)</label><input id="roadSidewalkWidth" type="number" step="0.1" value="${fmt(road.sidewalkWidthMm||0)}" ${road.mode==='outline'?'disabled':''}></div>
+      <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="roadLocked" type="checkbox" ${road.locked?'checked':''}> <span>Lock road</span></label>
       <div class="buttons" style="margin-top:8px"><button id="regenRoad">Regenerate road geometry</button><button id="deleteRoad" class="danger">Delete Road</button></div>
-      <div class="small muted" style="margin-top:8px">Presets are common real-world widths converted to physical output millimeters using the calibration scale divisor. Override fields remain editable for custom roads. Centerlines can be polyline paths; hover a selected segment and drag to bend it into a curve. Laser-cut road export is not enabled yet.</div>`;
+      <div class="small muted" style="margin-top:8px">Presets are common real-world widths converted to physical output millimeters using the calibration scale divisor. Choose <b>Custom / override</b> to show manual width fields. Centerlines can be polyline paths; hover a selected segment and drag to bend it into a curve. Laser-cut road export is not enabled yet.</div>`;
       const sel=$('roadSidewalk'); if(sel) sel.value=road.sidewalkSide||'none';
       const bindRoad=(id,fn)=>{const el=$(id); if(el) el.oninput=e=>{fn(el.type==='checkbox'?el.checked:el.value); syncRoadMetrics(road); syncAll();};};
       bindRoad('roadName',v=>road.name=v);
@@ -3073,10 +3330,18 @@
     }
     if(state.tool==='road'){
       const existingRoadHit=hitRoad(p);
+      // Point handles must win over segment curve handles. Otherwise clicking an endpoint
+      // can be interpreted as grabbing the adjacent segment and forcing a bend.
+      const selectedPointHit=state.selectedRoadId ? hitRoadPoint(p, selectedRoad(), e.pointerType) : null;
+      if(selectedPointHit){
+        const r=selectedRoad();
+        if(r && !r.locked){ state.drag={type:'roadPoint',pointerId:e.pointerId,start:p,orig:structuredClone(r),pointIndex:selectedPointHit.index}; }
+        return;
+      }
       const selectedCurveHit=state.selectedRoadId ? hitRoadCenterlineSegment(p, selectedRoad(), e.pointerType) : null;
       if(selectedCurveHit){
         const r=selectedRoad();
-        state.drag={type:'roadCurve',pointerId:e.pointerId,start:p,orig:structuredClone(r),segmentIndex:selectedCurveHit.index};
+        if(r && !r.locked){ state.drag={type:'roadCurve',pointerId:e.pointerId,start:p,orig:structuredClone(r),segmentIndex:selectedCurveHit.index}; }
         return;
       }
       if(existingRoadHit){
@@ -3089,8 +3354,10 @@
         return;
       }
       if(state.roadMode==='centerline'){
-        if(state.roadDraft.length && dist(p,state.roadDraft[state.roadDraft.length-1])<8/state.view.scale && state.roadDraft.length>=2){ finishRoadCenterline(); }
-        else { state.roadDraft.push(p); draw(); }
+        const snap=snapRoadPointForConnection(p,null,e.pointerType);
+        const np=snap.connection ? snap : {x:p.x,y:p.y};
+        if(state.roadDraft.length && dist(np,state.roadDraft[state.roadDraft.length-1])<8/state.view.scale && state.roadDraft.length>=2){ finishRoadCenterline(); }
+        else { state.roadDraft.push({x:np.x,y:np.y}); draw(); }
         return;
       }
       if(state.roadMode==='outline'){
@@ -3114,6 +3381,8 @@
       if(benchCurveHit){ const bw=selectedBenchwork(); if(bw&&!bw.locked){ state.drag={type:'benchworkCurve',pointerId:e.pointerId,start:p,orig:structuredClone(bw),segmentIndex:benchCurveHit.index}; return; } }
       const benchHit=hitBenchwork(p);
       if(benchHit){clearBuildingSelection(); state.selectedRoadId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedBenchworkId=benchHit.id; renderList(); renderRoads(); renderStreetlights(); renderSelected(); draw(); if(!benchHit.locked) state.drag={type:'moveBenchwork',pointerId:e.pointerId,start:p,orig:structuredClone(benchHit)}; return;}
+      const roadPointHit=state.selectedRoadId ? hitRoadPoint(p, selectedRoad(), e.pointerType) : null;
+      if(roadPointHit){ const r=selectedRoad(); if(r&&!r.locked){ state.drag={type:'roadPoint',pointerId:e.pointerId,start:p,orig:structuredClone(r),pointIndex:roadPointHit.index}; return; } }
       const roadCurveHit=state.selectedRoadId ? hitRoadCenterlineSegment(p, selectedRoad(), e.pointerType) : null;
       if(roadCurveHit){ const r=selectedRoad(); if(r&&!r.locked){ state.drag={type:'roadCurve',pointerId:e.pointerId,start:p,orig:structuredClone(r),segmentIndex:roadCurveHit.index}; return; } }
       const roadHit=hitRoad(p);
@@ -3197,6 +3466,26 @@
     else if(d.type==='moveBenchwork'){const bw=state.benchworkOutlines.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(bw&&!bw.locked){bw.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); bw.curvesPx=(d.orig.curvesPx||[]).map(c=>c?{x:c.x+dx,y:c.y+dy}:null); normalizeBenchworkOutline(bw);}}
     else if(d.type==='benchworkCurve'){const bw=state.benchworkOutlines.find(x=>x.id===d.orig.id); if(bw&&!bw.locked){normalizeBenchworkOutline(bw); const i=d.segmentIndex; const a=bw.pointsPx[i], b=bw.pointsPx[(i+1)%bw.pointsPx.length]; if(a&&b){bw.curvesPx[i]={x:2*p.x-(a.x+b.x)/2,y:2*p.y-(a.y+b.y)/2}; normalizeBenchworkOutline(bw);}}}
     else if(d.type==='moveRoad'){const r=state.roads.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(r&&!r.locked){r.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); r.curvesPx=(d.orig.curvesPx||[]).map(c=>c?{x:c.x+dx,y:c.y+dy}:null); syncRoadMetrics(r);}}
+    else if(d.type==='roadPoint'){
+      const r=state.roads.find(x=>x.id===d.orig.id);
+      if(r&&!r.locked){
+        const dx=p.x-d.start.x, dy=p.y-d.start.y, i=d.pointIndex;
+        const isEndpoint = i===0 || i===(d.orig.pointsPx.length-1);
+        let target={x:d.orig.pointsPx[i].x+dx,y:d.orig.pointsPx[i].y+dy};
+        const snap=isEndpoint ? snapRoadPointForConnection(target,r.id,e.pointerType) : {x:target.x,y:target.y,connection:null};
+        if(isEndpoint && snap.connection) target={x:snap.x,y:snap.y};
+        r.pointsPx=d.orig.pointsPx.map((q,idx)=>idx===i?{x:target.x,y:target.y}:{x:q.x,y:q.y});
+        const adjDx=target.x-d.orig.pointsPx[i].x, adjDy=target.y-d.orig.pointsPx[i].y;
+        r.curvesPx=(d.orig.curvesPx||[]).map((c,idx)=>{
+          if(!c) return null;
+          // Keep adjacent curved segment handles attached to the moved endpoint so
+          // existing curves do not snap/bulge unexpectedly while editing a point.
+          return (idx===i || idx===i-1) ? {x:c.x+adjDx,y:c.y+adjDy} : {x:c.x,y:c.y};
+        });
+        if(isEndpoint) setRoadEndpointConnection(r,i,snap);
+        syncRoadMetrics(r);
+      }
+    }
     else if(d.type==='roadCurve'){const r=state.roads.find(x=>x.id===d.orig.id); if(r&&!r.locked){normalizeRoadCurves(r); const i=d.segmentIndex; const a=r.pointsPx[i], b=r.pointsPx[i+1]; if(a&&b){r.curvesPx[i]={x:2*p.x-(a.x+b.x)/2,y:2*p.y-(a.y+b.y)/2}; syncRoadMetrics(r);}}}
     else if(d.type==='marquee'){d.end=p;}
     else if(d.type==='moveMany'){const dx=p.x-d.start.x,dy=p.y-d.start.y; (d.origs||[]).forEach(orig=>{const b=state.buildings.find(x=>x.id===orig.id); if(b&&!b.locked){if(b.padType==='rect'){b.x=orig.x+dx; b.y=orig.y+dy;} else b.pointsPx=orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); syncBuildingMetrics(b);}});}
@@ -3316,9 +3605,20 @@
     }
   });
   function finishPolygon(){if(state.polygonDraft.length<3) return; const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'polygon',pointsPx:state.polygonDraft.slice(),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,state:'notStarted',notes:'',hakoConfig:null,hakoFile:null,hakoFileId:null}; syncBuildingMetrics(b); state.buildings.push(b); setBuildingSelection([b.id], b.id); state.polygonDraft=[]; syncAll();}
+  function maybeFinishActiveRoadDraft(nextTool){
+    if(state.tool !== 'road' || nextTool === 'road' || !Array.isArray(state.roadDraft) || state.roadDraft.length === 0) return;
+    if(state.roadMode === 'outline'){
+      if(state.roadDraft.length >= 3) finishRoadOutline();
+      else state.roadDraft = [];
+    } else {
+      if(state.roadDraft.length >= 2) finishRoadCenterline();
+      else state.roadDraft = [];
+    }
+  }
   function setActiveTool(tool){
+    maybeFinishActiveRoadDraft(tool);
     document.querySelectorAll('.toolbtn').forEach(b=>b.classList.toggle('active', b.dataset.tool===tool));
-    state.tool=tool; state.drag=null; hideToolFlyouts(); draw();
+    state.tool=tool; state.drag=null; hideToolFlyouts(); syncAll();
   }
   document.querySelectorAll('.toolbtn').forEach(btn=>btn.onclick=()=>setActiveTool(btn.dataset.tool));
   function hideToolFlyouts(){document.querySelectorAll('.toolFlyout').forEach(m=>m.classList.remove('open'));}
@@ -3352,7 +3652,7 @@
   function updateRoadToolButton(){
     const btn=$('roadToolBtn'), icon=$('roadToolIcon'), label=$('roadToolLabel');
     const outline=state.roadMode==='outline';
-    if(icon) icon.textContent=outline?'▰':'═';
+    if(icon){ icon.dataset.icon='road'; setIcon(icon, 'road'); }
     if(label) label.textContent=outline?'Road Outline':'Road Centerline';
     if(btn){btn.title=outline?'Road Outline':'Road Centerline'; btn.setAttribute('aria-label', outline?'Road Outline':'Road Centerline');}
     document.querySelectorAll('#roadToolMenu button').forEach(b=>b.classList.toggle('active', b.dataset.roadMode===state.roadMode));
@@ -3364,12 +3664,13 @@
   $('roadToolBtn')?.addEventListener('pointerleave', ()=>clearTimeout(roadToolPressTimer));
   $('roadToolBtn')?.addEventListener('contextmenu', e=>{e.preventDefault(); showRoadToolMenu($('roadToolGroup')||$('roadVariantBtn'));});
   document.querySelectorAll('#roadToolMenu button').forEach(btn=>btn.onclick=e=>{e.stopPropagation(); state.roadMode=btn.dataset.roadMode||'centerline'; updateRoadToolButton(); setActiveTool('road');});
+  hydrateIcons();
   updateRoadToolButton();
 
   function updateStreetlightToolButton(){
     const icon=$('streetlightToolIcon'), label=$('streetlightToolLabel'), btn=$('streetlightToolBtn');
     const anchored=state.streetlightMode==='anchored';
-    if(icon) icon.textContent=anchored?'⚓':'💡';
+    if(icon){ icon.dataset.icon=anchored?'lampAnchored':'lamp'; setIcon(icon, icon.dataset.icon); }
     if(label) label.textContent=anchored?'Anchored Streetlight':'Streetlight';
     if(btn){btn.title=anchored?'Anchored Streetlight':'Streetlight'; btn.setAttribute('aria-label', anchored?'Anchored Streetlight':'Streetlight');}
     document.querySelectorAll('#streetlightToolMenu button').forEach(b=>b.classList.toggle('active', b.dataset.streetlightMode===state.streetlightMode));
@@ -3386,6 +3687,18 @@
   window.addEventListener('resize', hideToolFlyouts);
   window.addEventListener('scroll', hideToolFlyouts, true);
   updateStreetlightToolButton();
+  function hasAnySiteGeometry(){
+    return !!(state.buildings?.length || state.roads?.length || state.benchworkOutlines?.length || state.streetlights?.length || state.annotations?.length || state.fabricRegions?.length || state.siteConstraints?.length);
+  }
+
+  function updateEmptyImageOverlay(){
+    const overlay=$('emptyImageOverlay');
+    if(!overlay) return;
+    const show=!state.image;
+    overlay.classList.toggle('visible', show);
+    overlay.setAttribute('aria-hidden', show ? 'false' : 'true');
+  }
+
   function setImageStatus(message, kind='muted'){
     const el=$('imageImportStatus');
     if(!el) return;
@@ -3434,6 +3747,7 @@
       syncAll();
       setImageStatus(`Loaded ${file.name} (${state.imageMeta.naturalWidthPx} × ${state.imageMeta.naturalHeightPx}px).`, 'okText');
       updateImagePortableStatus();
+      updateEmptyImageOverlay();
       console.info('[HakoMachi Site Planner] image loaded', state.imageMeta);
     }catch(err){
       console.error('[HakoMachi Site Planner] image import failed', err);
@@ -3447,8 +3761,71 @@
     e.target.value='';
     await loadReferenceImage(f);
   });
+
+  function isSupportedImageFile(file){
+    if(!file) return false;
+    const name=(file.name||'').toLowerCase();
+    const type=(file.type||'').toLowerCase();
+    return type.startsWith('image/') || /\.(png|jpe?g|svg|webp)$/i.test(name);
+  }
+
+  async function handleEmptyImageDrop(file){
+    if(!file) return;
+    if(!isSupportedImageFile(file)){
+      alert('Drop a PNG, JPG, SVG, or WEBP image here. Use Load for .hako-site.json project files.');
+      return;
+    }
+    await loadReferenceImage(file);
+  }
+
+  const emptyImageOverlay=$('emptyImageOverlay');
+  const emptyImageCard=$('emptyImageCard');
+  if(emptyImageOverlay){
+    ['dragenter','dragover'].forEach(type=>emptyImageOverlay.addEventListener(type, e=>{
+      if(!state.image){
+        e.preventDefault();
+        e.stopPropagation();
+        emptyImageCard?.classList.add('dragOver');
+      }
+    }));
+    ['dragleave','dragend'].forEach(type=>emptyImageOverlay.addEventListener(type, e=>{
+      emptyImageCard?.classList.remove('dragOver');
+    }));
+    emptyImageOverlay.addEventListener('drop', async e=>{
+      if(!state.image){
+        e.preventDefault();
+        e.stopPropagation();
+        emptyImageCard?.classList.remove('dragOver');
+        const file=e.dataTransfer?.files?.[0];
+        await handleEmptyImageDrop(file);
+      }
+    });
+  }
+  updateEmptyImageOverlay();
   $('opacity').oninput=e=>{state.imageOpacity=parseFloat(e.target.value); if(state.imageMeta)state.imageMeta.opacity=state.imageOpacity; draw();}; $('imageLockBtn').onclick=()=>{state.imageLocked=!state.imageLocked; $('imageLockBtn').textContent=state.imageLocked?'Locked':'Unlocked';};
-  $('applyScaleBtn').onclick=()=>{const line=state.lastCalibrationLine||state.calibrationLine; if(!line) return alert('Draw a calibration line first.'); const known=modelKnownMm(); const len=dist({x:line.x1,y:line.y1},{x:line.x2,y:line.y2}); if(known<=0||len<=0) return alert('Calibration length must be greater than zero.'); state.pxPerMm=len/known; state.calibrationLine=line; syncAll();}; $('clearScaleBtn').onclick=()=>{state.pxPerMm=null; syncAll();};
+  $('applyScaleBtn').onclick=()=>{
+    const line=state.lastCalibrationLine||state.calibrationLine;
+    if(!line) return alert('Draw a calibration line first.');
+    const known=modelKnownMm();
+    const len=dist({x:line.x1,y:line.y1},{x:line.x2,y:line.y2});
+    if(known<=0||len<=0) return alert('Calibration length must be greater than zero.');
+    const nextPxPerMm=len/known;
+    if(state.pxPerMm && Math.abs(state.pxPerMm-nextPxPerMm)>1e-9){
+      const ok=confirm('Change calibration?\n\nThis will update all real millimeter values derived from the image, including building dimensions, road widths, sidewalk widths, streetlight sizes, and exported coordinates. Pixel positions on the image will stay in place, but measured values will change.');
+      if(!ok) return;
+    }
+    state.pxPerMm=nextPxPerMm;
+    state.calibrationLine=line;
+    syncAll();
+  };
+  $('clearScaleBtn').onclick=()=>{
+    if(state.pxPerMm){
+      const ok=confirm('Clear calibration?\n\nThis will remove calibrated millimeter measurements until you recalibrate. Existing image-space geometry will remain in place.');
+      if(!ok) return;
+    }
+    state.pxPerMm=null;
+    syncAll();
+  };
 
   async function clearCacheAndReset(){
     const ok = confirm('Clear HakoMachi Site Planner cache and reset to the default blank state?\n\nThis clears the current in-memory project, the HakoMachi handoff seed, and planner-related browser storage. Download/save your .hako-site.json first if you want to keep it.');

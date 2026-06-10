@@ -1010,6 +1010,7 @@
     buildings:[], selectedId:null, hoverBuildingId:null, drag:null, hover:null, polygonDraft:[], measureLine:null, projectName:'hakomachi-site',
     roads:[], selectedRoadId:null, hoverRoadId:null, roadMode:'centerline', roadDraft:[],
     streetlights:[], selectedStreetlightId:null, hoverStreetlightId:null, streetlightMode:'free',
+    footprintClipboard:null, pasteOffsetCount:0,
     inputMode:'penDrawFingerPan', snapOn:false, pointers:new Map(), pinch:null, annotations:[], selectedAnnotationId:null, hoverPreview:null, longPress:null, contextTarget:null, sidebarOpen:false, autosaveReady:false, autosaveRestored:false, dirty:false, dirtySinceManualSave:false, lastAutosaveAt:null
   };
   const AUTOSAVE_KEY = 'hakomachiSitePlannerAutosave_v1';
@@ -1053,7 +1054,7 @@
     if(!state.pxPerMm) h.push('Draw a calibration line over a known physical output dimension, enter its value in mm or inches, then Apply Last Line.');
     if(state.tool==='polygon') h.push('Click points. Click near first point or press Enter to close. Backspace removes last point.');
     if(state.tool==='rect') h.push('Drag from one corner to the opposite corner to create a rectangle. Hold Shift or turn Snap on to force square/angle snapping. Near-square drags also snap.');
-    if(state.tool==='select') h.push('Drag pads to move. Drag corner handles to resize. Tap annotation strokes to select them; press Delete/Backspace or use Delete Selected Note to remove. Pencil edits geometry; finger pans when Pencil mode is active. Long-press a pad, point, or note for edit actions.');
+    if(state.tool==='select') h.push('Drag pads to move. Drag corner handles to resize. Use Cmd/Ctrl+C and Cmd/Ctrl+V to copy/paste selected building footprints. Tap annotation strokes to select them; press Delete/Backspace or use Delete Selected Note to remove. Pencil edits geometry; finger pans when Pencil mode is active. Long-press a pad, point, or note for edit actions.');
     if(state.tool==='annotate') h.push('Annotate mode: draw freehand notes with Pencil/mouse. Pencil pressure changes stroke width when supported. Notes export with the site project but do not affect HakoSeed geometry.');
     if(state.tool==='road') h.push(state.roadMode==='outline'?'Road Outline: click points around the road surface, then click near the first point or press Enter to close.':'Road Centerline: drag along the road centerline; adjust road and sidewalk width in the properties pane.');
     if(state.tool==='streetlight') h.push(state.streetlightMode==='anchored'?'Anchored Streetlight: click to place a pole with sidewalk cut-hole or street-edge bulb mount metadata.':'Streetlight: click to place a free-standing streetlight marker.');
@@ -1398,7 +1399,154 @@
     const date=b.hakoFile.importedAt ? new Date(b.hakoFile.importedAt).toLocaleString() : 'unknown date';
     return `${escapeHtml(b.hakoFile.fileName||'building.hako')} · ${sizeText} · ${date}`;
   }
+
+  function visibleWorldCenter(){
+    const r=canvas.getBoundingClientRect();
+    return {x:(r.width/2-state.view.x)/state.view.scale, y:(r.height/2-state.view.y)/state.view.scale};
+  }
+
+  function asNum(v){
+    const n=Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function firstNum(...vals){
+    for(const v of vals){
+      const n=asNum(v);
+      if(n!=null && n>0) return n;
+    }
+    return null;
+  }
+
+  function pointsFromAny(value){
+    if(!value) return null;
+    if(Array.isArray(value)){
+      const pts=value.map(p=>Array.isArray(p)?{x:asNum(p[0]),y:asNum(p[1])}:{x:asNum(p.x??p.X??p.left),y:asNum(p.y??p.Y??p.top)}).filter(p=>p.x!=null&&p.y!=null);
+      return pts.length>=3 ? pts : null;
+    }
+    return pointsFromAny(value.pointsMm||value.pointsPx||value.points||value.polygon||value.vertices);
+  }
+
+  function deriveFootprintFromHakoConfig(cfg){
+    if(!cfg || typeof cfg!=='object') return null;
+    const fp=cfg.footprint || cfg.hakoSeed?.footprint || cfg.sitePlannerSeed?.footprint || cfg.seed?.footprint || cfg.building?.footprint;
+    const fpPts=pointsFromAny(fp);
+    if(fpPts) return {padType:'polygon', pointsMm:fpPts};
+    const directPts=pointsFromAny(cfg.pointsMm||cfg.polygonMm||cfg.polygon||cfg.footprintMm);
+    if(directPts) return {padType:'polygon', pointsMm:directPts};
+    const width=firstNum(cfg.widthMm, cfg.width, cfg.dimensions?.widthMm, cfg.dimensions?.width, cfg.settings?.widthMm, cfg.settings?.width, cfg.building?.widthMm, cfg.building?.width, cfg.hakoSeed?.widthMm, fp?.widthMm, fp?.width);
+    const depth=firstNum(cfg.depthMm, cfg.depth, cfg.dimensions?.depthMm, cfg.dimensions?.depth, cfg.settings?.depthMm, cfg.settings?.depth, cfg.building?.depthMm, cfg.building?.depth, cfg.hakoSeed?.depthMm, fp?.depthMm, fp?.depth);
+    if(width && depth) return {padType:'rect', widthMm:width, depthMm:depth};
+    return null;
+  }
+
+  function createBuildingFromImportedHako(fileName, text, parsed){
+    const derived=deriveFootprintFromHakoConfig(parsed||{});
+    if(!derived){
+      alert('Could not find a footprint, width/depth, or polygon in that .hako file.');
+      return null;
+    }
+    const center=visibleWorldCenter();
+    const baseName=(parsed && (parsed.name||parsed.buildingName||parsed.title||parsed.projectName)) || (fileName||'Imported Building').replace(/\.(hako|json)$/i,'');
+    const b={
+      id:uid('bldg'), name:baseName,
+      category:(parsed && (parsed.buildingType||parsed.type||parsed.category)) || 'imported',
+      color:colors[state.buildings.length%colors.length], hidden:false, locked:false,
+      state:'complete', notes:'Imported from an existing .hako file.',
+      hakoConfig:parsed||null,
+      hakoFile:{fileName:fileName||`${slug(baseName)}.hako`,mimeType:'application/json',sizeBytes:text.length,importedAt:new Date().toISOString(),dataText:text,parsedConfig:parsed||null},
+      hakoFileId:fileName||`${slug(baseName)}.hako`,
+    };
+    if(derived.padType==='polygon'){
+      const ptsMm=derived.pointsMm;
+      const xs=ptsMm.map(p=>p.x), ys=ptsMm.map(p=>p.y);
+      const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
+      const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
+      b.padType='polygon';
+      b.pointsPx=ptsMm.map(p=>({x:center.x+mmToPx(p.x-cx), y:center.y+mmToPx(p.y-cy)}));
+      b.rotationDeg=0;
+    } else {
+      b.padType='rect'; b.x=center.x; b.y=center.y;
+      b.widthPx=mmToPx(derived.widthMm); b.depthPx=mmToPx(derived.depthMm); b.rotationDeg=0;
+    }
+    normalizeBuilding(b); syncBuildingMetrics(b);
+    state.buildings.push(b); state.selectedId=b.id; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedRoadId=null;
+    syncAll();
+    return b;
+  }
+
+  function importHakoAsBuilding(file){
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onerror=()=>alert('Could not read that .hako file.');
+    reader.onload=ev=>{
+      const text=String(ev.target.result||'');
+      let parsed=null;
+      try{ parsed=JSON.parse(text); }
+      catch(_err){ alert('That .hako file was not valid JSON, so I could not derive a footprint from it.'); return; }
+      createBuildingFromImportedHako(file.name||'building.hako', text, parsed);
+    };
+    reader.readAsText(file);
+  }
   function selected(){return state.buildings.find(b=>b.id===state.selectedId)||null;}
+  function buildingFootprintClipboardPayload(b){
+    if(!b) return null;
+    const payload=structuredClone(b);
+    // Copy/paste is for site footprints, not the finished building design file.
+    // Keep shape + planning metadata, but clear per-building completed .hako attachments
+    // so pasted pads do not accidentally point to the wrong physical building file.
+    payload.hakoFile=null;
+    payload.hakoFileId=null;
+    payload.hakoConfig=null;
+    payload.copiedFromId=b.id;
+    payload.copiedAt=new Date().toISOString();
+    return payload;
+  }
+  function copySelectedFootprint(){
+    const b=selected();
+    if(!b) return false;
+    state.footprintClipboard=buildingFootprintClipboardPayload(b);
+    state.pasteOffsetCount=0;
+    updateStatus();
+    return true;
+  }
+  function pasteFootprintFromClipboard(){
+    const src=state.footprintClipboard;
+    if(!src) return false;
+    const copy=structuredClone(src);
+    copy.id=uid('bldg');
+    const baseName=(copy.name||'Building').replace(/ copy(?: \d+)?$/i,'');
+    copy.name=baseName+' copy';
+    copy.state=copy.state||'notStarted';
+    copy.hakoFile=null;
+    copy.hakoFileId=null;
+    copy.hakoConfig=null;
+    copy.hidden=false;
+    const n=++state.pasteOffsetCount;
+    const off=18*n;
+    if(copy.padType==='rect'){
+      copy.x=(Number(copy.x)||0)+off;
+      copy.y=(Number(copy.y)||0)+off;
+    } else if(Array.isArray(copy.pointsPx)) {
+      copy.pointsPx=copy.pointsPx.map(p=>({x:(Number(p.x)||0)+off,y:(Number(p.y)||0)+off}));
+    }
+    normalizeBuilding(copy);
+    syncBuildingMetrics(copy);
+    state.buildings.push(copy);
+    state.selectedId=copy.id;
+    state.selectedRoadId=null;
+    state.selectedStreetlightId=null;
+    state.selectedAnnotationId=null;
+    syncAll();
+    return true;
+  }
+  function duplicateBuildingFootprint(b){
+    if(!b) return null;
+    state.footprintClipboard=buildingFootprintClipboardPayload(b);
+    state.pasteOffsetCount=0;
+    pasteFootprintFromClipboard();
+    return selected();
+  }
   function syncBuildingMetrics(b){ if(!state.pxPerMm) return b; if(b.padType==='rect'){b.widthMm=pxToMm(b.widthPx); b.depthMm=pxToMm(b.depthPx); b.pointsPx=transformedRect(b); b.pointsMm=b.pointsPx.map(p=>({x:pxToMm(p.x),y:pxToMm(p.y)}));} else {b.pointsMm=b.pointsPx.map(p=>({x:pxToMm(p.x),y:pxToMm(p.y)})); b.derived={areaMm2:pxToMm(Math.sqrt(polygonArea(b.pointsPx)))**2, boundingWidthMm:pxToMm(Math.max(...b.pointsPx.map(p=>p.x))-Math.min(...b.pointsPx.map(p=>p.x))), boundingDepthMm:pxToMm(Math.max(...b.pointsPx.map(p=>p.y))-Math.min(...b.pointsPx.map(p=>p.y))), rotationDeg:b.rotationDeg||0};} return b; }
   function syncAll(opts = {}){
     state.buildings.forEach(syncBuildingMetrics);
@@ -1750,7 +1898,37 @@
     state.streetlights.forEach(raw=>{const l=normalizeStreetlight(raw); const el=document.createElement('div'); el.className='buildingItem '+(l.id===state.selectedStreetlightId?'selected':''); el.innerHTML=`<span class="streetlight-swatch" style="background:${l.color||'#c84a3a'}"></span><div><b>${escapeHtml(l.name||'Streetlight')}</b><br><span class="small muted">${l.mode==='anchored'?'anchored · ':''}${l.type||'singleArm'}${l.locked?' · locked':''}</span></div><span class="pill">${fmt(l.heightMm||0)}mm</span>`; el.onclick=()=>{state.selectedStreetlightId=l.id; state.selectedId=null; state.selectedAnnotationId=null; renderList(); renderStreetlights(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});
   }
 
-  function renderList(){const box=$('buildingList'); box.innerHTML=''; if(!state.buildings.length){box.innerHTML='<div class="small muted">No building pads yet.</div>'; return;} state.buildings.forEach(raw=>{const b=normalizeBuilding(raw); const el=document.createElement('div'); el.className='buildingItem '+(b.id===state.selectedId?'selected':''); const hakoBadge=b.hakoFile?'<span class="pill">.hako</span>':''; el.innerHTML=`<span class="swatch" style="background:${b.color}"></span><div><b>${escapeHtml(b.name||'Building')}</b><br><span class="small muted">${buildingStateLabel(b.state)} · ${b.padType}${b.hidden?' · hidden':''}${b.locked?' · locked':''}</span></div><span class="pill">${b.padType==='rect'?`${fmt(b.widthMm)}×${fmt(b.depthMm)}`:fmt(b.derived?.areaMm2||0)+' mm²'}</span>${hakoBadge}`; el.onclick=()=>{state.selectedId=b.id; state.selectedStreetlightId=null; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});}
+  function renderList(){
+    const box=$('buildingList');
+    box.innerHTML='';
+    if(!state.buildings.length){
+      const empty=document.createElement('div');
+      empty.className='small muted';
+      empty.textContent='No building pads yet.';
+      box.appendChild(empty);
+    } else {
+      state.buildings.forEach(raw=>{
+        const b=normalizeBuilding(raw);
+        const el=document.createElement('div');
+        el.className='buildingItem '+(b.id===state.selectedId?'selected':'');
+        const hakoBadge=b.hakoFile?'<span class="pill">.hako</span>':'';
+        el.innerHTML=`<span class="swatch" style="background:${b.color}"></span><div><b>${escapeHtml(b.name||'Building')}</b><br><span class="small muted">${buildingStateLabel(b.state)} · ${b.padType}${b.hidden?' · hidden':''}${b.locked?' · locked':''}</span></div><span class="pill">${b.padType==='rect'?`${fmt(b.widthMm)}×${fmt(b.depthMm)}`:fmt(b.derived?.areaMm2||0)+' mm²'}</span>${hakoBadge}`;
+        el.onclick=()=>{state.selectedId=b.id; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedRoadId=null; renderList(); renderSelected(); updateHandoff(); draw();};
+        box.appendChild(el);
+      });
+    }
+    const actions=document.createElement('div');
+    actions.className='buttons buildingListActions';
+    actions.style.marginTop='10px';
+    actions.innerHTML='<button id="importHakoAsBuildingBtn" class="ok" title="Import an existing .hako file and create a draggable footprint in the center of the current map view.">Import existing .hako as footprint</button>';
+    box.appendChild(actions);
+    const btn=$('importHakoAsBuildingBtn');
+    const input=$('importHakoBuildingFile');
+    if(btn && input){
+      btn.onclick=()=>input.click();
+      input.onchange=e=>{const f=e.target.files&&e.target.files[0]; if(f) importHakoAsBuilding(f); e.target.value='';};
+    }
+  }
   function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const road=selectedRoad(); const light=selectedStreetlight(); if(!b){if(road){normalizeRoad(road); box.innerHTML=`
       <b>${road.mode==='outline'?'Road outline':'Road centerline'} selected</b>
       <label>Name</label><input id="roadName" value="${escapeAttr(road.name||'Road')}">
@@ -1800,7 +1978,7 @@
     <input id="hakoFileInput" type="file" accept=".hako,.json,application/json" style="display:none">
     <div class="buttons" style="margin-bottom:8px"><button id="uploadHakoB">${b.hakoFile?'Replace .hako':'Upload .hako'}</button><button id="downloadHakoB" ${b.hakoFile?'':'disabled'}>Download .hako</button><button id="removeHakoB" class="danger" ${b.hakoFile?'':'disabled'}>Remove .hako</button></div>
     <label>Notes</label><textarea id="selNotes" rows="3">${escapeHtml(b.notes||'')}</textarea>
-    <div class="buttons" style="margin-top:8px"><button id="dupB">Duplicate</button><button id="hideB">${b.hidden?'Show':'Hide'}</button><button id="lockB">${b.locked?'Unlock':'Lock'}</button>${b.padType==='rect'?'<button id="polyB">Convert to Polygon</button>':''}<button id="delB" class="danger">Delete</button></div>`;
+    <div class="buttons" style="margin-top:8px"><button id="copyB">Copy</button><button id="pasteB" ${state.footprintClipboard?'':'disabled'}>Paste</button><button id="dupB">Duplicate</button><button id="hideB">${b.hidden?'Show':'Hide'}</button><button id="lockB">${b.locked?'Unlock':'Lock'}</button>${b.padType==='rect'?'<button id="polyB">Convert to Polygon</button>':''}<button id="delB" class="danger">Delete</button></div>`;
     const bind=(id,fn)=>{const e=$(id); if(e)e.oninput=()=>{fn(e.value); syncAll();};};
     bind('selName',v=>b.name=v); bind('selCat',v=>b.category=v); bind('selColor',v=>b.color=v); bind('selRot',v=>b.rotationDeg=parseFloat(v)||0); bind('selNotes',v=>b.notes=v);
     const stateSel=$('selState'); if(stateSel){stateSel.value=b.state||'notStarted'; stateSel.onchange=e=>{b.state=e.target.value; syncAll();};}
@@ -1810,7 +1988,9 @@
     if(hakoInput) hakoInput.onchange=e=>{const f=e.target.files&&e.target.files[0]; if(!f)return; const reader=new FileReader(); reader.onerror=()=>alert('Could not read that .hako file.'); reader.onload=ev=>{const text=String(ev.target.result||''); let parsed=null; try{parsed=JSON.parse(text);}catch(_err){} b.hakoFile={fileName:f.name||`${slug(b.name)}.hako`,mimeType:f.type||'application/json',sizeBytes:f.size||text.length,importedAt:new Date().toISOString(),dataText:text,parsedConfig:parsed}; b.hakoFileId=b.hakoFile.fileName; if(parsed) b.hakoConfig=parsed; if(b.state==='notStarted') b.state='inProgress'; syncAll();}; reader.readAsText(f); e.target.value='';};
     if($('downloadHakoB')) $('downloadHakoB').onclick=()=>{if(!b.hakoFile)return; download(b.hakoFile.dataText||JSON.stringify(b.hakoFile.parsedConfig||b.hakoConfig||{},null,2), b.hakoFile.fileName||`${slug(b.name)}.hako`, b.hakoFile.mimeType||'application/json');};
     if($('removeHakoB')) $('removeHakoB').onclick=()=>{if(!b.hakoFile)return; if(!confirm('Remove the stored .hako file from this building?')) return; b.hakoFile=null; b.hakoFileId=null; syncAll();};
-    $('dupB').onclick=()=>{const copy=structuredClone(b); copy.id=uid('bldg'); copy.name=(copy.name||'Building')+' copy'; copy.state='notStarted'; copy.hakoFile=null; copy.hakoFileId=null; if(copy.padType==='rect'){copy.x+=20;copy.y+=20}else copy.pointsPx=copy.pointsPx.map(p=>({x:p.x+20,y:p.y+20})); state.buildings.push(copy); state.selectedId=copy.id; syncAll();};
+    if($('copyB')) $('copyB').onclick=()=>{copySelectedFootprint(); renderSelected();};
+    if($('pasteB')) $('pasteB').onclick=()=>pasteFootprintFromClipboard();
+    $('dupB').onclick=()=>duplicateBuildingFootprint(b);
     $('hideB').onclick=()=>{b.hidden=!b.hidden; syncAll();}; $('lockB').onclick=()=>{b.locked=!b.locked; syncAll();}; $('delB').onclick=()=>{state.buildings=state.buildings.filter(x=>x.id!==b.id); state.selectedId=null; syncAll();};
     const poly=$('polyB'); if(poly) poly.onclick=()=>{b.padType='polygon'; b.pointsPx=transformedRect(b); delete b.widthPx; delete b.depthPx; syncAll();};
   }
@@ -2058,7 +2238,7 @@
     else if(target?.building){state.selectedId=target.building.id; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
   });
   canvas.addEventListener('wheel', e=>{e.preventDefault(); const r=canvas.getBoundingClientRect(); const mouse={x:e.clientX-r.left,y:e.clientY-r.top}; const before=screenToWorld(e); const factor=e.deltaY<0?1.1:.9; state.view.scale=clamp(state.view.scale*factor,.05,20); state.view.x=mouse.x-before.x*state.view.scale; state.view.y=mouse.y-before.y*state.view.scale; draw();},{passive:false});
-  window.addEventListener('keydown', e=>{if(e.target.matches('input,textarea,select')) return; if(e.key==='Enter'&&state.tool==='polygon') finishPolygon(); if(e.key==='Enter'&&state.tool==='road'&&state.roadMode==='outline') finishRoadOutline(); if(e.key==='Backspace'&&state.tool==='polygon'&&state.polygonDraft.length){state.polygonDraft.pop(); draw(); return;} if(e.key==='Escape'){hideContextMenu(); state.hoverPreview=null; state.selectedAnnotationId=null; renderSelected(); draw();} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedAnnotationId){e.preventDefault(); deleteSelectedAnnotation(); return;} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedStreetlightId){e.preventDefault(); deleteSelectedStreetlight(); return;} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedRoadId){e.preventDefault(); deleteSelectedRoad(); return;} if(e.key==='Delete'&&selected()){state.buildings=state.buildings.filter(b=>b.id!==state.selectedId); state.selectedId=null; syncAll();}});
+  window.addEventListener('keydown', e=>{if(e.target.matches('input,textarea,select')) return; if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='c'){if(selected()){e.preventDefault(); copySelectedFootprint(); renderSelected();} return;} if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='v'){if(state.footprintClipboard){e.preventDefault(); pasteFootprintFromClipboard();} return;} if(e.key==='Enter'&&state.tool==='polygon') finishPolygon(); if(e.key==='Enter'&&state.tool==='road'&&state.roadMode==='outline') finishRoadOutline(); if(e.key==='Backspace'&&state.tool==='polygon'&&state.polygonDraft.length){state.polygonDraft.pop(); draw(); return;} if(e.key==='Escape'){hideContextMenu(); state.hoverPreview=null; state.selectedAnnotationId=null; renderSelected(); draw();} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedAnnotationId){e.preventDefault(); deleteSelectedAnnotation(); return;} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedStreetlightId){e.preventDefault(); deleteSelectedStreetlight(); return;} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedRoadId){e.preventDefault(); deleteSelectedRoad(); return;} if(e.key==='Delete'&&selected()){state.buildings=state.buildings.filter(b=>b.id!==state.selectedId); state.selectedId=null; syncAll();}});
   function finishPolygon(){if(state.polygonDraft.length<3) return; const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'polygon',pointsPx:state.polygonDraft.slice(),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,state:'notStarted',notes:'',hakoConfig:null,hakoFile:null,hakoFileId:null}; syncBuildingMetrics(b); state.buildings.push(b); state.selectedId=b.id; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.polygonDraft=[]; syncAll();}
   function setActiveTool(tool){
     document.querySelectorAll('.toolbtn').forEach(b=>b.classList.toggle('active', b.dataset.tool===tool));

@@ -663,6 +663,43 @@
     }
   }
 
+
+  /* Tool groups with Illustrator-style long-press/dropdown alternatives */
+  .toolGroup { position: relative; width: 48px; height: 48px; flex: 0 0 auto; }
+  .toolGroup > .toolbtn { width: 100% !important; height: 100% !important; }
+  .toolVariantTrigger {
+    position: absolute; right: 2px; bottom: 2px;
+    width: 15px; height: 15px; min-height: 15px; padding: 0;
+    border-radius: 5px; font-size: 9px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,248,234,.92); color: var(--text);
+    border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,.18);
+  }
+  .toolVariantTrigger:hover { background: #f0f0ec; }
+  .toolFlyout {
+    position: absolute; left: 52px; top: 0; z-index: 60;
+    min-width: 210px; display: none; padding: 4px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  }
+  .toolFlyout.open { display: block; }
+  .toolFlyout button {
+    width: 100%; display: flex; align-items: center; gap: 8px;
+    min-height: 34px; padding: 7px 10px; border: 0; border-radius: 3px;
+    background: transparent; box-shadow: none; text-align: left; color: var(--text);
+  }
+  .toolFlyout button:hover, .toolFlyout button.active { background: #f5f5f0; color: var(--accent); }
+  .streetlight-swatch { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(0,0,0,.25); display:inline-block; }
+  @media (max-width: 720px) {
+    .toolGroup { width: 40px; height: 40px; }
+    .toolVariantTrigger { width: 14px; height: 14px; min-height: 14px; font-size: 8px; }
+    .toolFlyout { left: 44px; min-width: 190px; }
+  }
+  @media (max-width: 520px) {
+    .toolGroup { width: 36px; height: 38px; }
+    .toolFlyout { left: 40px; }
+  }
+
 </style>
 </head>
 <body>
@@ -815,6 +852,14 @@
     <button class="toolbtn" data-tool="polygon" aria-label="Polygon pad" title="Polygon pad"><span class="toolIcon">⬟</span><span class="toolLabel">Polygon</span></button>
     <button class="toolbtn" data-tool="measure" aria-label="Measure" title="Measure"><span class="toolIcon">⟷</span><span class="toolLabel">Measure</span></button>
     <button class="toolbtn" data-tool="annotate" aria-label="Annotate" title="Annotate"><span class="toolIcon">✎</span><span class="toolLabel">Annotate</span></button>
+    <div class="toolGroup" id="streetlightToolGroup">
+      <button class="toolbtn" id="streetlightToolBtn" data-tool="streetlight" aria-label="Streetlight" title="Streetlight"><span class="toolIcon" id="streetlightToolIcon">💡</span><span class="toolLabel" id="streetlightToolLabel">Streetlight</span></button>
+      <button class="toolVariantTrigger" id="streetlightVariantBtn" title="Streetlight variants" aria-label="Streetlight variants">▾</button>
+      <div class="toolFlyout" id="streetlightToolMenu">
+        <button data-streetlight-mode="free"><span>💡</span><span>Streetlight</span></button>
+        <button data-streetlight-mode="anchored"><span>⚓</span><span>Anchored Streetlight</span></button>
+      </div>
+    </div>
   </div>
   <div class="canvasWrap"><canvas id="canvas"></canvas><button id="sidebarToggle" class="sidebarToggle" title="Open properties panel" aria-label="Open properties panel">‹</button><div id="hint" class="hint"></div><div id="contextMenu" class="contextMenu"></div></div>
   <aside class="sidebar">
@@ -860,13 +905,17 @@
       <div id="selectedPanel" class="small muted">No building selected.</div>
     </div>
     <div class="section">
+      <h3>Streetlights</h3>
+      <div id="streetlightList" class="small muted">No streetlights yet.</div>
+    </div>
+    <div class="section">
       <h3>HakoMachi Handoff</h3>
       <button id="openHakoBtn" class="ok">Open in HakoMachi</button>
       <div class="small muted" style="margin-top:8px">This creates a seed payload in localStorage and opens <code>../index.html#sitePlannerSeed</code>. The payload can also be exported.</div>
       <div id="handoffPreview" class="codebox" style="margin-top:8px"></div>
     </div>
   </aside>
-  <div class="bottom"><span id="statusTool">Tool: Select</span><span id="statusScale">Calibration: unset</span><span id="statusZoom">Zoom: 100%</span><span id="statusMouse">Mouse: —</span><span id="statusHint">Tip: import an image, draw a calibration line, then trace pads.</span></div>
+  <div class="bottom"><span id="statusTool">Tool: Select</span><span id="statusScale">Calibration: unset</span><span id="statusZoom">Zoom: 100%</span><span id="statusMouse">Mouse: —</span><span id="statusHint">Tip: import an image, draw a calibration line, then trace pads.</span><span id="statusAutosave">Autosave: ready</span></div>
 </div>
 <script>
 (() => {
@@ -878,8 +927,13 @@
     tool:'select', image:null, imageMeta:null, imageOpacity:.75, imageLocked:true,
     view:{x:0,y:0,scale:1}, pxPerMm:null, calibrationLine:null, lastCalibrationLine:null,
     buildings:[], selectedId:null, hoverBuildingId:null, drag:null, hover:null, polygonDraft:[], measureLine:null, projectName:'hakomachi-site',
-    inputMode:'penDrawFingerPan', snapOn:false, pointers:new Map(), pinch:null, annotations:[], selectedAnnotationId:null, hoverPreview:null, longPress:null, contextTarget:null, sidebarOpen:false
+    streetlights:[], selectedStreetlightId:null, hoverStreetlightId:null, streetlightMode:'free',
+    inputMode:'penDrawFingerPan', snapOn:false, pointers:new Map(), pinch:null, annotations:[], selectedAnnotationId:null, hoverPreview:null, longPress:null, contextTarget:null, sidebarOpen:false, autosaveReady:false, autosaveRestored:false, dirty:false, dirtySinceManualSave:false, lastAutosaveAt:null
   };
+  const AUTOSAVE_KEY = 'hakomachiSitePlannerAutosave_v1';
+  const AUTOSAVE_META_KEY = 'hakomachiSitePlannerAutosaveMeta_v1';
+  let autosaveTimer = null;
+  let autosaveSuppressed = false;
   const colors = ['#d79631','#b8672d','#0f766e','#7c5f3f','#8b5a2b','#5f7f54','#9b6b44','#496a78'];
   const uid = p => p + '_' + Math.random().toString(36).slice(2,9);
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
@@ -919,6 +973,7 @@
     if(state.tool==='rect') h.push('Drag from one corner to the opposite corner to create a rectangle. Hold Shift or turn Snap on to force square/angle snapping. Near-square drags also snap.');
     if(state.tool==='select') h.push('Drag pads to move. Drag corner handles to resize. Tap annotation strokes to select them; press Delete/Backspace or use Delete Selected Note to remove. Pencil edits geometry; finger pans when Pencil mode is active. Long-press a pad, point, or note for edit actions.');
     if(state.tool==='annotate') h.push('Annotate mode: draw freehand notes with Pencil/mouse. Pencil pressure changes stroke width when supported. Notes export with the site project but do not affect HakoSeed geometry.');
+    if(state.tool==='streetlight') h.push(state.streetlightMode==='anchored'?'Anchored Streetlight: click to place a pole with sidewalk cut-hole or street-edge bulb mount metadata.':'Streetlight: click to place a free-standing streetlight marker.');
     $('hint').textContent=h.join(' ');
   }
   function transformedRect(b){const c={x:b.x,y:b.y}, w=b.widthPx, h=b.depthPx, a=rad(b.rotationDeg||0), ca=Math.cos(a), sa=Math.sin(a); const local=[{x:-w/2,y:-h/2},{x:w/2,y:-h/2},{x:w/2,y:h/2},{x:-w/2,y:h/2}]; return local.map(p=>({x:c.x+p.x*ca-p.y*sa,y:c.y+p.x*sa+p.y*ca}));}
@@ -928,6 +983,16 @@
   function pointInPoly(p, pts){let inside=false; for(let i=0,j=pts.length-1;i<pts.length;j=i++){const a=pts[i],b=pts[j]; if(((a.y>p.y)!=(b.y>p.y))&&(p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)) inside=!inside;} return inside;}
   function pointInBuilding(p,b){if(b.hidden) return false; if(b.padType==='rect'){const l=rectLocal(b,p); return Math.abs(l.x)<=b.widthPx/2 && Math.abs(l.y)<=b.depthPx/2;} return pointInPoly(p,b.pointsPx);}
   function hitTest(p){for(let i=state.buildings.length-1;i>=0;i--){const b=state.buildings[i]; if(pointInBuilding(p,b)) return b;} return null;}
+  function hitStreetlight(p,pointerType='mouse'){
+    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
+    const tol=(coarse?18:10)/state.view.scale;
+    for(let i=state.streetlights.length-1;i>=0;i--){
+      const l=normalizeStreetlight(state.streetlights[i]);
+      if(dist(p,l)<tol) return l;
+    }
+    return null;
+  }
+
   function handleAt(p,b,pointerType='mouse'){if(!b || b.locked) return null; const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches); const s=(coarse?18:9)/state.view.scale; if(b.padType==='polygon'){for(let i=0;i<b.pointsPx.length;i++) if(dist(p,b.pointsPx[i])<s) return {type:'polyPoint', index:i}; return null;}
     const pts=transformedRect(b); for(let i=0;i<pts.length;i++) if(dist(p,pts[i])<s) return {type:'rectCorner', index:i};
     const topMid={x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2}; const a=rad(b.rotationDeg-90); const rot={x:topMid.x+Math.cos(a)*24/state.view.scale,y:topMid.y+Math.sin(a)*24/state.view.scale}; if(dist(p,rot)<s*1.25) return {type:'rotate'}; return null;
@@ -960,12 +1025,118 @@
     const before=state.annotations.length;
     state.annotations=state.annotations.filter(st=>st.id!==state.selectedAnnotationId);
     state.selectedAnnotationId=null;
-    if(before!==state.annotations.length){renderSelected(); draw(); return true;}
+    if(before!==state.annotations.length){renderSelected(); draw(); markDirty('annotation deleted'); return true;}
     return false;
   }
+
+  function selectedStreetlight(){return state.streetlights.find(l=>l.id===state.selectedStreetlightId)||null;}
+  function deleteSelectedStreetlight(){
+    if(!state.selectedStreetlightId) return false;
+    const before=state.streetlights.length;
+    state.streetlights=state.streetlights.filter(l=>l.id!==state.selectedStreetlightId);
+    state.selectedStreetlightId=null;
+    if(before!==state.streetlights.length){syncAll(); return true;}
+    return false;
+  }
+  function normalizeStreetlight(l){
+    if(!l) return l;
+    l.kind = l.kind || 'streetlight';
+    l.mode = l.mode || 'free';
+    l.name = l.name || (l.mode==='anchored'?'Anchored Streetlight':'Streetlight');
+    l.x = Number.isFinite(l.x) ? l.x : 0;
+    l.y = Number.isFinite(l.y) ? l.y : 0;
+    l.rotationDeg = Number.isFinite(l.rotationDeg) ? l.rotationDeg : 0;
+    l.heightMm = Number.isFinite(l.heightMm) ? l.heightMm : 8;
+    l.armLengthMm = Number.isFinite(l.armLengthMm) ? l.armLengthMm : 3.5;
+    l.lightRadiusMm = Number.isFinite(l.lightRadiusMm) ? l.lightRadiusMm : 2;
+    l.poleDiameterMm = Number.isFinite(l.poleDiameterMm) ? l.poleDiameterMm : 0.45;
+    l.type = l.type || 'singleArm';
+    l.color = l.color || '#c84a3a';
+    l.locked = !!l.locked;
+    l.anchor = l.anchor || {};
+    l.anchor.mountMode = l.anchor.mountMode || (l.mode==='anchored'?'sidewalkCutHole':'free');
+    l.anchor.cutHoleDiameterMm = Number.isFinite(l.anchor.cutHoleDiameterMm) ? l.anchor.cutHoleDiameterMm : 1.2;
+    l.anchor.bulbMountDiameterMm = Number.isFinite(l.anchor.bulbMountDiameterMm) ? l.anchor.bulbMountDiameterMm : 3.0;
+    l.anchor.edgeOffsetMm = Number.isFinite(l.anchor.edgeOffsetMm) ? l.anchor.edgeOffsetMm : 0.5;
+    l.anchor.lockToRoadEdge = !!l.anchor.lockToRoadEdge;
+    l.anchor.targetRoadId = l.anchor.targetRoadId || null;
+    l.anchor.sidewalkSide = l.anchor.sidewalkSide || 'auto';
+    return l;
+  }
+
   function selected(){return state.buildings.find(b=>b.id===state.selectedId)||null;}
   function syncBuildingMetrics(b){ if(!state.pxPerMm) return b; if(b.padType==='rect'){b.widthMm=pxToMm(b.widthPx); b.depthMm=pxToMm(b.depthPx); b.pointsPx=transformedRect(b); b.pointsMm=b.pointsPx.map(p=>({x:pxToMm(p.x),y:pxToMm(p.y)}));} else {b.pointsMm=b.pointsPx.map(p=>({x:pxToMm(p.x),y:pxToMm(p.y)})); b.derived={areaMm2:pxToMm(Math.sqrt(polygonArea(b.pointsPx)))**2, boundingWidthMm:pxToMm(Math.max(...b.pointsPx.map(p=>p.x))-Math.min(...b.pointsPx.map(p=>p.x))), boundingDepthMm:pxToMm(Math.max(...b.pointsPx.map(p=>p.y))-Math.min(...b.pointsPx.map(p=>p.y))), rotationDeg:b.rotationDeg||0};} return b; }
-  function syncAll(){state.buildings.forEach(syncBuildingMetrics); renderList(); renderSelected(); updateHandoff(); draw();}
+  function syncAll(opts = {}){
+    state.buildings.forEach(syncBuildingMetrics);
+    state.streetlights.forEach(normalizeStreetlight);
+    renderList();
+    renderStreetlights();
+    renderSelected();
+    updateHandoff();
+    draw();
+    if(!opts.skipDirty) markDirty('project change');
+  }
+
+  function updateAutosaveStatus(message){
+    const el=$('statusAutosave');
+    if(!el) return;
+    if(message){ el.textContent=message; return; }
+    if(state.dirty) el.textContent='Autosave: pending';
+    else if(state.lastAutosaveAt) el.textContent='Autosave: '+new Date(state.lastAutosaveAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    else el.textContent='Autosave: ready';
+  }
+  function markDirty(_reason=''){
+    if(!state.autosaveReady || autosaveSuppressed) return;
+    state.dirty=true;
+    state.dirtySinceManualSave=true;
+    updateAutosaveStatus();
+    scheduleAutosave();
+  }
+  function scheduleAutosave(){
+    clearTimeout(autosaveTimer);
+    autosaveTimer=setTimeout(writeAutosave, 450);
+  }
+  function makeProjectPayload(){
+    state.buildings.forEach(syncBuildingMetrics);
+    return {
+      app:'HakoMachi Site Planner',
+      version:3,
+      savedAt:new Date().toISOString(),
+      image:state.imageMeta,
+      view:state.view,
+      imageOpacity:state.imageOpacity,
+      imageLocked:state.imageLocked,
+      scale:{calibrated:!!state.pxPerMm,pxPerMm:state.pxPerMm,calibrationLine:state.calibrationLine},
+      buildings:state.buildings,
+      streetlights:state.streetlights,
+      annotations:state.annotations
+    };
+  }
+  function writeAutosave(){
+    if(!state.autosaveReady) return;
+    clearTimeout(autosaveTimer);
+    autosaveTimer=null;
+    try{
+      const payload=makeProjectPayload();
+      const meta={savedAt:payload.savedAt, dirtySinceManualSave:!!state.dirtySinceManualSave};
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
+      localStorage.setItem(AUTOSAVE_META_KEY, JSON.stringify(meta));
+      state.dirty=false;
+      state.lastAutosaveAt=Date.now();
+      updateAutosaveStatus();
+    }catch(err){
+      console.warn('[HakoMachi Site Planner] Autosave failed:', err);
+      updateAutosaveStatus('Autosave: failed');
+    }
+  }
+  function markManualSaveComplete(){
+    state.dirty=false;
+    state.dirtySinceManualSave=false;
+    writeAutosave();
+    updateAutosaveStatus('Autosave: saved');
+    setTimeout(()=>updateAutosaveStatus(), 1200);
+  }
+
 
   function clearLongPress(){
     if(state.longPress?.timer) clearTimeout(state.longPress.timer);
@@ -975,6 +1146,17 @@
   function showContextMenu(screenX,screenY,target){
     const m=$('contextMenu'); if(!m) return;
     state.contextTarget=target;
+    if(target?.streetlight){
+      state.selectedStreetlightId=target.streetlight.id; state.selectedId=null; state.selectedAnnotationId=null;
+      m.innerHTML=`<button data-action="duplicateStreetlight">Duplicate Streetlight</button><button data-action="lockStreetlight">${target.streetlight.locked?'Unlock':'Lock'} Streetlight</button><button data-action="deleteStreetlight" class="dangerItem">Delete Streetlight</button>`;
+      m.querySelectorAll('button').forEach(btn=>btn.onclick=()=>handleContextAction(btn.dataset.action));
+      m.style.display='block';
+      const wrapRect=wrap.getBoundingClientRect(); const mw=m.offsetWidth||210, mh=m.offsetHeight||120;
+      m.style.left=clamp(screenX-wrapRect.left,8,wrapRect.width-mw-8)+'px';
+      m.style.top=clamp(screenY-wrapRect.top,8,wrapRect.height-mh-8)+'px';
+      renderList(); renderStreetlights(); renderSelected(); draw();
+      return;
+    }
     if(target?.annotation){
       m.innerHTML=`
         <button data-action="deleteAnnotation" class="dangerItem">Delete Annotation</button>
@@ -1005,6 +1187,8 @@
   function contextTargetAt(worldPoint,pointerType='pen'){
     const note=hitAnnotation(worldPoint,pointerType);
     if(note) return {annotation:note,point:worldPoint};
+    const sl=selectedStreetlight() || hitStreetlight(worldPoint,pointerType);
+    if(sl) return {streetlight:sl,point:worldPoint};
     const b=selected() || hitTest(worldPoint);
     if(!b) return null;
     const h=handleAt(worldPoint,b,pointerType);
@@ -1012,10 +1196,17 @@
   }
   function handleContextAction(action){
     const t=state.contextTarget, b=t?.building;
+    if(action==='deleteStreetlight' && t?.streetlight){
+      state.streetlights=state.streetlights.filter(l=>l.id!==t.streetlight.id);
+      if(state.selectedStreetlightId===t.streetlight.id) state.selectedStreetlightId=null;
+      hideContextMenu(); syncAll(); return;
+    }
+    if(action==='lockStreetlight' && t?.streetlight){t.streetlight.locked=!t.streetlight.locked; hideContextMenu(); syncAll(); return;}
+    if(action==='duplicateStreetlight' && t?.streetlight){duplicateStreetlight(t.streetlight); hideContextMenu(); syncAll(); return;}
     if(action==='deleteAnnotation' && t?.annotation){
       state.annotations=state.annotations.filter(st=>st.id!==t.annotation.id);
       if(state.selectedAnnotationId===t.annotation.id) state.selectedAnnotationId=null;
-      hideContextMenu(); renderSelected(); draw(); return;
+      hideContextMenu(); renderSelected(); draw(); markDirty('annotation deleted'); return;
     }
     if(!b) return hideContextMenu();
     if(action==='lock'){b.locked=!b.locked;}
@@ -1101,10 +1292,89 @@
     if(isSelected){ctx.strokeStyle='rgba(49,35,24,.55)'; ctx.lineWidth=1/state.view.scale; for(let i=0;i<pts.length;i++){const a=pts[i],c2=pts[(i+1)%pts.length], mid={x:(a.x+c2.x)/2,y:(a.y+c2.y)/2}; drawLabel(`${fmt(pxToMm(dist(a,c2)))} mm`,mid);}}
     ctx.restore(); }
   function drawLine(line,color,label){ if(!line) return; ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=3/state.view.scale; ctx.beginPath();ctx.moveTo(line.x1,line.y1);ctx.lineTo(line.x2,line.y2);ctx.stroke(); ctx.fillStyle=color; [{x:line.x1,y:line.y1},{x:line.x2,y:line.y2}].forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()}); if(label) drawLabel(label,{x:(line.x1+line.x2)/2,y:(line.y1+line.y2)/2}); ctx.restore();}
-  function draw(){const r=canvas.getBoundingClientRect(); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.buildings.forEach(drawBuilding); if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview) drawBuilding(state.drag.preview); drawHoverPreview(); ctx.restore(); updateStatus();}
+
+  function drawStreetlight(l){
+    l=normalizeStreetlight(l);
+    const selected=l.id===state.selectedStreetlightId, hovered=l.id===state.hoverStreetlightId;
+    const r=Math.max(5, state.pxPerMm ? mmToPx(l.lightRadiusMm||2) : 8)/state.view.scale;
+    const armPx=Math.max(10, state.pxPerMm ? mmToPx(l.armLengthMm||3.5) : 14)/state.view.scale;
+    const a=rad(l.rotationDeg||0);
+    ctx.save();
+    ctx.translate(l.x,l.y); ctx.rotate(a);
+    const isAnchored=l.mode==='anchored';
+    ctx.lineWidth=(selected?3:2)/state.view.scale;
+    ctx.strokeStyle=selected?'#0f766e':(isAnchored?'#c84a3a':'#2a64aa');
+    ctx.fillStyle=isAnchored?'rgba(200,74,58,.18)':'rgba(42,100,170,.16)';
+    // future export footprint / mount marker
+    if(isAnchored){
+      const mount=l.anchor?.mountMode||'sidewalkCutHole';
+      const diaMm=mount==='roadEdgeBulbMount'?(l.anchor?.bulbMountDiameterMm||3):(l.anchor?.cutHoleDiameterMm||1.2);
+      const mr=Math.max(4,state.pxPerMm?mmToPx(diaMm/2):6)/state.view.scale;
+      ctx.beginPath(); ctx.arc(0,0,mr,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      if(mount==='sidewalkCutHole'){
+        ctx.beginPath(); ctx.moveTo(-mr*.65,0); ctx.lineTo(mr*.65,0); ctx.moveTo(0,-mr*.65); ctx.lineTo(0,mr*.65); ctx.stroke();
+      } else {
+        ctx.beginPath(); ctx.arc(0,0,mr*1.45,0,Math.PI*2); ctx.stroke();
+      }
+    }
+    ctx.fillStyle=l.color||'#c84a3a'; ctx.strokeStyle=selected?'#0f766e':'#3a2b1e';
+    ctx.lineWidth=1.5/state.view.scale;
+    ctx.beginPath(); ctx.arc(0,0,4/state.view.scale,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-armPx*1.2); ctx.lineTo(armPx,-armPx*1.2); ctx.stroke();
+    if(l.type==='doubleArm'){ctx.beginPath(); ctx.moveTo(0,-armPx*1.2); ctx.lineTo(-armPx,-armPx*1.2); ctx.stroke();}
+    ctx.fillStyle='#f7d87a'; ctx.beginPath(); ctx.arc(armPx,-armPx*1.2,3/state.view.scale,0,Math.PI*2); ctx.fill();
+    if(l.type==='doubleArm'){ctx.beginPath(); ctx.arc(-armPx,-armPx*1.2,3/state.view.scale,0,Math.PI*2); ctx.fill();}
+    if(selected||hovered){ctx.strokeStyle='rgba(15,118,110,.9)'; ctx.lineWidth=1.25/state.view.scale; ctx.strokeRect(-12/state.view.scale,-armPx*1.2-9/state.view.scale,Math.max(24/state.view.scale,armPx+18/state.view.scale),armPx*1.2+20/state.view.scale);}
+    ctx.restore();
+    if(selected||hovered) drawLabel(`${l.name||'Streetlight'}${l.mode==='anchored'?' · anchored':''}`,{x:l.x+8/state.view.scale,y:l.y-8/state.view.scale});
+  }
+  function placeStreetlight(p){
+    const anchored=state.streetlightMode==='anchored';
+    const l=normalizeStreetlight({
+      id:uid('light'), kind:'streetlight', mode:anchored?'anchored':'free',
+      name:(anchored?'Anchored Streetlight ':'Streetlight ')+(state.streetlights.length+1),
+      x:p.x,y:p.y,type:'singleArm',heightMm:8,armLengthMm:3.5,rotationDeg:0,lightRadiusMm:2,poleDiameterMm:.45,color:'#c84a3a',locked:false,notes:'',
+      anchor: anchored ? {mountMode:'sidewalkCutHole', cutHoleDiameterMm:1.2, bulbMountDiameterMm:3.0, edgeOffsetMm:.5, lockToRoadEdge:false, targetRoadId:null, sidewalkSide:'auto'} : {mountMode:'free'}
+    });
+    state.streetlights.push(l); state.selectedStreetlightId=l.id; state.selectedId=null; state.selectedAnnotationId=null; syncAll();
+  }
+  function duplicateStreetlight(l){
+    const c=structuredClone(normalizeStreetlight(l)); c.id=uid('light'); c.name=(c.name||'Streetlight')+' copy'; c.x+=16; c.y+=16; state.streetlights.push(c); state.selectedStreetlightId=c.id; state.selectedId=null; state.selectedAnnotationId=null; return c;
+  }
+
+  function draw(){const r=canvas.getBoundingClientRect(); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.buildings.forEach(drawBuilding); state.streetlights.forEach(drawStreetlight); if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview) drawBuilding(state.drag.preview); drawHoverPreview(); ctx.restore(); updateStatus();}
   function fitImage(){const r=canvas.getBoundingClientRect(); if(!state.image){state.view={x:r.width/2,y:r.height/2,scale:1}; draw(); return;} const s=Math.min(r.width/state.image.width,r.height/state.image.height)*.9; state.view.scale=s; state.view.x=(r.width-state.image.width*s)/2; state.view.y=(r.height-state.image.height*s)/2; draw();}
-  function renderList(){const box=$('buildingList'); box.innerHTML=''; if(!state.buildings.length){box.innerHTML='<div class="small muted">No building pads yet.</div>'; return;} state.buildings.forEach(b=>{const el=document.createElement('div'); el.className='buildingItem '+(b.id===state.selectedId?'selected':''); el.innerHTML=`<span class="swatch" style="background:${b.color}"></span><div><b>${escapeHtml(b.name||'Building')}</b><br><span class="small muted">${b.padType}${b.hidden?' · hidden':''}${b.locked?' · locked':''}</span></div><span class="pill">${b.padType==='rect'?`${fmt(b.widthMm)}×${fmt(b.depthMm)}`:fmt(b.derived?.areaMm2||0)+' mm²'}</span>`; el.onclick=()=>{state.selectedId=b.id; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});}
-  function renderSelected(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); if(!b){if(note){const pts=note.points||[]; box.innerHTML=`<b>Annotation selected</b><br><span class="small muted">${pts.length} points</span><div class="buttons" style="margin-top:8px"><button id="delNoteB" class="danger">Delete Annotation</button></div>`; const del=$('delNoteB'); if(del) del.onclick=deleteSelectedAnnotation;} else box.innerHTML='No building selected.'; const btn=$('deleteAnnotationBtn'); if(btn) btn.disabled=!note; return;} if($('deleteAnnotationBtn')) $('deleteAnnotationBtn').disabled=true; syncBuildingMetrics(b); box.innerHTML=`
+
+  function renderStreetlights(){
+    const box=$('streetlightList'); if(!box) return;
+    if(!state.streetlights.length){box.innerHTML='<div class="small muted">No streetlights yet.</div>'; return;}
+    box.innerHTML='';
+    state.streetlights.forEach(raw=>{const l=normalizeStreetlight(raw); const el=document.createElement('div'); el.className='buildingItem '+(l.id===state.selectedStreetlightId?'selected':''); el.innerHTML=`<span class="streetlight-swatch" style="background:${l.color||'#c84a3a'}"></span><div><b>${escapeHtml(l.name||'Streetlight')}</b><br><span class="small muted">${l.mode==='anchored'?'anchored · ':''}${l.type||'singleArm'}${l.locked?' · locked':''}</span></div><span class="pill">${fmt(l.heightMm||0)}mm</span>`; el.onclick=()=>{state.selectedStreetlightId=l.id; state.selectedId=null; state.selectedAnnotationId=null; renderList(); renderStreetlights(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});
+  }
+
+  function renderList(){const box=$('buildingList'); box.innerHTML=''; if(!state.buildings.length){box.innerHTML='<div class="small muted">No building pads yet.</div>'; return;} state.buildings.forEach(b=>{const el=document.createElement('div'); el.className='buildingItem '+(b.id===state.selectedId?'selected':''); el.innerHTML=`<span class="swatch" style="background:${b.color}"></span><div><b>${escapeHtml(b.name||'Building')}</b><br><span class="small muted">${b.padType}${b.hidden?' · hidden':''}${b.locked?' · locked':''}</span></div><span class="pill">${b.padType==='rect'?`${fmt(b.widthMm)}×${fmt(b.depthMm)}`:fmt(b.derived?.areaMm2||0)+' mm²'}</span>`; el.onclick=()=>{state.selectedId=b.id; state.selectedStreetlightId=null; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});}
+  function renderSelected(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const light=selectedStreetlight(); if(!b){if(light){normalizeStreetlight(light); box.innerHTML=`
+      <b>${light.mode==='anchored'?'Anchored Streetlight':'Streetlight'} selected</b>
+      <label>Name</label><input id="slName" value="${escapeAttr(light.name||'')}">
+      <div class="row"><div><label>Type</label><select id="slType"><option value="singleArm">Single arm</option><option value="doubleArm">Double arm</option><option value="poleOnly">Pole only</option></select></div><div><label>Color</label><input id="slColor" type="color" value="${light.color||'#c84a3a'}"></div></div>
+      <div class="row"><div><label>Height mm</label><input id="slHeight" type="number" step="0.1" value="${fmt(light.heightMm)}"></div><div><label>Arm mm</label><input id="slArm" type="number" step="0.1" value="${fmt(light.armLengthMm)}"></div></div>
+      <div class="row"><div><label>Rotation °</label><input id="slRot" type="number" step="1" value="${fmt(light.rotationDeg||0)}"></div><div><label>Light radius mm</label><input id="slRadius" type="number" step="0.1" value="${fmt(light.lightRadiusMm)}"></div></div>
+      ${light.mode==='anchored'?`<h3 style="margin-top:10px">Anchor / future export</h3>
+      <label>Mount mode</label><select id="slMount"><option value="sidewalkCutHole">Sidewalk cut-through hole</option><option value="roadEdgeBulbMount">Street-edge bulb mount</option><option value="auto">Auto-detect later</option></select>
+      <div class="row"><div><label>Cut hole Ø mm</label><input id="slCutDia" type="number" step="0.1" value="${fmt(light.anchor.cutHoleDiameterMm)}"></div><div><label>Bulb Ø mm</label><input id="slBulbDia" type="number" step="0.1" value="${fmt(light.anchor.bulbMountDiameterMm)}"></div></div>
+      <div class="row"><div><label>Edge offset mm</label><input id="slEdgeOffset" type="number" step="0.1" value="${fmt(light.anchor.edgeOffsetMm)}"></div><div><label>Sidewalk side</label><select id="slSide"><option value="auto">Auto</option><option value="left">Left</option><option value="right">Right</option></select></div></div>
+      <label style="display:flex;align-items:center;gap:6px;margin-top:6px"><input id="slLockEdge" type="checkbox" ${light.anchor.lockToRoadEdge?'checked':''}> Lock to road edge when road geometry is available</label>
+      <div class="small muted" style="margin-top:6px">Sidewalk mode is intended to export as a through-hole in the sidewalk layer. Street-edge mode stores a bulb mount for roads without sidewalks.</div>`:''}
+      <label>Notes</label><textarea id="slNotes" rows="3">${escapeHtml(light.notes||'')}</textarea>
+      <div class="buttons" style="margin-top:8px"><button id="dupSl">Duplicate</button><button id="lockSl">${light.locked?'Unlock':'Lock'}</button><button id="delSl" class="danger">Delete</button></div>`;
+      const bind=(id,fn)=>{const e=$(id); if(e)e.oninput=()=>{fn(e.type==='checkbox'?e.checked:e.value); syncAll();};};
+      bind('slName',v=>light.name=v); bind('slColor',v=>light.color=v); bind('slHeight',v=>light.heightMm=parseFloat(v)||0); bind('slArm',v=>light.armLengthMm=parseFloat(v)||0); bind('slRot',v=>light.rotationDeg=parseFloat(v)||0); bind('slRadius',v=>light.lightRadiusMm=parseFloat(v)||0); bind('slNotes',v=>light.notes=v);
+      const slType=$('slType'); if(slType){slType.value=light.type; slType.onchange=e=>{light.type=e.target.value; syncAll();};}
+      const slMount=$('slMount'); if(slMount){slMount.value=light.anchor.mountMode; slMount.onchange=e=>{light.anchor.mountMode=e.target.value; syncAll();};}
+      const slSide=$('slSide'); if(slSide){slSide.value=light.anchor.sidewalkSide; slSide.onchange=e=>{light.anchor.sidewalkSide=e.target.value; syncAll();};}
+      bind('slCutDia',v=>light.anchor.cutHoleDiameterMm=parseFloat(v)||0); bind('slBulbDia',v=>light.anchor.bulbMountDiameterMm=parseFloat(v)||0); bind('slEdgeOffset',v=>light.anchor.edgeOffsetMm=parseFloat(v)||0); bind('slLockEdge',v=>light.anchor.lockToRoadEdge=!!v);
+      $('dupSl').onclick=()=>{duplicateStreetlight(light); syncAll();}; $('lockSl').onclick=()=>{light.locked=!light.locked; syncAll();}; $('delSl').onclick=deleteSelectedStreetlight;
+    } else if(note){const pts=note.points||[]; box.innerHTML=`<b>Annotation selected</b><br><span class="small muted">${pts.length} points</span><div class="buttons" style="margin-top:8px"><button id="delNoteB" class="danger">Delete Annotation</button></div>`; const del=$('delNoteB'); if(del) del.onclick=deleteSelectedAnnotation;} else box.innerHTML='No building selected.'; const btn=$('deleteAnnotationBtn'); if(btn) btn.disabled=!note; return;} if($('deleteAnnotationBtn')) $('deleteAnnotationBtn').disabled=true; syncBuildingMetrics(b); box.innerHTML=`
     <label>Name</label><input id="selName" value="${escapeAttr(b.name||'')}">
     <div class="row"><div><label>Category</label><input id="selCat" value="${escapeAttr(b.category||'industrial')}"></div><div><label>Color</label><input id="selColor" type="color" value="${b.color||'#d79631'}"></div></div>
     <div class="row"><div><label>Rotation °</label><input id="selRot" type="number" step="0.1" value="${fmt(b.rotationDeg||0)}"></div><div><label>Type</label><input value="${b.padType}" disabled></div></div>
@@ -1185,6 +1455,7 @@
     if(state.tool==='pan' || !isGeometryPointer(e)){startPanFromPointer(e); return;}
     if(state.tool==='calibrate'||state.tool==='measure'){state.drag={type:state.tool,pointerId:e.pointerId,start:p,end:p}; return;}
     if(state.tool==='annotate'){startAnnotationStroke(e,p); return;}
+    if(state.tool==='streetlight'){placeStreetlight(p); return;}
     if(state.tool==='rect'){state.drag={type:'rect',pointerId:e.pointerId,start:p,end:p,preview:null}; return;}
     if(state.tool==='polygon'){
       if(state.polygonDraft.length && dist(p,state.polygonDraft[0])<18/state.view.scale && state.polygonDraft.length>=3){finishPolygon();}
@@ -1193,18 +1464,20 @@
     }
     if(state.tool==='select'){
       beginLongPress(e,p);
+      const lightHit=hitStreetlight(p,e.pointerType);
+      if(lightHit){state.selectedStreetlightId=lightHit.id; state.selectedId=null; state.selectedAnnotationId=null; renderList(); renderStreetlights(); renderSelected(); updateHandoff(); draw(); if(!lightHit.locked) state.drag={type:'moveStreetlight',pointerId:e.pointerId,start:p,orig:structuredClone(lightHit)}; return;}
       const note=hitAnnotation(p,e.pointerType);
       if(note){
         state.selectedAnnotationId=note.id;
-        state.selectedId=null;
+        state.selectedId=null; state.selectedStreetlightId=null;
         renderList(); renderSelected(); updateHandoff(); draw();
         return;
       }
       const h=handleAt(p,b,e.pointerType);
       if(h){state.drag={type:h.type,pointerId:e.pointerId,index:h.index,start:p,orig:structuredClone(b)}; return;}
       const hit=hitTest(p);
-      if(hit){state.selectedId=hit.id; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); state.drag={type:'move',pointerId:e.pointerId,start:p,orig:structuredClone(hit)};}
-      else {state.selectedId=null; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff();}
+      if(hit){state.selectedId=hit.id; state.selectedAnnotationId=null; state.selectedStreetlightId=null; renderList(); renderSelected(); updateHandoff(); state.drag={type:'move',pointerId:e.pointerId,start:p,orig:structuredClone(hit)};}
+      else {state.selectedId=null; state.selectedAnnotationId=null; state.selectedStreetlightId=null; renderList(); renderSelected(); updateHandoff();}
       draw();
     }
   }, {passive:false});
@@ -1214,7 +1487,9 @@
     const p=screenToWorld(e); $('statusMouse').textContent=state.pxPerMm?`Pointer: ${fmt(pxToMm(p.x))}, ${fmt(pxToMm(p.y))} mm (${e.pointerType})`:`Pointer: ${fmt(p.x)}, ${fmt(p.y)} px (${e.pointerType})`;
     if(state.drag?.type==='pinch'){e.preventDefault(); updatePinch(); draw(); return;}
     if(!state.drag){
-      const hoverB=hitTest(p);
+      const hoverL=hitStreetlight(p,e.pointerType);
+      state.hoverStreetlightId=hoverL ? hoverL.id : null;
+      const hoverB=hoverL ? null : hitTest(p);
       state.hoverBuildingId=hoverB ? hoverB.id : null;
       if(e.pointerType==='pen' && e.buttons===0){
         const hb=selected()||hoverB, hh=hb?handleAt(p,hb,e.pointerType):null;
@@ -1230,6 +1505,7 @@
     else if(d.type==='measure'){state.measureLine={x1:d.start.x,y1:d.start.y,x2:p.x,y2:p.y};}
     else if(d.type==='rect'){d.end=p; d.preview=addRectFromDrag(d.start,p,snapActive(e));}
     else if(d.type==='annotate'){addAnnotationPoint(e,p);}
+    else if(d.type==='moveStreetlight'){const l=state.streetlights.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(l&&!l.locked){l.x=d.orig.x+dx; l.y=d.orig.y+dy;}}
     else if(d.type==='move'){const b=state.buildings.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(b&&!b.locked){if(b.padType==='rect'){b.x=d.orig.x+dx; b.y=d.orig.y+dy;} else b.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); syncBuildingMetrics(b);}}
     else if(d.type==='polyPoint'){const b=selected(); if(b&&!b.locked){b.pointsPx[d.index]=p; syncBuildingMetrics(b);}}
     else if(d.type==='rectCorner'){const b=selected(), o=d.orig; if(b&&!b.locked){resizeRectFromCorner(b,o,d.index,p,snapActive(e));}}
@@ -1243,7 +1519,7 @@
     if(!state.drag)return;
     if(state.drag.pointerId!==undefined && state.drag.pointerId!==e.pointerId) return;
     const d=state.drag;
-    if(d.type==='rect'&&d.preview){state.buildings.push(d.preview); state.selectedId=d.preview.id; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff();}
+    if(d.type==='rect'&&d.preview){state.buildings.push(d.preview); state.selectedId=d.preview.id; state.selectedStreetlightId=null; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff();}
     state.drag=null; syncAll();
   }
   canvas.addEventListener('pointerup', finishPointer);
@@ -1251,13 +1527,47 @@
   canvas.addEventListener('contextmenu', e=>{
     e.preventDefault(); hideContextMenu();
     const p=screenToWorld(e); const target=contextTargetAt(p,'mouse');
+    if(target?.streetlight){
+      state.selectedStreetlightId=target.streetlight.id; state.selectedId=null; state.selectedAnnotationId=null;
+      m.innerHTML=`<button data-action="duplicateStreetlight">Duplicate Streetlight</button><button data-action="lockStreetlight">${target.streetlight.locked?'Unlock':'Lock'} Streetlight</button><button data-action="deleteStreetlight" class="dangerItem">Delete Streetlight</button>`;
+      m.querySelectorAll('button').forEach(btn=>btn.onclick=()=>handleContextAction(btn.dataset.action));
+      m.style.display='block';
+      const wrapRect=wrap.getBoundingClientRect(); const mw=m.offsetWidth||210, mh=m.offsetHeight||120;
+      m.style.left=clamp(screenX-wrapRect.left,8,wrapRect.width-mw-8)+'px';
+      m.style.top=clamp(screenY-wrapRect.top,8,wrapRect.height-mh-8)+'px';
+      renderList(); renderStreetlights(); renderSelected(); draw();
+      return;
+    }
     if(target?.annotation){state.selectedAnnotationId=target.annotation.id; state.selectedId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
     else if(target?.building){state.selectedId=target.building.id; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
   });
   canvas.addEventListener('wheel', e=>{e.preventDefault(); const r=canvas.getBoundingClientRect(); const mouse={x:e.clientX-r.left,y:e.clientY-r.top}; const before=screenToWorld(e); const factor=e.deltaY<0?1.1:.9; state.view.scale=clamp(state.view.scale*factor,.05,20); state.view.x=mouse.x-before.x*state.view.scale; state.view.y=mouse.y-before.y*state.view.scale; draw();},{passive:false});
-  window.addEventListener('keydown', e=>{if(e.target.matches('input,textarea,select')) return; if(e.key==='Enter'&&state.tool==='polygon') finishPolygon(); if(e.key==='Backspace'&&state.tool==='polygon'&&state.polygonDraft.length){state.polygonDraft.pop(); draw(); return;} if(e.key==='Escape'){hideContextMenu(); state.hoverPreview=null; state.selectedAnnotationId=null; renderSelected(); draw();} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedAnnotationId){e.preventDefault(); deleteSelectedAnnotation(); return;} if(e.key==='Delete'&&selected()){state.buildings=state.buildings.filter(b=>b.id!==state.selectedId); state.selectedId=null; syncAll();}});
-  function finishPolygon(){if(state.polygonDraft.length<3) return; const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'polygon',pointsPx:state.polygonDraft.slice(),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,notes:'',hakoConfig:null}; syncBuildingMetrics(b); state.buildings.push(b); state.selectedId=b.id; state.selectedAnnotationId=null; state.polygonDraft=[]; syncAll();}
-  document.querySelectorAll('.toolbtn').forEach(btn=>btn.onclick=()=>{document.querySelectorAll('.toolbtn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); state.tool=btn.dataset.tool; state.drag=null; draw();});
+  window.addEventListener('keydown', e=>{if(e.target.matches('input,textarea,select')) return; if(e.key==='Enter'&&state.tool==='polygon') finishPolygon(); if(e.key==='Backspace'&&state.tool==='polygon'&&state.polygonDraft.length){state.polygonDraft.pop(); draw(); return;} if(e.key==='Escape'){hideContextMenu(); state.hoverPreview=null; state.selectedAnnotationId=null; renderSelected(); draw();} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedAnnotationId){e.preventDefault(); deleteSelectedAnnotation(); return;} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedStreetlightId){e.preventDefault(); deleteSelectedStreetlight(); return;} if(e.key==='Delete'&&selected()){state.buildings=state.buildings.filter(b=>b.id!==state.selectedId); state.selectedId=null; syncAll();}});
+  function finishPolygon(){if(state.polygonDraft.length<3) return; const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'polygon',pointsPx:state.polygonDraft.slice(),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,notes:'',hakoConfig:null}; syncBuildingMetrics(b); state.buildings.push(b); state.selectedId=b.id; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.polygonDraft=[]; syncAll();}
+  function setActiveTool(tool){
+    document.querySelectorAll('.toolbtn').forEach(b=>b.classList.toggle('active', b.dataset.tool===tool));
+    state.tool=tool; state.drag=null; hideToolFlyouts(); draw();
+  }
+  document.querySelectorAll('.toolbtn').forEach(btn=>btn.onclick=()=>setActiveTool(btn.dataset.tool));
+  function hideToolFlyouts(){document.querySelectorAll('.toolFlyout').forEach(m=>m.classList.remove('open'));}
+  function updateStreetlightToolButton(){
+    const icon=$('streetlightToolIcon'), label=$('streetlightToolLabel'), btn=$('streetlightToolBtn');
+    const anchored=state.streetlightMode==='anchored';
+    if(icon) icon.textContent=anchored?'⚓':'💡';
+    if(label) label.textContent=anchored?'Anchored Streetlight':'Streetlight';
+    if(btn){btn.title=anchored?'Anchored Streetlight':'Streetlight'; btn.setAttribute('aria-label', anchored?'Anchored Streetlight':'Streetlight');}
+    document.querySelectorAll('#streetlightToolMenu button').forEach(b=>b.classList.toggle('active', b.dataset.streetlightMode===state.streetlightMode));
+  }
+  function showStreetlightToolMenu(){const m=$('streetlightToolMenu'); if(m){m.classList.toggle('open'); updateStreetlightToolButton();}}
+  $('streetlightVariantBtn')?.addEventListener('click', e=>{e.preventDefault(); e.stopPropagation(); showStreetlightToolMenu();});
+  let streetlightToolPressTimer=null;
+  $('streetlightToolBtn')?.addEventListener('pointerdown', e=>{clearTimeout(streetlightToolPressTimer); streetlightToolPressTimer=setTimeout(()=>showStreetlightToolMenu(), 420);});
+  $('streetlightToolBtn')?.addEventListener('pointerup', ()=>clearTimeout(streetlightToolPressTimer));
+  $('streetlightToolBtn')?.addEventListener('pointercancel', ()=>clearTimeout(streetlightToolPressTimer));
+  $('streetlightToolBtn')?.addEventListener('contextmenu', e=>{e.preventDefault(); showStreetlightToolMenu();});
+  document.querySelectorAll('#streetlightToolMenu button').forEach(btn=>btn.onclick=e=>{e.stopPropagation(); state.streetlightMode=btn.dataset.streetlightMode||'free'; updateStreetlightToolButton(); setActiveTool('streetlight');});
+  document.addEventListener('pointerdown', e=>{if(!e.target.closest('.toolGroup')) hideToolFlyouts();});
+  updateStreetlightToolButton();
   function setImageStatus(message, kind='muted'){
     const el=$('imageImportStatus');
     if(!el) return;
@@ -1360,6 +1670,9 @@
     state.measureLine=null;
     state.annotations=[];
     state.selectedAnnotationId=null;
+    state.streetlights=[];
+    state.selectedStreetlightId=null;
+    state.hoverStreetlightId=null;
     state.hoverPreview=null;
     clearLongPress(); hideContextMenu();
     state.projectName='hakomachi-site';
@@ -1372,8 +1685,12 @@
     $('imageFile').value='';
     $('loadFile').value='';
     document.querySelectorAll('.toolbtn').forEach(b=>b.classList.toggle('active', b.dataset.tool==='select'));
+    state.dirty=false;
+    state.dirtySinceManualSave=false;
+    state.autosaveRestored=false;
     setImageStatus('Cache cleared. Planner reset to default blank state.', 'okText');
-    syncAll();
+    syncAll({skipDirty:true});
+    updateAutosaveStatus('Autosave: cleared');
   }
 
   function closeTopMenus(except){
@@ -1424,16 +1741,16 @@
   $('inputMode').onchange=e=>{state.inputMode=e.target.value; draw();};
   $('snapBtn').onclick=()=>{state.snapOn=!state.snapOn; $('snapBtn').classList.toggle('active', state.snapOn); $('snapBtn').textContent=state.snapOn?'Snap: On':'Snap: Off'; draw();};
   $('deleteAnnotationBtn').onclick=deleteSelectedAnnotation;
-  $('clearAnnotationsBtn').onclick=()=>{if(state.annotations.length && !confirm('Clear all freehand annotation notes?')) return; state.annotations=[]; state.selectedAnnotationId=null; renderSelected(); draw();};
-  $('fitBtn').onclick=fitImage; $('resetBtn').onclick=()=>{state.view={x:40,y:40,scale:1}; draw();}; $('clearCacheBtn').onclick=clearCacheAndReset; if($('clearCachePanelBtn')) $('clearCachePanelBtn').onclick=clearCacheAndReset;
-  $('saveBtn').onclick=()=>download(JSON.stringify(projectJson(),null,2),'hakomachi-site.hako-site.json','application/json');
+  $('clearAnnotationsBtn').onclick=()=>{if(state.annotations.length && !confirm('Clear all freehand annotation notes?')) return; state.annotations=[]; state.selectedAnnotationId=null; renderSelected(); draw(); markDirty('annotations cleared');};
+  $('fitBtn').onclick=()=>{fitImage(); markDirty('view changed');}; $('resetBtn').onclick=()=>{state.view={x:40,y:40,scale:1}; draw(); markDirty('view changed');}; $('clearCacheBtn').onclick=clearCacheAndReset; if($('clearCachePanelBtn')) $('clearCachePanelBtn').onclick=clearCacheAndReset;
+  $('saveBtn').onclick=()=>{download(JSON.stringify(projectJson(),null,2),'hakomachi-site.hako-site.json','application/json'); markManualSaveComplete();};
   $('loadFile').addEventListener('change', e=>{
     const f=e.target.files && e.target.files[0];
     if(!f) return;
     const reader=new FileReader();
     reader.onerror=()=>alert('Could not read that project file.');
     reader.onload=ev=>{
-      try{loadProject(JSON.parse(ev.target.result));}
+      try{loadProject(JSON.parse(ev.target.result), {fromFile:true});}
       catch(err){alert('Could not load project JSON: '+err.message);}
       e.target.value='';
     };
@@ -1442,16 +1759,71 @@
   $('csvBtn').onclick=()=>download(csvExport(),'hakomachi-building-pads.csv','text/csv');
   $('svgBtn').onclick=()=>download(svgExport(),'hakomachi-site.svg','image/svg+xml');
   $('seedBtn').onclick=exportSelectedSeed;
-  if($('mobileSaveBtn')) $('mobileSaveBtn').onclick=()=>download(JSON.stringify(projectJson(),null,2),'hakomachi-site.hako-site.json','application/json');
+  if($('mobileSaveBtn')) $('mobileSaveBtn').onclick=()=>{download(JSON.stringify(projectJson(),null,2),'hakomachi-site.hako-site.json','application/json'); markManualSaveComplete();};
   if($('mobileCsvBtn')) $('mobileCsvBtn').onclick=()=>download(csvExport(),'hakomachi-building-pads.csv','text/csv');
   if($('mobileSeedBtn')) $('mobileSeedBtn').onclick=exportSelectedSeed;
   $('openHakoBtn').onclick=()=>{const b=selected(); if(!b)return alert('Select a building first.'); const seed=makeSeed(b); localStorage.setItem('hakomachiSitePlannerSeed',JSON.stringify(seed)); window.open('../index.html#sitePlannerSeed','_blank');};
-  function projectJson(){syncAll(); return {app:'HakoMachi Site Planner',version:2,createdAt:new Date().toISOString(),image:state.imageMeta,scale:{calibrated:!!state.pxPerMm,pxPerMm:state.pxPerMm,calibrationLine:state.calibrationLine},buildings:state.buildings,annotations:state.annotations};}
-  function loadProject(p){state.image=null; state.imageMeta=p.image||null; state.pxPerMm=p.scale?.pxPerMm||null; state.calibrationLine=p.scale?.calibrationLine||null; state.lastCalibrationLine=state.calibrationLine; state.buildings=p.buildings||[]; state.annotations=p.annotations||[]; state.selectedId=null; state.selectedAnnotationId=null; if(state.imageMeta?.dataUrl){const img=new Image(); img.onload=()=>{state.image=img; fitImage(); syncAll();}; img.src=state.imageMeta.dataUrl;} syncAll();}
+  function projectJson(){return makeProjectPayload();}
+  function loadProject(p, opts={}){
+    autosaveSuppressed=true;
+    state.image=null;
+    state.imageMeta=p.image||null;
+    state.imageOpacity=Number.isFinite(p.imageOpacity)?p.imageOpacity:(state.imageMeta?.opacity ?? state.imageOpacity ?? .75);
+    state.imageLocked=p.imageLocked ?? state.imageLocked ?? true;
+    state.view=p.view || state.view;
+    state.pxPerMm=p.scale?.pxPerMm||null;
+    state.calibrationLine=p.scale?.calibrationLine||null;
+    state.lastCalibrationLine=state.calibrationLine;
+    state.buildings=p.buildings||[];
+    state.streetlights=(p.streetlights||[]).map(normalizeStreetlight);
+    state.annotations=p.annotations||[];
+    state.selectedId=null;
+    state.selectedStreetlightId=null;
+    state.selectedAnnotationId=null;
+    if($('opacity')) $('opacity').value=String(state.imageOpacity);
+    if($('imageLockBtn')) $('imageLockBtn').textContent=state.imageLocked?'Locked':'Unlocked';
+    if(state.imageMeta?.dataUrl){
+      const img=new Image();
+      img.onload=()=>{state.image=img; if(!p.view) fitImage(); syncAll({skipDirty:true}); autosaveSuppressed=false;};
+      img.onerror=()=>{autosaveSuppressed=false; syncAll({skipDirty:true});};
+      img.src=state.imageMeta.dataUrl;
+    } else {
+      syncAll({skipDirty:true});
+      autosaveSuppressed=false;
+    }
+    state.dirty=false;
+    state.dirtySinceManualSave=!!opts.dirtySinceManualSave;
+    updateAutosaveStatus(opts.fromAutosave?'Autosave: restored':'Autosave: loaded');
+    setTimeout(()=>updateAutosaveStatus(), 1200);
+  }
   function csvExport(){syncAll(); const rows=[['id','name','type','category','widthMm','depthMm','areaMm2','rotationDeg','notes']]; state.buildings.forEach(b=>rows.push([b.id,b.name,b.padType,b.category,b.widthMm||'',b.depthMm||'',b.derived?.areaMm2||'',b.rotationDeg||0,b.notes||''])); return rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\n');}
-  function svgExport(){syncAll(); const w=state.image?.width||1200,h=state.image?.height||800; const img=state.imageMeta?.dataUrl?`<image href="${state.imageMeta.dataUrl}" x="0" y="0" width="${w}" height="${h}" opacity="${state.imageOpacity}"/>`:''; const notes=state.annotations.map(st=>`<polyline points="${(st.points||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="${st.color||'#6f4326'}" stroke-width="${st.baseWidth||2.2}" stroke-linecap="round" stroke-linejoin="round"/>`).join('\n'); const pads=state.buildings.map(b=>{const pts=(b.padType==='rect'?transformedRect(b):b.pointsPx).map(p=>`${p.x},${p.y}`).join(' '); const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(b.pointsPx); return `<polygon points="${pts}" fill="${b.color}33" stroke="${b.color}" stroke-width="3"/><text x="${c.x+5}" y="${c.y-5}" font-size="12" fill="white">${escapeHtml(b.name)}</text>`;}).join('\n'); return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${img}${notes}${pads}</svg>`;}
+  function svgExport(){syncAll(); const w=state.image?.width||1200,h=state.image?.height||800; const img=state.imageMeta?.dataUrl?`<image href="${state.imageMeta.dataUrl}" x="0" y="0" width="${w}" height="${h}" opacity="${state.imageOpacity}"/>`:''; const notes=state.annotations.map(st=>`<polyline points="${(st.points||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="${st.color||'#6f4326'}" stroke-width="${st.baseWidth||2.2}" stroke-linecap="round" stroke-linejoin="round"/>`).join('\n'); const lights=state.streetlights.map(l=>{normalizeStreetlight(l); const r=(state.pxPerMm?mmToPx((l.mode==='anchored'?(l.anchor?.mountMode==='roadEdgeBulbMount'?(l.anchor?.bulbMountDiameterMm||3):(l.anchor?.cutHoleDiameterMm||1.2)):(l.poleDiameterMm||.45))/2):3); return `<circle cx="${l.x}" cy="${l.y}" r="${Math.max(2,r)}" fill="${l.color||'#c84a3a'}" stroke="#3a2b1e" stroke-width="1"/><text x="${l.x+5}" y="${l.y-5}" font-size="10" fill="#3a2b1e">${escapeHtml(l.name||'Streetlight')}</text>`;}).join('\n'); const pads=state.buildings.map(b=>{const pts=(b.padType==='rect'?transformedRect(b):b.pointsPx).map(p=>`${p.x},${p.y}`).join(' '); const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(b.pointsPx); return `<polygon points="${pts}" fill="${b.color}33" stroke="${b.color}" stroke-width="3"/><text x="${c.x+5}" y="${c.y-5}" font-size="12" fill="white">${escapeHtml(b.name)}</text>`;}).join('\n'); return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${img}${notes}${pads}${lights}</svg>`;}
   function download(content,name,type){const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([content],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
   function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));} function escapeAttr(s){return escapeHtml(s).replace(/'/g,'&#39;');} function slug(s){return String(s||'building').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'building';}
+
+  function restoreAutosaveIfAvailable(){
+    try{
+      const raw=localStorage.getItem(AUTOSAVE_KEY);
+      if(!raw) return false;
+      const metaRaw=localStorage.getItem(AUTOSAVE_META_KEY);
+      const meta=metaRaw?JSON.parse(metaRaw):{};
+      const payload=JSON.parse(raw);
+      state.autosaveRestored=true;
+      loadProject(payload, {fromAutosave:true, dirtySinceManualSave:!!meta.dirtySinceManualSave});
+      return true;
+    }catch(err){
+      console.warn('[HakoMachi Site Planner] Could not restore autosave:', err);
+      return false;
+    }
+  }
+  window.addEventListener('beforeunload', e=>{
+    if(state.dirty) writeAutosave();
+    if(state.dirtySinceManualSave){
+      e.preventDefault();
+      e.returnValue='';
+      return '';
+    }
+  });
 
   // HakoMachi animated logo: replay the SMIL build-on animation on hover,
   // matching the main HakoMachi editor behavior.
@@ -1467,7 +1839,9 @@
     });
   }
 
-  syncAll(); fitImage();
+  const restored=restoreAutosaveIfAvailable();
+  state.autosaveReady=true;
+  if(!restored){syncAll({skipDirty:true}); fitImage(); writeAutosave();}
 })();
 </script>
 </body>

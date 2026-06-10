@@ -1237,9 +1237,45 @@
     return null;
   }
 
-  function handleAt(p,b,pointerType='mouse'){if(!b || b.locked) return null; const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches); const s=(coarse?18:9)/state.view.scale; if(b.padType==='polygon'){for(let i=0;i<b.pointsPx.length;i++) if(dist(p,b.pointsPx[i])<s) return {type:'polyPoint', index:i}; return null;}
-    const pts=transformedRect(b); for(let i=0;i<pts.length;i++) if(dist(p,pts[i])<s) return {type:'rectCorner', index:i};
-    const topMid={x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2}; const a=rad(b.rotationDeg-90); const rot={x:topMid.x+Math.cos(a)*24/state.view.scale,y:topMid.y+Math.sin(a)*24/state.view.scale}; if(dist(p,rot)<s*1.25) return {type:'rotate'}; return null;
+  function buildingPoints(b){return b.padType==='rect'?transformedRect(b):(b.pointsPx||[]);}
+  function buildingCenter(b){return b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(b.pointsPx||[]);}
+  function polyEdgeDistance(p,pts){
+    if(!pts||pts.length<2) return Infinity;
+    let best=Infinity;
+    for(let i=0;i<pts.length;i++) best=Math.min(best,distanceToSegment(p,pts[i],pts[(i+1)%pts.length]));
+    return best;
+  }
+  function rotateHandlePoint(b){
+    const pts=buildingPoints(b); if(!pts.length) return buildingCenter(b);
+    const c=buildingCenter(b);
+    let top=pts[0];
+    pts.forEach(q=>{if(q.y<top.y) top=q;});
+    const r=Math.max(28/state.view.scale, Math.max(...pts.map(q=>dist(c,q)))+22/state.view.scale);
+    const ang=Math.atan2(top.y-c.y, top.x-c.x)-Math.PI/10;
+    return {x:c.x+Math.cos(ang)*r,y:c.y+Math.sin(ang)*r};
+  }
+  function rotationZoneHit(p,b,pointerType='mouse'){
+    const pts=buildingPoints(b); if(!pts.length) return false;
+    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
+    const nearMin=(coarse?8:5)/state.view.scale;
+    const nearMax=(coarse?42:30)/state.view.scale;
+    const d=polyEdgeDistance(p,pts);
+    const inside=pointInPoly(p,pts);
+    return !inside && d>=nearMin && d<=nearMax;
+  }
+  function handleAt(p,b,pointerType='mouse'){
+    if(!b || b.locked) return null;
+    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
+    const s=(coarse?18:9)/state.view.scale;
+    const pts=buildingPoints(b);
+    if(b.padType==='polygon'){
+      for(let i=0;i<pts.length;i++) if(dist(p,pts[i])<s) return {type:'polyPoint', index:i};
+    } else {
+      for(let i=0;i<pts.length;i++) if(dist(p,pts[i])<s) return {type:'rectCorner', index:i};
+    }
+    const rot=rotateHandlePoint(b);
+    if(dist(p,rot)<s*1.5 || rotationZoneHit(p,b,pointerType)) return {type:'rotate'};
+    return null;
   }
   function distanceToSegment(p,a,b){
     const vx=b.x-a.x, vy=b.y-a.y;
@@ -2055,10 +2091,25 @@
 
   function drawGrid(){if(!state.pxPerMm) return; const stepMm = state.view.scale*state.pxPerMm>30?10: state.view.scale*state.pxPerMm>8?25:50; const step=mmToPx(stepMm); const r=canvas.getBoundingClientRect(); const min=screenToWorld({clientX:r.left,clientY:r.top}), max=screenToWorld({clientX:r.right,clientY:r.bottom}); ctx.save(); ctx.strokeStyle='rgba(107,81,57,.18)'; ctx.lineWidth=1/state.view.scale; for(let x=Math.floor(min.x/step)*step;x<max.x;x+=step){ctx.beginPath();ctx.moveTo(x,min.y);ctx.lineTo(x,max.y);ctx.stroke()} for(let y=Math.floor(min.y/step)*step;y<max.y;y+=step){ctx.beginPath();ctx.moveTo(min.x,y);ctx.lineTo(max.x,y);ctx.stroke()} ctx.restore();}
   function drawLabel(text,p){ctx.save(); ctx.font=`${12/state.view.scale}px system-ui`; const w=ctx.measureText(text).width+8/state.view.scale; const h=18/state.view.scale; ctx.fillStyle='rgba(49,35,24,.88)'; ctx.fillRect(p.x,p.y-h,w,h); ctx.fillStyle='#fff7ed'; ctx.fillText(text,p.x+4/state.view.scale,p.y-5/state.view.scale); ctx.restore();}
+  function drawRotateAffordance(b,pts){
+    const c=buildingCenter(b);
+    const rot=rotateHandlePoint(b);
+    const radius=Math.max(...pts.map(q=>dist(c,q)))+18/state.view.scale;
+    ctx.save();
+    ctx.strokeStyle='rgba(15,118,110,.55)';
+    ctx.fillStyle='rgba(15,118,110,.14)';
+    ctx.lineWidth=2/state.view.scale;
+    ctx.setLineDash([7/state.view.scale,6/state.view.scale]);
+    ctx.beginPath(); ctx.arc(c.x,c.y,radius,0,Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(c.x,c.y); ctx.lineTo(rot.x,rot.y); ctx.stroke();
+    ctx.beginPath(); ctx.arc(rot.x,rot.y,9/state.view.scale,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.font=`${13/state.view.scale}px system-ui`; ctx.fillStyle='#0f766e'; ctx.fillText('↻',rot.x-4/state.view.scale,rot.y+5/state.view.scale);
+    ctx.restore();
+  }
   function drawBuilding(b){ if(b.hidden) return; syncBuildingMetrics(b); ctx.save(); const isSelected=isBuildingSelected(b.id), isHovered=b.id===state.hoverBuildingId; ctx.lineWidth=(isSelected?4:3)/state.view.scale; ctx.strokeStyle=isSelected?'#0f766e':b.color; ctx.fillStyle=(b.color||'#d79631')+'33'; ctx.beginPath(); const pts=b.padType==='rect'?transformedRect(b):b.pointsPx; pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); ctx.fill(); ctx.stroke();
     if(isSelected || isHovered){ const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(pts); drawLabel(`${b.name||'Building'} ${b.padType==='rect'&&state.pxPerMm?`${fmt(b.widthMm)}×${fmt(b.depthMm)}mm`:''}`,{x:c.x+6/state.view.scale,y:c.y-6/state.view.scale}); }
-    if(isSelected && currentSelectedBuildingIds().length===1 && !b.locked){ ctx.fillStyle='#0f766e'; pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,5/state.view.scale,0,Math.PI*2);ctx.fill()}); if(b.padType==='rect'){const topMid={x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2}; const a=rad(b.rotationDeg-90); const rot={x:topMid.x+Math.cos(a)*24/state.view.scale,y:topMid.y+Math.sin(a)*24/state.view.scale}; ctx.strokeStyle='#0f766e'; ctx.beginPath();ctx.moveTo(topMid.x,topMid.y);ctx.lineTo(rot.x,rot.y);ctx.stroke();ctx.beginPath();ctx.arc(rot.x,rot.y,6/state.view.scale,0,Math.PI*2);ctx.fill();}}
-    if(isSelected && currentSelectedBuildingIds().length===1){ctx.strokeStyle='rgba(49,35,24,.55)'; ctx.lineWidth=1/state.view.scale; for(let i=0;i<pts.length;i++){const a=pts[i],c2=pts[(i+1)%pts.length], mid={x:(a.x+c2.x)/2,y:(a.y+c2.y)/2}; drawLabel(`${fmt(pxToMm(dist(a,c2)))} mm`,mid);}}
+    if(isSelected && currentSelectedBuildingIds().length===1 && !b.locked){ ctx.fillStyle='#0f766e'; pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,5/state.view.scale,0,Math.PI*2);ctx.fill()}); drawRotateAffordance(b,pts); }
     ctx.restore(); }
   function drawLine(line,color,label){ if(!line) return; ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=3/state.view.scale; ctx.beginPath();ctx.moveTo(line.x1,line.y1);ctx.lineTo(line.x2,line.y2);ctx.stroke(); ctx.fillStyle=color; [{x:line.x1,y:line.y1},{x:line.x2,y:line.y2}].forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()}); if(label) drawLabel(label,{x:(line.x1+line.x2)/2,y:(line.y1+line.y2)/2}); ctx.restore();}
 
@@ -2400,7 +2451,16 @@
         return;
       }
       const h=handleAt(p,b,e.pointerType);
-      if(h){state.drag={type:h.type,pointerId:e.pointerId,index:h.index,start:p,orig:structuredClone(b)}; return;}
+      if(h){
+        const drag={type:h.type,pointerId:e.pointerId,index:h.index,start:p,orig:structuredClone(b)};
+        if(h.type==='rotate'){
+          drag.center=buildingCenter(b);
+          drag.startAngle=Math.atan2(p.y-drag.center.y,p.x-drag.center.x);
+          drag.origRotation=Number(b.rotationDeg)||0;
+        }
+        state.drag=drag;
+        return;
+      }
       const hit=hitTest(p);
       if(hit){
         if(e.shiftKey || e.metaKey || e.ctrlKey){ toggleBuildingSelection(hit.id); renderList(); renderSelected(); updateHandoff(); draw(); return; }
@@ -2452,7 +2512,24 @@
     else if(d.type==='move'){const b=state.buildings.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(b&&!b.locked){if(b.padType==='rect'){b.x=d.orig.x+dx; b.y=d.orig.y+dy;} else b.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); syncBuildingMetrics(b);}}
     else if(d.type==='polyPoint'){const b=selected(); if(b&&!b.locked){b.pointsPx[d.index]=p; syncBuildingMetrics(b);}}
     else if(d.type==='rectCorner'){const b=selected(), o=d.orig; if(b&&!b.locked){resizeRectFromCorner(b,o,d.index,p,snapActive(e));}}
-    else if(d.type==='rotate'){const b=selected(); if(b&&!b.locked){b.rotationDeg=deg(Math.atan2(p.y-b.y,p.x-b.x))+90; if(snapActive(e))b.rotationDeg=snapAngle(b.rotationDeg); syncBuildingMetrics(b);}}
+    else if(d.type==='rotate'){
+      const b=selected();
+      if(b&&!b.locked){
+        const c=d.center||buildingCenter(b);
+        const delta=deg(Math.atan2(p.y-c.y,p.x-c.x)-(d.startAngle||0));
+        let next=(d.origRotation||0)+delta;
+        if(snapActive(e)) next=snapAngle(next);
+        if(b.padType==='rect'){
+          b.rotationDeg=next;
+        } else {
+          const actualDelta=rad(next-(d.origRotation||0));
+          const ca=Math.cos(actualDelta), sa=Math.sin(actualDelta);
+          b.pointsPx=(d.orig.pointsPx||[]).map(q=>({x:c.x+(q.x-c.x)*ca-(q.y-c.y)*sa,y:c.y+(q.x-c.x)*sa+(q.y-c.y)*ca}));
+          b.rotationDeg=next;
+        }
+        syncBuildingMetrics(b);
+      }
+    }
     draw();
   }, {passive:false});
   function finishPointer(e){

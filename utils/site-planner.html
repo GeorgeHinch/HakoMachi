@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HakoMachi Site Planner</title>
+<style>
+  :root{
+    /* HakoMachi warm chipboard / laser-cut planning theme */
+    --bg:#efe4d1;
+    --panel:#fff8ea;
+    --panel2:#f7ecd9;
+    --panel3:#ead8bc;
+    --toolbar:#2f241c;
+    --toolbar2:#3b2c20;
+    --text:#2b2118;
+    --textOnDark:#fff7ed;
+    --muted:#7b6a55;
+    --accent:#b8672d;
+    --accent2:#0f766e;
+    --accentSoft:#f3d2aa;
+    --warn:#b7791f;
+    --danger:#a04438;
+    --ok:#3f7a50;
+    --line:#d6c2a1;
+    --lineDark:#6b5139;
+    --canvas:#f6eddf;
+    --pad:#d79631;
+    --sel:#0f766e;
+    --shadow:0 10px 24px rgba(48,35,23,.14);
+    --focus:0 0 0 3px rgba(184,103,45,.22);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#f6ecdc 0%,var(--bg) 100%);color:var(--text);height:100vh;overflow:hidden}
+  button,input,select,textarea{font:inherit}
+  button{background:#f8ead4;color:var(--text);border:1px solid #cdae83;border-radius:10px;padding:8px 11px;cursor:pointer;min-height:36px;box-shadow:0 1px 0 rgba(255,255,255,.55) inset;transition:background .12s,border-color .12s,transform .06s,box-shadow .12s}
+  button:hover{background:#f3dcc0;border-color:#b88b5b}
+  button:active{transform:translateY(1px)}
+  button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none;box-shadow:var(--focus)}
+  button.active{background:var(--accent);border-color:#7b3f18;color:#fff7ed;box-shadow:0 0 0 1px rgba(255,255,255,.28) inset,0 0 0 3px rgba(184,103,45,.18)}
+  button.danger{background:#f4d4cf;border-color:#b7594f;color:#63251f}
+  button.danger:hover{background:#efc2ba}
+  button.ok{background:#dcebd8;border-color:#6da06b;color:#244b2e}
+  input,select,textarea{background:#fffdf7;color:var(--text);border:1px solid #cdae83;border-radius:9px;padding:7px;width:100%}
+  input:disabled{background:#efe3cf;color:#7c6a56}
+  input[type="range"]{padding:0;accent-color:var(--accent)}
+  input[type="color"]{padding:3px;height:36px}
+  label{display:block;font-size:12px;color:#6f5e49;margin:8px 0 4px;font-weight:650;letter-spacing:.01em}
+  .app{display:grid;grid-template-columns:64px minmax(0,1fr) 340px;grid-template-rows:auto minmax(0,1fr) auto;height:100vh}
+  .top{grid-column:1/4;display:flex;gap:8px;align-items:center;padding:9px 11px;background:linear-gradient(180deg,var(--toolbar2),var(--toolbar));border-bottom:1px solid #1f1711;color:var(--textOnDark);box-shadow:0 2px 10px rgba(36,25,15,.24);min-width:0;overflow:visible;position:relative;z-index:5}
+  .top .title{font-weight:800;margin-right:10px;white-space:nowrap;letter-spacing:.01em;color:#ffe7bd}.top .spacer{flex:1;min-width:8px}
+  .topActions{display:flex;gap:8px;align-items:center;min-width:0}.topRight{display:flex;gap:8px;align-items:center;flex:0 0 auto}
+  .hiddenFile{position:absolute;left:-9999px;width:1px;height:1px;opacity:.001;pointer-events:none}
+  .top button,.top .fileButton,.menuItem{appearance:none;-webkit-appearance:none;background:#4a3828;border:1px solid #745237;color:#fff7ed;box-shadow:none;border-radius:10px;padding:8px 11px;cursor:pointer;min-height:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;font-family:inherit;font-size:14px;font-weight:600;line-height:1.15;text-decoration:none;box-sizing:border-box;margin:0;vertical-align:middle;flex:0 0 auto;width:auto}
+  .top button:hover,.top .fileButton:hover,.menuItem:hover{background:#5a422e;border-color:#9b6f45}
+  .top button:active,.top .fileButton:active,.menuItem:active{transform:translateY(1px)}
+  .top button.danger,.menuItem.danger{background:#6a332b;border-color:#a76055;color:#fff7ed}
+  .top button.danger:hover,.menuItem.danger:hover{background:#7b3d34;border-color:#c1786d}
+  .iconBtn{width:38px!important;min-width:38px!important;padding:0!important;font-size:18px!important}
+  .menuWrap{position:relative;display:inline-flex;align-items:center;flex:0 0 auto}.splitExport{display:inline-flex;align-items:center;gap:0;flex:0 0 auto}.splitExport #svgBtn{border-top-right-radius:0;border-bottom-right-radius:0}.splitExport #exportMenuBtn{border-top-left-radius:0;border-bottom-left-radius:0;border-left:0;width:34px!important;min-width:34px!important;padding:0!important}
+  .dropdownMenu{position:absolute;top:calc(100% + 7px);left:0;display:none;flex-direction:column;gap:6px;background:#2f241c;border:1px solid #7b5a3c;border-radius:12px;padding:8px;box-shadow:0 14px 30px rgba(21,14,8,.35);min-width:210px;z-index:80}.dropdownMenu.right{left:auto;right:0}.dropdownMenu.open{display:flex}.dropdownMenu button,.dropdownMenu .menuItem{width:100%;justify-content:flex-start}.menuWrap.menuOpen{z-index:90}.menuWrap.menuOpen>button,.splitExport.menuOpen #exportMenuBtn{background:#6b4c32;border-color:#b88150}.overflowOnly{display:none}.mobileOnly{display:none!important}
+  .toolbar{grid-column:1;grid-row:2/3;background:linear-gradient(180deg,#3a2b1e,#2e231a);border-right:1px solid #1f1711;display:flex;flex-direction:column;gap:8px;padding:8px;box-shadow:2px 0 9px rgba(47,35,24,.16)}
+  .toolbtn{width:48px;height:48px;padding:0;font-size:22px;line-height:1;display:flex;align-items:center;justify-content:center;text-align:center;background:#57402c;color:#fff3df;border-color:#87623e;border-radius:12px;position:relative}
+  .toolbtn .toolIcon{display:block;line-height:1;transform:translateY(-.5px)}
+  .toolbtn .toolLabel{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .toolbtn::after{content:attr(aria-label);position:absolute;left:56px;top:50%;transform:translateY(-50%);background:#2f241c;color:#fff3df;border:1px solid #87623e;border-radius:8px;padding:6px 8px;font-size:12px;line-height:1;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .12s ease;z-index:20}
+  .toolbtn:hover::after,.toolbtn:focus-visible::after{opacity:1}
+  .toolbtn:hover{background:#694b31}.toolbtn.active{background:var(--accent);border-color:#f1bb78;color:#fff7ed}
+  .canvasWrap{grid-column:2;grid-row:2/3;position:relative;overflow:hidden;background:var(--canvas);background-image:radial-gradient(circle at 1px 1px,rgba(107,81,57,.12) 1px,transparent 0);background-size:18px 18px}
+  canvas{display:block;width:100%;height:100%;cursor:crosshair;touch-action:none}
+  .hint{position:absolute;left:12px;bottom:12px;background:rgba(255,248,234,.94);border:1px solid #cdae83;border-radius:12px;padding:9px 11px;color:#574634;font-size:12px;max-width:520px;pointer-events:none;box-shadow:var(--shadow)}
+  .sidebar{grid-column:3;grid-row:2/3;background:var(--panel);border-left:1px solid var(--line);overflow:auto;padding:12px;box-shadow:-4px 0 14px rgba(47,35,24,.09)}
+  .bottom{grid-column:1/4;grid-row:3;background:#fff8ea;border-top:1px solid var(--line);padding:7px 10px;display:flex;gap:14px;align-items:center;font-size:12px;color:#6d5a45;overflow-x:auto;white-space:nowrap;box-shadow:0 -1px 7px rgba(47,35,24,.06)}
+  .section{background:linear-gradient(180deg,#fffaf0,#f8eddc);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .section h3{margin:0 0 8px;font-size:14px;color:#3a2b1e;letter-spacing:.01em}.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.buttons{display:flex;gap:8px;flex-wrap:wrap}.small{font-size:12px;color:#6f5e49}.warning{color:#a75f12;font-weight:700}.okText{color:#2f7042;font-weight:700}.muted{color:var(--muted)}
+  .buildingItem{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px;border:1px solid #dec8a7;border-radius:12px;margin-bottom:8px;background:#fffdf7;cursor:pointer;box-shadow:0 1px 0 rgba(255,255,255,.75) inset}
+  .buildingItem:hover{border-color:#c89b66;background:#fff7e8}
+  .buildingItem.selected{border-color:var(--sel);background:#e6f3ee;box-shadow:0 0 0 2px rgba(15,118,110,.12)}.swatch{width:14px;height:14px;border-radius:4px;border:1px solid rgba(52,38,25,.35)}
+  .pill{display:inline-block;border:1px solid #d3b994;background:#fffaf0;border-radius:999px;padding:2px 7px;font-size:11px;color:#6b5238;margin-right:4px}.codebox{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;white-space:pre-wrap;max-height:160px;overflow:auto;background:#312318;border:1px solid #6b5139;border-radius:9px;padding:8px;color:#ffe7bd}
+  .sidebarToggle{display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);z-index:24;width:38px;height:46px;min-height:46px;padding:0;border-radius:14px 0 0 14px;background:#4a3828;color:#fff7ed;border:1px solid #745237;border-right:0;box-shadow:-3px 3px 12px rgba(47,35,24,.22);font-size:20px;align-items:center;justify-content:center}
+  .sidebarToggle:hover{background:#5a422e;border-color:#9b6f45}
+  @media(max-width:900px){
+    .app{grid-template-columns:54px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) 34px}
+    .top{grid-column:1/3;padding:7px 8px;gap:6px;overflow:visible}
+    .toolbar{grid-column:1;grid-row:2}
+    .canvasWrap{grid-column:2;grid-row:2}
+    .sidebar{position:fixed;top:48px;right:0;bottom:34px;width:min(84vw,360px);max-width:360px;grid-column:auto;grid-row:auto;border-left:1px solid var(--line);border-top:0;z-index:23;transform:translateX(calc(100% + 12px));transition:transform .18s ease;box-shadow:-10px 0 28px rgba(47,35,24,.22);padding:10px;overscroll-behavior:contain}
+    .app.sidebar-open .sidebar{transform:translateX(0)}
+    .sidebarToggle{display:flex;position:fixed;top:calc(50% + 20px);right:0}
+    .app.sidebar-open .sidebarToggle{right:min(84vw,360px);border-radius:14px 0 0 14px}
+    .bottom{grid-column:1/3;grid-row:3;height:34px;min-height:34px;max-height:34px;padding:5px 8px;gap:10px;overflow:hidden;white-space:nowrap;font-size:11px}
+    .bottom #statusMouse,.bottom #statusHint{display:none}
+    .toolbtn{width:40px;height:42px;font-size:20px}.toolbtn::after{display:none}.top .title{display:none}.desktopAction{display:none!important}.mobileOnly{display:inline-flex!important}.topActions{gap:6px;flex:1 1 auto;min-width:0}.topRight{gap:6px}.top button,.top .fileButton,.menuItem{height:34px;min-height:34px;padding:7px 9px;font-size:13px}.splitExport #svgBtn{max-width:132px;overflow:hidden;text-overflow:ellipsis}.dropdownMenu{position:fixed;top:48px;left:auto;right:8px;max-width:calc(100vw - 16px);min-width:230px}.dropdownMenu.exportMobile{right:8px}
+  }
+  @media(max-width:560px){
+    .app{grid-template-columns:48px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) 32px}
+    .top{padding:6px}.toolbtn{width:36px;height:40px;font-size:19px}.top #imageBtn{max-width:106px;overflow:hidden;text-overflow:ellipsis}.splitExport #svgBtn{max-width:105px}.bottom{height:32px;min-height:32px;max-height:32px}.bottom #statusScale{display:none}.sidebar{top:46px;bottom:32px;width:min(88vw,340px);padding:8px}.app.sidebar-open .sidebarToggle{right:min(88vw,340px)}.hint{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="title">HakoMachi Site Planner</div>
+    <input id="imageFile" class="hiddenFile" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp,.svg"/>
+    <input id="loadFile" class="hiddenFile" type="file" accept="application/json,.json,.hako-site.json"/>
+    <div class="topActions">
+      <label id="imageBtn" class="fileButton" for="imageFile">Import Image</label>
+      <button id="saveBtn" class="desktopAction">Save .hako-site.json</button>
+      <label id="loadBtn" class="fileButton desktopAction" for="loadFile">Load</label>
+      <div class="menuWrap splitExport">
+        <button id="svgBtn" title="Export simplified site SVG">Export SVG</button>
+        <button id="exportMenuBtn" class="iconBtn" title="More export options" aria-label="More export options">▾</button>
+        <div id="exportMenu" class="dropdownMenu exportMobile">
+          <button id="csvBtn">Export CSV</button>
+          <button id="seedBtn">Export Selected Seed</button>
+        </div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="topRight">
+      <div class="menuWrap">
+        <button id="settingsBtn" class="iconBtn" title="View and cache settings" aria-label="Settings">⚙</button>
+        <div id="settingsMenu" class="dropdownMenu right">
+          <button id="fitBtn">Fit Image</button>
+          <button id="resetBtn">Reset View</button>
+          <button id="clearCacheBtn" class="danger" title="Clear saved planner handoff/cache and reset this planner to a blank default project">Clear Cache / Reset</button>
+        </div>
+      </div>
+      <div class="menuWrap mobileOnly">
+        <button id="overflowBtn" class="iconBtn" title="More actions" aria-label="More actions">⋯</button>
+        <div id="overflowMenu" class="dropdownMenu right">
+          <button id="mobileSaveBtn">Save .hako-site.json</button>
+          <label id="mobileLoadBtn" class="menuItem" for="loadFile">Load</label>
+          <button id="mobileCsvBtn">Export CSV</button>
+          <button id="mobileSeedBtn">Export Selected Seed</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="toolbar" aria-label="Drawing tools">
+    <button class="toolbtn active" data-tool="select" aria-label="Select" title="Select"><span class="toolIcon">↖</span><span class="toolLabel">Select</span></button>
+    <button class="toolbtn" data-tool="pan" aria-label="Pan" title="Pan"><span class="toolIcon">✋</span><span class="toolLabel">Pan</span></button>
+    <button class="toolbtn" data-tool="calibrate" aria-label="Scale calibration" title="Scale calibration"><span class="toolIcon">📏</span><span class="toolLabel">Scale</span></button>
+    <button class="toolbtn" data-tool="rect" aria-label="Rectangle pad" title="Rectangle pad"><span class="toolIcon">▭</span><span class="toolLabel">Rect Pad</span></button>
+    <button class="toolbtn" data-tool="polygon" aria-label="Polygon pad" title="Polygon pad"><span class="toolIcon">⬟</span><span class="toolLabel">Polygon</span></button>
+    <button class="toolbtn" data-tool="measure" aria-label="Measure" title="Measure"><span class="toolIcon">⟷</span><span class="toolLabel">Measure</span></button>
+    <button class="toolbtn" data-tool="annotate" aria-label="Annotate" title="Annotate"><span class="toolIcon">✎</span><span class="toolLabel">Annotate</span></button>
+  </div>
+  <div class="canvasWrap"><canvas id="canvas"></canvas><button id="sidebarToggle" class="sidebarToggle" title="Open properties panel" aria-label="Open properties panel">‹</button><div id="hint" class="hint"></div><div id="contextMenu" class="contextMenu"></div></div>
+  <aside class="sidebar">
+    <div class="section">
+      <h3>Image</h3>
+      <div class="row"><div><label>Opacity</label><input id="opacity" type="range" min="0" max="1" step="0.05" value="0.75"></div><div><label>Image Lock</label><button id="imageLockBtn">Locked</button></div></div>
+      <div id="imageImportStatus" class="small muted" style="margin-top:8px">No image loaded.</div>
+    </div>
+    <div class="section">
+      <h3>Input / iPad Pencil</h3>
+      <label>Input mode</label>
+      <select id="inputMode">
+        <option value="auto">Auto</option>
+        <option value="penDrawFingerPan" selected>Apple Pencil draws, finger pans</option>
+        <option value="penOnly">Pen only edits</option>
+        <option value="touchDraw">Touch draws</option>
+        <option value="mouseTrackpad">Mouse / trackpad</option>
+      </select>
+      <div class="buttons" style="margin-top:8px">
+        <button id="snapBtn" title="On-screen replacement for holding Shift on iPad">Snap: Off</button>
+        <button id="clearAnnotationsBtn" title="Clear freehand annotation strokes">Clear Notes</button>
+      </div>
+      <div class="small muted" style="margin-top:8px">Recommended for iPad: Apple Pencil draws/edits pads, one finger pans, two fingers pinch-zoom. Snap replaces the keyboard Shift key. Use Annotate for pressure-aware Pencil markup that does not affect building geometry.</div>
+    </div>
+    <div class="section">
+      <h3>Scale Calibration</h3>
+      <div id="scaleStatus" class="small warning">Not calibrated. Draw a calibration line.</div>
+      <div class="row3">
+        <div><label>Known value</label><input id="knownValue" type="number" step="0.01" value="100"></div>
+        <div><label>Unit</label><select id="knownUnit"><option value="model_mm">model mm</option><option value="model_in">model inches</option><option value="real_mm">real mm</option><option value="real_m">real meters</option><option value="real_ft">real feet</option></select></div>
+        <div><label>Scale</label><input id="modelScale" type="number" step="1" value="150"></div>
+      </div>
+      <div class="small muted">For real-world dimensions, model mm = real mm ÷ scale.</div>
+      <div class="buttons" style="margin-top:8px"><button id="applyScaleBtn" class="ok">Apply Last Line</button><button id="clearScaleBtn">Clear</button></div>
+    </div>
+    <div class="section">
+      <h3>Buildings</h3>
+      <div id="buildingList"></div>
+    </div>
+    <div class="section">
+      <h3>Selected Building</h3>
+      <div id="selectedPanel" class="small muted">No building selected.</div>
+    </div>
+    <div class="section">
+      <h3>HakoMachi Handoff</h3>
+      <button id="openHakoBtn" class="ok">Open in HakoMachi</button>
+      <div class="small muted" style="margin-top:8px">This creates a seed payload in localStorage and opens <code>../index.html#sitePlannerSeed</code>. The payload can also be exported.</div>
+      <div id="handoffPreview" class="codebox" style="margin-top:8px"></div>
+    </div>
+  </aside>
+  <div class="bottom"><span id="statusTool">Tool: Select</span><span id="statusScale">Scale: uncalibrated</span><span id="statusZoom">Zoom: 100%</span><span id="statusMouse">Mouse: —</span><span id="statusHint">Tip: import an image, draw a Scale line, then trace pads.</span></div>
+</div>
+<script>
+(() => {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const wrap = canvas.parentElement;
+  const $ = id => document.getElementById(id);
+  const state = {
+    tool:'select', image:null, imageMeta:null, imageOpacity:.75, imageLocked:true,
+    view:{x:0,y:0,scale:1}, pxPerMm:null, calibrationLine:null, lastCalibrationLine:null,
+    buildings:[], selectedId:null, drag:null, hover:null, polygonDraft:[], measureLine:null, projectName:'hakomachi-site',
+    inputMode:'penDrawFingerPan', snapOn:false, pointers:new Map(), pinch:null, annotations:[], hoverPreview:null, longPress:null, contextTarget:null, sidebarOpen:false
+  };
+  const colors = ['#d79631','#b8672d','#0f766e','#7c5f3f','#8b5a2b','#5f7f54','#9b6b44','#496a78'];
+  const uid = p => p + '_' + Math.random().toString(36).slice(2,9);
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const dist = (a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const rad = d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
+  const fmt = n => Number.isFinite(n) ? (Math.abs(n)>=100? n.toFixed(1): n.toFixed(2)).replace(/\.00$/,'') : '—';
+  function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw();}
+  window.addEventListener('resize', resize); resize();
+  function setSidebarOpen(open){
+    state.sidebarOpen = !!open;
+    document.querySelector('.app')?.classList.toggle('sidebar-open', state.sidebarOpen);
+    const btn = $('sidebarToggle');
+    if(btn){
+      btn.textContent = state.sidebarOpen ? '›' : '‹';
+      btn.title = state.sidebarOpen ? 'Close properties panel' : 'Open properties panel';
+      btn.setAttribute('aria-label', btn.title);
+      btn.setAttribute('aria-expanded', String(state.sidebarOpen));
+    }
+    setTimeout(resize, 0);
+  }
+  $('sidebarToggle')?.addEventListener('click', ()=>setSidebarOpen(!state.sidebarOpen));
+  function screenToWorld(e){const r=canvas.getBoundingClientRect(); return {x:(e.clientX-r.left-state.view.x)/state.view.scale, y:(e.clientY-r.top-state.view.y)/state.view.scale};}
+  function worldToScreen(p){return {x:p.x*state.view.scale+state.view.x,y:p.y*state.view.scale+state.view.y};}
+  function mmToPx(mm){return state.pxPerMm? mm*state.pxPerMm : mm;}
+  function pxToMm(px){return state.pxPerMm? px/state.pxPerMm : px;}
+  function modelKnownMm(){let v=parseFloat($('knownValue').value)||0; const unit=$('knownUnit').value; const sc=parseFloat($('modelScale').value)||150; if(unit==='model_mm') return v; if(unit==='model_in') return v*25.4; if(unit==='real_mm') return v/sc; if(unit==='real_m') return v*1000/sc; if(unit==='real_ft') return v*304.8/sc; return v;}
+  function updateStatus(){
+    $('statusTool').textContent='Tool: '+state.tool;
+    $('statusZoom').textContent='Zoom: '+Math.round(state.view.scale*100)+'%';
+    $('statusScale').textContent=state.pxPerMm ? `Scale: ${fmt(state.pxPerMm)} px/mm` : 'Scale: uncalibrated';
+    $('scaleStatus').className='small '+(state.pxPerMm?'okText':'warning');
+    $('scaleStatus').textContent=state.pxPerMm ? `Calibrated: ${fmt(state.pxPerMm)} px/model mm` : 'Not calibrated. Draw a calibration line.';
+    const h=[];
+    if(!state.image) h.push('Import a reference image first.');
+    if(!state.pxPerMm) h.push('Draw a Scale line over a known dimension, enter its value, then Apply Last Line.');
+    if(state.tool==='polygon') h.push('Click points. Click near first point or press Enter to close. Backspace removes last point.');
+    if(state.tool==='rect') h.push('Drag from one corner to the opposite corner to create a rectangle. Hold Shift or turn Snap on to force square/angle snapping. Near-square drags also snap.');
+    if(state.tool==='select') h.push('Drag pads to move. Drag corner handles to resize. Pencil edits geometry; finger pans when Pencil mode is active. Long-press a pad or point for edit actions.');
+    if(state.tool==='annotate') h.push('Annotate mode: draw freehand notes with Pencil/mouse. Pencil pressure changes stroke width when supported. Notes export with the site project but do not affect HakoSeed geometry.');
+    $('hint').textContent=h.join(' ');
+  }
+  function transformedRect(b){const c={x:b.x,y:b.y}, w=b.widthPx, h=b.depthPx, a=rad(b.rotationDeg||0), ca=Math.cos(a), sa=Math.sin(a); const local=[{x:-w/2,y:-h/2},{x:w/2,y:-h/2},{x:w/2,y:h/2},{x:-w/2,y:h/2}]; return local.map(p=>({x:c.x+p.x*ca-p.y*sa,y:c.y+p.x*sa+p.y*ca}));}
+  function rectLocal(b,p){const a=rad(-(b.rotationDeg||0)), ca=Math.cos(a), sa=Math.sin(a), dx=p.x-b.x, dy=p.y-b.y; return {x:dx*ca-dy*sa,y:dx*sa+dy*ca};}
+  function polygonCenter(pts){const n=pts.length||1; return pts.reduce((s,p)=>({x:s.x+p.x/n,y:s.y+p.y/n}),{x:0,y:0});}
+  function polygonArea(pts){let s=0; for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length]; s+=a.x*b.y-b.x*a.y;} return Math.abs(s)/2;}
+  function pointInPoly(p, pts){let inside=false; for(let i=0,j=pts.length-1;i<pts.length;j=i++){const a=pts[i],b=pts[j]; if(((a.y>p.y)!=(b.y>p.y))&&(p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)) inside=!inside;} return inside;}
+  function pointInBuilding(p,b){if(b.hidden) return false; if(b.padType==='rect'){const l=rectLocal(b,p); return Math.abs(l.x)<=b.widthPx/2 && Math.abs(l.y)<=b.depthPx/2;} return pointInPoly(p,b.pointsPx);}
+  function hitTest(p){for(let i=state.buildings.length-1;i>=0;i--){const b=state.buildings[i]; if(pointInBuilding(p,b)) return b;} return null;}
+  function handleAt(p,b,pointerType='mouse'){if(!b || b.locked) return null; const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches); const s=(coarse?18:9)/state.view.scale; if(b.padType==='polygon'){for(let i=0;i<b.pointsPx.length;i++) if(dist(p,b.pointsPx[i])<s) return {type:'polyPoint', index:i}; return null;}
+    const pts=transformedRect(b); for(let i=0;i<pts.length;i++) if(dist(p,pts[i])<s) return {type:'rectCorner', index:i};
+    const topMid={x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2}; const a=rad(b.rotationDeg-90); const rot={x:topMid.x+Math.cos(a)*24/state.view.scale,y:topMid.y+Math.sin(a)*24/state.view.scale}; if(dist(p,rot)<s*1.25) return {type:'rotate'}; return null;
+  }
+  function selected(){return state.buildings.find(b=>b.id===state.selectedId)||null;}
+  function syncBuildingMetrics(b){ if(!state.pxPerMm) return b; if(b.padType==='rect'){b.widthMm=pxToMm(b.widthPx); b.depthMm=pxToMm(b.depthPx); b.pointsPx=transformedRect(b); b.pointsMm=b.pointsPx.map(p=>({x:pxToMm(p.x),y:pxToMm(p.y)}));} else {b.pointsMm=b.pointsPx.map(p=>({x:pxToMm(p.x),y:pxToMm(p.y)})); b.derived={areaMm2:pxToMm(Math.sqrt(polygonArea(b.pointsPx)))**2, boundingWidthMm:pxToMm(Math.max(...b.pointsPx.map(p=>p.x))-Math.min(...b.pointsPx.map(p=>p.x))), boundingDepthMm:pxToMm(Math.max(...b.pointsPx.map(p=>p.y))-Math.min(...b.pointsPx.map(p=>p.y))), rotationDeg:b.rotationDeg||0};} return b; }
+  function syncAll(){state.buildings.forEach(syncBuildingMetrics); renderList(); renderSelected(); updateHandoff(); draw();}
+
+  function clearLongPress(){
+    if(state.longPress?.timer) clearTimeout(state.longPress.timer);
+    state.longPress=null;
+  }
+  function hideContextMenu(){const m=$('contextMenu'); if(m) m.style.display='none'; state.contextTarget=null;}
+  function showContextMenu(screenX,screenY,target){
+    const m=$('contextMenu'); if(!m) return;
+    state.contextTarget=target;
+    const b=target?.building;
+    const hasPolyPoint=target?.handle?.type==='polyPoint';
+    m.innerHTML=`
+      <button data-action="lock">${b?.locked?'Unlock Pad':'Lock Pad'}</button>
+      <button data-action="convert" ${b?.padType==='rect'?'':'disabled'}>Convert Rect to Polygon</button>
+      <button data-action="deletePoint" ${hasPolyPoint?'':'disabled'}>Delete Point</button>
+      <button data-action="deletePad" class="dangerItem">Delete Pad</button>
+    `;
+    m.querySelectorAll('button').forEach(btn=>btn.onclick=()=>handleContextAction(btn.dataset.action));
+    m.style.display='block';
+    const wrapRect=wrap.getBoundingClientRect();
+    const mw=m.offsetWidth||190, mh=m.offsetHeight||150;
+    m.style.left=clamp(screenX-wrapRect.left,8,wrapRect.width-mw-8)+'px';
+    m.style.top=clamp(screenY-wrapRect.top,8,wrapRect.height-mh-8)+'px';
+  }
+  function contextTargetAt(worldPoint,pointerType='pen'){
+    const b=selected() || hitTest(worldPoint);
+    if(!b) return null;
+    const h=handleAt(worldPoint,b,pointerType);
+    return {building:b,handle:h,point:worldPoint};
+  }
+  function handleContextAction(action){
+    const t=state.contextTarget, b=t?.building;
+    if(!b) return hideContextMenu();
+    if(action==='lock'){b.locked=!b.locked;}
+    if(action==='convert' && b.padType==='rect') convertRectToPoly(b);
+    if(action==='deletePoint' && b.padType==='polygon' && t.handle?.type==='polyPoint' && b.pointsPx.length>3){b.pointsPx.splice(t.handle.index,1); syncBuildingMetrics(b);}
+    if(action==='deletePad'){state.buildings=state.buildings.filter(x=>x.id!==b.id); if(state.selectedId===b.id) state.selectedId=null;}
+    hideContextMenu(); syncAll();
+  }
+  function convertRectToPoly(b){
+    const pts=transformedRect(b);
+    b.padType='polygon'; b.pointsPx=pts; b.rotationDeg=0; delete b.widthPx; delete b.depthPx; delete b.widthMm; delete b.depthMm; syncBuildingMetrics(b);
+  }
+  function beginLongPress(e,worldPoint){
+    clearLongPress();
+    if(e.pointerType==='mouse') return;
+    const target=contextTargetAt(worldPoint,e.pointerType);
+    if(!target) return;
+    state.longPress={pointerId:e.pointerId,start:{x:e.clientX,y:e.clientY},world:worldPoint,timer:setTimeout(()=>{
+      if(!state.drag || state.drag.pointerId===e.pointerId){
+        state.drag=null;
+        state.selectedId=target.building.id;
+        renderList(); renderSelected(); updateHandoff();
+        showContextMenu(e.clientX,e.clientY,target);
+        draw();
+      }
+    },620)};
+  }
+  function moveCancelsLongPress(e){
+    if(!state.longPress || state.longPress.pointerId!==e.pointerId) return;
+    if(Math.hypot(e.clientX-state.longPress.start.x,e.clientY-state.longPress.start.y)>8) clearLongPress();
+  }
+  function startAnnotationStroke(e,p){
+    const pressure=(e.pressure && e.pressure>0 ? e.pressure : .5);
+    const stroke={id:uid('note'),points:[{x:p.x,y:p.y,pressure}],color:'#6f4326',baseWidth:2.2};
+    state.annotations.push(stroke);
+    state.drag={type:'annotate',pointerId:e.pointerId,strokeId:stroke.id};
+  }
+  function addAnnotationPoint(e,p){
+    const st=state.annotations.find(s=>s.id===state.drag?.strokeId); if(!st) return;
+    const pressure=(e.pressure && e.pressure>0 ? e.pressure : .5);
+    const last=st.points[st.points.length-1];
+    if(!last || dist(last,p)>1.5/state.view.scale) st.points.push({x:p.x,y:p.y,pressure});
+  }
+  function drawAnnotations(){
+    ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+    state.annotations.forEach(st=>{
+      const pts=st.points||[]; if(pts.length<2) return;
+      ctx.strokeStyle=st.color||'#6f4326';
+      for(let i=1;i<pts.length;i++){
+        const a=pts[i-1], b=pts[i];
+        const pr=((a.pressure||.5)+(b.pressure||.5))/2;
+        ctx.lineWidth=(st.baseWidth||2.2)*(0.55+pr*1.45)/state.view.scale;
+        ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+      }
+    });
+    ctx.restore();
+  }
+  function drawHoverPreview(){
+    const hp=state.hoverPreview; if(!hp) return;
+    ctx.save();
+    ctx.strokeStyle='rgba(15,118,110,.85)'; ctx.fillStyle='rgba(15,118,110,.16)'; ctx.lineWidth=1.5/state.view.scale;
+    ctx.beginPath(); ctx.arc(hp.point.x,hp.point.y,(hp.kind==='handle'?12:7)/state.view.scale,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    if(hp.label) drawLabel(hp.label,{x:hp.point.x+10/state.view.scale,y:hp.point.y-10/state.view.scale});
+    ctx.restore();
+  }
+
+  function drawGrid(){if(!state.pxPerMm) return; const stepMm = state.view.scale*state.pxPerMm>30?10: state.view.scale*state.pxPerMm>8?25:50; const step=mmToPx(stepMm); const r=canvas.getBoundingClientRect(); const min=screenToWorld({clientX:r.left,clientY:r.top}), max=screenToWorld({clientX:r.right,clientY:r.bottom}); ctx.save(); ctx.strokeStyle='rgba(107,81,57,.18)'; ctx.lineWidth=1/state.view.scale; for(let x=Math.floor(min.x/step)*step;x<max.x;x+=step){ctx.beginPath();ctx.moveTo(x,min.y);ctx.lineTo(x,max.y);ctx.stroke()} for(let y=Math.floor(min.y/step)*step;y<max.y;y+=step){ctx.beginPath();ctx.moveTo(min.x,y);ctx.lineTo(max.x,y);ctx.stroke()} ctx.restore();}
+  function drawLabel(text,p){ctx.save(); ctx.font=`${12/state.view.scale}px system-ui`; const w=ctx.measureText(text).width+8/state.view.scale; const h=18/state.view.scale; ctx.fillStyle='rgba(49,35,24,.88)'; ctx.fillRect(p.x,p.y-h,w,h); ctx.fillStyle='#fff7ed'; ctx.fillText(text,p.x+4/state.view.scale,p.y-5/state.view.scale); ctx.restore();}
+  function drawBuilding(b){ if(b.hidden) return; syncBuildingMetrics(b); ctx.save(); ctx.lineWidth=(b.id===state.selectedId?4:3)/state.view.scale; ctx.strokeStyle=b.id===state.selectedId?'#0f766e':b.color; ctx.fillStyle=(b.color||'#d79631')+'33'; ctx.beginPath(); const pts=b.padType==='rect'?transformedRect(b):b.pointsPx; pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); ctx.fill(); ctx.stroke(); const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(pts); drawLabel(`${b.name||'Building'} ${b.padType==='rect'&&state.pxPerMm?`${fmt(b.widthMm)}×${fmt(b.depthMm)}mm`:''}`,{x:c.x+6/state.view.scale,y:c.y-6/state.view.scale});
+    if(b.id===state.selectedId && !b.locked){ ctx.fillStyle='#0f766e'; pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,5/state.view.scale,0,Math.PI*2);ctx.fill()}); if(b.padType==='rect'){const topMid={x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2}; const a=rad(b.rotationDeg-90); const rot={x:topMid.x+Math.cos(a)*24/state.view.scale,y:topMid.y+Math.sin(a)*24/state.view.scale}; ctx.strokeStyle='#0f766e'; ctx.beginPath();ctx.moveTo(topMid.x,topMid.y);ctx.lineTo(rot.x,rot.y);ctx.stroke();ctx.beginPath();ctx.arc(rot.x,rot.y,6/state.view.scale,0,Math.PI*2);ctx.fill();}}
+    if(b.id===state.selectedId){ctx.strokeStyle='rgba(49,35,24,.55)'; ctx.lineWidth=1/state.view.scale; for(let i=0;i<pts.length;i++){const a=pts[i],c2=pts[(i+1)%pts.length], mid={x:(a.x+c2.x)/2,y:(a.y+c2.y)/2}; drawLabel(`${fmt(pxToMm(dist(a,c2)))} mm`,mid);}}
+    ctx.restore(); }
+  function drawLine(line,color,label){ if(!line) return; ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=3/state.view.scale; ctx.beginPath();ctx.moveTo(line.x1,line.y1);ctx.lineTo(line.x2,line.y2);ctx.stroke(); ctx.fillStyle=color; [{x:line.x1,y:line.y1},{x:line.x2,y:line.y2}].forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()}); if(label) drawLabel(label,{x:(line.x1+line.x2)/2,y:(line.y1+line.y2)/2}); ctx.restore();}
+  function draw(){const r=canvas.getBoundingClientRect(); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.buildings.forEach(drawBuilding); if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview) drawBuilding(state.drag.preview); drawHoverPreview(); ctx.restore(); updateStatus();}
+  function fitImage(){const r=canvas.getBoundingClientRect(); if(!state.image){state.view={x:r.width/2,y:r.height/2,scale:1}; draw(); return;} const s=Math.min(r.width/state.image.width,r.height/state.image.height)*.9; state.view.scale=s; state.view.x=(r.width-state.image.width*s)/2; state.view.y=(r.height-state.image.height*s)/2; draw();}
+  function renderList(){const box=$('buildingList'); box.innerHTML=''; if(!state.buildings.length){box.innerHTML='<div class="small muted">No building pads yet.</div>'; return;} state.buildings.forEach(b=>{const el=document.createElement('div'); el.className='buildingItem '+(b.id===state.selectedId?'selected':''); el.innerHTML=`<span class="swatch" style="background:${b.color}"></span><div><b>${escapeHtml(b.name||'Building')}</b><br><span class="small muted">${b.padType}${b.hidden?' · hidden':''}${b.locked?' · locked':''}</span></div><span class="pill">${b.padType==='rect'?`${fmt(b.widthMm)}×${fmt(b.depthMm)}`:fmt(b.derived?.areaMm2||0)+' mm²'}</span>`; el.onclick=()=>{state.selectedId=b.id; renderList(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});}
+  function renderSelected(){const b=selected(), box=$('selectedPanel'); if(!b){box.innerHTML='No building selected.'; return;} syncBuildingMetrics(b); box.innerHTML=`
+    <label>Name</label><input id="selName" value="${escapeAttr(b.name||'')}">
+    <div class="row"><div><label>Category</label><input id="selCat" value="${escapeAttr(b.category||'industrial')}"></div><div><label>Color</label><input id="selColor" type="color" value="${b.color||'#d79631'}"></div></div>
+    <div class="row"><div><label>Rotation °</label><input id="selRot" type="number" step="0.1" value="${fmt(b.rotationDeg||0)}"></div><div><label>Type</label><input value="${b.padType}" disabled></div></div>
+    ${b.padType==='rect'?`<div class="row"><div><label>Width mm</label><input id="selW" type="number" step="0.1" value="${fmt(b.widthMm)}"></div><div><label>Depth mm</label><input id="selD" type="number" step="0.1" value="${fmt(b.depthMm)}"></div></div>`:`<div class="small"><span class="pill">Area ${fmt(b.derived?.areaMm2||0)} mm²</span><span class="pill">Bounds ${fmt(b.derived?.boundingWidthMm||0)}×${fmt(b.derived?.boundingDepthMm||0)} mm</span></div>`}
+    <label>Notes</label><textarea id="selNotes" rows="3">${escapeHtml(b.notes||'')}</textarea>
+    <div class="buttons" style="margin-top:8px"><button id="dupB">Duplicate</button><button id="hideB">${b.hidden?'Show':'Hide'}</button><button id="lockB">${b.locked?'Unlock':'Lock'}</button>${b.padType==='rect'?'<button id="polyB">Convert to Polygon</button>':''}<button id="delB" class="danger">Delete</button></div>`;
+    const bind=(id,fn)=>{const e=$(id); if(e)e.oninput=()=>{fn(e.value); syncAll();};};
+    bind('selName',v=>b.name=v); bind('selCat',v=>b.category=v); bind('selColor',v=>b.color=v); bind('selRot',v=>b.rotationDeg=parseFloat(v)||0); bind('selNotes',v=>b.notes=v);
+    bind('selW',v=>{if(state.pxPerMm)b.widthPx=mmToPx(Math.max(.1,parseFloat(v)||1));}); bind('selD',v=>{if(state.pxPerMm)b.depthPx=mmToPx(Math.max(.1,parseFloat(v)||1));});
+    $('dupB').onclick=()=>{const copy=structuredClone(b); copy.id=uid('bldg'); copy.name=(copy.name||'Building')+' copy'; if(copy.padType==='rect'){copy.x+=20;copy.y+=20}else copy.pointsPx=copy.pointsPx.map(p=>({x:p.x+20,y:p.y+20})); state.buildings.push(copy); state.selectedId=copy.id; syncAll();};
+    $('hideB').onclick=()=>{b.hidden=!b.hidden; syncAll();}; $('lockB').onclick=()=>{b.locked=!b.locked; syncAll();}; $('delB').onclick=()=>{state.buildings=state.buildings.filter(x=>x.id!==b.id); state.selectedId=null; syncAll();};
+    const poly=$('polyB'); if(poly) poly.onclick=()=>{b.padType='polygon'; b.pointsPx=transformedRect(b); delete b.widthPx; delete b.depthPx; syncAll();};
+  }
+  function updateHandoff(){const b=selected(); $('handoffPreview').textContent=b? JSON.stringify(makeSeed(b),null,2):'';}
+  function makeSeed(b){syncBuildingMetrics(b); const seed={source:'HakoMachi Site Planner',version:1,buildingId:b.id,name:b.name,padType:b.padType,category:b.category,rotationDeg:b.rotationDeg||0,notes:b.notes||'',units:'model_mm'}; if(b.padType==='rect'){Object.assign(seed,{widthMm:b.widthMm,depthMm:b.depthMm,footprint:{type:'rect',widthMm:b.widthMm,depthMm:b.depthMm,rotationDeg:b.rotationDeg||0}});} else {const xs=b.pointsMm.map(p=>p.x),ys=b.pointsMm.map(p=>p.y); Object.assign(seed,{footprint:{type:'polygon',pointsMm:b.pointsMm},boundingRectMm:{widthMm:Math.max(...xs)-Math.min(...xs),depthMm:Math.max(...ys)-Math.min(...ys)},warning:'Polygon footprints should be refined with HakoMachi shape editor/cut lines if arbitrary polygon cores are not yet supported.'});} seed.linkedHakoConfig=b.hakoConfig||null; return seed;}
+  function isNearSquare(w,h){const m=Math.max(w,h); return m>0 && Math.abs(w-h)/m<0.06;}
+  function signedSquareCorner(start,end){const dx=end.x-start.x, dy=end.y-start.y; const side=Math.max(Math.abs(dx),Math.abs(dy),4); return {x:start.x+(dx<0?-side:side), y:start.y+(dy<0?-side:side)};}
+  function addRectFromDrag(start,end,shift){
+    let p2=end;
+    let w=Math.abs(p2.x-start.x), h=Math.abs(p2.y-start.y);
+    if(shift || isNearSquare(w,h)){p2=signedSquareCorner(start,end); w=Math.abs(p2.x-start.x); h=Math.abs(p2.y-start.y);}
+    const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'rect',x:(start.x+p2.x)/2,y:(start.y+p2.y)/2,widthPx:Math.max(4,w),depthPx:Math.max(4,h),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,notes:'',hakoConfig:null};
+    syncBuildingMetrics(b); return b;
+  }
+  function resizeRectFromCorner(b, orig, cornerIndex, worldPoint, square){
+    const pts=transformedRect(orig);
+    const anchor=pts[(cornerIndex+2)%4];
+    const a=rad(orig.rotationDeg||0), ux={x:Math.cos(a),y:Math.sin(a)}, uy={x:-Math.sin(a),y:Math.cos(a)};
+    const sx=[-1,1,1,-1][cornerIndex], sy=[-1,-1,1,1][cornerIndex];
+    const dx=worldPoint.x-anchor.x, dy=worldPoint.y-anchor.y;
+    let w=Math.max(4, sx*(dx*ux.x+dy*ux.y));
+    let h=Math.max(4, sy*(dx*uy.x+dy*uy.y));
+    if(square || isNearSquare(w,h)){const side=Math.max(w,h); w=side; h=side;}
+    const center={x:anchor.x + sx*ux.x*w/2 + sy*uy.x*h/2, y:anchor.y + sx*ux.y*w/2 + sy*uy.y*h/2};
+    b.x=center.x; b.y=center.y; b.widthPx=w; b.depthPx=h; b.rotationDeg=orig.rotationDeg||0; syncBuildingMetrics(b);
+  }
+  function snapAngle(a){const snaps=[-180,-165,-150,-135,-120,-105,-90,-75,-60,-45,-30,-15,0,15,30,45,60,75,90,105,120,135,150,165,180]; return snaps.reduce((best,x)=>Math.abs(x-a)<Math.abs(best-a)?x:best,0);}
+  function snapActive(e){return !!(state.snapOn || (e && e.shiftKey));}
+  function isGeometryPointer(e){
+    if(state.inputMode==='penDrawFingerPan') return e.pointerType!=='touch';
+    if(state.inputMode==='penOnly') return e.pointerType==='pen' || e.pointerType==='mouse';
+    if(state.inputMode==='touchDraw') return true;
+    if(state.inputMode==='mouseTrackpad') return e.pointerType==='mouse';
+    return true;
+  }
+  function startPanFromPointer(e){state.drag={type:'pan',pointerId:e.pointerId,sx:e.clientX,sy:e.clientY,vx:state.view.x,vy:state.view.y};}
+  function pointerSnapshot(e){return {id:e.pointerId,x:e.clientX,y:e.clientY,type:e.pointerType};}
+  function activeTouchPointers(){return [...state.pointers.values()].filter(p=>p.type==='touch');}
+  function startPinchIfNeeded(){
+    const touches=activeTouchPointers();
+    if(touches.length<2) return false;
+    const a=touches[0], b=touches[1];
+    const cx=(a.x+b.x)/2, cy=(a.y+b.y)/2;
+    const r=canvas.getBoundingClientRect();
+    const world={x:(cx-r.left-state.view.x)/state.view.scale,y:(cy-r.top-state.view.y)/state.view.scale};
+    state.pinch={ids:[a.id,b.id],startDist:Math.hypot(a.x-b.x,a.y-b.y),startScale:state.view.scale,startView:{...state.view},center:{x:cx,y:cy},world};
+    state.drag={type:'pinch'};
+    return true;
+  }
+  function updatePinch(){
+    if(!state.pinch) return false;
+    const a=state.pointers.get(state.pinch.ids[0]), b=state.pointers.get(state.pinch.ids[1]);
+    if(!a||!b) return false;
+    const cx=(a.x+b.x)/2, cy=(a.y+b.y)/2;
+    const d=Math.max(1,Math.hypot(a.x-b.x,a.y-b.y));
+    state.view.scale=clamp(state.pinch.startScale*(d/Math.max(1,state.pinch.startDist)),.05,20);
+    const r=canvas.getBoundingClientRect();
+    state.view.x=(cx-r.left)-state.pinch.world.x*state.view.scale;
+    state.view.y=(cy-r.top)-state.pinch.world.y*state.view.scale;
+    return true;
+  }
+  canvas.addEventListener('pointerdown', e=>{
+    e.preventDefault(); hideContextMenu();
+    canvas.setPointerCapture(e.pointerId);
+    state.pointers.set(e.pointerId,pointerSnapshot(e));
+    if(e.pointerType==='touch' && startPinchIfNeeded()) return;
+    const p=screenToWorld(e); const b=selected();
+    if(state.tool==='pan' || !isGeometryPointer(e)){startPanFromPointer(e); return;}
+    if(state.tool==='calibrate'||state.tool==='measure'){state.drag={type:state.tool,pointerId:e.pointerId,start:p,end:p}; return;}
+    if(state.tool==='annotate'){startAnnotationStroke(e,p); return;}
+    if(state.tool==='rect'){state.drag={type:'rect',pointerId:e.pointerId,start:p,end:p,preview:null}; return;}
+    if(state.tool==='polygon'){
+      if(state.polygonDraft.length && dist(p,state.polygonDraft[0])<18/state.view.scale && state.polygonDraft.length>=3){finishPolygon();}
+      else state.polygonDraft.push(p);
+      draw(); return;
+    }
+    if(state.tool==='select'){
+      beginLongPress(e,p);
+      const h=handleAt(p,b,e.pointerType);
+      if(h){state.drag={type:h.type,pointerId:e.pointerId,index:h.index,start:p,orig:structuredClone(b)}; return;}
+      const hit=hitTest(p);
+      if(hit){state.selectedId=hit.id; renderList(); renderSelected(); updateHandoff(); state.drag={type:'move',pointerId:e.pointerId,start:p,orig:structuredClone(hit)};}
+      else {state.selectedId=null; renderList(); renderSelected(); updateHandoff();}
+      draw();
+    }
+  }, {passive:false});
+  canvas.addEventListener('pointermove', e=>{
+    if(state.pointers.has(e.pointerId)) state.pointers.set(e.pointerId,pointerSnapshot(e));
+    moveCancelsLongPress(e);
+    const p=screenToWorld(e); $('statusMouse').textContent=state.pxPerMm?`Pointer: ${fmt(pxToMm(p.x))}, ${fmt(pxToMm(p.y))} mm (${e.pointerType})`:`Pointer: ${fmt(p.x)}, ${fmt(p.y)} px (${e.pointerType})`;
+    if(state.drag?.type==='pinch'){e.preventDefault(); updatePinch(); draw(); return;}
+    if(!state.drag){
+      if(e.pointerType==='pen' && e.buttons===0){
+        const hb=selected()||hitTest(p), hh=hb?handleAt(p,hb,e.pointerType):null;
+        state.hoverPreview={point:p,kind:hh?'handle':'cursor',label:hh?hh.type.replace(/([A-Z])/g,' $1'):'Pencil'};
+      } else if(e.pointerType!=='pen') state.hoverPreview=null;
+      draw(); return;
+    }
+    if(state.drag.pointerId!==undefined && state.drag.pointerId!==e.pointerId) return;
+    e.preventDefault();
+    const d=state.drag;
+    if(d.type==='pan'){state.view.x=d.vx+(e.clientX-d.sx); state.view.y=d.vy+(e.clientY-d.sy);}
+    else if(d.type==='calibrate'){state.calibrationLine={x1:d.start.x,y1:d.start.y,x2:p.x,y2:p.y}; state.lastCalibrationLine=state.calibrationLine;}
+    else if(d.type==='measure'){state.measureLine={x1:d.start.x,y1:d.start.y,x2:p.x,y2:p.y};}
+    else if(d.type==='rect'){d.end=p; d.preview=addRectFromDrag(d.start,p,snapActive(e));}
+    else if(d.type==='annotate'){addAnnotationPoint(e,p);}
+    else if(d.type==='move'){const b=state.buildings.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(b&&!b.locked){if(b.padType==='rect'){b.x=d.orig.x+dx; b.y=d.orig.y+dy;} else b.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); syncBuildingMetrics(b);}}
+    else if(d.type==='polyPoint'){const b=selected(); if(b&&!b.locked){b.pointsPx[d.index]=p; syncBuildingMetrics(b);}}
+    else if(d.type==='rectCorner'){const b=selected(), o=d.orig; if(b&&!b.locked){resizeRectFromCorner(b,o,d.index,p,snapActive(e));}}
+    else if(d.type==='rotate'){const b=selected(); if(b&&!b.locked){b.rotationDeg=deg(Math.atan2(p.y-b.y,p.x-b.x))+90; if(snapActive(e))b.rotationDeg=snapAngle(b.rotationDeg); syncBuildingMetrics(b);}}
+    draw();
+  }, {passive:false});
+  function finishPointer(e){
+    clearLongPress();
+    state.pointers.delete(e.pointerId);
+    if(state.drag?.type==='pinch'){state.pinch=null; state.drag=null; draw(); return;}
+    if(!state.drag)return;
+    if(state.drag.pointerId!==undefined && state.drag.pointerId!==e.pointerId) return;
+    const d=state.drag;
+    if(d.type==='rect'&&d.preview){state.buildings.push(d.preview); state.selectedId=d.preview.id; renderList(); renderSelected(); updateHandoff();}
+    state.drag=null; syncAll();
+  }
+  canvas.addEventListener('pointerup', finishPointer);
+  canvas.addEventListener('pointercancel', finishPointer);
+  canvas.addEventListener('contextmenu', e=>{
+    e.preventDefault(); hideContextMenu();
+    const p=screenToWorld(e); const target=contextTargetAt(p,'mouse');
+    if(target){state.selectedId=target.building.id; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
+  });
+  canvas.addEventListener('wheel', e=>{e.preventDefault(); const r=canvas.getBoundingClientRect(); const mouse={x:e.clientX-r.left,y:e.clientY-r.top}; const before=screenToWorld(e); const factor=e.deltaY<0?1.1:.9; state.view.scale=clamp(state.view.scale*factor,.05,20); state.view.x=mouse.x-before.x*state.view.scale; state.view.y=mouse.y-before.y*state.view.scale; draw();},{passive:false});
+  window.addEventListener('keydown', e=>{if(e.target.matches('input,textarea')) return; if(e.key==='Enter'&&state.tool==='polygon') finishPolygon(); if(e.key==='Backspace'&&state.tool==='polygon'){state.polygonDraft.pop(); draw();} if(e.key==='Escape'){hideContextMenu(); state.hoverPreview=null; draw();} if(e.key==='Delete'&&selected()){state.buildings=state.buildings.filter(b=>b.id!==state.selectedId); state.selectedId=null; syncAll();}});
+  function finishPolygon(){if(state.polygonDraft.length<3) return; const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'polygon',pointsPx:state.polygonDraft.slice(),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,notes:'',hakoConfig:null}; syncBuildingMetrics(b); state.buildings.push(b); state.selectedId=b.id; state.polygonDraft=[]; syncAll();}
+  document.querySelectorAll('.toolbtn').forEach(btn=>btn.onclick=()=>{document.querySelectorAll('.toolbtn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); state.tool=btn.dataset.tool; state.drag=null; draw();});
+  function setImageStatus(message, kind='muted'){
+    const el=$('imageImportStatus');
+    if(!el) return;
+    el.className='small '+kind;
+    el.textContent=message;
+  }
+  function readFileAsDataURL(file){
+    return new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onerror=()=>reject(new Error('Could not read that image file.'));
+      reader.onload=ev=>resolve(ev.target.result);
+      reader.readAsDataURL(file);
+    });
+  }
+  async function loadReferenceImage(file){
+    if(!file) return;
+    setImageStatus(`Loading ${file.name}…`);
+    const objectUrl=URL.createObjectURL(file);
+    let dataUrl=null;
+    try{
+      const img=new Image();
+      const loaded=new Promise((resolve,reject)=>{
+        img.onload=()=>resolve();
+        img.onerror=()=>reject(new Error('The browser could not decode this image. Try PNG, JPG, WEBP, or a simple SVG.'));
+      });
+      img.src=objectUrl;
+      await loaded;
+      if(img.decode){
+        try{ await img.decode(); } catch(_err){}
+      }
+      try{ dataUrl=await readFileAsDataURL(file); }
+      catch(_err){ dataUrl=null; }
+      state.image=img;
+      state.imageMeta={
+        name:file.name,
+        dataUrl:dataUrl,
+        objectUrlUsed:true,
+        naturalWidthPx:img.naturalWidth||img.width,
+        naturalHeightPx:img.naturalHeight||img.height,
+        opacity:state.imageOpacity,
+        rotationDeg:0
+      };
+      resize();
+      fitImage();
+      syncAll();
+      setImageStatus(`Loaded ${file.name} (${state.imageMeta.naturalWidthPx} × ${state.imageMeta.naturalHeightPx}px).`, 'okText');
+      console.info('[HakoMachi Site Planner] image loaded', state.imageMeta);
+    }catch(err){
+      console.error('[HakoMachi Site Planner] image import failed', err);
+      setImageStatus(err.message || 'Image import failed.', 'warning');
+      alert(err.message || 'Image import failed.');
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+  $('imageFile').addEventListener('change', async e=>{
+    const f=e.target.files && e.target.files[0];
+    e.target.value='';
+    await loadReferenceImage(f);
+  });
+  $('opacity').oninput=e=>{state.imageOpacity=parseFloat(e.target.value); if(state.imageMeta)state.imageMeta.opacity=state.imageOpacity; draw();}; $('imageLockBtn').onclick=()=>{state.imageLocked=!state.imageLocked; $('imageLockBtn').textContent=state.imageLocked?'Locked':'Unlocked';};
+  $('applyScaleBtn').onclick=()=>{const line=state.lastCalibrationLine||state.calibrationLine; if(!line) return alert('Draw a calibration line first.'); const known=modelKnownMm(); const len=dist({x:line.x1,y:line.y1},{x:line.x2,y:line.y2}); if(known<=0||len<=0) return alert('Calibration length must be greater than zero.'); state.pxPerMm=len/known; state.calibrationLine=line; syncAll();}; $('clearScaleBtn').onclick=()=>{state.pxPerMm=null; syncAll();};
+
+  async function clearCacheAndReset(){
+    const ok = confirm('Clear HakoMachi Site Planner cache and reset to the default blank state?\n\nThis clears the current in-memory project, the HakoMachi handoff seed, and planner-related browser storage. Download/save your .hako-site.json first if you want to keep it.');
+    if(!ok) return;
+    try{
+      const keysToRemove=[];
+      for(let i=0;i<localStorage.length;i++){
+        const key=localStorage.key(i);
+        if(key && /hakomachi|hakoMachi|sitePlanner|site-planner/i.test(key)) keysToRemove.push(key);
+      }
+      keysToRemove.forEach(key=>localStorage.removeItem(key));
+      const sessionKeys=[];
+      for(let i=0;i<sessionStorage.length;i++){
+        const key=sessionStorage.key(i);
+        if(key && /hakomachi|hakoMachi|sitePlanner|site-planner/i.test(key)) sessionKeys.push(key);
+      }
+      sessionKeys.forEach(key=>sessionStorage.removeItem(key));
+      if('caches' in window){
+        const cacheNames=await caches.keys();
+        await Promise.all(cacheNames.filter(name=>/hakomachi|hakoMachi|sitePlanner|site-planner/i.test(name)).map(name=>caches.delete(name)));
+      }
+    }catch(err){
+      console.warn('[HakoMachi Site Planner] Cache clearing was partially blocked:', err);
+    }
+    state.tool='select';
+    state.image=null;
+    state.imageMeta=null;
+    state.imageOpacity=.75;
+    state.imageLocked=true;
+    state.view={x:40,y:40,scale:1};
+    state.pxPerMm=null;
+    state.calibrationLine=null;
+    state.lastCalibrationLine=null;
+    state.buildings=[];
+    state.selectedId=null;
+    state.drag=null;
+    state.hover=null;
+    state.polygonDraft=[];
+    state.measureLine=null;
+    state.annotations=[];
+    state.hoverPreview=null;
+    clearLongPress(); hideContextMenu();
+    state.projectName='hakomachi-site';
+    state.inputMode='penDrawFingerPan';
+    state.snapOn=false;
+    state.pointers=new Map();
+    state.pinch=null;
+    $('opacity').value='0.75';
+    $('imageLockBtn').textContent='Locked';
+    $('imageFile').value='';
+    $('loadFile').value='';
+    document.querySelectorAll('.toolbtn').forEach(b=>b.classList.toggle('active', b.dataset.tool==='select'));
+    setImageStatus('Cache cleared. Planner reset to default blank state.', 'okText');
+    syncAll();
+  }
+
+  function closeTopMenus(except){
+    ['exportMenu','settingsMenu','overflowMenu'].forEach(id=>{
+      const menu=$(id);
+      if(!menu || menu===except) return;
+      menu.classList.remove('open');
+      menu.closest('.menuWrap')?.classList.remove('menuOpen');
+    });
+  }
+  function toggleTopMenu(id){
+    const menu=$(id);
+    if(!menu) return;
+    const willOpen=!menu.classList.contains('open');
+    closeTopMenus(willOpen?menu:null);
+    menu.classList.toggle('open', willOpen);
+    menu.closest('.menuWrap')?.classList.toggle('menuOpen', willOpen);
+  }
+  function wireMenuButton(btnId, menuId){
+    const btn=$(btnId), menu=$(menuId);
+    if(!btn || !menu) return;
+    btn.addEventListener('click', e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      toggleTopMenu(menuId);
+    });
+    menu.addEventListener('click', e=>{
+      // Labels that open file pickers need the click to complete, then the menu can close.
+      const target=e.target.closest('button,label');
+      if(target) setTimeout(()=>closeTopMenus(), 0);
+    });
+  }
+  wireMenuButton('exportMenuBtn','exportMenu');
+  wireMenuButton('settingsBtn','settingsMenu');
+  wireMenuButton('overflowBtn','overflowMenu');
+  document.addEventListener('pointerdown', e=>{
+    if(e.target.closest('.menuWrap')) return;
+    closeTopMenus();
+  });
+  document.addEventListener('keydown', e=>{
+    if(e.key==='Escape') closeTopMenus();
+  });
+  function exportSelectedSeed(){
+    const b=selected();
+    if(!b) return alert('Select a building first.');
+    download(JSON.stringify(makeSeed(b),null,2),`${slug(b.name)}-hakomachi-seed.json`,'application/json');
+  }
+  $('inputMode').onchange=e=>{state.inputMode=e.target.value; draw();};
+  $('snapBtn').onclick=()=>{state.snapOn=!state.snapOn; $('snapBtn').classList.toggle('active', state.snapOn); $('snapBtn').textContent=state.snapOn?'Snap: On':'Snap: Off'; draw();};
+  $('clearAnnotationsBtn').onclick=()=>{if(state.annotations.length && !confirm('Clear all freehand annotation notes?')) return; state.annotations=[]; draw();};
+  $('fitBtn').onclick=fitImage; $('resetBtn').onclick=()=>{state.view={x:40,y:40,scale:1}; draw();}; $('clearCacheBtn').onclick=clearCacheAndReset; if($('clearCachePanelBtn')) $('clearCachePanelBtn').onclick=clearCacheAndReset;
+  $('saveBtn').onclick=()=>download(JSON.stringify(projectJson(),null,2),'hakomachi-site.hako-site.json','application/json');
+  $('loadFile').addEventListener('change', e=>{
+    const f=e.target.files && e.target.files[0];
+    if(!f) return;
+    const reader=new FileReader();
+    reader.onerror=()=>alert('Could not read that project file.');
+    reader.onload=ev=>{
+      try{loadProject(JSON.parse(ev.target.result));}
+      catch(err){alert('Could not load project JSON: '+err.message);}
+      e.target.value='';
+    };
+    reader.readAsText(f);
+  });
+  $('csvBtn').onclick=()=>download(csvExport(),'hakomachi-building-pads.csv','text/csv');
+  $('svgBtn').onclick=()=>download(svgExport(),'hakomachi-site.svg','image/svg+xml');
+  $('seedBtn').onclick=exportSelectedSeed;
+  if($('mobileSaveBtn')) $('mobileSaveBtn').onclick=()=>download(JSON.stringify(projectJson(),null,2),'hakomachi-site.hako-site.json','application/json');
+  if($('mobileCsvBtn')) $('mobileCsvBtn').onclick=()=>download(csvExport(),'hakomachi-building-pads.csv','text/csv');
+  if($('mobileSeedBtn')) $('mobileSeedBtn').onclick=exportSelectedSeed;
+  $('openHakoBtn').onclick=()=>{const b=selected(); if(!b)return alert('Select a building first.'); const seed=makeSeed(b); localStorage.setItem('hakomachiSitePlannerSeed',JSON.stringify(seed)); window.open('../index.html#sitePlannerSeed','_blank');};
+  function projectJson(){syncAll(); return {app:'HakoMachi Site Planner',version:2,createdAt:new Date().toISOString(),image:state.imageMeta,scale:{calibrated:!!state.pxPerMm,pxPerMm:state.pxPerMm,calibrationLine:state.calibrationLine},buildings:state.buildings,annotations:state.annotations};}
+  function loadProject(p){state.image=null; state.imageMeta=p.image||null; state.pxPerMm=p.scale?.pxPerMm||null; state.calibrationLine=p.scale?.calibrationLine||null; state.lastCalibrationLine=state.calibrationLine; state.buildings=p.buildings||[]; state.annotations=p.annotations||[]; state.selectedId=null; if(state.imageMeta?.dataUrl){const img=new Image(); img.onload=()=>{state.image=img; fitImage(); syncAll();}; img.src=state.imageMeta.dataUrl;} syncAll();}
+  function csvExport(){syncAll(); const rows=[['id','name','type','category','widthMm','depthMm','areaMm2','rotationDeg','notes']]; state.buildings.forEach(b=>rows.push([b.id,b.name,b.padType,b.category,b.widthMm||'',b.depthMm||'',b.derived?.areaMm2||'',b.rotationDeg||0,b.notes||''])); return rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\n');}
+  function svgExport(){syncAll(); const w=state.image?.width||1200,h=state.image?.height||800; const img=state.imageMeta?.dataUrl?`<image href="${state.imageMeta.dataUrl}" x="0" y="0" width="${w}" height="${h}" opacity="${state.imageOpacity}"/>`:''; const notes=state.annotations.map(st=>`<polyline points="${(st.points||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="${st.color||'#6f4326'}" stroke-width="${st.baseWidth||2.2}" stroke-linecap="round" stroke-linejoin="round"/>`).join('\n'); const pads=state.buildings.map(b=>{const pts=(b.padType==='rect'?transformedRect(b):b.pointsPx).map(p=>`${p.x},${p.y}`).join(' '); const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(b.pointsPx); return `<polygon points="${pts}" fill="${b.color}33" stroke="${b.color}" stroke-width="3"/><text x="${c.x+5}" y="${c.y-5}" font-size="12" fill="white">${escapeHtml(b.name)}</text>`;}).join('\n'); return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${img}${notes}${pads}</svg>`;}
+  function download(content,name,type){const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([content],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
+  function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));} function escapeAttr(s){return escapeHtml(s).replace(/'/g,'&#39;');} function slug(s){return String(s||'building').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'building';}
+  syncAll(); fitImage();
+})();
+</script>
+</body>
+</html>

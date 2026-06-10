@@ -27067,6 +27067,125 @@ function importConfigFile(file) {
 }
 
 
+function decodeHakoPayloadString(raw) {
+  if (raw == null) return null;
+  let s = String(raw).trim();
+  if (!s) return null;
+  const attempts = [s];
+  try { attempts.push(decodeURIComponent(s)); } catch (e) {}
+
+  for (const a of attempts.slice()) {
+    const dataMatch = String(a).match(/^data:application\/json[^,]*,(.*)$/i);
+    if (dataMatch) attempts.push(dataMatch[1]);
+    if (/^[A-Za-z0-9_\-+/=]+$/.test(a) && a.length > 8) {
+      try {
+        let b64 = a.replace(/-/g, '+').replace(/_/g, '/');
+        while (b64.length % 4) b64 += '=';
+        attempts.push(atob(b64));
+      } catch (e) {}
+    }
+  }
+  for (const candidate of attempts) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch (e) {}
+  }
+  return null;
+}
+
+function importHakoPayloadObject(payload, sourceLabel = 'payload') {
+  try {
+    if (!payload || typeof payload !== 'object') throw new Error('Payload is not an object.');
+    const type = String(payload.type || payload.action || payload.event || '').toLowerCase();
+    let data = payload;
+    if (payload.buildingSeed && typeof payload.buildingSeed === 'object') data = payload.buildingSeed;
+    else if (payload.selectedBuildingSeed && typeof payload.selectedBuildingSeed === 'object') data = payload.selectedBuildingSeed;
+    else if (payload.hakoSeed && typeof payload.hakoSeed === 'object') data = payload.hakoSeed;
+    else if (payload.hakoseed && typeof payload.hakoseed === 'object') data = payload.hakoseed;
+    else if (payload.hakoMachiSeed && typeof payload.hakoMachiSeed === 'object') data = payload.hakoMachiSeed;
+    else if (payload.sitePlanSeed && typeof payload.sitePlanSeed === 'object') data = payload.sitePlanSeed;
+    else if (payload.payload && typeof payload.payload === 'object' && (type.includes('hako') || type.includes('open') || type.includes('building'))) data = payload.payload;
+    else if (payload.data && typeof payload.data === 'object' && (type.includes('hako') || type.includes('open') || type.includes('building'))) data = payload.data;
+
+    const warnings = applyLoadedConfig(data);
+    writeForm();
+    regenerate();
+    flashMessage(warnings.length ? `Imported ${sourceLabel} with warnings: ${warnings.join(' ')}` : `Imported ${sourceLabel}.`, warnings.length ? 'warn' : 'ok');
+    return true;
+  } catch (err) {
+    flashMessage(`Import failed from ${sourceLabel}: ${err.message}`, 'err');
+    return false;
+  }
+}
+
+function importHakoPayloadString(raw, sourceLabel = 'URL payload') {
+  const data = decodeHakoPayloadString(raw);
+  if (!data) return false;
+  return importHakoPayloadObject(data, sourceLabel);
+}
+
+function setupHakoSiteSeedReceivers() {
+  window.addEventListener('message', (e) => {
+    const d = e && e.data;
+    if (!d || typeof d !== 'object') return;
+    const type = String(d.type || d.action || d.event || '').toLowerCase();
+    const hasPayload = !!(d.buildingSeed || d.selectedBuildingSeed || d.hakoSeed || d.hakoseed || d.hakoMachiSeed || d.sitePlanSeed || d.payload || d.data);
+    const looksOpen = type.includes('hakomachi') || type.includes('hako') || type.includes('open') || type.includes('buildingseed');
+    if (!hasPayload && !looksOpen && !isLikelyHakoMachiSitePlanSeed(d)) return;
+    importHakoPayloadObject(d, 'site planner message');
+  });
+
+  const keys = ['buildingSeed','selectedBuildingSeed','hakoSeed','hakoseed','hakoMachiSeed','sitePlanSeed','payload','data','config'];
+  const tryParams = (params, source) => {
+    for (const k of keys) {
+      const v = params.get(k);
+      if (v && importHakoPayloadString(v, source + ' ' + k)) return true;
+    }
+    return false;
+  };
+
+  try {
+    const q = new URLSearchParams(window.location.search || '');
+    if (tryParams(q, 'URL query')) return;
+  } catch (e) {}
+
+  try {
+    const hash = (window.location.hash || '').replace(/^#/, '');
+    if (hash) {
+      if (hash === 'sitePlannerSeed' || hash === 'hakomachiSitePlannerSeed') {
+        const raw = localStorage.getItem('hakomachiSitePlannerSeed') || sessionStorage.getItem('hakomachiSitePlannerSeed');
+        if (raw && importHakoPayloadString(raw, 'Site Planner localStorage handoff')) {
+          localStorage.removeItem('hakomachiSitePlannerSeed');
+          sessionStorage.removeItem('hakomachiSitePlannerSeed');
+          return;
+        }
+      }
+      if (hash.trim().startsWith('{') || /^[A-Za-z0-9_\-+/=]+$/.test(hash.trim())) {
+        if (importHakoPayloadString(hash, 'URL hash')) return;
+      }
+      const hp = new URLSearchParams(hash);
+      if (tryParams(hp, 'URL hash')) return;
+    }
+  } catch (e) {}
+
+  for (const store of [sessionStorage, localStorage]) {
+    try {
+      const raw = store.getItem('hakomachiSitePlannerSeed')
+               || store.getItem('hakomachi_open_payload')
+               || store.getItem('hakomachi_building_seed');
+      if (raw && importHakoPayloadString(raw, store === sessionStorage ? 'sessionStorage handoff' : 'localStorage handoff')) {
+        store.removeItem('hakomachiSitePlannerSeed');
+        store.removeItem('hakomachi_open_payload');
+        store.removeItem('hakomachi_building_seed');
+        return;
+      }
+    } catch (e) {}
+  }
+}
+
+
+
 function setupHakoDragDropImport() {
   const dropZone = document.getElementById('previewDropZone') || document.querySelector('.preview');
   const overlay = document.getElementById('hakoDropOverlay');
@@ -27196,12 +27315,22 @@ function tryAutoLoadPreset() {
 function isLikelyHakoMachiSitePlanSeed(data) {
   if (!data || typeof data !== 'object') return false;
   if (data.buildingType && BUILDING_TYPES[data.buildingType]) return false;
-  const gen = String(data.generator || data.app || data.tool || data.kind || '').toLowerCase();
-  if (gen.includes('hakomachi') && (gen.includes('site') || gen.includes('plan') || gen.includes('fabric') || gen.includes('seed'))) return true;
-  if (data.sitePlanSeedVersion || data.siteSeedVersion || data.hakoMachiSiteSeedVersion) return true;
-  if (data.fabricType && (data.lots || data.parcels || data.buildings || data.block || data.site)) return true;
+
+  for (const k of ['payload','data','detail','message','buildingSeed','selectedBuildingSeed','hakoSeed','hakoseed','hakoMachiSeed','sitePlanSeed']) {
+    if (data[k] && typeof data[k] === 'object' && isLikelyHakoMachiSitePlanSeed(data[k])) return true;
+  }
+
+  const gen = String(data.generator || data.app || data.tool || data.kind || data.type || data.action || data.source || '').toLowerCase();
+  if (gen.includes('hakomachi') && (gen.includes('site') || gen.includes('plan') || gen.includes('fabric') || gen.includes('seed') || gen.includes('building'))) return true;
+  if (String(data.source || '').toLowerCase() === 'hakomachi site planner') return true;
+  if (data.sitePlanSeedVersion || data.siteSeedVersion || data.hakoMachiSiteSeedVersion || data.hakoMachiBuildingSeedVersion || data.buildingSeedVersion) return true;
+  if (data.fabricType && (data.lots || data.parcels || data.buildings || data.block || data.site || data.width || data.depth || data.footprint || data.dimensions)) return true;
   if (Array.isArray(data.buildings) && (data.fabricType || data.site || data.plan || data.layout || data.blocks)) return true;
   if (data.seed && typeof data.seed === 'object' && isLikelyHakoMachiSitePlanSeed(data.seed)) return true;
+
+  if ((data.width || data.widthMm || data.depthMm || data.footprint || data.dimensions || data.bounds || data.rect) &&
+      (data.fabricType || data.fabric || data.wallExposureZones || data.wallExposure || data.exposure || data.neighbors || data.siteContext || data.lot || data.parcel || data.source || data.buildingId || data.linkedHakoConfig)) return true;
+
   return false;
 }
 
@@ -27298,13 +27427,21 @@ function hakoSiteFabricDefaults(fabricType) {
 
 function findHakoSiteBuildingSeed(data) {
   if (!data || typeof data !== 'object') return null;
-  if (data.building && typeof data.building === 'object') return data.building;
-  if (data.selectedBuilding && typeof data.selectedBuilding === 'object') return data.selectedBuilding;
-  if (data.currentBuilding && typeof data.currentBuilding === 'object') return data.currentBuilding;
-  const arrays = [data.buildings, data.generatedBuildings, data.buildingSeeds, data.lots, data.parcels, data.structures]
+
+  for (const k of ['payload','data','detail','message','buildingSeed','selectedBuildingSeed','hakoSeed','hakoseed','hakoMachiSeed','sitePlanSeed']) {
+    if (data[k] && typeof data[k] === 'object') {
+      const found = findHakoSiteBuildingSeed(data[k]);
+      if (found) return found;
+    }
+  }
+
+  if (data.selectedBuilding || data.currentBuilding || data.building) {
+    return data.selectedBuilding || data.currentBuilding || data.building;
+  }
+  const arrays = [data.buildings, data.buildingSeeds, data.lots, data.parcels, data.structures, data.features]
     .filter(Array.isArray);
   for (const arr of arrays) {
-    const picked = arr.find(b => b && typeof b === 'object' && (b.selected || b.active || b.primary || b.export === true || b.hakoConfig || b.config || b.buildingType));
+    const picked = arr.find(b => b && typeof b === 'object' && (b.selected || b.active || b.primary || b.export === true || b.hakoConfig || b.config || b.buildingConfig || b.buildingType));
     if (picked) return picked;
   }
   for (const arr of arrays) {
@@ -27312,17 +27449,32 @@ function findHakoSiteBuildingSeed(data) {
     if (picked) return picked;
   }
   if (data.seed && typeof data.seed === 'object') return findHakoSiteBuildingSeed(data.seed);
-  return data;
+
+  // Single-building seed.
+  if (data.width || data.widthMm || data.depthMm || data.footprint || data.dimensions || data.bounds || data.rect || data.fabricType || data.wallExposureZones || data.source === 'HakoMachi Site Planner') return data;
+  return null;
 }
 
 function normalizeHakoMachiSitePlanSeedToConfig(input, warnings) {
   if (!isLikelyHakoMachiSitePlanSeed(input)) return input;
-  const root = (input.seed && typeof input.seed === 'object') ? input.seed : input;
+  const root = (input.seed && typeof input.seed === 'object') ? input.seed
+             : (input.payload && typeof input.payload === 'object') ? input.payload
+             : (input.data && typeof input.data === 'object') ? input.data
+             : (input.detail && typeof input.detail === 'object') ? input.detail
+             : input;
   const b = findHakoSiteBuildingSeed(root) || root;
-  const embeddedConfig = b.hakoConfig || b.config || b.buildingConfig || b.hako || b.generatorConfig;
+  const embeddedConfig = b.hakoConfig || b.config || b.buildingConfig || b.hako || b.generatorConfig || b.hakoMachiConfig || b.linkedHakoConfig;
   if (embeddedConfig && typeof embeddedConfig === 'object' && (embeddedConfig.buildingType || embeddedConfig.width || embeddedConfig.depth)) {
     warnings.push('Imported embedded building config from HakoMachi site-plan seed.');
-    return { ...embeddedConfig, sitePlanSeedSource: root.fabricType || input.fabricType || true };
+    const mergedEmbedded = { ...embeddedConfig, sitePlanSeedSource: root.fabricType || input.fabricType || true };
+    if (b.name && !mergedEmbedded.buildingName) mergedEmbedded.buildingName = b.name;
+    if (b.widthMm != null && !mergedEmbedded.width) mergedEmbedded.width = asNumOrNull(b.widthMm);
+    if (b.depthMm != null && !mergedEmbedded.depth) mergedEmbedded.depth = asNumOrNull(b.depthMm);
+    if (b.footprint && b.footprint.type === 'rect') {
+      if (b.footprint.widthMm != null && !mergedEmbedded.width) mergedEmbedded.width = asNumOrNull(b.footprint.widthMm);
+      if (b.footprint.depthMm != null && !mergedEmbedded.depth) mergedEmbedded.depth = asNumOrNull(b.footprint.depthMm);
+    }
+    return mergedEmbedded;
   }
 
   const fabricType = b.fabricType || b.fabric || root.fabricType || root.fabric || root.FabricType || 'industrialServiceFabric';
@@ -27334,6 +27486,14 @@ function normalizeHakoMachiSitePlanSeedToConfig(input, warnings) {
   const floorH = pickNum(b, ['floorHeight','floorHeightMm']) ?? pickNum(style, ['floorHeight','floorHeightMm']);
   let width = pickNum(b, ['width','widthMm','w','modelWidth','modelWidthMm']) ?? pickNum(dims, ['width','widthMm','w']) ?? pickNum(lot, ['width','widthMm','w']);
   let depth = pickNum(b, ['depth','depthMm','d','modelDepth','modelDepthMm']) ?? pickNum(dims, ['depth','depthMm','d','height','heightMm','h']) ?? pickNum(lot, ['depth','depthMm','d','height','heightMm','h']);
+  if (b.footprint && b.footprint.type === 'rect') {
+    width = pickNum(b.footprint, ['widthMm','width','w']) ?? width;
+    depth = pickNum(b.footprint, ['depthMm','depth','d']) ?? depth;
+  }
+  if (b.boundingRectMm) {
+    width = pickNum(b.boundingRectMm, ['widthMm','width','w']) ?? width;
+    depth = pickNum(b.boundingRectMm, ['depthMm','depth','d']) ?? depth;
+  }
   let height = pickNum(b, ['height','heightMm','h','modelHeight','modelHeightMm']) ?? pickNum(dims, ['modelHeight','heightMm','h']) ?? null;
   if (height == null && levels && floorH) height = levels * floorH;
   if (width == null) width = defaults.width;
@@ -27370,6 +27530,10 @@ function normalizeHakoMachiSitePlanSeedToConfig(input, warnings) {
   // HakoMachi-compatible wall features/openings.
   if (b.wallFeatures && typeof b.wallFeatures === 'object') out.wallFeatures = b.wallFeatures;
   if (b.manualOpenings && typeof b.manualOpenings === 'object') out.manualOpenings = b.manualOpenings;
+  if (Array.isArray(b.wallExposureZones)) out.wallExposureZones = b.wallExposureZones;
+  else if (Array.isArray(root.wallExposureZones)) out.wallExposureZones = root.wallExposureZones;
+  else if (b.wallExposure && typeof b.wallExposure === 'object') out.wallExposure = b.wallExposure;
+  if (Array.isArray(b.signs)) out.signs = b.signs;
   if (Array.isArray(b.embeddedRails)) out.embeddedRails = b.embeddedRails;
   if (Array.isArray(b.rooftopItems)) out.rooftopItems = b.rooftopItems;
 
@@ -27731,6 +27895,7 @@ function init() {
     fileInput.value = '';
   });
   setupHakoDragDropImport();
+  setupHakoSiteSeedReceivers();
 
   document.getElementById('resetBtn').addEventListener('click', reset);
 

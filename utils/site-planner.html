@@ -800,6 +800,8 @@
     box-shadow: 0 0 0 2px rgba(200,70,50,0.15);
   }
 
+
+#canvas.panning{cursor:grabbing;}
 </style>
 </head>
 <body>
@@ -1956,9 +1958,9 @@
     const finish=()=>{
       syncAll({skipDirty:true});
       updateImagePortableStatus();
-      markDirty('undo redo');
-      state.historySuppressed=false;
       updateHistoryButtons();
+      state.historySuppressed=false;
+      markDirty('undo redo');
     };
     if(newDataUrl && newDataUrl!==oldDataUrl){
       const img=new Image();
@@ -2639,6 +2641,15 @@
     e.preventDefault(); hideContextMenu();
     canvas.setPointerCapture(e.pointerId);
     state.pointers.set(e.pointerId,pointerSnapshot(e));
+    if(e.button===2 || (e.buttons & 2)){
+      startPanFromPointer(e);
+      state.drag.rightButtonPan=true;
+      state.drag.moved=false;
+      state.drag.startClient={x:e.clientX,y:e.clientY};
+      state.suppressNextContextMenu=false;
+      canvas.classList.add('panning');
+      return;
+    }
     if(e.pointerType==='touch' && startPinchIfNeeded()) return;
     const p=screenToWorld(e); const b=selected();
     if(state.tool==='pan' || !isGeometryPointer(e)){startPanFromPointer(e); return;}
@@ -2721,7 +2732,14 @@
     if(state.drag.pointerId!==undefined && state.drag.pointerId!==e.pointerId) return;
     e.preventDefault();
     const d=state.drag;
-    if(d.type==='pan'){state.view.x=d.vx+(e.clientX-d.sx); state.view.y=d.vy+(e.clientY-d.sy);}
+    if(d.type==='pan'){
+      state.view.x=d.vx+(e.clientX-d.sx);
+      state.view.y=d.vy+(e.clientY-d.sy);
+      if(d.rightButtonPan && d.startClient && Math.hypot(e.clientX-d.startClient.x,e.clientY-d.startClient.y)>3){
+        d.moved=true;
+        state.suppressNextContextMenu=true;
+      }
+    }
     else if(d.type==='calibrate'){state.calibrationLine={x1:d.start.x,y1:d.start.y,x2:p.x,y2:p.y}; state.lastCalibrationLine=state.calibrationLine;}
     else if(d.type==='measure'){state.measureLine={x1:d.start.x,y1:d.start.y,x2:p.x,y2:p.y};}
     else if(d.type==='rect'){d.end=p; d.preview=addRectFromDrag(d.start,p,snapActive(e));}
@@ -2764,12 +2782,16 @@
     if(d.type==='rect'&&d.preview){state.buildings.push(d.preview); setBuildingSelection([d.preview.id], d.preview.id); renderList(); renderSelected(); updateHandoff();}
     if(d.type==='marquee'){const r=selectionRectFromPoints(d.start,d.end||d.start); if(Math.max(r.w,r.h)>5/state.view.scale){const hits=buildingsInSelectionRect(r); setBuildingSelection(d.additive?[...new Set([...(d.baseIds||[]),...hits])]:hits, hits.length===1?hits[0]:null);} else if(!d.additive){clearBuildingSelection(); state.selectedAnnotationId=null; state.selectedStreetlightId=null; state.selectedRoadId=null;} renderList(); renderSelected(); updateHandoff();}
     if(d.type==='roadCenterline'&&d.preview&&dist(d.start,d.end)>4){state.roads.push(d.preview); state.selectedRoadId=d.preview.id; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedAnnotationId=null; renderRoads(); renderSelected();}
+    if(d.type==='pan' && d.rightButtonPan && d.moved){state.suppressNextContextMenu=true;}
+    canvas.classList.remove('panning');
     state.drag=null; syncAll();
   }
   canvas.addEventListener('pointerup', finishPointer);
   canvas.addEventListener('pointercancel', finishPointer);
   canvas.addEventListener('contextmenu', e=>{
-    e.preventDefault(); hideContextMenu();
+    e.preventDefault();
+    if(state.suppressNextContextMenu){state.suppressNextContextMenu=false; hideContextMenu(); return;}
+    hideContextMenu();
     const p=screenToWorld(e); const target=contextTargetAt(p,'mouse');
     if(target?.streetlight){
       state.selectedStreetlightId=target.streetlight.id; clearBuildingSelection(); state.selectedAnnotationId=null;

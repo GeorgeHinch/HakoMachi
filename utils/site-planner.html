@@ -1702,9 +1702,11 @@
     const includeImageDataUrl = opts.includeImageDataUrl !== false;
     return {
       app:'HakoMachi Site Planner',
-      version:28,
+      version:40,
       savedAt:new Date().toISOString(),
       portableProject:true,
+      coordinateSystem:{type:'imagePixels', origin:'topLeft', imageWidthPx:state.image?.naturalWidth||state.image?.width||state.imageMeta?.naturalWidthPx||null, imageHeightPx:state.image?.naturalHeight||state.image?.height||state.imageMeta?.naturalHeightPx||null},
+      canvasViewport:(()=>{const r=canvas.getBoundingClientRect(); return {widthPx:r.width,heightPx:r.height};})(),
       image:imageMetaForProject({includeDataUrl:includeImageDataUrl}),
       view:state.view,
       imageOpacity:state.imageOpacity,
@@ -2619,19 +2621,87 @@
     }
     return payload;
   }
+  function scalePointLike(pt, sx, sy){
+    if(!pt || typeof pt!=='object') return pt;
+    if(Number.isFinite(Number(pt.x))) pt.x=Number(pt.x)*sx;
+    if(Number.isFinite(Number(pt.y))) pt.y=Number(pt.y)*sy;
+    if(Number.isFinite(Number(pt.x1))) pt.x1=Number(pt.x1)*sx;
+    if(Number.isFinite(Number(pt.y1))) pt.y1=Number(pt.y1)*sy;
+    if(Number.isFinite(Number(pt.x2))) pt.x2=Number(pt.x2)*sx;
+    if(Number.isFinite(Number(pt.y2))) pt.y2=Number(pt.y2)*sy;
+    return pt;
+  }
+  function scalePointArray(arr, sx, sy){
+    if(!Array.isArray(arr)) return arr;
+    arr.forEach(p=>scalePointLike(p,sx,sy));
+    return arr;
+  }
+  function scaleLoadedPixelGeometry(sx, sy){
+    if(!Number.isFinite(sx)||!Number.isFinite(sy)||sx<=0||sy<=0) return;
+    if(Math.abs(sx-1)<1e-9 && Math.abs(sy-1)<1e-9) return;
+    const avg=(sx+sy)/2;
+    state.buildings.forEach(b=>{
+      if(b.padType==='rect'){
+        if(Number.isFinite(Number(b.x))) b.x=Number(b.x)*sx;
+        if(Number.isFinite(Number(b.y))) b.y=Number(b.y)*sy;
+        if(Number.isFinite(Number(b.widthPx))) b.widthPx=Number(b.widthPx)*sx;
+        if(Number.isFinite(Number(b.depthPx))) b.depthPx=Number(b.depthPx)*sy;
+      }
+      scalePointArray(b.pointsPx, sx, sy);
+    });
+    state.roads.forEach(r=>{
+      scalePointArray(r.pointsPx, sx, sy);
+      scalePointArray(r.roadPolygonPx, sx, sy);
+      (r.sidewalkPolygonsPx||[]).forEach(sw=>scalePointArray(sw.polygon, sx, sy));
+      if(Number.isFinite(Number(r.widthPx))) r.widthPx=Number(r.widthPx)*avg;
+      if(Number.isFinite(Number(r.sidewalkWidthPx))) r.sidewalkWidthPx=Number(r.sidewalkWidthPx)*avg;
+    });
+    state.streetlights.forEach(l=>scalePointLike(l,sx,sy));
+    state.annotations.forEach(st=>scalePointArray(st.points, sx, sy));
+    if(state.calibrationLine) scalePointLike(state.calibrationLine, sx, sy);
+    if(state.measureLine) scalePointLike(state.measureLine, sx, sy);
+    if(state.pxPerMm) state.pxPerMm *= avg;
+  }
+  function savedImageDimensions(p){
+    const img=p?.image||{};
+    const cs=p?.coordinateSystem||{};
+    const w=Number(img.naturalWidthPx ?? img.widthPx ?? img.width ?? cs.imageWidthPx);
+    const h=Number(img.naturalHeightPx ?? img.heightPx ?? img.height ?? cs.imageHeightPx);
+    return {w:Number.isFinite(w)?w:null,h:Number.isFinite(h)?h:null};
+  }
+  function restoreProjectView(p){
+    const current=canvas.getBoundingClientRect();
+    if(!p?.view) return null;
+    const view={x:Number(p.view.x)||0,y:Number(p.view.y)||0,scale:Number(p.view.scale)||1};
+    const cv=p.canvasViewport||p.viewport||p.savedCanvasViewport;
+    const sw=Number(cv?.widthPx ?? cv?.width);
+    const sh=Number(cv?.heightPx ?? cv?.height);
+    if(Number.isFinite(sw)&&Number.isFinite(sh)&&sw>0&&sh>0&&current.width>0&&current.height>0){
+      const savedCenterWorld={x:(sw/2-view.x)/view.scale,y:(sh/2-view.y)/view.scale};
+      return {x:current.width/2-savedCenterWorld.x*view.scale,y:current.height/2-savedCenterWorld.y*view.scale,scale:view.scale};
+    }
+    return view;
+  }
+  function loadAlignmentMessage(savedW,savedH,loadedW,loadedH,changed){
+    const n=state.buildings.length;
+    const thing=n===1?'footprint':'footprints';
+    if(changed) return `Loaded image ${loadedW} × ${loadedH}px; remapped ${n} building ${thing} from saved ${savedW} × ${savedH}px image coordinates.`;
+    return `Loaded image ${loadedW} × ${loadedH}px and restored ${n} building ${thing} in image-pixel coordinates.`;
+  }
   function loadProject(p, opts={}){
     autosaveSuppressed=true;
     state.image=null;
     state.imageMeta=p.image||null;
     state.imageOpacity=Number.isFinite(p.imageOpacity)?p.imageOpacity:(state.imageMeta?.opacity ?? state.imageOpacity ?? .75);
     state.imageLocked=p.imageLocked ?? state.imageLocked ?? true;
-    state.view=p.view || state.view;
+    state.view=restoreProjectView(p) || state.view;
     state.pxPerMm=p.scale?.pxPerMm||null;
     state.calibrationLine=p.scale?.calibrationLine||null;
     state.lastCalibrationLine=state.calibrationLine;
     const loadedBuildingSet=collectProjectBuildings(p);
     state.buildings=loadedBuildingSet.buildings;
     const loadFootprintMessage=footprintLoadMessage(p, state.buildings.length, loadedBuildingSet.source);
+    const savedDims=savedImageDimensions(p);
     const loadedRoads = Array.isArray(p.roads) ? p.roads : (Array.isArray(p.siteConstraints) ? p.siteConstraints.filter(c=>c&&c.type==='road') : []);
     state.roads=loadedRoads.map(normalizeRoad);
     state.streetlights=(p.streetlights||[]).map(normalizeStreetlight);
@@ -2648,19 +2718,22 @@
         state.image=img;
         const loadedW=img.naturalWidth||img.width;
         const loadedH=img.naturalHeight||img.height;
-        const savedW=state.imageMeta.naturalWidthPx;
-        const savedH=state.imageMeta.naturalHeightPx;
+        const savedW=savedDims.w || state.imageMeta.naturalWidthPx;
+        const savedH=savedDims.h || state.imageMeta.naturalHeightPx;
+        let geometryRemapped=false;
         if(savedW && savedH && (loadedW!==savedW || loadedH!==savedH)){
-          setImageStatus(`Loaded image, but pixel size changed: saved ${savedW} × ${savedH}px, loaded ${loadedW} × ${loadedH}px. Measurements may be offset.`, 'warning');
-          updateImagePortableStatus('Portable image warning: loaded pixel dimensions do not match saved metadata.');
+          scaleLoadedPixelGeometry(loadedW/savedW, loadedH/savedH);
+          geometryRemapped=true;
+          setImageStatus(loadAlignmentMessage(savedW,savedH,loadedW,loadedH,true), 'warning');
+          updateImagePortableStatus('Portable image warning: loaded pixel dimensions differed from saved metadata, so planner geometry was remapped to the restored image.');
         } else {
-          setImageStatus(`Loaded embedded image ${loadedW} × ${loadedH}px. Pixel dimensions verified.`, 'okText');
+          setImageStatus(loadAlignmentMessage(savedW||loadedW,savedH||loadedH,loadedW,loadedH,false), 'okText');
           state.imageMeta.naturalWidthPx=loadedW;
           state.imageMeta.naturalHeightPx=loadedH;
           state.imageMeta.pixelDimensionsVerifiedOnLoad=true;
           updateImagePortableStatus();
         }
-        if(loadFootprintMessage) setImageStatus(loadFootprintMessage, 'warning');
+        if(loadFootprintMessage && state.buildings.length===0) setImageStatus(loadFootprintMessage, 'warning');
         if(!p.view) fitImage();
         syncAll({skipDirty:true});
         autosaveSuppressed=false;

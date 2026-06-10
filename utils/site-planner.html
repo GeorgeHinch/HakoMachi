@@ -867,6 +867,7 @@
       <h3>Image</h3>
       <div class="row"><div><label>Opacity</label><input id="opacity" type="range" min="0" max="1" step="0.05" value="0.75"></div><div><label>Image Lock</label><button id="imageLockBtn">Locked</button></div></div>
       <div id="imageImportStatus" class="small muted" style="margin-top:8px">No image loaded.</div>
+      <div id="imagePortableStatus" class="small muted" style="margin-top:4px">Portable save: no image.</div>
     </div>
     <div class="section">
       <h3>Input / iPad Pencil</h3>
@@ -1064,6 +1065,32 @@
     return l;
   }
 
+  const BUILDING_STATES = {
+    notStarted: 'Not Started',
+    inProgress: 'In Progress',
+    awaitingConstruction: 'Awaiting Construction',
+    complete: 'Complete'
+  };
+  function buildingStateLabel(value){return BUILDING_STATES[value] || BUILDING_STATES.notStarted;}
+  function normalizeBuilding(b){
+    if(!b) return b;
+    if(!b.state) b.state='notStarted';
+    if(b.state==='todo' || b.state==='planned' || b.state==='new') b.state='notStarted';
+    if(b.state==='awaiting' || b.state==='readyToBuild') b.state='awaitingConstruction';
+    if(!BUILDING_STATES[b.state]) b.state='notStarted';
+    if(!('hakoFile' in b)) b.hakoFile=null;
+    if(b.hakoFile && !b.hakoFile.fileName && b.hakoFile.name) b.hakoFile.fileName=b.hakoFile.name;
+    if(b.hakoFile && !b.hakoFile.importedAt) b.hakoFile.importedAt=new Date().toISOString();
+    if(b.hakoFile) b.hakoFileId=b.hakoFile.fileName || b.hakoFileId || null;
+    return b;
+  }
+  function hakoFileSummary(b){
+    if(!b || !b.hakoFile) return 'No completed .hako file stored.';
+    const size=Number(b.hakoFile.sizeBytes||0);
+    const sizeText=size ? formatBytes(size) : 'unknown size';
+    const date=b.hakoFile.importedAt ? new Date(b.hakoFile.importedAt).toLocaleString() : 'unknown date';
+    return `${escapeHtml(b.hakoFile.fileName||'building.hako')} · ${sizeText} · ${date}`;
+  }
   function selected(){return state.buildings.find(b=>b.id===state.selectedId)||null;}
   function syncBuildingMetrics(b){ if(!state.pxPerMm) return b; if(b.padType==='rect'){b.widthMm=pxToMm(b.widthPx); b.depthMm=pxToMm(b.depthPx); b.pointsPx=transformedRect(b); b.pointsMm=b.pointsPx.map(p=>({x:pxToMm(p.x),y:pxToMm(p.y)}));} else {b.pointsMm=b.pointsPx.map(p=>({x:pxToMm(p.x),y:pxToMm(p.y)})); b.derived={areaMm2:pxToMm(Math.sqrt(polygonArea(b.pointsPx)))**2, boundingWidthMm:pxToMm(Math.max(...b.pointsPx.map(p=>p.x))-Math.min(...b.pointsPx.map(p=>p.x))), boundingDepthMm:pxToMm(Math.max(...b.pointsPx.map(p=>p.y))-Math.min(...b.pointsPx.map(p=>p.y))), rotationDeg:b.rotationDeg||0};} return b; }
   function syncAll(opts = {}){
@@ -1085,6 +1112,45 @@
     else if(state.lastAutosaveAt) el.textContent='Autosave: '+new Date(state.lastAutosaveAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     else el.textContent='Autosave: ready';
   }
+  function approxDataUrlBytes(dataUrl){
+    if(!dataUrl || typeof dataUrl!=='string') return 0;
+    const comma=dataUrl.indexOf(',');
+    const b64=comma>=0?dataUrl.slice(comma+1):dataUrl;
+    const padding=(b64.endsWith('==')?2:(b64.endsWith('=')?1:0));
+    return Math.max(0, Math.floor(b64.length*3/4)-padding);
+  }
+  function formatBytes(bytes){
+    if(!Number.isFinite(bytes) || bytes<=0) return '0 B';
+    if(bytes<1024) return Math.round(bytes)+' B';
+    if(bytes<1024*1024) return (bytes/1024).toFixed(1)+' KB';
+    return (bytes/(1024*1024)).toFixed(1)+' MB';
+  }
+  function imageMetaForProject(opts={}){
+    if(!state.imageMeta) return null;
+    const includeDataUrl = opts.includeDataUrl !== false;
+    const meta={...state.imageMeta};
+    meta.name = meta.name || 'reference-image';
+    meta.mimeType = meta.mimeType || (typeof meta.dataUrl==='string' ? (meta.dataUrl.match(/^data:([^;]+);/)||[])[1] : undefined) || 'application/octet-stream';
+    meta.naturalWidthPx = Number.isFinite(meta.naturalWidthPx) ? meta.naturalWidthPx : (state.image?.naturalWidth || state.image?.width || null);
+    meta.naturalHeightPx = Number.isFinite(meta.naturalHeightPx) ? meta.naturalHeightPx : (state.image?.naturalHeight || state.image?.height || null);
+    meta.originalPixelDimensionsRequired = true;
+    meta.dataUrlByteLength = approxDataUrlBytes(meta.dataUrl);
+    meta.embeddedInProject = !!(includeDataUrl && meta.dataUrl);
+    if(!includeDataUrl) delete meta.dataUrl;
+    return meta;
+  }
+  function updateImagePortableStatus(extraMessage){
+    const el=$('imagePortableStatus');
+    if(!el) return;
+    if(extraMessage){ el.textContent=extraMessage; return; }
+    if(!state.imageMeta){ el.textContent='Portable save: no image.'; return; }
+    const bytes=approxDataUrlBytes(state.imageMeta.dataUrl);
+    if(state.imageMeta.dataUrl){
+      el.textContent=`Portable save: embeds original ${state.imageMeta.naturalWidthPx||'?'} × ${state.imageMeta.naturalHeightPx||'?'} px image (${formatBytes(bytes)}).`;
+    } else {
+      el.textContent='Portable save: image is not embedded yet. Re-import the image before saving for cross-browser portability.';
+    }
+  }
   function markDirty(_reason=''){
     if(!state.autosaveReady || autosaveSuppressed) return;
     state.dirty=true;
@@ -1096,17 +1162,21 @@
     clearTimeout(autosaveTimer);
     autosaveTimer=setTimeout(writeAutosave, 450);
   }
-  function makeProjectPayload(){
+  function makeProjectPayload(opts={}){
+    state.buildings=state.buildings.map(normalizeBuilding);
     state.buildings.forEach(syncBuildingMetrics);
+    state.streetlights.forEach(normalizeStreetlight);
+    const includeImageDataUrl = opts.includeImageDataUrl !== false;
     return {
       app:'HakoMachi Site Planner',
-      version:3,
+      version:26,
       savedAt:new Date().toISOString(),
-      image:state.imageMeta,
+      portableProject:true,
+      image:imageMetaForProject({includeDataUrl:includeImageDataUrl}),
       view:state.view,
       imageOpacity:state.imageOpacity,
       imageLocked:state.imageLocked,
-      scale:{calibrated:!!state.pxPerMm,pxPerMm:state.pxPerMm,calibrationLine:state.calibrationLine},
+      scale:{calibrated:!!state.pxPerMm,pxPerMm:state.pxPerMm,calibrationLine:state.calibrationLine,units:'mm'},
       buildings:state.buildings,
       streetlights:state.streetlights,
       annotations:state.annotations
@@ -1117,13 +1187,30 @@
     clearTimeout(autosaveTimer);
     autosaveTimer=null;
     try{
-      const payload=makeProjectPayload();
-      const meta={savedAt:payload.savedAt, dirtySinceManualSave:!!state.dirtySinceManualSave};
-      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
-      localStorage.setItem(AUTOSAVE_META_KEY, JSON.stringify(meta));
+      let payload=makeProjectPayload({includeImageDataUrl:true});
+      const meta={savedAt:payload.savedAt, dirtySinceManualSave:!!state.dirtySinceManualSave, imageEmbedded:!!payload.image?.dataUrl, imageBytes:payload.image?.dataUrlByteLength||0};
+      try{
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
+        localStorage.setItem(AUTOSAVE_META_KEY, JSON.stringify(meta));
+        updateImagePortableStatus();
+      }catch(storageErr){
+        // Browser localStorage is often too small for large reference images.
+        // Keep geometry safe in this browser by retrying without the image,
+        // while portable .hako-site.json saves still embed the full original.
+        if(payload.image?.dataUrl){
+          payload=makeProjectPayload({includeImageDataUrl:false});
+          const fallbackMeta={savedAt:payload.savedAt, dirtySinceManualSave:!!state.dirtySinceManualSave, imageEmbedded:false, imageTooLargeForAutosave:true, imageBytes:meta.imageBytes};
+          localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
+          localStorage.setItem(AUTOSAVE_META_KEY, JSON.stringify(fallbackMeta));
+          updateAutosaveStatus('Autosave: geometry saved, image too large');
+          updateImagePortableStatus('Portable save: embeds original image; autosave kept geometry only because browser cache is too small.');
+        } else {
+          throw storageErr;
+        }
+      }
       state.dirty=false;
       state.lastAutosaveAt=Date.now();
-      updateAutosaveStatus();
+      if(!(payload.image && !payload.image.dataUrl && state.imageMeta?.dataUrl)) updateAutosaveStatus();
     }catch(err){
       console.warn('[HakoMachi Site Planner] Autosave failed:', err);
       updateAutosaveStatus('Autosave: failed');
@@ -1352,7 +1439,7 @@
     state.streetlights.forEach(raw=>{const l=normalizeStreetlight(raw); const el=document.createElement('div'); el.className='buildingItem '+(l.id===state.selectedStreetlightId?'selected':''); el.innerHTML=`<span class="streetlight-swatch" style="background:${l.color||'#c84a3a'}"></span><div><b>${escapeHtml(l.name||'Streetlight')}</b><br><span class="small muted">${l.mode==='anchored'?'anchored · ':''}${l.type||'singleArm'}${l.locked?' · locked':''}</span></div><span class="pill">${fmt(l.heightMm||0)}mm</span>`; el.onclick=()=>{state.selectedStreetlightId=l.id; state.selectedId=null; state.selectedAnnotationId=null; renderList(); renderStreetlights(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});
   }
 
-  function renderList(){const box=$('buildingList'); box.innerHTML=''; if(!state.buildings.length){box.innerHTML='<div class="small muted">No building pads yet.</div>'; return;} state.buildings.forEach(b=>{const el=document.createElement('div'); el.className='buildingItem '+(b.id===state.selectedId?'selected':''); el.innerHTML=`<span class="swatch" style="background:${b.color}"></span><div><b>${escapeHtml(b.name||'Building')}</b><br><span class="small muted">${b.padType}${b.hidden?' · hidden':''}${b.locked?' · locked':''}</span></div><span class="pill">${b.padType==='rect'?`${fmt(b.widthMm)}×${fmt(b.depthMm)}`:fmt(b.derived?.areaMm2||0)+' mm²'}</span>`; el.onclick=()=>{state.selectedId=b.id; state.selectedStreetlightId=null; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});}
+  function renderList(){const box=$('buildingList'); box.innerHTML=''; if(!state.buildings.length){box.innerHTML='<div class="small muted">No building pads yet.</div>'; return;} state.buildings.forEach(raw=>{const b=normalizeBuilding(raw); const el=document.createElement('div'); el.className='buildingItem '+(b.id===state.selectedId?'selected':''); const hakoBadge=b.hakoFile?'<span class="pill">.hako</span>':''; el.innerHTML=`<span class="swatch" style="background:${b.color}"></span><div><b>${escapeHtml(b.name||'Building')}</b><br><span class="small muted">${buildingStateLabel(b.state)} · ${b.padType}${b.hidden?' · hidden':''}${b.locked?' · locked':''}</span></div><span class="pill">${b.padType==='rect'?`${fmt(b.widthMm)}×${fmt(b.depthMm)}`:fmt(b.derived?.areaMm2||0)+' mm²'}</span>${hakoBadge}`; el.onclick=()=>{state.selectedId=b.id; state.selectedStreetlightId=null; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});}
   function renderSelected(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const light=selectedStreetlight(); if(!b){if(light){normalizeStreetlight(light); box.innerHTML=`
       <b>${light.mode==='anchored'?'Anchored Streetlight':'Streetlight'} selected</b>
       <label>Name</label><input id="slName" value="${escapeAttr(light.name||'')}">
@@ -1376,27 +1463,38 @@
       $('dupSl').onclick=()=>{duplicateStreetlight(light); syncAll();}; $('lockSl').onclick=()=>{light.locked=!light.locked; syncAll();}; $('delSl').onclick=deleteSelectedStreetlight;
     } else if(note){const pts=note.points||[]; box.innerHTML=`<b>Annotation selected</b><br><span class="small muted">${pts.length} points</span><div class="buttons" style="margin-top:8px"><button id="delNoteB" class="danger">Delete Annotation</button></div>`; const del=$('delNoteB'); if(del) del.onclick=deleteSelectedAnnotation;} else box.innerHTML='No building selected.'; const btn=$('deleteAnnotationBtn'); if(btn) btn.disabled=!note; return;} if($('deleteAnnotationBtn')) $('deleteAnnotationBtn').disabled=true; syncBuildingMetrics(b); box.innerHTML=`
     <label>Name</label><input id="selName" value="${escapeAttr(b.name||'')}">
-    <div class="row"><div><label>Category</label><input id="selCat" value="${escapeAttr(b.category||'industrial')}"></div><div><label>Color</label><input id="selColor" type="color" value="${b.color||'#d79631'}"></div></div>
-    <div class="row"><div><label>Rotation °</label><input id="selRot" type="number" step="0.1" value="${fmt(b.rotationDeg||0)}"></div><div><label>Type</label><input value="${b.padType}" disabled></div></div>
+    <div class="row"><div><label>Status</label><select id="selState"><option value="notStarted">Not Started</option><option value="inProgress">In Progress</option><option value="awaitingConstruction">Awaiting Construction</option><option value="complete">Complete</option></select></div><div><label>Color</label><input id="selColor" type="color" value="${b.color||'#d79631'}"></div></div>
+    <div class="row"><div><label>Category</label><input id="selCat" value="${escapeAttr(b.category||'industrial')}"></div><div><label>Type</label><input value="${b.padType}" disabled></div></div>
+    <div class="row"><div><label>Rotation °</label><input id="selRot" type="number" step="0.1" value="${fmt(b.rotationDeg||0)}"></div><div><label>Stored file</label><input value="${b.hakoFile?'.hako attached':'none'}" disabled></div></div>
     ${b.padType==='rect'?`<div class="row"><div><label>Width mm</label><input id="selW" type="number" step="0.1" value="${fmt(b.widthMm)}"></div><div><label>Depth mm</label><input id="selD" type="number" step="0.1" value="${fmt(b.depthMm)}"></div></div>`:`<div class="small"><span class="pill">Area ${fmt(b.derived?.areaMm2||0)} mm²</span><span class="pill">Bounds ${fmt(b.derived?.boundingWidthMm||0)}×${fmt(b.derived?.boundingDepthMm||0)} mm</span></div>`}
+    <label>Completed .hako file</label>
+    <div class="codebox" style="margin:4px 0 6px;white-space:normal">${hakoFileSummary(b)}</div>
+    <input id="hakoFileInput" type="file" accept=".hako,.json,application/json" style="display:none">
+    <div class="buttons" style="margin-bottom:8px"><button id="uploadHakoB">${b.hakoFile?'Replace .hako':'Upload .hako'}</button><button id="downloadHakoB" ${b.hakoFile?'':'disabled'}>Download .hako</button><button id="removeHakoB" class="danger" ${b.hakoFile?'':'disabled'}>Remove .hako</button></div>
     <label>Notes</label><textarea id="selNotes" rows="3">${escapeHtml(b.notes||'')}</textarea>
     <div class="buttons" style="margin-top:8px"><button id="dupB">Duplicate</button><button id="hideB">${b.hidden?'Show':'Hide'}</button><button id="lockB">${b.locked?'Unlock':'Lock'}</button>${b.padType==='rect'?'<button id="polyB">Convert to Polygon</button>':''}<button id="delB" class="danger">Delete</button></div>`;
     const bind=(id,fn)=>{const e=$(id); if(e)e.oninput=()=>{fn(e.value); syncAll();};};
     bind('selName',v=>b.name=v); bind('selCat',v=>b.category=v); bind('selColor',v=>b.color=v); bind('selRot',v=>b.rotationDeg=parseFloat(v)||0); bind('selNotes',v=>b.notes=v);
+    const stateSel=$('selState'); if(stateSel){stateSel.value=b.state||'notStarted'; stateSel.onchange=e=>{b.state=e.target.value; syncAll();};}
     bind('selW',v=>{if(state.pxPerMm)b.widthPx=mmToPx(Math.max(.1,parseFloat(v)||1));}); bind('selD',v=>{if(state.pxPerMm)b.depthPx=mmToPx(Math.max(.1,parseFloat(v)||1));});
-    $('dupB').onclick=()=>{const copy=structuredClone(b); copy.id=uid('bldg'); copy.name=(copy.name||'Building')+' copy'; if(copy.padType==='rect'){copy.x+=20;copy.y+=20}else copy.pointsPx=copy.pointsPx.map(p=>({x:p.x+20,y:p.y+20})); state.buildings.push(copy); state.selectedId=copy.id; syncAll();};
+    const hakoInput=$('hakoFileInput');
+    if($('uploadHakoB')) $('uploadHakoB').onclick=()=>hakoInput && hakoInput.click();
+    if(hakoInput) hakoInput.onchange=e=>{const f=e.target.files&&e.target.files[0]; if(!f)return; const reader=new FileReader(); reader.onerror=()=>alert('Could not read that .hako file.'); reader.onload=ev=>{const text=String(ev.target.result||''); let parsed=null; try{parsed=JSON.parse(text);}catch(_err){} b.hakoFile={fileName:f.name||`${slug(b.name)}.hako`,mimeType:f.type||'application/json',sizeBytes:f.size||text.length,importedAt:new Date().toISOString(),dataText:text,parsedConfig:parsed}; b.hakoFileId=b.hakoFile.fileName; if(parsed) b.hakoConfig=parsed; if(b.state==='notStarted') b.state='inProgress'; syncAll();}; reader.readAsText(f); e.target.value='';};
+    if($('downloadHakoB')) $('downloadHakoB').onclick=()=>{if(!b.hakoFile)return; download(b.hakoFile.dataText||JSON.stringify(b.hakoFile.parsedConfig||b.hakoConfig||{},null,2), b.hakoFile.fileName||`${slug(b.name)}.hako`, b.hakoFile.mimeType||'application/json');};
+    if($('removeHakoB')) $('removeHakoB').onclick=()=>{if(!b.hakoFile)return; if(!confirm('Remove the stored .hako file from this building?')) return; b.hakoFile=null; b.hakoFileId=null; syncAll();};
+    $('dupB').onclick=()=>{const copy=structuredClone(b); copy.id=uid('bldg'); copy.name=(copy.name||'Building')+' copy'; copy.state='notStarted'; copy.hakoFile=null; copy.hakoFileId=null; if(copy.padType==='rect'){copy.x+=20;copy.y+=20}else copy.pointsPx=copy.pointsPx.map(p=>({x:p.x+20,y:p.y+20})); state.buildings.push(copy); state.selectedId=copy.id; syncAll();};
     $('hideB').onclick=()=>{b.hidden=!b.hidden; syncAll();}; $('lockB').onclick=()=>{b.locked=!b.locked; syncAll();}; $('delB').onclick=()=>{state.buildings=state.buildings.filter(x=>x.id!==b.id); state.selectedId=null; syncAll();};
     const poly=$('polyB'); if(poly) poly.onclick=()=>{b.padType='polygon'; b.pointsPx=transformedRect(b); delete b.widthPx; delete b.depthPx; syncAll();};
   }
   function updateHandoff(){const b=selected(); $('handoffPreview').textContent=b? JSON.stringify(makeSeed(b),null,2):'';}
-  function makeSeed(b){syncBuildingMetrics(b); const seed={source:'HakoMachi Site Planner',version:1,buildingId:b.id,name:b.name,padType:b.padType,category:b.category,rotationDeg:b.rotationDeg||0,notes:b.notes||'',units:'mm',hakoUnits:'model_mm'}; if(b.padType==='rect'){Object.assign(seed,{widthMm:b.widthMm,depthMm:b.depthMm,footprint:{type:'rect',widthMm:b.widthMm,depthMm:b.depthMm,rotationDeg:b.rotationDeg||0}});} else {const xs=b.pointsMm.map(p=>p.x),ys=b.pointsMm.map(p=>p.y); Object.assign(seed,{footprint:{type:'polygon',pointsMm:b.pointsMm},boundingRectMm:{widthMm:Math.max(...xs)-Math.min(...xs),depthMm:Math.max(...ys)-Math.min(...ys)},warning:'Polygon footprints should be refined with HakoMachi shape editor/cut lines if arbitrary polygon cores are not yet supported.'});} seed.linkedHakoConfig=b.hakoConfig||null; return seed;}
+  function makeSeed(b){normalizeBuilding(b); syncBuildingMetrics(b); const seed={source:'HakoMachi Site Planner',version:1,buildingId:b.id,name:b.name,padType:b.padType,category:b.category,state:b.state||'notStarted',hakoFileId:b.hakoFileId||null,rotationDeg:b.rotationDeg||0,notes:b.notes||'',units:'mm',hakoUnits:'model_mm'}; if(b.padType==='rect'){Object.assign(seed,{widthMm:b.widthMm,depthMm:b.depthMm,footprint:{type:'rect',widthMm:b.widthMm,depthMm:b.depthMm,rotationDeg:b.rotationDeg||0}});} else {const xs=b.pointsMm.map(p=>p.x),ys=b.pointsMm.map(p=>p.y); Object.assign(seed,{footprint:{type:'polygon',pointsMm:b.pointsMm},boundingRectMm:{widthMm:Math.max(...xs)-Math.min(...xs),depthMm:Math.max(...ys)-Math.min(...ys)},warning:'Polygon footprints should be refined with HakoMachi shape editor/cut lines if arbitrary polygon cores are not yet supported.'});} seed.linkedHakoConfig=b.hakoConfig||null; return seed;}
   function isNearSquare(w,h){const m=Math.max(w,h); return m>0 && Math.abs(w-h)/m<0.06;}
   function signedSquareCorner(start,end){const dx=end.x-start.x, dy=end.y-start.y; const side=Math.max(Math.abs(dx),Math.abs(dy),4); return {x:start.x+(dx<0?-side:side), y:start.y+(dy<0?-side:side)};}
   function addRectFromDrag(start,end,shift){
     let p2=end;
     let w=Math.abs(p2.x-start.x), h=Math.abs(p2.y-start.y);
     if(shift || isNearSquare(w,h)){p2=signedSquareCorner(start,end); w=Math.abs(p2.x-start.x); h=Math.abs(p2.y-start.y);}
-    const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'rect',x:(start.x+p2.x)/2,y:(start.y+p2.y)/2,widthPx:Math.max(4,w),depthPx:Math.max(4,h),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,notes:'',hakoConfig:null};
+    const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'rect',x:(start.x+p2.x)/2,y:(start.y+p2.y)/2,widthPx:Math.max(4,w),depthPx:Math.max(4,h),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,state:'notStarted',notes:'',hakoConfig:null,hakoFile:null,hakoFileId:null};
     syncBuildingMetrics(b); return b;
   }
   function resizeRectFromCorner(b, orig, cornerIndex, worldPoint, square){
@@ -1543,7 +1641,7 @@
   });
   canvas.addEventListener('wheel', e=>{e.preventDefault(); const r=canvas.getBoundingClientRect(); const mouse={x:e.clientX-r.left,y:e.clientY-r.top}; const before=screenToWorld(e); const factor=e.deltaY<0?1.1:.9; state.view.scale=clamp(state.view.scale*factor,.05,20); state.view.x=mouse.x-before.x*state.view.scale; state.view.y=mouse.y-before.y*state.view.scale; draw();},{passive:false});
   window.addEventListener('keydown', e=>{if(e.target.matches('input,textarea,select')) return; if(e.key==='Enter'&&state.tool==='polygon') finishPolygon(); if(e.key==='Backspace'&&state.tool==='polygon'&&state.polygonDraft.length){state.polygonDraft.pop(); draw(); return;} if(e.key==='Escape'){hideContextMenu(); state.hoverPreview=null; state.selectedAnnotationId=null; renderSelected(); draw();} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedAnnotationId){e.preventDefault(); deleteSelectedAnnotation(); return;} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedStreetlightId){e.preventDefault(); deleteSelectedStreetlight(); return;} if(e.key==='Delete'&&selected()){state.buildings=state.buildings.filter(b=>b.id!==state.selectedId); state.selectedId=null; syncAll();}});
-  function finishPolygon(){if(state.polygonDraft.length<3) return; const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'polygon',pointsPx:state.polygonDraft.slice(),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,notes:'',hakoConfig:null}; syncBuildingMetrics(b); state.buildings.push(b); state.selectedId=b.id; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.polygonDraft=[]; syncAll();}
+  function finishPolygon(){if(state.polygonDraft.length<3) return; const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'polygon',pointsPx:state.polygonDraft.slice(),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,state:'notStarted',notes:'',hakoConfig:null,hakoFile:null,hakoFileId:null}; syncBuildingMetrics(b); state.buildings.push(b); state.selectedId=b.id; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.polygonDraft=[]; syncAll();}
   function setActiveTool(tool){
     document.querySelectorAll('.toolbtn').forEach(b=>b.classList.toggle('active', b.dataset.tool===tool));
     state.tool=tool; state.drag=null; hideToolFlyouts(); draw();
@@ -1603,6 +1701,7 @@
       state.image=img;
       state.imageMeta={
         name:file.name,
+        mimeType:file.type || (dataUrl && (dataUrl.match(/^data:([^;]+);/)||[])[1]) || 'application/octet-stream',
         dataUrl:dataUrl,
         objectUrlUsed:true,
         naturalWidthPx:img.naturalWidth||img.width,
@@ -1614,6 +1713,7 @@
       fitImage();
       syncAll();
       setImageStatus(`Loaded ${file.name} (${state.imageMeta.naturalWidthPx} × ${state.imageMeta.naturalHeightPx}px).`, 'okText');
+      updateImagePortableStatus();
       console.info('[HakoMachi Site Planner] image loaded', state.imageMeta);
     }catch(err){
       console.error('[HakoMachi Site Planner] image import failed', err);
@@ -1682,6 +1782,7 @@
     state.pinch=null;
     $('opacity').value='0.75';
     $('imageLockBtn').textContent='Locked';
+    updateImagePortableStatus();
     $('imageFile').value='';
     $('loadFile').value='';
     document.querySelectorAll('.toolbtn').forEach(b=>b.classList.toggle('active', b.dataset.tool==='select'));
@@ -1763,7 +1864,15 @@
   if($('mobileCsvBtn')) $('mobileCsvBtn').onclick=()=>download(csvExport(),'hakomachi-building-pads.csv','text/csv');
   if($('mobileSeedBtn')) $('mobileSeedBtn').onclick=exportSelectedSeed;
   $('openHakoBtn').onclick=()=>{const b=selected(); if(!b)return alert('Select a building first.'); const seed=makeSeed(b); localStorage.setItem('hakomachiSitePlannerSeed',JSON.stringify(seed)); window.open('../index.html#sitePlannerSeed','_blank');};
-  function projectJson(){return makeProjectPayload();}
+  function projectJson(){
+    const payload=makeProjectPayload({includeImageDataUrl:true});
+    if(payload.image?.dataUrl){
+      updateImagePortableStatus(`Portable save: embedded original ${payload.image.naturalWidthPx||'?'} × ${payload.image.naturalHeightPx||'?'} px image (${formatBytes(payload.image.dataUrlByteLength||0)}).`);
+    } else if(state.imageMeta){
+      updateImagePortableStatus('Portable save warning: no embedded image data. Re-import the image before sharing this file.');
+    }
+    return payload;
+  }
   function loadProject(p, opts={}){
     autosaveSuppressed=true;
     state.image=null;
@@ -1774,7 +1883,7 @@
     state.pxPerMm=p.scale?.pxPerMm||null;
     state.calibrationLine=p.scale?.calibrationLine||null;
     state.lastCalibrationLine=state.calibrationLine;
-    state.buildings=p.buildings||[];
+    state.buildings=(p.buildings||[]).map(normalizeBuilding);
     state.streetlights=(p.streetlights||[]).map(normalizeStreetlight);
     state.annotations=p.annotations||[];
     state.selectedId=null;
@@ -1784,10 +1893,41 @@
     if($('imageLockBtn')) $('imageLockBtn').textContent=state.imageLocked?'Locked':'Unlocked';
     if(state.imageMeta?.dataUrl){
       const img=new Image();
-      img.onload=()=>{state.image=img; if(!p.view) fitImage(); syncAll({skipDirty:true}); autosaveSuppressed=false;};
-      img.onerror=()=>{autosaveSuppressed=false; syncAll({skipDirty:true});};
+      img.onload=()=>{
+        state.image=img;
+        const loadedW=img.naturalWidth||img.width;
+        const loadedH=img.naturalHeight||img.height;
+        const savedW=state.imageMeta.naturalWidthPx;
+        const savedH=state.imageMeta.naturalHeightPx;
+        if(savedW && savedH && (loadedW!==savedW || loadedH!==savedH)){
+          setImageStatus(`Loaded image, but pixel size changed: saved ${savedW} × ${savedH}px, loaded ${loadedW} × ${loadedH}px. Measurements may be offset.`, 'warning');
+          updateImagePortableStatus('Portable image warning: loaded pixel dimensions do not match saved metadata.');
+        } else {
+          setImageStatus(`Loaded embedded image ${loadedW} × ${loadedH}px. Pixel dimensions verified.`, 'okText');
+          state.imageMeta.naturalWidthPx=loadedW;
+          state.imageMeta.naturalHeightPx=loadedH;
+          state.imageMeta.pixelDimensionsVerifiedOnLoad=true;
+          updateImagePortableStatus();
+        }
+        if(!p.view) fitImage();
+        syncAll({skipDirty:true});
+        autosaveSuppressed=false;
+      };
+      img.onerror=()=>{
+        setImageStatus('Project loaded, but the embedded image could not be decoded.', 'warning');
+        updateImagePortableStatus('Portable image error: embedded image could not be decoded.');
+        autosaveSuppressed=false;
+        syncAll({skipDirty:true});
+      };
       img.src=state.imageMeta.dataUrl;
     } else {
+      if(state.imageMeta){
+        setImageStatus('Project loaded without embedded image data. Re-import the original image to see the reference layer.', 'warning');
+        updateImagePortableStatus('Portable save warning: this project has image metadata but no embedded image data.');
+      } else {
+        setImageStatus('No image loaded.', 'muted');
+        updateImagePortableStatus();
+      }
       syncAll({skipDirty:true});
       autosaveSuppressed=false;
     }
@@ -1796,7 +1936,7 @@
     updateAutosaveStatus(opts.fromAutosave?'Autosave: restored':'Autosave: loaded');
     setTimeout(()=>updateAutosaveStatus(), 1200);
   }
-  function csvExport(){syncAll(); const rows=[['id','name','type','category','widthMm','depthMm','areaMm2','rotationDeg','notes']]; state.buildings.forEach(b=>rows.push([b.id,b.name,b.padType,b.category,b.widthMm||'',b.depthMm||'',b.derived?.areaMm2||'',b.rotationDeg||0,b.notes||''])); return rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\n');}
+  function csvExport(){syncAll(); const rows=[['id','name','state','type','category','widthMm','depthMm','areaMm2','rotationDeg','hakoFile','notes']]; state.buildings.forEach(raw=>{const b=normalizeBuilding(raw); rows.push([b.id,b.name,b.state,b.padType,b.category,b.widthMm||'',b.depthMm||'',b.derived?.areaMm2||'',b.rotationDeg||0,b.hakoFile?.fileName||'',b.notes||'']);}); return rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\n');}
   function svgExport(){syncAll(); const w=state.image?.width||1200,h=state.image?.height||800; const img=state.imageMeta?.dataUrl?`<image href="${state.imageMeta.dataUrl}" x="0" y="0" width="${w}" height="${h}" opacity="${state.imageOpacity}"/>`:''; const notes=state.annotations.map(st=>`<polyline points="${(st.points||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="${st.color||'#6f4326'}" stroke-width="${st.baseWidth||2.2}" stroke-linecap="round" stroke-linejoin="round"/>`).join('\n'); const lights=state.streetlights.map(l=>{normalizeStreetlight(l); const r=(state.pxPerMm?mmToPx((l.mode==='anchored'?(l.anchor?.mountMode==='roadEdgeBulbMount'?(l.anchor?.bulbMountDiameterMm||3):(l.anchor?.cutHoleDiameterMm||1.2)):(l.poleDiameterMm||.45))/2):3); return `<circle cx="${l.x}" cy="${l.y}" r="${Math.max(2,r)}" fill="${l.color||'#c84a3a'}" stroke="#3a2b1e" stroke-width="1"/><text x="${l.x+5}" y="${l.y-5}" font-size="10" fill="#3a2b1e">${escapeHtml(l.name||'Streetlight')}</text>`;}).join('\n'); const pads=state.buildings.map(b=>{const pts=(b.padType==='rect'?transformedRect(b):b.pointsPx).map(p=>`${p.x},${p.y}`).join(' '); const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(b.pointsPx); return `<polygon points="${pts}" fill="${b.color}33" stroke="${b.color}" stroke-width="3"/><text x="${c.x+5}" y="${c.y-5}" font-size="12" fill="white">${escapeHtml(b.name)}</text>`;}).join('\n'); return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${img}${notes}${pads}${lights}</svg>`;}
   function download(content,name,type){const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([content],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
   function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));} function escapeAttr(s){return escapeHtml(s).replace(/'/g,'&#39;');} function slug(s){return String(s||'building').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'building';}

@@ -1352,6 +1352,66 @@
     }
     return null;
   }
+
+  // Saved Site Planner building footprints are stored in image-pixel space.
+  // Keep this separate from the .hako import point parser, which may read model-mm
+  // footprint fields. A previous duplicate pointsFromAny() declaration caused saved
+  // pointsMm to be preferred over pointsPx on load, making footprints too large and
+  // shifted away from the reference image.
+  function savedBuildingPointsPx(raw){
+    if(!raw) return null;
+    const parsePxPoint = p=>{
+      if(!p) return null;
+      if(Array.isArray(p) && p.length>=2){
+        const x=Number(p[0]), y=Number(p[1]);
+        return Number.isFinite(x)&&Number.isFinite(y)?{x,y}:null;
+      }
+      const x=Number(p.x ?? p.pxX ?? p.xPx ?? p.left);
+      const y=Number(p.y ?? p.pxY ?? p.yPx ?? p.top);
+      return Number.isFinite(x)&&Number.isFinite(y)?{x,y}:null;
+    };
+    const pixelCandidates=[
+      raw.pointsPx,
+      raw.polygonPx,
+      raw.footprint?.pointsPx,
+      raw.footprint?.polygonPx,
+      raw.hakoSeed?.footprint?.pointsPx,
+      raw.hakoSeed?.footprint?.polygonPx
+    ];
+    for(const c of pixelCandidates){
+      if(Array.isArray(c)){
+        const pts=c.map(parsePxPoint).filter(Boolean);
+        if(pts.length>=3) return pts;
+      }
+    }
+    // Only use mm coordinates as a legacy fallback when no pixel-space geometry exists.
+    const parseMmPoint = p=>{
+      if(!p || !state.pxPerMm) return null;
+      if(Array.isArray(p) && p.length>=2){
+        const x=Number(p[0]), y=Number(p[1]);
+        return Number.isFinite(x)&&Number.isFinite(y)?{x:mmToPx(x),y:mmToPx(y)}:null;
+      }
+      const x=Number(p.xMm ?? p.mmX ?? p.modelX ?? p.modelMmX ?? p.x);
+      const y=Number(p.yMm ?? p.mmY ?? p.modelY ?? p.modelMmY ?? p.y);
+      return Number.isFinite(x)&&Number.isFinite(y)?{x:mmToPx(x),y:mmToPx(y)}:null;
+    };
+    const mmCandidates=[
+      raw.pointsMm,
+      raw.polygonMm,
+      raw.footprint?.pointsMm,
+      raw.footprint?.polygonMm,
+      raw.hakoSeed?.footprint?.pointsMm,
+      raw.hakoSeed?.footprint?.polygonMm
+    ];
+    for(const c of mmCandidates){
+      if(Array.isArray(c)){
+        const pts=c.map(parseMmPoint).filter(Boolean);
+        if(pts.length>=3) return pts;
+      }
+    }
+    return null;
+  }
+
   function normalizeLoadedBuilding(raw, index=0){
     if(!raw || typeof raw!=='object') return null;
     const b={...raw};
@@ -1366,7 +1426,7 @@
     b.notes=b.notes || '';
     if(!('hakoFile' in b)) b.hakoFile=b.completedHakoFile || b.hako || null;
 
-    const pts=pointsFromAny(raw);
+    const pts=savedBuildingPointsPx(raw);
     const wantsPolygon = b.padType==='polygon' || raw.type==='polygon' || raw.kind==='BuildingPad' || !!pts;
     if(wantsPolygon && pts){
       b.padType='polygon';
@@ -1787,7 +1847,7 @@
     const includeImageDataUrl = opts.includeImageDataUrl !== false;
     return {
       app:'HakoMachi Site Planner',
-      version:40,
+      version:42,
       savedAt:new Date().toISOString(),
       portableProject:true,
       coordinateSystem:{type:'imagePixels', origin:'topLeft', imageWidthPx:state.image?.naturalWidth||state.image?.width||state.imageMeta?.naturalWidthPx||null, imageHeightPx:state.image?.naturalHeight||state.image?.height||state.imageMeta?.naturalHeightPx||null},

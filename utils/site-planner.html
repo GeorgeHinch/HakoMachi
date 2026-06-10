@@ -1165,7 +1165,7 @@
   const wrap = canvas.parentElement;
   const $ = id => document.getElementById(id);
   const ICONS={
-    road:'<svg viewBox="0 0 24 24"><path d="M6 21c3-5 9-5 12-18"/><path d="M11 21c2-5 7-6 9-17"/><path d="M8.5 20l1-3"/><path d="M12 15l1-3"/><path d="M15 10l1-3"/></svg>',
+    road:'<svg viewBox="0 0 24 24"><path d="M4 19l4-14"/><path d="M16 5l4 14"/><path d="M12 8v-2"/><path d="M12 13v-2"/><path d="M12 18v-2"/></svg>',
     select:'<svg viewBox="0 0 24 24"><path d="M4 3l9 18 2.1-7.1L22 12 4 3z"/></svg>',
     pan:'<svg viewBox="0 0 24 24"><path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12"/><path d="M11 12V5.5a1.5 1.5 0 0 1 3 0V12"/><path d="M14 12V7.5a1.5 1.5 0 0 1 3 0V13"/><path d="M17 13v-2.5a1.5 1.5 0 0 1 3 0V15c0 4-2.4 7-7 7h-1.8c-2.2 0-3.9-.9-5.1-2.5L3 15.5a1.7 1.7 0 0 1 2.6-2.1L8 16"/></svg>',
     ruler:'<svg viewBox="0 0 24 24"><path d="M3 17l14-14 4 4L7 21l-4-4z"/><path d="M14 6l2 2"/><path d="M11 9l2 2"/><path d="M8 12l2 2"/><path d="M5 15l2 2"/></svg>',
@@ -1174,8 +1174,8 @@
     measure:'<svg viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M8 8l-4 4 4 4"/><path d="M16 8l4 4-4 4"/><path d="M4 5v14"/><path d="M20 5v14"/></svg>',
     pencil:'<svg viewBox="0 0 24 24"><path d="M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20z"/><path d="M13.5 7.5l3 3"/></svg>',
     benchwork:'<svg viewBox="0 0 24 24"><path d="M5 5h14v14H5z" stroke-dasharray="3 2"/><path d="M9 3H3v6"/><path d="M15 3h6v6"/><path d="M21 15v6h-6"/><path d="M9 21H3v-6"/></svg>',
-    roadCenterline:'<svg viewBox="0 0 24 24"><path d="M4 19c4-6 12-4 16-14"/><path d="M7 18l1-1"/><path d="M10 15l1-1"/><path d="M13 12l1-1"/><path d="M16 9l1-1"/></svg>',
-    roadOutline:'<svg viewBox="0 0 24 24"><path d="M6 21c3-5 9-5 12-18"/><path d="M11 21c2-5 7-6 9-17"/><path d="M8.5 20l1-3"/><path d="M12 15l1-3"/><path d="M15 10l1-3"/></svg>',
+    roadCenterline:'<svg viewBox="0 0 24 24"><path d="M4 19l4-14"/><path d="M16 5l4 14"/><path d="M12 8v-2"/><path d="M12 13v-2"/><path d="M12 18v-2"/></svg>',
+    roadOutline:'<svg viewBox="0 0 24 24"><path d="M4 19l4-14"/><path d="M16 5l4 14"/><path d="M12 8v-2"/><path d="M12 13v-2"/><path d="M12 18v-2"/></svg>',
     lamp:'<svg viewBox="0 0 24 24"><path d="M7 22h8"/><path d="M11 22V8"/><path d="M11 8h6l2 3"/><path d="M17 8v5"/><path d="M14 13h6"/><path d="M16 16h2"/></svg>',
     lampAnchored:'<svg viewBox="0 0 24 24"><path d="M7 22h8"/><path d="M11 22V8"/><path d="M11 8h6l2 3"/><path d="M17 8v5"/><path d="M14 13h6"/><circle cx="11" cy="22" r="2"/><path d="M4 22h14"/></svg>'
   };
@@ -1297,7 +1297,18 @@
   function polygonArea(pts){let s=0; for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length]; s+=a.x*b.y-b.x*a.y;} return Math.abs(s)/2;}
   function pointInPoly(p, pts){let inside=false; for(let i=0,j=pts.length-1;i<pts.length;j=i++){const a=pts[i],b=pts[j]; if(((a.y>p.y)!=(b.y>p.y))&&(p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)) inside=!inside;} return inside;}
   function pointInBuilding(p,b){if(b.hidden) return false; if(b.padType==='rect'){const l=rectLocal(b,p); return Math.abs(l.x)<=b.widthPx/2 && Math.abs(l.y)<=b.depthPx/2;} return pointInPoly(p,b.pointsPx);}
-  function hitTest(p){for(let i=state.buildings.length-1;i>=0;i--){const b=state.buildings[i]; if(pointInBuilding(p,b)) return b;} return null;}
+  function lockedHitTolerance(pointerType='mouse'){
+    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
+    return (coarse?18:9)/state.view.scale;
+  }
+  function hitBuildingSelectable(p,b,pointerType='mouse'){
+    if(!b || b.hidden) return false;
+    if(!b.locked) return pointInBuilding(p,b);
+    const pts=buildingPoints(b);
+    if(!pts || pts.length<2) return false;
+    return polyEdgeDistance(p,pts) <= lockedHitTolerance(pointerType);
+  }
+  function hitTest(p,pointerType='mouse'){for(let i=state.buildings.length-1;i>=0;i--){const b=state.buildings[i]; if(hitBuildingSelectable(p,b,pointerType)) return b;} return null;}
 
 
   function normalizeBenchworkCurves(bw){
@@ -1404,13 +1415,18 @@
     }
     ctx.restore();
   }
-  function hitBenchwork(p){
+  function hitBenchwork(p,pointerType='mouse'){
     for(let i=state.benchworkOutlines.length-1;i>=0;i--){
       const bw=normalizeBenchworkOutline(state.benchworkOutlines[i]);
       if(bw.hidden) continue;
+      const segmentHit=hitBenchworkSegment(p,bw,pointerType);
+      if(bw.locked){
+        if(segmentHit) return bw;
+        continue;
+      }
       const samples=benchworkSamples(bw);
       if(samples.length>=3 && pointInPoly(p,samples)) return bw;
-      if(hitBenchworkSegment(p,bw)) return bw;
+      if(segmentHit) return bw;
     }
     return null;
   }
@@ -1627,10 +1643,19 @@
     else delete r.endpointConnections[key];
   }
   function selectedRoad(){return state.roads.find(r=>r.id===state.selectedRoadId)||null;}
-  function hitRoad(p){
+  function hitRoad(p,pointerType='mouse'){
     for(let i=state.roads.length-1;i>=0;i--){
       const r=normalizeRoad(state.roads[i]);
       if(r.hidden) continue;
+      if(r.locked){
+        const tol=lockedHitTolerance(pointerType);
+        if(hitRoadPoint(p,r,pointerType) || hitRoadCenterlineSegment(p,r,pointerType)) return r;
+        if((r.roadPolygonPx||[]).length>=2 && polyEdgeDistance(p,r.roadPolygonPx)<=tol) return r;
+        for(const sw of (r.sidewalkPolygonsPx||[])){
+          if((sw.polygon||[]).length>=2 && polyEdgeDistance(p, sw.polygon)<=tol) return r;
+        }
+        continue;
+      }
       if(pointInPoly(p, r.roadPolygonPx||[])) return r;
       for(const sw of (r.sidewalkPolygonsPx||[])) if(pointInPoly(p, sw.polygon||[])) return r;
     }
@@ -3292,6 +3317,77 @@
     state.view.y=(cy-r.top)-state.pinch.world.y*state.view.scale;
     return true;
   }
+
+  function hasActivePointDraft(){
+    return (state.roadDraft && state.roadDraft.length) || (state.benchworkDraft && state.benchworkDraft.length) || (state.polygonDraft && state.polygonDraft.length);
+  }
+  function startExistingObjectInteraction(e,p){
+    if(hasActivePointDraft()) return false;
+    beginLongPress(e,p);
+    const lightHit=hitStreetlight(p,e.pointerType);
+    if(lightHit){
+      state.selectedStreetlightId=lightHit.id;
+      state.selectedRoadId=null; state.selectedBenchworkId=null; clearBuildingSelection(); state.selectedAnnotationId=null;
+      renderList(); renderRoads(); renderStreetlights(); renderSelected(); updateHandoff(); draw();
+      if(!lightHit.locked) state.drag={type:'moveStreetlight',pointerId:e.pointerId,start:p,orig:structuredClone(lightHit)};
+      return true;
+    }
+    const roadPointHit=state.selectedRoadId ? hitRoadPoint(p, selectedRoad(), e.pointerType) : null;
+    if(roadPointHit){ const r=selectedRoad(); if(r&&!r.locked){ state.drag={type:'roadPoint',pointerId:e.pointerId,start:p,orig:structuredClone(r),pointIndex:roadPointHit.index}; } return true; }
+    const roadCurveHit=state.selectedRoadId ? hitRoadCenterlineSegment(p, selectedRoad(), e.pointerType) : null;
+    if(roadCurveHit){ const r=selectedRoad(); if(r&&!r.locked){ state.drag={type:'roadCurve',pointerId:e.pointerId,start:p,orig:structuredClone(r),segmentIndex:roadCurveHit.index}; } return true; }
+    const roadHit=hitRoad(p,e.pointerType);
+    if(roadHit){
+      state.selectedRoadId=roadHit.id;
+      clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null;
+      renderRoads(); renderList(); renderStreetlights(); renderSelected(); draw();
+      if(!roadHit.locked) state.drag={type:'moveRoad',pointerId:e.pointerId,start:p,orig:structuredClone(roadHit)};
+      return true;
+    }
+    const benchCurveHit=state.selectedBenchworkId ? hitBenchworkSegment(p, selectedBenchwork(), e.pointerType) : null;
+    if(benchCurveHit){ const bw=selectedBenchwork(); if(bw&&!bw.locked){ state.drag={type:'benchworkCurve',pointerId:e.pointerId,start:p,orig:structuredClone(bw),segmentIndex:benchCurveHit.index}; } return true; }
+    const benchHit=hitBenchwork(p,e.pointerType);
+    if(benchHit){
+      clearBuildingSelection(); state.selectedRoadId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedBenchworkId=benchHit.id;
+      renderList(); renderRoads(); renderStreetlights(); renderSelected(); draw();
+      if(!benchHit.locked) state.drag={type:'moveBenchwork',pointerId:e.pointerId,start:p,orig:structuredClone(benchHit)};
+      return true;
+    }
+    const note=hitAnnotation(p,e.pointerType);
+    if(note){
+      state.selectedAnnotationId=note.id;
+      state.selectedId=null; state.selectedStreetlightId=null; state.selectedRoadId=null; state.selectedBenchworkId=null;
+      renderList(); renderSelected(); updateHandoff(); draw();
+      return true;
+    }
+    const b=selected();
+    const h=handleAt(p,b,e.pointerType);
+    if(h){
+      const drag={type:h.type,pointerId:e.pointerId,index:h.index,start:p,orig:structuredClone(b)};
+      if(h.type==='rotate'){
+        drag.center=buildingCenter(b);
+        drag.startAngle=Math.atan2(p.y-drag.center.y,p.x-drag.center.x);
+        drag.origRotation=Number(b.rotationDeg)||0;
+      }
+      state.drag=drag;
+      return true;
+    }
+    const hit=hitTest(p,e.pointerType);
+    if(hit){
+      state.selectedRoadId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null;
+      if(e.shiftKey || e.metaKey || e.ctrlKey){ toggleBuildingSelection(hit.id); renderList(); renderSelected(); updateHandoff(); draw(); return true; }
+      const already=isBuildingSelected(hit.id);
+      if(!already) setBuildingSelection([hit.id], hit.id);
+      renderList(); renderSelected(); updateHandoff();
+      const ids=currentSelectedBuildingIds();
+      const origs=ids.map(id=>state.buildings.find(x=>x.id===id)).filter(Boolean).map(x=>structuredClone(x));
+      state.drag={type:ids.length>1?'moveMany':'move',pointerId:e.pointerId,start:p,orig:structuredClone(hit),origs};
+      draw();
+      return true;
+    }
+    return false;
+  }
+
   canvas.addEventListener('pointerdown', e=>{
     e.preventDefault(); hideContextMenu();
     canvas.setPointerCapture(e.pointerId);
@@ -3308,6 +3404,10 @@
     if(e.pointerType==='touch' && startPinchIfNeeded()) return;
     const p=screenToWorld(e); const b=selected();
     if(state.tool==='pan' || !isGeometryPointer(e)){startPanFromPointer(e); return;}
+    // Existing objects should remain editable regardless of the active drawing tool.
+    // Drawing a new object only starts from empty canvas space. Active point-drafts
+    // (polygon/road/benchwork) keep their click-to-add behavior until finished.
+    if(startExistingObjectInteraction(e,p)) return;
     if(state.tool==='calibrate'||state.tool==='measure'){state.drag={type:state.tool,pointerId:e.pointerId,start:p,end:p}; return;}
     if(state.tool==='annotate'){startAnnotationStroke(e,p); return;}
     if(state.tool==='benchwork'){
@@ -3317,7 +3417,7 @@
         if(bw && !bw.locked){ state.drag={type:'benchworkCurve',pointerId:e.pointerId,start:p,orig:structuredClone(bw),segmentIndex:selectedBenchCurveHit.index}; }
         return;
       }
-      const existingBenchHit=!state.benchworkDraft.length ? hitBenchwork(p) : null;
+      const existingBenchHit=!state.benchworkDraft.length ? hitBenchwork(p,e.pointerType) : null;
       if(existingBenchHit){
         clearBuildingSelection(); state.selectedRoadId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedBenchworkId=existingBenchHit.id;
         renderRoads(); renderList(); renderStreetlights(); renderSelected(); draw();
@@ -3329,7 +3429,7 @@
       draw(); return;
     }
     if(state.tool==='road'){
-      const existingRoadHit=hitRoad(p);
+      const existingRoadHit=hitRoad(p,e.pointerType);
       // Point handles must win over segment curve handles. Otherwise clicking an endpoint
       // can be interpreted as grabbing the adjacent segment and forcing a bend.
       const selectedPointHit=state.selectedRoadId ? hitRoadPoint(p, selectedRoad(), e.pointerType) : null;
@@ -3379,13 +3479,13 @@
       if(lightHit){state.selectedStreetlightId=lightHit.id; state.selectedRoadId=null; clearBuildingSelection(); state.selectedAnnotationId=null; renderList(); renderRoads(); renderStreetlights(); renderSelected(); updateHandoff(); draw(); if(!lightHit.locked) state.drag={type:'moveStreetlight',pointerId:e.pointerId,start:p,orig:structuredClone(lightHit)}; return;}
       const benchCurveHit=state.selectedBenchworkId ? hitBenchworkSegment(p, selectedBenchwork(), e.pointerType) : null;
       if(benchCurveHit){ const bw=selectedBenchwork(); if(bw&&!bw.locked){ state.drag={type:'benchworkCurve',pointerId:e.pointerId,start:p,orig:structuredClone(bw),segmentIndex:benchCurveHit.index}; return; } }
-      const benchHit=hitBenchwork(p);
+      const benchHit=hitBenchwork(p,e.pointerType);
       if(benchHit){clearBuildingSelection(); state.selectedRoadId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedBenchworkId=benchHit.id; renderList(); renderRoads(); renderStreetlights(); renderSelected(); draw(); if(!benchHit.locked) state.drag={type:'moveBenchwork',pointerId:e.pointerId,start:p,orig:structuredClone(benchHit)}; return;}
       const roadPointHit=state.selectedRoadId ? hitRoadPoint(p, selectedRoad(), e.pointerType) : null;
       if(roadPointHit){ const r=selectedRoad(); if(r&&!r.locked){ state.drag={type:'roadPoint',pointerId:e.pointerId,start:p,orig:structuredClone(r),pointIndex:roadPointHit.index}; return; } }
       const roadCurveHit=state.selectedRoadId ? hitRoadCenterlineSegment(p, selectedRoad(), e.pointerType) : null;
       if(roadCurveHit){ const r=selectedRoad(); if(r&&!r.locked){ state.drag={type:'roadCurve',pointerId:e.pointerId,start:p,orig:structuredClone(r),segmentIndex:roadCurveHit.index}; return; } }
-      const roadHit=hitRoad(p);
+      const roadHit=hitRoad(p,e.pointerType);
       if(roadHit){state.selectedRoadId=roadHit.id; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null; renderRoads(); renderList(); renderStreetlights(); renderSelected(); draw(); if(!roadHit.locked) state.drag={type:'moveRoad',pointerId:e.pointerId,start:p,orig:structuredClone(roadHit)}; return;}
       const note=hitAnnotation(p,e.pointerType);
       if(note){
@@ -3405,7 +3505,7 @@
         state.drag=drag;
         return;
       }
-      const hit=hitTest(p);
+      const hit=hitTest(p,e.pointerType);
       if(hit){
         if(e.shiftKey || e.metaKey || e.ctrlKey){ toggleBuildingSelection(hit.id); renderList(); renderSelected(); updateHandoff(); draw(); return; }
         const already=isBuildingSelected(hit.id);

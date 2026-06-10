@@ -30545,8 +30545,7 @@ function weOnMouseDown(e) {
   }
 
   function onUp() {
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
+    if (cleanupDrag) cleanupDrag();
     _weDragState = null;
     regenerate();
   }
@@ -31109,6 +31108,8 @@ let oePanStartScroll = null;    // {l, t} = container.scrollLeft / scrollTop at 
 let oeSpaceDown   = false;
 let oeCustomSizes = {};         // { styleKey: { w, h } } — per-style size overrides
 let oeToolboxSearch = '';       // live filter for the opening-editor object toolbox
+let oeMobilePanMode = false;      // iPad/touch fallback for canvas panning without a keyboard
+let oeLastPointerType = 'mouse';    // last pointer kind: mouse | pen | touch
 
 /* =====================================================================
    OPENING EDITOR MODULE FACADES
@@ -31820,10 +31821,7 @@ function oeToolboxPopulateImpl() {
       wInp.classList.remove('oe-custom'); hInp.classList.remove('oe-custom');
       resetBtn.style.visibility = 'hidden';
     });
-    card.addEventListener('mousedown', e => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-      e.preventDefault(); oeToolboxDragStart(e, 'window', key);
-    });
+    oeAddToolboxDragHandlers(card, 'window', key);
     return card;
   }
 
@@ -31880,10 +31878,7 @@ function oeToolboxPopulateImpl() {
       wInp.classList.remove('oe-custom'); hInp.classList.remove('oe-custom');
       resetBtn.style.visibility = 'hidden';
     });
-    card.addEventListener('mousedown', e => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-      e.preventDefault(); oeToolboxDragStart(e, 'door', key);
-    });
+    oeAddToolboxDragHandlers(card, 'door', key);
     return card;
   }
 
@@ -31954,10 +31949,7 @@ function oeToolboxPopulateImpl() {
       wInp.classList.remove('oe-custom'); if (!isFullHeight) hInp.classList.remove('oe-custom');
       resetBtn.style.visibility = 'hidden';
     });
-    card.addEventListener('mousedown', e => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-      e.preventDefault(); oeToolboxDragStart(e, 'fixture', key);
-    });
+    oeAddToolboxDragHandlers(card, 'fixture', key);
     return card;
   }
 
@@ -32022,10 +32014,7 @@ function oeToolboxPopulateImpl() {
       wInp.classList.remove('oe-custom'); dInp.classList.remove('oe-custom');
       resetBtn.style.visibility = 'hidden';
     });
-    card.addEventListener('mousedown', e => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-      e.preventDefault(); oeToolboxDragStart(e, 'awning', key);
-    });
+    oeAddToolboxDragHandlers(card, 'awning', key);
     return card;
   }
 
@@ -32101,10 +32090,7 @@ function oeToolboxPopulateImpl() {
       [wInp,dInp,hInp].forEach(el=>el.classList.remove('oe-custom'));
       resetBtn.style.visibility='hidden';
     });
-    card.addEventListener('mousedown', e => {
-      if (e.target.tagName==='INPUT'||e.target.tagName==='BUTTON') return;
-      e.preventDefault(); oeToolboxDragStart(e, 'balcony', key);
-    });
+    oeAddToolboxDragHandlers(card, 'balcony', key);
     return card;
   }
 
@@ -32174,10 +32160,7 @@ function oeToolboxPopulateImpl() {
       resetBtn.style.visibility = 'hidden';
     });
 
-    card.addEventListener('mousedown', e => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-      e.preventDefault(); oeToolboxDragStart(e, 'cladding_override', key);
-    });
+    oeAddToolboxDragHandlers(card, 'cladding_override', key);
     return card;
   }
 
@@ -32235,10 +32218,7 @@ function oeToolboxPopulateImpl() {
       wInp.classList.remove('oe-custom'); hInp.classList.remove('oe-custom');
       resetBtn.style.visibility = 'hidden';
     });
-    card.addEventListener('mousedown', e => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-      e.preventDefault(); oeToolboxDragStart(e, 'printed_item', key);
-    });
+    oeAddToolboxDragHandlers(card, 'printed_item', key);
     return card;
   }
 
@@ -32319,10 +32299,7 @@ function oeToolboxPopulateImpl() {
       resetBtn.style.visibility = 'hidden';
     });
 
-    card.addEventListener('mousedown', e => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-      e.preventDefault(); oeToolboxDragStart(e, 'bay', key);
-    });
+    oeAddToolboxDragHandlers(card, 'bay', key);
     return card;
   }
 
@@ -32378,6 +32355,28 @@ function oeToolboxPopulateImpl() {
 }
 
 /* ---- Drag from toolbox ---- */
+
+
+function oeAddToolboxDragHandlers(card, type, styleKey) {
+  if (!card) return;
+  card.style.touchAction = 'none';
+  card.addEventListener('pointerdown', e => {
+    oeLastPointerType = e.pointerType || 'mouse';
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+    if (window.PointerEvent) {
+      e.preventDefault();
+      oeToolboxDragStart(e, type, styleKey);
+    }
+  });
+  card.addEventListener('mousedown', e => {
+    // When Pointer Events exist, pointerdown is the canonical path and
+    // this compatibility mouse event would create a duplicate ghost.
+    if (window.PointerEvent) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+    e.preventDefault();
+    oeToolboxDragStart(e, type, styleKey);
+  });
+}
 
 function oeToolboxDragStartImpl(e, type, styleKey) {
   // Compute opening dims at drag-start time so they're fixed for this drag
@@ -32451,8 +32450,7 @@ function oeToolboxDragStartImpl(e, type, styleKey) {
   };
 
   const onUp = me => {
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
+    if (cleanupDrag) cleanupDrag();
     ghost.remove();
     svg.style.outline = '';
 
@@ -32466,8 +32464,7 @@ function oeToolboxDragStartImpl(e, type, styleKey) {
     oeDropOpening(type, dims, mmX, mmY, styleKey);
   };
 
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
+  const cleanupDrag = oeBeginDocumentDrag(e, onMove, onUp);
 }
 
 /* Snap a door to the bottom of whichever floor band the probe Y falls in.
@@ -32906,6 +32903,21 @@ function oeTopbarPopulateImpl() {
     oeShowExposureZones
   );
   label('Exposure');
+
+  btn(
+    'oeMobilePanBtn',
+    'Pan',
+    'Touch/Pencil pan mode. Turn on when you want one-finger/Pencil drag to move the canvas instead of editing openings.',
+    () => {
+      oeMobilePanMode = !oeMobilePanMode;
+      oePopulateTopbar();
+      oeRender();
+    },
+    false,
+    oeMobilePanMode
+  );
+  label('iPad');
+
 
   // ---- Sync floating action bar button states ----
   const eraseBtn = document.getElementById('oeEraseBtn');
@@ -34512,12 +34524,14 @@ function oeCanvasRenderImpl() {
       ['se', rx + rw, ry + rh, 'nwse-resize'],
     ];
     let out = '';
+    const grip = oeIsTouchLikeEditor() ? 14 : 8;
+    const gripHalf = grip / 2;
     for (const [corner, hx, hy, cur] of corners) {
       // Bays: the bottom edge is locked to y=H, so SW/SE corners can only
       // change width. Use ew-resize cursor to communicate that.
       const cursor = (opType === 'bay' && (corner === 'sw' || corner === 'se')) ? 'ew-resize' : cur;
-      out += `<rect x="${(hx - 4).toFixed(1)}" y="${(hy - 4).toFixed(1)}" width="8" height="8"`
-           + ` fill="#f70" stroke="white" stroke-width="1" rx="1"`
+      out += `<rect x="${(hx - gripHalf).toFixed(1)}" y="${(hy - gripHalf).toFixed(1)}" width="${grip}" height="${grip}"`
+           + ` fill="#f70" stroke="white" stroke-width="1" rx="2"`
            + ` data-oe-handle="${corner}" data-oe-idx="${opIdx}" style="cursor:${cursor}"/>`;
     }
     return out;
@@ -35233,7 +35247,16 @@ function oeCanvasRenderImpl() {
   }
 
   svg.innerHTML = html;
-  svg.onmousedown = oeMouseDown;
+  svg.style.touchAction = 'none';
+  svg.style.webkitUserSelect = 'none';
+  svg.style.userSelect = 'none';
+  if (window.PointerEvent) {
+    svg.onpointerdown = oeCanvasPointerDownImpl;
+    svg.onmousedown = null;
+  } else {
+    svg.onpointerdown = null;
+    svg.onmousedown = oeMouseDown;
+  }
   svg.onclick = oeClick;
   svg.onwheel = (e) => {
     e.preventDefault();
@@ -35513,6 +35536,93 @@ function generateBuildingLayoutReferencePart(cfg, mainPlan) {
 
 function oeRenderFootprintMap() {
   renderBuildingFootprintMap(document.getElementById('oeFootprintSvg'), oeWall);
+}
+
+
+
+/* ---- iPad / Apple Pencil pointer support ----
+ * The original editor was mouse-only: mousedown created document-level
+ * mousemove/mouseup drags. iPadOS/Safari and Apple Pencil deliver Pointer
+ * Events instead, so active drags are now bound through this small adapter.
+ * Mouse behavior remains unchanged as a fallback on older browsers.
+ */
+function oeIsTouchLikeEditor() {
+  return oeLastPointerType === 'touch' || oeLastPointerType === 'pen' ||
+         (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+}
+
+function oeBeginDocumentDrag(sourceEvent, onMove, onUp, options = {}) {
+  const usePointer = !!(sourceEvent && sourceEvent.type && sourceEvent.type.indexOf('pointer') === 0 && window.PointerEvent);
+  const capture = !!options.capture;
+  let cleaned = false;
+
+  function cleanup() {
+    if (cleaned) return;
+    cleaned = true;
+    if (usePointer) {
+      document.removeEventListener('pointermove', move, capture);
+      document.removeEventListener('pointerup', up, capture);
+      document.removeEventListener('pointercancel', up, capture);
+      const svg = document.getElementById('openingEditorSvg');
+      try { if (svg && sourceEvent.pointerId != null) svg.releasePointerCapture(sourceEvent.pointerId); } catch (err) {}
+    } else {
+      document.removeEventListener('mousemove', move, capture);
+      document.removeEventListener('mouseup', up, capture);
+    }
+  }
+
+  function move(ev) {
+    if (usePointer && sourceEvent.pointerId != null && ev.pointerId !== sourceEvent.pointerId) return;
+    if (ev.cancelable) ev.preventDefault();
+    onMove(ev);
+  }
+
+  function up(ev) {
+    if (usePointer && sourceEvent.pointerId != null && ev.pointerId !== sourceEvent.pointerId) return;
+    if (ev && ev.cancelable) ev.preventDefault();
+    cleanup();
+    onUp(ev || sourceEvent);
+  }
+
+  if (usePointer) {
+    const svg = document.getElementById('openingEditorSvg');
+    try { if (svg && sourceEvent.pointerId != null) svg.setPointerCapture(sourceEvent.pointerId); } catch (err) {}
+    document.addEventListener('pointermove', move, { capture, passive: false });
+    document.addEventListener('pointerup', up, { capture, passive: false });
+    document.addEventListener('pointercancel', up, { capture, passive: false });
+  } else {
+    document.addEventListener('mousemove', move, capture);
+    document.addEventListener('mouseup', up, capture);
+  }
+
+  return cleanup;
+}
+
+function oeCanvasPointerDownImpl(e) {
+  oeLastPointerType = e.pointerType || 'mouse';
+
+  // On iPad, a hardware keyboard is not guaranteed. Pan mode provides the
+  // equivalent of holding Space while dragging: useful when zoomed in and
+  // editing with Pencil or a finger.
+  const previousSpaceDown = oeSpaceDown;
+  if (oeMobilePanMode) oeSpaceDown = true;
+
+  // Prevent page scrolling / text selection while the Pencil/finger is
+  // editing the SVG. Mouse users keep the normal desktop behavior.
+  if ((e.pointerType === 'pen' || e.pointerType === 'touch') && e.cancelable) {
+    e.preventDefault();
+  }
+
+  try {
+    const svg = document.getElementById('openingEditorSvg');
+    if (svg && e.pointerId != null) svg.setPointerCapture(e.pointerId);
+  } catch (err) {}
+
+  try {
+    oeMouseDown(e);
+  } finally {
+    oeSpaceDown = previousSpaceDown;
+  }
 }
 
 
@@ -35825,13 +35935,11 @@ function oeCanvasMouseDownImpl(e) {
       oePanning = false;
       oePanStartPx = null;
       oePanStartScroll = null;
-      document.removeEventListener('mousemove', move, true);
-      document.removeEventListener('mouseup',   up, true);
+      if (cleanupDrag) cleanupDrag();
       const svg = document.getElementById('openingEditorSvg');
       if (svg) svg.style.cursor = oeSpaceDown ? 'grab' : 'crosshair';
     }
-    document.addEventListener('mousemove', move, true);
-    document.addEventListener('mouseup',   up, true);
+    const cleanupDrag = oeBeginDocumentDrag(e, move, up, { capture: true });
     return;
   }
   if (e.button !== 0) return;
@@ -35930,8 +36038,7 @@ function oeCanvasMouseDownImpl(e) {
         doResize(pt.x, pt.y);
       }
       function onUp() {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
+        if (cleanupDrag) cleanupDrag();
         // Through-bay resize: mirror the new w/h/x to the linked partner
         // on the opposing wall before commit so the two stay in lock-step.
         if (isBay && op.style === 'through') oeSyncLinkedBayPartner(op, oeWall);
@@ -35947,8 +36054,7 @@ function oeCanvasMouseDownImpl(e) {
       // visible during the drag.
       oeSelectedSet = new Set([idx]);
       oeRender();
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+      const cleanupDrag = oeBeginDocumentDrag(e, onMove, onUp);
       return;
     }
   }
@@ -35974,8 +36080,7 @@ function oeCanvasMouseDownImpl(e) {
       oeRender();
     }
     function onRBUp(me) {
-      document.removeEventListener('mousemove', onRBMove);
-      document.removeEventListener('mouseup', onRBUp);
+      if (cleanupDrag) cleanupDrag();
       const rb = _oeRubberBand;
       _oeRubberBand = null;
       if (_oeDragMoved) {
@@ -35994,8 +36099,7 @@ function oeCanvasMouseDownImpl(e) {
       }
       oeRender();
     }
-    document.addEventListener('mousemove', onRBMove);
-    document.addEventListener('mouseup', onRBUp);
+    const cleanupDrag = oeBeginDocumentDrag(e, onRBMove, onRBUp);
     return;
   }
 
@@ -36082,8 +36186,7 @@ function oeCanvasMouseDownImpl(e) {
     }
     setTimeout(() => { _oeDragMoved = false; }, 0);
   }
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
+  const cleanupDrag = oeBeginDocumentDrag(e, onMove, onUp);
   oeRender();
 }
 

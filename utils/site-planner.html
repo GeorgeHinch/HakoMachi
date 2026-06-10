@@ -810,7 +810,7 @@
   <div class="toolbar" aria-label="Drawing tools">
     <button class="toolbtn active" data-tool="select" aria-label="Select" title="Select"><span class="toolIcon">↖</span><span class="toolLabel">Select</span></button>
     <button class="toolbtn" data-tool="pan" aria-label="Pan" title="Pan"><span class="toolIcon">✋</span><span class="toolLabel">Pan</span></button>
-    <button class="toolbtn" data-tool="calibrate" aria-label="Scale calibration" title="Scale calibration"><span class="toolIcon">📏</span><span class="toolLabel">Scale</span></button>
+    <button class="toolbtn" data-tool="calibrate" aria-label="Calibration" title="Calibration"><span class="toolIcon">📏</span><span class="toolLabel">Calibrate</span></button>
     <button class="toolbtn" data-tool="rect" aria-label="Rectangle pad" title="Rectangle pad"><span class="toolIcon">▭</span><span class="toolLabel">Rect Pad</span></button>
     <button class="toolbtn" data-tool="polygon" aria-label="Polygon pad" title="Polygon pad"><span class="toolIcon">⬟</span><span class="toolLabel">Polygon</span></button>
     <button class="toolbtn" data-tool="measure" aria-label="Measure" title="Measure"><span class="toolIcon">⟷</span><span class="toolLabel">Measure</span></button>
@@ -835,19 +835,20 @@
       </select>
       <div class="buttons" style="margin-top:8px">
         <button id="snapBtn" title="On-screen replacement for holding Shift on iPad">Snap: Off</button>
+        <button id="deleteAnnotationBtn" title="Delete the selected annotation stroke" disabled>Delete Selected Note</button>
         <button id="clearAnnotationsBtn" title="Clear freehand annotation strokes">Clear Notes</button>
       </div>
       <div class="small muted" style="margin-top:8px">Recommended for iPad: Apple Pencil draws/edits pads, one finger pans, two fingers pinch-zoom. Snap replaces the keyboard Shift key. Use Annotate for pressure-aware Pencil markup that does not affect building geometry.</div>
     </div>
     <div class="section">
-      <h3>Scale Calibration</h3>
+      <h3>Calibration</h3>
       <div id="scaleStatus" class="small warning">Not calibrated. Draw a calibration line.</div>
       <div class="row3">
         <div><label>Known value</label><input id="knownValue" type="number" step="0.01" value="100"></div>
-        <div><label>Unit</label><select id="knownUnit"><option value="model_mm">model mm</option><option value="model_in">model inches</option><option value="real_mm">real mm</option><option value="real_m">real meters</option><option value="real_ft">real feet</option></select></div>
-        <div><label>Scale</label><input id="modelScale" type="number" step="1" value="150"></div>
+        <div><label>Unit</label><select id="knownUnit"><option value="mm">mm</option><option value="in">inches</option><option value="source_mm">source mm ÷ scale</option><option value="source_m">source meters ÷ scale</option><option value="source_ft">source feet ÷ scale</option></select></div>
+        <div><label>Source scale divisor</label><input id="modelScale" type="number" step="1" value="150"></div>
       </div>
-      <div class="small muted">For real-world dimensions, model mm = real mm ÷ scale.</div>
+      <div class="small muted">All pad dimensions are physical output millimeters. Use the “source … ÷ scale” units only when calibrating from a full-size/reference plan.</div>
       <div class="buttons" style="margin-top:8px"><button id="applyScaleBtn" class="ok">Apply Last Line</button><button id="clearScaleBtn">Clear</button></div>
     </div>
     <div class="section">
@@ -865,7 +866,7 @@
       <div id="handoffPreview" class="codebox" style="margin-top:8px"></div>
     </div>
   </aside>
-  <div class="bottom"><span id="statusTool">Tool: Select</span><span id="statusScale">Scale: uncalibrated</span><span id="statusZoom">Zoom: 100%</span><span id="statusMouse">Mouse: —</span><span id="statusHint">Tip: import an image, draw a Scale line, then trace pads.</span></div>
+  <div class="bottom"><span id="statusTool">Tool: Select</span><span id="statusScale">Calibration: unset</span><span id="statusZoom">Zoom: 100%</span><span id="statusMouse">Mouse: —</span><span id="statusHint">Tip: import an image, draw a calibration line, then trace pads.</span></div>
 </div>
 <script>
 (() => {
@@ -877,7 +878,7 @@
     tool:'select', image:null, imageMeta:null, imageOpacity:.75, imageLocked:true,
     view:{x:0,y:0,scale:1}, pxPerMm:null, calibrationLine:null, lastCalibrationLine:null,
     buildings:[], selectedId:null, drag:null, hover:null, polygonDraft:[], measureLine:null, projectName:'hakomachi-site',
-    inputMode:'penDrawFingerPan', snapOn:false, pointers:new Map(), pinch:null, annotations:[], hoverPreview:null, longPress:null, contextTarget:null, sidebarOpen:false
+    inputMode:'penDrawFingerPan', snapOn:false, pointers:new Map(), pinch:null, annotations:[], selectedAnnotationId:null, hoverPreview:null, longPress:null, contextTarget:null, sidebarOpen:false
   };
   const colors = ['#d79631','#b8672d','#0f766e','#7c5f3f','#8b5a2b','#5f7f54','#9b6b44','#496a78'];
   const uid = p => p + '_' + Math.random().toString(36).slice(2,9);
@@ -904,19 +905,19 @@
   function worldToScreen(p){return {x:p.x*state.view.scale+state.view.x,y:p.y*state.view.scale+state.view.y};}
   function mmToPx(mm){return state.pxPerMm? mm*state.pxPerMm : mm;}
   function pxToMm(px){return state.pxPerMm? px/state.pxPerMm : px;}
-  function modelKnownMm(){let v=parseFloat($('knownValue').value)||0; const unit=$('knownUnit').value; const sc=parseFloat($('modelScale').value)||150; if(unit==='model_mm') return v; if(unit==='model_in') return v*25.4; if(unit==='real_mm') return v/sc; if(unit==='real_m') return v*1000/sc; if(unit==='real_ft') return v*304.8/sc; return v;}
+  function modelKnownMm(){let v=parseFloat($('knownValue').value)||0; const unit=$('knownUnit').value; const sc=parseFloat($('modelScale').value)||150; if(unit==='mm'||unit==='model_mm') return v; if(unit==='in'||unit==='model_in') return v*25.4; if(unit==='source_mm'||unit==='real_mm') return v/sc; if(unit==='source_m'||unit==='real_m') return v*1000/sc; if(unit==='source_ft'||unit==='real_ft') return v*304.8/sc; return v;}
   function updateStatus(){
     $('statusTool').textContent='Tool: '+state.tool;
     $('statusZoom').textContent='Zoom: '+Math.round(state.view.scale*100)+'%';
-    $('statusScale').textContent=state.pxPerMm ? `Scale: ${fmt(state.pxPerMm)} px/mm` : 'Scale: uncalibrated';
+    $('statusScale').textContent=state.pxPerMm ? `Calibration: ${fmt(state.pxPerMm)} px/mm` : 'Calibration: unset';
     $('scaleStatus').className='small '+(state.pxPerMm?'okText':'warning');
-    $('scaleStatus').textContent=state.pxPerMm ? `Calibrated: ${fmt(state.pxPerMm)} px/model mm` : 'Not calibrated. Draw a calibration line.';
+    $('scaleStatus').textContent=state.pxPerMm ? `Calibrated: ${fmt(state.pxPerMm)} px/mm` : 'Not calibrated. Draw a calibration line.';
     const h=[];
     if(!state.image) h.push('Import a reference image first.');
-    if(!state.pxPerMm) h.push('Draw a Scale line over a known dimension, enter its value, then Apply Last Line.');
+    if(!state.pxPerMm) h.push('Draw a calibration line over a known physical output dimension, enter its value in mm or inches, then Apply Last Line.');
     if(state.tool==='polygon') h.push('Click points. Click near first point or press Enter to close. Backspace removes last point.');
     if(state.tool==='rect') h.push('Drag from one corner to the opposite corner to create a rectangle. Hold Shift or turn Snap on to force square/angle snapping. Near-square drags also snap.');
-    if(state.tool==='select') h.push('Drag pads to move. Drag corner handles to resize. Pencil edits geometry; finger pans when Pencil mode is active. Long-press a pad or point for edit actions.');
+    if(state.tool==='select') h.push('Drag pads to move. Drag corner handles to resize. Tap annotation strokes to select them; press Delete/Backspace or use Delete Selected Note to remove. Pencil edits geometry; finger pans when Pencil mode is active. Long-press a pad, point, or note for edit actions.');
     if(state.tool==='annotate') h.push('Annotate mode: draw freehand notes with Pencil/mouse. Pencil pressure changes stroke width when supported. Notes export with the site project but do not affect HakoSeed geometry.');
     $('hint').textContent=h.join(' ');
   }
@@ -931,6 +932,37 @@
     const pts=transformedRect(b); for(let i=0;i<pts.length;i++) if(dist(p,pts[i])<s) return {type:'rectCorner', index:i};
     const topMid={x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2}; const a=rad(b.rotationDeg-90); const rot={x:topMid.x+Math.cos(a)*24/state.view.scale,y:topMid.y+Math.sin(a)*24/state.view.scale}; if(dist(p,rot)<s*1.25) return {type:'rotate'}; return null;
   }
+  function distanceToSegment(p,a,b){
+    const vx=b.x-a.x, vy=b.y-a.y;
+    const len2=vx*vx+vy*vy;
+    if(len2<=1e-9) return dist(p,a);
+    const t=clamp(((p.x-a.x)*vx+(p.y-a.y)*vy)/len2,0,1);
+    return Math.hypot(p.x-(a.x+vx*t),p.y-(a.y+vy*t));
+  }
+  function hitAnnotation(p,pointerType='mouse'){
+    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
+    const tol=(coarse?18:9)/state.view.scale;
+    for(let si=state.annotations.length-1; si>=0; si--){
+      const st=state.annotations[si], pts=st.points||[];
+      if(pts.length<2) continue;
+      for(let i=1;i<pts.length;i++){
+        const a=pts[i-1], b=pts[i];
+        const pr=((a.pressure||.5)+(b.pressure||.5))/2;
+        const visual=((st.baseWidth||2.2)*(0.55+pr*1.45))/state.view.scale;
+        if(distanceToSegment(p,a,b) <= tol + visual/2) return st;
+      }
+    }
+    return null;
+  }
+  function selectedAnnotation(){return state.annotations.find(st=>st.id===state.selectedAnnotationId)||null;}
+  function deleteSelectedAnnotation(){
+    if(!state.selectedAnnotationId) return false;
+    const before=state.annotations.length;
+    state.annotations=state.annotations.filter(st=>st.id!==state.selectedAnnotationId);
+    state.selectedAnnotationId=null;
+    if(before!==state.annotations.length){renderSelected(); draw(); return true;}
+    return false;
+  }
   function selected(){return state.buildings.find(b=>b.id===state.selectedId)||null;}
   function syncBuildingMetrics(b){ if(!state.pxPerMm) return b; if(b.padType==='rect'){b.widthMm=pxToMm(b.widthPx); b.depthMm=pxToMm(b.depthPx); b.pointsPx=transformedRect(b); b.pointsMm=b.pointsPx.map(p=>({x:pxToMm(p.x),y:pxToMm(p.y)}));} else {b.pointsMm=b.pointsPx.map(p=>({x:pxToMm(p.x),y:pxToMm(p.y)})); b.derived={areaMm2:pxToMm(Math.sqrt(polygonArea(b.pointsPx)))**2, boundingWidthMm:pxToMm(Math.max(...b.pointsPx.map(p=>p.x))-Math.min(...b.pointsPx.map(p=>p.x))), boundingDepthMm:pxToMm(Math.max(...b.pointsPx.map(p=>p.y))-Math.min(...b.pointsPx.map(p=>p.y))), rotationDeg:b.rotationDeg||0};} return b; }
   function syncAll(){state.buildings.forEach(syncBuildingMetrics); renderList(); renderSelected(); updateHandoff(); draw();}
@@ -943,6 +975,18 @@
   function showContextMenu(screenX,screenY,target){
     const m=$('contextMenu'); if(!m) return;
     state.contextTarget=target;
+    if(target?.annotation){
+      m.innerHTML=`
+        <button data-action="deleteAnnotation" class="dangerItem">Delete Annotation</button>
+      `;
+      m.querySelectorAll('button').forEach(btn=>btn.onclick=()=>handleContextAction(btn.dataset.action));
+      m.style.display='block';
+      const wrapRect=wrap.getBoundingClientRect();
+      const mw=m.offsetWidth||190, mh=m.offsetHeight||80;
+      m.style.left=clamp(screenX-wrapRect.left,8,wrapRect.width-mw-8)+'px';
+      m.style.top=clamp(screenY-wrapRect.top,8,wrapRect.height-mh-8)+'px';
+      return;
+    }
     const b=target?.building;
     const hasPolyPoint=target?.handle?.type==='polyPoint';
     m.innerHTML=`
@@ -959,6 +1003,8 @@
     m.style.top=clamp(screenY-wrapRect.top,8,wrapRect.height-mh-8)+'px';
   }
   function contextTargetAt(worldPoint,pointerType='pen'){
+    const note=hitAnnotation(worldPoint,pointerType);
+    if(note) return {annotation:note,point:worldPoint};
     const b=selected() || hitTest(worldPoint);
     if(!b) return null;
     const h=handleAt(worldPoint,b,pointerType);
@@ -966,6 +1012,11 @@
   }
   function handleContextAction(action){
     const t=state.contextTarget, b=t?.building;
+    if(action==='deleteAnnotation' && t?.annotation){
+      state.annotations=state.annotations.filter(st=>st.id!==t.annotation.id);
+      if(state.selectedAnnotationId===t.annotation.id) state.selectedAnnotationId=null;
+      hideContextMenu(); renderSelected(); draw(); return;
+    }
     if(!b) return hideContextMenu();
     if(action==='lock'){b.locked=!b.locked;}
     if(action==='convert' && b.padType==='rect') convertRectToPoly(b);
@@ -1000,6 +1051,7 @@
     const pressure=(e.pressure && e.pressure>0 ? e.pressure : .5);
     const stroke={id:uid('note'),points:[{x:p.x,y:p.y,pressure}],color:'#6f4326',baseWidth:2.2};
     state.annotations.push(stroke);
+    state.selectedAnnotationId=stroke.id; state.selectedId=null; renderList(); renderSelected();
     state.drag={type:'annotate',pointerId:e.pointerId,strokeId:stroke.id};
   }
   function addAnnotationPoint(e,p){
@@ -1012,6 +1064,16 @@
     ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
     state.annotations.forEach(st=>{
       const pts=st.points||[]; if(pts.length<2) return;
+      const selected=st.id===state.selectedAnnotationId;
+      if(selected){
+        ctx.strokeStyle='rgba(200,74,58,.55)';
+        for(let i=1;i<pts.length;i++){
+          const a=pts[i-1], b=pts[i];
+          const pr=((a.pressure||.5)+(b.pressure||.5))/2;
+          ctx.lineWidth=((st.baseWidth||2.2)*(0.55+pr*1.45)+8)/state.view.scale;
+          ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+        }
+      }
       ctx.strokeStyle=st.color||'#6f4326';
       for(let i=1;i<pts.length;i++){
         const a=pts[i-1], b=pts[i];
@@ -1040,8 +1102,8 @@
   function drawLine(line,color,label){ if(!line) return; ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=3/state.view.scale; ctx.beginPath();ctx.moveTo(line.x1,line.y1);ctx.lineTo(line.x2,line.y2);ctx.stroke(); ctx.fillStyle=color; [{x:line.x1,y:line.y1},{x:line.x2,y:line.y2}].forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()}); if(label) drawLabel(label,{x:(line.x1+line.x2)/2,y:(line.y1+line.y2)/2}); ctx.restore();}
   function draw(){const r=canvas.getBoundingClientRect(); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.buildings.forEach(drawBuilding); if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview) drawBuilding(state.drag.preview); drawHoverPreview(); ctx.restore(); updateStatus();}
   function fitImage(){const r=canvas.getBoundingClientRect(); if(!state.image){state.view={x:r.width/2,y:r.height/2,scale:1}; draw(); return;} const s=Math.min(r.width/state.image.width,r.height/state.image.height)*.9; state.view.scale=s; state.view.x=(r.width-state.image.width*s)/2; state.view.y=(r.height-state.image.height*s)/2; draw();}
-  function renderList(){const box=$('buildingList'); box.innerHTML=''; if(!state.buildings.length){box.innerHTML='<div class="small muted">No building pads yet.</div>'; return;} state.buildings.forEach(b=>{const el=document.createElement('div'); el.className='buildingItem '+(b.id===state.selectedId?'selected':''); el.innerHTML=`<span class="swatch" style="background:${b.color}"></span><div><b>${escapeHtml(b.name||'Building')}</b><br><span class="small muted">${b.padType}${b.hidden?' · hidden':''}${b.locked?' · locked':''}</span></div><span class="pill">${b.padType==='rect'?`${fmt(b.widthMm)}×${fmt(b.depthMm)}`:fmt(b.derived?.areaMm2||0)+' mm²'}</span>`; el.onclick=()=>{state.selectedId=b.id; renderList(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});}
-  function renderSelected(){const b=selected(), box=$('selectedPanel'); if(!b){box.innerHTML='No building selected.'; return;} syncBuildingMetrics(b); box.innerHTML=`
+  function renderList(){const box=$('buildingList'); box.innerHTML=''; if(!state.buildings.length){box.innerHTML='<div class="small muted">No building pads yet.</div>'; return;} state.buildings.forEach(b=>{const el=document.createElement('div'); el.className='buildingItem '+(b.id===state.selectedId?'selected':''); el.innerHTML=`<span class="swatch" style="background:${b.color}"></span><div><b>${escapeHtml(b.name||'Building')}</b><br><span class="small muted">${b.padType}${b.hidden?' · hidden':''}${b.locked?' · locked':''}</span></div><span class="pill">${b.padType==='rect'?`${fmt(b.widthMm)}×${fmt(b.depthMm)}`:fmt(b.derived?.areaMm2||0)+' mm²'}</span>`; el.onclick=()=>{state.selectedId=b.id; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});}
+  function renderSelected(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); if(!b){if(note){const pts=note.points||[]; box.innerHTML=`<b>Annotation selected</b><br><span class="small muted">${pts.length} points</span><div class="buttons" style="margin-top:8px"><button id="delNoteB" class="danger">Delete Annotation</button></div>`; const del=$('delNoteB'); if(del) del.onclick=deleteSelectedAnnotation;} else box.innerHTML='No building selected.'; const btn=$('deleteAnnotationBtn'); if(btn) btn.disabled=!note; return;} if($('deleteAnnotationBtn')) $('deleteAnnotationBtn').disabled=true; syncBuildingMetrics(b); box.innerHTML=`
     <label>Name</label><input id="selName" value="${escapeAttr(b.name||'')}">
     <div class="row"><div><label>Category</label><input id="selCat" value="${escapeAttr(b.category||'industrial')}"></div><div><label>Color</label><input id="selColor" type="color" value="${b.color||'#d79631'}"></div></div>
     <div class="row"><div><label>Rotation °</label><input id="selRot" type="number" step="0.1" value="${fmt(b.rotationDeg||0)}"></div><div><label>Type</label><input value="${b.padType}" disabled></div></div>
@@ -1056,7 +1118,7 @@
     const poly=$('polyB'); if(poly) poly.onclick=()=>{b.padType='polygon'; b.pointsPx=transformedRect(b); delete b.widthPx; delete b.depthPx; syncAll();};
   }
   function updateHandoff(){const b=selected(); $('handoffPreview').textContent=b? JSON.stringify(makeSeed(b),null,2):'';}
-  function makeSeed(b){syncBuildingMetrics(b); const seed={source:'HakoMachi Site Planner',version:1,buildingId:b.id,name:b.name,padType:b.padType,category:b.category,rotationDeg:b.rotationDeg||0,notes:b.notes||'',units:'model_mm'}; if(b.padType==='rect'){Object.assign(seed,{widthMm:b.widthMm,depthMm:b.depthMm,footprint:{type:'rect',widthMm:b.widthMm,depthMm:b.depthMm,rotationDeg:b.rotationDeg||0}});} else {const xs=b.pointsMm.map(p=>p.x),ys=b.pointsMm.map(p=>p.y); Object.assign(seed,{footprint:{type:'polygon',pointsMm:b.pointsMm},boundingRectMm:{widthMm:Math.max(...xs)-Math.min(...xs),depthMm:Math.max(...ys)-Math.min(...ys)},warning:'Polygon footprints should be refined with HakoMachi shape editor/cut lines if arbitrary polygon cores are not yet supported.'});} seed.linkedHakoConfig=b.hakoConfig||null; return seed;}
+  function makeSeed(b){syncBuildingMetrics(b); const seed={source:'HakoMachi Site Planner',version:1,buildingId:b.id,name:b.name,padType:b.padType,category:b.category,rotationDeg:b.rotationDeg||0,notes:b.notes||'',units:'mm',hakoUnits:'model_mm'}; if(b.padType==='rect'){Object.assign(seed,{widthMm:b.widthMm,depthMm:b.depthMm,footprint:{type:'rect',widthMm:b.widthMm,depthMm:b.depthMm,rotationDeg:b.rotationDeg||0}});} else {const xs=b.pointsMm.map(p=>p.x),ys=b.pointsMm.map(p=>p.y); Object.assign(seed,{footprint:{type:'polygon',pointsMm:b.pointsMm},boundingRectMm:{widthMm:Math.max(...xs)-Math.min(...xs),depthMm:Math.max(...ys)-Math.min(...ys)},warning:'Polygon footprints should be refined with HakoMachi shape editor/cut lines if arbitrary polygon cores are not yet supported.'});} seed.linkedHakoConfig=b.hakoConfig||null; return seed;}
   function isNearSquare(w,h){const m=Math.max(w,h); return m>0 && Math.abs(w-h)/m<0.06;}
   function signedSquareCorner(start,end){const dx=end.x-start.x, dy=end.y-start.y; const side=Math.max(Math.abs(dx),Math.abs(dy),4); return {x:start.x+(dx<0?-side:side), y:start.y+(dy<0?-side:side)};}
   function addRectFromDrag(start,end,shift){
@@ -1130,11 +1192,18 @@
     }
     if(state.tool==='select'){
       beginLongPress(e,p);
+      const note=hitAnnotation(p,e.pointerType);
+      if(note){
+        state.selectedAnnotationId=note.id;
+        state.selectedId=null;
+        renderList(); renderSelected(); updateHandoff(); draw();
+        return;
+      }
       const h=handleAt(p,b,e.pointerType);
       if(h){state.drag={type:h.type,pointerId:e.pointerId,index:h.index,start:p,orig:structuredClone(b)}; return;}
       const hit=hitTest(p);
-      if(hit){state.selectedId=hit.id; renderList(); renderSelected(); updateHandoff(); state.drag={type:'move',pointerId:e.pointerId,start:p,orig:structuredClone(hit)};}
-      else {state.selectedId=null; renderList(); renderSelected(); updateHandoff();}
+      if(hit){state.selectedId=hit.id; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); state.drag={type:'move',pointerId:e.pointerId,start:p,orig:structuredClone(hit)};}
+      else {state.selectedId=null; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff();}
       draw();
     }
   }, {passive:false});
@@ -1171,7 +1240,7 @@
     if(!state.drag)return;
     if(state.drag.pointerId!==undefined && state.drag.pointerId!==e.pointerId) return;
     const d=state.drag;
-    if(d.type==='rect'&&d.preview){state.buildings.push(d.preview); state.selectedId=d.preview.id; renderList(); renderSelected(); updateHandoff();}
+    if(d.type==='rect'&&d.preview){state.buildings.push(d.preview); state.selectedId=d.preview.id; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff();}
     state.drag=null; syncAll();
   }
   canvas.addEventListener('pointerup', finishPointer);
@@ -1179,11 +1248,12 @@
   canvas.addEventListener('contextmenu', e=>{
     e.preventDefault(); hideContextMenu();
     const p=screenToWorld(e); const target=contextTargetAt(p,'mouse');
-    if(target){state.selectedId=target.building.id; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
+    if(target?.annotation){state.selectedAnnotationId=target.annotation.id; state.selectedId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
+    else if(target?.building){state.selectedId=target.building.id; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
   });
   canvas.addEventListener('wheel', e=>{e.preventDefault(); const r=canvas.getBoundingClientRect(); const mouse={x:e.clientX-r.left,y:e.clientY-r.top}; const before=screenToWorld(e); const factor=e.deltaY<0?1.1:.9; state.view.scale=clamp(state.view.scale*factor,.05,20); state.view.x=mouse.x-before.x*state.view.scale; state.view.y=mouse.y-before.y*state.view.scale; draw();},{passive:false});
-  window.addEventListener('keydown', e=>{if(e.target.matches('input,textarea')) return; if(e.key==='Enter'&&state.tool==='polygon') finishPolygon(); if(e.key==='Backspace'&&state.tool==='polygon'){state.polygonDraft.pop(); draw();} if(e.key==='Escape'){hideContextMenu(); state.hoverPreview=null; draw();} if(e.key==='Delete'&&selected()){state.buildings=state.buildings.filter(b=>b.id!==state.selectedId); state.selectedId=null; syncAll();}});
-  function finishPolygon(){if(state.polygonDraft.length<3) return; const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'polygon',pointsPx:state.polygonDraft.slice(),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,notes:'',hakoConfig:null}; syncBuildingMetrics(b); state.buildings.push(b); state.selectedId=b.id; state.polygonDraft=[]; syncAll();}
+  window.addEventListener('keydown', e=>{if(e.target.matches('input,textarea,select')) return; if(e.key==='Enter'&&state.tool==='polygon') finishPolygon(); if(e.key==='Backspace'&&state.tool==='polygon'&&state.polygonDraft.length){state.polygonDraft.pop(); draw(); return;} if(e.key==='Escape'){hideContextMenu(); state.hoverPreview=null; state.selectedAnnotationId=null; renderSelected(); draw();} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedAnnotationId){e.preventDefault(); deleteSelectedAnnotation(); return;} if(e.key==='Delete'&&selected()){state.buildings=state.buildings.filter(b=>b.id!==state.selectedId); state.selectedId=null; syncAll();}});
+  function finishPolygon(){if(state.polygonDraft.length<3) return; const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'polygon',pointsPx:state.polygonDraft.slice(),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,notes:'',hakoConfig:null}; syncBuildingMetrics(b); state.buildings.push(b); state.selectedId=b.id; state.selectedAnnotationId=null; state.polygonDraft=[]; syncAll();}
   document.querySelectorAll('.toolbtn').forEach(btn=>btn.onclick=()=>{document.querySelectorAll('.toolbtn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); state.tool=btn.dataset.tool; state.drag=null; draw();});
   function setImageStatus(message, kind='muted'){
     const el=$('imageImportStatus');
@@ -1286,6 +1356,7 @@
     state.polygonDraft=[];
     state.measureLine=null;
     state.annotations=[];
+    state.selectedAnnotationId=null;
     state.hoverPreview=null;
     clearLongPress(); hideContextMenu();
     state.projectName='hakomachi-site';
@@ -1349,7 +1420,8 @@
   }
   $('inputMode').onchange=e=>{state.inputMode=e.target.value; draw();};
   $('snapBtn').onclick=()=>{state.snapOn=!state.snapOn; $('snapBtn').classList.toggle('active', state.snapOn); $('snapBtn').textContent=state.snapOn?'Snap: On':'Snap: Off'; draw();};
-  $('clearAnnotationsBtn').onclick=()=>{if(state.annotations.length && !confirm('Clear all freehand annotation notes?')) return; state.annotations=[]; draw();};
+  $('deleteAnnotationBtn').onclick=deleteSelectedAnnotation;
+  $('clearAnnotationsBtn').onclick=()=>{if(state.annotations.length && !confirm('Clear all freehand annotation notes?')) return; state.annotations=[]; state.selectedAnnotationId=null; renderSelected(); draw();};
   $('fitBtn').onclick=fitImage; $('resetBtn').onclick=()=>{state.view={x:40,y:40,scale:1}; draw();}; $('clearCacheBtn').onclick=clearCacheAndReset; if($('clearCachePanelBtn')) $('clearCachePanelBtn').onclick=clearCacheAndReset;
   $('saveBtn').onclick=()=>download(JSON.stringify(projectJson(),null,2),'hakomachi-site.hako-site.json','application/json');
   $('loadFile').addEventListener('change', e=>{
@@ -1372,7 +1444,7 @@
   if($('mobileSeedBtn')) $('mobileSeedBtn').onclick=exportSelectedSeed;
   $('openHakoBtn').onclick=()=>{const b=selected(); if(!b)return alert('Select a building first.'); const seed=makeSeed(b); localStorage.setItem('hakomachiSitePlannerSeed',JSON.stringify(seed)); window.open('../index.html#sitePlannerSeed','_blank');};
   function projectJson(){syncAll(); return {app:'HakoMachi Site Planner',version:2,createdAt:new Date().toISOString(),image:state.imageMeta,scale:{calibrated:!!state.pxPerMm,pxPerMm:state.pxPerMm,calibrationLine:state.calibrationLine},buildings:state.buildings,annotations:state.annotations};}
-  function loadProject(p){state.image=null; state.imageMeta=p.image||null; state.pxPerMm=p.scale?.pxPerMm||null; state.calibrationLine=p.scale?.calibrationLine||null; state.lastCalibrationLine=state.calibrationLine; state.buildings=p.buildings||[]; state.annotations=p.annotations||[]; state.selectedId=null; if(state.imageMeta?.dataUrl){const img=new Image(); img.onload=()=>{state.image=img; fitImage(); syncAll();}; img.src=state.imageMeta.dataUrl;} syncAll();}
+  function loadProject(p){state.image=null; state.imageMeta=p.image||null; state.pxPerMm=p.scale?.pxPerMm||null; state.calibrationLine=p.scale?.calibrationLine||null; state.lastCalibrationLine=state.calibrationLine; state.buildings=p.buildings||[]; state.annotations=p.annotations||[]; state.selectedId=null; state.selectedAnnotationId=null; if(state.imageMeta?.dataUrl){const img=new Image(); img.onload=()=>{state.image=img; fitImage(); syncAll();}; img.src=state.imageMeta.dataUrl;} syncAll();}
   function csvExport(){syncAll(); const rows=[['id','name','type','category','widthMm','depthMm','areaMm2','rotationDeg','notes']]; state.buildings.forEach(b=>rows.push([b.id,b.name,b.padType,b.category,b.widthMm||'',b.depthMm||'',b.derived?.areaMm2||'',b.rotationDeg||0,b.notes||''])); return rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\n');}
   function svgExport(){syncAll(); const w=state.image?.width||1200,h=state.image?.height||800; const img=state.imageMeta?.dataUrl?`<image href="${state.imageMeta.dataUrl}" x="0" y="0" width="${w}" height="${h}" opacity="${state.imageOpacity}"/>`:''; const notes=state.annotations.map(st=>`<polyline points="${(st.points||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="${st.color||'#6f4326'}" stroke-width="${st.baseWidth||2.2}" stroke-linecap="round" stroke-linejoin="round"/>`).join('\n'); const pads=state.buildings.map(b=>{const pts=(b.padType==='rect'?transformedRect(b):b.pointsPx).map(p=>`${p.x},${p.y}`).join(' '); const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(b.pointsPx); return `<polygon points="${pts}" fill="${b.color}33" stroke="${b.color}" stroke-width="3"/><text x="${c.x+5}" y="${c.y-5}" font-size="12" fill="white">${escapeHtml(b.name)}</text>`;}).join('\n'); return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${img}${notes}${pads}</svg>`;}
   function download(content,name,type){const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([content],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);}

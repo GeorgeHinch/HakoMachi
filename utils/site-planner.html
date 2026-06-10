@@ -54,6 +54,8 @@
   .top button,.top .fileButton,.menuItem{appearance:none;-webkit-appearance:none;background:#4a3828;border:1px solid #745237;color:#fff7ed;box-shadow:none;border-radius:10px;padding:8px 11px;cursor:pointer;min-height:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;font-family:inherit;font-size:14px;font-weight:600;line-height:1.15;text-decoration:none;box-sizing:border-box;margin:0;vertical-align:middle;flex:0 0 auto;width:auto}
   .top button:hover,.top .fileButton:hover,.menuItem:hover{background:#5a422e;border-color:#9b6f45}
   .top button:active,.top .fileButton:active,.menuItem:active{transform:translateY(1px)}
+
+  .top button:disabled,.top button[aria-disabled="true"]{opacity:.46;cursor:not-allowed;transform:none!important}
   .top button.danger,.menuItem.danger{background:#6a332b;border-color:#a76055;color:#fff7ed}
   .top button.danger:hover,.menuItem.danger:hover{background:#7b3d34;border-color:#c1786d}
   .iconBtn{width:38px!important;min-width:38px!important;padding:0!important;font-size:18px!important}
@@ -75,6 +77,7 @@
   .section h3{margin:0 0 8px;font-size:14px;color:#3a2b1e;letter-spacing:.01em}.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.buttons{display:flex;gap:8px;flex-wrap:wrap}.small{font-size:12px;color:#6f5e49}.warning{color:#a75f12;font-weight:700}.okText{color:#2f7042;font-weight:700}.muted{color:var(--muted)}
   .buildingItem{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px;border:1px solid #dec8a7;border-radius:12px;margin-bottom:8px;background:#fffdf7;cursor:pointer;box-shadow:0 1px 0 rgba(255,255,255,.75) inset}
   .buildingItem:hover{border-color:#c89b66;background:#fff7e8}
+  .buildingItem.sidebarHover{border-color:#2a64aa;background:#eef5ff;box-shadow:0 0 0 2px rgba(42,100,170,.12)}
   .buildingItem.selected{border-color:var(--sel);background:#e6f3ee;box-shadow:0 0 0 2px rgba(15,118,110,.12)}.swatch{width:14px;height:14px;border-radius:4px;border:1px solid rgba(52,38,25,.35)}
   .pill{display:inline-block;border:1px solid #d3b994;background:#fffaf0;border-radius:999px;padding:2px 7px;font-size:11px;color:#6b5238;margin-right:4px}.codebox{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;white-space:pre-wrap;max-height:160px;overflow:auto;background:#312318;border:1px solid #6b5139;border-radius:9px;padding:8px;color:#ffe7bd}
   .sidebarToggle{display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);z-index:24;width:38px;height:46px;min-height:46px;padding:0;border-radius:14px 0 0 14px;background:#4a3828;color:#fff7ed;border:1px solid #745237;border-right:0;box-shadow:-3px 3px 12px rgba(47,35,24,.22);font-size:20px;align-items:center;justify-content:center}
@@ -909,6 +912,8 @@
     <input id="loadFile" class="hiddenFile" type="file" accept="application/json,.json,.hako-site.json"/>
     <div class="topActions">
       <label id="imageBtn" class="fileButton" for="imageFile">Import Image</label>
+      <button id="undoBtn" class="iconBtn" title="Undo" aria-label="Undo" disabled>↶</button>
+      <button id="redoBtn" class="iconBtn" title="Redo" aria-label="Redo" disabled>↷</button>
       <button id="saveBtn" class="desktopAction">Save .hako-site.json</button>
       <label id="loadBtn" class="fileButton desktopAction" for="loadFile">Load</label>
       <div class="menuWrap splitExport">
@@ -935,6 +940,8 @@
         <div id="overflowMenu" class="dropdownMenu right">
           <button id="mobileSaveBtn">Save .hako-site.json</button>
           <label id="mobileLoadBtn" class="menuItem" for="loadFile">Load</label>
+          <button id="mobileUndoBtn" disabled>Undo</button>
+          <button id="mobileRedoBtn" disabled>Redo</button>
           <button id="mobileCsvBtn">Export CSV</button>
           <button id="mobileSeedBtn">Export Selected Seed</button>
         </div>
@@ -1040,7 +1047,8 @@
     roads:[], selectedRoadId:null, hoverRoadId:null, roadMode:'centerline', roadDraft:[],
     streetlights:[], selectedStreetlightId:null, hoverStreetlightId:null, streetlightMode:'free',
     footprintClipboard:null, pasteOffsetCount:0,
-    inputMode:'penDrawFingerPan', snapOn:false, pointers:new Map(), pinch:null, annotations:[], selectedAnnotationId:null, hoverPreview:null, longPress:null, contextTarget:null, sidebarOpen:false, autosaveReady:false, autosaveRestored:false, dirty:false, dirtySinceManualSave:false, lastAutosaveAt:null
+    inputMode:'penDrawFingerPan', snapOn:false, pointers:new Map(), pinch:null, annotations:[], selectedAnnotationId:null, hoverPreview:null, longPress:null, contextTarget:null, sidebarOpen:false, autosaveReady:false, autosaveRestored:false, dirty:false, dirtySinceManualSave:false, lastAutosaveAt:null,
+    history:[], historyIndex:-1, historySuppressed:false
   };
   const AUTOSAVE_KEY = 'hakomachiSitePlannerAutosave_v1';
   const AUTOSAVE_META_KEY = 'hakomachiSitePlannerAutosaveMeta_v1';
@@ -1361,6 +1369,10 @@
     if(b.hakoFile && !b.hakoFile.fileName && b.hakoFile.name) b.hakoFile.fileName=b.hakoFile.name;
     if(b.hakoFile && !b.hakoFile.importedAt) b.hakoFile.importedAt=new Date().toISOString();
     if(b.hakoFile) b.hakoFileId=b.hakoFile.fileName || b.hakoFileId || null;
+    if(!Array.isArray(b.hakoTrimLinesMm) && b.hakoConfig){
+      const trim=extractHakoTrimLinesMm(b.hakoConfig);
+      if(trim.length){ b.hakoTrimLinesMm=trim; b.showHakoTrimLines=true; }
+    }
     return b;
   }
   function pointFromAny(raw){
@@ -1635,19 +1647,67 @@
     return rectsToUnionPolygonMm(rects);
   }
 
+  function collectArrayFields(root, paths){
+    const out=[];
+    const read=(obj,path)=>path.reduce((v,k)=>v&&v[k],obj);
+    paths.forEach(path=>{
+      const v=read(root,path);
+      if(Array.isArray(v)) out.push(...v);
+    });
+    return out;
+  }
+  function extractHakoTrimLinesMm(cfg){
+    if(!cfg || typeof cfg!=='object') return [];
+    const cuts=collectArrayFields(cfg,[
+      ['layoutCuts'], ['trimLines'], ['cutLines'], ['shapeCuts'], ['shapeEditor','layoutCuts'],
+      ['shapeEditor','cutLines'], ['geometry','layoutCuts'], ['building','layoutCuts']
+    ]);
+    const items=[];
+    cuts.forEach(c=>{
+      if(!c || c.enabled===false) return;
+      const type=String(c.type||c.kind||'line').toLowerCase();
+      const x1=firstNum(c.x1,c.startX,c.fromX,c.start?.x,c.from?.x);
+      const y1=firstNum(c.y1,c.startY,c.fromY,c.start?.y,c.from?.y);
+      const x2=firstNum(c.x2,c.endX,c.toX,c.end?.x,c.to?.x);
+      const y2=firstNum(c.y2,c.endY,c.toY,c.end?.y,c.to?.y);
+      if(!Number.isFinite(x1)||!Number.isFinite(y1)||!Number.isFinite(x2)||!Number.isFinite(y2)) return;
+      if(type==='arc' || Number.isFinite(Number(c.cx ?? c.centerX ?? c.center?.x))){
+        const cx=firstNum(c.cx,c.centerX,c.center?.x);
+        const cy=firstNum(c.cy,c.centerY,c.center?.y);
+        if(Number.isFinite(cx)&&Number.isFinite(cy)){
+          items.push({type:'arc',x1,y1,x2,y2,cx,cy,bulgeSide:firstNum(c.bulgeSide,c.side,c.direction) ?? 1,label:c.name||c.id||'trim'});
+          return;
+        }
+      }
+      items.push({type:'line',x1,y1,x2,y2,label:c.name||c.id||'trim'});
+    });
+    return items;
+  }
+  function hakoTrimExtentMm(items){
+    if(!items||!items.length) return null;
+    const xs=[], ys=[];
+    items.forEach(it=>{
+      ['x1','x2','cx'].forEach(k=>{ if(Number.isFinite(Number(it[k]))) xs.push(Number(it[k])); });
+      ['y1','y2','cy'].forEach(k=>{ if(Number.isFinite(Number(it[k]))) ys.push(Number(it[k])); });
+    });
+    if(!xs.length||!ys.length) return null;
+    return {minX:Math.min(...xs),maxX:Math.max(...xs),minY:Math.min(...ys),maxY:Math.max(...ys)};
+  }
+
   function deriveFootprintFromHakoConfig(cfg){
     if(!cfg || typeof cfg!=='object') return null;
+    const trimLinesMm=extractHakoTrimLinesMm(cfg);
     const fp=cfg.footprint || cfg.hakoSeed?.footprint || cfg.sitePlannerSeed?.footprint || cfg.seed?.footprint || cfg.building?.footprint;
     const fpPts=pointsFromAny(fp);
-    if(fpPts) return {padType:'polygon', pointsMm:fpPts, source:'explicit footprint'};
+    if(fpPts) return {padType:'polygon', pointsMm:fpPts, source:'explicit footprint', trimLinesMm};
     const directPts=pointsFromAny(cfg.pointsMm||cfg.polygonMm||cfg.polygon||cfg.footprintMm);
-    if(directPts) return {padType:'polygon', pointsMm:directPts, source:'explicit polygon'};
+    if(directPts) return {padType:'polygon', pointsMm:directPts, source:'explicit polygon', trimLinesMm};
     const width=firstNum(cfg.widthMm, cfg.width, cfg.dimensions?.widthMm, cfg.dimensions?.width, cfg.settings?.widthMm, cfg.settings?.width, cfg.building?.widthMm, cfg.building?.width, cfg.hakoSeed?.widthMm, fp?.widthMm, fp?.width);
     const depth=firstNum(cfg.depthMm, cfg.depth, cfg.dimensions?.depthMm, cfg.dimensions?.depth, cfg.settings?.depthMm, cfg.settings?.depth, cfg.building?.depthMm, cfg.building?.depth, cfg.hakoSeed?.depthMm, fp?.depthMm, fp?.depth);
     const compositePts=deriveCompositeHakoFootprintMm(cfg, width, depth);
-    if(compositePts) return {padType:'polygon', pointsMm:compositePts, source:'main + wings'};
-    if(width && depth) return {padType:'rect', widthMm:width, depthMm:depth, source:'main rectangle'};
-    return null;
+    if(compositePts) return {padType:'polygon', pointsMm:compositePts, source:'main + wings', trimLinesMm};
+    if(width && depth) return {padType:'rect', widthMm:width, depthMm:depth, source:'main rectangle', trimLinesMm};
+    return trimLinesMm.length ? {padType:'polygon', pointsMm:null, source:'trim lines only', trimLinesMm} : null;
   }
 
   function createBuildingFromImportedHako(fileName, text, parsed){
@@ -1667,17 +1727,23 @@
       hakoFile:{fileName:fileName||`${slug(baseName)}.hako`,mimeType:'application/json',sizeBytes:text.length,importedAt:new Date().toISOString(),dataText:text,parsedConfig:parsed||null},
       hakoFileId:fileName||`${slug(baseName)}.hako`,
     };
-    if(derived.padType==='polygon'){
+    if(derived.trimLinesMm && derived.trimLinesMm.length){
+      b.hakoTrimLinesMm=derived.trimLinesMm;
+      b.showHakoTrimLines=true;
+    }
+    if(derived.padType==='polygon' && derived.pointsMm){
       const ptsMm=derived.pointsMm;
       const xs=ptsMm.map(p=>p.x), ys=ptsMm.map(p=>p.y);
       const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
       const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
+      b.hakoGeometryOriginMm={x:cx,y:cy};
       b.padType='polygon';
       b.pointsPx=ptsMm.map(p=>({x:center.x+mmToPx(p.x-cx), y:center.y+mmToPx(p.y-cy)}));
       b.rotationDeg=0;
     } else {
       b.padType='rect'; b.x=center.x; b.y=center.y;
-      b.widthPx=mmToPx(derived.widthMm); b.depthPx=mmToPx(derived.depthMm); b.rotationDeg=0;
+      b.widthPx=mmToPx(derived.widthMm||20); b.depthPx=mmToPx(derived.depthMm||20); b.rotationDeg=0;
+      b.hakoGeometryOriginMm={x:(derived.widthMm||20)/2,y:(derived.depthMm||20)/2};
     }
     normalizeBuilding(b); syncBuildingMetrics(b);
     state.buildings.push(b); setBuildingSelection([b.id], b.id);
@@ -1818,6 +1884,105 @@
     if(!opts.skipDirty) markDirty('project change');
   }
 
+
+  function historySnapshot(){
+    return JSON.stringify({
+      imageMeta: state.imageMeta,
+      imageOpacity: state.imageOpacity,
+      imageLocked: state.imageLocked,
+      view: state.view,
+      pxPerMm: state.pxPerMm,
+      calibrationLine: state.calibrationLine,
+      lastCalibrationLine: state.lastCalibrationLine,
+      buildings: state.buildings,
+      roads: state.roads,
+      streetlights: state.streetlights,
+      annotations: state.annotations,
+      selectedId: state.selectedId,
+      selectedIds: state.selectedIds,
+      selectedRoadId: state.selectedRoadId,
+      selectedStreetlightId: state.selectedStreetlightId,
+      selectedAnnotationId: state.selectedAnnotationId,
+      measureLine: state.measureLine
+    });
+  }
+  function updateHistoryButtons(){
+    const canUndo=state.historyIndex>0;
+    const canRedo=state.historyIndex>=0 && state.historyIndex<state.history.length-1;
+    ['undoBtn','mobileUndoBtn'].forEach(id=>{const b=$(id); if(b){b.disabled=!canUndo; b.setAttribute('aria-disabled', String(!canUndo));}});
+    ['redoBtn','mobileRedoBtn'].forEach(id=>{const b=$(id); if(b){b.disabled=!canRedo; b.setAttribute('aria-disabled', String(!canRedo));}});
+  }
+  function pushHistorySnapshot(_label=''){
+    if(state.historySuppressed) return;
+    const snap=historySnapshot();
+    if(state.historyIndex>=0 && state.history[state.historyIndex]===snap){ updateHistoryButtons(); return; }
+    if(state.historyIndex<state.history.length-1) state.history=state.history.slice(0,state.historyIndex+1);
+    state.history.push(snap);
+    const max=80;
+    if(state.history.length>max) state.history.splice(0,state.history.length-max);
+    state.historyIndex=state.history.length-1;
+    updateHistoryButtons();
+  }
+  function resetHistory(_label=''){
+    state.history=[];
+    state.historyIndex=-1;
+    pushHistorySnapshot(_label);
+  }
+  function applyHistorySnapshot(snap){
+    let data;
+    try{ data=JSON.parse(snap); }catch(err){ console.warn('[HakoMachi Site Planner] Could not restore undo state:', err); return; }
+    state.historySuppressed=true;
+    const oldDataUrl=state.imageMeta?.dataUrl || null;
+    const newDataUrl=data.imageMeta?.dataUrl || null;
+    state.imageMeta=data.imageMeta||null;
+    state.imageOpacity=Number.isFinite(Number(data.imageOpacity))?Number(data.imageOpacity):.75;
+    state.imageLocked=data.imageLocked!==false;
+    state.view=data.view||{x:40,y:40,scale:1};
+    state.pxPerMm=data.pxPerMm||null;
+    state.calibrationLine=data.calibrationLine||null;
+    state.lastCalibrationLine=data.lastCalibrationLine||state.calibrationLine||null;
+    state.buildings=Array.isArray(data.buildings)?structuredClone(data.buildings):[];
+    state.roads=Array.isArray(data.roads)?structuredClone(data.roads):[];
+    state.streetlights=Array.isArray(data.streetlights)?structuredClone(data.streetlights):[];
+    state.annotations=Array.isArray(data.annotations)?structuredClone(data.annotations):[];
+    state.selectedId=data.selectedId||null;
+    state.selectedIds=Array.isArray(data.selectedIds)?data.selectedIds.slice():[];
+    state.selectedRoadId=data.selectedRoadId||null;
+    state.selectedStreetlightId=data.selectedStreetlightId||null;
+    state.selectedAnnotationId=data.selectedAnnotationId||null;
+    state.measureLine=data.measureLine||null;
+    if($('opacity')) $('opacity').value=String(state.imageOpacity);
+    if($('imageLockBtn')) $('imageLockBtn').textContent=state.imageLocked?'Locked':'Unlocked';
+    const finish=()=>{
+      syncAll({skipDirty:true});
+      updateImagePortableStatus();
+      markDirty('undo redo');
+      state.historySuppressed=false;
+      updateHistoryButtons();
+    };
+    if(newDataUrl && newDataUrl!==oldDataUrl){
+      const img=new Image();
+      img.onload=()=>{state.image=img; finish();};
+      img.onerror=()=>{state.image=null; setImageStatus('Undo/redo restored image metadata, but the embedded image could not be decoded.', 'warning'); finish();};
+      img.src=newDataUrl;
+    } else {
+      if(!newDataUrl) state.image=null;
+      finish();
+    }
+  }
+  function undo(){
+    if(state.historyIndex<=0) return false;
+    state.historyIndex--;
+    applyHistorySnapshot(state.history[state.historyIndex]);
+    return true;
+  }
+  function redo(){
+    if(state.historyIndex<0 || state.historyIndex>=state.history.length-1) return false;
+    state.historyIndex++;
+    applyHistorySnapshot(state.history[state.historyIndex]);
+    return true;
+  }
+
   function updateAutosaveStatus(message){
     const el=$('statusAutosave');
     if(!el) return;
@@ -1866,6 +2031,7 @@
     }
   }
   function markDirty(_reason=''){
+    if(!state.historySuppressed) pushHistorySnapshot(_reason);
     if(!state.autosaveReady || autosaveSuppressed) return;
     state.dirty=true;
     state.dirtySinceManualSave=true;
@@ -2107,8 +2273,59 @@
     ctx.font=`${13/state.view.scale}px system-ui`; ctx.fillStyle='#0f766e'; ctx.fillText('↻',rot.x-4/state.view.scale,rot.y+5/state.view.scale);
     ctx.restore();
   }
-  function drawBuilding(b){ if(b.hidden) return; syncBuildingMetrics(b); ctx.save(); const isSelected=isBuildingSelected(b.id), isHovered=b.id===state.hoverBuildingId; ctx.lineWidth=(isSelected?4:3)/state.view.scale; ctx.strokeStyle=isSelected?'#0f766e':b.color; ctx.fillStyle=(b.color||'#d79631')+'33'; ctx.beginPath(); const pts=b.padType==='rect'?transformedRect(b):b.pointsPx; pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); ctx.fill(); ctx.stroke();
-    if(isSelected || isHovered){ const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(pts); drawLabel(`${b.name||'Building'} ${b.padType==='rect'&&state.pxPerMm?`${fmt(b.widthMm)}×${fmt(b.depthMm)}mm`:''}`,{x:c.x+6/state.view.scale,y:c.y-6/state.view.scale}); }
+  function hakoLocalMmToWorld(b,p){
+    const c=buildingCenter(b);
+    const origin=b.hakoGeometryOriginMm || {x:0,y:0};
+    const dx=mmToPx(Number(p.x||0)-Number(origin.x||0));
+    const dy=mmToPx(Number(p.y||0)-Number(origin.y||0));
+    const a=rad(Number(b.rotationDeg)||0), ca=Math.cos(a), sa=Math.sin(a);
+    return {x:c.x+dx*ca-dy*sa,y:c.y+dx*sa+dy*ca};
+  }
+  function arcSampleMm(it){
+    const r=Math.hypot(it.x1-it.cx,it.y1-it.cy);
+    if(!Number.isFinite(r)||r<=0) return [{x:it.x1,y:it.y1},{x:it.x2,y:it.y2}];
+    const a1=Math.atan2(it.y1-it.cy,it.x1-it.cx);
+    const a2=Math.atan2(it.y2-it.cy,it.x2-it.cx);
+    let delta=a2-a1;
+    while(delta>Math.PI) delta-=Math.PI*2;
+    while(delta<-Math.PI) delta+=Math.PI*2;
+    const side=Number(it.bulgeSide||1);
+    if(side<0 && delta>0) delta-=Math.PI*2;
+    if(side>0 && delta<0) delta+=Math.PI*2;
+    const steps=Math.max(8,Math.ceil(Math.abs(delta)/(Math.PI/18)));
+    const pts=[];
+    for(let i=0;i<=steps;i++){
+      const a=a1+delta*(i/steps);
+      pts.push({x:it.cx+Math.cos(a)*r,y:it.cy+Math.sin(a)*r});
+    }
+    return pts;
+  }
+  function drawHakoTrimLines(b,strong=false){
+    if(!b || b.showHakoTrimLines===false || !Array.isArray(b.hakoTrimLinesMm) || !b.hakoTrimLinesMm.length || !state.pxPerMm) return;
+    ctx.save();
+    ctx.strokeStyle=strong?'#d95f24':'rgba(217,95,36,.65)';
+    ctx.lineWidth=(strong?2.4:1.6)/state.view.scale;
+    ctx.setLineDash([8/state.view.scale,5/state.view.scale]);
+    b.hakoTrimLinesMm.forEach(it=>{
+      const pts=(it.type==='arc') ? arcSampleMm(it) : [{x:it.x1,y:it.y1},{x:it.x2,y:it.y2}];
+      if(!pts.length) return;
+      ctx.beginPath();
+      pts.forEach((p,i)=>{const q=hakoLocalMmToWorld(b,p); i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);});
+      ctx.stroke();
+      if(strong){
+        const a=hakoLocalMmToWorld(b,pts[0]), z=hakoLocalMmToWorld(b,pts[pts.length-1]);
+        ctx.setLineDash([]);
+        ctx.fillStyle='#d95f24';
+        [a,z].forEach(q=>{ctx.beginPath();ctx.arc(q.x,q.y,3.5/state.view.scale,0,Math.PI*2);ctx.fill();});
+        ctx.setLineDash([8/state.view.scale,5/state.view.scale]);
+      }
+    });
+    ctx.restore();
+  }
+
+  function drawBuilding(b){ if(b.hidden) return; syncBuildingMetrics(b); ctx.save(); const isSelected=isBuildingSelected(b.id), isHovered=b.id===state.hoverBuildingId; ctx.lineWidth=(isSelected?4:(isHovered?4:3))/state.view.scale; ctx.strokeStyle=isSelected?'#0f766e':(isHovered?'#2a64aa':b.color); ctx.fillStyle=isHovered&&!isSelected?'rgba(42,100,170,.18)':((b.color||'#d79631')+'33'); ctx.beginPath(); const pts=b.padType==='rect'?transformedRect(b):b.pointsPx; pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); ctx.fill(); ctx.stroke();
+    if(b.hakoTrimLinesMm && (isSelected || isHovered)) drawHakoTrimLines(b,isSelected);
+    if(isSelected || isHovered){ const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(pts); const trimNote=(b.hakoTrimLinesMm&&b.hakoTrimLinesMm.length)?` · ${b.hakoTrimLinesMm.length} trim line${b.hakoTrimLinesMm.length===1?'':'s'}`:''; drawLabel(`${b.name||'Building'} ${b.padType==='rect'&&state.pxPerMm?`${fmt(b.widthMm)}×${fmt(b.depthMm)}mm`:''}${trimNote}`,{x:c.x+6/state.view.scale,y:c.y-6/state.view.scale}); }
     if(isSelected && currentSelectedBuildingIds().length===1 && !b.locked){ ctx.fillStyle='#0f766e'; pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,5/state.view.scale,0,Math.PI*2);ctx.fill()}); drawRotateAffordance(b,pts); }
     ctx.restore(); }
   function drawLine(line,color,label){ if(!line) return; ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=3/state.view.scale; ctx.beginPath();ctx.moveTo(line.x1,line.y1);ctx.lineTo(line.x2,line.y2);ctx.stroke(); ctx.fillStyle=color; [{x:line.x1,y:line.y1},{x:line.x2,y:line.y2}].forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()}); if(label) drawLabel(label,{x:(line.x1+line.x2)/2,y:(line.y1+line.y2)/2}); ctx.restore();}
@@ -2187,6 +2404,11 @@
         el.className='buildingItem '+(isBuildingSelected(b.id)?'selected':'');
         const hakoBadge=b.hakoFile?'<span class="pill">.hako</span>':'';
         el.innerHTML=`<span class="swatch" style="background:${b.color}"></span><div><b>${escapeHtml(b.name||'Building')}</b><br><span class="small muted">${buildingStateLabel(b.state)} · ${b.padType}${b.hidden?' · hidden':''}${b.locked?' · locked':''}</span></div><span class="pill">${b.padType==='rect'?`${fmt(b.widthMm)}×${fmt(b.depthMm)}`:fmt(b.derived?.areaMm2||0)+' mm²'}</span>${hakoBadge}`;
+        el.onmouseenter=()=>{state.hoverBuildingId=b.id; el.classList.add('sidebarHover'); draw();};
+        el.onmouseleave=()=>{if(state.hoverBuildingId===b.id) state.hoverBuildingId=null; el.classList.remove('sidebarHover'); draw();};
+        el.onfocus=()=>{state.hoverBuildingId=b.id; el.classList.add('sidebarHover'); draw();};
+        el.onblur=()=>{if(state.hoverBuildingId===b.id) state.hoverBuildingId=null; el.classList.remove('sidebarHover'); draw();};
+        el.tabIndex=0;
         el.onclick=(ev)=>{ if(ev.shiftKey || ev.metaKey || ev.ctrlKey) toggleBuildingSelection(b.id); else setBuildingSelection([b.id], b.id); renderList(); renderSelected(); updateHandoff(); draw();};
         box.appendChild(el);
       });
@@ -2564,7 +2786,55 @@
     else if(target?.building){state.selectedId=target.building.id; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
   });
   canvas.addEventListener('wheel', e=>{e.preventDefault(); const r=canvas.getBoundingClientRect(); const mouse={x:e.clientX-r.left,y:e.clientY-r.top}; const before=screenToWorld(e); const factor=e.deltaY<0?1.1:.9; state.view.scale=clamp(state.view.scale*factor,.05,20); state.view.x=mouse.x-before.x*state.view.scale; state.view.y=mouse.y-before.y*state.view.scale; draw();},{passive:false});
-  window.addEventListener('keydown', e=>{if(e.target.matches('input,textarea,select')) return; if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='c'){if(currentSelectedBuildingIds().length){e.preventDefault(); copySelectedFootprint(); renderSelected();} return;} if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='v'){if(state.footprintClipboard){e.preventDefault(); pasteFootprintFromClipboard();} return;} if(e.key==='Enter'&&state.tool==='polygon') finishPolygon(); if(e.key==='Enter'&&state.tool==='road'&&state.roadMode==='outline') finishRoadOutline(); if(e.key==='Backspace'&&state.tool==='polygon'&&state.polygonDraft.length){state.polygonDraft.pop(); draw(); return;} if(e.key==='Escape'){hideContextMenu(); state.hoverPreview=null; state.selectedAnnotationId=null; renderSelected(); draw();} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedAnnotationId){e.preventDefault(); deleteSelectedAnnotation(); return;} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedStreetlightId){e.preventDefault(); deleteSelectedStreetlight(); return;} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedRoadId){e.preventDefault(); deleteSelectedRoad(); return;} if(e.key==='Delete'&&currentSelectedBuildingIds().length){const ids=currentSelectedBuildingIds(); state.buildings=state.buildings.filter(b=>!ids.includes(b.id)); clearBuildingSelection(); syncAll();}});
+  function deleteCurrentSelection(){
+    if(state.selectedAnnotationId){ deleteSelectedAnnotation(); return true; }
+    if(state.selectedStreetlightId){ deleteSelectedStreetlight(); return true; }
+    if(state.selectedRoadId){ deleteSelectedRoad(); return true; }
+    const ids=currentSelectedBuildingIds();
+    if(ids.length){
+      state.buildings=state.buildings.filter(b=>!ids.includes(b.id));
+      clearBuildingSelection();
+      syncAll();
+      return true;
+    }
+    return false;
+  }
+  window.addEventListener('keydown', e=>{
+    const target=e.target;
+    if(target && target.matches && target.matches('input,textarea,select,[contenteditable="true"]')) return;
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){
+      e.preventDefault();
+      if(e.shiftKey) redo(); else undo();
+      return;
+    }
+    if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='y'){
+      e.preventDefault();
+      redo();
+      return;
+    }
+    if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='c'){
+      if(currentSelectedBuildingIds().length){e.preventDefault(); copySelectedFootprint(); renderSelected();}
+      return;
+    }
+    if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='v'){
+      if(state.footprintClipboard){e.preventDefault(); pasteFootprintFromClipboard();}
+      return;
+    }
+    if(e.key==='Enter'&&state.tool==='polygon') finishPolygon();
+    if(e.key==='Enter'&&state.tool==='road'&&state.roadMode==='outline') finishRoadOutline();
+    if(e.key==='Backspace'&&state.tool==='polygon'&&state.polygonDraft.length){state.polygonDraft.pop(); draw(); return;}
+    if(e.key==='Escape'){
+      hideContextMenu();
+      state.hoverPreview=null;
+      state.selectedAnnotationId=null;
+      renderSelected();
+      draw();
+      return;
+    }
+    if(e.key==='Delete'||e.key==='Backspace'){
+      if(deleteCurrentSelection()) e.preventDefault();
+    }
+  });
   function finishPolygon(){if(state.polygonDraft.length<3) return; const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'polygon',pointsPx:state.polygonDraft.slice(),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,state:'notStarted',notes:'',hakoConfig:null,hakoFile:null,hakoFileId:null}; syncBuildingMetrics(b); state.buildings.push(b); setBuildingSelection([b.id], b.id); state.polygonDraft=[]; syncAll();}
   function setActiveTool(tool){
     document.querySelectorAll('.toolbtn').forEach(b=>b.classList.toggle('active', b.dataset.tool===tool));
@@ -2759,6 +3029,7 @@
     state.dirty=false;
     state.dirtySinceManualSave=false;
     state.autosaveRestored=false;
+    resetHistory('reset');
     setImageStatus('Cache cleared. Planner reset to default blank state.', 'okText');
     syncAll({skipDirty:true});
     updateAutosaveStatus('Autosave: cleared');
@@ -2815,6 +3086,10 @@
   $('clearAnnotationsBtn').onclick=()=>{if(state.annotations.length && !confirm('Clear all freehand annotation notes?')) return; state.annotations=[]; state.selectedAnnotationId=null; renderSelected(); draw(); markDirty('annotations cleared');};
   $('fitBtn').onclick=()=>{fitImage(); markDirty('view changed');}; $('resetBtn').onclick=()=>{state.view={x:40,y:40,scale:1}; draw(); markDirty('view changed');}; $('clearCacheBtn').onclick=clearCacheAndReset; if($('clearCachePanelBtn')) $('clearCachePanelBtn').onclick=clearCacheAndReset;
   $('saveBtn').onclick=()=>{download(JSON.stringify(projectJson(),null,2),'hakomachi-site.hako-site.json','application/json'); markManualSaveComplete();};
+  if($('undoBtn')) $('undoBtn').onclick=()=>undo();
+  if($('redoBtn')) $('redoBtn').onclick=()=>redo();
+  if($('mobileUndoBtn')) $('mobileUndoBtn').onclick=()=>undo();
+  if($('mobileRedoBtn')) $('mobileRedoBtn').onclick=()=>redo();
   $('loadFile').addEventListener('change', e=>{
     const f=e.target.files && e.target.files[0];
     if(!f) return;
@@ -2959,6 +3234,7 @@
         if(!p.view) fitImage();
         syncAll({skipDirty:true});
         autosaveSuppressed=false;
+        resetHistory(opts.fromAutosave?'autosave restored':'project loaded');
       };
       img.onerror=()=>{
         setImageStatus('Project loaded, but the embedded image could not be decoded.', 'warning');
@@ -2966,6 +3242,7 @@
         if(loadFootprintMessage) setImageStatus(loadFootprintMessage, 'warning');
         autosaveSuppressed=false;
         syncAll({skipDirty:true});
+        resetHistory(opts.fromAutosave?'autosave restored':'project loaded');
       };
       img.src=state.imageMeta.dataUrl;
     } else {
@@ -2979,6 +3256,7 @@
       if(loadFootprintMessage) setImageStatus(loadFootprintMessage, 'warning');
       syncAll({skipDirty:true});
       autosaveSuppressed=false;
+      resetHistory(opts.fromAutosave?'autosave restored':'project loaded');
     }
     state.dirty=false;
     state.dirtySinceManualSave=!!opts.dirtySinceManualSave;
@@ -3030,7 +3308,8 @@
 
   const restored=restoreAutosaveIfAvailable();
   state.autosaveReady=true;
-  if(!restored){syncAll({skipDirty:true}); fitImage(); writeAutosave();}
+  if(!restored){syncAll({skipDirty:true}); fitImage(); resetHistory('initial'); writeAutosave();}
+  else { updateHistoryButtons(); }
 })();
 </script>
 </body>

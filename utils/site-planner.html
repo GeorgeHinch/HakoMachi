@@ -768,6 +768,35 @@
     .top .splitExport #exportMenuBtn{width:26px !important;min-width:26px !important;max-width:26px !important;flex-basis:26px !important;}
   }
 
+
+  .hakoImportDropzone {
+    width: 100%;
+    min-height: 58px;
+    border: 1.5px dashed var(--border);
+    border-radius: 4px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 9px 10px;
+    cursor: pointer;
+    text-align: center;
+    color: var(--text);
+  }
+  .hakoImportDropzone:hover,
+  .hakoImportDropzone:focus {
+    background: #f0f0ec;
+    border-color: var(--accent);
+    outline: none;
+  }
+  .hakoImportDropzone.dragover {
+    background: #fff3ee;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(200,70,50,0.15);
+  }
+
 </style>
 </head>
 <body>
@@ -1007,7 +1036,7 @@
   const state = {
     tool:'select', image:null, imageMeta:null, imageOpacity:.75, imageLocked:true,
     view:{x:0,y:0,scale:1}, pxPerMm:null, calibrationLine:null, lastCalibrationLine:null,
-    buildings:[], selectedId:null, hoverBuildingId:null, drag:null, hover:null, polygonDraft:[], measureLine:null, projectName:'hakomachi-site',
+    buildings:[], selectedId:null, selectedIds:[], hoverBuildingId:null, drag:null, hover:null, polygonDraft:[], measureLine:null, projectName:'hakomachi-site',
     roads:[], selectedRoadId:null, hoverRoadId:null, roadMode:'centerline', roadDraft:[],
     streetlights:[], selectedStreetlightId:null, hoverStreetlightId:null, streetlightMode:'free',
     footprintClipboard:null, pasteOffsetCount:0,
@@ -1054,7 +1083,7 @@
     if(!state.pxPerMm) h.push('Draw a calibration line over a known physical output dimension, enter its value in mm or inches, then Apply Last Line.');
     if(state.tool==='polygon') h.push('Click points. Click near first point or press Enter to close. Backspace removes last point.');
     if(state.tool==='rect') h.push('Drag from one corner to the opposite corner to create a rectangle. Hold Shift or turn Snap on to force square/angle snapping. Near-square drags also snap.');
-    if(state.tool==='select') h.push('Drag pads to move. Drag corner handles to resize. Use Cmd/Ctrl+C and Cmd/Ctrl+V to copy/paste selected building footprints. Tap annotation strokes to select them; press Delete/Backspace or use Delete Selected Note to remove. Pencil edits geometry; finger pans when Pencil mode is active. Long-press a pad, point, or note for edit actions.');
+    if(state.tool==='select') h.push('Drag empty space to box-select multiple footprints. Drag selected pads to move them. Drag corner handles to resize a single selected footprint. Use Cmd/Ctrl+C and Cmd/Ctrl+V to copy/paste selected building footprints. Tap annotation strokes to select them; press Delete/Backspace or use Delete Selected Note to remove. Pencil edits geometry; finger pans when Pencil mode is active. Long-press a pad, point, or note for edit actions.');
     if(state.tool==='annotate') h.push('Annotate mode: draw freehand notes with Pencil/mouse. Pencil pressure changes stroke width when supported. Notes export with the site project but do not affect HakoSeed geometry.');
     if(state.tool==='road') h.push(state.roadMode==='outline'?'Road Outline: click points around the road surface, then click near the first point or press Enter to close.':'Road Centerline: drag along the road centerline; adjust road and sidewalk width in the properties pane.');
     if(state.tool==='streetlight') h.push(state.streetlightMode==='anchored'?'Anchored Streetlight: click to place a pole with sidewalk cut-hole or street-edge bulb mount metadata.':'Streetlight: click to place a free-standing streetlight marker.');
@@ -1171,7 +1200,7 @@
   function finishRoadOutline(){
     if(state.roadDraft.length<3) return;
     const r=normalizeRoad({id:uid('road'), name:`Road Outline ${state.roads.length+1}`, mode:'outline', pointsPx:state.roadDraft.slice(), widthMm:0, widthPx:0, sidewalkSide:'none', sidewalkWidthMm:0, sidewalkWidthPx:0, color:'#6f6a5e'});
-    state.roads.push(r); state.selectedRoadId=r.id; state.selectedId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.roadDraft=[]; syncAll();
+    state.roads.push(r); state.selectedRoadId=r.id; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.roadDraft=[]; syncAll();
   }
   function drawRoad(r){
     r=normalizeRoad(r); if(r.hidden) return;
@@ -1195,7 +1224,7 @@
     const box=$('roadList'); if(!box) return;
     if(!state.roads.length){box.innerHTML='<div class="small muted">No roads yet.</div>'; return;}
     box.innerHTML='';
-    state.roads.forEach(raw=>{const r=normalizeRoad(raw); const el=document.createElement('div'); el.className='buildingItem '+(r.id===state.selectedRoadId?'selected':''); el.innerHTML=`<span class="swatch" style="background:${r.color||'#6f6a5e'}"></span><div><b>${escapeHtml(r.name||'Road')}</b><br><span class="small muted">${r.mode==='outline'?'outline':'centerline'}${r.sidewalkSide&&r.sidewalkSide!=='none'?' · sidewalk '+r.sidewalkSide:''}${r.locked?' · locked':''}</span></div><span class="pill">${r.mode==='centerline'?fmt(r.widthMm||0)+'mm':'poly'}</span>`; el.onclick=()=>{state.selectedRoadId=r.id; state.selectedId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; renderRoads(); renderList(); renderStreetlights(); renderSelected(); draw();}; box.appendChild(el);});
+    state.roads.forEach(raw=>{const r=normalizeRoad(raw); const el=document.createElement('div'); el.className='buildingItem '+(r.id===state.selectedRoadId?'selected':''); el.innerHTML=`<span class="swatch" style="background:${r.color||'#6f6a5e'}"></span><div><b>${escapeHtml(r.name||'Road')}</b><br><span class="small muted">${r.mode==='outline'?'outline':'centerline'}${r.sidewalkSide&&r.sidewalkSide!=='none'?' · sidewalk '+r.sidewalkSide:''}${r.locked?' · locked':''}</span></div><span class="pill">${r.mode==='centerline'?fmt(r.widthMm||0)+'mm':'poly'}</span>`; el.onclick=()=>{state.selectedRoadId=r.id; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedAnnotationId=null; renderRoads(); renderList(); renderStreetlights(); renderSelected(); draw();}; box.appendChild(el);});
   }
 
   function hitStreetlight(p,pointerType='mouse'){
@@ -1470,7 +1499,7 @@
       b.widthPx=mmToPx(derived.widthMm); b.depthPx=mmToPx(derived.depthMm); b.rotationDeg=0;
     }
     normalizeBuilding(b); syncBuildingMetrics(b);
-    state.buildings.push(b); state.selectedId=b.id; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedRoadId=null;
+    state.buildings.push(b); setBuildingSelection([b.id], b.id);
     syncAll();
     return b;
   }
@@ -1489,6 +1518,47 @@
     reader.readAsText(file);
   }
   function selected(){return state.buildings.find(b=>b.id===state.selectedId)||null;}
+  function currentSelectedBuildingIds(){
+    const ids=Array.isArray(state.selectedIds)?state.selectedIds.filter(Boolean):[];
+    if(state.selectedId && !ids.includes(state.selectedId)) return [state.selectedId];
+    return [...new Set(ids)].filter(id=>state.buildings.some(b=>b.id===id));
+  }
+  function clearBuildingSelection(){state.selectedId=null; state.selectedIds=[];}
+  function setBuildingSelection(ids, primaryId=null){
+    const valid=[...new Set((ids||[]).filter(id=>state.buildings.some(b=>b.id===id)))];
+    state.selectedIds=valid;
+    state.selectedId=primaryId || (valid.length===1 ? valid[0] : null);
+    state.selectedRoadId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null;
+  }
+  function isBuildingSelected(id){return currentSelectedBuildingIds().includes(id);}
+  function toggleBuildingSelection(id){
+    const ids=currentSelectedBuildingIds();
+    if(ids.includes(id)) setBuildingSelection(ids.filter(x=>x!==id));
+    else setBuildingSelection([...ids,id], ids.length?null:id);
+  }
+  function selectionRectFromPoints(a,b){return {x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(a.x-b.x),h:Math.abs(a.y-b.y)};}
+  function buildingBBox(b){
+    const pts=b.padType==='rect'?transformedRect(b):(b.pointsPx||[]);
+    if(!pts.length) return {x:0,y:0,w:0,h:0};
+    const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
+    return {x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)};
+  }
+  function bboxOverlaps(a,b){return a.x<=b.x+b.w && a.x+a.w>=b.x && a.y<=b.y+b.h && a.y+a.h>=b.y;}
+  function buildingsInSelectionRect(rect){
+    return state.buildings.filter(b=>!b.hidden && bboxOverlaps(rect,buildingBBox(b))).map(b=>b.id);
+  }
+  function drawSelectionMarquee(){
+    if(!state.drag || state.drag.type!=='marquee') return;
+    const r=selectionRectFromPoints(state.drag.start,state.drag.end||state.drag.start);
+    ctx.save();
+    ctx.fillStyle='rgba(42,100,170,.12)';
+    ctx.strokeStyle='#2a64aa';
+    ctx.lineWidth=1.5/state.view.scale;
+    ctx.setLineDash([6/state.view.scale,4/state.view.scale]);
+    ctx.fillRect(r.x,r.y,r.w,r.h);
+    ctx.strokeRect(r.x,r.y,r.w,r.h);
+    ctx.restore();
+  }
   function buildingFootprintClipboardPayload(b){
     if(!b) return null;
     const payload=structuredClone(b);
@@ -1503,9 +1573,12 @@
     return payload;
   }
   function copySelectedFootprint(){
-    const b=selected();
-    if(!b) return false;
-    state.footprintClipboard=buildingFootprintClipboardPayload(b);
+    const ids=currentSelectedBuildingIds();
+    const selectedBuildings=ids.map(id=>state.buildings.find(b=>b.id===id)).filter(Boolean);
+    if(!selectedBuildings.length) return false;
+    state.footprintClipboard = selectedBuildings.length===1
+      ? buildingFootprintClipboardPayload(selectedBuildings[0])
+      : {multi:true, buildings:selectedBuildings.map(buildingFootprintClipboardPayload), copiedAt:new Date().toISOString()};
     state.pasteOffsetCount=0;
     updateStatus();
     return true;
@@ -1513,30 +1586,33 @@
   function pasteFootprintFromClipboard(){
     const src=state.footprintClipboard;
     if(!src) return false;
-    const copy=structuredClone(src);
-    copy.id=uid('bldg');
-    const baseName=(copy.name||'Building').replace(/ copy(?: \d+)?$/i,'');
-    copy.name=baseName+' copy';
-    copy.state=copy.state||'notStarted';
-    copy.hakoFile=null;
-    copy.hakoFileId=null;
-    copy.hakoConfig=null;
-    copy.hidden=false;
+    const sources=src.multi && Array.isArray(src.buildings) ? src.buildings : [src];
     const n=++state.pasteOffsetCount;
     const off=18*n;
-    if(copy.padType==='rect'){
-      copy.x=(Number(copy.x)||0)+off;
-      copy.y=(Number(copy.y)||0)+off;
-    } else if(Array.isArray(copy.pointsPx)) {
-      copy.pointsPx=copy.pointsPx.map(p=>({x:(Number(p.x)||0)+off,y:(Number(p.y)||0)+off}));
-    }
-    normalizeBuilding(copy);
-    syncBuildingMetrics(copy);
-    state.buildings.push(copy);
-    state.selectedId=copy.id;
-    state.selectedRoadId=null;
-    state.selectedStreetlightId=null;
-    state.selectedAnnotationId=null;
+    const pastedIds=[];
+    sources.forEach((item,idx)=>{
+      const copy=structuredClone(item);
+      copy.id=uid('bldg');
+      const baseName=(copy.name||'Building').replace(/ copy(?: \d+)?$/i,'');
+      copy.name=baseName+' copy';
+      copy.state=copy.state||'notStarted';
+      copy.hakoFile=null;
+      copy.hakoFileId=null;
+      copy.hakoConfig=null;
+      copy.hidden=false;
+      const dx=off + idx*10, dy=off + idx*10;
+      if(copy.padType==='rect'){
+        copy.x=(Number(copy.x)||0)+dx;
+        copy.y=(Number(copy.y)||0)+dy;
+      } else if(Array.isArray(copy.pointsPx)) {
+        copy.pointsPx=copy.pointsPx.map(p=>({x:(Number(p.x)||0)+dx,y:(Number(p.y)||0)+dy}));
+      }
+      normalizeBuilding(copy);
+      syncBuildingMetrics(copy);
+      state.buildings.push(copy);
+      pastedIds.push(copy.id);
+    });
+    setBuildingSelection(pastedIds, pastedIds.length===1?pastedIds[0]:null);
     syncAll();
     return true;
   }
@@ -1693,7 +1769,7 @@
     const m=$('contextMenu'); if(!m) return;
     state.contextTarget=target;
     if(target?.streetlight){
-      state.selectedStreetlightId=target.streetlight.id; state.selectedId=null; state.selectedAnnotationId=null;
+      state.selectedStreetlightId=target.streetlight.id; clearBuildingSelection(); state.selectedAnnotationId=null;
       m.innerHTML=`<button data-action="duplicateStreetlight">Duplicate Streetlight</button><button data-action="lockStreetlight">${target.streetlight.locked?'Unlock':'Lock'} Streetlight</button><button data-action="deleteStreetlight" class="dangerItem">Delete Streetlight</button>`;
       m.querySelectorAll('button').forEach(btn=>btn.onclick=()=>handleContextAction(btn.dataset.action));
       m.style.display='block';
@@ -1832,10 +1908,10 @@
 
   function drawGrid(){if(!state.pxPerMm) return; const stepMm = state.view.scale*state.pxPerMm>30?10: state.view.scale*state.pxPerMm>8?25:50; const step=mmToPx(stepMm); const r=canvas.getBoundingClientRect(); const min=screenToWorld({clientX:r.left,clientY:r.top}), max=screenToWorld({clientX:r.right,clientY:r.bottom}); ctx.save(); ctx.strokeStyle='rgba(107,81,57,.18)'; ctx.lineWidth=1/state.view.scale; for(let x=Math.floor(min.x/step)*step;x<max.x;x+=step){ctx.beginPath();ctx.moveTo(x,min.y);ctx.lineTo(x,max.y);ctx.stroke()} for(let y=Math.floor(min.y/step)*step;y<max.y;y+=step){ctx.beginPath();ctx.moveTo(min.x,y);ctx.lineTo(max.x,y);ctx.stroke()} ctx.restore();}
   function drawLabel(text,p){ctx.save(); ctx.font=`${12/state.view.scale}px system-ui`; const w=ctx.measureText(text).width+8/state.view.scale; const h=18/state.view.scale; ctx.fillStyle='rgba(49,35,24,.88)'; ctx.fillRect(p.x,p.y-h,w,h); ctx.fillStyle='#fff7ed'; ctx.fillText(text,p.x+4/state.view.scale,p.y-5/state.view.scale); ctx.restore();}
-  function drawBuilding(b){ if(b.hidden) return; syncBuildingMetrics(b); ctx.save(); const isSelected=b.id===state.selectedId, isHovered=b.id===state.hoverBuildingId; ctx.lineWidth=(isSelected?4:3)/state.view.scale; ctx.strokeStyle=isSelected?'#0f766e':b.color; ctx.fillStyle=(b.color||'#d79631')+'33'; ctx.beginPath(); const pts=b.padType==='rect'?transformedRect(b):b.pointsPx; pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); ctx.fill(); ctx.stroke();
+  function drawBuilding(b){ if(b.hidden) return; syncBuildingMetrics(b); ctx.save(); const isSelected=isBuildingSelected(b.id), isHovered=b.id===state.hoverBuildingId; ctx.lineWidth=(isSelected?4:3)/state.view.scale; ctx.strokeStyle=isSelected?'#0f766e':b.color; ctx.fillStyle=(b.color||'#d79631')+'33'; ctx.beginPath(); const pts=b.padType==='rect'?transformedRect(b):b.pointsPx; pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); ctx.fill(); ctx.stroke();
     if(isSelected || isHovered){ const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(pts); drawLabel(`${b.name||'Building'} ${b.padType==='rect'&&state.pxPerMm?`${fmt(b.widthMm)}×${fmt(b.depthMm)}mm`:''}`,{x:c.x+6/state.view.scale,y:c.y-6/state.view.scale}); }
-    if(isSelected && !b.locked){ ctx.fillStyle='#0f766e'; pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,5/state.view.scale,0,Math.PI*2);ctx.fill()}); if(b.padType==='rect'){const topMid={x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2}; const a=rad(b.rotationDeg-90); const rot={x:topMid.x+Math.cos(a)*24/state.view.scale,y:topMid.y+Math.sin(a)*24/state.view.scale}; ctx.strokeStyle='#0f766e'; ctx.beginPath();ctx.moveTo(topMid.x,topMid.y);ctx.lineTo(rot.x,rot.y);ctx.stroke();ctx.beginPath();ctx.arc(rot.x,rot.y,6/state.view.scale,0,Math.PI*2);ctx.fill();}}
-    if(isSelected){ctx.strokeStyle='rgba(49,35,24,.55)'; ctx.lineWidth=1/state.view.scale; for(let i=0;i<pts.length;i++){const a=pts[i],c2=pts[(i+1)%pts.length], mid={x:(a.x+c2.x)/2,y:(a.y+c2.y)/2}; drawLabel(`${fmt(pxToMm(dist(a,c2)))} mm`,mid);}}
+    if(isSelected && currentSelectedBuildingIds().length===1 && !b.locked){ ctx.fillStyle='#0f766e'; pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,5/state.view.scale,0,Math.PI*2);ctx.fill()}); if(b.padType==='rect'){const topMid={x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2}; const a=rad(b.rotationDeg-90); const rot={x:topMid.x+Math.cos(a)*24/state.view.scale,y:topMid.y+Math.sin(a)*24/state.view.scale}; ctx.strokeStyle='#0f766e'; ctx.beginPath();ctx.moveTo(topMid.x,topMid.y);ctx.lineTo(rot.x,rot.y);ctx.stroke();ctx.beginPath();ctx.arc(rot.x,rot.y,6/state.view.scale,0,Math.PI*2);ctx.fill();}}
+    if(isSelected && currentSelectedBuildingIds().length===1){ctx.strokeStyle='rgba(49,35,24,.55)'; ctx.lineWidth=1/state.view.scale; for(let i=0;i<pts.length;i++){const a=pts[i],c2=pts[(i+1)%pts.length], mid={x:(a.x+c2.x)/2,y:(a.y+c2.y)/2}; drawLabel(`${fmt(pxToMm(dist(a,c2)))} mm`,mid);}}
     ctx.restore(); }
   function drawLine(line,color,label){ if(!line) return; ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=3/state.view.scale; ctx.beginPath();ctx.moveTo(line.x1,line.y1);ctx.lineTo(line.x2,line.y2);ctx.stroke(); ctx.fillStyle=color; [{x:line.x1,y:line.y1},{x:line.x2,y:line.y2}].forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()}); if(label) drawLabel(label,{x:(line.x1+line.x2)/2,y:(line.y1+line.y2)/2}); ctx.restore();}
 
@@ -1882,20 +1958,20 @@
       x:p.x,y:p.y,type:'singleArm',heightMm:8,armLengthMm:3.5,rotationDeg:0,lightRadiusMm:2,poleDiameterMm:.45,color:'#c84a3a',locked:false,notes:'',
       anchor: anchored ? {mountMode:'sidewalkCutHole', cutHoleDiameterMm:1.2, bulbMountDiameterMm:3.0, edgeOffsetMm:.5, lockToRoadEdge:false, targetRoadId:null, sidewalkSide:'auto'} : {mountMode:'free'}
     });
-    state.streetlights.push(l); state.selectedStreetlightId=l.id; state.selectedId=null; state.selectedAnnotationId=null; syncAll();
+    state.streetlights.push(l); state.selectedStreetlightId=l.id; clearBuildingSelection(); state.selectedAnnotationId=null; syncAll();
   }
   function duplicateStreetlight(l){
-    const c=structuredClone(normalizeStreetlight(l)); c.id=uid('light'); c.name=(c.name||'Streetlight')+' copy'; c.x+=16; c.y+=16; state.streetlights.push(c); state.selectedStreetlightId=c.id; state.selectedId=null; state.selectedAnnotationId=null; return c;
+    const c=structuredClone(normalizeStreetlight(l)); c.id=uid('light'); c.name=(c.name||'Streetlight')+' copy'; c.x+=16; c.y+=16; state.streetlights.push(c); state.selectedStreetlightId=c.id; clearBuildingSelection(); state.selectedAnnotationId=null; return c;
   }
 
-  function draw(){const r=canvas.getBoundingClientRect(); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.roads.forEach(drawRoad); state.buildings.forEach(drawBuilding); state.streetlights.forEach(drawStreetlight); if(state.roadDraft.length){ctx.save();ctx.strokeStyle='#6f6a5e';ctx.fillStyle='rgba(111,106,94,.18)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.roadDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.roadDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview){ if(state.drag.type==='roadCenterline') drawRoad(state.drag.preview); else drawBuilding(state.drag.preview); } drawHoverPreview(); ctx.restore(); updateStatus();}
+  function draw(){const r=canvas.getBoundingClientRect(); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.roads.forEach(drawRoad); state.buildings.forEach(drawBuilding); state.streetlights.forEach(drawStreetlight); if(state.roadDraft.length){ctx.save();ctx.strokeStyle='#6f6a5e';ctx.fillStyle='rgba(111,106,94,.18)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.roadDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.roadDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview){ if(state.drag.type==='roadCenterline') drawRoad(state.drag.preview); else drawBuilding(state.drag.preview); } drawSelectionMarquee(); drawHoverPreview(); ctx.restore(); updateStatus();}
   function fitImage(){const r=canvas.getBoundingClientRect(); if(!state.image){state.view={x:r.width/2,y:r.height/2,scale:1}; draw(); return;} const s=Math.min(r.width/state.image.width,r.height/state.image.height)*.9; state.view.scale=s; state.view.x=(r.width-state.image.width*s)/2; state.view.y=(r.height-state.image.height*s)/2; draw();}
 
   function renderStreetlights(){
     const box=$('streetlightList'); if(!box) return;
     if(!state.streetlights.length){box.innerHTML='<div class="small muted">No streetlights yet.</div>'; return;}
     box.innerHTML='';
-    state.streetlights.forEach(raw=>{const l=normalizeStreetlight(raw); const el=document.createElement('div'); el.className='buildingItem '+(l.id===state.selectedStreetlightId?'selected':''); el.innerHTML=`<span class="streetlight-swatch" style="background:${l.color||'#c84a3a'}"></span><div><b>${escapeHtml(l.name||'Streetlight')}</b><br><span class="small muted">${l.mode==='anchored'?'anchored · ':''}${l.type||'singleArm'}${l.locked?' · locked':''}</span></div><span class="pill">${fmt(l.heightMm||0)}mm</span>`; el.onclick=()=>{state.selectedStreetlightId=l.id; state.selectedId=null; state.selectedAnnotationId=null; renderList(); renderStreetlights(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});
+    state.streetlights.forEach(raw=>{const l=normalizeStreetlight(raw); const el=document.createElement('div'); el.className='buildingItem '+(l.id===state.selectedStreetlightId?'selected':''); el.innerHTML=`<span class="streetlight-swatch" style="background:${l.color||'#c84a3a'}"></span><div><b>${escapeHtml(l.name||'Streetlight')}</b><br><span class="small muted">${l.mode==='anchored'?'anchored · ':''}${l.type||'singleArm'}${l.locked?' · locked':''}</span></div><span class="pill">${fmt(l.heightMm||0)}mm</span>`; el.onclick=()=>{state.selectedStreetlightId=l.id; clearBuildingSelection(); state.selectedAnnotationId=null; renderList(); renderStreetlights(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});
   }
 
   function renderList(){
@@ -1910,26 +1986,36 @@
       state.buildings.forEach(raw=>{
         const b=normalizeBuilding(raw);
         const el=document.createElement('div');
-        el.className='buildingItem '+(b.id===state.selectedId?'selected':'');
+        el.className='buildingItem '+(isBuildingSelected(b.id)?'selected':'');
         const hakoBadge=b.hakoFile?'<span class="pill">.hako</span>':'';
         el.innerHTML=`<span class="swatch" style="background:${b.color}"></span><div><b>${escapeHtml(b.name||'Building')}</b><br><span class="small muted">${buildingStateLabel(b.state)} · ${b.padType}${b.hidden?' · hidden':''}${b.locked?' · locked':''}</span></div><span class="pill">${b.padType==='rect'?`${fmt(b.widthMm)}×${fmt(b.depthMm)}`:fmt(b.derived?.areaMm2||0)+' mm²'}</span>${hakoBadge}`;
-        el.onclick=()=>{state.selectedId=b.id; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedRoadId=null; renderList(); renderSelected(); updateHandoff(); draw();};
+        el.onclick=(ev)=>{ if(ev.shiftKey || ev.metaKey || ev.ctrlKey) toggleBuildingSelection(b.id); else setBuildingSelection([b.id], b.id); renderList(); renderSelected(); updateHandoff(); draw();};
         box.appendChild(el);
       });
     }
     const actions=document.createElement('div');
     actions.className='buttons buildingListActions';
     actions.style.marginTop='10px';
-    actions.innerHTML='<button id="importHakoAsBuildingBtn" class="ok" title="Import an existing .hako file and create a draggable footprint in the center of the current map view.">Import existing .hako as footprint</button>';
+    actions.innerHTML=`
+      <div id="importHakoAsBuildingDropzone" class="hakoImportDropzone" role="button" tabindex="0" title="Click to choose a .hako file, or drag one here to create a draggable footprint.">
+        <b>Import existing .hako as footprint</b>
+        <span class="small muted">Click or drop .hako / .json here</span>
+        <input id="importHakoBuildingFile" class="hiddenFile" type="file" accept=".hako,.hakoseed,.hakoplan,.json,application/json">
+      </div>`;
     box.appendChild(actions);
-    const btn=$('importHakoAsBuildingBtn');
+    const drop=$('importHakoAsBuildingDropzone');
     const input=$('importHakoBuildingFile');
-    if(btn && input){
-      btn.onclick=()=>input.click();
+    if(drop && input){
+      const pick=()=>input.click();
+      drop.onclick=(ev)=>{ if(ev.target!==input) pick(); };
+      drop.onkeydown=(ev)=>{ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); pick(); } };
       input.onchange=e=>{const f=e.target.files&&e.target.files[0]; if(f) importHakoAsBuilding(f); e.target.value='';};
+      ['dragenter','dragover'].forEach(type=>drop.addEventListener(type, ev=>{ev.preventDefault(); ev.stopPropagation(); drop.classList.add('dragover');}));
+      ['dragleave','drop'].forEach(type=>drop.addEventListener(type, ev=>{ev.preventDefault(); ev.stopPropagation(); if(type==='dragleave' && drop.contains(ev.relatedTarget)) return; drop.classList.remove('dragover');}));
+      drop.addEventListener('drop', ev=>{const files=Array.from(ev.dataTransfer&&ev.dataTransfer.files||[]); const f=files.find(file=>/\.(hako|hakoseed|hakoplan|json)$/i.test(file.name||''))||files[0]; if(f) importHakoAsBuilding(f);});
     }
   }
-  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const road=selectedRoad(); const light=selectedStreetlight(); if(!b){if(road){normalizeRoad(road); box.innerHTML=`
+  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const road=selectedRoad(); const light=selectedStreetlight(); const selIds=currentSelectedBuildingIds(); if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use Copy/Paste or Delete to manage the selected set.</span><div class="buttons" style="margin-top:8px"><button id="copyMultiB">Copy</button><button id="pasteMultiB" ${state.footprintClipboard?'':'disabled'}>Paste</button><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('copyMultiB').onclick=()=>{copySelectedFootprint(); renderSelected();}; $('pasteMultiB').onclick=()=>pasteFootprintFromClipboard(); $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(road){normalizeRoad(road); box.innerHTML=`
       <b>${road.mode==='outline'?'Road outline':'Road centerline'} selected</b>
       <label>Name</label><input id="roadName" value="${escapeAttr(road.name||'Road')}">
       <div class="row"><div><label>Width (mm)</label><input id="roadWidth" type="number" step="0.1" value="${fmt(road.widthMm||0)}" ${road.mode==='outline'?'disabled':''}></div><div><label>Sidewalk</label><select id="roadSidewalk" ${road.mode==='outline'?'disabled':''}><option value="none">None</option><option value="left">Left</option><option value="right">Right</option><option value="both">Both sides</option></select></div></div>
@@ -1996,6 +2082,7 @@
   }
 
   function activeSidebarDetailKind(){
+    if(currentSelectedBuildingIds().length>1) return 'buildings';
     if(state.selectedId) return 'building';
     if(state.selectedRoadId) return 'road';
     if(state.selectedStreetlightId) return 'streetlight';
@@ -2003,6 +2090,7 @@
     return null;
   }
   function activeSidebarDetailTitle(kind){
+    if(kind==='buildings') return 'Buildings';
     if(kind==='building') return 'Building';
     if(kind==='road') return 'Road';
     if(kind==='streetlight') return 'Streetlight';
@@ -2010,7 +2098,7 @@
     return 'Selected';
   }
   function clearSidebarDetailSelection(){
-    state.selectedId=null;
+    clearBuildingSelection();
     state.selectedRoadId=null;
     state.selectedStreetlightId=null;
     state.selectedAnnotationId=null;
@@ -2154,9 +2242,9 @@
     if(state.tool==='select'){
       beginLongPress(e,p);
       const lightHit=hitStreetlight(p,e.pointerType);
-      if(lightHit){state.selectedStreetlightId=lightHit.id; state.selectedRoadId=null; state.selectedId=null; state.selectedAnnotationId=null; renderList(); renderRoads(); renderStreetlights(); renderSelected(); updateHandoff(); draw(); if(!lightHit.locked) state.drag={type:'moveStreetlight',pointerId:e.pointerId,start:p,orig:structuredClone(lightHit)}; return;}
+      if(lightHit){state.selectedStreetlightId=lightHit.id; state.selectedRoadId=null; clearBuildingSelection(); state.selectedAnnotationId=null; renderList(); renderRoads(); renderStreetlights(); renderSelected(); updateHandoff(); draw(); if(!lightHit.locked) state.drag={type:'moveStreetlight',pointerId:e.pointerId,start:p,orig:structuredClone(lightHit)}; return;}
       const roadHit=hitRoad(p);
-      if(roadHit){state.selectedRoadId=roadHit.id; state.selectedId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedRoadId=null; renderRoads(); renderList(); renderStreetlights(); renderSelected(); draw(); if(!roadHit.locked) state.drag={type:'moveRoad',pointerId:e.pointerId,start:p,orig:structuredClone(roadHit)}; return;}
+      if(roadHit){state.selectedRoadId=roadHit.id; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedRoadId=null; renderRoads(); renderList(); renderStreetlights(); renderSelected(); draw(); if(!roadHit.locked) state.drag={type:'moveRoad',pointerId:e.pointerId,start:p,orig:structuredClone(roadHit)}; return;}
       const note=hitAnnotation(p,e.pointerType);
       if(note){
         state.selectedAnnotationId=note.id;
@@ -2167,8 +2255,19 @@
       const h=handleAt(p,b,e.pointerType);
       if(h){state.drag={type:h.type,pointerId:e.pointerId,index:h.index,start:p,orig:structuredClone(b)}; return;}
       const hit=hitTest(p);
-      if(hit){state.selectedId=hit.id; state.selectedAnnotationId=null; state.selectedStreetlightId=null; renderList(); renderSelected(); updateHandoff(); state.drag={type:'move',pointerId:e.pointerId,start:p,orig:structuredClone(hit)};}
-      else {state.selectedId=null; state.selectedAnnotationId=null; state.selectedStreetlightId=null; state.selectedRoadId=null; renderList(); renderSelected(); updateHandoff();}
+      if(hit){
+        if(e.shiftKey || e.metaKey || e.ctrlKey){ toggleBuildingSelection(hit.id); renderList(); renderSelected(); updateHandoff(); draw(); return; }
+        const already=isBuildingSelected(hit.id);
+        if(!already) setBuildingSelection([hit.id], hit.id);
+        else { state.selectedRoadId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; }
+        renderList(); renderSelected(); updateHandoff();
+        const ids=currentSelectedBuildingIds();
+        const origs=ids.map(id=>state.buildings.find(x=>x.id===id)).filter(Boolean).map(x=>structuredClone(x));
+        state.drag={type:ids.length>1?'moveMany':'move',pointerId:e.pointerId,start:p,orig:structuredClone(hit),origs};
+      }
+      else {
+        state.drag={type:'marquee',pointerId:e.pointerId,start:p,end:p,additive:!!(e.shiftKey||e.metaKey||e.ctrlKey),baseIds:currentSelectedBuildingIds()};
+      }
       draw();
     }
   }, {passive:false});
@@ -2201,6 +2300,8 @@
     else if(d.type==='annotate'){addAnnotationPoint(e,p);}
     else if(d.type==='moveStreetlight'){const l=state.streetlights.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(l&&!l.locked){l.x=d.orig.x+dx; l.y=d.orig.y+dy;}}
     else if(d.type==='moveRoad'){const r=state.roads.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(r&&!r.locked){r.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); syncRoadMetrics(r);}}
+    else if(d.type==='marquee'){d.end=p;}
+    else if(d.type==='moveMany'){const dx=p.x-d.start.x,dy=p.y-d.start.y; (d.origs||[]).forEach(orig=>{const b=state.buildings.find(x=>x.id===orig.id); if(b&&!b.locked){if(b.padType==='rect'){b.x=orig.x+dx; b.y=orig.y+dy;} else b.pointsPx=orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); syncBuildingMetrics(b);}});}
     else if(d.type==='move'){const b=state.buildings.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(b&&!b.locked){if(b.padType==='rect'){b.x=d.orig.x+dx; b.y=d.orig.y+dy;} else b.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); syncBuildingMetrics(b);}}
     else if(d.type==='polyPoint'){const b=selected(); if(b&&!b.locked){b.pointsPx[d.index]=p; syncBuildingMetrics(b);}}
     else if(d.type==='rectCorner'){const b=selected(), o=d.orig; if(b&&!b.locked){resizeRectFromCorner(b,o,d.index,p,snapActive(e));}}
@@ -2214,8 +2315,9 @@
     if(!state.drag)return;
     if(state.drag.pointerId!==undefined && state.drag.pointerId!==e.pointerId) return;
     const d=state.drag;
-    if(d.type==='rect'&&d.preview){state.buildings.push(d.preview); state.selectedId=d.preview.id; state.selectedRoadId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff();}
-    if(d.type==='roadCenterline'&&d.preview&&dist(d.start,d.end)>4){state.roads.push(d.preview); state.selectedRoadId=d.preview.id; state.selectedId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; renderRoads(); renderSelected();}
+    if(d.type==='rect'&&d.preview){state.buildings.push(d.preview); setBuildingSelection([d.preview.id], d.preview.id); renderList(); renderSelected(); updateHandoff();}
+    if(d.type==='marquee'){const r=selectionRectFromPoints(d.start,d.end||d.start); if(Math.max(r.w,r.h)>5/state.view.scale){const hits=buildingsInSelectionRect(r); setBuildingSelection(d.additive?[...new Set([...(d.baseIds||[]),...hits])]:hits, hits.length===1?hits[0]:null);} else if(!d.additive){clearBuildingSelection(); state.selectedAnnotationId=null; state.selectedStreetlightId=null; state.selectedRoadId=null;} renderList(); renderSelected(); updateHandoff();}
+    if(d.type==='roadCenterline'&&d.preview&&dist(d.start,d.end)>4){state.roads.push(d.preview); state.selectedRoadId=d.preview.id; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedAnnotationId=null; renderRoads(); renderSelected();}
     state.drag=null; syncAll();
   }
   canvas.addEventListener('pointerup', finishPointer);
@@ -2224,7 +2326,7 @@
     e.preventDefault(); hideContextMenu();
     const p=screenToWorld(e); const target=contextTargetAt(p,'mouse');
     if(target?.streetlight){
-      state.selectedStreetlightId=target.streetlight.id; state.selectedId=null; state.selectedAnnotationId=null;
+      state.selectedStreetlightId=target.streetlight.id; clearBuildingSelection(); state.selectedAnnotationId=null;
       m.innerHTML=`<button data-action="duplicateStreetlight">Duplicate Streetlight</button><button data-action="lockStreetlight">${target.streetlight.locked?'Unlock':'Lock'} Streetlight</button><button data-action="deleteStreetlight" class="dangerItem">Delete Streetlight</button>`;
       m.querySelectorAll('button').forEach(btn=>btn.onclick=()=>handleContextAction(btn.dataset.action));
       m.style.display='block';
@@ -2238,8 +2340,8 @@
     else if(target?.building){state.selectedId=target.building.id; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
   });
   canvas.addEventListener('wheel', e=>{e.preventDefault(); const r=canvas.getBoundingClientRect(); const mouse={x:e.clientX-r.left,y:e.clientY-r.top}; const before=screenToWorld(e); const factor=e.deltaY<0?1.1:.9; state.view.scale=clamp(state.view.scale*factor,.05,20); state.view.x=mouse.x-before.x*state.view.scale; state.view.y=mouse.y-before.y*state.view.scale; draw();},{passive:false});
-  window.addEventListener('keydown', e=>{if(e.target.matches('input,textarea,select')) return; if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='c'){if(selected()){e.preventDefault(); copySelectedFootprint(); renderSelected();} return;} if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='v'){if(state.footprintClipboard){e.preventDefault(); pasteFootprintFromClipboard();} return;} if(e.key==='Enter'&&state.tool==='polygon') finishPolygon(); if(e.key==='Enter'&&state.tool==='road'&&state.roadMode==='outline') finishRoadOutline(); if(e.key==='Backspace'&&state.tool==='polygon'&&state.polygonDraft.length){state.polygonDraft.pop(); draw(); return;} if(e.key==='Escape'){hideContextMenu(); state.hoverPreview=null; state.selectedAnnotationId=null; renderSelected(); draw();} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedAnnotationId){e.preventDefault(); deleteSelectedAnnotation(); return;} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedStreetlightId){e.preventDefault(); deleteSelectedStreetlight(); return;} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedRoadId){e.preventDefault(); deleteSelectedRoad(); return;} if(e.key==='Delete'&&selected()){state.buildings=state.buildings.filter(b=>b.id!==state.selectedId); state.selectedId=null; syncAll();}});
-  function finishPolygon(){if(state.polygonDraft.length<3) return; const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'polygon',pointsPx:state.polygonDraft.slice(),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,state:'notStarted',notes:'',hakoConfig:null,hakoFile:null,hakoFileId:null}; syncBuildingMetrics(b); state.buildings.push(b); state.selectedId=b.id; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.polygonDraft=[]; syncAll();}
+  window.addEventListener('keydown', e=>{if(e.target.matches('input,textarea,select')) return; if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='c'){if(currentSelectedBuildingIds().length){e.preventDefault(); copySelectedFootprint(); renderSelected();} return;} if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='v'){if(state.footprintClipboard){e.preventDefault(); pasteFootprintFromClipboard();} return;} if(e.key==='Enter'&&state.tool==='polygon') finishPolygon(); if(e.key==='Enter'&&state.tool==='road'&&state.roadMode==='outline') finishRoadOutline(); if(e.key==='Backspace'&&state.tool==='polygon'&&state.polygonDraft.length){state.polygonDraft.pop(); draw(); return;} if(e.key==='Escape'){hideContextMenu(); state.hoverPreview=null; state.selectedAnnotationId=null; renderSelected(); draw();} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedAnnotationId){e.preventDefault(); deleteSelectedAnnotation(); return;} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedStreetlightId){e.preventDefault(); deleteSelectedStreetlight(); return;} if((e.key==='Delete'||e.key==='Backspace')&&state.selectedRoadId){e.preventDefault(); deleteSelectedRoad(); return;} if(e.key==='Delete'&&currentSelectedBuildingIds().length){const ids=currentSelectedBuildingIds(); state.buildings=state.buildings.filter(b=>!ids.includes(b.id)); clearBuildingSelection(); syncAll();}});
+  function finishPolygon(){if(state.polygonDraft.length<3) return; const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'polygon',pointsPx:state.polygonDraft.slice(),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,state:'notStarted',notes:'',hakoConfig:null,hakoFile:null,hakoFileId:null}; syncBuildingMetrics(b); state.buildings.push(b); setBuildingSelection([b.id], b.id); state.polygonDraft=[]; syncAll();}
   function setActiveTool(tool){
     document.querySelectorAll('.toolbtn').forEach(b=>b.classList.toggle('active', b.dataset.tool===tool));
     state.tool=tool; state.drag=null; hideToolFlyouts(); draw();
@@ -2534,7 +2636,7 @@
     state.roads=loadedRoads.map(normalizeRoad);
     state.streetlights=(p.streetlights||[]).map(normalizeStreetlight);
     state.annotations=p.annotations||[];
-    state.selectedId=null;
+    clearBuildingSelection();
     state.selectedRoadId=null;
     state.selectedStreetlightId=null;
     state.selectedAnnotationId=null;

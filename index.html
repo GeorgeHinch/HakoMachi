@@ -16145,8 +16145,57 @@ function generateCladdingPanel(cfg, plan, which, band) {
 
   const rects = [];
   const lines = [];
+  // When edge/full-height cladding overrides split the base cladding into
+  // retained sub-pieces, clip all engraves/marks to those visible pieces.
+  // Otherwise fixture ticks and pattern remnants can remain in the blank
+  // replaced region even though no base cladding will exist there.
+  let retainedEtchClipRects = null;
+  const flushEdgeOverrideCuts = [];
   const BOTTOM_TOUCH_EPS = 0.02;
   const bottomCutouts = [];
+  const edgeOverrideCuts = [];
+  function addFlushEdgeOverrideCut(cut) {
+    if (!cut) return;
+    const x1 = Math.max(0, Math.min(localCWidth, cut.x1));
+    const y1 = Math.max(0, Math.min(localCHeight, cut.y1));
+    const x2 = Math.max(0, Math.min(localCWidth, cut.x2));
+    const y2 = Math.max(0, Math.min(localCHeight, cut.y2));
+    if (x2 <= x1 + 0.01 || y2 <= y1 + 0.01) return;
+    flushEdgeOverrideCuts.push({ x1, y1, x2, y2 });
+    addEdgeOverrideCut({ x1, y1, x2, y2 });
+  }
+  function subtractRectFromRects(rectsIn, cut) {
+    const out = [];
+    const eps = 0.01;
+    for (const r of rectsIn) {
+      const ix1 = Math.max(r.x, cut.x1);
+      const iy1 = Math.max(r.y, cut.y1);
+      const ix2 = Math.min(r.x + r.w, cut.x2);
+      const iy2 = Math.min(r.y + r.h, cut.y2);
+      if (ix2 <= ix1 + eps || iy2 <= iy1 + eps) {
+        out.push(r);
+        continue;
+      }
+      // Above
+      if (iy1 > r.y + eps) out.push({ x: r.x, y: r.y, w: r.w, h: iy1 - r.y });
+      // Below
+      if (iy2 < r.y + r.h - eps) out.push({ x: r.x, y: iy2, w: r.w, h: (r.y + r.h) - iy2 });
+      // Left middle
+      if (ix1 > r.x + eps) out.push({ x: r.x, y: iy1, w: ix1 - r.x, h: iy2 - iy1 });
+      // Right middle
+      if (ix2 < r.x + r.w - eps) out.push({ x: ix2, y: iy1, w: (r.x + r.w) - ix2, h: iy2 - iy1 });
+    }
+    return out.filter(r => r.w > eps && r.h > eps);
+  }
+  function addEdgeOverrideCut(cut) {
+    if (!cut) return;
+    const x1 = Math.max(0, Math.min(localCWidth, cut.x1));
+    const y1 = Math.max(0, Math.min(localCHeight, cut.y1));
+    const x2 = Math.max(0, Math.min(localCWidth, cut.x2));
+    const y2 = Math.max(0, Math.min(localCHeight, cut.y2));
+    if (x2 <= x1 + 0.01 || y2 <= y1 + 0.01) return;
+    edgeOverrideCuts.push({ x1, y1, x2, y2 });
+  }
   function addBottomCutout(cut) {
     if (!cut || !(cut.x2 > cut.x1)) return;
     cut.x1 = Math.max(0, Math.min(localCWidth, cut.x1));
@@ -16492,13 +16541,45 @@ function generateCladdingPanel(cfg, plan, which, band) {
   // Fixtures use the same inThisBand check (their y/h are in wall frame).
   // A fixture is included if its whole footprint fits within the panel's
   // band; one straddling the split would land on neither (rare edge case).
-  const cladFixturesBand = cladFixtures.filter(inThisBand).map(f => ({
+  const cladFixturesBand0 = cladFixtures.filter(inThisBand).map(f => ({
     ...f, y: f.y - panelYStart,
   }));
   // Same banding for cladding overrides.
-  const cladOverridesBand = cladOverrides.filter(inThisBand).map(o => ({
-    ...o, y: o.y - panelYStart,
-  }));
+  const cladOverridesBand = cladOverrides.filter(inThisBand).map(o => {
+    const yLocal = o.y - panelYStart;
+    return {
+      ...o,
+      y: yLocal,
+      h: extendBottomTouchingOpening(yLocal, o.h),
+      touchesPanelEdge: !!(
+        o.x <= 0.001 ||
+        o.x + o.w >= localCWidth - 0.001 ||
+        yLocal <= 0.001 ||
+        yLocal + extendBottomTouchingOpening(yLocal, o.h) >= localCHeight - 0.001
+      ),
+    };
+  });
+
+  function rectInsideAnyFlushOverride(r) {
+    if (!r) return false;
+    for (const o of cladOverridesBand) {
+      if (o.layered) continue;
+      const ix1 = Math.max(r.x, o.x);
+      const iy1 = Math.max(r.y, o.y);
+      const ix2 = Math.min(r.x + r.w, o.x + o.w);
+      const iy2 = Math.min(r.y + r.h, o.y + o.h);
+      const aw = Math.max(0, ix2 - ix1);
+      const ah = Math.max(0, iy2 - iy1);
+      const area = Math.max(0.001, r.w * r.h);
+      if ((aw * ah) >= area * 0.98) return true;
+    }
+    return false;
+  }
+
+  // Surface fixture location marks that sit on a replaced cladding patch should
+  // not stay on the base cladding. They would be hidden by the override piece;
+  // tallyCladdingOverrides transfers equivalent marks onto the override sheet.
+  const cladFixturesBand = cladFixturesBand0.filter(f => !rectInsideAnyFlushOverride(f));
 
   for (const w of cladWindowsBand) {
     const winStyle = w.style ? WINDOW_STYLES[w.style] : null;
@@ -16551,6 +16632,29 @@ function generateCladdingPanel(cfg, plan, which, band) {
   //     out of the override's footprint — in layered mode we don't want
   //     the base pattern showing through under the override piece, and
   //     in flush mode we don't want pattern lines inside the cut hole.
+  function addEdgeTouchingOverrideExclusion(o) {
+    let x1 = Math.max(0, Math.min(localCWidth, o.x));
+    let y1 = Math.max(0, Math.min(localCHeight, o.y));
+    let x2 = Math.max(0, Math.min(localCWidth, o.x + o.w));
+    let y2 = Math.max(0, Math.min(localCHeight, o.y + o.h));
+    if (x2 <= x1 + 0.01 || y2 <= y1 + 0.01) return false;
+
+    const edgeSnap = Math.max(0.5, Number(matT || 0), Number(cT || 0)) + 0.08;
+    if (x1 <= edgeSnap) x1 = 0;
+    if (y1 <= edgeSnap) y1 = 0;
+    if (localCWidth - x2 <= edgeSnap) x2 = localCWidth;
+    if (localCHeight - y2 <= edgeSnap || y2 >= localCHeight - BOTTOM_TOUCH_EPS) y2 = localCHeight;
+
+    const touchesEdge = x1 <= 0.001 || y1 <= 0.001 || x2 >= localCWidth - 0.001 || y2 >= localCHeight - 0.001;
+    if (!touchesEdge) return false;
+
+    // Flush + edge-touching means this area is replaced by the override layer
+    // and should simply be removed from the base cladding. No green waste,
+    // no alignment ticks, no red floating notch line on the removed section.
+    addFlushEdgeOverrideCut({ x1, y1, x2, y2 });
+    return true;
+  }
+
   for (const o of cladOverridesBand) {
     if (o.layered) {
       const tickLen = Math.max(0.6, Math.min(1.5, Math.min(o.w, o.h) * 0.25));
@@ -16564,9 +16668,12 @@ function generateCladdingPanel(cfg, plan, which, band) {
       lines.push({ type: 'etch', x1: x2, y1: y2, x2: x2 - tickLen, y2: y2 });
       lines.push({ type: 'etch', x1: x2, y1: y2, x2: x2, y2: y2 - tickLen });
     } else {
-      rects.push({ type: 'cut', x: o.x, y: o.y, w: o.w, h: o.h, compensateKerf: false });
+      const edgeExcluded = addEdgeTouchingOverrideExclusion(o);
+      if (!edgeExcluded) {
+        rects.push({ type: 'cut', x: o.x, y: o.y, w: o.w, h: o.h, compensateKerf: false });
+      }
+      cutOpenings.push({ x: o.x, y: o.y, w: o.w, h: o.h });
     }
-    cutOpenings.push({ x: o.x, y: o.y, w: o.w, h: o.h });
   }
   // Fixture markers on cladding — three branches by placement:
   //   • placement: 'cutout' → cut a hole right through the cladding at the
@@ -16691,22 +16798,24 @@ function generateCladdingPanel(cfg, plan, which, band) {
       lines.push({ type: 'etch', x1: x2, y1: y2, x2: x2, y2: y2 - tickLen });
 
       if (hasDownspoutScupper && scupper) {
+        const scupperHoleY = downspoutScupperWallHoleY(cfg, which, f.y, scupper);
+        const scupperBoxY = downspoutScupperWallBoxY(cfg, which, f.y, scupper);
         rects.push({
           type: 'cut',
-          x: f.x + scupper.holeX,
-          y: f.y + scupper.holeY,
-          w: scupper.holeW,
-          h: scupper.holeH,
+          x: f.x + scupper.throatX,
+          y: scupperHoleY,
+          w: scupper.throatW,
+          h: scupper.throatH,
           compensateKerf: false,
         });
         cutOpenings.push({
           x: f.x + scupper.boxX,
-          y: f.y + scupper.boxY,
+          y: scupperBoxY,
           w: scupper.boxW,
           h: scupper.boxH,
         });
 
-        const bx1 = f.x + scupper.boxX, by1 = f.y + scupper.boxY;
+        const bx1 = f.x + scupper.boxX, by1 = scupperBoxY;
         const bx2 = bx1 + scupper.boxW, by2 = by1 + scupper.boxH;
         const bt  = Math.max(0.6, Math.min(1.2, Math.min(scupper.boxW, scupper.boxH) * 0.22));
         lines.push({ type: 'etch', x1: bx1, y1: by1, x2: bx1 + bt, y2: by1 });
@@ -16817,6 +16926,40 @@ function generateCladdingPanel(cfg, plan, which, band) {
     } else {
       addOpeningCut(cx, cyTop, cw, ch);
       cutOpenings.push({ x: cx, y: cyTop, w: cw, h: ch });
+    }
+  }
+
+  if (flushEdgeOverrideCuts.length) {
+    const eps = 0.05;
+    const edgeSnap = Math.max(0.5, Number(matT || 0), Number(cT || 0)) + 0.08;
+    let keptRects = [{ x: 0, y: 0, w: localCWidth, h: localCHeight }];
+
+    for (const c of flushEdgeOverrideCuts) {
+      keptRects = subtractRectFromRects(keptRects, c);
+    }
+
+    // Discard edge-only slivers caused by cladding overlap math. These are not
+    // useful visible base pieces; the flush override piece absorbs them.
+    keptRects = keptRects.filter(r => {
+      if (r.w <= eps || r.h <= eps) return false;
+      const touchesLeft = r.x <= eps;
+      const touchesRight = r.x + r.w >= localCWidth - eps;
+      const touchesTop = r.y <= eps;
+      const touchesBottom = r.y + r.h >= localCHeight - eps;
+      if ((touchesLeft || touchesRight) && r.w <= edgeSnap + eps) return false;
+      if ((touchesTop || touchesBottom) && r.h <= edgeSnap + eps) return false;
+      return true;
+    });
+
+    retainedEtchClipRects = keptRects.map(r => ({ ...r }));
+    if (keptRects.length) {
+      paths.splice(0, 1, ...keptRects.map(r => ({
+        type: 'cut',
+        structural: true,
+        d: rectPath(r.x, r.y, r.w, r.h),
+      })));
+    } else {
+      paths.splice(0, 1);
     }
   }
 
@@ -16953,6 +17096,37 @@ function generateCladdingPanel(cfg, plan, which, band) {
   }
   for (const ln of patternLines) {
     lines.push({ type: 'etch', x1: ln.x1, y1: ln.y1, x2: ln.x2, y2: ln.y2 });
+  }
+
+  // If override subtraction split this base cladding into retained sub-pieces,
+  // clip *all* accumulated engrave/mark lines to those pieces now. This catches
+  // fixture location ticks and floor-skirt seams that were emitted before the
+  // final retained perimeter was known.
+  if (Array.isArray(retainedEtchClipRects)) {
+    const clippedLines = [];
+    const seen = new Set();
+    for (const ln of lines) {
+      let emitted = false;
+      for (const rr of retainedEtchClipRects) {
+        if (!rr || rr.w <= 0.01 || rr.h <= 0.01) continue;
+        const poly = [
+          { x: rr.x, y: rr.y },
+          { x: rr.x + rr.w, y: rr.y },
+          { x: rr.x + rr.w, y: rr.y + rr.h },
+          { x: rr.x, y: rr.y + rr.h },
+        ];
+        const c = clipSegmentToConvexPolygon(ln.x1, ln.y1, ln.x2, ln.y2, poly);
+        if (!c) continue;
+        const key = `${ln.type || 'etch'}|${c.x1.toFixed(3)},${c.y1.toFixed(3)},${c.x2.toFixed(3)},${c.y2.toFixed(3)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        clippedLines.push({ ...ln, x1: c.x1, y1: c.y1, x2: c.x2, y2: c.y2 });
+        emitted = true;
+      }
+      // retainedEtchClipRects=[] means no visible base cladding remains.
+      if (!retainedEtchClipRects.length) emitted = false;
+    }
+    lines.splice(0, lines.length, ...clippedLines);
   }
 
   // Gable-end panels intentionally do NOT add a horizontal eave/cap etch line.
@@ -17876,21 +18050,60 @@ function downspoutHasScupperBox(cfg, face, styleKey) {
 function downspoutScupperLocalSpec(totalW, totalH) {
   const spW = Math.max(0.4, Number(totalW) || 0.8);
   const spH = Math.max(4, Number(totalH) || 16);
-  const boxW  = Math.max(spW * 3.4, spW + 2.0, 2.6);
-  const boxH  = Math.max(2.2, Math.min(3.4, spH * 0.18));
-  const capH  = Math.max(0.45, Math.min(0.85, boxH * 0.24));
-  const lipH  = Math.max(0.6, Math.min(1.2, boxH * 0.36));
-  const lipW  = Math.max(spW * 1.35, Math.min(boxW * 0.55, spW + 0.9));
-  const holeW = Math.max(0.9, Math.min(boxW - 0.8, spW * 1.5));
-  const holeH = Math.max(0.8, Math.min(boxH - 0.7, 1.25));
+
+  // Physical model dimensions for the roof-line rainwater collector box.
+  // Keep these in actual mm and mark the generated pieces absoluteSize so
+  // a full-height downspout (for example 0.8×46mm) does not stretch the box
+  // parts vertically into meaningless strips.
+  const boxW  = Math.max(3.8, Math.min(7.0, spW * 4.8 + 1.6));
+  const boxH  = Math.max(3.6, Math.min(5.2, spH * 0.085 + 1.0));
+  const sideW = Math.max(0.55, Math.min(0.9, boxW * 0.14));
+  const floorH = Math.max(0.65, Math.min(1.0, boxH * 0.20));
+  const lipH = Math.max(0.55, Math.min(0.9, boxH * 0.18));
+  const throatW = Math.max(0.9, Math.min(boxW - 1.5, spW * 1.6));
+  const throatH = Math.max(0.65, Math.min(boxH - 1.8, 1.1));
   const boxX  = (spW - boxW) / 2;
   const boxY  = 0;
-  const holeX = boxX + (boxW - holeW) / 2;
-  const holeY = Math.max(0.35, Math.min(boxH - holeH - 0.25, boxH * 0.46 - holeH / 2 + 0.35));
-  const lipX  = (spW - lipW) / 2;
-  const lipY  = Math.max(0.25, boxH - lipH - 0.25);
-  return { spW, spH, boxW, boxH, capH, lipW, lipH, boxX, boxY, lipX, lipY, holeW, holeH, holeX, holeY };
+  const throatX = boxX + (boxW - throatW) / 2;
+  const throatY = boxY + boxH - floorH - throatH - 0.25;
+  return { spW, spH, boxW, boxH, sideW, floorH, lipH, throatW, throatH, boxX, boxY, throatX, throatY };
 }
+
+function downspoutScupperRoofLineY(cfg, face) {
+  if (!downspoutHasScupperBox(cfg, face, 'downspout')) return null;
+  const p = Math.max(0, Number(cfg && cfg.parapetHeight) || 0);
+  // In wall/card coordinates y=0 is the top of the wall/parapet. The roof deck
+  // / gutter line sits at the bottom of the parapet band. For the current wall
+  // model that is exactly parapetHeight from the top.
+  return p;
+}
+
+function downspoutScupperWallHoleY(cfg, face, fixtureY, sc) {
+  const fallback = (Number(fixtureY) || 0) + (sc ? Number(sc.throatY) || 0 : 0);
+  if (!sc) return fallback;
+
+  const roofLineY = downspoutScupperRoofLineY(cfg, face);
+  if (roofLineY == null || !Number.isFinite(roofLineY)) return fallback;
+
+  // Put the scupper opening through the parapet at the roof line: the bottom
+  // of the opening aligns to the roof deck/gutter line instead of hanging below
+  // it with the downspout's decorative collector-box geometry.
+  const H = Math.max(0, wallBodyHeightFromConfig(cfg));
+  const y = roofLineY - Number(sc.throatH || 0);
+  return Math.max(0, Math.min(Math.max(0, H - Number(sc.throatH || 0)), y));
+}
+
+function downspoutScupperWallBoxY(cfg, face, fixtureY, sc) {
+  if (!sc) return Number(fixtureY) || 0;
+  const fallback = (Number(fixtureY) || 0) + (Number(sc.boxY) || 0);
+  const holeY = downspoutScupperWallHoleY(cfg, face, fixtureY, sc);
+  if (!Number.isFinite(holeY)) return fallback;
+  // Preserve the scupper piece's internal hole-to-box relationship by moving
+  // the box marker together with the roof-line throat.
+  const boxY = holeY - Number(sc.throatY || 0);
+  return Math.max(0, boxY);
+}
+
 
 function effectiveFixturePieces(cfg, face, styleKey, instW, instH, forceScupper = null) {
   const style = FIXTURE_STYLES[styleKey];
@@ -17903,19 +18116,37 @@ function effectiveFixturePieces(cfg, face, styleKey, instW, instH, forceScupper 
 
   const s = downspoutScupperLocalSpec(instW != null ? instW : style.width,
                                       instH != null ? instH : style.height);
+  const label = 'scupper collector box';
   const extras = [
+    // Back/face plate. The central throat is the wall/core opening into the
+    // downspout. Cut this first; stack the other strips over it to build depth.
+    {
+      material: 'cladding', panelFill: '#9b9b92', frameColor: '#4a4a44',
+      width: s.boxW, height: s.boxH, offsetX: s.boxX, offsetY: s.boxY,
+      absoluteSize: true, partLabel: label + ' back plate',
+      innerCut: { x: s.boxW / 2 - s.throatW / 2, y: s.throatY - s.boxY, w: s.throatW, h: s.throatH },
+      features: [
+        { type: 'rail', x1: 0.25, y1: 0.25, x2: s.boxW - 0.25, y2: 0.25 },
+        { type: 'rail', x1: 0.25, y1: s.boxH - 0.25, x2: s.boxW - 0.25, y2: s.boxH - 0.25 },
+      ],
+    },
+    // Front rim frame: same outside, larger open center so it reads as a box
+    // mouth rather than a solid plaque.
     {
       material: 'cladding', panelFill: '#8f8f86', frameColor: '#4a4a44',
       width: s.boxW, height: s.boxH, offsetX: s.boxX, offsetY: s.boxY,
+      absoluteSize: true, partLabel: label + ' front rim',
+      innerCut: { x: s.sideW, y: 0.55, w: s.boxW - 2 * s.sideW, h: s.boxH - s.floorH - 0.95 },
     },
-    {
-      material: 'cladding', panelFill: '#a0a097', frameColor: '#4a4a44',
-      width: s.boxW, height: s.capH, offsetX: s.boxX, offsetY: s.boxY,
-    },
-    {
-      material: 'cladding', panelFill: '#7b7b73', frameColor: '#4a4a44',
-      width: s.lipW, height: s.lipH, offsetX: s.lipX, offsetY: s.lipY,
-    },
+    // Side cheeks and bottom floor, stacked as strips to create real depth.
+    { material: 'cladding', panelFill: '#7b7b73', frameColor: '#4a4a44',
+      width: s.sideW, height: s.boxH, absoluteSize: true, partLabel: label + ' left cheek' },
+    { material: 'cladding', panelFill: '#7b7b73', frameColor: '#4a4a44',
+      width: s.sideW, height: s.boxH, absoluteSize: true, partLabel: label + ' right cheek' },
+    { material: 'cladding', panelFill: '#7b7b73', frameColor: '#4a4a44',
+      width: s.boxW, height: s.floorH, absoluteSize: true, partLabel: label + ' bottom floor' },
+    { material: 'cladding', panelFill: '#6f6f68', frameColor: '#4a4a44',
+      width: Math.max(s.throatW + 0.8, s.boxW * 0.55), height: s.lipH, absoluteSize: true, partLabel: label + ' lower lip' },
   ];
   return extras.concat(base);
 }
@@ -17967,8 +18198,8 @@ function generateFixtureParts(cfg, fixtureGroups) {
       // Each piece's cut dimensions = its natural width/height × scale.
       // Pieces without explicit dimensions take the full fixture footprint.
       const allDims = all.map(piece => ({
-        w: ((piece.width  != null) ? piece.width  : style.width)  * scaleX,
-        h: ((piece.height != null) ? piece.height : style.height) * scaleY,
+        w: ((piece.width  != null) ? piece.width  : style.width)  * (piece.absoluteSize ? 1 : scaleX),
+        h: ((piece.height != null) ? piece.height : style.height) * (piece.absoluteSize ? 1 : scaleY),
       }));
       const cellW = Math.max(...allDims.map(d => d.w));
       const cellH = Math.max(...allDims.map(d => d.h));
@@ -18168,10 +18399,10 @@ function cutFixtureHolesInCore(rects, paths, cfg, face, xMirror) {
       const sc = downspoutScupperLocalSpec(w, h);
       rects.push({
         type: 'cut',
-        x: x + sc.holeX,
-        y: yRaw + sc.holeY,
-        w: sc.holeW,
-        h: sc.holeH,
+        x: x + sc.throatX,
+        y: downspoutScupperWallHoleY(cfg, face, yRaw, sc),
+        w: sc.throatW,
+        h: sc.throatH,
         compensateKerf: false,
       });
       continue;
@@ -18283,7 +18514,7 @@ function generateShutterParts(cfg, shutterGroups) {
       const r = Math.floor(i / cols);
       const ox = gutter + c * (cellW + gutter);
       const oy = gutter + r * (cellH + gutter);
-      rects.push({ type: 'cut', x: ox, y: oy, w: pw, h: ph, compensateKerf: false });
+      rects.push({ type: 'cut', structural: true, x: ox, y: oy, w: pw, h: ph, compensateKerf: false });
 
       // Etched detail features
       const features = style.featureGenerator ? style.featureGenerator(pw, ph) : (style.features || []);
@@ -18323,7 +18554,7 @@ function generateShutterParts(cfg, shutterGroups) {
     // Single-tile preview geometry — one shutter piece with its etched
     // detail, so the parts panel shows one + "Cut ×N" instead of every
     // single shutter on the tiled cut sheet.
-    const tileRects = [{ type: 'cut', x: 0, y: 0, w: pw, h: ph, compensateKerf: false }];
+    const tileRects = [{ type: 'cut', structural: true, x: 0, y: 0, w: pw, h: ph, compensateKerf: false }];
     const tileLines = [];
     {
       const features = style.featureGenerator ? style.featureGenerator(pw, ph) : (style.features || []);
@@ -18514,6 +18745,61 @@ function generatePrintedSheets(cfg, printedGroups) {
  * (claddingStyle, w-to-0.1mm, h-to-0.1mm). Each override = exactly one
  * cut piece (no spares — these are big bespoke patches), so the count
  * field is just how many identical patches a single sheet should emit. */
+function claddingOverrideFixtureMarksForPiece(cfg, face, ovPanel, toCladX) {
+  const marks = [];
+  for (const fx of surfaceWallFeaturesForFace(cfg, face, 'fixture')) {
+    const style = FIXTURE_STYLES[fx.style];
+    if (!style) continue;
+    const fw = Number(fx.w) || style.width;
+    const fh = Number(fx.h) || style.height;
+    const fx1 = toCladX(Number(fx.x) || 0, fw);
+    const fy1 = Number(fx.y) || 0;
+    const fx2 = fx1 + fw;
+    const fy2 = fy1 + fh;
+
+    const ix1 = Math.max(fx1, ovPanel.x);
+    const iy1 = Math.max(fy1, ovPanel.y);
+    const ix2 = Math.min(fx2, ovPanel.x + ovPanel.w);
+    const iy2 = Math.min(fy2, ovPanel.y + ovPanel.h);
+    if (ix2 <= ix1 + 0.001 || iy2 <= iy1 + 0.001) continue;
+
+    // Only transfer marks that are essentially fully inside the replaced patch.
+    const area = Math.max(0.001, fw * fh);
+    if (((ix2 - ix1) * (iy2 - iy1)) < area * 0.98) continue;
+
+    marks.push({
+      x: fx1 - ovPanel.x,
+      y: fy1 - ovPanel.y,
+      w: fw,
+      h: fh,
+      style: fx.style,
+    });
+  }
+  return marks;
+}
+
+function emitFixtureMarkerEtchesOnOverride(lines, mark, ox, oy) {
+  const style = FIXTURE_STYLES[mark.style];
+  if (!style) return;
+  const tickLen = Math.max(0.55, Math.min(1.4, Math.min(mark.w, mark.h) * 0.25));
+  const x1 = ox + mark.x, y1 = oy + mark.y, x2 = x1 + mark.w, y2 = y1 + mark.h;
+
+  // Same bracket/tick idiom as fixture positioning marks on base cladding.
+  lines.push({ type: 'etch', x1, y1, x2: x1 + tickLen, y2: y1 });
+  lines.push({ type: 'etch', x1, y1, x2: x1, y2: y1 + tickLen });
+  lines.push({ type: 'etch', x1: x2, y1, x2: x2 - tickLen, y2: y1 });
+  lines.push({ type: 'etch', x1: x2, y1, x2, y2: y1 + tickLen });
+  lines.push({ type: 'etch', x1, y1: y2, x2: x1 + tickLen, y2 });
+  lines.push({ type: 'etch', x1, y1: y2, x2: x1, y2: y2 - tickLen });
+  lines.push({ type: 'etch', x1: x2, y1: y2, x2: x2 - tickLen, y2 });
+  lines.push({ type: 'etch', x1: x2, y1: y2, x2, y2: y2 - tickLen });
+
+  // A small center mark helps align small meters/vents after the override has
+  // replaced the original base cladding.
+  lines.push({ type: 'etch', x1: (x1 + x2) / 2 - 0.25, y1: (y1 + y2) / 2, x2: (x1 + x2) / 2 + 0.25, y2: (y1 + y2) / 2 });
+  lines.push({ type: 'etch', x1: (x1 + x2) / 2, y1: (y1 + y2) / 2 - 0.25, x2: (x1 + x2) / 2, y2: (y1 + y2) / 2 + 0.25 });
+}
+
 function tallyCladdingOverrides(cfg, plan) {
   // Compute the same edge-flush extensions as the cladding panel
   // generator — when an override sits flush against a wall edge, its
@@ -18555,49 +18841,94 @@ function tallyCladdingOverrides(cfg, plan) {
     // visible bug they'll fix manually, not a silent miscut.
     const wallOps = structuralWallFeaturesForFace(cfg, face).filter(op =>
       op && (op.type === 'window' || op.type === 'door'));
+
+    // Convert wall-local stored X into the same cladding-panel X coordinate
+    // used by generateCladdingPanel(). This is essential for east side walls:
+    // their cladding panels are mirrored in the SVG/card, so raw wall X would
+    // place override-piece window/door cutouts backwards.
+    const panelWidth = isFB ? (fbWidth + 2 * cT) : (wallWidth + 2 * matT);
+    const toCladX = (rawX, rawW) => {
+      if (isFB) return (Number(rawX) || 0) + cT;
+      return (face === 'east')
+        ? ((wallWidth - (Number(rawX) || 0) - (Number(rawW) || 0)) + matT)
+        : ((Number(rawX) || 0) + matT);
+    };
+
     for (const ov of surfaceWallFeaturesForFace(cfg, face, 'cladding_override')) {
       if (!ov.claddingStyle) continue;
       const w = Number(ov.w) || 0;
       const h = Number(ov.h) || 0;
       if (w <= 0 || h <= 0) continue;
-      // Flush detection lives in STORED-x space, which is fine for
-      // grouping: the extension amount on each side is just `shift`
-      // and doesn't depend on which physical end (east-vs-west mirror
-      // doesn't change the magnitude). For a full-wall patch both
-      // sides are flush → effectiveW = w + 2*shift.
-      const leftFlush  = wallWidth > 0 && ov.x <= 0.001;
-      const rightFlush = wallWidth > 0 && (ov.x + w) >= (wallWidth - 0.001);
-      const leftExt  = (leftFlush  && shift > 0) ? shift : 0;
-      const rightExt = (rightFlush && shift > 0) ? shift : 0;
-      const effectiveW = w + leftExt + rightExt;
-      const effectiveH = h;
 
-      // Cutouts in PIECE-LOCAL coords. Piece origin sits at wall
-      // (ov.x - leftExt, ov.y), so a wall-frame point (wx, wy) maps
-      // to piece-local (wx - ov.x + leftExt, wy - ov.y). Window/door
-      // bodies live within the wall body's x range [0, wallWidth];
-      // they never extend into the cladding overhang (the leftExt /
-      // rightExt regions), so the intersection only needs to clip
-      // against the patch's wall-coord bbox.
+      const rawX = Number(ov.x) || 0;
+      const rawY = Number(ov.y) || 0;
+      const ovCladX = toCladX(rawX, w);
+
+      // Convert a wall-editor override into the exact cladding-panel span it
+      // replaces. The editor works in wall-body coordinates, but the laser
+      // cladding panel includes extra corner/overlap strips: cT on front/back
+      // and matT on side walls. If the user drags the override to a wall edge,
+      // the replacement piece must grow through that overlap to the true
+      // cladding panel edge. East is mirrored, so raw x=0 maps to the RIGHT
+      // panel edge and raw x+w=wallWidth maps to the LEFT panel edge.
+      const rawTouchesStart = wallWidth > 0 && rawX <= 0.001;
+      const rawTouchesEnd   = wallWidth > 0 && (rawX + w) >= (wallWidth - 0.001);
+      let panelStart = ovCladX;
+      let panelEnd = ovCladX + w;
+      if (isFB || face === 'west') {
+        if (rawTouchesStart) panelStart = 0;
+        if (rawTouchesEnd) panelEnd = panelWidth;
+      } else if (face === 'east') {
+        if (rawTouchesEnd) panelStart = 0;
+        if (rawTouchesStart) panelEnd = panelWidth;
+      }
+      panelStart = Math.max(0, Math.min(panelWidth, panelStart));
+      panelEnd = Math.max(0, Math.min(panelWidth, panelEnd));
+
+      const bottomExt = (cfg && cfg.claddingExtendsToFloorBottom && wallWidth > 0 && (rawY + h) >= (wallBodyHeightFromConfig(cfg) - 0.02))
+        ? Math.max(0, Number(cfg.coreThickness || matT || 0))
+        : 0;
+      const effectiveW = Math.max(0, panelEnd - panelStart);
+      const effectiveH = h + bottomExt;
+      const ovPanel = {
+        x: panelStart,
+        y: rawY,
+        w: effectiveW,
+        h: effectiveH,
+      };
+
+      // Cutouts in PIECE-LOCAL coords. Intersect windows/doors in cladding
+      // panel coordinates, not raw wall coordinates, so east-side override
+      // replacement pieces match the rendered east cladding orientation.
       const cutouts = [];
       for (const op of wallOps) {
-        const ix1 = Math.max(op.x,        ov.x);
-        const iy1 = Math.max(op.y,        ov.y);
-        const ix2 = Math.min(op.x + op.w, ov.x + w);
-        const iy2 = Math.min(op.y + op.h, ov.y + h);
+        const opW = Number(op.w) || 0;
+        const opH = Number(op.h) || 0;
+        const opX = toCladX(op.x, opW);
+        const opY = Number(op.y) || 0;
+        const ix1 = Math.max(opX,        ovPanel.x);
+        const iy1 = Math.max(opY,        ovPanel.y);
+        const ix2 = Math.min(opX + opW,  ovPanel.x + ovPanel.w);
+        const iy2 = Math.min(opY + opH,  ovPanel.y + ovPanel.h);
         if (ix2 <= ix1 + 0.001 || iy2 <= iy1 + 0.001) continue;
         cutouts.push({
-          x: (ix1 - ov.x) + leftExt,
-          y: iy1 - ov.y,
+          x: ix1 - ovPanel.x,
+          y: iy1 - ovPanel.y,
           w: ix2 - ix1,
           h: iy2 - iy1,
         });
       }
+      const fixtureMarks = claddingOverrideFixtureMarksForPiece(cfg, face, ovPanel, toCladX);
+
       // Stable order so the group key is deterministic regardless of
       // the source op array order.
       cutouts.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+      fixtureMarks.sort((a, b) => (a.y - b.y) || (a.x - b.x) || String(a.style).localeCompare(String(b.style)));
       const cutoutsKey = cutouts
         .map(c => `${c.x.toFixed(2)},${c.y.toFixed(2)},${c.w.toFixed(2)},${c.h.toFixed(2)}`)
+        .join(';');
+      const fixtureMarksKey = fixtureMarks
+        .map(m => `${m.style}:${m.x.toFixed(2)},${m.y.toFixed(2)},${m.w.toFixed(2)},${m.h.toFixed(2)}`)
         .join(';');
 
       // Group key includes the per-override styleParams when present so
@@ -18613,7 +18944,7 @@ function tallyCladdingOverrides(cfg, plan) {
       // distinct sheets — each piece has the cutouts it specifically
       // needs.
       const paramKey = ov.styleParams ? JSON.stringify(ov.styleParams) : '';
-      const key = `${ov.claddingStyle}|${effectiveW.toFixed(2)}|${effectiveH.toFixed(2)}|${paramKey}|${cutoutsKey}`;
+      const key = `${ov.claddingStyle}|${effectiveW.toFixed(2)}|${effectiveH.toFixed(2)}|${paramKey}|${cutoutsKey}|${fixtureMarksKey}`;
       const existing = groups.get(key);
       if (existing) existing.count += 1;
       else groups.set(key, {
@@ -18621,6 +18952,7 @@ function tallyCladdingOverrides(cfg, plan) {
         styleParams: ov.styleParams ? { ...ov.styleParams } : null,
         w: effectiveW, h: effectiveH, count: 1,
         cutouts,
+        fixtureMarks,
       });
     }
   }
@@ -19686,6 +20018,7 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
     const rects = [];
     const lines = [];
     const cutouts = group.cutouts || [];
+    const fixtureMarks = group.fixtureMarks || [];
 
     for (let i = 0; i < group.count; i++) {
       const c = i % cols;
@@ -19706,7 +20039,7 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
         const cow = Math.min(pw - cox, co.w - (cox - co.x));
         const coh = Math.min(ph - coy, co.h - (coy - co.y));
         if (cow > 0.001 && coh > 0.001) {
-          rects.push({ type: 'cut', x: ox + cox, y: oy + coy, w: cow, h: coh, compensateKerf: false });
+          rects.push({ type: 'cut', discard: true, x: ox + cox, y: oy + coy, w: cow, h: coh, compensateKerf: false });
         }
       }
       // Etch the secondary cladding pattern. generateCladdingPattern returns
@@ -19723,6 +20056,7 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
           x2: ox + l.x2, y2: oy + l.y2,
         });
       }
+      for (const m of fixtureMarks) emitFixtureMarkerEtchesOnOverride(lines, m, ox, oy);
     }
 
     const dimsTag = `${pw.toFixed(1)}×${ph.toFixed(1)}mm`;
@@ -19737,11 +20071,12 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
       const cow = Math.min(pw - cox, co.w - (cox - co.x));
       const coh = Math.min(ph - coy, co.h - (coy - co.y));
       if (cow > 0.001 && coh > 0.001) {
-        tileRects.push({ type: 'cut', x: cox, y: coy, w: cow, h: coh, compensateKerf: false });
+        tileRects.push({ type: 'cut', discard: true, x: cox, y: coy, w: cow, h: coh, compensateKerf: false });
       }
     }
     const tileLines = (generateCladdingPattern(style, 0, 0, pw, ph, cutouts) || [])
       .map(l => ({ type: 'etch', x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2 }));
+    for (const m of fixtureMarks) emitFixtureMarkerEtchesOnOverride(tileLines, m, 0, 0);
     parts.push({
       id: 'cladding_override_' + group.claddingStyle + idSuffix,
       name: `Cladding override — ${style.label} (${group.count}× · ${dimsTag})`,
@@ -19749,6 +20084,7 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
       bboxW: sheetW, bboxH: sheetH,
       bboxOffsetX: 0, bboxOffsetY: 0,
       paths: [], rects: rects, lines: lines,
+      meta: { area: 'exterior_walls', role: 'cladding_override_piece', claddingOverrideMode: 'replacement_piece' },
       tileCount: group.count,
       tileGeom: {
         bboxW: pw, bboxH: ph,
@@ -20398,6 +20734,63 @@ function cutOpExplicitlyStructural(op) {
             t === 'outer' || t === 'outline' || t === 'structural_cut');
 }
 
+function cutOpIsCutLike(op) {
+  const t = String((op && op.type) || '').toLowerCase();
+  return t === 'cut' || t === 'hole' || t === 'opening' ||
+         t === 'discard' || t === 'discard_cut' || t === 'dropout' || t === 'drop_out' ||
+         t === 'outer' || t === 'outline' || t === 'structural_cut';
+}
+
+function cutOpBounds(op, kind) {
+  if (!op) return null;
+  if (kind === 'rect') {
+    const x = Number(op.x), y = Number(op.y), w = Number(op.w), h = Number(op.h);
+    if (![x, y, w, h].every(Number.isFinite)) return null;
+    return { minX: x, minY: y, maxX: x + w, maxY: y + h, w, h };
+  }
+  if (kind === 'path' && op.d) return pathBoundsForDiscardCheck(op.d);
+  return null;
+}
+
+function boundsStrictlyContain(outer, inner, tol = 0.05) {
+  if (!outer || !inner) return false;
+  const outerW = outer.maxX - outer.minX;
+  const outerH = outer.maxY - outer.minY;
+  const innerW = inner.maxX - inner.minX;
+  const innerH = inner.maxY - inner.minY;
+  if (outerW <= innerW + tol || outerH <= innerH + tol) return false;
+  return outer.minX <= inner.minX + tol &&
+         outer.minY <= inner.minY + tol &&
+         outer.maxX >= inner.maxX - tol &&
+         outer.maxY >= inner.maxY - tol;
+}
+
+function cutOpIsInsideAnotherCut(part, op, kind, index) {
+  if (!part || !op) return false;
+  const b = cutOpBounds(op, kind);
+  if (!b) return false;
+
+  const paths = (part.paths || []);
+  for (let i = 0; i < paths.length; i++) {
+    if (kind === 'path' && i === index) continue;
+    const p = paths[i];
+    if (!cutOpIsCutLike(p) || cutOpExplicitlyDiscarded(p)) continue;
+    const pb = cutOpBounds(p, 'path');
+    if (boundsStrictlyContain(pb, b)) return true;
+  }
+
+  const rects = (part.rects || []);
+  for (let i = 0; i < rects.length; i++) {
+    if (kind === 'rect' && i === index) continue;
+    const r = rects[i];
+    if (!cutOpIsCutLike(r) || cutOpExplicitlyDiscarded(r)) continue;
+    const rb = cutOpBounds(r, 'rect');
+    if (boundsStrictlyContain(rb, b)) return true;
+  }
+
+  return false;
+}
+
 function geometryStrokeColor(part, op, kind, index) {
   const type = String((op && op.type) || '').toLowerCase();
 
@@ -20410,24 +20803,17 @@ function geometryStrokeColor(part, op, kind, index) {
   // Green only appears here if the operation explicitly opted into discard.
   if (partIsFixtureOrDetailLike(part)) return COLOR_CUT;
 
-  if (type === 'cut' || type === 'hole' || type === 'opening') {
-    // Green is only for disposable material INSIDE a retained piece. Never use
-    // it for an object's outline. Standalone fixture/detail parts often contain
-    // multiple decorative cut outlines, but those are kept objects, not waste;
-    // they must stay red unless explicitly marked discard/drop-out.
+  if (cutOpIsCutLike(op)) {
     const mayHaveDiscardInteriors = partMayHaveGreenDiscardInteriors(part);
+    if (!mayHaveDiscardInteriors) return COLOR_CUT;
 
-    if (kind === 'path') {
-      if (index === 0) return COLOR_CUT; // retained outer perimeter
-      return mayHaveDiscardInteriors ? COLOR_DISCARD_CUT : COLOR_CUT;
-    }
-
-    if (kind === 'rect') {
-      if (rectLooksLikePartOuterBoundary(part, op)) return COLOR_CUT;
-      return mayHaveDiscardInteriors ? COLOR_DISCARD_CUT : COLOR_CUT;
-    }
-
-    return COLOR_CUT;
+    // Green is only for geometry that is physically inside another retained
+    // cut outline on the same sheet. This fixes full exported tiled frame
+    // sheets: every tile's outer frame outline stays red, while each tile's
+    // inner aperture/dropout turns green. The previous index-based rule worked
+    // for preview tiles but made later tile outlines green in the exported SVG.
+    if (kind === 'rect' && rectLooksLikePartOuterBoundary(part, op)) return COLOR_CUT;
+    return cutOpIsInsideAnotherCut(part, op, kind, index) ? COLOR_DISCARD_CUT : COLOR_CUT;
   }
 
   return COLOR_ETCH;

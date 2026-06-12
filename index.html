@@ -5574,11 +5574,11 @@ let CONFIG = {
   sheetSplitStaggerCladdingMm: 24,
   coreThickness: 1.5,
   claddingThickness: 0.28,
-  // Exterior cladding skirt. When enabled, wall cladding panels extend below
-  // the wall bottom by one core/floor thickness so they cover the exposed
-  // edge of the floor piece. This is exterior-only; interior cladding stays
-  // flush to the wall height.
-  claddingExtendsToFloorBottom: false,
+  // Exterior cladding skirt. Enabled by default: wall cladding panels extend
+  // below the wall bottom by one core/floor thickness so they cover the
+  // exposed edge of the floor piece. This is exterior-only; interior cladding
+  // stays flush to the wall height.
+  claddingExtendsToFloorBottom: true,
   tongueWidth: 15,
   // Assembly keying: when a wall face has asymmetric manual features or cladding overlays,
   // shift that wall's bottom tongues slightly so it cannot be installed reversed.
@@ -16178,11 +16178,6 @@ function generateCladdingPanel(cfg, plan, which, band) {
   if (baySpec) {
     addOpeningCut(baySpec.x, baySpec.y, baySpec.w, baySpec.h);
   }
-  if (floorBottomCladdingExtension > 0.01) {
-    const wallBottomLocal = localCHeight - floorBottomCladdingExtension;
-    lines.push({ type: 'etch', x1: 0, y1: wallBottomLocal, x2: localCWidth, y2: wallBottomLocal });
-  }
-
   // We collect all "cut openings" first (windows + doors + bay) then use them to
   // clip etched seam lines so no etch falls inside a cut (which would be lost as scrap).
   const cutOpenings = [];
@@ -16902,6 +16897,18 @@ function generateCladdingPanel(cfg, plan, which, band) {
     if (curX > 0.01) d += ` L 0,${f3(localCHeight)}`;
     d += ' Z';
     paths[0].d = d;
+  }
+
+  // Floor-bottom cladding-extension seam. This line marks where the original
+  // wall bottom ends and the added skirt starts, but it must stop at window/
+  // door/bay cut lines. It used to be pushed before cutOpenings was populated,
+  // so it ran straight through openings.
+  if (floorBottomCladdingExtension > 0.01) {
+    const wallBottomLocal = localCHeight - floorBottomCladdingExtension;
+    const segs = clipHorizontalLineByCuts(wallBottomLocal, 0, localCWidth, cutOpenings, 0.02);
+    for (const [a, b] of segs) {
+      lines.push({ type: 'etch', x1: a, y1: wallBottomLocal, x2: b, y2: wallBottomLocal });
+    }
   }
 
   // Etched cladding pattern — dispatch by pattern type. All etches are clipped 
@@ -20346,21 +20353,27 @@ function geometryStrokeColor(part, op, kind, index) {
   if (cutOpExplicitlyStructural(op)) return COLOR_CUT;
 
   if (type === 'cut' || type === 'hole' || type === 'opening') {
-    // For large structural panels, inner cutouts are waste/drop-out pieces:
-    // windows, doors, circular/square holes, floor wiring holes, sockets, etc.
-    // The exterior perimeter remains red. Glue-on detail sheets are not in this
-    // role list, so their individual rectangle parts stay red unless explicitly
-    // marked as discard.
-    if (partRoleUsesDisposableCutColor(part)) {
-      if (kind === 'rect') {
-        return rectLooksLikePartOuterBoundary(part, op) ? COLOR_CUT : COLOR_DISCARD_CUT;
-      }
-      if (kind === 'path') {
-        // First full-boundary path stays red. Any closed inner path/hole is green.
-        if (pathLooksLikePartOuterBoundary(part, op)) return COLOR_CUT;
-        return COLOR_DISCARD_CUT;
-      }
+    // The first cut path on a generated part is normally the retained outer
+    // perimeter. It must stay red even when the outline is irregular with tabs,
+    // notches, split edges, or panelization cuts, because bbox matching is too
+    // fragile for those shapes. The previous green-layer patch relied mostly on
+    // "does this path match the bbox?" and could therefore turn entire core
+    // walls green.
+    if (kind === 'path' && index === 0) return COLOR_CUT;
+
+    // Any additional cut path/rect inside a kept part is normally a drop-out:
+    // window glass/aperture interiors, door openings, square holes, circular
+    // holes, wiring access holes, etc. This also fixes separate window-frame
+    // parts: the outer frame path stays red and the inner aperture paths become
+    // green.
+    if (kind === 'path' && index > 0) return COLOR_DISCARD_CUT;
+
+    if (kind === 'rect') {
+      // A rectangle that exactly forms the entire part boundary is a retained
+      // part outline; all other cut rectangles are disposable interiors.
+      return rectLooksLikePartOuterBoundary(part, op) ? COLOR_CUT : COLOR_DISCARD_CUT;
     }
+
     return COLOR_CUT;
   }
 
@@ -27859,7 +27872,11 @@ function applyLoadedConfig(data) {
     merged.firstFloorCladdingStyle = 'cement_siding_lap';
   }
   merged.groundFloorOffsetEnabled = !!merged.groundFloorOffsetEnabled;
-  merged.claddingExtendsToFloorBottom = !!merged.claddingExtendsToFloorBottom;
+  if (merged.claddingExtendsToFloorBottom == null) {
+    merged.claddingExtendsToFloorBottom = true;
+  } else {
+    merged.claddingExtendsToFloorBottom = !!merged.claddingExtendsToFloorBottom;
+  }
   // Rooftop fields
   merged.rooftopMechRoom = !!merged.rooftopMechRoom;
   if (merged.rooftopMechRoomWidth != null) {

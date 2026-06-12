@@ -20331,6 +20331,30 @@ function partRoleUsesDisposableCutColor(part) {
   ].includes(role);
 }
 
+function partIsWindowOrDoorFrameLike(part) {
+  normalizePartMetadata(part);
+  const role = String((part && part.meta && part.meta.role) || '').toLowerCase();
+  const id = String((part && part.id) || '').toLowerCase();
+  const name = String((part && part.name) || '').toLowerCase();
+
+  // These are retained outline parts with internal apertures that are waste:
+  // window trim rings, inner frames, divider frames, door inserts/frames,
+  // skylight frames, shutter/slat frames, etc. Fixture/detail/printed pieces
+  // are deliberately excluded so their decorative sub-outlines stay red.
+  if (role.includes('fixture') || role.includes('printed') || role.includes('sign') ||
+      id.includes('fixture') || id.includes('printed') || name.includes('fixture')) return false;
+
+  return role.includes('window') || role.includes('door') || role.includes('frame') ||
+         id.includes('frame') || id.includes('window') || id.includes('door') ||
+         id.includes('skylight') || id.includes('shutter') ||
+         name.includes('frame') || name.includes('window') || name.includes('door') ||
+         name.includes('skylight') || name.includes('shutter');
+}
+
+function partMayHaveGreenDiscardInteriors(part) {
+  return partRoleUsesDisposableCutColor(part) || partIsWindowOrDoorFrameLike(part);
+}
+
 function cutOpExplicitlyDiscarded(op) {
   if (!op) return false;
   const t = String(op.type || '').toLowerCase();
@@ -20353,25 +20377,20 @@ function geometryStrokeColor(part, op, kind, index) {
   if (cutOpExplicitlyStructural(op)) return COLOR_CUT;
 
   if (type === 'cut' || type === 'hole' || type === 'opening') {
-    // The first cut path on a generated part is normally the retained outer
-    // perimeter. It must stay red even when the outline is irregular with tabs,
-    // notches, split edges, or panelization cuts, because bbox matching is too
-    // fragile for those shapes. The previous green-layer patch relied mostly on
-    // "does this path match the bbox?" and could therefore turn entire core
-    // walls green.
-    if (kind === 'path' && index === 0) return COLOR_CUT;
+    // Green is only for disposable material INSIDE a retained piece. Never use
+    // it for an object's outline. Standalone fixture/detail parts often contain
+    // multiple decorative cut outlines, but those are kept objects, not waste;
+    // they must stay red unless explicitly marked discard/drop-out.
+    const mayHaveDiscardInteriors = partMayHaveGreenDiscardInteriors(part);
 
-    // Any additional cut path/rect inside a kept part is normally a drop-out:
-    // window glass/aperture interiors, door openings, square holes, circular
-    // holes, wiring access holes, etc. This also fixes separate window-frame
-    // parts: the outer frame path stays red and the inner aperture paths become
-    // green.
-    if (kind === 'path' && index > 0) return COLOR_DISCARD_CUT;
+    if (kind === 'path') {
+      if (index === 0) return COLOR_CUT; // retained outer perimeter
+      return mayHaveDiscardInteriors ? COLOR_DISCARD_CUT : COLOR_CUT;
+    }
 
     if (kind === 'rect') {
-      // A rectangle that exactly forms the entire part boundary is a retained
-      // part outline; all other cut rectangles are disposable interiors.
-      return rectLooksLikePartOuterBoundary(part, op) ? COLOR_CUT : COLOR_DISCARD_CUT;
+      if (rectLooksLikePartOuterBoundary(part, op)) return COLOR_CUT;
+      return mayHaveDiscardInteriors ? COLOR_DISCARD_CUT : COLOR_CUT;
     }
 
     return COLOR_CUT;

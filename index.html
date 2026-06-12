@@ -15,17 +15,26 @@
     --etch: #2a64aa;
   }
   * { box-sizing: border-box; }
+  html {
+    height: 100%;
+    height: -webkit-fill-available;
+  }
   body {
     margin: 0; padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", "Noto Sans CJK JP", system-ui, sans-serif;
     font-size: 13px; line-height: 1.4;
     background: var(--bg); color: var(--text);
-    height: 100vh; overflow: hidden;
+    height: 100vh;
+    height: 100dvh;
+    min-height: -webkit-fill-available;
+    overflow: hidden;
   }
   .app {
     display: grid;
     grid-template-columns: 340px 1fr;
     height: 100vh;
+    height: 100dvh;
+    min-height: 0;
   }
   .controls {
     background: var(--panel);
@@ -33,14 +42,20 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-height: 0;
   }
   .controls-scroll {
-    flex: 1;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     padding: 16px;
   }
   .preview {
     overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    min-height: 0;
     padding: 16px;
     background: #fafaf7;
   }
@@ -77,10 +92,14 @@
   .actions { display: flex; gap: 8px; margin-top: 12px; }
   .actions button { flex: 1; }
   .sticky-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
     background: var(--panel);
-    padding: 12px 16px 16px;
+    padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid var(--border);
     flex-shrink: 0;
+    box-shadow: 0 -6px 16px rgba(0,0,0,0.06);
   }
   .sticky-actions .actions { margin-top: 0; }
   .sticky-actions .actions + .actions { margin-top: 8px; }
@@ -108,6 +127,48 @@
   }
   .overflow-dropdown button:hover { background: #f5f5f0; }
   .overflow-dropdown .overflow-sep { height: 1px; background: var(--border); margin: 3px 0; }
+
+  @media (max-width: 900px), (pointer: coarse) {
+    body {
+      overflow: auto;
+    }
+    .app {
+      min-height: 100dvh;
+      height: auto;
+      grid-template-columns: minmax(300px, 42vw) minmax(420px, 1fr);
+    }
+    .controls {
+      max-height: 100dvh;
+      position: sticky;
+      top: 0;
+      align-self: start;
+    }
+    .sticky-actions {
+      position: sticky;
+      bottom: 0;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .app {
+      display: block;
+      height: auto;
+      min-height: 100dvh;
+    }
+    .controls {
+      position: relative;
+      max-height: none;
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .controls-scroll {
+      max-height: none;
+    }
+    .preview {
+      min-height: 60vh;
+      padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    }
+  }
 
   /* Materials assignment panel */
   .mat-row {
@@ -221,7 +282,7 @@
     pointer-events: none;
   }
   /* Floor / roof editor uses the shared .editor-modal framework. */
-  #iwSvg { cursor: crosshair; user-select: none; display: block; width: 100%; height: 100%; }
+  #iwSvg { cursor: crosshair; user-select: none; display: block; width: 100%; height: 100%; touch-action: pan-x pan-y; -webkit-user-select: none; }
   .part svg { width: 100%; height: auto; max-height: 280px; display: block; }
   .part.wall-editable { cursor: pointer; position: relative; }
   .part.wall-editable:hover { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(200,70,50,0.15); }
@@ -354,6 +415,16 @@
   }
   .oe-fab-btn:hover { background: #e8e8e2; }
   .oe-fab-btn.fab-active { background: var(--etch); color: #fff; border-color: #1a4488; }
+  .oe-fab-btn.fab-delete {
+    display: none;
+    background: #fff1ee;
+    border-color: #e0b0a8;
+    color: var(--accent-dark);
+    font-weight: 600;
+  }
+  .oe-fab-btn.fab-delete.oe-visible { display: inline-flex; }
+  .oe-fab-btn.fab-delete:hover { background: #ffe2dc; border-color: var(--accent); }
+
   .oe-fab-btn.fab-erase.fab-active { background: var(--accent); color: #fff; border-color: var(--accent-dark); }
   .oe-fab-zoom { font-size: 11px; color: var(--muted); }
   .oe-fab-zoom-btn {
@@ -432,7 +503,7 @@
     display: flex; align-items: center; justify-content: center;
     padding: 24px; background: #e8e8e0;
   }
-  #openingEditorSvg { cursor: crosshair; user-select: none; display: block; }
+  #openingEditorSvg { cursor: crosshair; user-select: none; display: block; touch-action: pan-x pan-y; }
   .oe-footer {
     padding: 6px 14px; border-top: 1px solid var(--border);
     font-size: 11px; color: var(--muted); flex-shrink: 0;
@@ -2934,6 +3005,60 @@ const TRANSLATIONS = {
     mat_idTitle: 'Internal ID (used in part.material)',
     mat_delTitle: 'Remove this material',
     mat_newName: 'New Material',
+    ed_grid: 'Grid',
+    ed_step: 'Step',
+    ed_cladding: 'Cladding',
+    ed_roofCladdingStyle: 'Roof cladding style',
+    ed_drawMode: 'DRAW MODE',
+    ed_drawHint: 'Click & drag on the plan to place a wall. Release to commit.',
+    ed_snap: 'SNAP',
+    ed_snapAxis: 'Axis-aligned only (H or V)',
+    ed_eraseMode: 'ERASE MODE',
+    ed_eraseRoofHint: 'Click a roof item to remove it.',
+    ed_eraseWallHint: 'Click a wall to delete it.',
+    ed_shieldWall: 'SHIELD WALL',
+    ed_shieldHint: 'Drag the square corner handles to resize the enclosure, the dashed body to move it, the white round handles to resize each wall, click + to add an opening.',
+    ed_placing: 'PLACING',
+    ed_placeRelease: 'release over the plan to place.',
+    ed_copy: 'Copy',
+    ed_paste: 'Paste',
+    ed_delete: 'Delete',
+    ed_deleteN: 'Delete {n}',
+    ed_deleteSelectedTitle: 'Delete selected (Delete)',
+    ed_deleteSelectTitle: 'Delete (select ≥ 1)',
+    ed_copyTitle: 'Copy (Ctrl/Cmd+C)',
+    ed_copySelectTitle: 'Copy (select ≥ 1)',
+    ed_pasteTitle: 'Paste (Ctrl/Cmd+V)',
+    ed_pasteEmptyTitle: 'Paste (clipboard empty)',
+    ed_selectWallItemDelete: 'Select a wall item to delete it',
+    ed_deleteWallItemTitle: 'Delete {n} selected wall item{s}',
+    ed_autoSeedLayout: 'Auto-seed layout',
+    ed_clearAllEquipment: 'Clear all equipment',
+    ed_autoSeedReplaceConfirm: 'Replace {n} existing equipment item{s} with an auto-seeded layout?',
+    ed_clearEquipmentConfirm: 'Remove all {n} placed equipment item{s}?',
+    ed_autoSeedStatus: 'Auto-seeded {n} equipment item{s} using traditional rooftop layout — drag any item to adjust.',
+    ed_shieldWallToolHint: 'Click a roof edge to toggle a parapet.',
+    ed_eraseItem: 'Erase item',
+    ed_eraseItemHint: 'Click a roof item or cutout to remove it.',
+    ed_deleteSelected: 'Delete selected',
+    ed_deleteSelectedItem: 'Delete selected item',
+    ed_wallItem: 'wall item',
+    ed_searchPlaceholder: 'Search objects…',
+    lbl_parapetCap: 'Parapet cap / coping',
+    hlp_parapetCap: 'Adds foldable cap strips that cover the top of parapet walls.',
+    lbl_parapetSides: 'Parapet cap sides',
+    hlp_parapetSides: 'Choose which parapet sides receive cap/coping strips.',
+    opt_parapetSidesAll: 'All sides',
+    opt_parapetSidesFB: 'Front / back only',
+    opt_parapetSidesEW: 'East / west only',
+    lbl_soffitCladding: 'Soffit cladding under overhang',
+    hlp_soffitCladding: 'Adds underside cladding panels for roof overhangs.',
+    lbl_roofFasciaTrim: 'Roof fascia trim',
+    hlp_roofFasciaTrim: 'Adds fascia trim strips around roof edges.',
+    lbl_interiorCladding: 'Interior wall cladding',
+    hlp_interiorCladding: 'Adds cladding panels to the inside faces of exterior walls.',
+    lbl_interiorCladdingStyle: 'Interior cladding style',
+    opt_parapet_gable: 'Parapet gable',
   },
   ja: {
     /* page header */
@@ -3099,6 +3224,60 @@ const TRANSLATIONS = {
     mat_idTitle: '内部ID（part.materialで使用）',
     mat_delTitle: 'この素材を削除',
     mat_newName: '新しい素材',
+    ed_grid: 'グリッド',
+    ed_step: '間隔',
+    ed_cladding: '外装',
+    ed_roofCladdingStyle: '屋根外装スタイル',
+    ed_drawMode: '作図モード',
+    ed_drawHint: '平面図上でクリック＆ドラッグして壁を配置し、離すと確定します。',
+    ed_snap: 'スナップ',
+    ed_snapAxis: '水平または垂直のみ',
+    ed_eraseMode: '削除モード',
+    ed_eraseRoofHint: '屋上アイテムをクリックして削除します。',
+    ed_eraseWallHint: '壁をクリックして削除します。',
+    ed_shieldWall: '目隠し壁',
+    ed_shieldHint: '四角い角ハンドルで囲いをリサイズ、破線の本体で移動、白い丸ハンドルで各壁を調整、＋で開口を追加します。',
+    ed_placing: '配置中',
+    ed_placeRelease: '平面図上で離すと配置します。',
+    ed_copy: 'コピー',
+    ed_paste: '貼り付け',
+    ed_delete: '削除',
+    ed_deleteN: '{n}件削除',
+    ed_deleteSelectedTitle: '選択項目を削除（Delete）',
+    ed_deleteSelectTitle: '削除（1件以上選択）',
+    ed_copyTitle: 'コピー（Ctrl/Cmd+C）',
+    ed_copySelectTitle: 'コピー（1件以上選択）',
+    ed_pasteTitle: '貼り付け（Ctrl/Cmd+V）',
+    ed_pasteEmptyTitle: '貼り付け（クリップボード空）',
+    ed_selectWallItemDelete: '削除する壁アイテムを選択',
+    ed_deleteWallItemTitle: '選択中の壁アイテム{n}件を削除',
+    ed_autoSeedLayout: 'レイアウト自動配置',
+    ed_clearAllEquipment: '設備をすべて消去',
+    ed_autoSeedReplaceConfirm: '既存の設備{n}件を自動配置レイアウトで置き換えますか？',
+    ed_clearEquipmentConfirm: '配置済み設備{n}件を削除しますか？',
+    ed_autoSeedStatus: '設備{n}件を一般的な屋上配置で自動配置しました。必要に応じて各アイテムをドラッグして調整してください。',
+    ed_shieldWallToolHint: '屋根端をクリックしてパラペットを切り替えます。',
+    ed_eraseItem: 'アイテム削除',
+    ed_eraseItemHint: '屋上アイテムまたは切り抜きをクリックして削除します。',
+    ed_deleteSelected: '選択項目を削除',
+    ed_deleteSelectedItem: '選択アイテムを削除',
+    ed_wallItem: '壁アイテム',
+    ed_searchPlaceholder: 'オブジェクト検索…',
+    lbl_parapetCap: 'パラペット笠木',
+    hlp_parapetCap: 'パラペット壁の上端を覆う折り曲げ式の笠木ストリップを追加します。',
+    lbl_parapetSides: '笠木を付ける辺',
+    hlp_parapetSides: 'パラペット笠木を取り付ける辺を選択します。',
+    opt_parapetSidesAll: '全辺',
+    opt_parapetSidesFB: '前後のみ',
+    opt_parapetSidesEW: '東西のみ',
+    lbl_soffitCladding: '庇裏の外装材',
+    hlp_soffitCladding: '屋根の張り出し下面に貼る外装パネルを追加します。',
+    lbl_roofFasciaTrim: '屋根鼻隠しトリム',
+    hlp_roofFasciaTrim: '屋根端部まわりに鼻隠しトリムを追加します。',
+    lbl_interiorCladding: '内壁側外装パネル',
+    hlp_interiorCladding: '外周壁の内側面に貼る内装／外装パネルを追加します。',
+    lbl_interiorCladdingStyle: '内側パネルスタイル',
+    opt_parapet_gable: 'パラペット切妻',
   },
 };
 
@@ -3106,6 +3285,190 @@ let currentLang = 'en';
 
 function t(key) {
   return (TRANSLATIONS[currentLang] || TRANSLATIONS.en)[key] || (TRANSLATIONS.en)[key] || key;
+}
+
+function tx(key, fallback) {
+  const T = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+  const enT = TRANSLATIONS.en || {};
+  return (T && T[key]) || enT[key] || fallback || key;
+}
+
+const STYLE_I18N_JA = {
+  BUILDING_TYPES: {
+    industrial_loading: { label:'工業・荷役施設' },
+    storage: { label:'倉庫' },
+    office: { label:'オフィスビル' },
+    workshop: { label:'小工場・作業場' },
+    silo_tower: { label:'サイロ塔・細長い建物' },
+    shop: { label:'店舗・商店' },
+    traditional_house: { label:'伝統住宅・茶屋' },
+    storehouse: { label:'蔵（白壁）' },
+    station_brick: { label:'レンガ駅舎・銀行' },
+    stone_civic: { label:'石造公共建築' },
+  },
+  CLADDING_STYLES: {
+    alc_panel: { label:'ALCパネル（縦目地・4mm幅）' },
+    alc_panel_horizontal: { label:'ALCパネル（横目地・4mm高）' },
+    alc_panel_wide: { label:'ALCパネル（1200mm幅）' },
+    alc_panel_bolted: { label:'ALCパネル（露出ファスナー）' },
+    alc_panel_ribbed: { label:'ALCパネル（装飾リブ）' },
+    ribbed_metal_wide: { label:'リブ付き金属パネル（幅広）' },
+    ribbed_metal_wide_fasteners: { label:'リブ付き金属パネル（幅広＋ファスナー）' },
+    standing_seam_metal: { label:'立平葺き金属屋根' },
+    ribbed_metal_narrow: { label:'リブ付き金属パネル（細幅）' },
+    cement_siding_lap: { label:'窯業系ラップサイディング' },
+    galvalume_vertical: { label:'ガルバリウム縦張り' },
+    fluted_concrete: { label:'リブ付きコンクリート' },
+    mosaic_tile: { label:'モザイクタイル（50mm）' },
+    concrete_panel_large: { label:'コンクリートパネル（大）' },
+    concrete_panel_small: { label:'コンクリートパネル（小）' },
+    yakisugi: { label:'焼杉板張り' },
+    board_batten: { label:'押縁張り' },
+    namako: { label:'なまこ壁（斜めタイル）' },
+    namako_kabe: { label:'なまこ壁（斜めタイル）' },
+    hira_gawara: { label:'平瓦壁（角タイル）' },
+    hira_gawara_wall: { label:'平瓦壁（角タイル）' },
+    kawara_roof: { label:'瓦屋根' },
+    kawara_tile: { label:'瓦（屋根タイル）' },
+    corrugated_metal: { label:'波板金属（重ね張り）' },
+    corrugated_metal_overlap: { label:'波板金属（重ねあり）' },
+    brick_running: { label:'レンガ（馬踏み目地）' },
+    brick_course: { label:'レンガ（段積み）' },
+    stone_ashlar_small: { label:'切石積み（小）' },
+    stone_ashlar_large: { label:'切石積み（大）' },
+    stone_rubble: { label:'乱石積み' },
+    stone_random_rubble: { label:'乱石積み（ランダム）' },
+    smooth: { label:'無地（ディテールなし）' },
+  },
+  WINDOW_STYLES: {
+    industrial_small: { label:'工業窓・小（縦桟）' },
+    industrial_tall: { label:'工業窓・縦長（縦桟）' },
+    office_grid_2x2: { label:'オフィス窓 2×2格子' },
+    office_grid_3x2: { label:'オフィス窓 3×2格子' },
+    storefront: { label:'店舗正面（透明・桟なし）' },
+    ribbon: { label:'横連窓' },
+    industrial_slider_3: { label:'工業用引違い帯窓（3連）' },
+    industrial_slider_4: { label:'工業用引違い帯窓（4連）' },
+    industrial_slider_6: { label:'工業用引違い帯窓（6連）' },
+    factory_square: { label:'工場角窓（4枚）' },
+    vertical_strip: { label:'縦スリット窓' },
+    renji_mado: { label:'連子窓' },
+    mushiko_mado: { label:'虫籠窓' },
+    shoji_grid: { label:'障子格子' },
+    ranma_lattice: { label:'欄間格子' },
+    yukimi_shoji: { label:'雪見障子' },
+    renji_tall: { label:'縦連子' },
+    blanked_etched: { label:'塞ぎ窓（外装にエッチング）' },
+    blanked_filled: { label:'塞ぎ窓（外装裏に埋め材）' },
+  },
+  DOOR_STYLES: {
+    single: { label:'片開きドア（無地）' },
+    single_glass: { label:'片開きガラスドア' },
+    single_full_glass: { label:'全面ガラス片開きドア' },
+    double: { label:'両開きドア（無地）' },
+    double_glass: { label:'両開きガラスドア' },
+    double_full_glass: { label:'全面ガラス両開きドア' },
+    rolling: { label:'シャッター' },
+    sliding_glass: { label:'引違いガラス入口' },
+    single_metal_exterior_handle: { label:'外部ハンドル付き工業用金属ドア' },
+    single_metal_window: { label:'小窓付き金属サービスドア' },
+    single_louvered_utility: { label:'ルーバー付き設備ドア' },
+    double_metal_exterior_handle: { label:'外部ハンドル付き両開き金属ドア' },
+    single_industrial: { label:'クラッシュバー付き片開き工業ドア' },
+    double_industrial: { label:'クラッシュバー付き両開き工業ドア' },
+    apartment_service_jp: { label:'日本型アルミ玄関・集合住宅ドア' },
+    koshi_do: { label:'格子戸' },
+    koshi_do_glass: { label:'格子戸（ガラス入り）' },
+    koshi_do_double: { label:'両開き格子戸' },
+    sliding_shoji: { label:'障子引戸' },
+    itado: { label:'板戸' },
+    kura_do: { label:'蔵戸' },
+    yotsume_koshi_do: { label:'四つ目格子戸' },
+  },
+  FIXTURE_STYLES: {
+    passthrough_circle: { label:'貫通穴（丸）' },
+    passthrough_square: { label:'貫通穴（四角）' },
+    emergency_hatch: { label:'非常用ハッチ' },
+    vent_louvered: { label:'ルーバー換気口' },
+    vent_round: { label:'丸型排気口' },
+    downspout: { label:'雨樋たて管' },
+    noren: { label:'暖簾' },
+    sudare: { label:'簾' },
+    address_plate: { label:'住所プレート' },
+    conduit_box: { label:'配線・ジャンクションボックス' },
+    electric_meter: { label:'電力量計' },
+    gas_meter: { label:'ガスメーター' },
+    sign_wall_plaque: { label:'壁面看板・プレート' },
+    mailbox_jp: { label:'郵便受け' },
+    mini_split_ac: { label:'壁掛けエアコン室内機' },
+    sign_vertical_banner: { label:'縦看板' },
+    lantern_chochin: { label:'提灯' },
+    sign_kanban: { label:'看板' },
+    louver_bank_industrial: { label:'ルーバーバンク' },
+    large_vent_grille: { label:'大型換気グリル' },
+    pipe_penetration_ring: { label:'配管貫通リング' },
+    cable_tray_wall: { label:'ケーブルトレイ' },
+    exterior_electrical_cabinet: { label:'屋外電気盤' },
+    dust_collector_box: { label:'集塵ボックス' },
+    wall_mounted_duct: { label:'壁付けダクト' },
+    ladder_strip: { label:'はしごストリップ' },
+    safety_cage: { label:'安全ケージ' },
+    platform_brackets: { label:'プラットフォームブラケット' },
+    service_platform_brackets: { label:'サービス足場ブラケット' },
+  },
+  ROOFTOP_EQUIPMENT: {
+    ac_small: { label:'小型AC室外機' },
+    ac_large: { label:'大型・工業用AC室外機' },
+    cooling_tower: { label:'冷却塔' },
+    water_tank_round: { label:'円筒水槽（脚付き）' },
+    water_tank_square: { label:'FRP角型水槽（脚付き）' },
+    mushroom_vent: { label:'きのこ型屋上ベント' },
+    elec_cabinet: { label:'電気・制御盤' },
+    antenna_mast: { label:'アンテナマスト' },
+  },
+  AWNING_STYLES: {
+    narrow: { label:'狭い' },
+    standard: { label:'標準' },
+    wide: { label:'広い' },
+    shopfront: { label:'店舗正面' },
+  },
+  BALCONY_STYLES: {
+    int_s: { label:'内側 S' },
+    int_m: { label:'内側 M' },
+    int_l: { label:'内側 L' },
+    ext_s: { label:'外側 S' },
+    ext_m: { label:'外側 M' },
+    ext_l: { label:'外側 L' },
+  },
+};
+
+function i18nStyleGroupObject(groupName) {
+  try {
+    return ({
+      BUILDING_TYPES, CLADDING_STYLES, WINDOW_STYLES, DOOR_STYLES,
+      FIXTURE_STYLES, ROOFTOP_EQUIPMENT, AWNING_STYLES, BALCONY_STYLES,
+    })[groupName] || null;
+  } catch (e) { return null; }
+}
+
+function applyDynamicObjectI18n() {
+  const groups = Object.keys(STYLE_I18N_JA);
+  for (const groupName of groups) {
+    const group = i18nStyleGroupObject(groupName);
+    if (!group) continue;
+    for (const [key, obj] of Object.entries(group)) {
+      if (!obj || typeof obj !== 'object') continue;
+      if (!obj._i18n_en) obj._i18n_en = { label: obj.label, description: obj.description };
+      const ja = STYLE_I18N_JA[groupName][key] || {};
+      if (currentLang === 'ja') {
+        if (ja.label) obj.label = ja.label;
+        if (ja.description) obj.description = ja.description;
+      } else {
+        if (obj._i18n_en.label != null) obj.label = obj._i18n_en.label;
+        if (obj._i18n_en.description != null) obj.description = obj._i18n_en.description;
+      }
+    }
+  }
 }
 
 /* -------------------------------------------------------------------
@@ -3121,6 +3484,11 @@ function buildTextRegistry() {
   const roots = [
     document.querySelector('.controls-scroll'),
     document.querySelector('.sticky-actions'),
+    document.querySelector('#openingEditorModal'),
+    document.querySelector('#iwModal'),
+    document.querySelector('#shapeEditorModal'),
+    document.querySelector('#partsPanel'),
+    document.querySelector('#preview'),
   ];
   function walk(el) {
     if (!el) return;
@@ -3178,16 +3546,37 @@ function applyI18n() {
     if (T[key]) el.textContent = T[key];
   });
 
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (T[key]) el.setAttribute('placeholder', T[key]);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.getAttribute('data-i18n-title');
+    if (T[key]) el.setAttribute('title', T[key]);
+  });
+
   document.documentElement.lang = currentLang;
 
   // Re-render dynamically-built sections so they pick up the new language
+  if (typeof applyDynamicObjectI18n === 'function') applyDynamicObjectI18n();
   if (typeof renderMaterialsForm === 'function') renderMaterialsForm();
+  if (typeof populateStyleSelects === 'function') populateStyleSelects();
+  if (typeof writeForm === 'function') {
+    try { writeForm(); } catch (e) {}
+  }
+  if (typeof OpeningEditorToolbox !== 'undefined' && document.getElementById('openingEditorModal')?.style.display !== 'none') {
+    try { OpeningEditorToolbox.populate(); OpeningEditorTopbar.populate(); oeUpdateFloatingActionBarState(); oeRender(); } catch (e) {}
+  }
+  if (document.getElementById('iwModal')?.style.display !== 'none') {
+    try { iwPopulateToolbox(); iwPopulateTopbar(); iwRender(); } catch (e) {}
+  }
 }
 
 function setLanguage(lang) {
   if (!TRANSLATIONS[lang]) return;
   currentLang = lang;
   try { localStorage.setItem('hakomachi_lang', lang); } catch(e) {}
+  if (typeof applyDynamicObjectI18n === 'function') applyDynamicObjectI18n();
   applyI18n();
 }
 
@@ -9164,6 +9553,29 @@ function buildFBWallWithBay(spec, plan) {
 /* Adds rooftop mechanical-room slots (cut-through) and rooftop-equipment 
    outlines (etched) to the roof piece's rects/lines arrays. The plan's mechRoom 
    and rooftopEquipPlacements are in roof-local coordinates already. */
+function rooftopEquipmentEtchLines(plan, offsetX = 0, offsetY = 0) {
+  const lines = [];
+  if (plan && plan.rooftopEquipPlacements && plan.rooftopEquipPlacements.length > 0) {
+    for (const p of plan.rooftopEquipPlacements) {
+      const x = (Number(p.x) || 0) + offsetX;
+      const y = (Number(p.y) || 0) + offsetY;
+      const w = Number(p.w) || 0;
+      const d = Number(p.d) || 0;
+      if (w <= 0 || d <= 0) continue;
+      // Etched outline = 4 line segments forming the rectangle
+      lines.push({ type: 'etch', x1: x,     y1: y,     x2: x + w, y2: y });
+      lines.push({ type: 'etch', x1: x + w, y1: y,     x2: x + w, y2: y + d });
+      lines.push({ type: 'etch', x1: x + w, y1: y + d, x2: x,     y2: y + d });
+      lines.push({ type: 'etch', x1: x,     y1: y + d, x2: x,     y2: y });
+      // Add a small marker line in one corner to indicate orientation/identification
+      const mark = Math.min(0.7, w * 0.3, d * 0.3);
+      lines.push({ type: 'etch', x1: x + 0.3, y1: y + 0.3, x2: x + 0.3 + mark, y2: y + 0.3 });
+      lines.push({ type: 'etch', x1: x + 0.3, y1: y + 0.3, x2: x + 0.3, y2: y + 0.3 + mark });
+    }
+  }
+  return lines;
+}
+
 function addRoofMechRoomAndEquipment(plan, cfg, rects, lines, roofIsRecessed) {
   const matT = plan.matT;
   // For a parapet (recessed) roof, the SVG bbox is offset by matT all around (the 
@@ -9202,21 +9614,7 @@ function addRoofMechRoomAndEquipment(plan, cfg, rects, lines, roofIsRecessed) {
       rects.push({ type: 'cut', x: mr.x + mr.w - matT/2, y: mr.y + t.start, w: matT, h: t.end - t.start, compensateKerf: true });
     }
   }
-  
-  // Rooftop equipment: etched rectangular outlines showing footprint
-  if (plan.rooftopEquipPlacements && plan.rooftopEquipPlacements.length > 0) {
-    for (const p of plan.rooftopEquipPlacements) {
-      // Etched outline = 4 line segments forming the rectangle
-      lines.push({ type: 'etch', x1: p.x, y1: p.y, x2: p.x + p.w, y2: p.y });
-      lines.push({ type: 'etch', x1: p.x + p.w, y1: p.y, x2: p.x + p.w, y2: p.y + p.d });
-      lines.push({ type: 'etch', x1: p.x + p.w, y1: p.y + p.d, x2: p.x, y2: p.y + p.d });
-      lines.push({ type: 'etch', x1: p.x, y1: p.y + p.d, x2: p.x, y2: p.y });
-      // Add a small marker line in one corner to indicate orientation/identification
-      const mark = Math.min(0.7, p.w * 0.3, p.d * 0.3);
-      lines.push({ type: 'etch', x1: p.x + 0.3, y1: p.y + 0.3, x2: p.x + 0.3 + mark, y2: p.y + 0.3 });
-      lines.push({ type: 'etch', x1: p.x + 0.3, y1: p.y + 0.3, x2: p.x + 0.3, y2: p.y + 0.3 + mark });
-    }
-  }
+
 }
 
 
@@ -11178,6 +11576,9 @@ function generateSlantedRoof(cfg, plan) {
     };
     const claddingPanel = generateRoofCladdingPanel('roof_cladding', `Roof Cladding (slanted — ${highLabel})`,
       perpLen, slantLen, CLADDING_STYLES[cfg.roofCladdingStyle || cfg.claddingStyle], cfg);
+    if (claddingPanel) {
+      claddingPanel.lines.push(...rooftopEquipmentEtchLines(plan, ohVerge, ohSlant));
+    }
     // Skylight openings cut through BOTH the roof core and the roof cladding.
     // The slanted roof stores skylight coords directly in this unrolled roof
     // panel frame, so the cladding uses the same rectangular cuts as the core.
@@ -11753,6 +12154,12 @@ function generateGabledRoof(cfg, plan) {
     const combinedClad = styleSpec
       ? generateGabledRoofCladding(perpLen, slantLen, halfSpan0, pitch, matT, styleSpec, ridgeDir)
       : null;
+    // Add rooftop equipment placement marks to the cladding, not the core.
+    // For folded gabled cladding, these are placed on the first slope panel
+    // in the same local developed frame used by the editor's roof plan.
+    if (combinedClad) {
+      combinedClad.lines.push(...rooftopEquipmentEtchLines(plan, ohVerge, 0));
+    }
     // Add matching cut-through holes to the folded roof cladding for every
     // skylight cut into the gabled roof core panels.
     if (combinedClad && claddingSkylightPaths.length > 0) {
@@ -21439,6 +21846,24 @@ function generateBuilding(cfg) {
       ? generateCladdingPattern(roofStyleSpec, 0, 0, rW, rH, [], null)
           .map(seg => ({ type: 'etch', x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2 }))
       : [];
+    let equipOffsetX = 0;
+    let equipOffsetY = 0;
+    if (cfg.roofStyle === 'flat') {
+      // Flat roof cladding overhangs the core by cladding thickness on all sides.
+      equipOffsetX = cT;
+      equipOffsetY = cT;
+    } else if (cfg.roofStyle === 'flat_overhang') {
+      // Editor/equipment coords are in the building footprint frame; overhang
+      // cladding includes the eave projection around that footprint.
+      const O = Math.max(0, cfg.roofOverhang || 5);
+      equipOffsetX = O;
+      equipOffsetY = O;
+    } else {
+      // Recessed/parapet roof cladding is already in the interior roof frame.
+      equipOffsetX = 0;
+      equipOffsetY = 0;
+    }
+    roofLines.push(...rooftopEquipmentEtchLines(plan, equipOffsetX, equipOffsetY));
     parts.push({
       id: 'cladding_roof',
       name: 'Cladding Roof',
@@ -22824,6 +23249,19 @@ function iwRailResizeCursor(handle) {
 }
 
 
+function iwPrimaryPointer(e) {
+  return !e || e.button == null || e.button === 0;
+}
+
+function iwBindPointerAndMouse(el, handler) {
+  if (!el || !handler) return;
+  if (window.PointerEvent) {
+    el.addEventListener('pointerdown', e => handler(e));
+  } else {
+    el.addEventListener('mousedown', handler);
+  }
+}
+
 /** Highest-priority floor/roof object hit-test for the floor editor.
  *  This delegated handler is called from the SVG background mousedown before
  *  wall drawing can start. It intentionally gives object handles and bodies
@@ -22837,7 +23275,7 @@ function iwRailResizeCursor(handle) {
  *  refuses to steal the gesture from a selectable object.
  */
 function iwHandleObjectGestureMouseDown(e) {
-  if (e.button !== 0 || iwSpaceDown || iwDragItem) return false;
+  if (!iwPrimaryPointer(e) || iwSpaceDown || iwDragItem) return false;
   const rawTarget = e.target;
   if (!rawTarget || typeof rawTarget.closest !== 'function') return false;
 
@@ -23833,25 +24271,26 @@ function iwPopulateToolbox() {
       [{ label: 'W', key: 'w', val: 5, min: 0.5, max: 50, step: 0.5 },
        { label: 'H', key: 'h', val: 5, min: 0.5, max: 50, step: 0.5 }]);
     sec('3D-printed equipment');
-    actionCard('🪄', 'Auto-seed layout', false, false, c => {
+    actionCard('🪄', tx('ed_autoSeedLayout','Auto-seed layout'), false, false, c => {
       const target = iwTarget();
       const existing = (target.rooftopItems || []).filter(it => it.type === 'equipment').length;
       if (existing > 0) {
-        const ok = confirm('Replace ' + existing + ' existing equipment item' + (existing === 1 ? '' : 's') + ' with an auto-seeded layout?');
+        const ok = confirm(tx('ed_autoSeedReplaceConfirm','Replace {n} existing equipment item{s} with an auto-seeded layout?').replace('{n}', existing).replace('{s}', existing === 1 ? '' : 's'));
         if (!ok) return;
       }
       const n = iwAutoSeedRoofEquipment();
+      iwTool = 'move';
       iwSelection = [];
       iwDragMoving = null;
       iwRender();
       const status = document.getElementById('iwStatus');
-      if (status) status.textContent = 'Auto-seeded ' + n + ' equipment item' + (n === 1 ? '' : 's') + ' using traditional rooftop layout — drag any item to adjust.';
+      if (status) status.textContent = tx('ed_autoSeedStatus','Auto-seeded {n} equipment item{s} using traditional rooftop layout — drag any item to adjust.').replace('{n}', n).replace('{s}', n === 1 ? '' : 's');
     });
-    actionCard('🗑', 'Clear all equipment', false, true, c => {
+    actionCard('🗑', tx('ed_clearAllEquipment','Clear all equipment'), false, true, c => {
       const target = iwTarget();
       const existing = (target.rooftopItems || []).filter(it => it.type === 'equipment').length;
       if (existing === 0) return;
-      if (!confirm('Remove all ' + existing + ' placed equipment item' + (existing === 1 ? '' : 's') + '?')) return;
+      if (!confirm(tx('ed_clearEquipmentConfirm','Remove all {n} placed equipment item{s}?').replace('{n}', existing).replace('{s}', existing === 1 ? '' : 's'))) return;
       target.rooftopItems = (target.rooftopItems || []).filter(it => it.type !== 'equipment');
       iwSelection = [];
       iwDragMoving = null;
@@ -23867,13 +24306,13 @@ function iwPopulateToolbox() {
       );
     }
     sec('Tools');
-    actionCard('🏗', 'Shield Wall', iwTool === 'shieldwall', false, c => {
+    actionCard('🏗', tx('ed_shieldWall','Shield Wall'), iwTool === 'shieldwall', false, c => {
       setTool('shieldwall', c);
-      document.getElementById('iwStatus').textContent = 'Click a roof edge to toggle a parapet.';
+      document.getElementById('iwStatus').textContent = tx('ed_shieldWallToolHint','Click a roof edge to toggle a parapet.');
     });
-    actionCard('✕', 'Erase item',  iwTool === 'erase',      true,  c => {
+    actionCard('✕', tx('ed_eraseItem','Erase item'),  iwTool === 'erase',      true,  c => {
       setTool('erase', c);
-      document.getElementById('iwStatus').textContent = 'Click a roof item or cutout to remove it.';
+      document.getElementById('iwStatus').textContent = tx('ed_eraseItemHint','Click a roof item or cutout to remove it.');
     });
   }
 }
@@ -23975,11 +24414,11 @@ function iwPopulateTopbar() {
   // plus an iwRender so the overlay (when toggled on) reflects the new
   // style immediately.
   if (iwIsRoof()) {
-    addLbl('Cladding');
+    addLbl(tx('ed_cladding','Cladding'));
     const sel = document.createElement('select');
     sel.className = 'oe-tb-btn';
     sel.style.cssText = 'padding:2px 4px;font-size:11px;height:24px;';
-    sel.title = 'Roof cladding style';
+    sel.title = tx('ed_roofCladdingStyle','Roof cladding style');
     for (const [k, v] of Object.entries(CLADDING_STYLES)) {
       const opt = document.createElement('option');
       opt.value = k; opt.textContent = v.label;
@@ -24008,10 +24447,10 @@ function iwPopulateTopbar() {
   // but the topbar is now the shared-framework control and keeps both
   // values synchronized.
   editorAddGridControls(bar, {
-    title: 'Grid',
-    xyLabel: 'Step',
+    title: tx('ed_grid','Grid'),
+    xyLabel: tx('ed_step','Step'),
     xyStep: {
-      title: 'Floor/roof editor grid spacing in mm',
+      title: tx('ed_grid','Floor/roof editor grid spacing in mm'),
       value: iwGrid(), step: 1, min: 1, max: 50, width: 42,
       onChange: v => {
         iwGridValue = v;
@@ -24024,37 +24463,37 @@ function iwPopulateTopbar() {
   addSep();
 
   if (iwTool === 'draw' && !iwIsRoof()) {
-    addLbl('DRAW MODE');
+    addLbl(tx('ed_drawMode','DRAW MODE'));
     const hint = document.createElement('span');
     hint.style.cssText = 'font-size:11px;color:var(--muted);padding:0 8px;';
-    hint.textContent = 'Click & drag on the plan to place a wall. Release to commit.';
+    hint.textContent = tx('ed_drawHint','Click & drag on the plan to place a wall. Release to commit.');
     bar.appendChild(hint);
     addSep();
-    addLbl('SNAP');
+    addLbl(tx('ed_snap','SNAP'));
     const snap = document.createElement('span');
     snap.style.cssText = 'font-size:11px;color:var(--muted);padding:0 6px;';
-    snap.textContent = 'Axis-aligned only (H or V)';
+    snap.textContent = tx('ed_snapAxis','Axis-aligned only (H or V)');
     bar.appendChild(snap);
 
   } else if (iwTool === 'erase') {
-    addLbl('ERASE MODE');
+    addLbl(tx('ed_eraseMode','ERASE MODE'));
     const hint = document.createElement('span');
     hint.style.cssText = 'font-size:11px;color:var(--muted);padding:0 8px;';
-    hint.textContent = iwIsRoof() ? 'Click a roof item to remove it.' : 'Click a wall to delete it.';
+    hint.textContent = iwIsRoof() ? tx('ed_eraseRoofHint','Click a roof item to remove it.') : tx('ed_eraseWallHint','Click a wall to delete it.');
     bar.appendChild(hint);
 
   } else if (iwTool === 'shieldwall' && iwIsRoof()) {
-    addLbl('SHIELD WALL');
+    addLbl(tx('ed_shieldWall','SHIELD WALL'));
     const hint = document.createElement('span');
     hint.style.cssText = 'font-size:11px;color:var(--muted);padding:0 8px;';
-    hint.textContent = 'Drag the square corner handles to resize the enclosure, the dashed body to move it, the white round handles to resize each wall, click + to add an opening.';
+    hint.textContent = tx('ed_shieldHint','Drag the square corner handles to resize the enclosure, the dashed body to move it, the white round handles to resize each wall, click + to add an opening.');
     bar.appendChild(hint);
 
   } else if (iwDragItem) {
-    addLbl('PLACING');
+    addLbl(tx('ed_placing','PLACING'));
     const hint = document.createElement('span');
     hint.style.cssText = 'font-size:11px;color:var(--muted);padding:0 8px;';
-    hint.textContent = (iwDragItem.label || iwDragItem.type) + ' — release over the plan to place.';
+    hint.textContent = (iwDragItem.label || iwDragItem.type) + ' — ' + tx('ed_placeRelease','release over the plan to place.');
     bar.appendChild(hint);
 
   } else if (!iwIsRoof() && iwSelection.length === 1 && iwSelection[0].type === 'railZone') {
@@ -24129,9 +24568,9 @@ function iwPopulateTopbar() {
     canCopy: selCount >= 1,
     canPaste: iwClipboard.length > 0,
     canDelete: selCount >= 1,
-    copyTitle: selCount >= 1 ? 'Copy (Ctrl/Cmd+C)' : 'Copy (select ≥ 1)',
-    pasteTitle: iwClipboard.length > 0 ? 'Paste (Ctrl/Cmd+V)' : 'Paste (clipboard empty)',
-    deleteTitle: selCount >= 1 ? 'Delete selected (Delete)' : 'Delete (select ≥ 1)',
+    copyTitle: selCount >= 1 ? tx('ed_copyTitle','Copy (Ctrl/Cmd+C)') : tx('ed_copySelectTitle','Copy (select ≥ 1)'),
+    pasteTitle: iwClipboard.length > 0 ? tx('ed_pasteTitle','Paste (Ctrl/Cmd+V)') : tx('ed_pasteEmptyTitle','Paste (clipboard empty)'),
+    deleteTitle: selCount >= 1 ? tx('ed_deleteSelectedTitle','Delete selected (Delete)') : tx('ed_deleteSelectTitle','Delete (select ≥ 1)'),
     onCopy: () => { iwCopySelected(); iwPopulateTopbar(); },
     onPaste: () => { iwPasteClipboard(); iwRender(); },
     onDelete: () => { iwDeleteSelected(); iwRender(); },
@@ -24804,7 +25243,7 @@ function iwRender() {
       // behavior and makes the hit target unambiguous.
       svg.querySelectorAll('.iw-hole').forEach(el => {
         el.addEventListener('mousedown', e => {
-          if (e.button !== 0) return;
+          if (!iwPrimaryPointer(e)) return;
           if (iwSpaceDown) return;
           e.stopPropagation();
           e.preventDefault();
@@ -25027,22 +25466,26 @@ function iwRender() {
       // is decided in mouseup based on iwDragMoving.moved.
       function bindSelectDrag(selector, type) {
         svg.querySelectorAll(selector).forEach(el => {
-          el.addEventListener('mousedown', e => {
-            if (e.button !== 0) return;
+          // iPad/Safari pointer path. Auto-seeded roof equipment is rendered
+          // as normal .iw-item rectangles, so pointerdown makes those items
+          // selectable/draggable just like manually dropped items.
+          iwBindPointerAndMouse(el, e => {
+            if (!iwPrimaryPointer(e)) return;
             // Let pan gesture through even when the cursor is over a
             // placed item — without this, space-held drag on an item
             // would select it instead of scrolling the view.
             if (iwSpaceDown) return;
             e.stopPropagation();
-            const idx = parseInt(el.dataset.i);
+            e.preventDefault();
+            try { if (el.setPointerCapture && e.pointerId != null) el.setPointerCapture(e.pointerId); } catch (_) {}
+            const idx = parseInt(el.dataset.i, 10);
             const ref = iwMakeRef(type, idx);
             if (!ref) return;
-            // Selection update: shift toggles membership; plain click on
-            // an unselected item replaces selection; plain click on an
-            // already-selected item keeps the existing selection so a
-            // multi-select group can be dragged with a single click on
-            // any member.
-            const additive = e.shiftKey;
+            // Selection update: shift toggles membership; plain click on an
+            // unselected item replaces selection; plain click on an already
+            // selected item keeps the existing selection so a multi-select
+            // group can be dragged by grabbing any member.
+            const additive = !!e.shiftKey;
             const wasSelected = iwIsSelected(type, idx);
             if (additive) {
               iwSelect(type, idx, true);
@@ -25074,7 +25517,7 @@ function iwRender() {
         bindSelectDrag('.iw-hole',      'floorHole');
         svg.querySelectorAll('.iw-rail-track').forEach(el => {
           el.addEventListener('mousedown', e => {
-            if (e.button !== 0) return;
+            if (!iwPrimaryPointer(e)) return;
             if (iwSpaceDown) return;
             e.stopPropagation();
             e.preventDefault();
@@ -25099,7 +25542,7 @@ function iwRender() {
         bindSelectDrag('.iw-rail-zone', 'railZone');
         svg.querySelectorAll('.iw-rail-resize').forEach(el => {
           el.addEventListener('mousedown', e => {
-            if (e.button !== 0) return;
+            if (!iwPrimaryPointer(e)) return;
             if (iwSpaceDown) return;
             e.stopPropagation();
             e.preventDefault();
@@ -25126,7 +25569,7 @@ function iwRender() {
   // regular iwShieldwallEdgeClick / deselection doesn't also fire.
   svg.querySelectorAll('[data-shield-handle]').forEach(el => {
     el.addEventListener('mousedown', e => {
-      if (e.button !== 0) return;
+      if (!iwPrimaryPointer(e)) return;
       if (iwSpaceDown) return;  // let pan gesture through
       e.stopPropagation();
       e.preventDefault();
@@ -25138,7 +25581,7 @@ function iwRender() {
   });
   svg.querySelectorAll('[data-shield-plus]').forEach(el => {
     el.addEventListener('mousedown', e => {
-      if (e.button !== 0) return;
+      if (!iwPrimaryPointer(e)) return;
       if (iwSpaceDown) return;
       e.stopPropagation();
       e.preventDefault();
@@ -25149,7 +25592,7 @@ function iwRender() {
   // rectangle and mouse position so the drag math can apply a delta.
   svg.querySelectorAll('[data-shield-bounds]').forEach(el => {
     el.addEventListener('mousedown', e => {
-      if (e.button !== 0) return;
+      if (!iwPrimaryPointer(e)) return;
       if (iwSpaceDown) return;
       e.stopPropagation();
       e.preventDefault();
@@ -25309,7 +25752,7 @@ function iwHandleMouseDown(e) {
     svg.style.cursor = 'grabbing';
     return;
   }
-  if (e.button !== 0) return;
+  if (!iwPrimaryPointer(e)) return;
   if (iwHandleObjectGestureMouseDown(e)) return;
   if (iwDragItem) return; // handled on mouseup from document
   // Background mousedown in roof view (not on an item) deselects whatever
@@ -28528,20 +28971,30 @@ function init() {
   document.getElementById('iwZoomOut').addEventListener('click', () => { iwScale = Math.max(1, iwScale / 1.25); iwRender(); });
   document.getElementById('iwZoom1').addEventListener('click',   () => { iwFitView(); iwRender(); });
   const iwSvgEl = document.getElementById('iwSvg');
-  iwSvgEl.addEventListener('mousemove',  iwHandleMouseMove);
-  iwSvgEl.addEventListener('mousedown',  iwHandleMouseDown);
-  iwSvgEl.addEventListener('mouseup',    iwHandleMouseUp);
-  iwSvgEl.addEventListener('mouseleave', iwHandleMouseLeave);
+  if (window.PointerEvent) {
+    iwSvgEl.addEventListener('pointermove', iwHandleMouseMove);
+    iwSvgEl.addEventListener('pointerdown', iwHandleMouseDown);
+    iwSvgEl.addEventListener('pointerup', iwHandleMouseUp);
+    iwSvgEl.addEventListener('pointercancel', iwHandleMouseUp);
+    iwSvgEl.addEventListener('pointerleave', iwHandleMouseLeave);
+  } else {
+    iwSvgEl.addEventListener('mousemove',  iwHandleMouseMove);
+    iwSvgEl.addEventListener('mousedown',  iwHandleMouseDown);
+    iwSvgEl.addEventListener('mouseup',    iwHandleMouseUp);
+    iwSvgEl.addEventListener('mouseleave', iwHandleMouseLeave);
+  }
   // Keep active drags alive even when the cursor leaves the exact SVG child
   // that started the gesture. This is especially important for floor holes:
   // the editor re-renders immediately on mousedown to show selection, which can
   // replace the element under the cursor before the first mousemove arrives.
-  document.addEventListener('mousemove', e => {
+  const iwDocMoveEvent = window.PointerEvent ? 'pointermove' : 'mousemove';
+  const iwDocUpEvent = window.PointerEvent ? 'pointerup' : 'mouseup';
+  document.addEventListener(iwDocMoveEvent, e => {
     if (iwPanning || iwRailTrackDrag || iwRailResizeDrag || iwShieldDrag || iwShieldBoundsDrag || iwDragMoving || iwDrag || iwDragItem) {
       iwHandleMouseMove(e);
     }
   });
-  window.addEventListener('mouseup', e => {
+  window.addEventListener(iwDocUpEvent, e => {
     // Let the normal mouseup finalizer handle active editor gestures even when
     // the release happens outside the SVG viewport. The old recovery path
     // simply cleared iwDragMoving, which made placed floor holes feel like they
@@ -28550,6 +29003,13 @@ function init() {
       iwHandleMouseUp(e);
     }
   });
+  if (window.PointerEvent) {
+    window.addEventListener('pointercancel', e => {
+      if (iwPanning || iwRailTrackDrag || iwRailResizeDrag || iwShieldDrag || iwShieldBoundsDrag || iwDragMoving || iwDrag || iwDragItem) {
+        iwHandleMouseUp(e);
+      }
+    });
+  }
   document.addEventListener('keydown', iwKeyDown);
   document.addEventListener('keyup',   iwKeyUp);
   // Middle-mouse-button on Linux / some browsers triggers context-menu
@@ -31311,7 +31771,7 @@ function weAddWing(face) {
 let _weDragState = null;
 
 function weOnMouseDown(e) {
-  if (e.button !== 0) return;
+  if (!iwPrimaryPointer(e)) return;
 
   const cutId = e.target.dataset.cutid;
   const cutHandle = e.target.dataset.cuthandle;
@@ -32046,7 +32506,30 @@ function oePopulateTopbar() { return OpeningEditorTopbar.populate(); }
 
 function oeDropOpening(type, dims, x, y, styleKey) { return OpeningEditorPlacement.drop(type, dims, x, y, styleKey); }
 
-function oeRender() { return OpeningEditorCanvas.render(); }
+function oeUpdateFloatingActionBarState() {
+  const eraseBtn = document.getElementById('oeEraseBtn');
+  if (eraseBtn) eraseBtn.classList.toggle('fab-active', oeTool === 'erase');
+
+  const cladBtn = document.getElementById('oeCladBtn');
+  if (cladBtn) cladBtn.classList.toggle('fab-active', oeShowCladding);
+
+  const delBtn = document.getElementById('oeDeleteSelectedBtn');
+  if (delBtn) {
+    const n = oeSelectedSet ? oeSelectedSet.size : 0;
+    delBtn.classList.toggle('oe-visible', n > 0);
+    delBtn.disabled = n <= 0;
+    delBtn.textContent = n > 1 ? `🗑 ${tx('ed_deleteN','Delete {n}').replace('{n}', n)}` : `🗑 ${tx('ed_delete','Delete')}`;
+    delBtn.title = n > 0
+      ? tx('ed_deleteWallItemTitle','Delete {n} selected wall item{s}').replace('{n}', n).replace('{s}', n > 1 ? 's' : '')
+      : tx('ed_selectWallItemDelete','Select a wall item to delete it');
+  }
+}
+
+function oeRender() {
+  const out = OpeningEditorCanvas.render();
+  oeUpdateFloatingActionBarState();
+  return out;
+}
 function oeToMM(e) { return OpeningEditorCanvas.toMM(e); }
 function oeHitTest(x, y) { return OpeningEditorCanvas.hitTest(x, y); }
 function oeClick(e) { return OpeningEditorCanvas.click(e); }
@@ -33773,10 +34256,7 @@ function oeTopbarPopulateImpl() {
 
 
   // ---- Sync floating action bar button states ----
-  const eraseBtn = document.getElementById('oeEraseBtn');
-  if (eraseBtn) eraseBtn.classList.toggle('fab-active', oeTool === 'erase');
-  const cladBtn = document.getElementById('oeCladBtn');
-  if (cladBtn) cladBtn.classList.toggle('fab-active', oeShowCladding);
+  oeUpdateFloatingActionBarState();
 
   // ---- Wall ops ----
   label('Wall');
@@ -33798,6 +34278,10 @@ function oeTopbarPopulateImpl() {
       `📥 Paste`,
       pasteDisabled ? 'Paste from clipboard (copy something first)' : `Paste ${oeClipboard.length} item${oeClipboard.length > 1 ? 's' : ''}${oeClipboardSourceWall && oeClipboardSourceWall !== oeWall ? ' from ' + oeClipboardSourceWall : ''} (Ctrl+V / Cmd+V)`,
       oePaste, pasteDisabled);
+  btn('oeDeleteTopbarBtn',
+      hasSelection ? `🗑 Delete${oeSelectedSet.size > 1 ? ' ' + oeSelectedSet.size : ''}` : '🗑 Delete',
+      hasSelection ? `Delete ${oeSelectedSet.size} selected item${oeSelectedSet.size > 1 ? 's' : ''}` : 'Delete selected item',
+      oeDeleteSelectedItems, !hasSelection);
 
   sep();
 
@@ -36100,7 +36584,9 @@ function oeCanvasRenderImpl() {
   }
 
   svg.innerHTML = html;
-  svg.style.touchAction = 'none';
+  // Let iPad/finger gestures scroll the editor canvas by default. Active
+  // object drags temporarily opt into touch-action:none in oeCanvasPointerDownImpl.
+  svg.style.touchAction = 'pan-x pan-y';
   svg.style.webkitUserSelect = 'none';
   svg.style.userSelect = 'none';
   if (window.PointerEvent) {
@@ -36424,6 +36910,7 @@ function oeBeginDocumentDrag(sourceEvent, onMove, onUp, options = {}) {
       document.removeEventListener('pointerup', up, capture);
       document.removeEventListener('pointercancel', up, capture);
       const svg = document.getElementById('openingEditorSvg');
+      try { if (svg) svg.style.touchAction = 'pan-x pan-y'; } catch (err) {}
       try { if (svg && sourceEvent.pointerId != null) svg.releasePointerCapture(sourceEvent.pointerId); } catch (err) {}
     } else {
       document.removeEventListener('mousemove', move, capture);
@@ -36458,8 +36945,35 @@ function oeBeginDocumentDrag(sourceEvent, onMove, onUp, options = {}) {
   return cleanup;
 }
 
+function oeTouchPointerShouldStartEditorGesture(e) {
+  // Mouse and Apple Pencil should behave like the desktop editor. Finger touch
+  // is different: it must be able to scroll the overflow canvas. We only steal
+  // a finger gesture when it is clearly an editor gesture.
+  if (!e || e.pointerType !== 'touch') return true;
+  if (oeMobilePanMode) return true;
+
+  const tgt = e.target;
+  if (tgt && tgt.dataset && tgt.dataset.oeHandle && tgt.dataset.oeIdx != null) return true;
+
+  const directIdx = oeEventTargetOpeningIndex(e);
+  if (directIdx >= 0) return oeSelectedSet.has(directIdx);
+
+  const pt = oeToMM(e);
+  const hitIdx = oeHitTest(pt.x, pt.y);
+  return hitIdx >= 0 && oeSelectedSet.has(hitIdx);
+}
+
 function oeCanvasPointerDownImpl(e) {
   oeLastPointerType = e.pointerType || 'mouse';
+
+  // Let one-finger touch scroll unless the gesture starts on a selected item
+  // or a resize handle. Tapping an unselected item still selects it via the
+  // normal click path; a second touch-drag moves it. This avoids the old iPad
+  // behavior where every touch on the wall canvas captured the gesture and made
+  // the editor almost impossible to scroll.
+  if (e.pointerType === 'touch' && !oeTouchPointerShouldStartEditorGesture(e)) {
+    return;
+  }
 
   // On iPad, a hardware keyboard is not guaranteed. Pan mode provides the
   // equivalent of holding Space while dragging: useful when zoomed in and
@@ -36467,14 +36981,16 @@ function oeCanvasPointerDownImpl(e) {
   const previousSpaceDown = oeSpaceDown;
   if (oeMobilePanMode) oeSpaceDown = true;
 
-  // Prevent page scrolling / text selection while the Pencil/finger is
-  // editing the SVG. Mouse users keep the normal desktop behavior.
+  // Prevent page scrolling / text selection only after we've decided this is
+  // an editor gesture. Empty-canvas finger drags are allowed to bubble to the
+  // scroll container.
   if ((e.pointerType === 'pen' || e.pointerType === 'touch') && e.cancelable) {
     e.preventDefault();
   }
 
   try {
     const svg = document.getElementById('openingEditorSvg');
+    if (svg) svg.style.touchAction = 'none';
     if (svg && e.pointerId != null) svg.setPointerCapture(e.pointerId);
   } catch (err) {}
 
@@ -36802,7 +37318,7 @@ function oeCanvasMouseDownImpl(e) {
     const cleanupDrag = oeBeginDocumentDrag(e, move, up, { capture: true });
     return;
   }
-  if (e.button !== 0) return;
+  if (!iwPrimaryPointer(e)) return;
   const { x, y } = oeToMM(e);
 
   // ---- Corner resize drag ----
@@ -37465,8 +37981,56 @@ function material3DForId(cfg, materialId, opts = {}, fallback = 0xcccccc) {
   return MaterialRegistry.threeMaterial(materialId, cfg || CONFIG, opts, fallback);
 }
 
-function material3DForCladdingStyle(cfg, styleKey, opts = {}, fallback = 0xc9b89b) {
-  return MaterialRegistry.threeCladdingMaterial(styleKey || (cfg && cfg.claddingStyle), cfg || CONFIG, opts, fallback);
+function svgDataUri(svg) {
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+    .replace(/%20/g, ' ')
+    .replace(/%3D/g, '=')
+    .replace(/%3A/g, ':')
+    .replace(/%2F/g, '/');
+}
+
+const _printedItemTextureCache3D = new Map();
+
+function printedItemSvgMarkup3D(styleKey, w, h) {
+  const style = PRINTED_STYLES && PRINTED_STYLES[styleKey];
+  if (!style || typeof style.designSvg !== 'function') return null;
+  const W = Math.max(0.1, Number(w) || Number(style.width) || 1);
+  const H = Math.max(0.1, Number(h) || Number(style.height) || 1);
+  const body = style.designSvg(W, H);
+  if (!body) return null;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`
+       + `<rect x="0" y="0" width="${W}" height="${H}" fill="white" opacity="0"/>`
+       + body
+       + `</svg>`;
+}
+
+function printedItemTexture3D(styleKey, w, h) {
+  const key = `${styleKey || ''}|${(Number(w) || 0).toFixed(3)}|${(Number(h) || 0).toFixed(3)}`;
+  if (_printedItemTextureCache3D.has(key)) return _printedItemTextureCache3D.get(key);
+
+  const svg = printedItemSvgMarkup3D(styleKey, w, h);
+  if (!svg) return null;
+
+  const tex = new THREE.TextureLoader().load(svgDataUri(svg), texture => {
+    texture.needsUpdate = true;
+    if (threeRenderer && threeScene && threeCamera) {
+      try { threeRenderer.render(threeScene, threeCamera); } catch (_) {}
+    }
+  });
+  tex.flipY = true;
+  tex.needsUpdate = true;
+  if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+  else if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  try {
+    if (threeRenderer && threeRenderer.capabilities) tex.anisotropy = Math.min(4, threeRenderer.capabilities.getMaxAnisotropy());
+  } catch (_) {}
+
+  _printedItemTextureCache3D.set(key, tex);
+  return tex;
 }
 
 
@@ -38866,22 +39430,33 @@ function updateThreePreview(cfg) {
      pointing OUTWARD from the building. Surface meshes can then be added
      at local z = -thickness/2 to sit proud of the wall.
   */
+  function wallSurfaceMirrorX3D(face) {
+    // Must match the per-face panePosition() logic below. Front/back wall
+    // cutouts are mirrored in 3D relative to the flat wall editor; east/west
+    // side panes are not. Surface features must use the same transform or
+    // fixtures/overrides/printed items land on the opposite side of a wall
+    // even when windows and doors are correct.
+    return face === 'front' || face === 'back';
+  }
+
   function wallLocalTo3D(face, localX, localY, objW, objH, opts = {}) {
-    const cx = Number(opts.centerX != null ? opts.centerX : (Number(localX || 0) + Number(objW || 0) / 2));
+    const rawCenterX = Number(opts.centerX != null ? opts.centerX : (Number(localX || 0) + Number(objW || 0) / 2));
     const cy = Number(opts.centerY != null ? opts.centerY : (Number(localY || 0) + Number(objH || 0) / 2));
     const wallH = Number(opts.wallH != null ? opts.wallH : h);
     const worldY = wallH - cy;
-    const mirrorX = !!opts.mirrorX; // front-wall decal/cladding layers need this to match laser-flat mirroring
+    const mirrorX = (opts.mirrorX != null) ? !!opts.mirrorX : wallSurfaceMirrorX3D(face);
+    const wallSpan = (face === 'front' || face === 'back') ? w : sideLen;
+    const cx = mirrorX ? (wallSpan - rawCenterX) : rawCenterX;
     let x = 0, z = 0, rotY = 0;
 
     switch (face) {
       case 'front':
-        x = mirrorX ? (w / 2 - cx) : (cx - w / 2);
+        x = cx - w / 2;
         z = -d / 2;
         rotY = 0;
         break;
       case 'back':
-        x = w / 2 - cx;
+        x = cx - w / 2;
         z = d / 2;
         rotY = Math.PI;
         break;
@@ -38892,7 +39467,7 @@ function updateThreePreview(cfg) {
         break;
       case 'west':
         x = -w / 2;
-        z = sideLen / 2 - cx;
+        z = cx - sideLen / 2;
         rotY = -Math.PI / 2;
         break;
       default:
@@ -40120,9 +40695,7 @@ function updateThreePreview(cfg) {
         const tint = MaterialRegistry.colorNumber(MaterialRegistry.claddingMaterialId(op.claddingStyle, cfg), cfg, styleTintByKey[op.claddingStyle] || 0xd4c8ad);
         const matObj = new THREE.MeshStandardMaterial({ color: tint, roughness: 0.85, metalness: 0.0 });
         const centerX_wall = ox_op + ow / 2;
-        const pivot = makeWallSurfacePivot3D(face, ox_op, Number(op.y || 0), ow, oh, {
-          mirrorX: face === 'front',
-        });
+        const pivot = makeWallSurfacePivot3D(face, ox_op, Number(op.y || 0), ow, oh);
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(ow, oh, OVERRIDE_T), matObj);
         mesh.position.set(0, 0, -OVERRIDE_T / 2 - 0.03);
         pivot.add(mesh);
@@ -40132,39 +40705,50 @@ function updateThreePreview(cfg) {
   }
 
   // ---- Printed items (paper/sticker pieces glued to the wall) ----
-  // Render as a very thin colored plate at the wall surface — the colour
-  // is a desaturated tone derived from the first design fill, so users can
-  // see roughly where their printed items will land. (Full SVG-as-texture
-  // rendering on a 3D mesh is heavy; this approximation is enough to verify
-  // placement and won't lie about colours.)
+  // Render the actual PRINTED_STYLES designSvg artwork as a texture on a
+  // paper-thin wall plane, with a tiny backing slab so placement remains
+  // visible even before the browser finishes loading the SVG data texture.
   {
     const PRINTED_T = 0.25;  // very thin sticker-like layer
+    const backingMat = new THREE.MeshStandardMaterial({
+      color: MaterialRegistry.colorNumber('printed', cfg, 0xf7f4ea),
+      roughness: 0.9,
+      metalness: 0.0,
+    });
+
     for (const face of ['front', 'back', 'east', 'west']) {
       const items = surfaceWallFeaturesForFace(cfg, face, 'printed_item');
-      const wallW_p = (face === 'front' || face === 'back') ? w : sideLen;
       for (const op of items) {
         const ow = Number(op.w) || 0;
         const oh = Number(op.h) || 0;
         const ox_op = Number(op.x) || 0;
         if (ow <= 0 || oh <= 0) continue;
-        // Per-style tint hints derived from the design's primary colour
-        const tintByStyle = {
-          movie_poster:  0xd4422a,
-          shop_sign:     0x0a2a4a,
-          billboard_ad:  0x1862c5,
-          graffiti:      0xe94560,
-          street_poster: 0xfefce8,
-          banner:        0xd4422a,
-        };
-        const tint = tintByStyle[op.style] || MaterialRegistry.colorNumber('printed', cfg, 0xcccccc);
-        const matObj = new THREE.MeshStandardMaterial({ color: tint, roughness: 0.85, metalness: 0.0 });
-        const centerX_wall = ox_op + ow / 2;
-        const pivot = makeWallSurfacePivot3D(face, ox_op, Number(op.y || 0), ow, oh, {
-          mirrorX: face === 'front',
-        });
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(ow, oh, PRINTED_T), matObj);
-        mesh.position.set(0, 0, -PRINTED_T / 2 - 0.02);
-        pivot.add(mesh);
+
+        const pivot = makeWallSurfacePivot3D(face, ox_op, Number(op.y || 0), ow, oh);
+
+        // Thin backing gives the print physical thickness and avoids the
+        // "invisible while texture is loading" problem.
+        const backing = new THREE.Mesh(new THREE.BoxGeometry(ow, oh, PRINTED_T), backingMat);
+        backing.position.set(0, 0, -PRINTED_T / 2 - 0.018);
+        pivot.add(backing);
+
+        const tex = printedItemTexture3D(op.style, ow, oh);
+        const artMat = tex
+          ? new THREE.MeshBasicMaterial({
+              color: 0xffffff,
+              map: tex,
+              transparent: true,
+              side: THREE.DoubleSide,
+              polygonOffset: true,
+              polygonOffsetFactor: -1,
+              polygonOffsetUnits: -1,
+            })
+          : backingMat;
+
+        const art = new THREE.Mesh(new THREE.PlaneGeometry(ow, oh), artMat);
+        art.position.set(0, 0, -PRINTED_T - 0.035);
+        pivot.add(art);
+
         group.add(pivot);
       }
     }
@@ -40641,6 +41225,10 @@ window.onerror = function(msg, src, line, col, err) {
           <button id="oeEraseBtn" class="oe-fab-btn fab-erase"
                   onclick="oeSetTool(oeTool==='erase'?'move':'erase')"
                   title="Erase mode — click openings to delete them">✕ Erase</button>
+
+          <button id="oeDeleteSelectedBtn" class="oe-fab-btn fab-delete"
+                  onclick="oeDeleteSelectedItems()"
+                  title="Delete selected wall item">🗑 Delete</button>
 
           <div class="oe-fab-sep"></div>
 

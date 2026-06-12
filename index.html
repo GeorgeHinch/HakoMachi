@@ -20331,6 +20331,36 @@ function partRoleUsesDisposableCutColor(part) {
   ].includes(role);
 }
 
+function partIsFixtureOrDetailLike(part) {
+  normalizePartMetadata(part);
+  const role = String((part && part.meta && part.meta.role) || '').toLowerCase();
+  const id = String((part && part.id) || '').toLowerCase();
+  const name = String((part && part.name) || '').toLowerCase();
+  const material = String((part && part.material) || '').toLowerCase();
+
+  return role.includes('fixture') ||
+         role.includes('printed') ||
+         role.includes('sign') ||
+         role.includes('surface_feature') ||
+         id.includes('fixture') ||
+         id.includes('meter') ||
+         id.includes('vent') ||
+         id.includes('louver') ||
+         id.includes('duct') ||
+         id.includes('cabinet') ||
+         id.includes('ladder') ||
+         id.includes('platform_bracket') ||
+         name.includes('fixture') ||
+         name.includes('meter') ||
+         name.includes('vent') ||
+         name.includes('louver') ||
+         name.includes('duct') ||
+         name.includes('cabinet') ||
+         name.includes('ladder') ||
+         name.includes('platform bracket') ||
+         material === 'printed';
+}
+
 function partIsWindowOrDoorFrameLike(part) {
   normalizePartMetadata(part);
   const role = String((part && part.meta && part.meta.role) || '').toLowerCase();
@@ -20341,8 +20371,7 @@ function partIsWindowOrDoorFrameLike(part) {
   // window trim rings, inner frames, divider frames, door inserts/frames,
   // skylight frames, shutter/slat frames, etc. Fixture/detail/printed pieces
   // are deliberately excluded so their decorative sub-outlines stay red.
-  if (role.includes('fixture') || role.includes('printed') || role.includes('sign') ||
-      id.includes('fixture') || id.includes('printed') || name.includes('fixture')) return false;
+  if (partIsFixtureOrDetailLike(part)) return false;
 
   return role.includes('window') || role.includes('door') || role.includes('frame') ||
          id.includes('frame') || id.includes('window') || id.includes('door') ||
@@ -20375,6 +20404,11 @@ function geometryStrokeColor(part, op, kind, index) {
   if (type === 'etch') return COLOR_ETCH;
   if (cutOpExplicitlyDiscarded(op)) return COLOR_DISCARD_CUT;
   if (cutOpExplicitlyStructural(op)) return COLOR_CUT;
+
+  // Hard rule: fixtures/details are kept objects. Their normal cut geometry is
+  // never green, even when a fixture tile contains multiple nested rectangles.
+  // Green only appears here if the operation explicitly opted into discard.
+  if (partIsFixtureOrDetailLike(part)) return COLOR_CUT;
 
   if (type === 'cut' || type === 'hole' || type === 'opening') {
     // Green is only for disposable material INSIDE a retained piece. Never use
@@ -21168,19 +21202,20 @@ function partToPreviewSvg(part) {
     // single-tile variant from the tileGeom so the preview still shows
     // the design (just one copy of it) instead of cropping a corner of
     // the full-sheet artwork.
-    const tilePart = {
+    const tilePart = normalizePartMetadata({
       id: part.id,
       name: part.name,
       material: part.material,
+      meta: { ...(part.meta || {}), previewTileFrom: part.id },
       bboxW: part.tileGeom.bboxW,
       bboxH: part.tileGeom.bboxH,
       bboxOffsetX: part.tileGeom.bboxOffsetX || 0,
       bboxOffsetY: part.tileGeom.bboxOffsetY || 0,
-      paths: part.tileGeom.paths || [],
-      rects: part.tileGeom.rects || [],
-      lines: part.tileGeom.lines || [],
+      paths: (part.tileGeom.paths || []).map(p => ({ ...p })),
+      rects: (part.tileGeom.rects || []).map(r => ({ ...r })),
+      lines: (part.tileGeom.lines || []).map(l => ({ ...l })),
       svgContent: part.tileGeom.svgContent || undefined,
-    };
+    });
     return partToSvg(tilePart, { strokeMm: 0.2, kerf: 0 });
   }
   return partToSvg(part, { strokeMm: 0.2, kerf: 0 });

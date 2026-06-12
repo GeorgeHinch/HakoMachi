@@ -1239,7 +1239,7 @@
   const rad = d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
   const fmt = n => Number.isFinite(n) ? (Math.abs(n)>=100? n.toFixed(1): n.toFixed(2)).replace(/\.00$/,'') : '—';
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw();}
-  window.addEventListener('resize', resize); resize();
+  window.addEventListener('resize', resize);
   function setSidebarOpen(open){
     state.sidebarOpen = !!open;
     document.querySelector('.app')?.classList.toggle('sidebar-open', state.sidebarOpen);
@@ -4908,6 +4908,7 @@
     });
   }
 
+  resize();
   const restored=restoreAutosaveIfAvailable();
   state.autosaveReady=true;
   if(!restored){syncAll({skipDirty:true}); fitImage(); resetHistory('initial'); writeAutosave();}

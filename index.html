@@ -1254,6 +1254,9 @@ const PT_PER_MM = 1 / 0.3528;  // ≈ 2.8346  (1pt = 0.3528mm)
 // Color palette for SVG output
 const COLOR_CUT = '#FF0000';
 const COLOR_ETCH = '#0000FF';
+// Disposable cutouts / drop-out pieces. These are through-cuts whose inside
+// material is fully discarded and does not need laser hold-in tabs.
+const COLOR_DISCARD_CUT = '#00A651';
 
 /* =====================================================================
    BUILDING TYPE PRESETS
@@ -18795,6 +18798,101 @@ function clipSegmentToConvexPolygon(x1, y1, x2, y2, poly) {
  * on a gabled or parapeted building (where the exterior cladding extends
  * up into the gable peak or parapet band).
  * =========================================================================== */
+function clipInteriorRectToBand(r, y0, y1) {
+  if (!r || typeof r.y !== 'number' || typeof r.h !== 'number') return r;
+  const a = Math.max(y0, r.y);
+  const b = Math.min(y1, r.y + r.h);
+  if (b - a <= 0.01) return null;
+  return { ...r, y: a - y0, h: b - a };
+}
+
+function clipInteriorLineToBand(l, y0, y1) {
+  if (!l || typeof l.y1 !== 'number' || typeof l.y2 !== 'number') return l;
+  let ax = l.x1, ay = l.y1, bx = l.x2, by = l.y2;
+  const dy = by - ay;
+
+  if (Math.abs(dy) < 1e-9) {
+    if (ay < y0 - 1e-7 || ay > y1 + 1e-7) return null;
+    return { ...l, y1: ay - y0, y2: by - y0 };
+  }
+
+  let t0 = 0, t1 = 1;
+  const tA = (y0 - ay) / dy;
+  const tB = (y1 - ay) / dy;
+  const lo = Math.min(tA, tB), hi = Math.max(tA, tB);
+  t0 = Math.max(t0, lo);
+  t1 = Math.min(t1, hi);
+  if (t1 < t0 - 1e-9) return null;
+
+  return {
+    ...l,
+    x1: ax + (bx - ax) * t0,
+    y1: ay + (by - ay) * t0 - y0,
+    x2: ax + (bx - ax) * t1,
+    y2: ay + (by - ay) * t1 - y0,
+  };
+}
+
+function splitInteriorCladdingPartByFloors(part, plan, interiorTopWallY, interiorBottomWallY) {
+  if (!part) return [];
+  const splitYs = (Array.isArray(plan && plan.interFloorYs) ? plan.interFloorYs : [])
+    .map(y => Number(y))
+    .filter(y => Number.isFinite(y) && y > interiorTopWallY + 0.25 && y < interiorBottomWallY - 0.25)
+    .map(y => y - interiorTopWallY)
+    .sort((a, b) => a - b);
+
+  if (!splitYs.length) return [part];
+
+  const bounds = [0, ...splitYs, part.bboxH]
+    .map(y => Math.max(0, Math.min(part.bboxH, y)))
+    .sort((a, b) => a - b);
+
+  const dedup = [];
+  for (const y of bounds) {
+    if (!dedup.length || Math.abs(y - dedup[dedup.length - 1]) > 0.35) dedup.push(y);
+  }
+
+  const out = [];
+  const bandCount = dedup.length - 1;
+  for (let i = 0; i < bandCount; i++) {
+    const y0 = dedup[i];
+    const y1 = dedup[i + 1];
+    const h = y1 - y0;
+    if (h <= 0.5) continue;
+
+    const floorFromGround = bandCount - i;
+    const bandRects = (part.rects || [])
+      .map(r => clipInteriorRectToBand(r, y0, y1))
+      .filter(Boolean);
+    const bandLines = (part.lines || [])
+      .map(l => clipInteriorLineToBand(l, y0, y1))
+      .filter(Boolean);
+
+    out.push({
+      ...part,
+      id: `${part.id}_floor_${floorFromGround}`,
+      name: `${part.name} — floor ${floorFromGround} interior piece`,
+      bboxH: h,
+      bboxOffsetX: 0,
+      bboxOffsetY: 0,
+      paths: [{ type: 'cut', d: rectPath(0, 0, part.bboxW, h) }],
+      rects: bandRects,
+      lines: bandLines,
+      meta: {
+        ...(part.meta || {}),
+        splitInteriorByFloor: true,
+        floorFromGround,
+        floorBandIndexFromTop: i + 1,
+        floorBandCount: bandCount,
+        sourceInteriorPartId: part.id,
+      },
+      assemblyNote: `${part.assemblyNote || ''} Interior cladding is split at inter-floor divider locations; install this piece only within floor band ${floorFromGround}.`,
+    });
+  }
+
+  return out.length ? out : [part];
+}
+
 function generateInteriorCladdingPanel(cfg, plan, which) {
   if (!cfg.interiorCladding) return null;
   const { matT, fbWidth, sideLen, H, bayHeight, hasFrontBay, hasBackBay } = plan;
@@ -19058,7 +19156,7 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
   // panel groups material correctly.
   const material = (cfg.claddingMaterials && cfg.claddingMaterials[styleKey]) || 'cladding';
 
-  return {
+  const fullInteriorPart = {
     id: cId,
     name: cName + ` (clear interior height ${panelH.toFixed(1)}mm)`,
     material,
@@ -19068,7 +19166,10 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
     paths: [{ type: 'cut', d: rectPath(0, 0, panelW, panelH) }],
     rects,
     lines,
+    meta: { area: 'interior_walls', role: 'interior_cladding', wall: which },
   };
+
+  return splitInteriorCladdingPartByFloors(fullInteriorPart, plan, interiorTopWallY, interiorBottomWallY);
 }
 
 
@@ -20161,6 +20262,111 @@ function generateBlockSupplementalParts(ctx, partsSoFar, opts = {}) {
    walls.
    ===================================================================== */
 
+
+function partLocalBounds(part) {
+  const ox = Number(part && part.bboxOffsetX) || 0;
+  const oy = Number(part && part.bboxOffsetY) || 0;
+  const w = Number(part && part.bboxW) || 0;
+  const h = Number(part && part.bboxH) || 0;
+  return { minX: -ox, minY: -oy, maxX: w - ox, maxY: h - oy, w, h };
+}
+
+function rectLooksLikePartOuterBoundary(part, r) {
+  if (!part || !r) return false;
+  const b = partLocalBounds(part);
+  const x = Number(r.x), y = Number(r.y), w = Number(r.w), h = Number(r.h);
+  if (![x, y, w, h].every(Number.isFinite)) return false;
+  const tol = 0.08;
+  return Math.abs(x - b.minX) <= tol &&
+         Math.abs(y - b.minY) <= tol &&
+         Math.abs((x + w) - b.maxX) <= tol &&
+         Math.abs((y + h) - b.maxY) <= tol;
+}
+
+function pathBoundsForDiscardCheck(d) {
+  try {
+    const pts = parseSvgPathToPoints(d);
+    if (!pts || pts.length < 2) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of pts) {
+      minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+    }
+    if (![minX, minY, maxX, maxY].every(Number.isFinite)) return null;
+    return { minX, minY, maxX, maxY, w: maxX - minX, h: maxY - minY };
+  } catch (e) {
+    return null;
+  }
+}
+
+function pathLooksLikePartOuterBoundary(part, p) {
+  if (!part || !p || !p.d) return false;
+  const b = partLocalBounds(part);
+  const pb = pathBoundsForDiscardCheck(p.d);
+  if (!pb) return false;
+  const tol = 0.12;
+  return Math.abs(pb.minX - b.minX) <= tol &&
+         Math.abs(pb.minY - b.minY) <= tol &&
+         Math.abs(pb.maxX - b.maxX) <= tol &&
+         Math.abs(pb.maxY - b.maxY) <= tol;
+}
+
+function partRoleUsesDisposableCutColor(part) {
+  normalizePartMetadata(part);
+  const role = part && part.meta && part.meta.role;
+  return [
+    'core_wall',
+    'exterior_cladding',
+    'interior_cladding',
+    'floor_panel',
+    'interfloor_panel',
+    'roof_panel',
+  ].includes(role);
+}
+
+function cutOpExplicitlyDiscarded(op) {
+  if (!op) return false;
+  const t = String(op.type || '').toLowerCase();
+  return !!(op.discard || op.dropOut || op.disposable || op.isDiscard ||
+            t === 'discard' || t === 'discard_cut' || t === 'dropout' || t === 'drop_out');
+}
+
+function cutOpExplicitlyStructural(op) {
+  if (!op) return false;
+  const t = String(op.type || '').toLowerCase();
+  return !!(op.structural || op.outer || op.keep || op.keepPiece ||
+            t === 'outer' || t === 'outline' || t === 'structural_cut');
+}
+
+function geometryStrokeColor(part, op, kind, index) {
+  const type = String((op && op.type) || '').toLowerCase();
+
+  if (type === 'etch') return COLOR_ETCH;
+  if (cutOpExplicitlyDiscarded(op)) return COLOR_DISCARD_CUT;
+  if (cutOpExplicitlyStructural(op)) return COLOR_CUT;
+
+  if (type === 'cut' || type === 'hole' || type === 'opening') {
+    // For large structural panels, inner cutouts are waste/drop-out pieces:
+    // windows, doors, circular/square holes, floor wiring holes, sockets, etc.
+    // The exterior perimeter remains red. Glue-on detail sheets are not in this
+    // role list, so their individual rectangle parts stay red unless explicitly
+    // marked as discard.
+    if (partRoleUsesDisposableCutColor(part)) {
+      if (kind === 'rect') {
+        return rectLooksLikePartOuterBoundary(part, op) ? COLOR_CUT : COLOR_DISCARD_CUT;
+      }
+      if (kind === 'path') {
+        // First full-boundary path stays red. Any closed inner path/hole is green.
+        if (pathLooksLikePartOuterBoundary(part, op)) return COLOR_CUT;
+        return COLOR_DISCARD_CUT;
+      }
+    }
+    return COLOR_CUT;
+  }
+
+  return COLOR_ETCH;
+}
+
 function partRawGeometrySvg(part, options = {}) {
   const strokeW = options.strokeMm || 0.05;
   const kerf = options.kerf || 0;
@@ -20170,12 +20376,14 @@ function partRawGeometrySvg(part, options = {}) {
   const renderCore = () => {
     let out = '';
     if (part && part.svgContent) out += part.svgContent;
-    for (const p of ((part && part.paths) || [])) {
-      const color = (p.type === 'cut') ? COLOR_CUT : COLOR_ETCH;
+    for (let i = 0; i < ((part && part.paths) || []).length; i++) {
+      const p = ((part && part.paths) || [])[i];
+      const color = geometryStrokeColor(part, p, 'path', i);
       out += `<path d="${p.d}" fill="none" stroke="${color}" stroke-width="${strokeW}"/>`;
     }
-    for (const r of ((part && part.rects) || [])) {
-      const color = (r.type === 'cut') ? COLOR_CUT : COLOR_ETCH;
+    for (let i = 0; i < ((part && part.rects) || []).length; i++) {
+      const r = ((part && part.rects) || [])[i];
+      const color = geometryStrokeColor(part, r, 'rect', i);
       let { x, y, w, h } = r;
       if (r.compensateKerf && kerf) {
         const exp = -kerf;
@@ -20273,7 +20481,7 @@ function sheetSplitFeatureRectsForAxis(part, axis) {
     const typ = String(r.type || 'cut').toLowerCase();
     // Keep out of through-cuts and explicit opening marks. Etch-only detail
     // lines are allowed to cross a split.
-    if (typ === 'cut' || typ === 'hole' || typ === 'opening') addRect(r);
+    if (typ === 'cut' || typ === 'hole' || typ === 'opening' || typ === 'discard' || typ === 'discard_cut' || typ === 'dropout' || typ === 'drop_out') addRect(r);
   }
   // Some wall/cladding parts keep wall-frame opening metadata for trim and
   // downstream logic. Include it when it appears to share this part's local
@@ -20687,8 +20895,9 @@ function generateBuilding(cfg) {
   // (which the exterior already aligns with). Returns null when the
   // feature is off; filter to keep the build flow clean.
   for (const which of ['front', 'back', 'east', 'west']) {
-    const ip = generateInteriorCladdingPanel(cfg, plan, which);
-    if (ip) parts.push(ip);
+    const ips = generateInteriorCladdingPanel(cfg, plan, which);
+    if (Array.isArray(ips)) parts.push(...ips);
+    else if (ips) parts.push(ips);
   }
 
   // Inner parapet cladding (parapet roofs only — opt-out via setting).
@@ -24856,39 +25065,54 @@ function iwComputeTabs(wi, walls, matT) {
 function iwBuildPanelPath(panelL, panelH, matT, tabPos, halfLaps) {
   const tt = [...tabPos].sort((a, b) => a - b);
 
-  // Outer perimeter clockwise, starting at top-left
-  const pts = [[0, 0]];
-  // Top edge left→right with upward tab protrusions
+  // Build the entire internal wall, tabs included, as one positive-coordinate
+  // exterior CUT outline. Earlier versions put the top tabs at y=-matT and
+  // then used bboxOffsetY to compensate. The SVG card/export path could render
+  // those protrusions as if they were separate/cropped pieces, and the etched
+  // floor guide lines overlaid the red cut edge in blue. Keeping everything
+  // inside the bbox and removing those redundant etch guides makes the wall
+  // cut as one physical piece.
+  const yTopBody = matT;
+  const yBotBody = matT + panelH;
+
+  // Outer perimeter clockwise, starting at top-left of the clear wall body.
+  const pts = [[0, yTopBody]];
+
+  // Top edge left→right with upward tab protrusions into the upper panel.
   for (const p of tt) {
     const l = p - matT / 2, r = p + matT / 2;
-    pts.push([l, 0], [l, -matT], [r, -matT], [r, 0]);
+    pts.push([l, yTopBody], [l, 0], [r, 0], [r, yTopBody]);
   }
-  pts.push([panelL, 0], [panelL, panelH]);
-  // Bottom edge right→left with downward tab protrusions
+
+  pts.push([panelL, yTopBody], [panelL, yBotBody]);
+
+  // Bottom edge right→left with downward tab protrusions into the lower panel.
   for (const p of [...tt].reverse()) {
     const l = p - matT / 2, r = p + matT / 2;
-    pts.push([r, panelH], [r, panelH + matT], [l, panelH + matT], [l, panelH]);
+    pts.push([r, yBotBody], [r, yBotBody + matT], [l, yBotBody + matT], [l, yBotBody]);
   }
-  pts.push([0, panelH]);
+
+  pts.push([0, yBotBody]);
 
   const d = 'M ' + pts.map(p => `${p[0].toFixed(3)},${p[1].toFixed(3)}`).join(' L ') + ' Z';
   const paths = [{ type: 'cut', d }];
 
-  // Half-lap notches as inner rectangular cuts
+  // Half-lap notches as inner rectangular CUTS, shifted into the positive
+  // local coordinate system used by the new one-piece outline.
   for (const lap of halfLaps) {
     const x1 = (lap.pos - matT / 2).toFixed(3);
     const x2 = (lap.pos + matT / 2).toFixed(3);
-    const y1 = lap.edge === 'top' ? '0' : (panelH / 2).toFixed(3);
-    const y2 = lap.edge === 'top' ? (panelH / 2).toFixed(3) : panelH.toFixed(3);
-    paths.push({ type: 'cut', d: `M ${x1},${y1} L ${x2},${y1} L ${x2},${y2} L ${x1},${y2} Z` });
+    const y1 = lap.edge === 'top' ? yTopBody : (yTopBody + panelH / 2);
+    const y2 = lap.edge === 'top' ? (yTopBody + panelH / 2) : yBotBody;
+    paths.push({
+      type: 'cut',
+      d: `M ${x1},${y1.toFixed(3)} L ${x2},${y1.toFixed(3)} L ${x2},${y2.toFixed(3)} L ${x1},${y2.toFixed(3)} Z`
+    });
   }
 
-  // Etch guide lines at floor-plate edges
-  const lines = [
-    { type: 'etch', x1: 0, y1: 0,      x2: panelL, y2: 0 },
-    { type: 'etch', x1: 0, y1: panelH,  x2: panelL, y2: panelH },
-  ];
-  return { paths, lines };
+  // No blue etch guide lines on the body edges. Those coincided with the
+  // actual cut boundary and made the vertical internal wall look engraved.
+  return { paths, lines: [] };
 }
 
 /* ---- Internal wall vertical levels ----
@@ -24996,7 +25220,7 @@ function generateInternalWallParts(cfg, plan) {
         name: `Internal wall — ${lvlLabel}, ${dir}, ${len.toFixed(0)} mm × ${panelH.toFixed(1)} mm clear (${posLbl})`,
         assemblyNote: `Clear wall body is ${panelH.toFixed(1)}mm between floor/ceiling plates; tabs add ${matT.toFixed(1)}mm into each horizontal panel (${tabPositions.length} tabs, staggered).${crossNote}`,
         bboxW: len, bboxH: panelH + 2 * matT,
-        bboxOffsetX: 0, bboxOffsetY: matT,
+        bboxOffsetX: 0, bboxOffsetY: 0,
         paths, rects: [], lines,
       });
     });
@@ -29602,14 +29826,21 @@ function generateBuildingWithWings(cfg) {
     // still needs an interior cladding piece. The main-building side is
     // already handled by the main block's own interior cladding panel.
     if (wing.connection !== 'open') {
-      const sharedIp = generateInteriorCladdingPanel(wCfg, wPlan, connWall);
-      if (sharedIp) {
-        sharedIp.id = 'shared_wall_interior_cladding' + sfx;
-        sharedIp.name = `Wing ${wi + 1} Shared Wall Interior Cladding (wing side)`;
+      const sharedIps = generateInteriorCladdingPanel(wCfg, wPlan, connWall);
+      const sharedList = Array.isArray(sharedIps) ? sharedIps : (sharedIps ? [sharedIps] : []);
+      let sharedIdx = 0;
+      for (const sharedIp of sharedList) {
+        sharedIdx++;
+        sharedIp.id = sharedList.length > 1
+          ? `shared_wall_interior_cladding${sfx}_floor_${sharedIdx}`
+          : 'shared_wall_interior_cladding' + sfx;
+        sharedIp.name = sharedList.length > 1
+          ? `Wing ${wi + 1} Shared Wall Interior Cladding (wing side) — piece ${sharedIdx}`
+          : `Wing ${wi + 1} Shared Wall Interior Cladding (wing side)`;
         sharedIp._sharedWallInteriorCladding = true;
         applyBlockIdentity(sharedIp, wingBlockCtx, {
           nameMode: 'suffix',
-          meta: { area: 'interior_walls', role: 'interior_cladding' },
+          meta: { area: 'interior_walls', role: 'interior_cladding', splitInteriorByFloor: sharedList.length > 1 },
         });
         parts.push(sharedIp);
       }
@@ -35548,7 +35779,14 @@ function layoutReferencePhysicalOffset(face, edgeLen, pos, span) {
   const p = Math.max(0, Number(pos) || 0);
   const s = Math.max(0, Number(span) || 0);
   const maxStart = Math.max(0, len - s);
-  if (face === 'back' || face === 'east') return Math.max(0, Math.min(maxStart, len - p - s));
+
+  // Top-down layout reference uses screen/site coordinates:
+  //   north/back = top, south/front = bottom, east = right, west = left.
+  // The back wall must be mirrored because its wall-local left-to-right axis is
+  // opposite the front wall. Side-wall local positions already run north→south
+  // for the reference map, so mirroring east here made east-wall objects appear
+  // backwards along the side of the building.
+  if (face === 'back') return Math.max(0, Math.min(maxStart, len - p - s));
   return Math.max(0, Math.min(maxStart, p));
 }
 
@@ -37974,6 +38212,67 @@ function updateThreePreview(cfg) {
   }
   const group = new THREE.Group();
 
+  // ---- Inter-floor divider preview ----
+  // These are the horizontal floor/ceiling divider plates generated between
+  // storeys. Wall SVGs already cut the matching slots; this makes the stack
+  // visible in the live 3D preview as both a faint internal slab and a thin
+  // exterior edge line around the block.
+  function addInterFloorDividersPreview3D(blockCfg, blockPlan, blockW, blockD, blockH, blockCX = 0, blockCZ = 0, labelPrefix = 'Main') {
+    const ys = Array.isArray(blockPlan && blockPlan.interFloorYs) ? blockPlan.interFloorYs : [];
+    if (!ys.length) return;
+
+    const localT = Math.max(0.25, Math.min(0.7, Number(blockCfg.coreThickness || t || 1.5) * 0.35));
+    const slabW = Math.max(0.5, blockW - 2 * (Number(blockCfg.coreThickness || t || 1.5) * 0.5));
+    const slabD = Math.max(0.5, blockD - 2 * (Number(blockCfg.coreThickness || t || 1.5) * 0.5));
+    const edgeT = Math.max(0.18, localT * 0.75);
+    const edgeOut = 0.035;
+
+    const slabMat = new THREE.MeshStandardMaterial({
+      color: 0xd8c9aa,
+      roughness: 0.92,
+      metalness: 0.0,
+      transparent: true,
+      opacity: 0.34,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const edgeMat = new THREE.MeshStandardMaterial({
+      color: 0x8f7f63,
+      roughness: 0.86,
+      metalness: 0.0,
+      transparent: true,
+      opacity: 0.88,
+      side: THREE.DoubleSide,
+    });
+
+    function addEdgeBand(sizeX, sizeY, sizeZ, x, y, z) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(sizeX, sizeY, sizeZ), edgeMat);
+      m.position.set(x, y, z);
+      m.name = `${labelPrefix} inter-floor divider edge`;
+      group.add(m);
+      return m;
+    }
+
+    for (const wallY of ys) {
+      const y = blockH - Number(wallY || 0);
+      if (!(y > 0.25 && y < blockH - 0.25)) continue;
+
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(slabW, localT, slabD), slabMat);
+      slab.position.set(blockCX, y, blockCZ);
+      slab.name = `${labelPrefix} inter-floor divider slab`;
+      group.add(slab);
+
+      // Thin visible perimeter lines, slightly outside the wall planes, so the
+      // divider remains legible even when the opaque wall faces hide the slab.
+      addEdgeBand(blockW, edgeT, edgeT, blockCX, y, blockCZ - blockD / 2 - edgeOut);
+      addEdgeBand(blockW, edgeT, edgeT, blockCX, y, blockCZ + blockD / 2 + edgeOut);
+      addEdgeBand(edgeT, edgeT, blockD, blockCX - blockW / 2 - edgeOut, y, blockCZ);
+      addEdgeBand(edgeT, edgeT, blockD, blockCX + blockW / 2 + edgeOut, y, blockCZ);
+    }
+  }
+
+  addInterFloorDividersPreview3D(cfg, plan, w, d, h, 0, 0, 'Main');
+
   // ---- Walls with openings ----
 
   // Helper: strip structural connection slots — they're covered by wing meshes and
@@ -38831,6 +39130,7 @@ function updateThreePreview(cfg) {
     const wingBox = new THREE.Mesh(new THREE.BoxGeometry(bW, wH, bD), mats);
     wingBox.position.set(wxC, wH / 2, wzC);
     group.add(wingBox);
+    addInterFloorDividersPreview3D(wCfg, wPlan, bW, bD, wH, wxC, wzC, `Wing ${wi + 1}`);
 
     // Exposed wing wall meshes with real cut openings. The shared
     // render3DBlockWalls3D path now handles mesh creation + window/door/

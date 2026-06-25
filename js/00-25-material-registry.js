@@ -296,46 +296,12 @@ function addPartsToList(parts, maybePartOrList) {
   installWhenReady();
 })();
 
-/* Safe wall/floor editor toolbox sizing: widen the toolbox and prevent the
- * toolbox container itself from becoming a sideways scroller, but do not clip
- * every child card/preview/label. The canvas area remains scrollable. */
-(function installSafeEditorToolboxSizingCss() {
-  const styleId = 'hakomachi-editor-toolbox-safe-sizing';
-  if (document.getElementById(styleId)) return;
-  const style = document.createElement('style');
-  style.id = styleId;
-  style.textContent = `
-    #openingEditorModal .oe-toolbox,
-    #iwModal .oe-toolbox {
-      width: 136px !important;
-      min-width: 136px !important;
-      max-width: 136px !important;
-      flex: 0 0 136px !important;
-      overflow-y: auto !important;
-      overflow-x: hidden !important;
-      overscroll-behavior-x: none;
-      touch-action: pan-y;
-    }
-    #openingEditorModal .oe-body,
-    #iwModal .oe-body,
-    #openingEditorModal .oe-dialog,
-    #iwModal .oe-dialog {
-      min-width: 0;
-      max-width: 100%;
-      overflow-x: hidden;
-    }
-    #openingEditorModal .oe-canvas-area,
-    #iwModal .oe-canvas-area {
-      min-width: 0;
-      overflow: auto;
-    }
-    #openingEditorModal .oe-toolbox-item-label,
-    #iwModal .oe-toolbox-item-label,
-    #openingEditorModal .oe-toolbox-item-dim,
-    #iwModal .oe-toolbox-item-dim {
-      overflow-wrap: anywhere;
-      word-break: break-word;
-    }
-  `;
-  document.head.appendChild(style);
+/* Remove any toolbox sizing styles injected by previous broken builds. The
+ * toolbox is styled by css/hakomachi.css; runtime child-clipping broke item
+ * previews and labels on iPad. */
+(function removeBrokenEditorToolboxRuntimeStyles() {
+  for (const id of ['hakomachi-editor-toolbox-overflow-fix', 'hakomachi-editor-toolbox-safe-sizing']) {
+    const el = document.getElementById(id);
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
 })();

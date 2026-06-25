@@ -64,7 +64,7 @@ const MaterialRegistry = {
     if (!m) return null;
     const w = parseFloat(m.maxWidthMm != null ? m.maxWidthMm : m.maxW);
     const h = parseFloat(m.maxHeightMm != null ? m.maxHeightMm : m.maxH);
-    if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return null;
+    if (!isFinite(w) || w <= 0 || h <= 0) return null;
     return { w, h };
   },
 
@@ -143,6 +143,9 @@ function floorPartExceedsMaterial(part, materialId) {
   return !MaterialRegistry.partFits(part, materialId || 'core');
 }
 
+function material3DForCladdingStyle(cfg, styleKey, opts = {}, fallback = 0xc9b89b) {
+  return MaterialRegistry.threeCladdingMaterial(styleKey || (cfg && cfg.claddingStyle), cfg || CONFIG, opts, fallback);
+}
 
 function addPartsToList(parts, maybePartOrList) {
   if (!maybePartOrList) return;

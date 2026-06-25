@@ -239,3 +239,27 @@ let CONFIG = {
   // Any key not listed here defaults to 'cladding'.
   claddingMaterials: {},
 };
+
+/* Fixture library post-load normalization.
+ * Pipe penetration rings are a single washer-shaped flange. The inner circle is
+ * the through-cut/waste opening through the flange, cladding, and core — not a
+ * separate centre insert or second stack layer.
+ */
+if (typeof FIXTURE_STYLES !== 'undefined' && FIXTURE_STYLES.pipe_penetration_ring) {
+  FIXTURE_STYLES.pipe_penetration_ring.description =
+    'Single-layer through-wall pipe flange. The inner circle is the cut-out/waste hole through the flange, cladding, and core; there is no separate center insert to stack.';
+  FIXTURE_STYLES.pipe_penetration_ring.depthTier = 'shallow';
+  FIXTURE_STYLES.pipe_penetration_ring.pieces = [
+    {
+      material: 'cladding', panelFill: '#9aa0a0', frameColor: '#333838',
+      shape: 'circle',
+      innerCut: { shape: 'circle', xRatio: 0.28, yRatio: 0.28, wRatio: 0.44, hRatio: 0.44 },
+      features: [
+        { type: 'stud', cx: 3.5, cy: 0.8, r: 0.18 },
+        { type: 'stud', cx: 6.2, cy: 3.5, r: 0.18 },
+        { type: 'stud', cx: 3.5, cy: 6.2, r: 0.18 },
+        { type: 'stud', cx: 0.8, cy: 3.5, r: 0.18 },
+      ],
+    },
+  ];
+}

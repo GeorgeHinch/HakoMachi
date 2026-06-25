@@ -295,3 +295,59 @@ function addPartsToList(parts, maybePartOrList) {
 
   installWhenReady();
 })();
+
+/* iPad Safari can pan a narrow flex child sideways when a child label/card is
+ * a few pixels wider than the sidebar. Keep the wall/floor editor toolbox as a
+ * vertical-only scroller and force toolbox contents to shrink inside it. */
+(function installEditorToolboxVerticalScrollOnlyCss() {
+  const styleId = 'hakomachi-editor-toolbox-overflow-fix';
+  if (document.getElementById(styleId)) return;
+  const style = document.createElement('style');
+  style.id = styleId;
+  style.textContent = `
+    #openingEditorModal .oe-toolbox,
+    #iwModal .oe-toolbox {
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      overscroll-behavior-x: none;
+      touch-action: pan-y;
+      max-width: 112px;
+      scrollbar-gutter: stable;
+    }
+    #openingEditorModal .oe-toolbox *,
+    #iwModal .oe-toolbox * {
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+    #openingEditorModal .oe-toolbox-item,
+    #iwModal .oe-toolbox-item,
+    #openingEditorModal .oe-toolbox-scale-row,
+    #iwModal .oe-toolbox-scale-row {
+      width: 100%;
+      overflow: hidden;
+    }
+    #openingEditorModal .oe-toolbox-item-label,
+    #iwModal .oe-toolbox-item-label,
+    #openingEditorModal .oe-toolbox-item-dim,
+    #iwModal .oe-toolbox-item-dim,
+    #openingEditorModal .oe-toolbox-section,
+    #iwModal .oe-toolbox-section {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    #openingEditorModal .oe-size-row,
+    #iwModal .oe-size-row {
+      flex-wrap: nowrap;
+      overflow: hidden;
+    }
+    #openingEditorModal .oe-size-row input[type=number],
+    #iwModal .oe-size-row input[type=number] {
+      flex: 0 1 34px;
+      min-width: 0;
+    }
+  `;
+  document.head.appendChild(style);
+})();

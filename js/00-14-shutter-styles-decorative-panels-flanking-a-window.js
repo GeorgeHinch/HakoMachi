@@ -132,3 +132,50 @@ function getShutterDimsForWindow(op) {
   const h = op.h;
   return { w, h };
 }
+
+/* Additional wall fixture catalog entries that are defined after the shared
+ * feature vocabulary is available but before the editor/toolbox and fixture
+ * part generator load. Kept as static source data; no DOM/runtime HTML patching.
+ */
+if (typeof FIXTURE_STYLES !== 'undefined') {
+  FIXTURE_STYLES.exterior_light = {
+    label: 'Exterior light',
+    description: 'Wall light with a rectangular pass-through for an LED. Exports a core U-shaped spacer/cradle plus a thin cladding cap for the outside face.',
+    width: 9.5,
+    height: 8.1,
+    depthTier: 'medium',
+    throughCore: true,
+    throughHole: { shape: 'rect', xRatio: 0.35, yRatio: 0.41, wRatio: 0.30, hRatio: 0.59 },
+    pieces: [
+      {
+        material: 'core',
+        panelFill: '#cfcfc7',
+        frameColor: '#4a4a44',
+        // The center cut reaches the bottom edge, making an upside-down U
+        // around the LED opening. The matching wall through-hole is cut from
+        // the core and cladding panels where the fixture is placed.
+        innerCut: { shape: 'rect', xRatio: 0.35, yRatio: 0.41, wRatio: 0.30, hRatio: 0.59 },
+        features: [
+          { type: 'panel', x1: 0.5, y1: 0.5, x2: 9.0, y2: 7.6 },
+        ],
+      },
+      {
+        material: 'cladding',
+        panelFill: '#f2eee2',
+        frameColor: '#5a5044',
+        features: [
+          { type: 'panel', x1: 0.5, y1: 0.5, x2: 9.0, y2: 7.6 },
+          { type: 'stud', cx: 4.75, cy: 5.25, r: 0.65 },
+        ],
+      },
+    ],
+  };
+
+  if (typeof STYLE_I18N_JA !== 'undefined') {
+    STYLE_I18N_JA.FIXTURE_STYLES = STYLE_I18N_JA.FIXTURE_STYLES || {};
+    STYLE_I18N_JA.FIXTURE_STYLES.exterior_light = {
+      label: '外灯',
+      description: 'LED用の貫通穴を持つ壁面ライト。コア材の逆U字スペーサーと外側用の薄い外装キャップを出力します。',
+    };
+  }
+}

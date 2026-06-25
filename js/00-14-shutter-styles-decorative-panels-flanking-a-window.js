@@ -183,6 +183,7 @@ if (typeof FIXTURE_STYLES !== 'undefined') {
     width: 9.5,
     height: 8.09,
     depthTier: 'medium',
+    toolboxSection: 'passthroughs',
     throughCore: true,
     throughHole: { shape: 'rect', xRatio: 3.33 / 9.5, yRatio: 3.33 / 8.09, wRatio: 2.83 / 9.5, hRatio: 4.25 / 8.09 },
     pieces: [

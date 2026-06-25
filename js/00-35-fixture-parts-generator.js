@@ -148,6 +148,38 @@ function downspoutRooflineTopY(cfg, plan, face, styleKey) {
   return 0;
 }
 
+function scaleFixtureFeatureForPiece(feature, sx, sy) {
+  const f = { ...(feature || {}) };
+  const scaleX = Number.isFinite(sx) ? sx : 1;
+  const scaleY = Number.isFinite(sy) ? sy : 1;
+  const scaleR = (scaleX + scaleY) / 2;
+
+  for (const key of ['x', 'x1', 'x2', 'cx', 'w']) {
+    if (f[key] != null && Number.isFinite(Number(f[key]))) f[key] = Number(f[key]) * scaleX;
+  }
+  for (const key of ['y', 'y1', 'y2', 'cy', 'h']) {
+    if (f[key] != null && Number.isFinite(Number(f[key]))) f[key] = Number(f[key]) * scaleY;
+  }
+  if (f.r != null && Number.isFinite(Number(f.r))) f.r = Number(f.r) * scaleR;
+
+  // For rail-density helpers, keep count explicit if present but scale any
+  // authored spacing so resized static-feature fixtures preserve their visual
+  // rhythm instead of leaving accent marks at the original size.
+  if (f.spacing != null && Number.isFinite(Number(f.spacing))) f.spacing = Number(f.spacing) * scaleY;
+  if (f.targetCell != null && Number.isFinite(Number(f.targetCell))) f.targetCell = Number(f.targetCell) * scaleR;
+  return f;
+}
+
+function scaleFixtureFeaturesForPiece(features, naturalW, naturalH, actualW, actualH) {
+  if (!Array.isArray(features) || !features.length) return [];
+  const sourceW = Math.max(0.0001, Number(naturalW) || Number(actualW) || 1);
+  const sourceH = Math.max(0.0001, Number(naturalH) || Number(actualH) || 1);
+  const sx = (Number(actualW) || sourceW) / sourceW;
+  const sy = (Number(actualH) || sourceH) / sourceH;
+  if (Math.abs(sx - 1) < 1e-9 && Math.abs(sy - 1) < 1e-9) return features;
+  return features.map(f => scaleFixtureFeatureForPiece(f, sx, sy));
+}
+
 function generateFixtureParts(cfg, fixtureGroups) {
 
   const parts = [];
@@ -241,9 +273,11 @@ function generateFixtureParts(cfg, fixtureGroups) {
             outRects.push({ type: 'cut', x: ix, y: iy, w: iw, h: ih, compensateKerf: false });
           }
         }
+        const naturalW = (piece.width  != null) ? piece.width  : style.width;
+        const naturalH = (piece.height != null) ? piece.height : style.height;
         const pieceFeatures = piece.featureGenerator
           ? piece.featureGenerator(pw, ph)
-          : (piece.features || []);
+          : scaleFixtureFeaturesForPiece(piece.features || [], naturalW, naturalH, pw, ph);
         if (pieceFeatures.length) {
           const shapes = doorFeatureShapes({ width: pw, height: ph, features: pieceFeatures });
           for (const sh of shapes) {
@@ -359,740 +393,126 @@ function fixtureThroughHoleSpec(style, fW, fH) {
 
 function addFixtureThroughHoleGeometry(rects, paths, x, y, w, h, spec) {
   if (!spec) return;
-  const hx = x + spec.x, hy = y + spec.y;
+  const hx = x + spec.x;
+  const hy = y + spec.y;
+  const hw = spec.w;
+  const hh = spec.h;
   if (spec.shape === 'circle') {
-    const cx = hx + spec.w / 2, cy = hy + spec.h / 2;
-    const rx = spec.w / 2, ry = spec.h / 2;
+    const cx = hx + hw / 2;
+    const cy = hy + hh / 2;
+    const rx = hw / 2, ry = hh / 2;
     const d = `M ${(cx - rx).toFixed(3)},${cy.toFixed(3)}`
             + ` A ${rx.toFixed(3)},${ry.toFixed(3)} 0 1,1 ${(cx + rx).toFixed(3)},${cy.toFixed(3)}`
             + ` A ${rx.toFixed(3)},${ry.toFixed(3)} 0 1,1 ${(cx - rx).toFixed(3)},${cy.toFixed(3)} Z`;
-    paths.push({ type: 'cut', d, compensateKerf: false });
+    paths.push({ type: 'cut', d, compensateKerf: true });
   } else {
-    rects.push({ type: 'cut', x: hx, y: hy, w: spec.w, h: spec.h, compensateKerf: false });
+    rects.push({ type: 'cut', x: hx, y: hy, w: hw, h: hh, compensateKerf: true });
   }
 }
 
-function cutFixtureHolesInCore(rects, paths, cfg, face, xMirror) {
-  const fxs = surfaceWallFeaturesForFace(cfg, face, 'fixture');
-  for (const fx of fxs) {
-    const style = FIXTURE_STYLES[fx.style];
-    if (!style) continue;
-    const w = Number(fx.w) || style.width;
-    const h = Number(fx.h) || style.height;
-    const xRaw = Number(fx.x) || 0;
-    const yRaw = Number(fx.y) || 0;
-    const x = xMirror ? xMirror(xRaw, w) : xRaw;
-
-    if (downspoutHasScupperBox(cfg, face, fx.style)) {
-      const sc = downspoutScupperLocalSpec(w, h);
-      rects.push({
-        type: 'cut',
-        x: x + sc.throatX,
-        y: downspoutScupperWallHoleY(cfg, face, yRaw, sc),
-        w: sc.throatW,
-        h: sc.throatH,
-        compensateKerf: false,
-      });
-      continue;
-    }
-
-    if (style.throughCore) {
-      const th = fixtureThroughHoleSpec(style, w, h);
-      addFixtureThroughHoleGeometry(rects, paths, x, yRaw, w, h, th);
-      continue;
-    }
-
-    if (style.placement !== 'cutout') continue;
-    const piece0 = style.pieces && style.pieces[0];
-    if (piece0 && piece0.shape === 'circle') {
-      const cx = x + w / 2, cy = yRaw + h / 2;
-      const rx = w / 2,     ry = h / 2;
-      // Use one-radius arc when w≈h, ellipse arc otherwise.
-      const sameR = Math.abs(rx - ry) < 0.05;
-      const d = sameR
-        ? (`M ${(cx - rx).toFixed(3)},${cy.toFixed(3)}`
-          + ` A ${rx.toFixed(3)},${rx.toFixed(3)} 0 1,1 ${(cx + rx).toFixed(3)},${cy.toFixed(3)}`
-          + ` A ${rx.toFixed(3)},${rx.toFixed(3)} 0 1,1 ${(cx - rx).toFixed(3)},${cy.toFixed(3)} Z`)
-        : (`M ${(cx - rx).toFixed(3)},${cy.toFixed(3)}`
-          + ` A ${rx.toFixed(3)},${ry.toFixed(3)} 0 1,1 ${(cx + rx).toFixed(3)},${cy.toFixed(3)}`
-          + ` A ${rx.toFixed(3)},${ry.toFixed(3)} 0 1,1 ${(cx - rx).toFixed(3)},${cy.toFixed(3)} Z`);
-      paths.push({ type: 'cut', d, compensateKerf: false });
-    } else {
-      rects.push({ type: 'cut', x: x, y: yRaw, w: w, h: h, compensateKerf: false });
-    }
+function addFixtureThroughHolesToWall(rects, paths, cfg, face, xMirror) {
+  const features = wallFeaturesForFace(cfg, face);
+  for (const f of (features || [])) {
+    if (!f || f.type !== 'fixture') continue;
+    const style = FIXTURE_STYLES[f.style];
+    if (!style || !style.throughCore) continue;
+    const fW = (f.w != null) ? f.w : (style.width || 1);
+    const fH = (f.h != null) ? f.h : (style.height || 1);
+    const x = xMirror ? xMirror(f.x, fW) : f.x;
+    const y = f.y;
+    const spec = fixtureThroughHoleSpec(style, fW, fH);
+    addFixtureThroughHoleGeometry(rects, paths, x, y, fW, fH, spec);
   }
 }
 
-function tallyFixtures(cfg) {
-  const groups = new Map();
-  for (const face of ['front', 'back', 'east', 'west']) {
-    for (const f of surfaceWallFeaturesForFace(cfg, face, 'fixture')) {
-      if (!f.style) continue;
-      const style = FIXTURE_STYLES[f.style];
-      if (!style) continue;
-      const w = Number(f.w) || style.width;
-      const h = Number(f.h) || style.height;
-      // Bucket key — round to 0.1mm so float-jitter on close-but-not-equal
-      // sizes still collapses correctly.
-      const scupper = downspoutHasScupperBox(cfg, face, f.style);
-      const key = `${f.style}|${w.toFixed(1)}|${h.toFixed(1)}|S${scupper ? 1 : 0}`;
-      const existing = groups.get(key);
-      if (existing) {
-        existing.count += 1;
-      } else {
-        const isDefault = Math.abs(w - style.width)  < 0.05 &&
-                          Math.abs(h - style.height) < 0.05;
-        groups.set(key, { style: f.style, w, h, count: 1, isDefault, scupper });
-      }
-    }
+function addFixtureThroughHolesToCladding(rects, paths, cfg, face, xMirror, shiftX = 0, shiftY = 0, opts = {}) {
+  const features = wallFeaturesForFace(cfg, face);
+  for (const f of (features || [])) {
+    if (!f || f.type !== 'fixture') continue;
+    const style = FIXTURE_STYLES[f.style];
+    if (!style || !style.throughCore) continue;
+    const fW = (f.w != null) ? f.w : (style.width || 1);
+    const fH = (f.h != null) ? f.h : (style.height || 1);
+    const rawX = xMirror ? xMirror(f.x, fW) : f.x;
+    const rawY = f.y;
+
+    // Fixture pass-through holes must line up with the *retained* cladding
+    // piece geometry after panel splitting/cropping. Some cladding export
+    // paths work in retained local coordinates and others work in original
+    // wall coordinates, so this helper accepts an explicit shift. When
+    // opts.retainLocal=true, subtract the retained piece origin. When false,
+    // keep legacy original-wall coordinates.
+    const x = rawX - shiftX;
+    const y = rawY - shiftY;
+    const spec = fixtureThroughHoleSpec(style, fW, fH);
+    addFixtureThroughHoleGeometry(rects, paths, x, y, fW, fH, spec);
   }
-  return Array.from(groups.values());
 }
 
-/* Walk windows that have `hasShutters: true` and tally pairs by
- * (shutterStyle, shutterW, shutterH). Each window contributes 2 pieces
- * (one left + one right, but identical for symmetric patterns), so
- * `count` here is pairs — the cut sheet generator emits 2 × count cuts.
- */
-function tallyShutters(cfg) {
-  const groups = new Map();
-  for (const face of ['front', 'back', 'east', 'west']) {
-    for (const op of structuralWallFeaturesForFace(cfg, face)) {
-      if (op.type !== 'window' || !op.hasShutters) continue;
-      const styleKey = op.shutterStyle || 'louvered';
-      if (!SHUTTER_STYLES[styleKey]) continue;
-      const sw = Math.max(2, op.w * SHUTTER_W_RATIO);
-      const sh = op.h;
-      const key = `${styleKey}|${sw.toFixed(1)}|${sh.toFixed(1)}`;
-      const existing = groups.get(key);
-      if (existing) {
-        existing.count += 1;
-      } else {
-        groups.set(key, { style: styleKey, w: sw, h: sh, count: 1 });
-      }
-    }
-  }
-  return Array.from(groups.values());
-}
-
-/* Produce laser-cut sheets for shutters. One sheet per (shutter style ×
- * shutter dimensions). Each window contributes 2 identical pieces — left
- * and right shutters use the same physical part. Cut from cladding. */
-function generateShutterParts(cfg, shutterGroups) {
-  const parts = [];
-  for (const group of (shutterGroups || [])) {
-    if (!group || group.count <= 0) continue;
-    const style = SHUTTER_STYLES[group.style];
-    if (!style) continue;
-
-    const totalPieces = group.count * 2;  // 2 pieces per pair, no spares
-    const pw = group.w, ph = group.h;
-    const gutter = 3;
-    const cellW = pw, cellH = ph;
-    const cols = Math.max(2, Math.floor((250 - gutter) / (cellW + gutter)));
-    const rows = Math.ceil(totalPieces / cols);
-    const sheetW = cols * (cellW + gutter) + gutter;
-    const sheetH = rows * (cellH + gutter) + gutter;
-
-    const rects = [];
-    const lines = [];
-
-    for (let i = 0; i < totalPieces; i++) {
-      const c = i % cols;
-      const r = Math.floor(i / cols);
-      const ox = gutter + c * (cellW + gutter);
-      const oy = gutter + r * (cellH + gutter);
-      rects.push({ type: 'cut', structural: true, x: ox, y: oy, w: pw, h: ph, compensateKerf: false });
-
-      // Etched detail features
-      const features = style.featureGenerator ? style.featureGenerator(pw, ph) : (style.features || []);
-      if (features.length) {
-        const shapes = doorFeatureShapes({ width: pw, height: ph, features });
-        for (const sh of shapes) {
-          if (sh.type === 'rect') {
-            const x1 = ox + sh.x, y1 = oy + sh.y;
-            const x2 = ox + sh.x + sh.w, y2 = oy + sh.y + sh.h;
-            lines.push({ type: 'etch', x1, y1, x2, y2: y1 });
-            lines.push({ type: 'etch', x1: x2, y1, x2, y2 });
-            lines.push({ type: 'etch', x1: x2, y1: y2, x2: x1, y2 });
-            lines.push({ type: 'etch', x1, y1: y2, x2: x1, y2: y1 });
-          } else if (sh.type === 'line') {
-            lines.push({ type: 'etch',
-              x1: ox + sh.x1, y1: oy + sh.y1,
-              x2: ox + sh.x2, y2: oy + sh.y2 });
-          } else if (sh.type === 'circle') {
-            const cx = ox + sh.cx, cy = oy + sh.cy, rad = sh.r;
-            const N = 12;
-            let px = cx + rad, py = cy;
-            for (let j = 1; j <= N; j++) {
-              const a = (j / N) * 2 * Math.PI;
-              const nx = cx + Math.cos(a) * rad;
-              const ny = cy + Math.sin(a) * rad;
-              lines.push({ type: 'etch', x1: px, y1: py, x2: nx, y2: ny });
-              px = nx; py = ny;
-            }
-          }
-        }
-      }
-    }
-
-    const dimsTag = `${pw.toFixed(1)}×${ph.toFixed(1)}mm`;
-    // Sanitize dims for the id
-    const idSuffix = `_${pw.toFixed(1)}x${ph.toFixed(1)}`.replace(/\./g, '_');
-    // Single-tile preview geometry — one shutter piece with its etched
-    // detail, so the parts panel shows one + "Cut ×N" instead of every
-    // single shutter on the tiled cut sheet.
-    const tileRects = [{ type: 'cut', structural: true, x: 0, y: 0, w: pw, h: ph, compensateKerf: false }];
-    const tileLines = [];
-    {
-      const features = style.featureGenerator ? style.featureGenerator(pw, ph) : (style.features || []);
-      if (features.length) {
-        const shapes = doorFeatureShapes({ width: pw, height: ph, features });
-        for (const sh of shapes) {
-          if (sh.type === 'rect') {
-            const x1 = sh.x, y1 = sh.y;
-            const x2 = sh.x + sh.w, y2 = sh.y + sh.h;
-            tileLines.push({ type: 'etch', x1, y1, x2, y2: y1 });
-            tileLines.push({ type: 'etch', x1: x2, y1, x2, y2 });
-            tileLines.push({ type: 'etch', x1: x2, y1: y2, x2: x1, y2 });
-            tileLines.push({ type: 'etch', x1, y1: y2, x2: x1, y2: y1 });
-          } else if (sh.type === 'line') {
-            tileLines.push({ type: 'etch', x1: sh.x1, y1: sh.y1, x2: sh.x2, y2: sh.y2 });
-          } else if (sh.type === 'circle') {
-            const cx = sh.cx, cy = sh.cy, rad = sh.r;
-            const N = 12;
-            let px = cx + rad, py = cy;
-            for (let j = 1; j <= N; j++) {
-              const a = (j / N) * 2 * Math.PI;
-              const nx = cx + Math.cos(a) * rad;
-              const ny = cy + Math.sin(a) * rad;
-              tileLines.push({ type: 'etch', x1: px, y1: py, x2: nx, y2: ny });
-              px = nx; py = ny;
-            }
-          }
-        }
-      }
-    }
-    parts.push({
-      id: 'shutter_' + group.style + idSuffix,
-      name: `Shutter — ${style.label} (${group.count} pair${group.count > 1 ? 's' : ''} × 2 pcs · ${dimsTag})`,
-      material: 'cladding',
-      bboxW: sheetW, bboxH: sheetH,
-      bboxOffsetX: 0, bboxOffsetY: 0,
-      paths: [], rects: rects, lines: lines,
-      tileCount: totalPieces,
-      tileGeom: {
-        bboxW: pw, bboxH: ph,
-        bboxOffsetX: 0, bboxOffsetY: 0,
-        paths: [], rects: tileRects, lines: tileLines,
-      },
+function addDownspoutScupperThroughHolesToWall(rects, paths, cfg, face, xMirror) {
+  if (!cfg) return;
+  const features = wallFeaturesForFace(cfg, face);
+  for (const f of (features || [])) {
+    if (!f || f.type !== 'fixture' || f.style !== 'downspout') continue;
+    if (!downspoutHasScupperBox(cfg, face, f.style)) continue;
+    const style = FIXTURE_STYLES[f.style] || {};
+    const fW = (f.w != null) ? f.w : (style.width || 1);
+    const fH = (f.h != null) ? f.h : (style.height || 1);
+    const x = xMirror ? xMirror(f.x, fW) : f.x;
+    const sc = downspoutScupperLocalSpec(fW, fH);
+    const holeX = x + sc.throatX;
+    const holeY = downspoutScupperWallHoleY(cfg, face, f.y, sc);
+    paths.push({
+      type: 'cut',
+      d: rectPath(holeX, holeY, sc.throatW, sc.throatH),
+      compensateKerf: true,
     });
   }
-  return parts;
 }
 
-/* Walk unified printed wall features across all walls and bucket by
- * (style, w-to-0.1mm, h-to-0.1mm). Each printed item is one piece on a
- * printed sheet — no spares, but multiple items of the same design
- * collapse onto a single sheet for printing efficiency. */
-function tallyPrintedItems(cfg) {
-  const groups = new Map();
-  for (const face of ['front', 'back', 'east', 'west']) {
-    for (const it of surfaceWallFeaturesForFace(cfg, face, 'printed_item')) {
-      if (!it.style || !PRINTED_STYLES[it.style]) continue;
-      const w = Number(it.w) || 0;
-      const h = Number(it.h) || 0;
-      if (w <= 0 || h <= 0) continue;
-      const key = `${it.style}|${w.toFixed(1)}|${h.toFixed(1)}`;
-      const existing = groups.get(key);
-      if (existing) existing.count += 1;
-      else groups.set(key, { style: it.style, w, h, count: 1 });
-    }
-  }
-  return Array.from(groups.values());
-}
-
-/* Produce printed sheets for all printed items grouped by style+size.
- * Output sheets carry material: 'printed' so the UI can render them as
- * full-colour artwork rather than just cut/etch lines. Each item on the
- * sheet is surrounded by L-shaped crop marks just outside the artwork
- * indicating where the user should cut.
- *
- * Unlike laser sheets, the rendered output for these is full-colour SVG
- * embedded in a `svgContent` field — `partToSvg` reads that field and
- * passes it through verbatim. */
-function generatePrintedSheets(cfg, printedGroups) {
-  const parts = [];
-  const PAGE_W = 200;       // mm — fits comfortably on A4 (210mm wide)
-  const GUTTER = 4;         // mm between crop-mark carrier tiles
-  const CROP_LEN = 2.5;     // mm length of each crop-mark arm
-  const CROP_GAP = 0.6;     // mm gap between artwork trim edge and crop mark
-  const CROP_WIDTH = 0.1;   // mm crop-mark stroke
-  const CROP_MARGIN = CROP_LEN + CROP_GAP + 0.8; // waste margin that CONTAINS the marks
-
-  function pushFunctionalCropMarks(lines, x0, y0, w, h) {
-    const x1 = x0 + w;
-    const y1 = y0 + h;
-    const gp = CROP_GAP;
-    const ln = CROP_LEN;
-
-    // Functional crop marks align with the TRUE trim edges:
-    //   horizontal arms sit on y = top/bottom trim line
-    //   vertical arms sit on x = left/right trim line
-    // but stop short of the artwork by CROP_GAP. This is the standard
-    // print workflow: the marks live in the waste margin and point to the
-    // exact cut line instead of floating diagonally outside the object.
-    // Top-left
-    lines.push({ type: 'cut', x1: x0 - gp - ln, y1: y0, x2: x0 - gp, y2: y0, isCrop: true });
-    lines.push({ type: 'cut', x1: x0, y1: y0 - gp - ln, x2: x0, y2: y0 - gp, isCrop: true });
-    // Top-right
-    lines.push({ type: 'cut', x1: x1 + gp, y1: y0, x2: x1 + gp + ln, y2: y0, isCrop: true });
-    lines.push({ type: 'cut', x1: x1, y1: y0 - gp - ln, x2: x1, y2: y0 - gp, isCrop: true });
-    // Bottom-left
-    lines.push({ type: 'cut', x1: x0 - gp - ln, y1: y1, x2: x0 - gp, y2: y1, isCrop: true });
-    lines.push({ type: 'cut', x1: x0, y1: y1 + gp, x2: x0, y2: y1 + gp + ln, isCrop: true });
-    // Bottom-right
-    lines.push({ type: 'cut', x1: x1 + gp, y1: y1, x2: x1 + gp + ln, y2: y1, isCrop: true });
-    lines.push({ type: 'cut', x1: x1, y1: y1 + gp, x2: x1, y2: y1 + gp + ln, isCrop: true });
-  }
-
-  for (const group of (printedGroups || [])) {
-    if (!group || group.count <= 0) continue;
-    const style = PRINTED_STYLES[group.style];
-    if (!style) continue;
-
-    const w = group.w, h = group.h;
-    const tileW = w + 2 * CROP_MARGIN;
-    const tileH = h + 2 * CROP_MARGIN;
-
-    // How many fit per row. Each tile includes a waste/crop-mark margin, so
-    // crop marks are part of the printable carrier area instead of sitting
-    // outside the object's exported bbox.
-    const cellW = tileW + GUTTER;
-    const cellH = tileH + GUTTER;
-    const cols = Math.max(1, Math.floor((PAGE_W - GUTTER) / cellW));
-    const rows = Math.ceil(group.count / cols);
-    const sheetW = Math.min(PAGE_W, cols * cellW + GUTTER);
-    const sheetH = rows * cellH + GUTTER;
-
-    // Build the printed sheet SVG body — full-colour artwork plus crop marks.
-    let body = '';
-    const rects = [];
-    const lines = [];
-
-    for (let i = 0; i < group.count; i++) {
-      const c = i % cols;
-      const r = Math.floor(i / cols);
-      const tileX = GUTTER + c * cellW;
-      const tileY = GUTTER + r * cellH;
-      const ox = tileX + CROP_MARGIN;
-      const oy = tileY + CROP_MARGIN;
-
-      // The artwork itself — transform-translate so the style's designSvg
-      // generates art in its local (0..w, 0..h) space. The surrounding
-      // CROP_MARGIN is deliberate waste paper/sticker material.
-      body += `<g transform="translate(${ox.toFixed(2)} ${oy.toFixed(2)})">`
-            + buildPrintedSvgBody(style, w, h)
-            + `</g>`;
-
-      pushFunctionalCropMarks(lines, ox, oy, w, h);
-    }
-
-    // Single-tile preview: include the same waste margin, artwork offset,
-    // and edge-aligned crop marks. No negative coordinates, so the preview
-    // and exported tile accurately show how the marks are meant to be used.
-    const tileBody = `<g transform="translate(${CROP_MARGIN.toFixed(2)} ${CROP_MARGIN.toFixed(2)})">`
-                   + buildPrintedSvgBody(style, w, h)
-                   + `</g>`;
-    const tileLinesArr = [];
-    pushFunctionalCropMarks(tileLinesArr, CROP_MARGIN, CROP_MARGIN, w, h);
-
-    parts.push({
-      id: 'printed_' + group.style + `_${w.toFixed(1)}x${h.toFixed(1)}`.replace(/\./g, '_'),
-      name: `Printed sheet — ${style.label} (${group.count}× · ${w.toFixed(1)}×${h.toFixed(1)}mm artwork, crop-margin carrier)`,
-      material: 'printed',
-      bboxW: sheetW, bboxH: sheetH,
-      bboxOffsetX: 0, bboxOffsetY: 0,
-      paths: [], rects: rects, lines: lines,
-      svgContent: body,
-      assemblyNote: 'Print at 100% scale. Crop marks now sit inside a waste margin and align to the true artwork trim edges; cut along the imaginary rectangle connecting the crop-mark arms, then glue to the building face.',
-      tileCount: group.count,
-      tileGeom: {
-        bboxW: tileW, bboxH: tileH,
-        bboxOffsetX: 0, bboxOffsetY: 0,
-        paths: [], rects: [], lines: tileLinesArr,
-        svgContent: tileBody,
-      },
+function addDownspoutScupperThroughHolesToCladding(rects, paths, cfg, face, xMirror, shiftX = 0, shiftY = 0) {
+  if (!cfg) return;
+  const features = wallFeaturesForFace(cfg, face);
+  for (const f of (features || [])) {
+    if (!f || f.type !== 'fixture' || f.style !== 'downspout') continue;
+    if (!downspoutHasScupperBox(cfg, face, f.style)) continue;
+    const style = FIXTURE_STYLES[f.style] || {};
+    const fW = (f.w != null) ? f.w : (style.width || 1);
+    const fH = (f.h != null) ? f.h : (style.height || 1);
+    const rawX = xMirror ? xMirror(f.x, fW) : f.x;
+    const sc = downspoutScupperLocalSpec(fW, fH);
+    const holeX = rawX + sc.throatX - shiftX;
+    const holeY = downspoutScupperWallHoleY(cfg, face, f.y, sc) - shiftY;
+    paths.push({
+      type: 'cut',
+      d: rectPath(holeX, holeY, sc.throatW, sc.throatH),
+      compensateKerf: true,
     });
   }
-  return parts;
 }
 
-
-/* Walk CONFIG.manualCladdingOverrides across all walls and bucket by
- * (claddingStyle, w-to-0.1mm, h-to-0.1mm). Each override = exactly one
- * cut piece (no spares — these are big bespoke patches), so the count
- * field is just how many identical patches a single sheet should emit. */
-function claddingOverrideFixtureMarksForPiece(cfg, face, ovPanel, toCladX) {
-  const marks = [];
-  for (const fx of surfaceWallFeaturesForFace(cfg, face, 'fixture')) {
-    const style = FIXTURE_STYLES[fx.style];
-    if (!style) continue;
-    const fw = Number(fx.w) || style.width;
-    const fh = Number(fx.h) || style.height;
-    const fx1 = toCladX(Number(fx.x) || 0, fw);
-    const fy1 = Number(fx.y) || 0;
-    const fx2 = fx1 + fw;
-    const fy2 = fy1 + fh;
-
-    const ix1 = Math.max(fx1, ovPanel.x);
-    const iy1 = Math.max(fy1, ovPanel.y);
-    const ix2 = Math.min(fx2, ovPanel.x + ovPanel.w);
-    const iy2 = Math.min(fy2, ovPanel.y + ovPanel.h);
-    if (ix2 <= ix1 + 0.001 || iy2 <= iy1 + 0.001) continue;
-
-    // Only transfer marks that are essentially fully inside the replaced patch.
-    const area = Math.max(0.001, fw * fh);
-    if (((ix2 - ix1) * (iy2 - iy1)) < area * 0.98) continue;
-
-    marks.push({
-      x: fx1 - ovPanel.x,
-      y: fy1 - ovPanel.y,
-      w: fw,
-      h: fh,
-      style: fx.style,
-    });
+function addDownspoutScupperMarksToCladding(lines, cfg, face, xMirror, shiftX = 0, shiftY = 0) {
+  if (!cfg) return;
+  const features = wallFeaturesForFace(cfg, face);
+  for (const f of (features || [])) {
+    if (!f || f.type !== 'fixture' || f.style !== 'downspout') continue;
+    if (!downspoutHasScupperBox(cfg, face, f.style)) continue;
+    const style = FIXTURE_STYLES[f.style] || {};
+    const fW = (f.w != null) ? f.w : (style.width || 1);
+    const fH = (f.h != null) ? f.h : (style.height || 1);
+    const rawX = xMirror ? xMirror(f.x, fW) : f.x;
+    const sc = downspoutScupperLocalSpec(fW, fH);
+    const boxX = rawX + sc.boxX - shiftX;
+    const boxY = downspoutScupperWallBoxY(cfg, face, f.y, sc) - shiftY;
+    const throatX = rawX + sc.throatX - shiftX;
+    const throatY = downspoutScupperWallHoleY(cfg, face, f.y, sc) - shiftY;
+    lines.push({ type: 'etch', x1: boxX, y1: boxY, x2: boxX + sc.boxW, y2: boxY });
+    lines.push({ type: 'etch', x1: boxX + sc.boxW, y1: boxY, x2: boxX + sc.boxW, y2: boxY + sc.boxH });
+    lines.push({ type: 'etch', x1: boxX + sc.boxW, y1: boxY + sc.boxH, x2: boxX, y2: boxY + sc.boxH });
+    lines.push({ type: 'etch', x1: boxX, y1: boxY + sc.boxH, x2: boxX, y2: boxY });
+    lines.push({ type: 'etch', x1: throatX, y1: throatY, x2: throatX + sc.throatW, y2: throatY });
+    lines.push({ type: 'etch', x1: throatX + sc.throatW, y1: throatY, x2: throatX + sc.throatW, y2: throatY + sc.throatH });
+    lines.push({ type: 'etch', x1: throatX + sc.throatW, y1: throatY + sc.throatH, x2: throatX, y2: throatY + sc.throatH });
+    lines.push({ type: 'etch', x1: throatX, y1: throatY + sc.throatH, x2: throatX, y2: throatY });
   }
-  return marks;
-}
-
-function emitFixtureMarkerEtchesOnOverride(lines, mark, ox, oy) {
-  const style = FIXTURE_STYLES[mark.style];
-  if (!style) return;
-  const tickLen = Math.max(0.55, Math.min(1.4, Math.min(mark.w, mark.h) * 0.25));
-  const x1 = ox + mark.x, y1 = oy + mark.y, x2 = x1 + mark.w, y2 = y1 + mark.h;
-
-  // Same bracket/tick idiom as fixture positioning marks on base cladding.
-  lines.push({ type: 'etch', x1, y1, x2: x1 + tickLen, y2: y1 });
-  lines.push({ type: 'etch', x1, y1, x2: x1, y2: y1 + tickLen });
-  lines.push({ type: 'etch', x1: x2, y1, x2: x2 - tickLen, y2: y1 });
-  lines.push({ type: 'etch', x1: x2, y1, x2, y2: y1 + tickLen });
-  lines.push({ type: 'etch', x1, y1: y2, x2: x1 + tickLen, y2 });
-  lines.push({ type: 'etch', x1, y1: y2, x2: x1, y2: y2 - tickLen });
-  lines.push({ type: 'etch', x1: x2, y1: y2, x2: x2 - tickLen, y2 });
-  lines.push({ type: 'etch', x1: x2, y1: y2, x2, y2: y2 - tickLen });
-
-  // A small center mark helps align small meters/vents after the override has
-  // replaced the original base cladding.
-  lines.push({ type: 'etch', x1: (x1 + x2) / 2 - 0.25, y1: (y1 + y2) / 2, x2: (x1 + x2) / 2 + 0.25, y2: (y1 + y2) / 2 });
-  lines.push({ type: 'etch', x1: (x1 + x2) / 2, y1: (y1 + y2) / 2 - 0.25, x2: (x1 + x2) / 2, y2: (y1 + y2) / 2 + 0.25 });
-}
-
-function tallyCladdingOverrides(cfg, plan) {
-  // Compute the same edge-flush extensions as the cladding panel
-  // generator — when an override sits flush against a wall edge, its
-  // cut is extended out to the cladding panel's edge (cT for FB, matT
-  // for sides). The piece we slot into that cut has to match those
-  // wider dimensions or it won't fill the hole. Same flush detection,
-  // same shift values: this is the "piece side" of the per-override
-  // extension stored on the cut side in generateCladdingPanel.
-  //
-  // We also collect per-override CUTOUTS: rectangular holes in the
-  // override piece where windows/doors pass through the wall behind
-  // it. Without these, the override piece would block the openings
-  // it's glued over. Reads from structural wall features (the structural-op
-  // store the editor writes through the unified model); auto-generated windows on walls the
-  // user hasn't touched in the editor aren't included, but in
-  // practice any wall the user dropped a cladding patch onto has
-  // already been opened in the editor — which materialises auto
-  // openings into wallFeatures/manualOpenings — so this catches what the user
-  // expects to see.
-  //
-  // `plan` is optional only for backwards compatibility — callers
-  // should pass it. Without it we fall back to no extensions (legacy
-  // behaviour), which still produces correct piece-to-cut alignment
-  // when patches don't sit flush against any edge.
-  const cT = (cfg && cfg.claddingThickness > 0) ? cfg.claddingThickness : 0.28;
-  const fbWidth = plan ? plan.fbWidth : 0;
-  const sideLen = plan ? plan.sideLen : 0;
-  const matT    = plan ? plan.matT    : 0;
-  const groups = new Map();
-  for (const face of ['front', 'back', 'east', 'west']) {
-    const isFB       = (face === 'front' || face === 'back');
-    const wallWidth  = isFB ? fbWidth : sideLen;
-    const shift      = isFB ? cT      : matT;
-    // Wall's structural openings — windows and doors only. Bays are
-    // excluded: a bay is bottom-anchored and occupies a large region,
-    // and the editor enforces bays + cladding patches on the same
-    // wall don't intersect in any sensible workflow. If a user does
-    // overlap them, they get the patch covering the bay opening — a
-    // visible bug they'll fix manually, not a silent miscut.
-    const wallOps = structuralWallFeaturesForFace(cfg, face).filter(op =>
-      op && (op.type === 'window' || op.type === 'door'));
-
-    // Convert wall-local stored X into the same cladding-panel X coordinate
-    // used by generateCladdingPanel(). This is essential for east side walls:
-    // their cladding panels are mirrored in the SVG/card, so raw wall X would
-    // place override-piece window/door cutouts backwards.
-    const panelWidth = isFB ? (fbWidth + 2 * cT) : (wallWidth + 2 * matT);
-    const toCladX = (rawX, rawW) => {
-      if (isFB) return (Number(rawX) || 0) + cT;
-      return (face === 'east')
-        ? ((wallWidth - (Number(rawX) || 0) - (Number(rawW) || 0)) + matT)
-        : ((Number(rawX) || 0) + matT);
-    };
-
-    for (const ov of surfaceWallFeaturesForFace(cfg, face, 'cladding_override')) {
-      if (!ov.claddingStyle) continue;
-      const w = Number(ov.w) || 0;
-      const h = Number(ov.h) || 0;
-      if (w <= 0 || h <= 0) continue;
-
-      const rawX = Number(ov.x) || 0;
-      const rawY = Number(ov.y) || 0;
-      const ovCladX = toCladX(rawX, w);
-
-      // Convert a wall-editor override into the exact cladding-panel span it
-      // replaces. The editor works in wall-body coordinates, but the laser
-      // cladding panel includes extra corner/overlap strips: cT on front/back
-      // and matT on side walls. If the user drags the override to a wall edge,
-      // the replacement piece must grow through that overlap to the true
-      // cladding panel edge. East is mirrored, so raw x=0 maps to the RIGHT
-      // panel edge and raw x+w=wallWidth maps to the LEFT panel edge.
-      const rawTouchesStart = wallWidth > 0 && rawX <= 0.001;
-      const rawTouchesEnd   = wallWidth > 0 && (rawX + w) >= (wallWidth - 0.001);
-      let panelStart = ovCladX;
-      let panelEnd = ovCladX + w;
-      if (isFB || face === 'west') {
-        if (rawTouchesStart) panelStart = 0;
-        if (rawTouchesEnd) panelEnd = panelWidth;
-      } else if (face === 'east') {
-        if (rawTouchesEnd) panelStart = 0;
-        if (rawTouchesStart) panelEnd = panelWidth;
-      }
-      panelStart = Math.max(0, Math.min(panelWidth, panelStart));
-      panelEnd = Math.max(0, Math.min(panelWidth, panelEnd));
-
-      const bottomExt = (cfg && cfg.claddingExtendsToFloorBottom && wallWidth > 0 && (rawY + h) >= (wallBodyHeightFromConfig(cfg) - 0.02))
-        ? Math.max(0, Number(cfg.coreThickness || matT || 0))
-        : 0;
-      const effectiveW = Math.max(0, panelEnd - panelStart);
-      const effectiveH = h + bottomExt;
-      const ovPanel = {
-        x: panelStart,
-        y: rawY,
-        w: effectiveW,
-        h: effectiveH,
-      };
-
-      // Cutouts in PIECE-LOCAL coords. Intersect windows/doors in cladding
-      // panel coordinates, not raw wall coordinates, so east-side override
-      // replacement pieces match the rendered east cladding orientation.
-      const cutouts = [];
-      for (const op of wallOps) {
-        const opW = Number(op.w) || 0;
-        const opH = Number(op.h) || 0;
-        const opX = toCladX(op.x, opW);
-        const opY = Number(op.y) || 0;
-        const ix1 = Math.max(opX,        ovPanel.x);
-        const iy1 = Math.max(opY,        ovPanel.y);
-        const ix2 = Math.min(opX + opW,  ovPanel.x + ovPanel.w);
-        const iy2 = Math.min(opY + opH,  ovPanel.y + ovPanel.h);
-        if (ix2 <= ix1 + 0.001 || iy2 <= iy1 + 0.001) continue;
-        cutouts.push({
-          x: ix1 - ovPanel.x,
-          y: iy1 - ovPanel.y,
-          w: ix2 - ix1,
-          h: iy2 - iy1,
-        });
-      }
-      const fixtureMarks = claddingOverrideFixtureMarksForPiece(cfg, face, ovPanel, toCladX);
-
-      // Stable order so the group key is deterministic regardless of
-      // the source op array order.
-      cutouts.sort((a, b) => (a.y - b.y) || (a.x - b.x));
-      fixtureMarks.sort((a, b) => (a.y - b.y) || (a.x - b.x) || String(a.style).localeCompare(String(b.style)));
-      const cutoutsKey = cutouts
-        .map(c => `${c.x.toFixed(2)},${c.y.toFixed(2)},${c.w.toFixed(2)},${c.h.toFixed(2)}`)
-        .join(';');
-      const fixtureMarksKey = fixtureMarks
-        .map(m => `${m.style}:${m.x.toFixed(2)},${m.y.toFixed(2)},${m.w.toFixed(2)},${m.h.toFixed(2)}`)
-        .join(';');
-
-      // Group key includes the per-override styleParams when present so
-      // two overrides of the same cladding style and dimensions but with
-      // different parameter tweaks (e.g. corrugated metal at different
-      // sheet sizes) end up on separate laser sheets with the appropriate
-      // pattern variant on each. Legacy ops without styleParams use the
-      // empty-string suffix and group together exactly as before. The
-      // effective dimensions are what's keyed (and emitted) so that
-      // patches with different flush configurations get separate sheets
-      // sized to fill their respective holes. The cutoutsKey is the last
-      // segment so patches with different window/door overlaps end up on
-      // distinct sheets — each piece has the cutouts it specifically
-      // needs.
-      const paramKey = ov.styleParams ? JSON.stringify(ov.styleParams) : '';
-      const key = `${ov.claddingStyle}|${effectiveW.toFixed(2)}|${effectiveH.toFixed(2)}|${paramKey}|${cutoutsKey}|${fixtureMarksKey}`;
-      const existing = groups.get(key);
-      if (existing) existing.count += 1;
-      else groups.set(key, {
-        claddingStyle: ov.claddingStyle,
-        styleParams: ov.styleParams ? { ...ov.styleParams } : null,
-        w: effectiveW, h: effectiveH, count: 1,
-        cutouts,
-        fixtureMarks,
-      });
-    }
-  }
-  return Array.from(groups.values());
-}
-
-/* Returns a CLADDING_STYLES entry merged with per-override styleParams,
- * if any. For styles that don't consume styleParams (anything other
- * than the corrugated_overlap pattern at the moment), or when
- * styleParams is null/undefined, the base style spec is returned
- * unchanged. This keeps the override piece's etched pattern in sync
- * with whatever sheet dimensions / corrugation density the user
- * dialled in for that specific override via the wall-editor topbar. */
-function effectiveCladdingStyle(baseStyle, styleParams) {
-  if (!baseStyle) return null;
-  if (!styleParams || baseStyle.pattern !== 'corrugated_overlap') return baseStyle;
-  return {
-    ...baseStyle,
-    sheetW: styleParams.sheetW != null ? styleParams.sheetW : baseStyle.sheetW,
-    sheetH: styleParams.sheetH != null ? styleParams.sheetH : baseStyle.sheetH,
-    corrugationSpacing: styleParams.corrugationSpacing != null ? styleParams.corrugationSpacing : baseStyle.corrugationSpacing,
-    offsetFraction: styleParams.offsetFraction != null ? styleParams.offsetFraction : baseStyle.offsetFraction,
-  };
-}
-
-/* Generate four thin cladding strips that wrap the INSIDE face of the
- * parapet (the band of wall material that extends above the roof deck on
- * a parapet-style roof). Without these, the parapet shows its bare core
- * material on the inside whenever the viewer angle catches it from above
- * the roof — adding the inner strips makes the parapet look properly clad
- * on both sides, matching what a real building's parapet wall looks like.
- *
- * Geometry per face (in the cladding's local frame):
- *   • front/back: width = fbWidth − 2·matT  (between the two side walls'
- *     inside faces — the front/back wall's inside-X span)
- *   • east/west:  width = sideLen           (between the front and back
- *     walls' inside faces — already accounts for matT on each end)
- *   • height: parapetH (the band of wall above the deck top)
- *
- * Each strip is a single flat rectangle cut from cladding material, with
- * the configured cladding pattern etched onto its face. The strips have
- * no overhangs and no openings — they butt-join at the inside corners.
- * Returns [] when the roof isn't a parapet, when parapetH ≤ 0, or when
- * the user has opted out via cfg.parapetInnerCladding === false. */
-
-/* Clip a 2D line segment to the interior of one of two mirror-image
- * right triangles inscribed in a halfSpan × pitch bounding rectangle:
- *
- *   mirror=false  →  vertices (0,0), (halfSpan,0), (halfSpan,pitch)
- *                    Right angle at (halfSpan,0). Hypotenuse runs from
- *                    (0,0) to (halfSpan,pitch) — the LOWER-LEFT-to-
- *                    UPPER-RIGHT diagonal. The triangle is the
- *                    RIGHT half of the rectangle (taller on the right).
- *
- *   mirror=true   →  vertices (0,0), (halfSpan,0), (0,pitch)
- *                    Right angle at (0,0). Hypotenuse runs from
- *                    (halfSpan,0) to (0,pitch) — the LOWER-RIGHT-to-
- *                    UPPER-LEFT diagonal. The triangle is the LEFT
- *                    half (taller on the left). Mirror image of the
- *                    above across the vertical x = halfSpan/2.
- *
- * These are the two shapes a parapet_gable inner-cladding triangle can
- * take so each piece glues directly to its slope without the user
- * having to flip the cardstock (which would put the etched face
- * against the wall, hiding the pattern).
- *
- * Uses iterative half-plane clipping: each of the triangle's three
- * edges defines a "keep" half-plane. For each plane we compute the
- * signed distance from the two endpoints to the boundary — positive
- * = inside, negative = outside. Three cases:
- *   • both inside  → leave segment unchanged, continue to next plane
- *   • both outside → discard the segment entirely (returns null)
- *   • mixed        → clip at the boundary by interpolating between
- *                    the endpoints using t = d1 / (d1 − d2), and
- *                    replace whichever endpoint was outside
- *
- * After three passes the segment is either fully inside the triangle
- * or has been discarded. Returns the (possibly trimmed) segment as an
- * {x1, y1, x2, y2} object, or null if the segment never entered the
- * triangle in the first place. */
-function clipSegmentToTriangle(x1, y1, x2, y2, halfSpan, pitch, mirror) {
-  // Half-plane signed-distance functions, positive inside the triangle.
-  // For shape A: top edge (y≥0), right edge (x≤halfSpan), hypotenuse
-  //   y ≤ pitch·x/halfSpan  ⇔  pitch·x − halfSpan·y ≥ 0
-  // For shape B (mirrored across x=halfSpan/2): top edge (y≥0), LEFT
-  //   edge (x≥0), hypotenuse y ≤ pitch·(halfSpan−x)/halfSpan  ⇔
-  //   halfSpan·pitch − pitch·x − halfSpan·y ≥ 0
-  const planes = mirror
-    ? [
-        (x, y) => y,
-        (x, y) => x,
-        (x, y) => halfSpan * pitch - pitch * x - halfSpan * y,
-      ]
-    : [
-        (x, y) => y,
-        (x, y) => halfSpan - x,
-        (x, y) => pitch * x - halfSpan * y,
-      ];
-  for (const dist of planes) {
-    const d1 = dist(x1, y1);
-    const d2 = dist(x2, y2);
-    if (d1 < 0 && d2 < 0) return null;
-    if (d1 >= 0 && d2 >= 0) continue;
-    const t = d1 / (d1 - d2);
-    const nx = x1 + t * (x2 - x1);
-    const ny = y1 + t * (y2 - y1);
-    if (d1 < 0) { x1 = nx; y1 = ny; }
-    else        { x2 = nx; y2 = ny; }
-  }
-  return { x1, y1, x2, y2 };
-}
-
-/* Clip a line segment to an arbitrary convex polygon.
- * Used for gable-end cladding: the cladding pattern is generated over the
- * full bounding rectangle, then trimmed back to the pentagonal wall outline
- * so vertical ribs / panel seams continue cleanly into the triangular gable
- * instead of stopping at the eave line.
- *
- * `poly` is an array of {x,y} points around the polygon. The function auto-
- * detects clockwise vs counter-clockwise winding and keeps the correct side
- * of each edge. Returns the clipped segment, or null when the segment misses
- * the polygon entirely. */
-function clipSegmentToConvexPolygon(x1, y1, x2, y2, poly) {
-  if (!Array.isArray(poly) || poly.length < 3) return { x1, y1, x2, y2 };
-  const EPS = 1e-6;
-
-  // Signed polygon area: + for one winding, - for the other. We do not care
-  // which screen-space direction it represents; we only need consistency so
-  // the half-plane test keeps the inside of every edge.
-  let area = 0;
-  for (let i = 0; i < poly.length; i++) {
-    const a = poly[i], b = poly[(i + 1) % poly.length];
-    area += a.x * b.y - b.x * a.y;
-  }
-  const winding = area >= 0 ? 1 : -1;
-
-  for (let i = 0; i < poly.length; i++) {
-    const a = poly[i], b = poly[(i + 1) % poly.length];
-    const ex = b.x - a.x, ey = b.y - a.y;
-    // Signed distance-like value to the edge's half-plane. Multiplying by
-    // winding makes "inside" positive for either polygon orientation.
-    const dist = (x, y) => winding * (ex * (y - a.y) - ey * (x - a.x));
-    const d1 = dist(x1, y1);
-    const d2 = dist(x2, y2);
-    if (d1 < -EPS && d2 < -EPS) return null;
-    if (d1 >= -EPS && d2 >= -EPS) continue;
-    const t = d1 / (d1 - d2);
-    const nx = x1 + t * (x2 - x1);
-    const ny = y1 + t * (y2 - y1);
-    if (d1 < -EPS) { x1 = nx; y1 = ny; }
-    else           { x2 = nx; y2 = ny; }
-  }
-  if (Math.hypot(x2 - x1, y2 - y1) < 0.01) return null;
-  return { x1, y1, x2, y2 };
 }

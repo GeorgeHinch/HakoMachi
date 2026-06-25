@@ -296,12 +296,73 @@ function addPartsToList(parts, maybePartOrList) {
   installWhenReady();
 })();
 
-/* Remove any toolbox sizing styles injected by previous broken builds. The
- * toolbox is styled by css/hakomachi.css; runtime child-clipping broke item
- * previews and labels on iPad. */
-(function removeBrokenEditorToolboxRuntimeStyles() {
+/* Remove toolbox styles injected by previous broken builds, then install a
+ * narrow v2 fix. Do not apply blanket max-width/overflow rules to toolbox
+ * descendants: that hid SVG previews and labels on iPad. */
+(function installEditorToolboxVerticalScrollV2() {
   for (const id of ['hakomachi-editor-toolbox-overflow-fix', 'hakomachi-editor-toolbox-safe-sizing']) {
     const el = document.getElementById(id);
     if (el && el.parentNode) el.parentNode.removeChild(el);
   }
+
+  const styleId = 'hakomachi-editor-toolbox-vertical-scroll-v2';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      #openingEditorModal .oe-dialog,
+      #iwModal .oe-dialog,
+      #openingEditorModal .oe-body,
+      #iwModal .oe-body {
+        min-width: 0;
+        overflow-x: hidden;
+      }
+      #openingEditorModal .oe-toolbox,
+      #iwModal .oe-toolbox {
+        width: 156px;
+        min-width: 156px;
+        flex: 0 0 156px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        overscroll-behavior-x: none;
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
+        -webkit-overflow-scrolling: touch;
+      }
+      #openingEditorModal .oe-canvas-area,
+      #iwModal .oe-canvas-area {
+        min-width: 0;
+        overflow: auto;
+      }
+      #openingEditorModal .oe-toolbox svg,
+      #iwModal .oe-toolbox svg {
+        max-width: 100%;
+        flex-shrink: 0;
+      }
+      #openingEditorModal .oe-toolbox-item-label,
+      #iwModal .oe-toolbox-item-label,
+      #openingEditorModal .oe-toolbox-item-dim,
+      #iwModal .oe-toolbox-item-dim {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function clampNonCanvasHorizontalScroll() {
+    const activeRoots = ['openingEditorModal', 'iwModal']
+      .map(id => document.getElementById(id))
+      .filter(el => el && getComputedStyle(el).display !== 'none');
+    for (const root of activeRoots) {
+      const els = [root, root.querySelector('.oe-dialog'), root.querySelector('.oe-body'), root.querySelector('.oe-toolbox')];
+      for (const el of els) {
+        if (el && el.scrollLeft) el.scrollLeft = 0;
+      }
+    }
+  }
+
+  document.addEventListener('scroll', clampNonCanvasHorizontalScroll, true);
+  document.addEventListener('touchend', clampNonCanvasHorizontalScroll, true);
+  window.addEventListener('resize', clampNonCanvasHorizontalScroll);
 })();

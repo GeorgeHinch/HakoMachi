@@ -135,12 +135,10 @@ function getShutterDimsForWindow(op) {
 
 const EXTERIOR_LIGHT_SVG_W = 9.5;
 const EXTERIOR_LIGHT_SVG_H = 8.09;
-// The uploaded SVGs use unitless dimensions, so interpret them as CSS px.
-// Convert px → mm for HakoMachi's laser-cut model dimensions rather than
-// treating the raw 9.5×8.09 values as millimeters.
-const EXTERIOR_LIGHT_PX_TO_MM = 25.4 / 96;
-const EXTERIOR_LIGHT_DEFAULT_W = +(EXTERIOR_LIGHT_SVG_W * EXTERIOR_LIGHT_PX_TO_MM).toFixed(3);
-const EXTERIOR_LIGHT_DEFAULT_H = +(EXTERIOR_LIGHT_SVG_H * EXTERIOR_LIGHT_PX_TO_MM).toFixed(3);
+// Source SVG coordinate space is only used for proportions. Physical model
+// defaults are explicit millimetres for N-scale laser cutting.
+const EXTERIOR_LIGHT_DEFAULT_W = 3.0;
+const EXTERIOR_LIGHT_DEFAULT_H = 2.5;
 
 function exteriorLightRoundedCapPath(w, h, ox = 0, oy = 0) {
   const x0 = ox + w * (0.50 / EXTERIOR_LIGHT_SVG_W);

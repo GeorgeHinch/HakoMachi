@@ -245,7 +245,13 @@ function generateFixtureParts(cfg, fixtureGroups) {
       // arrays at the given (ox, oy). Used by both the sheet layout below
       // and the single-instance tile geometry.
       function emitPiece(piece, pw, ph, ox, oy, outRects, outLines, outPaths) {
-        if (piece.shape === 'circle') {
+        if (typeof piece.pathGenerator === 'function') {
+          const generated = piece.pathGenerator(pw, ph, ox, oy);
+          const dList = Array.isArray(generated) ? generated : [generated];
+          for (const d of dList) {
+            if (d) outPaths.push({ type: 'cut', d, compensateKerf: false });
+          }
+        } else if (piece.shape === 'circle') {
           const cx  = ox + pw / 2;
           const cy  = oy + ph / 2;
           const rad = pw / 2;

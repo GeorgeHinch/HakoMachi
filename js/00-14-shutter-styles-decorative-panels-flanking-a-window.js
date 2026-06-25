@@ -133,6 +133,45 @@ function getShutterDimsForWindow(op) {
   return { w, h };
 }
 
+function exteriorLightRoundedCapPath(w, h, ox = 0, oy = 0) {
+  const x0 = ox + w * (0.50 / 9.50);
+  const x1 = ox + w * (9.00 / 9.50);
+  const y0 = oy + h * (0.50 / 8.09);
+  const y1 = oy + h * (7.59 / 8.09);
+  const rX = w * (1.38 / 9.50);
+  const rY = h * (1.38 / 8.09);
+  return `M ${x1.toFixed(3)},${y1.toFixed(3)}`
+    + ` V ${(y0 + rY).toFixed(3)}`
+    + ` Q ${x1.toFixed(3)},${y0.toFixed(3)} ${(x1 - rX).toFixed(3)},${y0.toFixed(3)}`
+    + ` H ${(x0 + rX).toFixed(3)}`
+    + ` Q ${x0.toFixed(3)},${y0.toFixed(3)} ${x0.toFixed(3)},${(y0 + rY).toFixed(3)}`
+    + ` V ${y1.toFixed(3)}`
+    + ` H ${x1.toFixed(3)} Z`;
+}
+
+function exteriorLightCoreUPath(w, h, ox = 0, oy = 0) {
+  const x0 = ox + w * (0.50 / 9.50);
+  const x1 = ox + w * (9.00 / 9.50);
+  const y0 = oy + h * (0.50 / 8.09);
+  const y1 = oy + h * (7.59 / 8.09);
+  const rX = w * (1.38 / 9.50);
+  const rY = h * (1.38 / 8.09);
+  const ix0 = ox + w * (3.33 / 9.50);
+  const ix1 = ox + w * (6.16 / 9.50);
+  const iy0 = oy + h * (3.33 / 8.09);
+  return `M ${(x1 - rX).toFixed(3)},${y0.toFixed(3)}`
+    + ` H ${(x0 + rX).toFixed(3)}`
+    + ` Q ${x0.toFixed(3)},${y0.toFixed(3)} ${x0.toFixed(3)},${(y0 + rY).toFixed(3)}`
+    + ` V ${y1.toFixed(3)}`
+    + ` H ${ix0.toFixed(3)}`
+    + ` V ${iy0.toFixed(3)}`
+    + ` H ${ix1.toFixed(3)}`
+    + ` V ${y1.toFixed(3)}`
+    + ` H ${x1.toFixed(3)}`
+    + ` V ${(y0 + rY).toFixed(3)}`
+    + ` Q ${x1.toFixed(3)},${y0.toFixed(3)} ${(x1 - rX).toFixed(3)},${y0.toFixed(3)} Z`;
+}
+
 /* Additional wall fixture catalog entries that are defined after the shared
  * feature vocabulary is available but before the editor/toolbox and fixture
  * part generator load. Kept as static source data; no DOM/runtime HTML patching.
@@ -140,33 +179,26 @@ function getShutterDimsForWindow(op) {
 if (typeof FIXTURE_STYLES !== 'undefined') {
   FIXTURE_STYLES.exterior_light = {
     label: 'Exterior light',
-    description: 'Wall light with a rectangular pass-through for an LED. Exports a core U-shaped spacer/cradle plus a thin cladding cap for the outside face.',
+    description: 'Wall light with a rectangular pass-through for an LED. Exports a rounded-top core U-shaped spacer/cradle plus a matching filled cladding cap.',
     width: 9.5,
-    height: 8.1,
+    height: 8.09,
     depthTier: 'medium',
     throughCore: true,
-    throughHole: { shape: 'rect', xRatio: 0.35, yRatio: 0.41, wRatio: 0.30, hRatio: 0.59 },
+    throughHole: { shape: 'rect', xRatio: 3.33 / 9.5, yRatio: 3.33 / 8.09, wRatio: 2.83 / 9.5, hRatio: 4.25 / 8.09 },
     pieces: [
       {
         material: 'core',
         panelFill: '#cfcfc7',
         frameColor: '#4a4a44',
-        // The center cut reaches the bottom edge, making an upside-down U
-        // around the LED opening. The matching wall through-hole is cut from
-        // the core and cladding panels where the fixture is placed.
-        innerCut: { shape: 'rect', xRatio: 0.35, yRatio: 0.41, wRatio: 0.30, hRatio: 0.59 },
-        features: [
-          { type: 'panel', x1: 0.5, y1: 0.5, x2: 9.0, y2: 7.6 },
-        ],
+        pathGenerator: exteriorLightCoreUPath,
+        features: [],
       },
       {
         material: 'cladding',
         panelFill: '#f2eee2',
         frameColor: '#5a5044',
-        features: [
-          { type: 'panel', x1: 0.5, y1: 0.5, x2: 9.0, y2: 7.6 },
-          { type: 'stud', cx: 4.75, cy: 5.25, r: 0.65 },
-        ],
+        pathGenerator: exteriorLightRoundedCapPath,
+        features: [],
       },
     ],
   };
@@ -175,7 +207,33 @@ if (typeof FIXTURE_STYLES !== 'undefined') {
     STYLE_I18N_JA.FIXTURE_STYLES = STYLE_I18N_JA.FIXTURE_STYLES || {};
     STYLE_I18N_JA.FIXTURE_STYLES.exterior_light = {
       label: '外灯',
-      description: 'LED用の貫通穴を持つ壁面ライト。コア材の逆U字スペーサーと外側用の薄い外装キャップを出力します。',
+      description: 'LED用の貫通穴を持つ壁面ライト。丸みのあるコア材の逆U字スペーサーと、同形状で中央が塞がった外装キャップを出力します。',
     };
   }
+}
+
+if (typeof buildFixtureSvgBody === 'function' && !buildFixtureSvgBody.__supportsPathPieces) {
+  const baseBuildFixtureSvgBody = buildFixtureSvgBody;
+  buildFixtureSvgBody = function buildFixtureSvgBodyWithPathPieces(style, w, h, opts) {
+    if (!style || !Array.isArray(style.pieces) || !style.pieces.some(p => typeof p.pathGenerator === 'function')) {
+      return baseBuildFixtureSvgBody(style, w, h, opts);
+    }
+    opts = opts || {};
+    const sx = w / style.width;
+    const sy = h / style.height;
+    const sw = (opts.strokeWidth != null) ? opts.strokeWidth : 0.18;
+    let svg = '';
+    for (const piece of style.pieces) {
+      const px = (piece.offsetX != null) ? piece.offsetX : 0;
+      const py = (piece.offsetY != null) ? piece.offsetY : 0;
+      const pw = (piece.width != null) ? piece.width : style.width - px;
+      const ph = (piece.height != null) ? piece.height : style.height - py;
+      const d = piece.pathGenerator(pw * sx, ph * sy, px * sx, py * sy);
+      const fill = piece.panelFill || '#bdbdb5';
+      const stroke = piece.frameColor || '#3a3a34';
+      svg += `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${sw.toFixed(3)}"/>`;
+    }
+    return svg;
+  };
+  buildFixtureSvgBody.__supportsPathPieces = true;
 }

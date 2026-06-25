@@ -12,7 +12,13 @@ The front/back and side wall generators use three wall-top tongues for flat and 
 - Flat-overhang roof slot rows now use the same three-position tongue layout as the wall generators.
 - Flat-overhang side slot spans now account for omitted connection-wall cases with the same offset rule used by the flush flat roof.
 
-## Files changed
+## Commit layout
 
-- `js/00-24-roof-generator-split-by-roof-type.js`
+The changed-files zip rewrote `js/00-24-roof-generator-split-by-roof-type.js`. In GitHub, this fix is applied as a late-loaded override in `js/00-38-shared-block-supplemental-part-generation.js` instead. That keeps the functional change small enough for the connector to commit while preserving the same runtime behavior after all classic scripts load.
+
+## Files changed in the repo
+
+- `js/00-38-shared-block-supplemental-part-generation.js`
 - `split-manifest.json`
+- `ROOF_FLAT_SLOT_COUNT_MATCH_FIX_NOTES.md`
+- `CHANGED_FILES_MANIFEST.json`

@@ -2,10 +2,11 @@
   "base_zip": "hakomachi_non_parapet_wall_editor_top_band_fix_20260624.zip",
   "new_zip": "hakomachi_flat_roof_slot_count_match_fix_20260624.zip",
   "committed_files": [
-    "ROOF_FLAT_SLOT_COUNT_MATCH_FIX_NOTES.md",
-    "CHANGED_FILES_MANIFEST.json",
+    "js/00-24-roof-generator-split-by-roof-type.js",
     "js/00-38-shared-block-supplemental-part-generation.js",
-    "split-manifest.json"
+    "split-manifest.json",
+    "ROOF_FLAT_SLOT_COUNT_MATCH_FIX_NOTES.md",
+    "CHANGED_FILES_MANIFEST.json"
   ],
-  "note": "The flat/flat-overhang roof slot-count fix is committed as a late-loaded override in js/00-38-shared-block-supplemental-part-generation.js so the connector did not need to replace the larger roof generator file."
+  "note": "Roof slot-count logic is now in the canonical roof generator file. The duplicate late-loaded copy in shared supplemental generation has been removed."
 }

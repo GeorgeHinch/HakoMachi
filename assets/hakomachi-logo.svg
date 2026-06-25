@@ -1,0 +1,59 @@
+<svg class="app-logo" viewBox="0 0 298 110" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="hakomachiLogoTitle hakomachiLogoDesc">
+  <title id="hakomachiLogoTitle">HakoMachi</title>
+  <desc id="hakomachiLogoDesc">Animated HakoMachi logo for the N Gauge Building Generator.</desc>
+  <style>
+    :root {
+      --logo-text: #2a2a28;
+      --logo-accent: #c84a3a;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --logo-text: #f5f2e8; }
+    }
+    .icon {
+      fill: none;
+      stroke: var(--logo-accent);
+      stroke-width: 2.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .wordmark { fill: var(--logo-text); }
+    .subtitle { fill: var(--logo-text); opacity: 0.82; }
+    .underline { stroke: var(--logo-text); stroke-width: 0.75; opacity: 0.35; }
+    .draw {
+      stroke-dasharray: var(--dash);
+      stroke-dashoffset: var(--dash);
+      animation: drawLogo var(--duration) cubic-bezier(.4,0,.2,1) var(--delay) forwards;
+    }
+    svg:hover .draw,
+    svg:focus .draw {
+      animation-name: none;
+      stroke-dashoffset: var(--dash);
+    }
+    svg:hover .draw,
+    svg:focus .draw {
+      animation-name: drawLogo;
+    }
+    @keyframes drawLogo { to { stroke-dashoffset: 0; } }
+  </style>
+
+  <g class="icon" transform="translate(4, 5) scale(0.9)">
+    <path class="draw" style="--dash:100;--duration:.65s;--delay:.05s" d="M 5 35 L 50 15 L 95 35"/>
+    <path class="draw" style="--dash:55;--duration:.45s;--delay:.45s" d="M 25 15 L 50 5 L 75 15"/>
+    <rect class="draw" style="--dash:242;--duration:.85s;--delay:.7s" x="15" y="35" width="70" height="50"/>
+    <rect class="draw" style="--dash:182;--duration:.7s;--delay:1.2s" x="30" y="35" width="40" height="50"/>
+    <line class="draw" style="--dash:72;--duration:.38s;--delay:1.65s" x1="50" y1="15" x2="50" y2="85"/>
+    <line class="draw" style="--dash:72;--duration:.38s;--delay:1.85s" x1="15" y1="60" x2="85" y2="60"/>
+  </g>
+
+  <g class="wordmark" font-family="Avenir Next, Montserrat, Futura, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="2.5">
+    <text x="108" y="57" font-size="22">HAKO</text>
+    <text x="195" y="57" font-size="22" font-weight="500">MACHI</text>
+  </g>
+
+  <line class="underline" x1="108" y1="70" x2="172.7" y2="70"/>
+  <line class="underline" x1="224.7" y1="70" x2="289.5" y2="70"/>
+
+  <g class="subtitle" font-family="Hiragino Mincho ProN, Yu Mincho, serif" font-weight="600">
+    <text x="187" y="74" font-size="13">箱街</text>
+  </g>
+</svg>

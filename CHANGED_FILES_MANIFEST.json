@@ -1,0 +1,9 @@
+{
+  "base_zip": "hakomachi_non_parapet_wall_editor_top_band_fix_20260624.zip",
+  "new_zip": "hakomachi_flat_roof_slot_count_match_fix_20260624.zip",
+  "changed_files": [
+    "ROOF_FLAT_SLOT_COUNT_MATCH_FIX_NOTES.md",
+    "js/00-24-roof-generator-split-by-roof-type.js",
+    "split-manifest.json"
+  ]
+}

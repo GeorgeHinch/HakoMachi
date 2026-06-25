@@ -264,7 +264,6 @@ function renderMaterialsForm() {
     });
     delCell.appendChild(del);
     row.appendChild(delCell);
-
     container.appendChild(row);
 
     // Maximum sheet size. Values are stored internally in millimetres, but
@@ -284,7 +283,6 @@ function renderMaterialsForm() {
 
     const sizeRow = document.createElement('div');
     sizeRow.style.cssText = 'display:grid;grid-template-columns:26px 1fr 1fr 46px;gap:4px;align-items:center;margin:-2px 0 8px 0;';
-
     const sizeLabel = document.createElement('div');
     sizeLabel.textContent = 'Sheet';
     sizeLabel.style.cssText = 'font-size:9px;color:var(--muted);text-transform:uppercase;';
@@ -411,5 +409,83 @@ function renderMaterialsForm() {
     }
   }
 }
+
+(function installBackWall3DPreviewOrientationFix() {
+  let tries = 0;
+  function ready() {
+    return typeof updateThreePreview === 'function' && typeof buildEdgePlans === 'function';
+  }
+  function mirrorList(list, wallW) {
+    if (!Array.isArray(list) || !(wallW > 0)) return list;
+    return list.map(item => {
+      if (!item || typeof item !== 'object') return item;
+      const x = Number(item.x), w = Number(item.w);
+      if (!isFinite(x) || !isFinite(w)) return item;
+      return { ...item, x: wallW - x - w };
+    });
+  }
+  function wallW(blockCfg, blockPlan, face) {
+    if (face === 'front' || face === 'back') return Number(blockPlan && blockPlan.fbWidth) || Number(blockCfg && blockCfg.width) || 0;
+    return Number(blockPlan && blockPlan.sideLen) || Number(blockCfg && blockCfg.depth) || 0;
+  }
+  function planFor(blockCfg) {
+    try { return buildEdgePlans(blockCfg); } catch (_) { return null; }
+  }
+  function install() {
+    if (!ready()) {
+      if (tries++ < 120) setTimeout(install, 50);
+      return;
+    }
+    if (updateThreePreview.__backWall3DOrientationFix) return;
+    const originalUpdate = updateThreePreview;
+    updateThreePreview = function backWallAlignedUpdateThreePreview(cfg) {
+      const restore = [];
+      try {
+        if (typeof get3DWallOpenings === 'function') {
+          const original = get3DWallOpenings;
+          get3DWallOpenings = function(blockCfg, blockPlan, face) {
+            const out = original.apply(this, arguments);
+            return face === 'back' ? mirrorList(out, wallW(blockCfg, blockPlan, face)) : out;
+          };
+          restore.push(() => { get3DWallOpenings = original; });
+        }
+        if (typeof getBlankedWindows3D === 'function') {
+          const original = getBlankedWindows3D;
+          getBlankedWindows3D = function(blockCfg, face) {
+            const out = original.apply(this, arguments);
+            const p = face === 'back' ? planFor(blockCfg) : null;
+            return face === 'back' ? mirrorList(out, wallW(blockCfg, p, face)) : out;
+          };
+          restore.push(() => { getBlankedWindows3D = original; });
+        }
+        if (typeof surfaceWallFeaturesForFace === 'function') {
+          const original = surfaceWallFeaturesForFace;
+          surfaceWallFeaturesForFace = function(blockCfg, face, type) {
+            const out = original.apply(this, arguments);
+            const p = face === 'back' ? planFor(blockCfg) : null;
+            return face === 'back' ? mirrorList(out, wallW(blockCfg, p, face)) : out;
+          };
+          restore.push(() => { surfaceWallFeaturesForFace = original; });
+        }
+        if (typeof structuralWallFeaturesForFace === 'function') {
+          const original = structuralWallFeaturesForFace;
+          structuralWallFeaturesForFace = function(blockCfg, face) {
+            const out = original.apply(this, arguments);
+            const p = face === 'back' ? planFor(blockCfg) : null;
+            return face === 'back' ? mirrorList(out, wallW(blockCfg, p, face)) : out;
+          };
+          restore.push(() => { structuralWallFeaturesForFace = original; });
+        }
+        return originalUpdate.apply(this, arguments);
+      } finally {
+        while (restore.length) {
+          try { restore.pop()(); } catch (_) {}
+        }
+      }
+    };
+    updateThreePreview.__backWall3DOrientationFix = true;
+  }
+  install();
+})();
 
 document.addEventListener('DOMContentLoaded', init);

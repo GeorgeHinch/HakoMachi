@@ -1,0 +1,2 @@
+'use strict';
+(function(){const K='x';function s(){return JSON.parse(localStorage.getItem(K)||'{}')}function o(){const d=document.createElement('div');d.innerHTML='<input id="t" type="password"><button>save</button>';document.body.appendChild(d);d.querySelector('button').onclick=()=>localStorage.setItem(K,JSON.stringify({token:d.querySelector('#t').value}));}window.addEventListener('load',o);})();

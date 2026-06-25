@@ -76,13 +76,16 @@ function generateFlatRoof(cfg, plan) {
     const rH = cfg.depth; // outer depth
     const margin = Math.max(matT * 2, 5);
     
-    // Slots receive wall-top tongues
-    const slotCountTop = Math.max(2, Math.min(4, Math.floor(rW / 30)));
+    // Slots receive wall-top tongues.  Keep these counts and spans locked to
+    // generateFrontBackWall()/generateSideWall(), which place exactly 3 roof
+    // tongues on flat and flat-overhang walls.  The older dynamic slot count
+    // could generate only two roof slots on short buildings, leaving one wall
+    // tab with nowhere to go.
+    const roofTongueCount = 3;
     const sideSlotLen = (cfg._omitConnectionWall ? (rH - matT) : (rH - 2 * matT));
-    const slotCountSide = Math.max(2, Math.min(4, Math.floor(sideSlotLen / 30)));
-    const topSlots = placeTongues(rW, tw, margin, [], slotCountTop, tw / 2);
+    const topSlots = placeTongues(rW, tw, margin, [], roofTongueCount, tw / 2);
     const bottomSlots = topSlots;
-    const sideSlots = placeTongues(sideSlotLen, tw, margin, [], slotCountSide, tw / 2);
+    const sideSlots = placeTongues(sideSlotLen, tw, margin, [], roofTongueCount, tw / 2);
 
     const rects = [];
     const BLEED = 0.6;
@@ -135,13 +138,16 @@ function generateFlatOverhangRoof(cfg, plan) {
     const rH = cfg.depth + 2 * O;
     const margin = Math.max(matT * 2, 5);
 
-    // Slot count is based on the INNER wall span (the actual wall length),
-    // not the oversized core — otherwise tongues drift away from the wall
-    // ends and the slots miss the wall material.
-    const slotCountTop  = Math.max(2, Math.min(4, Math.floor(fbWidth / 30)));
-    const slotCountSide = Math.max(2, Math.min(4, Math.floor((cfg.depth - 2 * matT) / 30)));
-    const topSlots  = placeTongues(fbWidth,            tw, margin, [], slotCountTop,  tw / 2);
-    const sideSlots = placeTongues(cfg.depth - 2 * matT, tw, margin, [], slotCountSide, tw / 2);
+    // Slot placement is based on the INNER wall spans (the actual wall edge
+    // lengths), not the oversized roof core.  Match the wall generators exactly:
+    // generateFrontBackWall() and generateSideWall() both create 3 roof tongues
+    // for flat/flat-overhang roofs.  Do not derive a smaller count from the roof
+    // size or short side walls will have more tabs than this roof has slots.
+    const roofTongueCount = 3;
+    const sideSlotLen = (cfg._omitConnectionWall ? (cfg.depth - matT) : (cfg.depth - 2 * matT));
+    const sideSlotOffset = cfg._omitConnectionWall ? 0 : matT;
+    const topSlots  = placeTongues(fbWidth,     tw, margin, [], roofTongueCount, tw / 2);
+    const sideSlots = placeTongues(sideSlotLen, tw, margin, [], roofTongueCount, tw / 2);
 
     const rects = [];
     const BLEED = 0.6;
@@ -157,10 +163,10 @@ function generateFlatOverhangRoof(cfg, plan) {
       rects.push({ type: 'cut', x: O + s.start, y: O + cfg.depth - matT - BLEED, w: s.end - s.start, h: matT + 2 * BLEED, compensateKerf: true });
     }
     for (const s of sideSlots) {
-      rects.push({ type: 'cut', x: O - BLEED, y: O + matT + s.start, w: matT + 2 * BLEED, h: s.end - s.start, compensateKerf: true });
+      rects.push({ type: 'cut', x: O - BLEED, y: O + sideSlotOffset + s.start, w: matT + 2 * BLEED, h: s.end - s.start, compensateKerf: true });
     }
     for (const s of sideSlots) {
-      rects.push({ type: 'cut', x: O + fbWidth - matT - BLEED, y: O + matT + s.start, w: matT + 2 * BLEED, h: s.end - s.start, compensateKerf: true });
+      rects.push({ type: 'cut', x: O + fbWidth - matT - BLEED, y: O + sideSlotOffset + s.start, w: matT + 2 * BLEED, h: s.end - s.start, compensateKerf: true });
     }
 
     const perimeter = rectPath(0, 0, rW, rH);

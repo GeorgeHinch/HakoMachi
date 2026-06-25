@@ -64,7 +64,7 @@ const MaterialRegistry = {
     if (!m) return null;
     const w = parseFloat(m.maxWidthMm != null ? m.maxWidthMm : m.maxW);
     const h = parseFloat(m.maxHeightMm != null ? m.maxHeightMm : m.maxH);
-    if (!isFinite(w) || w <= 0 || h <= 0) return null;
+    if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return null;
     return { w, h };
   },
 
@@ -152,3 +152,130 @@ function addPartsToList(parts, maybePartOrList) {
   if (Array.isArray(maybePartOrList)) parts.push(...maybePartOrList.filter(Boolean));
   else parts.push(maybePartOrList);
 }
+
+/* ---------------------------------------------------------------------
+   3D preview failure guard
+   ---------------------------------------------------------------------
+   The live material preview is a large renderer with many optional feature
+   systems. If one of those systems throws, the scene used to show only the
+   grid. This wrapper is installed after the Three.js preview function exists;
+   it catches rebuild errors, displays the error in the preview note, and draws
+   a simple massing box so the preview area is never silently blank.
+   --------------------------------------------------------------------- */
+(function installLiveThreePreviewGuardFromMaterialRegistry() {
+  let attempts = 0;
+
+  function ready() {
+    return typeof updateThreePreview === 'function' &&
+           typeof initThreePreview === 'function' &&
+           typeof THREE !== 'undefined';
+  }
+
+  function setPreviewNote(message, isError = false) {
+    const note = document.getElementById('threePreviewModeNote');
+    if (!note) return;
+    note.textContent = message;
+    note.style.color = isError ? '#9a2b20' : '';
+    note.style.fontWeight = isError ? '600' : '';
+  }
+
+  function fallbackBoxDimensions(cfg) {
+    const c = cfg || (typeof CONFIG !== 'undefined' ? CONFIG : {}) || {};
+    const w = Math.max(1, Number(c.width) || 80);
+    const d = Math.max(1, Number(c.depth) || 80);
+    let h = Math.max(1, Number(c.height) || 60);
+    try {
+      if (typeof wallBodyHeightFromConfig === 'function') h = Math.max(1, Number(wallBodyHeightFromConfig(c)) || h);
+    } catch (_) {}
+    return { w, d, h };
+  }
+
+  function renderFallbackPreview(cfg, err) {
+    try {
+      if (!threeScene) initThreePreview();
+      if (!threeScene || typeof THREE === 'undefined') return;
+
+      if (buildingMesh) {
+        threeScene.remove(buildingMesh);
+        buildingMesh = null;
+      }
+
+      const { w, d, h } = fallbackBoxDimensions(cfg);
+      const group = new THREE.Group();
+      group.name = 'Fallback 3D Preview';
+
+      const wallMat = new THREE.MeshStandardMaterial({
+        color: 0xc9b89b,
+        roughness: 0.85,
+        metalness: 0.0,
+        transparent: true,
+        opacity: 0.88,
+      });
+      const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+      box.position.set(0, h / 2, 0);
+      group.add(box);
+
+      const edgeMat = new THREE.LineBasicMaterial({ color: 0x554433, transparent: true, opacity: 0.7 });
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(box.geometry, 20), edgeMat);
+      edges.position.copy(box.position);
+      group.add(edges);
+
+      const roofT = Math.max(0.5, Math.min(2, h * 0.03));
+      const roofMat = new THREE.MeshStandardMaterial({ color: 0x6f6f6f, roughness: 0.9, metalness: 0.0 });
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(w, roofT, d), roofMat);
+      roof.position.set(0, h + roofT / 2, 0);
+      group.add(roof);
+
+      buildingMesh = group;
+      threeScene.add(group);
+
+      if (threeControls && threeControls.target) {
+        threeControls.target.set(0, h / 2, 0);
+        threeControls.update();
+      }
+      if (threeCamera) {
+        const span = Math.max(w, d, h, 1);
+        threeCamera.position.set(span * 1.35, span * 1.0, span * 1.35);
+        threeCamera.lookAt(0, h / 2, 0);
+      }
+      if (threeRenderer && threeScene && threeCamera) threeRenderer.render(threeScene, threeCamera);
+
+      const errText = err && (err.message || String(err));
+      setPreviewNote('3D preview fell back to massing view. Error: ' + (errText || 'unknown preview error'), true);
+      console.error('Live 3D preview failed; fallback massing view rendered:', err);
+    } catch (fallbackErr) {
+      setPreviewNote('3D preview failed and fallback also failed: ' + (fallbackErr && (fallbackErr.message || String(fallbackErr))), true);
+      console.error('Live 3D preview fallback failed:', fallbackErr);
+    }
+  }
+
+  function installWhenReady() {
+    if (!ready()) {
+      if (attempts++ < 120) setTimeout(installWhenReady, 50);
+      return;
+    }
+    if (updateThreePreview.__guardedFallbackInstalled) return;
+
+    const originalUpdateThreePreview = updateThreePreview;
+    updateThreePreview = function guardedUpdateThreePreview(cfg) {
+      try {
+        const result = originalUpdateThreePreview.apply(this, arguments);
+        if (!buildingMesh || !threeScene || !buildingMesh.parent) {
+          renderFallbackPreview(cfg || (typeof CONFIG !== 'undefined' ? CONFIG : null), new Error('Preview rebuild completed without adding buildingMesh'));
+        } else {
+          const useStl = (typeof threePreviewUseStlGeometry !== 'undefined') && threePreviewUseStlGeometry;
+          setPreviewNote(useStl
+            ? 'Designed/material preview with translucent generated-STL overlay.'
+            : 'Designed/material preview. Enable overlay to compare preview_3d.stl geometry.', false);
+        }
+        return result;
+      } catch (err) {
+        renderFallbackPreview(cfg || (typeof CONFIG !== 'undefined' ? CONFIG : null), err);
+        return null;
+      }
+    };
+    updateThreePreview.__guardedFallbackInstalled = true;
+  }
+
+  installWhenReady();
+})();

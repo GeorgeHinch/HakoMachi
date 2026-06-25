@@ -11,7 +11,10 @@ function oeGetFloorBands(wall) {
   if (wall === 'front' && hasFrontBay) baseY = bayCeilingY;
   if (wall === 'back'  && hasBackBay)  baseY = bayCeilingY;
 
-  const topBound = parapetH + matT + 3;
+  // Only reserve a top parapet/roof-clearance band when this roof style
+  // actually has a parapet.  A stale non-zero cfg.parapetHeight should not
+  // create an empty, hatched-looking band on flat/gabled/slanted walls.
+  const topBound = parapetH > 0 ? (parapetH + matT + 3) : 0;
 
   // Rebuild the same deduplicated boundary list as buildEdgePlans for the
   // active edit target. This is critical for wing walls whose explicit

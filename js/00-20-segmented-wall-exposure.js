@@ -433,7 +433,7 @@ function buildEdgePlans(cfg) {
   // Deduplicated so the bay ceiling Y is never double-added.
   if (includeFloorPanels && hasSecondFloor) {
     const lowest     = H - firstBandH;
-    const upperBound = parapetHeight + matT + 3;
+    const upperBound = parapetHeight > 0 ? (parapetHeight + matT + 3) : 0;
     let y = lowest, safety = 20;
     while (y > upperBound && safety-- > 0) {
       if (!interFloorYs.some(iy => Math.abs(iy - y) < 0.1)) interFloorYs.push(y);
@@ -470,7 +470,7 @@ function buildEdgePlans(cfg) {
   // NOT bayCeilingY (the opening top), which moves when the user adjusts bay height
   // and would incorrectly add/remove window rows.
   const baseY = ((hasFrontBay || hasBackBay) && hasSecondFloor) ? (H - firstBandH) : H;
-  const visTopBound = parapetHeight + matT + 3;
+  const visTopBound = parapetHeight > 0 ? (parapetHeight + matT + 3) : 0;
   let vy = baseY - fheight;
   let safety = 30;
   while (vy > visTopBound && safety-- > 0) {
@@ -488,7 +488,7 @@ function buildEdgePlans(cfg) {
   // The top band runs from the parapet bottom to the first boundary;
   // the bottom band from the last boundary to the floor (or bay ceiling).
   const allBoundaries = [
-    parapetHeight + matT + 3,   // top of usable wall
+    (parapetHeight > 0 ? (parapetHeight + matT + 3) : 0), // top of usable wall
     ...visualFloorYs,
     baseY,                      // bottom of usable wall (bay ceiling or floor)
   ].sort((a, b) => a - b);

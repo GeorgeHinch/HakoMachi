@@ -107,6 +107,76 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
   return [];
 }
 
+function effectiveCladdingStyle(baseStyle, styleParams) {
+  if (!baseStyle) return null;
+  if (!styleParams || baseStyle.pattern !== 'corrugated_overlap') return baseStyle;
+  return {
+    ...baseStyle,
+    sheetW: styleParams.sheetW != null ? styleParams.sheetW : baseStyle.sheetW,
+    sheetH: styleParams.sheetH != null ? styleParams.sheetH : baseStyle.sheetH,
+    corrugationSpacing: styleParams.corrugationSpacing != null ? styleParams.corrugationSpacing : baseStyle.corrugationSpacing,
+    offsetFraction: styleParams.offsetFraction != null ? styleParams.offsetFraction : baseStyle.offsetFraction,
+  };
+}
+
+function clipSegmentToTriangle(x1, y1, x2, y2, halfSpan, pitch, mirror) {
+  const planes = mirror
+    ? [(x, y) => y, (x, y) => x, (x, y) => halfSpan * pitch - pitch * x - halfSpan * y]
+    : [(x, y) => y, (x, y) => halfSpan - x, (x, y) => pitch * x - halfSpan * y];
+  for (const dist of planes) {
+    const d1 = dist(x1, y1);
+    const d2 = dist(x2, y2);
+    if (d1 < 0 && d2 < 0) return null;
+    if (d1 >= 0 && d2 >= 0) continue;
+    const t = d1 / (d1 - d2);
+    const nx = x1 + t * (x2 - x1);
+    const ny = y1 + t * (y2 - y1);
+    if (d1 < 0) { x1 = nx; y1 = ny; }
+    else { x2 = nx; y2 = ny; }
+  }
+  return { x1, y1, x2, y2 };
+}
+
+function clipSegmentToConvexPolygon(x1, y1, x2, y2, poly) {
+  if (!Array.isArray(poly) || poly.length < 3) return { x1, y1, x2, y2 };
+  const EPS = 1e-6;
+  let area = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length];
+    area += a.x * b.y - b.x * a.y;
+  }
+  const winding = area >= 0 ? 1 : -1;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length];
+    const ex = b.x - a.x, ey = b.y - a.y;
+    const dist = (x, y) => winding * (ex * (y - a.y) - ey * (x - a.x));
+    const d1 = dist(x1, y1);
+    const d2 = dist(x2, y2);
+    if (d1 < -EPS && d2 < -EPS) return null;
+    if (d1 >= -EPS && d2 >= -EPS) continue;
+    const t = d1 / (d1 - d2);
+    const nx = x1 + t * (x2 - x1);
+    const ny = y1 + t * (y2 - y1);
+    if (d1 < -EPS) { x1 = nx; y1 = ny; }
+    else { x2 = nx; y2 = ny; }
+  }
+  if (Math.hypot(x2 - x1, y2 - y1) < 0.01) return null;
+  return { x1, y1, x2, y2 };
+}
+
+function emitFixtureMarkerEtchesOnOverride(lines, mark, ox, oy) {
+  if (!lines || !mark) return;
+  const x = ox + (Number(mark.x) || 0);
+  const y = oy + (Number(mark.y) || 0);
+  const w = Number(mark.w) || 0;
+  const h = Number(mark.h) || 0;
+  if (w <= 0 || h <= 0) return;
+  lines.push({ type: 'etch', x1: x, y1: y, x2: x + w, y2: y });
+  lines.push({ type: 'etch', x1: x + w, y1: y, x2: x + w, y2: y + h });
+  lines.push({ type: 'etch', x1: x + w, y1: y + h, x2: x, y2: y + h });
+  lines.push({ type: 'etch', x1: x, y1: y + h, x2: x, y2: y });
+}
+
 /* Compute window grid for a wall. Returns array of {x, y, width, height, isGround} in WALL local frame.
    
    Windows are placed at CANONICAL floor center Y positions, identical across all 

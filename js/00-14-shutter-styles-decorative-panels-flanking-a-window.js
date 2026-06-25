@@ -139,6 +139,9 @@ const EXTERIOR_LIGHT_SVG_H = 8.09;
 // defaults are explicit millimetres for N-scale laser cutting.
 const EXTERIOR_LIGHT_DEFAULT_W = 3.0;
 const EXTERIOR_LIGHT_DEFAULT_H = 2.5;
+const EXTERIOR_LIGHT_WIRE_HOLE_D = 0.75;
+const EXTERIOR_LIGHT_WIRE_HOLE_X = (EXTERIOR_LIGHT_DEFAULT_W - EXTERIOR_LIGHT_WIRE_HOLE_D) / 2;
+const EXTERIOR_LIGHT_WIRE_HOLE_Y = EXTERIOR_LIGHT_DEFAULT_H * ((3.33 + 4.25 / 2) / EXTERIOR_LIGHT_SVG_H) - EXTERIOR_LIGHT_WIRE_HOLE_D / 2;
 
 function exteriorLightRoundedCapPath(w, h, ox = 0, oy = 0) {
   const x0 = ox + w * (0.50 / EXTERIOR_LIGHT_SVG_W);
@@ -186,13 +189,19 @@ function exteriorLightCoreUPath(w, h, ox = 0, oy = 0) {
 if (typeof FIXTURE_STYLES !== 'undefined') {
   FIXTURE_STYLES.exterior_light = {
     label: 'Exterior light',
-    description: 'Wall light with a rectangular pass-through for an LED. Exports a rounded-top core U-shaped spacer/cradle plus a matching filled cladding cap.',
+    description: 'Wall light with a 0.75 mm circular pass-through for a pre-wired SMD LED. Exports a rounded-top core U-shaped spacer/cradle plus a matching filled cladding cap.',
     width: EXTERIOR_LIGHT_DEFAULT_W,
     height: EXTERIOR_LIGHT_DEFAULT_H,
     depthTier: 'medium',
     toolboxSection: 'passthroughs',
     throughCore: true,
-    throughHole: { shape: 'rect', xRatio: 3.33 / EXTERIOR_LIGHT_SVG_W, yRatio: 3.33 / EXTERIOR_LIGHT_SVG_H, wRatio: 2.83 / EXTERIOR_LIGHT_SVG_W, hRatio: 4.25 / EXTERIOR_LIGHT_SVG_H },
+    throughHole: {
+      shape: 'circle',
+      x: EXTERIOR_LIGHT_WIRE_HOLE_X,
+      y: EXTERIOR_LIGHT_WIRE_HOLE_Y,
+      w: EXTERIOR_LIGHT_WIRE_HOLE_D,
+      h: EXTERIOR_LIGHT_WIRE_HOLE_D,
+    },
     pieces: [
       {
         material: 'core',
@@ -215,7 +224,7 @@ if (typeof FIXTURE_STYLES !== 'undefined') {
     STYLE_I18N_JA.FIXTURE_STYLES = STYLE_I18N_JA.FIXTURE_STYLES || {};
     STYLE_I18N_JA.FIXTURE_STYLES.exterior_light = {
       label: '外灯',
-      description: 'LED用の貫通穴を持つ壁面ライト。丸みのあるコア材の逆U字スペーサーと、同形状で中央が塞がった外装キャップを出力します。',
+      description: '配線済みSMD LEDを通すための0.75mm丸穴を持つ壁面ライト。丸みのあるコア材の逆U字スペーサーと、同形状で中央が塞がった外装キャップを出力します。',
     };
   }
 }

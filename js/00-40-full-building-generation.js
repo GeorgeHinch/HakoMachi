@@ -4,10 +4,189 @@
    FULL BUILDING GENERATION
    Combines all parts into a list.
    ===================================================================== */
+
+function htmlEscapeInline(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function layoutReferencePrintIsGeneratedPart(part) {
+  const hay = `${(part && part.id) || ''} ${(part && part.name) || ''}`.toLowerCase();
+  return hay.includes('building_layout_reference') ||
+         hay.includes('layout_reference_print') ||
+         hay.includes('building layout reference') ||
+         hay.includes('reference print');
+}
+
+function referencePrintBlocksForConfig(cfg) {
+  const blocks = [{
+    label: 'Main',
+    cfg,
+    x: 0,
+    y: 0,
+    w: Math.max(1, Number(cfg && cfg.width) || 1),
+    d: Math.max(1, Number(cfg && cfg.depth) || 1),
+    fill: '#d8cdbb',
+  }];
+
+  if (Array.isArray(cfg && cfg.wings) && typeof weWingBounds === 'function' && typeof buildWingCfg === 'function') {
+    for (let i = 0; i < cfg.wings.length; i++) {
+      const wing = cfg.wings[i];
+      let b = null;
+      let wCfg = null;
+      try { b = weWingBounds(cfg, wing); } catch (_) {}
+      try { wCfg = buildWingCfg(cfg, wing); } catch (_) {}
+      if (!b || !wCfg) continue;
+      blocks.push({
+        label: 'Wing ' + (i + 1),
+        cfg: wCfg,
+        x: Number(b.x) || 0,
+        y: Number(b.y) || 0,
+        w: Math.max(1, Number(b.w) || Number(wCfg.width) || 1),
+        d: Math.max(1, Number(b.d) || Number(wCfg.depth) || 1),
+        fill: (typeof WING_COLOURS !== 'undefined' && WING_COLOURS[i % WING_COLOURS.length]) || '#d8cdbb',
+      });
+    }
+  }
+  return blocks;
+}
+
+function referencePrintBounds(blocks) {
+  const minX = Math.min(...blocks.map(b => b.x));
+  const minY = Math.min(...blocks.map(b => b.y));
+  const maxX = Math.max(...blocks.map(b => b.x + b.w));
+  const maxY = Math.max(...blocks.map(b => b.y + b.d));
+  return { minX, minY, maxX, maxY, w: Math.max(1, maxX - minX), d: Math.max(1, maxY - minY) };
+}
+
+function referencePrintStructuralFeatures(blockCfg, face) {
+  try {
+    if (typeof structuralWallFeaturesForFace === 'function') {
+      return (structuralWallFeaturesForFace(blockCfg, face) || [])
+        .filter(op => op && ['window', 'door', 'bay'].includes(op.type));
+    }
+  } catch (_) {}
+  try {
+    if (typeof manualStructuralOps === 'function') {
+      return (manualStructuralOps(blockCfg, face) || [])
+        .filter(op => op && ['window', 'door', 'bay'].includes(op.type));
+    }
+  } catch (_) {}
+  return [];
+}
+
+function createBuildingLayoutReferencePrintPart(cfg, plan) {
+  const blocks = referencePrintBlocksForConfig(cfg || {});
+  const b = referencePrintBounds(blocks);
+  const margin = 10;
+  const titleH = 25;
+  const legendH = 15;
+  const pageW = Math.max(90, b.w + margin * 2 + 10);
+  const pageH = Math.max(78, titleH + b.d + legendH + margin * 2 + 8);
+  const mapX = (pageW - b.w) / 2;
+  const mapY = titleH + margin;
+  const f = v => Number(v || 0).toFixed(3).replace(/\.000$/, '');
+  const px = x => mapX + Number(x) - b.minX;
+  // App floor plan uses y=0 at the front/south edge. A printed reference is a
+  // normal map view, so invert Y to put north/back at the top of the sheet.
+  const py = y => mapY + b.maxY - Number(y);
+  const topY = blk => py(blk.y + blk.d);
+  const bottomY = blk => py(blk.y);
+  const leftX = blk => px(blk.x);
+  const rightX = blk => px(blk.x + blk.w);
+  const markerColour = type => type === 'window' ? '#78baf3' : (type === 'bay' ? '#7c55df' : '#efa257');
+  const markerT = type => type === 'bay' ? 4.0 : (type === 'door' ? 3.2 : 2.5);
+  let svg = '';
+
+  svg += `<rect x="0" y="0" width="${f(pageW)}" height="${f(pageH)}" fill="#fffdf8"/>`;
+  svg += `<text x="${f(pageW / 2)}" y="9" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="5" font-weight="700" fill="#2a2a28">Building layout reference</text>`;
+  svg += `<text x="${f(pageW / 2)}" y="15" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="2.7" fill="#8a8277">Footprint with window / door / bay positions</text>`;
+  svg += `<text x="${f(pageW / 2)}" y="21" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="3.2" fill="#777">N</text>`;
+  svg += `<text x="${f(pageW / 2)}" y="${f(mapY + b.d + 8)}" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="3.2" fill="#777">S</text>`;
+  svg += `<text x="${f(mapX - 5)}" y="${f(mapY + b.d / 2 + 1)}" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="3.2" fill="#777">W</text>`;
+  svg += `<text x="${f(mapX + b.w + 5)}" y="${f(mapY + b.d / 2 + 1)}" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="3.2" fill="#777">E</text>`;
+
+  for (const blk of blocks) {
+    const x = leftX(blk), y = topY(blk);
+    svg += `<rect x="${f(x)}" y="${f(y)}" width="${f(blk.w)}" height="${f(blk.d)}" rx="0.4" fill="${blk.fill}" fill-opacity="0.72" stroke="#3a332a" stroke-width="0.28"/>`;
+    svg += `<text x="${f(x + blk.w / 2)}" y="${f(y + blk.d / 2 + 1)}" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="3" fill="#7a6e60">${htmlEscapeInline(blk.label)}</text>`;
+  }
+
+  function marker(x, y, w, h, type, label) {
+    if (!(w > 0 && h > 0)) return;
+    const col = markerColour(type);
+    svg += `<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${f(h)}" fill="${col}" fill-opacity="0.95" stroke="${col}" stroke-width="0.18"><title>${htmlEscapeInline(label)}</title></rect>`;
+  }
+
+  for (const blk of blocks) {
+    for (const face of ['back', 'front', 'west', 'east']) {
+      for (const op of referencePrintStructuralFeatures(blk.cfg, face)) {
+        const along = Math.max(1, Number(op.w) || 1);
+        const t = markerT(op.type);
+        const ox = Number(op.x) || 0;
+        if (face === 'back') {
+          // North/top edge: wall-local x is already the plan-view x position.
+          marker(leftX(blk) + ox, topY(blk) - 3, along, t, op.type, `${blk.label} ${face} ${op.type}`);
+        } else if (face === 'front') {
+          // South/bottom edge: do not mirror from the flat wall sheet.
+          marker(leftX(blk) + ox, bottomY(blk) + 1.5, along, t, op.type, `${blk.label} ${face} ${op.type}`);
+        } else if (face === 'east') {
+          // East wall-local x is measured from north/top in current side-wall conventions.
+          marker(rightX(blk) + 1.5, topY(blk) + ox, t, along, op.type, `${blk.label} ${face} ${op.type}`);
+        } else {
+          // West wall-local x is measured from south/front, so invert for north-up plan.
+          marker(leftX(blk) - 3, bottomY(blk) - ox - along, t, along, op.type, `${blk.label} ${face} ${op.type}`);
+        }
+      }
+    }
+  }
+
+  const legY = pageH - 9;
+  const legX = Math.max(8, pageW / 2 - 27);
+  const legend = [['Window', '#78baf3'], ['Door', '#efa257'], ['Bay', '#7c55df']];
+  for (let i = 0; i < legend.length; i++) {
+    const x = legX + i * 22;
+    svg += `<rect x="${f(x)}" y="${f(legY - 3)}" width="4" height="3" fill="${legend[i][1]}"/>`;
+    svg += `<text x="${f(x + 5.5)}" y="${f(legY - 0.6)}" font-family="system-ui,-apple-system,sans-serif" font-size="2.7" fill="#555">${legend[i][0]}</text>`;
+  }
+  svg += `<text x="${f(pageW - 4)}" y="${f(pageH - 2.5)}" text-anchor="end" font-family="system-ui,-apple-system,sans-serif" font-size="2.4" fill="#999">north-up plan view</text>`;
+
+  return normalizePartMetadata({
+    id: 'building_layout_reference_print',
+    name: 'Building Layout Reference Print',
+    material: 'printed',
+    bboxW: pageW,
+    bboxH: pageH,
+    bboxOffsetX: 0,
+    bboxOffsetY: 0,
+    paths: [],
+    rects: [],
+    lines: [],
+    svgContent: svg,
+    assemblyNote: 'Print at 100% for a flat reference showing the overall building footprint and the placement of windows, doors, and bay openings. This is a north-up plan view, not a mirrored wall-sheet view.',
+    meta: { area: 'general', role: 'printed_detail' },
+  });
+}
+
+function replaceBuildingLayoutReferencePrintPart(parts, cfg, plan) {
+  if (!Array.isArray(parts)) return;
+  for (let i = parts.length - 1; i >= 0; i--) {
+    if (layoutReferencePrintIsGeneratedPart(parts[i])) parts.splice(i, 1);
+  }
+  parts.push(createBuildingLayoutReferencePrintPart(cfg, plan));
+}
+
 function generateBuilding(cfg) {
   upgradeConfigToCurrentStorage(cfg);
-  // Route to the multi-block generator whenever wings are present
-  if ((cfg.wings || []).length > 0) return generateBuildingWithWings(cfg);
+  // Route to the multi-block generator whenever wings are present.
+  if ((cfg.wings || []).length > 0) {
+    const wingResult = generateBuildingWithWings(cfg);
+    replaceBuildingLayoutReferencePrintPart(wingResult.parts, cfg, wingResult.plan);
+    return wingResult;
+  }
 
   const plan = buildEdgePlans(cfg);
   const parts = [];
@@ -24,7 +203,6 @@ function generateBuilding(cfg) {
   parts.push(...interFloorParts);
   parts.push(...generateEmbeddedRailParts(cfg, plan));
 
-  // Cladding
   // Cladding — when first-floor cladding override is enabled, produce two panels per wall (upper + ground).
   // Otherwise produce one full panel per wall.
   if (hasSplitCladding(cfg)) {
@@ -39,11 +217,7 @@ function generateBuilding(cfg) {
     parts.push(generateCladdingPanel(cfg, plan, 'west'));
   }
 
-  // Interior cladding panels — one per perimeter wall when the
-  // interiorCladding toggle is on. Independent style + matching wall_x
-  // opening positions so the inside cutout aligns with the wall's hole
-  // (which the exterior already aligns with). Returns null when the
-  // feature is off; filter to keep the build flow clean.
+  // Interior cladding panels — one per perimeter wall when the toggle is on.
   for (const which of ['front', 'back', 'east', 'west']) {
     const ips = generateInteriorCladdingPanel(cfg, plan, which);
     if (Array.isArray(ips)) parts.push(...ips);
@@ -53,42 +227,26 @@ function generateBuilding(cfg) {
   // Inner parapet cladding (parapet roofs only — opt-out via setting).
   parts.push(...generateInnerParapetCladding(cfg, plan));
 
-  // Shared block-level optional/detail parts. This mirrors the same helper
-  // used by the multi-block/wing path so ridge caps, soffits, fascia,
-  // bay doors, awnings, balconies, etc. are emitted consistently.
+  // Shared block-level optional/detail parts.
   const mainBlockCtx = makeBlockContext(cfg, { cfg, plan, suffix: '', label: 'Main' });
   parts.push(...generateBlockSupplementalParts(mainBlockCtx, parts, {
-    // Ground-floor offset, rooftop mech, billboards and shield are added
-    // later in this single-block path to preserve the old ordering around
-    // trusses/column footprint etching.
     groundFloorOffset: false,
     rooftopMechRoom: false,
     billboards: false,
     rooftopShield: false,
   }));
 
-  // Truss panels (core) + X-bracing strips (cladding). The truss
-  // generator picks Fink for gabled, mono-pitch Pratt for slanted, or
-  // parallel-chord Pratt for flat/parapet, and emits one panel per
-  // spaced position along the block's length. X-bracing strips, if
-  // any walls are flagged, glue diagonally on those walls — separate
-  // pieces so they can sit on top of the wall cladding without
-  // interfering with the core tongues.
+  // Truss panels (core) + X-bracing strips (cladding).
   const mainLayoutCropCtx = { rootCfg: cfg, toWorld: p => ({ x: p.x, y: p.y }) };
   parts.push(...generateTrussesForBlock(cfg, plan, '', '', mainLayoutCropCtx));
   parts.push(...generateXBracesForBlock(cfg, plan, '', ''));
 
-  // Vertical column supports (3-piece I-beam at every truss bearing
-  // point) + floor etchings marking each footprint. The etchings are
-  // applied to the floor part as etch-mode line segments — they cut
-  // visible registration marks into the floor without removing
-  // material so the user can lay each column down at assembly time.
+  // Vertical column supports + floor etchings marking each footprint.
   const colSup_main = generateColumnSupportsForBlock(cfg, plan, '', '', mainLayoutCropCtx);
   parts.push(...colSup_main.parts);
   applyColumnFloorEtchings(parts, colSup_main.etches);
 
-  // Remaining shared block-level supplemental parts that intentionally stay
-  // after trusses/column floor markings in the single-block path.
+  // Remaining shared block-level supplemental parts that intentionally stay after trusses/column markings.
   parts.push(...generateBlockSupplementalParts(mainBlockCtx, parts, {
     bayDoors: false,
     trim: false,
@@ -98,39 +256,21 @@ function generateBuilding(cfg) {
     roofFasciaTrim: false,
   }));
 
-  // Cladding roof (parapet/flat only — slanted and gabled emit their own
-  // textured cladding panels via generateRoof). Apply the roof cladding
-  // pattern so the user's choice in the topbar / left panel actually
-  // shows up on the laser-cut layer. Without this etching the parapet /
-  // flat cladding roof was just a blank rectangle and changing the roof
-  // cladding style appeared to do nothing.
+  // Cladding roof (parapet/flat only — slanted and gabled emit their own textured cladding panels via generateRoof).
   if (cfg.roofStyle === 'parapet' || cfg.roofStyle === 'flat' || cfg.roofStyle === 'flat_overhang') {
     const cT = cfg.claddingThickness;
     let rW, rH;
     if (cfg.roofStyle === 'parapet') {
-      // Parapet roof sits recessed inside the walls (the parapet wall extends
-      // above the roof). Cladding fits WITHIN the walls — interior dimensions
-      // = outer dim minus a wall thickness on each side. Matches the roof
-      // core piece (fbWidth - 2*matT × sideLen).
       rW = plan.fbWidth - 2 * plan.matT;
-      rH = cfg.depth    - 2 * plan.matT;
+      rH = cfg.depth - 2 * plan.matT;
     } else if (cfg.roofStyle === 'flat_overhang') {
-      // Flat with overhang — the cladding covers the entire oversized
-      // core including the eave projection on every side. Matches the
-      // dimensions of the roof core part exactly so the metal-look
-      // pattern wraps to the outer edge with no exposed core showing.
       const O = Math.max(0, cfg.roofOverhang || 5);
       rW = plan.fbWidth + 2 * O;
-      rH = cfg.depth    + 2 * O;
+      rH = cfg.depth + 2 * O;
     } else {
-      // Flat roof sits ON TOP of the walls. Cladding spans the outer footprint
-      // plus the usual cT overhang on each side.
       rW = plan.fbWidth + 2 * cT;
-      rH = cfg.depth    + 2 * cT;
+      rH = cfg.depth + 2 * cT;
     }
-    // Etch the configured roof cladding pattern. Falls back to the wall
-    // cladding style if no roof-specific style is set (preserves the
-    // pre-roof-cladding behaviour for older configs).
     const roofStyleKey  = cfg.roofCladdingStyle || cfg.claddingStyle;
     const roofStyleSpec = CLADDING_STYLES[roofStyleKey];
     const roofLines = roofStyleSpec
@@ -140,19 +280,12 @@ function generateBuilding(cfg) {
     let equipOffsetX = 0;
     let equipOffsetY = 0;
     if (cfg.roofStyle === 'flat') {
-      // Flat roof cladding overhangs the core by cladding thickness on all sides.
       equipOffsetX = cT;
       equipOffsetY = cT;
     } else if (cfg.roofStyle === 'flat_overhang') {
-      // Editor/equipment coords are in the building footprint frame; overhang
-      // cladding includes the eave projection around that footprint.
       const O = Math.max(0, cfg.roofOverhang || 5);
       equipOffsetX = O;
       equipOffsetY = O;
-    } else {
-      // Recessed/parapet roof cladding is already in the interior roof frame.
-      equipOffsetX = 0;
-      equipOffsetY = 0;
     }
     roofLines.push(...rooftopEquipmentEtchLines(plan, equipOffsetX, equipOffsetY));
     parts.push({
@@ -167,35 +300,18 @@ function generateBuilding(cfg) {
     });
   }
 
-  // Window/door counts (use the cladding-side counts for actual counts since both core+cladding 
-  // get the same count, and window parts only need to match window count)
   let totalWindows = 0;
   let upperWindows = 0;
   let groundWindows = 0;
   let blankedUpper = 0;
   let blankedGround = 0;
   let totalDoors = 0;
-  // Per-style door tallies — different walls may have different mixes when
-  // the user places doors via the openings editor.
   const doorTallies = {};
-  // Per-window dimension records collected across all cladding parts. The
-  // glass/backing/frame generator groups these by (w, h, style) and emits a
-  // separately-sized set per group — see generateWindowPartsFromSpecs.
   const allWindowSpecs = [];
   const allBlankedSpecs = [];
   const allDoorSpecs = [];
   for (const p of parts) {
     if (!p) continue;
-    // Window/door metadata can live on any cladding panel material. When a
-    // cladding style is routed to a custom material folder, p.material is no
-    // longer literally "cladding"; the previous guard skipped its metadata,
-    // so glass/frame/divider/door insert cut sheets were never emitted.
-    //
-    // Layout cuts can shorten a wall/cladding panel after openings were
-    // generated. Clip child window/door specs against the retained wall span
-    // now, so a partially cut window creates matching partial glass/frame/
-    // divider pieces and a partially cut door creates a matching partial
-    // insert, instead of exporting the full original child piece.
     const clippedWindows = clipOpeningSpecsForLayoutCut(p, p.windowSpecs || [], cfg, 1.0);
     const clippedBlanked = clipOpeningSpecsForLayoutCut(p, p.blankedSpecs || [], cfg, 1.0);
     const clippedDoors   = clipOpeningSpecsForLayoutCut(p, p.doorSpecs   || [], cfg, 1.0);
@@ -229,16 +345,11 @@ function generateBuilding(cfg) {
       mergeTallies(doorTallies, p.doorStyleTallies || {});
     }
   }
-  // Spec-driven generation when wall parts reported per-window specs (the
-  // normal case); fall back to the legacy count-only path when no specs are
-  // available (defensive, for any cladding code that hasn't been updated to
-  // emit windowSpecs yet).
+
   const windowParts = (allWindowSpecs.length > 0)
     ? generateWindowPartsFromSpecs(cfg, allWindowSpecs)
     : generateWindowParts(cfg, upperWindows, groundWindows);
   parts.push(...windowParts);
-  // Blanking panels for windows with placement: 'blanked' — same spec-vs-
-  // count split as above.
   const blankedParts = (allBlankedSpecs.length > 0)
     ? generateBlankedWindowPanelsFromSpecs(cfg, allBlankedSpecs)
     : generateBlankedWindowPanels(cfg, blankedUpper, blankedGround);
@@ -250,12 +361,12 @@ function generateBuilding(cfg) {
   parts.push(...doorParts);
 
   // Fixtures (surface-mounted vents, meters, signs, lanterns, etc.).
-  // Tally is read from wallFeatures, the current wall-object store.
   parts.push(...generateFixtureParts(cfg, tallyFixtures(cfg)));
   parts.push(...generateShutterParts(cfg, tallyShutters(cfg)));
   parts.push(...generateCladdingOverrideParts(cfg, tallyCladdingOverrides(cfg, plan)));
   parts.push(...generateSkylightParts(cfg, tallySkylights(cfg)));
   parts.push(...generatePrintedSheets(cfg, tallyPrintedItems(cfg)));
+  replaceBuildingLayoutReferencePrintPart(parts, cfg, plan);
 
   parts.push(...generateInternalWallParts(cfg, plan));
   injectInternalWallSlots(parts, cfg, plan);

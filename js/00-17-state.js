@@ -263,3 +263,146 @@ if (typeof FIXTURE_STYLES !== 'undefined' && FIXTURE_STYLES.pipe_penetration_rin
     },
   ];
 }
+
+/* 3D preview compatibility for pipe penetration rings.
+ * The base 3D wall-fixture renderer draws circular fixture pieces as simple
+ * discs and then paints innerCut holes as a dark patch. Keep that fallback, but
+ * add a real annular flange overlay after each preview rebuild so the preview
+ * matches the SVG: one washer layer with a through/waste centre, not two stacked
+ * circles or a solid disk.
+ */
+(function installPipePenetrationRing3DPreviewPatch() {
+  let attempts = 0;
+
+  function ready() {
+    return typeof updateThreePreview === 'function' &&
+           typeof THREE !== 'undefined' &&
+           typeof buildEdgePlans === 'function' &&
+           typeof surfaceWallFeaturesForFace === 'function';
+  }
+
+  function installWhenReady() {
+    if (!ready()) {
+      if (attempts++ < 120) setTimeout(installWhenReady, 50);
+      return;
+    }
+    if (updateThreePreview.__pipeRingAnnulusPatch) return;
+
+    const originalUpdateThreePreview = updateThreePreview;
+    updateThreePreview = function patchedUpdateThreePreview(cfg) {
+      const result = originalUpdateThreePreview.apply(this, arguments);
+      try {
+        addPipePenetrationRingAnnulusOverlays3D(cfg || CONFIG);
+      } catch (err) {
+        console.warn('Pipe penetration ring 3D overlay failed:', err);
+      }
+      return result;
+    };
+    updateThreePreview.__pipeRingAnnulusPatch = true;
+  }
+
+  function annulusGeometry2D(outerW, outerH, innerW, innerH, depth) {
+    const shape = new THREE.Shape();
+    shape.absellipse(0, 0, outerW / 2, outerH / 2, 0, Math.PI * 2, false, 0);
+    const hole = new THREE.Path();
+    // Clockwise hole winding ensures Three.js treats this as a void.
+    hole.absellipse(0, 0, innerW / 2, innerH / 2, 0, Math.PI * 2, true, 0);
+    shape.holes.push(hole);
+    const geo = new THREE.ExtrudeGeometry(shape, {
+      depth: Math.max(0.05, depth),
+      bevelEnabled: false,
+      curveSegments: 32,
+      steps: 1,
+    });
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  function wallPoseForPipeRing(face, localX, localY, objW, objH, plan, cfg) {
+    const w = Number(plan && plan.fbWidth) || Number(cfg && cfg.width) || 1;
+    const d = Number(cfg && cfg.depth) || 1;
+    const sideLen = Number(plan && plan.sideLen) || Math.max(1, d - 2 * (Number(plan && plan.matT) || 0));
+    const h = Number(plan && plan.H) || Number(cfg && cfg.height) || 1;
+    const rawCenterX = Number(localX || 0) + Number(objW || 0) / 2;
+    const cy = Number(localY || 0) + Number(objH || 0) / 2;
+    const span = (face === 'front' || face === 'back') ? w : sideLen;
+    const mirrorX = face === 'front' || face === 'back';
+    const cx = mirrorX ? (span - rawCenterX) : rawCenterX;
+    const worldY = h - cy;
+
+    switch (face) {
+      case 'front': return { x: cx - w / 2, y: worldY, z: -d / 2 - 0.09, rotY: 0 };
+      case 'back':  return { x: cx - w / 2, y: worldY, z:  d / 2 + 0.09, rotY: Math.PI };
+      case 'east':  return { x:  w / 2 + 0.09, y: worldY, z: cx - sideLen / 2, rotY: Math.PI / 2 };
+      case 'west':  return { x: -w / 2 - 0.09, y: worldY, z: cx - sideLen / 2, rotY: -Math.PI / 2 };
+      default:      return { x: cx - w / 2, y: worldY, z: -d / 2 - 0.09, rotY: 0 };
+    }
+  }
+
+  function addPipePenetrationRingAnnulusOverlays3D(cfg) {
+    if (!cfg || typeof buildingMesh === 'undefined' || !buildingMesh) return;
+    if (typeof FIXTURE_STYLES === 'undefined' || !FIXTURE_STYLES.pipe_penetration_ring) return;
+
+    const style = FIXTURE_STYLES.pipe_penetration_ring;
+    const plan = buildEdgePlans(cfg);
+    const piece = style.pieces && style.pieces[0] ? style.pieces[0] : {};
+    const cut = piece.innerCut || style.throughHole || { shape: 'circle', xRatio: 0.28, yRatio: 0.28, wRatio: 0.44, hRatio: 0.44 };
+    const flangeMat = new THREE.MeshStandardMaterial({
+      color: 0x9aa0a0,
+      roughness: 0.72,
+      metalness: 0.02,
+      side: THREE.DoubleSide,
+    });
+    const holeMat = new THREE.MeshStandardMaterial({
+      color: 0x050505,
+      roughness: 0.98,
+      metalness: 0.0,
+      side: THREE.DoubleSide,
+    });
+    const layerT = 0.34;
+
+    for (const face of ['front', 'back', 'east', 'west']) {
+      const fxs = surfaceWallFeaturesForFace(cfg, face, 'fixture') || [];
+      for (const fx of fxs) {
+        if (!fx || fx.style !== 'pipe_penetration_ring') continue;
+        const fW = Number(fx.w) || Number(style.width) || 7;
+        const fH = Number(fx.h) || Number(style.height) || fW;
+        if (!(fW > 0 && fH > 0)) continue;
+
+        const scaleX = fW / (Number(style.width) || fW || 1);
+        const scaleY = fH / (Number(style.height) || fH || 1);
+        const innerW = Math.max(0.05, Number(cut.w != null ? cut.w : (Number(cut.wRatio || 0.44) * (Number(style.width) || fW))) * scaleX);
+        const innerH = Math.max(0.05, Number(cut.h != null ? cut.h : (Number(cut.hRatio || 0.44) * (Number(style.height) || fH))) * scaleY);
+        if (innerW >= fW - 0.05 || innerH >= fH - 0.05) continue;
+
+        const pose = wallPoseForPipeRing(face, Number(fx.x) || 0, Number(fx.y) || 0, fW, fH, plan, cfg);
+        const pivot = new THREE.Object3D();
+        pivot.name = 'Pipe penetration annular flange preview';
+        pivot.rotation.y = pose.rotY;
+        pivot.position.set(pose.x, pose.y, pose.z);
+
+        const ring = new THREE.Mesh(annulusGeometry2D(fW, fH, innerW, innerH, layerT), flangeMat);
+        // ExtrudeGeometry spans local z=0..layerT. Shift it outward so the
+        // front face sits proud of the normal fixture renderer's fallback patch.
+        ring.position.z = -layerT - 0.18;
+        pivot.add(ring);
+
+        // Add a very slightly recessed dark void so even older GPUs that fill
+        // coplanar holes still read the centre as waste/through-hole.
+        const radius = Math.max(0.05, Math.min(innerW, innerH) / 2);
+        const dark = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.04, 32), holeMat);
+        dark.rotation.x = Math.PI / 2;
+        if (Math.abs(innerW - innerH) > 0.05) {
+          dark.scale.x = (innerW / 2) / radius;
+          dark.scale.y = (innerH / 2) / radius;
+        }
+        dark.position.z = -layerT - 0.205;
+        pivot.add(dark);
+
+        buildingMesh.add(pivot);
+      }
+    }
+  }
+
+  installWhenReady();
+})();

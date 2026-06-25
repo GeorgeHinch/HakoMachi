@@ -133,13 +133,22 @@ function getShutterDimsForWindow(op) {
   return { w, h };
 }
 
+const EXTERIOR_LIGHT_SVG_W = 9.5;
+const EXTERIOR_LIGHT_SVG_H = 8.09;
+// The uploaded SVGs use unitless dimensions, so interpret them as CSS px.
+// Convert px → mm for HakoMachi's laser-cut model dimensions rather than
+// treating the raw 9.5×8.09 values as millimeters.
+const EXTERIOR_LIGHT_PX_TO_MM = 25.4 / 96;
+const EXTERIOR_LIGHT_DEFAULT_W = +(EXTERIOR_LIGHT_SVG_W * EXTERIOR_LIGHT_PX_TO_MM).toFixed(3);
+const EXTERIOR_LIGHT_DEFAULT_H = +(EXTERIOR_LIGHT_SVG_H * EXTERIOR_LIGHT_PX_TO_MM).toFixed(3);
+
 function exteriorLightRoundedCapPath(w, h, ox = 0, oy = 0) {
-  const x0 = ox + w * (0.50 / 9.50);
-  const x1 = ox + w * (9.00 / 9.50);
-  const y0 = oy + h * (0.50 / 8.09);
-  const y1 = oy + h * (7.59 / 8.09);
-  const rX = w * (1.38 / 9.50);
-  const rY = h * (1.38 / 8.09);
+  const x0 = ox + w * (0.50 / EXTERIOR_LIGHT_SVG_W);
+  const x1 = ox + w * (9.00 / EXTERIOR_LIGHT_SVG_W);
+  const y0 = oy + h * (0.50 / EXTERIOR_LIGHT_SVG_H);
+  const y1 = oy + h * (7.59 / EXTERIOR_LIGHT_SVG_H);
+  const rX = w * (1.38 / EXTERIOR_LIGHT_SVG_W);
+  const rY = h * (1.38 / EXTERIOR_LIGHT_SVG_H);
   return `M ${x1.toFixed(3)},${y1.toFixed(3)}`
     + ` V ${(y0 + rY).toFixed(3)}`
     + ` Q ${x1.toFixed(3)},${y0.toFixed(3)} ${(x1 - rX).toFixed(3)},${y0.toFixed(3)}`
@@ -150,15 +159,15 @@ function exteriorLightRoundedCapPath(w, h, ox = 0, oy = 0) {
 }
 
 function exteriorLightCoreUPath(w, h, ox = 0, oy = 0) {
-  const x0 = ox + w * (0.50 / 9.50);
-  const x1 = ox + w * (9.00 / 9.50);
-  const y0 = oy + h * (0.50 / 8.09);
-  const y1 = oy + h * (7.59 / 8.09);
-  const rX = w * (1.38 / 9.50);
-  const rY = h * (1.38 / 8.09);
-  const ix0 = ox + w * (3.33 / 9.50);
-  const ix1 = ox + w * (6.16 / 9.50);
-  const iy0 = oy + h * (3.33 / 8.09);
+  const x0 = ox + w * (0.50 / EXTERIOR_LIGHT_SVG_W);
+  const x1 = ox + w * (9.00 / EXTERIOR_LIGHT_SVG_W);
+  const y0 = oy + h * (0.50 / EXTERIOR_LIGHT_SVG_H);
+  const y1 = oy + h * (7.59 / EXTERIOR_LIGHT_SVG_H);
+  const rX = w * (1.38 / EXTERIOR_LIGHT_SVG_W);
+  const rY = h * (1.38 / EXTERIOR_LIGHT_SVG_H);
+  const ix0 = ox + w * (3.33 / EXTERIOR_LIGHT_SVG_W);
+  const ix1 = ox + w * (6.16 / EXTERIOR_LIGHT_SVG_W);
+  const iy0 = oy + h * (3.33 / EXTERIOR_LIGHT_SVG_H);
   return `M ${(x1 - rX).toFixed(3)},${y0.toFixed(3)}`
     + ` H ${(x0 + rX).toFixed(3)}`
     + ` Q ${x0.toFixed(3)},${y0.toFixed(3)} ${x0.toFixed(3)},${(y0 + rY).toFixed(3)}`
@@ -180,12 +189,12 @@ if (typeof FIXTURE_STYLES !== 'undefined') {
   FIXTURE_STYLES.exterior_light = {
     label: 'Exterior light',
     description: 'Wall light with a rectangular pass-through for an LED. Exports a rounded-top core U-shaped spacer/cradle plus a matching filled cladding cap.',
-    width: 9.5,
-    height: 8.09,
+    width: EXTERIOR_LIGHT_DEFAULT_W,
+    height: EXTERIOR_LIGHT_DEFAULT_H,
     depthTier: 'medium',
     toolboxSection: 'passthroughs',
     throughCore: true,
-    throughHole: { shape: 'rect', xRatio: 3.33 / 9.5, yRatio: 3.33 / 8.09, wRatio: 2.83 / 9.5, hRatio: 4.25 / 8.09 },
+    throughHole: { shape: 'rect', xRatio: 3.33 / EXTERIOR_LIGHT_SVG_W, yRatio: 3.33 / EXTERIOR_LIGHT_SVG_H, wRatio: 2.83 / EXTERIOR_LIGHT_SVG_W, hRatio: 4.25 / EXTERIOR_LIGHT_SVG_H },
     pieces: [
       {
         material: 'core',

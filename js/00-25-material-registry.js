@@ -249,6 +249,21 @@ function addPartsToList(parts, maybePartOrList) {
     }
   }
 
+  function requestPostInstallPreviewRebuild() {
+    const rebuild = () => {
+      try {
+        if (typeof CONFIG !== 'undefined' && typeof updateThreePreview === 'function') {
+          updateThreePreview(CONFIG);
+        }
+      } catch (err) {
+        console.warn('Post-install 3D preview rebuild failed:', err);
+      }
+    };
+    setTimeout(rebuild, 0);
+    setTimeout(rebuild, 150);
+    setTimeout(rebuild, 500);
+  }
+
   function installWhenReady() {
     if (!ready()) {
       if (attempts++ < 120) setTimeout(installWhenReady, 50);
@@ -275,6 +290,7 @@ function addPartsToList(parts, maybePartOrList) {
       }
     };
     updateThreePreview.__guardedFallbackInstalled = true;
+    requestPostInstallPreviewRebuild();
   }
 
   installWhenReady();

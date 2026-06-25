@@ -366,3 +366,131 @@ function addPartsToList(parts, maybePartOrList) {
   document.addEventListener('touchend', clampNonCanvasHorizontalScroll, true);
   window.addEventListener('resize', clampNonCanvasHorizontalScroll);
 })();
+
+/* 3D fixture layer thickness correction.
+ * The legacy 3D preview deliberately exaggerated surface fixture layers with a
+ * hard-coded 1.1mm depth so they were easy to see. That made laser-cut side
+ * fixtures look like arbitrary blocks sticking out from the building. Keep the
+ * renderer path intact, then collapse those exact 1.1mm fixture-layer meshes to
+ * the actual cladding material thickness and restack them at that thickness.
+ * This affects wall fixture preview geometry only; exported SVG/STL data is not
+ * changed here.
+ */
+(function installFixtureMaterialThickness3DPreviewPatch() {
+  let attempts = 0;
+  const NOMINAL_FIXTURE_T = 1.1;
+  const NOMINAL_INNER_CUT_T = NOMINAL_FIXTURE_T * 0.18;
+
+  function ready() {
+    return typeof updateThreePreview === 'function' &&
+           typeof THREE !== 'undefined' &&
+           typeof MaterialRegistry !== 'undefined';
+  }
+
+  function layerThicknessForPreview(cfg) {
+    const c = cfg || (typeof CONFIG !== 'undefined' ? CONFIG : {}) || {};
+    const matT = MaterialRegistry.thickness('cladding', c, null);
+    const fallback = Number(c.claddingThickness) || 0.28;
+    return Math.max(0.05, Math.min(3, Number(matT) || fallback));
+  }
+
+  function closeEnough(a, b, eps = 0.004) {
+    return Math.abs((Number(a) || 0) - b) <= eps;
+  }
+
+  function replaceBoxDepth(mesh, depth) {
+    const p = mesh && mesh.geometry && mesh.geometry.parameters;
+    if (!p) return;
+    try { mesh.geometry.dispose(); } catch (_) {}
+    mesh.geometry = new THREE.BoxGeometry(p.width, p.height, depth, p.widthSegments, p.heightSegments, p.depthSegments);
+  }
+
+  function replaceCylinderHeight(mesh, height) {
+    const p = mesh && mesh.geometry && mesh.geometry.parameters;
+    if (!p) return;
+    try { mesh.geometry.dispose(); } catch (_) {}
+    mesh.geometry = new THREE.CylinderGeometry(
+      p.radiusTop,
+      p.radiusBottom,
+      height,
+      p.radialSegments,
+      p.heightSegments,
+      p.openEnded,
+      p.thetaStart,
+      p.thetaLength
+    );
+  }
+
+  function adjust3DFixtureLayerThickness(cfg) {
+    if (typeof buildingMesh === 'undefined' || !buildingMesh) return;
+    const layerT = layerThicknessForPreview(cfg);
+    const innerCutT = Math.max(0.02, layerT * 0.18);
+    const innerCutOut = Math.max(0.02, layerT * 0.11);
+
+    buildingMesh.traverse(obj => {
+      if (!obj || !obj.isMesh || !obj.geometry || !obj.geometry.parameters || !obj.position) return;
+      const p = obj.geometry.parameters;
+      const z = Number(obj.position.z);
+      if (!(z < -0.15)) return;
+
+      const isWallFacingCylinder = obj.rotation && Math.abs(Math.abs(obj.rotation.x) - Math.PI / 2) < 0.02;
+
+      if (p.depth != null && closeEnough(p.depth, NOMINAL_FIXTURE_T)) {
+        const layerIndex = Math.max(0, Math.round((Math.abs(z) - NOMINAL_FIXTURE_T / 2) / NOMINAL_FIXTURE_T));
+        replaceBoxDepth(obj, layerT);
+        obj.position.z = -(layerIndex * layerT + layerT / 2);
+        return;
+      }
+
+      if (p.height != null && closeEnough(p.height, NOMINAL_FIXTURE_T) && isWallFacingCylinder) {
+        const layerIndex = Math.max(0, Math.round((Math.abs(z) - NOMINAL_FIXTURE_T / 2) / NOMINAL_FIXTURE_T));
+        replaceCylinderHeight(obj, layerT);
+        obj.position.z = -(layerIndex * layerT + layerT / 2);
+        return;
+      }
+
+      if (p.depth != null && closeEnough(p.depth, NOMINAL_INNER_CUT_T, 0.01)) {
+        const layerIndex = Math.max(0, Math.round((Math.abs(z) - (NOMINAL_FIXTURE_T / 2 + NOMINAL_FIXTURE_T * 0.11)) / NOMINAL_FIXTURE_T));
+        replaceBoxDepth(obj, innerCutT);
+        obj.position.z = -(layerIndex * layerT + layerT + innerCutOut);
+        return;
+      }
+
+      if (p.height != null && closeEnough(p.height, NOMINAL_INNER_CUT_T, 0.01) && isWallFacingCylinder) {
+        const layerIndex = Math.max(0, Math.round((Math.abs(z) - (NOMINAL_FIXTURE_T / 2 + NOMINAL_FIXTURE_T * 0.11)) / NOMINAL_FIXTURE_T));
+        replaceCylinderHeight(obj, innerCutT);
+        obj.position.z = -(layerIndex * layerT + layerT + innerCutOut);
+      }
+    });
+  }
+
+  function installWhenReady() {
+    if (!ready()) {
+      if (attempts++ < 120) setTimeout(installWhenReady, 50);
+      return;
+    }
+    if (updateThreePreview.__fixtureMaterialThicknessPatch) return;
+
+    const previousUpdateThreePreview = updateThreePreview;
+    updateThreePreview = function fixtureMaterialThicknessPreviewUpdate(cfg) {
+      const result = previousUpdateThreePreview.apply(this, arguments);
+      try {
+        adjust3DFixtureLayerThickness(cfg || (typeof CONFIG !== 'undefined' ? CONFIG : null));
+      } catch (err) {
+        console.warn('3D fixture material-thickness adjustment failed:', err);
+      }
+      return result;
+    };
+    updateThreePreview.__fixtureMaterialThicknessPatch = true;
+
+    setTimeout(() => {
+      try {
+        if (typeof CONFIG !== 'undefined') updateThreePreview(CONFIG);
+      } catch (err) {
+        console.warn('Post-install fixture material-thickness preview rebuild failed:', err);
+      }
+    }, 100);
+  }
+
+  installWhenReady();
+})();

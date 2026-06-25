@@ -5,6 +5,18 @@
    These return objects: { id, name, material, widthMm, heightMm, paths: [{type, d}], rects: [...], lines: [...] }
    ===================================================================== */
 
+/* Legacy fixture-hole entry point used by the wall generators. The canonical
+ * implementation lives in js/00-35-fixture-parts-generator.js as
+ * addFixtureThroughHolesToWall(). Keep this thin compatibility wrapper until
+ * the segmented wall generator call sites are renamed in place.
+ */
+function cutFixtureHolesInCore(rects, paths, cfg, face, xMirror) {
+  if (typeof addFixtureThroughHolesToWall !== 'function') {
+    throw new Error('addFixtureThroughHolesToWall is not loaded');
+  }
+  return addFixtureThroughHolesToWall(rects, paths, cfg, face, xMirror);
+}
+
 /* Compute window grid for a wall. Returns array of {x, y, width, height, isGround} in WALL local frame.
    
    Windows are placed at CANONICAL floor center Y positions, identical across all 

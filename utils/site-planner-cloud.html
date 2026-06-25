@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HakoMachi Site Planner Cloud</title>
+  <style>
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f5f5f0}
+    iframe{display:block;width:100%;height:100%;border:0;background:#f5f5f0}
+    .load-note{position:fixed;left:12px;bottom:12px;z-index:2;background:#fff;border:1px solid #d4d4cc;border-radius:4px;padding:8px 10px;font:13px system-ui;color:#555;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+  </style>
+</head>
+<body>
+  <iframe id="plannerFrame" src="site-planner.html" title="HakoMachi Site Planner"></iframe>
+  <div id="loadNote" class="load-note">Loading cloud controls…</div>
+  <script src="site-planner-github-data.js"></script>
+  <script>
+    const frame = document.getElementById('plannerFrame');
+    const note = document.getElementById('loadNote');
+    frame.addEventListener('load', () => {
+      try {
+        if (window.HakoMachiSitePlannerGithubData && window.HakoMachiSitePlannerGithubData.install(frame.contentWindow)) {
+          note.textContent = 'Cloud controls added to Settings.';
+          setTimeout(() => note.remove(), 2200);
+        } else {
+          note.textContent = 'Cloud controls could not be installed.';
+        }
+      } catch (err) {
+        note.textContent = 'Cloud controls blocked: ' + (err && err.message ? err.message : err);
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>

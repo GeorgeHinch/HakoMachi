@@ -1,0 +1,269 @@
+/* =====================================================================
+   HakoMachi shared UI primitives
+   ---------------------------------------------------------------------
+   Common theme tokens and reusable classes shared by the building generator,
+   the Site Planner, and utilities. App-specific layout should live in that
+   app's own CSS file.
+   ===================================================================== */
+
+:root {
+  --bg: #f5f5f0;
+  --panel: #fff;
+  --panel-2: #fafaf7;
+  --panel-3: #f0f0ea;
+  --border: #d4d4cc;
+  --text: #2a2a28;
+  --muted: #7a7a72;
+  --accent: #c84a3a;
+  --accent-dark: #9c382b;
+  --etch: #2a64aa;
+  --ok: #2a6a3a;
+  --danger: #9c382b;
+  --focus: 0 0 0 2px rgba(200,74,58,0.22);
+}
+
+* { box-sizing: border-box; }
+
+html {
+  height: 100%;
+  height: -webkit-fill-available;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", "Noto Sans CJK JP", system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  background: var(--bg);
+  color: var(--text);
+}
+
+button,
+input,
+select,
+textarea,
+.fileButton,
+.menuItem {
+  font: inherit;
+}
+
+button,
+.fileButton,
+.menuItem {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  min-height: 0;
+  height: auto;
+  box-shadow: none;
+  transition: background .1s, border-color .1s, color .1s;
+  text-decoration: none;
+}
+
+button:hover,
+.fileButton:hover,
+.menuItem:hover {
+  background: #f0f0ec;
+  border-color: var(--border);
+}
+
+button:active,
+.fileButton:active,
+.menuItem:active {
+  transform: none;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.fileButton:focus-visible,
+.menuItem:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+button:disabled,
+button[aria-disabled="true"] {
+  opacity: .46;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+button.primary,
+button.active,
+.hako-active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent-dark);
+  font-weight: 600;
+}
+
+button.primary:hover,
+button.active:hover,
+.hako-active:hover {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+}
+
+button.danger,
+.menuItem.danger {
+  background: #fff;
+  border-color: var(--border);
+  color: var(--accent);
+}
+
+button.danger:hover,
+.menuItem.danger:hover {
+  background: #fef0ee;
+  border-color: #f5d0c8;
+  color: var(--accent-dark);
+}
+
+button.ok,
+.hako-ok {
+  background: #eef7f0;
+  border-color: #c9e1d0;
+  color: var(--ok);
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 5px 7px;
+}
+
+input:disabled {
+  background: #f3f3ee;
+  color: var(--muted);
+}
+
+input[type="range"] { accent-color: var(--accent); }
+input[type="color"] { padding: 2px; height: 30px; border-radius: 3px; }
+input[type="checkbox"] { width: auto; min-width: 0; }
+
+label,
+.field label {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin: 8px 0 3px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+h1 { font-size: 16px; margin: 0 0 12px; font-weight: 600; }
+h2 { font-size: 12px; margin: 16px 0 6px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+h3 { font-size: 13px; margin: 12px 0 4px; font-weight: 600; }
+
+.field { margin-bottom: 10px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.actions,
+.buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.actions { margin-top: 12px; }
+.small { font-size: 12px; color: var(--muted); }
+.muted { color: var(--muted); }
+.warning,
+.warn { color: var(--accent); }
+.okText,
+.ok-msg { color: var(--ok); }
+
+.app-logo {
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+  margin: 0 auto 10px auto;
+  color: var(--text);
+}
+
+.section,
+.hako-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: none;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.section h3,
+.hako-card h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--muted);
+}
+
+.statusBadge,
+.chip,
+.pill {
+  display: inline-block;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: #f5f5f0;
+  color: var(--muted);
+  padding: 2px 7px;
+  font-size: 11px;
+}
+
+.dropdownMenu,
+.overflow-dropdown {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.15);
+}
+
+.dropdownMenu button,
+.dropdownMenu .menuItem,
+.overflow-dropdown button,
+.overflow-dropdown .menuItem {
+  display: block;
+  width: 100%;
+  padding: 7px 12px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--text);
+  justify-content: flex-start;
+  height: auto;
+  min-height: 0;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.dropdownMenu button:hover,
+.dropdownMenu .menuItem:hover,
+.overflow-dropdown button:hover,
+.overflow-dropdown .menuItem:hover {
+  background: #f5f5f0;
+}
+
+.overflow-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 3px 0;
+}
+
+.hiddenFile {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: .001;
+  pointer-events: none;
+}

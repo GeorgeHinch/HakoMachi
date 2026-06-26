@@ -12,6 +12,13 @@
   {
     "type": "js",
     "script_index": 0,
+    "path": "js/hakomachi-github-data.js",
+    "bytes": 0,
+    "title": "HakoMachi GitHub data helpers"
+  },
+  {
+    "type": "js",
+    "script_index": 0,
     "path": "js/00-00-prelude.js",
     "bytes": 14,
     "title": "prelude"

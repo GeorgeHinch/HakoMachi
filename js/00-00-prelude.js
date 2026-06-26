@@ -10,9 +10,16 @@
    ===================================================================== */
 
 (function installHakoMachiGithubDataSave() {
-  const SETTINGS_KEY = 'hakomachi_github_data_settings_v1';
-  const DEFAULT_LIBRARY_PATH = 'footprints/library.json';
-  const DEFAULT_BUILDINGS_DIR = 'buildings';
+  const githubData = window.HakoMachiGithubDataShared;
+  if (!githubData) throw new Error('HakoMachi GitHub data helpers did not load.');
+  const DEFAULT_LIBRARY_PATH = githubData.DEFAULT_LIBRARY_PATH;
+  const DEFAULT_BUILDINGS_DIR = githubData.DEFAULT_BUILDINGS_DIR;
+  const cleanRepoPath = githubData.cleanRepoPath;
+  const slugify = githubData.slugify;
+  const readGithubFile = githubData.readGithubFile;
+  const writeGithubFile = githubData.writeGithubFile;
+  const defaultLibrary = githubData.defaultLibrary;
+  const loadLibrary = githubData.loadLibrary;
 
   const I18N = {
     en: {
@@ -64,116 +71,15 @@
   }
 
   function settings() {
-    try {
-      return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') || {};
-    } catch (_) {
-      return {};
-    }
+    return githubData.getSettings();
   }
 
   function saveSettings(next) {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-      repoFullName: String(next.repoFullName || '').trim(),
-      branch: String(next.branch || 'main').trim() || 'main',
-      token: String(next.token || '').trim(),
-      libraryPath: cleanRepoPath(next.libraryPath || DEFAULT_LIBRARY_PATH),
-      buildingsDir: cleanRepoPath(next.buildingsDir || DEFAULT_BUILDINGS_DIR),
-    }));
-  }
-
-  function cleanRepoPath(path) {
-    return String(path || '')
-      .replace(/^\/+/, '')
-      .replace(/\/+/g, '/')
-      .replace(/\/$/, '');
-  }
-
-  function slugify(input) {
-    const s = String(input || '')
-      .normalize('NFKD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 80);
-    return s || 'hakomachi-building';
-  }
-
-  function utf8ToBase64(str) {
-    const bytes = new TextEncoder().encode(String(str));
-    let bin = '';
-    for (let i = 0; i < bytes.length; i += 0x8000) {
-      const chunk = bytes.subarray(i, i + 0x8000);
-      bin += String.fromCharCode.apply(null, chunk);
-    }
-    return btoa(bin);
-  }
-
-  function base64ToUtf8(b64) {
-    const bin = atob(String(b64 || '').replace(/\s+/g, ''));
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return new TextDecoder().decode(bytes);
+    githubData.saveSettings(next);
   }
 
   function assertSettings(s) {
-    if (!s || !s.repoFullName || !s.repoFullName.includes('/') || !s.token) {
-      throw new Error(tr('missingSettings'));
-    }
-  }
-
-  async function githubRequest(s, url, opts = {}) {
-    const response = await fetch(url, {
-      ...opts,
-      headers: {
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        Authorization: 'Bearer ' + s.token,
-        ...(opts.headers || {}),
-      },
-    });
-    if (response.status === 404 && opts.allow404) return null;
-    if (!response.ok) {
-      let detail = '';
-      try {
-        const body = await response.json();
-        detail = body && body.message ? ': ' + body.message : '';
-      } catch (_) {
-        try { detail = ': ' + await response.text(); } catch (__) {}
-      }
-      throw new Error('GitHub API ' + response.status + detail);
-    }
-    return response.json();
-  }
-
-  function contentsUrl(s, path) {
-    return 'https://api.github.com/repos/' + encodeURIComponent(s.repoFullName).replace('%2F', '/')
-      + '/contents/' + cleanRepoPath(path).split('/').map(encodeURIComponent).join('/');
-  }
-
-  async function readGithubFile(s, path) {
-    const url = contentsUrl(s, path) + '?ref=' + encodeURIComponent(s.branch || 'main');
-    const data = await githubRequest(s, url, { method: 'GET', allow404: true });
-    if (!data) return null;
-    return {
-      sha: data.sha,
-      text: base64ToUtf8(data.content || ''),
-    };
-  }
-
-  async function writeGithubFile(s, path, text, message) {
-    const current = await readGithubFile(s, path);
-    const body = {
-      message,
-      content: utf8ToBase64(text),
-      branch: s.branch || 'main',
-    };
-    if (current && current.sha) body.sha = current.sha;
-    return githubRequest(s, contentsUrl(s, path), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    githubData.assertSettings(s, tr('missingSettings'));
   }
 
   function defaultBuildingName() {
@@ -254,51 +160,8 @@
     };
   }
 
-  function defaultLibrary() {
-    return {
-      schema: 'hakomachi.data-library',
-      schemaVersion: 1,
-      updatedAt: new Date().toISOString(),
-      records: {
-        buildings: [],
-        sitePlans: [],
-      },
-    };
-  }
-
-  function normalizeLibrary(lib) {
-    if (!lib || typeof lib !== 'object') lib = defaultLibrary();
-    if (!lib.schema) lib.schema = 'hakomachi.data-library';
-    lib.schemaVersion = Math.max(1, Number(lib.schemaVersion) || 1);
-    if (!lib.records || typeof lib.records !== 'object') lib.records = {};
-    if (!Array.isArray(lib.records.buildings)) lib.records.buildings = [];
-    if (!Array.isArray(lib.records.sitePlans)) lib.records.sitePlans = [];
-    return lib;
-  }
-
-  async function loadLibrary(s) {
-    const file = await readGithubFile(s, s.libraryPath || DEFAULT_LIBRARY_PATH);
-    if (!file) return defaultLibrary();
-    try {
-      return normalizeLibrary(JSON.parse(file.text));
-    } catch (err) {
-      throw new Error('Could not parse footprint library JSON: ' + (err && err.message ? err.message : err));
-    }
-  }
-
   function upsertBuildingRecord(library, record) {
-    library = normalizeLibrary(library);
-    const arr = library.records.buildings;
-    const idx = arr.findIndex(item => item && item.id === record.id);
-    if (idx >= 0) {
-      record.createdAt = arr[idx].createdAt || record.createdAt;
-      arr[idx] = { ...arr[idx], ...record };
-    } else {
-      arr.push(record);
-    }
-    arr.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
-    library.updatedAt = new Date().toISOString();
-    return library;
+    return githubData.upsertRecord(library, 'buildings', record);
   }
 
   function buildRecord(id, name, path, cfg) {

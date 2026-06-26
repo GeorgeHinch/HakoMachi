@@ -6,6 +6,7 @@
 <title>HakoMachi Site Planner v80</title>
 <link rel="stylesheet" href="css/hakomachi-shared.css">
 <link rel="stylesheet" href="utils/site-planner-shared.css">
+<script src="js/hakomachi-github-data.js"></script>
 </head>
 <body>
 <div class="app sitePlannerApp">
@@ -140,6 +141,11 @@
           <button id="fitBtn">Fit Image</button>
           <button id="resetBtn">Reset View</button>
           <button id="clearCacheBtn" class="danger" title="Clear saved planner handoff/cache and reset this planner to a blank default project">Clear Cache / Reset</button>
+          <div class="overflow-sep"></div>
+          <button id="githubSettingsBtn">GitHub data settings</button>
+          <button id="githubSaveBtn">Save site plan to GitHub</button>
+          <button id="githubLoadBtn">Load site plan from GitHub</button>
+          <button id="githubBuildingsBtn">Building footprint library</button>
         </div>
       </div>
       <div class="menuWrap mobileOnly">
@@ -153,6 +159,11 @@
           <button id="mobileSeedBtn">Export Selected Seed</button>
           <button id="mobileRoadExportPreviewBtn">Road Export Preview: Off</button>
           <button id="mobileRoadAssetSvgBtn">Export Road Assets SVG</button>
+          <div class="overflow-sep"></div>
+          <button id="mobileGithubSettingsBtn">GitHub data settings</button>
+          <button id="mobileGithubSaveBtn">Save site plan to GitHub</button>
+          <button id="mobileGithubLoadBtn">Load site plan from GitHub</button>
+          <button id="mobileGithubBuildingsBtn">Building footprint library</button>
         </div>
       </div>
     </div>
@@ -309,6 +320,11 @@
   };
   const AUTOSAVE_KEY = 'hakomachiSitePlannerAutosave_v1';
   const AUTOSAVE_META_KEY = 'hakomachiSitePlannerAutosaveMeta_v1';
+  const githubData = window.HakoMachiGithubDataShared;
+  if(!githubData) throw new Error('HakoMachi GitHub data helpers did not load.');
+  const GITHUB_CURRENT_KEY = 'hakomachi_site_planner_github_current_v1';
+  const GITHUB_DEFAULT_LIBRARY = githubData.DEFAULT_LIBRARY_PATH;
+  const GITHUB_DEFAULT_SITE_DIR = githubData.DEFAULT_SITE_PLANS_DIR;
   let autosaveTimer = null;
   let autosaveSuppressed = false;
   const colors = ['#d79631','#b8672d','#0f766e','#7c5f3f','#8b5a2b','#5f7f54','#9b6b44','#496a78'];
@@ -3702,11 +3718,237 @@
     if(!b) return alert('Select a building first.');
     download(JSON.stringify(makeSeed(b),null,2),`${slug(b.name)}-hakomachi-seed.json`,'application/json');
   }
+  function getGithubSettings(){
+    return githubData.getSettings();
+  }
+  function setGithubSettings(next){
+    githubData.saveSettings(next);
+  }
+  function getCurrentGithubSite(){
+    try{return JSON.parse(localStorage.getItem(GITHUB_CURRENT_KEY)||'null')||null;}catch(_err){return null;}
+  }
+  function setCurrentGithubSite(value){
+    localStorage.setItem(GITHUB_CURRENT_KEY, JSON.stringify(value));
+  }
+  function requireGithubSettings(settings){
+    githubData.assertSettings(settings);
+  }
+  function cleanGithubPath(path){
+    return githubData.cleanRepoPath(path);
+  }
+  async function readGithubFile(settings, path){
+    return githubData.readGithubFile(settings, path);
+  }
+  async function writeGithubFile(settings, path, text, message){
+    return githubData.writeGithubFile(settings, path, text, message);
+  }
+  async function loadGithubLibrary(settings){
+    return githubData.loadLibrary(settings);
+  }
+  function normalizeGithubLibrary(library){
+    return githubData.normalizeLibrary(library);
+  }
+  function upsertGithubSitePlan(library, record){
+    return githubData.upsertRecord(library, 'sitePlans', record);
+  }
+  function githubProjectName(project){
+    return project.hakomachiCloud?.name || project.projectName || (Array.isArray(project.buildings)&&project.buildings.length ? `HakoMachi site (${project.buildings.length} buildings)` : 'HakoMachi site');
+  }
+  function githubSiteRecord(id, name, path, project){
+    const now=new Date().toISOString();
+    return {
+      kind:'sitePlan',
+      recordType:'hakomachi-site-plan',
+      schemaVersion:1,
+      id,
+      name,
+      path,
+      paths:{project:path},
+      app:'hakomachi-site-planner',
+      source:{format:'hako-site-json', version:project.version||null},
+      summary:{
+        buildings:project.buildings?.length||0,
+        roads:project.roads?.length||0,
+        benchworkOutlines:project.benchworkOutlines?.length||0,
+        streetlights:project.streetlights?.length||0,
+        imageEmbedded:!!project.image?.dataUrl,
+        calibrated:!!project.scale?.calibrated
+      },
+      updatedAt:now,
+      createdAt:now
+    };
+  }
+  function openGithubModal(title, body, actions=[]){
+    let modal=document.getElementById('githubDataPlannerModal');
+    if(!modal){
+      modal=document.createElement('div');
+      modal.id='githubDataPlannerModal';
+      modal.className='githubDataModal';
+      modal.innerHTML='<div class="githubDataCard"><h2 id="githubDataTitle"></h2><div id="githubDataBody"></div><div id="githubDataStatus" class="githubDataStatus"></div><div id="githubDataActions" class="githubDataActions"></div></div>';
+      modal.addEventListener('click', event=>{if(event.target===modal) closeGithubModal();});
+      document.body.appendChild(modal);
+    }
+    $('githubDataTitle').textContent=title;
+    $('githubDataBody').innerHTML=body||'';
+    $('githubDataStatus').textContent='';
+    const actionBox=$('githubDataActions');
+    actionBox.innerHTML='';
+    actions.forEach(action=>{
+      const button=document.createElement('button');
+      button.type='button';
+      button.textContent=action.label;
+      if(action.cls) button.className=action.cls;
+      button.onclick=action.onClick;
+      actionBox.appendChild(button);
+    });
+    modal.classList.add('open');
+    return modal;
+  }
+  function closeGithubModal(){
+    document.getElementById('githubDataPlannerModal')?.classList.remove('open');
+  }
+  function setGithubStatus(message){
+    const el=$('githubDataStatus');
+    if(el) el.textContent=message||'';
+  }
+  function openGithubSettings(){
+    const settings=getGithubSettings();
+    openGithubModal('GitHub data repository', `
+      <div class="field"><label>Private data repo</label><input id="gdRepo" value="${escapeAttr(settings.repoFullName)}" placeholder="GeorgeHinch/hakomachi_savedata"><div class="small">Use owner/repo. The repo can be private.</div></div>
+      <div class="field"><label>Branch</label><input id="gdBranch" value="${escapeAttr(settings.branch)}"></div>
+      <div class="field"><label>Fine-grained token</label><input id="gdToken" type="password" value="${escapeAttr(settings.token)}"><div class="small">Stored only in this browser. Needs Contents read/write on the data repo.</div></div>
+      <div class="field"><label>Footprint library path</label><input id="gdLibrary" value="${escapeAttr(settings.libraryPath)}"></div>
+      <div class="field"><label>Site plan files directory</label><input id="gdSites" value="${escapeAttr(settings.sitePlansDir)}"></div>
+    `, [
+      {label:'Save settings', cls:'primary', onClick:()=>{
+        setGithubSettings({
+          repoFullName:$('gdRepo').value,
+          branch:$('gdBranch').value,
+          token:$('gdToken').value,
+          libraryPath:$('gdLibrary').value,
+          sitePlansDir:$('gdSites').value
+        });
+        setGithubStatus('Settings saved.');
+      }},
+      {label:'Close', onClick:closeGithubModal}
+    ]);
+  }
+  async function saveSitePlanToGithub(){
+    try{
+      const settings=getGithubSettings();
+      try{requireGithubSettings(settings);}catch(err){openGithubSettings(); setGithubStatus(err.message); return;}
+      const current=getCurrentGithubSite();
+      const project=projectJson();
+      const defaultName=current?.name || githubProjectName(project);
+      const name=prompt('Site plan name for GitHub save', defaultName);
+      if(!name) return;
+      const id=(current && current.name===defaultName && current.id) ? current.id : slug(name);
+      const path=(current && current.name===defaultName && current.path) ? current.path : cleanGithubPath(`${settings.sitePlansDir}/${id}.hako-site.json`);
+      project.projectName=name;
+      project.hakomachiCloud={schema:'hakomachi.cloud-ref', schemaVersion:1, kind:'sitePlan', id, name, path, savedAt:new Date().toISOString()};
+      openGithubModal('Save site plan to GitHub', '<div class="small">Preparing GitHub save...</div>', [{label:'Close', onClick:closeGithubModal}]);
+      setGithubStatus('Saving site plan...');
+      await writeGithubFile(settings, path, JSON.stringify(project,null,2)+'\n', `Save HakoMachi site plan: ${name}`);
+      setGithubStatus('Updating library...');
+      const library=await loadGithubLibrary(settings);
+      upsertGithubSitePlan(library, githubSiteRecord(id, name, path, project));
+      await writeGithubFile(settings, settings.libraryPath, JSON.stringify(library,null,2)+'\n', `Update HakoMachi site plan library: ${name}`);
+      setCurrentGithubSite({id,name,path});
+      markManualSaveComplete();
+      setGithubStatus(`Saved ${path}`);
+      $('githubDataBody').innerHTML=`<div class="okText">Saved site plan to GitHub.</div><div class="small">${escapeHtml(settings.repoFullName)}<br>${escapeHtml(path)}</div>`;
+    }catch(err){
+      setGithubStatus('GitHub save failed: '+(err.message||err));
+      alert('GitHub save failed:\n\n'+(err.message||err));
+    }
+  }
+  async function loadSitePlanFromGithub(record){
+    try{
+      const settings=getGithubSettings();
+      requireGithubSettings(settings);
+      setGithubStatus('Loading '+record.path+'...');
+      const file=await readGithubFile(settings, record.path);
+      if(!file) throw new Error('Missing file: '+record.path);
+      loadProject(JSON.parse(file.text), {fromFile:true});
+      setCurrentGithubSite({id:record.id, name:record.name, path:record.path});
+      closeGithubModal();
+    }catch(err){
+      setGithubStatus('GitHub load failed: '+(err.message||err));
+      alert('GitHub load failed:\n\n'+(err.message||err));
+    }
+  }
+  async function openGithubSitePlans(){
+    try{
+      const settings=getGithubSettings();
+      try{requireGithubSettings(settings);}catch(err){openGithubSettings(); setGithubStatus(err.message); return;}
+      openGithubModal('GitHub site plans', '<div class="small">Loading...</div>', [{label:'Close', onClick:closeGithubModal}]);
+      const library=await loadGithubLibrary(settings);
+      const records=normalizeGithubLibrary(library).records.sitePlans;
+      const body=$('githubDataBody');
+      if(!records.length){
+        body.innerHTML='<div class="small">No saved site plans yet.</div>';
+        return;
+      }
+      body.innerHTML='<div class="small">Choose a saved site plan from the shared HakoMachi library.</div>';
+      records.forEach(record=>{
+        const row=document.createElement('div');
+        row.className='githubDataRecord';
+        const summary=record.summary||{};
+        row.innerHTML=`<div><b>${escapeHtml(record.name||record.id)}</b><small>${escapeHtml(record.path||'')}</small><small>${summary.buildings||0} buildings / ${summary.roads||0} roads / ${escapeHtml(record.updatedAt||'')}</small></div>`;
+        const button=document.createElement('button');
+        button.type='button';
+        button.textContent='Load';
+        button.onclick=()=>loadSitePlanFromGithub(record);
+        row.appendChild(button);
+        body.appendChild(row);
+      });
+    }catch(err){
+      openGithubModal('GitHub site plans', `<div class="warning">${escapeHtml(err.message||err)}</div>`, [{label:'Close', onClick:closeGithubModal}]);
+    }
+  }
+  async function openGithubBuildings(){
+    try{
+      const settings=getGithubSettings();
+      try{requireGithubSettings(settings);}catch(err){openGithubSettings(); setGithubStatus(err.message); return;}
+      openGithubModal('GitHub building footprints', '<div class="small">Loading...</div>', [{label:'Close', onClick:closeGithubModal}]);
+      const library=await loadGithubLibrary(settings);
+      const records=normalizeGithubLibrary(library).records.buildings;
+      const body=$('githubDataBody');
+      if(!records.length){
+        body.innerHTML='<div class="small">No saved building footprints yet.</div>';
+        return;
+      }
+      body.innerHTML='<div class="small">Shared footprint records. Placement from this list can be added in a later native Site Planner pass.</div>';
+      records.forEach(record=>{
+        const footprint=record.footprint||{};
+        const path=record.path||record.paths?.hako||'';
+        const row=document.createElement('div');
+        row.className='githubDataRecord';
+        row.innerHTML=`<div><b>${escapeHtml(record.name||record.id)}</b><small>${escapeHtml(path)}</small><small>${Number(footprint.widthMm||0).toFixed(1)} x ${Number(footprint.depthMm||0).toFixed(1)} mm</small></div>`;
+        const button=document.createElement('button');
+        button.type='button';
+        button.textContent='Copy path';
+        button.onclick=()=>prompt('Building .hako path', path);
+        row.appendChild(button);
+        body.appendChild(row);
+      });
+    }catch(err){
+      openGithubModal('GitHub building footprints', `<div class="warning">${escapeHtml(err.message||err)}</div>`, [{label:'Close', onClick:closeGithubModal}]);
+    }
+  }
   $('inputMode').onchange=e=>{state.inputMode=e.target.value; draw();};
   $('snapBtn').onclick=()=>{state.snapOn=!state.snapOn; $('snapBtn').classList.toggle('active', state.snapOn); $('snapBtn').textContent=state.snapOn?'Snap: On':'Snap: Off'; draw();};
   $('deleteAnnotationBtn').onclick=deleteSelectedAnnotation;
   $('clearAnnotationsBtn').onclick=()=>{if(state.annotations.length && !confirm('Clear all freehand annotation notes?')) return; state.annotations=[]; state.selectedAnnotationId=null; renderSelected(); draw(); markDirty('annotations cleared');};
   $('fitBtn').onclick=()=>{fitImage(); markDirty('view changed');}; $('resetBtn').onclick=()=>{state.view={x:40,y:40,scale:1}; draw(); markDirty('view changed');}; $('clearCacheBtn').onclick=clearCacheAndReset; if($('clearCachePanelBtn')) $('clearCachePanelBtn').onclick=clearCacheAndReset;
+  $('githubSettingsBtn').onclick=openGithubSettings;
+  $('githubSaveBtn').onclick=saveSitePlanToGithub;
+  $('githubLoadBtn').onclick=openGithubSitePlans;
+  $('githubBuildingsBtn').onclick=openGithubBuildings;
+  if($('mobileGithubSettingsBtn')) $('mobileGithubSettingsBtn').onclick=openGithubSettings;
+  if($('mobileGithubSaveBtn')) $('mobileGithubSaveBtn').onclick=saveSitePlanToGithub;
+  if($('mobileGithubLoadBtn')) $('mobileGithubLoadBtn').onclick=openGithubSitePlans;
+  if($('mobileGithubBuildingsBtn')) $('mobileGithubBuildingsBtn').onclick=openGithubBuildings;
   $('saveBtn').onclick=()=>{download(JSON.stringify(projectJson(),null,2),'hakomachi-site.hako-site.json','application/json'); markManualSaveComplete();};
   if($('undoBtn')) $('undoBtn').onclick=()=>undo();
   if($('redoBtn')) $('redoBtn').onclick=()=>redo();

@@ -153,6 +153,7 @@
   </div>
 </section>
 </main>
+<script src="../js/utilities/shared.js"></script>
 <script>
 window.addEventListener('DOMContentLoaded', function(){
 'use strict';
@@ -760,15 +761,7 @@ function currentSettingsObject(){
   };
 }
 function extractSettingsObject(text){
-  text=String(text||'').trim();
-  if(!text)return null;
-  var meta=text.match(/<metadata[^>]*>([\s\S]*?)<\/metadata>/i);
-  if(meta)text=htmlDecode(meta[1]).trim();
-  else {
-    var jsonBlock=text.match(/\{[\s\S]*\}/);
-    if(jsonBlock)text=htmlDecode(jsonBlock[0]).trim();
-  }
-  return JSON.parse(text);
+  return HakoMachiUtils.extractJsonOrSvgMetadata(text);
 }
 function setIfPresent(id,value){if(value!==undefined && value!==null && el(id))el(id).value=value;}
 function applySettingsObject(obj){
@@ -826,10 +819,10 @@ function importSettings(){
 function copySettings(){
   var text=JSON.stringify(currentSettingsObject(),null,2);
   el('settingsPaste').value=text;
-  navigator.clipboard.writeText(text).then(function(){el('copySettingsBtn').textContent='Settings copied'; setTimeout(function(){el('copySettingsBtn').textContent='Copy current settings';},900);},function(){el('copySettingsBtn').textContent='Settings in box'; setTimeout(function(){el('copySettingsBtn').textContent='Copy current settings';},900);});
+  HakoMachiUtils.copyText(text,{button:el('copySettingsBtn'),successText:'Settings copied',resetText:'Copy current settings',fallbackText:'Settings in box'});
 }
-function download(){var svg=regenerate(false), blob=new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n'+svg],{type:'image/svg+xml'}), url=URL.createObjectURL(blob), a=document.createElement('a'); a.href=url; a.download='safety_railing_flat_cutout_'+el('lengthMm').value+'mm.svg'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);}
-function copySvg(){var text='<?xml version="1.0" encoding="UTF-8"?>\n'+regenerate(false); navigator.clipboard.writeText(text).then(function(){el('copyBtn').textContent='Copied'; setTimeout(function(){el('copyBtn').textContent='Copy flat SVG';},900);},function(){alert('Copy failed; use download instead.');});}
+function download(){var svg=regenerate(false); HakoMachiUtils.downloadText('<?xml version="1.0" encoding="UTF-8"?>\n'+svg,'safety_railing_flat_cutout_'+el('lengthMm').value+'mm.svg','image/svg+xml');}
+function copySvg(){var text='<?xml version="1.0" encoding="UTF-8"?>\n'+regenerate(false); HakoMachiUtils.copyText(text,{button:el('copyBtn'),successText:'Copied',resetText:'Copy flat SVG'}).then(function(ok){if(!ok)alert('Copy failed; use download instead.');});}
 function safeRegenerate(updateEditor){try{regenerate(updateEditor);}catch(err){el('stats').textContent='Render error: '+err.message; console.error(err);}}
 function applyPastedLineFromText(showAlert){
   var text=el('pastedSvgLine').value.trim();

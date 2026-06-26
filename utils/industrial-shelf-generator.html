@@ -92,6 +92,7 @@
     <div id="previewWrap"><div id="previewCards"></div><svg id="downloadSvg" xmlns="http://www.w3.org/2000/svg"></svg></div>
   </section>
 </main>
+<script src="../js/utilities/shared.js"></script>
 <script>
 const NS = 'http://www.w3.org/2000/svg';
 const CUT = '#d22';
@@ -952,20 +953,11 @@ function materialFilePrefix(part){
 }
 
 function serializeSvgForDownload(svg){
-  const clone=svg.cloneNode(true);
-  clone.setAttribute('xmlns',NS);
-  return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
+  return HakoMachiUtils.serializeSvgElement(svg);
 }
 
 function triggerSvgDownload(svg, filename){
-  const blob=new Blob([serializeSvgForDownload(svg)],{type:'image/svg+xml'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  HakoMachiUtils.downloadText(serializeSvgForDownload(svg), filename, 'image/svg+xml');
 }
 
 
@@ -1846,13 +1838,7 @@ function makeZipBlob(files){
 }
 
 function triggerBlobDownload(blob, filename){
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  HakoMachiUtils.downloadBlob(blob, filename);
 }
 
 function downloadEachSVG(){
@@ -1869,7 +1855,7 @@ function downloadEachSVG(){
     const filename=String(idx+1).padStart(2,'0')+'_'+base+suffix+'.svg';
     return {name: filename, text: serializeSvgForDownload(makeSvg(part))};
   });
-  triggerBlobDownload(makeZipBlob(files), 'industrial_shelf_svg_parts.zip');
+  triggerBlobDownload(HakoMachiUtils.makeZipBlob(files), 'industrial_shelf_svg_parts.zip');
 }
 
 render();

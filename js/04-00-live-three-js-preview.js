@@ -5,6 +5,18 @@
 
 let threeScene, threeCamera, threeRenderer, threeControls, buildingMesh;
 let threePreviewUseStlGeometry = false;
+let threePreviewRenderRequested = true;
+let threePreviewLoopActive = false;
+let threePreviewDampingFrames = 0;
+
+function requestThreePreviewRender(extraFrames = 2) {
+  threePreviewRenderRequested = true;
+  threePreviewDampingFrames = Math.max(threePreviewDampingFrames, extraFrames || 0);
+  if (!threePreviewLoopActive) {
+    threePreviewLoopActive = true;
+    requestAnimationFrame(animateThree);
+  }
+}
 
 function initThreePreview() {
   const container = document.getElementById('threePreview');
@@ -34,6 +46,9 @@ function initThreePreview() {
   );
 
   threeControls.enableDamping = true;
+  threeControls.addEventListener('start', () => requestThreePreviewRender(24));
+  threeControls.addEventListener('change', () => requestThreePreviewRender(8));
+  threeControls.addEventListener('end', () => requestThreePreviewRender(24));
 
   const ambient = new THREE.AmbientLight(0xffffff, 0.8);
   threeScene.add(ambient);
@@ -45,7 +60,7 @@ function initThreePreview() {
   const grid = new THREE.GridHelper(300, 30);
   threeScene.add(grid);
 
-  animateThree();
+  requestThreePreviewRender(2);
 }
 
 /**
@@ -3188,18 +3203,31 @@ function updateThreePreview(cfg) {
   // Add the assembled building to the scene
   threeScene.add(group);
   buildingMesh = group;
+  requestThreePreviewRender(2);
 }  // end updateThreePreview
 
 function animateThree() {
-  requestAnimationFrame(animateThree);
-
   // Pause rendering while the opening editor is visible — the modal covers the
   // 3D canvas and OrbitControls/WebGL event listeners can throw "Script error."
   // (cross-origin CDN) while items are being placed.
-  if (oeEditorOpen) return;
+  if (oeEditorOpen) {
+    threePreviewLoopActive = false;
+    return;
+  }
+
+  if (!threePreviewRenderRequested && threePreviewDampingFrames <= 0) {
+    threePreviewLoopActive = false;
+    return;
+  }
+
+  threePreviewRenderRequested = false;
 
   if (threeControls) {
-    try { threeControls.update(); } catch(e) { /* ignore */ }
+    try {
+      if (threeControls.update && threeControls.update()) {
+        threePreviewDampingFrames = Math.max(threePreviewDampingFrames, 2);
+      }
+    } catch(e) { /* ignore */ }
   }
 
   if (threeRenderer && threeScene && threeCamera) {
@@ -3209,6 +3237,13 @@ function animateThree() {
       console.warn('Three.js render error — rebuilding preview:', e);
       try { updateThreePreview(CONFIG); } catch(e2) { /* skip silently */ }
     }
+  }
+
+  if (threePreviewDampingFrames > 0) threePreviewDampingFrames--;
+  if (threePreviewRenderRequested || threePreviewDampingFrames > 0) {
+    requestAnimationFrame(animateThree);
+  } else {
+    threePreviewLoopActive = false;
   }
 }
 
@@ -3220,6 +3255,7 @@ window.addEventListener('resize', () => {
   threeCamera.updateProjectionMatrix();
 
   threeRenderer.setSize(container.clientWidth, container.clientHeight);
+  requestThreePreviewRender(2);
 });
 
 // Hook preview generation

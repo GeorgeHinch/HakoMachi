@@ -13,12 +13,25 @@
   --panel-3: #f0f0ea;
   --border: #d4d4cc;
   --text: #2a2a28;
+  --fg: var(--text);
+  --ink: var(--text);
   --muted: #7a7a72;
   --accent: #c84a3a;
   --accent-dark: #9c382b;
   --etch: #2a64aa;
   --ok: #2a6a3a;
   --danger: #9c382b;
+  --warn: var(--accent);
+  --panel2: var(--panel-2);
+  --panel3: var(--panel-3);
+  --accent2: var(--etch);
+  --accentSoft: #fef0ee;
+  --line: var(--border);
+  --lineDark: #999;
+  --canvas: #e8e8e0;
+  --pad: var(--accent);
+  --sel: var(--etch);
+  --shadow: none;
   --focus: 0 0 0 2px rgba(200,74,58,0.22);
 }
 
@@ -111,14 +124,16 @@ button.active:hover,
 }
 
 button.danger,
-.menuItem.danger {
+.menuItem.danger,
+.dangerItem {
   background: #fff;
   border-color: var(--border);
   color: var(--accent);
 }
 
 button.danger:hover,
-.menuItem.danger:hover {
+.menuItem.danger:hover,
+.dangerItem:hover {
   background: #fef0ee;
   border-color: #f5d0c8;
   color: var(--accent-dark);
@@ -173,10 +188,26 @@ h3 { font-size: 13px; margin: 12px 0 4px; font-weight: 600; }
 .actions { margin-top: 12px; }
 .small { font-size: 12px; color: var(--muted); }
 .muted { color: var(--muted); }
-.warning,
-.warn { color: var(--accent); }
-.okText,
-.ok-msg { color: var(--ok); }
+.warning { color: var(--accent); }
+.warn {
+  color: var(--accent);
+  font-size: 11px;
+  padding: 4px;
+  background: #fef0ee;
+  border: 1px solid #f5d0c8;
+  border-radius: 3px;
+  margin-top: 6px;
+}
+.okText { color: var(--ok); }
+.ok-msg {
+  color: var(--ok);
+  font-size: 11px;
+  padding: 4px;
+  background: #eef7f0;
+  border: 1px solid #c9e1d0;
+  border-radius: 3px;
+  margin-top: 6px;
+}
 
 .app-logo {
   display: block;
@@ -217,6 +248,81 @@ h3 { font-size: 13px; margin: 12px 0 4px; font-weight: 600; }
   color: var(--muted);
   padding: 2px 7px;
   font-size: 11px;
+}
+
+.codebox {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  max-height: 160px;
+  overflow: auto;
+  background: #2f2f2a;
+  border: 1px solid #5c5c52;
+  border-radius: 4px;
+  padding: 8px;
+  color: #fffdf7;
+}
+
+.warningBox,
+.importStatus.warn {
+  color: var(--accent);
+  background: #fef0ee;
+  border: 1px solid #f5d0c8;
+  border-radius: 3px;
+}
+
+.okBox,
+.importStatus.ok {
+  color: var(--ok);
+  background: #eef7f0;
+  border: 1px solid #c9e1d0;
+  border-radius: 3px;
+}
+
+.importStatus {
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.hakoImportDropzone {
+  width: 100%;
+  min-height: 58px;
+  border: 1.5px dashed var(--border);
+  border-radius: 4px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 9px 10px;
+  cursor: pointer;
+  text-align: center;
+  color: var(--text);
+}
+
+.hakoImportDropzone:hover,
+.hakoImportDropzone:focus {
+  background: #f0f0ec;
+  border-color: var(--accent);
+  outline: none;
+}
+
+.hakoImportDropzone.dragover {
+  background: #fff3ee;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(200,70,50,.15);
+}
+
+.checkboxRow input[type="checkbox"] {
+  width: auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.checkboxRow span {
+  font-weight: 600;
+  color: var(--text);
 }
 
 .dropdownMenu,

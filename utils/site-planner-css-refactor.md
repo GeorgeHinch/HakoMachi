@@ -9,11 +9,11 @@ This utility is still a monolithic HTML file, but the shared CSS split has start
 
 ## Target load order
 
-When `utils/site-planner.html` is split from inline CSS, the static head should load:
+When `site-planner.html` is split from inline CSS, the static head should load:
 
 ```html
-<link rel="stylesheet" href="../css/hakomachi-shared.css">
-<link rel="stylesheet" href="site-planner-shared.css">
+<link rel="stylesheet" href="css/hakomachi-shared.css">
+<link rel="stylesheet" href="utils/site-planner-shared.css">
 ```
 
 Do not inject these links at runtime. The Site Planner should use static stylesheet links once the monolithic HTML is replaced or safely edited as a full source file.

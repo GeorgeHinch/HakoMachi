@@ -1,0 +1,248 @@
+/* Shared layout for standalone HakoMachi utility generators. */
+
+body.utility-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.utility-page header {
+  position: static;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  padding: 16px 20px;
+  background: var(--panel);
+  color: var(--text);
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.utility-page header h1 {
+  display: block;
+  margin: 0;
+  padding: 0;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.utility-page header h1::before,
+.utility-page header h1::after {
+  display: none;
+}
+
+.utility-page header p,
+.utility-page header .sub {
+  max-width: 980px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.utility-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.utility-title-block {
+  min-width: 0;
+}
+
+.utility-home {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: #fff;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.utility-home:hover,
+.utility-home:focus-visible {
+  background: #f0f0ec;
+  border-color: var(--accent);
+}
+
+.utility-home:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.utility-page main {
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  gap: 16px;
+  width: min(1440px, 100%);
+  min-height: auto;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.utility-page main > section,
+.utility-page .panel {
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.utility-page .controls,
+.utility-page main > .panel:first-child {
+  align-self: start;
+  position: sticky;
+  top: 12px;
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  padding: 14px;
+}
+
+.utility-page main > section:not(.controls),
+.utility-page main > .panel:nth-child(2),
+.utility-page .canvasWrap {
+  padding: 14px;
+}
+
+.utility-page label,
+.utility-page .previewTitle {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.utility-page label::before {
+  content: none;
+}
+
+.utility-page input,
+.utility-page select,
+.utility-page textarea {
+  border-radius: 3px;
+  border-color: var(--border);
+  font: inherit;
+}
+
+.utility-page button {
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.utility-page button:hover {
+  background: #f0f0ec;
+}
+
+.utility-page button:not(.secondary),
+.utility-page #downloadBtn {
+  background: var(--accent);
+  border-color: var(--accent-dark);
+  color: #fff;
+}
+
+.utility-page #downloadBtn::before {
+  content: none;
+}
+
+.utility-page button:not(.secondary):hover,
+.utility-page #downloadBtn:hover {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+}
+
+.utility-page .secondary {
+  background: #fff;
+  color: var(--text);
+}
+
+.utility-page .hint,
+.utility-page .small,
+.utility-page .sub,
+.utility-page .renderIntro {
+  color: var(--muted);
+}
+
+.utility-page .legend,
+.utility-page .legendLine {
+  color: var(--muted);
+}
+
+.utility-page .previewBox,
+.utility-page .previewScroller,
+.utility-page #previewWrap,
+.utility-page .partCard,
+.utility-page .previewGrid > div,
+.utility-page .readout,
+.utility-page .stats,
+.utility-page fieldset {
+  background: #fff;
+  border-color: var(--border);
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.utility-page fieldset {
+  margin: 0 0 12px;
+}
+
+.utility-page legend {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.utility-page .previewTitle {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+@media (max-width: 900px) {
+  .utility-page main {
+    grid-template-columns: 1fr;
+    padding: 12px;
+  }
+
+  .utility-page .controls,
+  .utility-page main > .panel:first-child {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 560px) {
+  .utility-page header {
+    padding: 12px;
+  }
+
+  .utility-topline {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .utility-page main {
+    padding: 10px;
+    gap: 10px;
+  }
+}

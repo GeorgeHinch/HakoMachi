@@ -113,9 +113,19 @@
     main{margin-left:0} main>.panel:first-child{position:static;width:auto;border-right:0;padding-bottom:14px} main>.panel:nth-child(2){padding:12px}
   }
 </style>
+<link rel="stylesheet" href="../css/hakomachi-shared.css" />
+<link rel="stylesheet" href="../css/utilities.css" />
 </head>
-<body>
-<header><h1>HakoMachi</h1><p>For Japanese 1:150 N-scale layouts. Generates laser-cut SVG railing parts with tab-and-slot base joinery.</p></header>
+<body class="utility-page">
+<header>
+  <div class="utility-topline">
+    <div class="utility-title-block">
+      <h1>Safety Railing Laser-Cut SVG Generator</h1>
+      <p>For Japanese 1:150 N-scale layouts. Generates laser-cut railing parts with tab-and-slot base joinery.</p>
+    </div>
+    <a class="utility-home" href="../index.html">HakoMachi</a>
+  </div>
+</header>
 <main>
 <section class="panel">
   <div class="row"><div><label for="lengthMm">Manual straight length / calculated path length (mm)</label><input id="lengthMm" type="number" value="120" step="0.1" min="5"></div><div><label for="heightMm">Railing height (mm)</label><input id="heightMm" type="number" value="6" step="0.1" min="2"></div></div>

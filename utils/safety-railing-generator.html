@@ -161,11 +161,11 @@ var CUT='#e00000', ENG='#0057ff', PATH='#222222', STAIR='#7c3aed';
 var pathPoints=null;
 var pathPointsRawSvgUnits=false;
 var segmentSettings=[];
-function el(id){return document.getElementById(id);}
-function val(id){var n=parseFloat(el(id).value); return isFinite(n)?n:0;}
-function fixed(n){return Number((+n).toFixed(4));}
-function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-function htmlDecode(s){var ta=document.createElement('textarea'); ta.innerHTML=String(s||''); return ta.value;}
+var U=HakoMachiUtils;
+function el(id){return U.byId(id);}
+function val(id){return U.numberValue(id);}
+function fixed(n){return U.fixed(n);}
+function esc(s){return U.escapeHtml(s);}
 function distance(a,b){return Math.hypot(b.x-a.x,b.y-a.y);}
 function unit(a,b){var d=distance(a,b)||1; return {x:(b.x-a.x)/d,y:(b.y-a.y)/d,len:d};}
 function norm(u){return {x:-u.y,y:u.x};}

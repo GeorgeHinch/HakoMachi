@@ -1,0 +1,148 @@
+/* HakoMachi landing page layout only.
+   Colors, typography, card, form, and button styling come from css/hakomachi-shared.css. */
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.landing-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.landing-card {
+  width: min(760px, 100%);
+  margin: 0;
+  padding: 22px;
+}
+
+.landing-header {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.landing-title {
+  margin: 0;
+}
+
+.landing-subtitle {
+  max-width: 520px;
+  margin: 0;
+}
+
+.landing-tools {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0 18px;
+}
+
+.landing-tool-card {
+  display: block;
+  min-height: 132px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel-2);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.landing-tool-card:hover,
+.landing-tool-card:focus-visible {
+  background: var(--panel-3);
+  border-color: var(--accent);
+}
+
+.landing-tool-card:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.landing-tool-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.landing-tool-title::after {
+  content: "→";
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.landing-tool-card p,
+.utility-placeholder p {
+  margin: 0;
+}
+
+.landing-utilities {
+  margin-top: 8px;
+}
+
+.utility-placeholder {
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  background: var(--panel-2);
+}
+
+.landing-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.language-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.language-field label {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.language-field select {
+  width: auto;
+  min-width: 120px;
+}
+
+@media (max-width: 640px) {
+  .landing-shell {
+    align-items: start;
+    padding: 14px;
+  }
+
+  .landing-card {
+    padding: 14px;
+  }
+
+  .landing-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .language-field {
+    justify-content: space-between;
+  }
+}

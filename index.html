@@ -35,7 +35,7 @@
           </g>
           <g fill="currentColor">
             <text x="112" y="57" font-size="22" font-weight="700" letter-spacing="0.02em">HakoMachi</text>
-            <text x="188" y="73" font-size="14" font-weight="600" letter-spacing="0.14em">箱街</text>
+            <text x="188" y="73" font-size="14" font-weight="600" letter-spacing="0.14em">&#31665;&#34903;</text>
           </g>
           <line x1="108" y1="70" x2="172.7" y2="70" stroke="currentColor" stroke-width="0.75" opacity="0.35" />
           <line x1="224.7" y1="70" x2="289.5" y2="70" stroke="currentColor" stroke-width="0.75" opacity="0.35" />
@@ -75,83 +75,18 @@
           </a>
         </div>
       </section>
-
-      <footer class="landing-footer">
-        <p class="small" data-i18n="footerText">Boxes for a town. 箱街</p>
-        <div class="language-field field">
-          <label for="languageSelect" data-i18n="languageLabel">Language</label>
-          <select id="languageSelect" aria-label="Language">
-            <option value="auto" data-i18n="languageAuto">Auto</option>
-            <option value="en">English</option>
-            <option value="ja">日本語</option>
-          </select>
-        </div>
-      </footer>
     </section>
   </main>
-
-  <script>
-    const translations = {
-      en: {
-        title: 'HakoMachi',
-        subtitle: 'Plan a Japanese N-scale streetscape, then generate laser-cut buildings for it.',
-        sitePlannerTitle: 'Site Planner',
-        sitePlannerDescription: 'Lay out roads, sidewalks, benchwork, traced pads, and building metadata before committing parts to material.',
-        buildingGeneratorTitle: 'Building Generator',
-        buildingGeneratorDescription: 'Design individual 1:150 buildings and export sorted SVG cut sheets with tongue-and-slot joinery.',
-        utilitiesTitle: 'Utilities',
-        utilitiesDescription: 'Standalone helper classes for building detail pieces will appear here as they are added to the repository.',
-        footerText: 'Boxes for a town. 箱街',
-        languageLabel: 'Language',
-        languageAuto: 'Auto',
-        toolsLabel: 'HakoMachi tools'
-      },
-      ja: {
-        title: '箱街',
-        subtitle: '日本型Nゲージの街区を計画し、レーザーカット用の建物を生成します。',
-        sitePlannerTitle: 'サイトプランナー',
-        sitePlannerDescription: '道路、歩道、ベンチワーク、建物パッド、建物メタデータを材料へ展開する前に配置します。',
-        buildingGeneratorTitle: '建物ジェネレーター',
-        buildingGeneratorDescription: '1:150の建物を設計し、差し込み継ぎ手付きのSVGカットシートを書き出します。',
-        utilitiesTitle: 'ユーティリティ',
-        utilitiesDescription: '建物のディテール部品を作る単独ヘルパークラスは、リポジトリへ追加された時点でここに表示されます。',
-        footerText: '箱でつくる街。箱街',
-        languageLabel: '言語',
-        languageAuto: '自動',
-        toolsLabel: '箱街ツール'
-      }
-    };
-
-    const storageKey = 'hakomachi.lang';
-    const languageSelect = document.getElementById('languageSelect');
-
-    function browserLanguage() {
-      const languages = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
-      return languages.some(lang => /^ja\b/i.test(lang)) ? 'ja' : 'en';
-    }
-
-    function activeLanguage() {
-      const saved = localStorage.getItem(storageKey) || 'auto';
-      return saved === 'auto' ? browserLanguage() : saved;
-    }
-
-    function applyLanguage() {
-      const lang = activeLanguage();
-      const dict = translations[lang] || translations.en;
-      document.documentElement.lang = lang;
-      document.querySelectorAll('[data-i18n]').forEach(node => {
-        const key = node.getAttribute('data-i18n');
-        if (dict[key]) node.textContent = dict[key];
-      });
-      document.querySelector('[aria-label="HakoMachi tools"]').setAttribute('aria-label', dict.toolsLabel);
-    }
-
-    languageSelect.value = localStorage.getItem(storageKey) || 'auto';
-    languageSelect.addEventListener('change', () => {
-      localStorage.setItem(storageKey, languageSelect.value);
-      applyLanguage();
-    });
-    applyLanguage();
-  </script>
+  <div class="language-switcher" aria-label="Language">
+    <svg class="language-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 21V4" />
+      <path d="M6 5h11l-2 4 2 4H6" />
+    </svg>
+    <select id="languageSelect" aria-label="Language">
+      <option value="en">English</option>
+      <option value="ja">&#26085;&#26412;&#35486;</option>
+    </select>
+  </div>
+  <script type="module" src="js/landing/main.js"></script>
 </body>
 </html>

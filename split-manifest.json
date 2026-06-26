@@ -19,9 +19,9 @@
   {
     "type": "js",
     "script_index": 0,
-    "path": "js/00-00-prelude.js",
-    "bytes": 14,
-    "title": "prelude"
+    "path": "js/hakomachi-github-building.js",
+    "bytes": 14276,
+    "title": "HakoMachi GitHub building save"
   },
   {
     "type": "js",
@@ -64,6 +64,13 @@
     "path": "js/00-06-legacy-hako-import-healing-block.js",
     "bytes": 8950,
     "title": "LEGACY .HAKO IMPORT + HEALING BLOCK"
+  },
+  {
+    "type": "js",
+    "script_index": 0,
+    "path": "js/00-07-config-serialization.js",
+    "bytes": 406,
+    "title": "CONFIG SERIALIZATION"
   },
   {
     "type": "js",
@@ -250,8 +257,15 @@
   {
     "type": "js",
     "script_index": 0,
+    "path": "js/00-33-cladding-panel-generator.js",
+    "bytes": 68454,
+    "title": "WALL CLADDING PANEL GENERATOR"
+  },
+  {
+    "type": "js",
+    "script_index": 0,
     "path": "js/00-33-roof-fascia-trim.js",
-    "bytes": 75089,
+    "bytes": 8392,
     "title": "ROOF FASCIA TRIM"
   },
   {
@@ -327,8 +341,15 @@
   {
     "type": "js",
     "script_index": 0,
+    "path": "js/00-44-config-persistence.js",
+    "bytes": 11711,
+    "title": "CONFIG PERSISTENCE"
+  },
+  {
+    "type": "js",
+    "script_index": 0,
     "path": "js/00-44-stl-export-3d-massing-preview.js",
-    "bytes": 98729,
+    "bytes": 88883,
     "title": "STL EXPORT — 3D MASSING PREVIEW"
   },
   {

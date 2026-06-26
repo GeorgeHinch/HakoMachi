@@ -10,8 +10,13 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   display: grid;
-  place-items: center;
+  place-content: center;
+  justify-items: center;
   padding: 24px;
+}
+
+.landing-logo {
+  margin: 0 0 14px;
 }
 
 .landing-card {
@@ -96,34 +101,42 @@ body {
   margin: 0;
 }
 
-.landing-footer {
+.language-switcher {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.language-field {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
   margin: 0;
 }
 
-.language-field label {
-  margin: 0;
-  white-space: nowrap;
+.language-icon {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.language-field select {
+.language-switcher select {
   width: auto;
-  min-width: 120px;
+  min-width: 92px;
+  padding: 3px 22px 3px 5px;
+  border: 0;
+  background: transparent;
 }
 
 @media (max-width: 640px) {
   .landing-shell {
-    align-items: start;
+    align-content: start;
     padding: 14px;
   }
 
@@ -135,12 +148,8 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .landing-footer {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .language-field {
-    justify-content: space-between;
+  .language-switcher {
+    right: 10px;
+    bottom: 10px;
   }
 }

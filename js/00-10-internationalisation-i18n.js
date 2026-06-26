@@ -455,6 +455,34 @@ const TRANSLATIONS = {
 };
 
 let currentLang = 'en';
+const HAKOMACHI_LANG_KEY = 'hakomachi.lang';
+const HAKOMACHI_LEGACY_LANG_KEY = 'hakomachi_lang';
+
+function browserHakoMachiLanguage() {
+  const languages = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || navigator.userLanguage || 'en'];
+  return languages.some(lang => /^ja\b/i.test(lang)) ? 'ja' : 'en';
+}
+
+function storedHakoMachiLanguage() {
+  try {
+    const shared = localStorage.getItem(HAKOMACHI_LANG_KEY);
+    if (shared === 'en' || shared === 'ja') return shared;
+    const legacy = localStorage.getItem(HAKOMACHI_LEGACY_LANG_KEY);
+    if (legacy === 'en' || legacy === 'ja') return legacy;
+  } catch(e) {}
+  return null;
+}
+
+function initialHakoMachiLanguage() {
+  return storedHakoMachiLanguage() || browserHakoMachiLanguage();
+}
+
+function saveHakoMachiLanguage(lang) {
+  try {
+    localStorage.setItem(HAKOMACHI_LANG_KEY, lang);
+    localStorage.setItem(HAKOMACHI_LEGACY_LANG_KEY, lang);
+  } catch(e) {}
+}
 
 function t(key) {
   return (TRANSLATIONS[currentLang] || TRANSLATIONS.en)[key] || (TRANSLATIONS.en)[key] || key;
@@ -667,6 +695,7 @@ function buildTextRegistry() {
     if (!el) return;
     // Skip elements with data-i18n-html (replaced via innerHTML elsewhere)
     if (el.hasAttribute && el.hasAttribute('data-i18n-html')) return;
+    if (!el.childNodes || typeof el.childNodes[Symbol.iterator] !== 'function') return;
     for (const child of el.childNodes) {
       if (child.nodeType === Node.TEXT_NODE) {
         if (child.textContent.trim()) {
@@ -748,7 +777,18 @@ function applyI18n() {
 function setLanguage(lang) {
   if (!TRANSLATIONS[lang]) return;
   currentLang = lang;
-  try { localStorage.setItem('hakomachi_lang', lang); } catch(e) {}
+  saveHakoMachiLanguage(lang);
   if (typeof applyDynamicObjectI18n === 'function') applyDynamicObjectI18n();
   applyI18n();
+}
+
+function initHakoMachiLanguage() {
+  buildTextRegistry();
+  setLanguage(initialHakoMachiLanguage());
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initHakoMachiLanguage, { once: true });
+} else {
+  initHakoMachiLanguage();
 }

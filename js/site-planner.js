@@ -3,6 +3,16 @@
   const ctx = canvas.getContext('2d');
   const wrap = canvas.parentElement;
   const $ = id => document.getElementById(id);
+  function browserHakoMachiLanguage(){
+    const languages = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
+    return languages.some(lang => /^ja\b/i.test(lang)) ? 'ja' : 'en';
+  }
+  function activeHakoMachiLanguage(){
+    let saved = null;
+    try { saved = localStorage.getItem('hakomachi.lang') || localStorage.getItem('hakomachi_lang'); } catch(_err) {}
+    return saved === 'en' || saved === 'ja' ? saved : browserHakoMachiLanguage();
+  }
+  document.documentElement.lang = activeHakoMachiLanguage();
   const ICONS={
     road:'<svg viewBox="0 0 24 24"><path d="M4 19l4-14"/><path d="M16 5l4 14"/><path d="M12 8v-2"/><path d="M12 13v-2"/><path d="M12 18v-2"/></svg>',
     select:'<svg viewBox="0 0 24 24"><path d="M4 3l9 18 2.1-7.1L22 12 4 3z"/></svg>',

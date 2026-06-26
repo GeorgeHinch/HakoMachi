@@ -48,11 +48,9 @@ body {
   display: block;
   min-height: 132px;
   padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--panel-2);
   color: var(--text);
   text-decoration: none;
+  margin: 0;
 }
 
 .landing-tool-card:hover,
@@ -94,8 +92,8 @@ body {
 .utility-placeholder {
   padding: 12px;
   border: 1px dashed var(--border);
-  border-radius: 4px;
   background: var(--panel-2);
+  margin: 0;
 }
 
 .landing-footer {

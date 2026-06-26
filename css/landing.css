@@ -89,6 +89,20 @@ body {
   margin-top: 8px;
 }
 
+.landing-utility-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.landing-utility-card {
+  min-height: 118px;
+}
+
+.landing-utility-card .landing-tool-title {
+  font-size: 14px;
+}
+
 .utility-placeholder {
   padding: 12px;
   border: 1px dashed var(--border);
@@ -142,5 +156,9 @@ body {
 
   .language-field {
     justify-content: space-between;
+  }
+
+  .landing-utility-grid {
+    grid-template-columns: 1fr;
   }
 }

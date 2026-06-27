@@ -1,5 +1,5 @@
 import githubData from './shared/github-data.js';
-import { hydrateIcons } from './site-planner/icons.js';
+import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
 import { isLikelyIPad } from './site-planner/platform.js';
 import { clamp, deg, dist, fmt, rad, uid } from './site-planner/geometry.js';

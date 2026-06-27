@@ -1,5 +1,4 @@
-(function(global) {
-  'use strict';
+'use strict';
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -297,30 +296,29 @@
     return new Blob(chunks, { type: 'application/zip' });
   }
 
-  global.HakoMachiUtils = {
-    SVG_NS,
-    byId,
-    numberValue,
-    readFormSettings,
-    applyFormSettings,
-    escapeHtml,
-    escapeAttr,
-    htmlDecode,
-    fixed,
-    formatNumber,
-    attrsToString,
-    svgLine,
-    svgRect,
-    svgText,
-    svgPathD,
-    serializeSvgElement,
-    downloadBlob,
-    downloadText,
-    downloadJson,
-    openTextPreview,
-    copyText,
-    extractJsonOrSvgMetadata,
-    rafDebounce,
-    makeZipBlob
-  };
-})(window);
+export {
+  SVG_NS,
+  byId,
+  numberValue,
+  readFormSettings,
+  applyFormSettings,
+  escapeHtml,
+  escapeAttr,
+  htmlDecode,
+  fixed,
+  formatNumber,
+  attrsToString,
+  svgLine,
+  svgRect,
+  svgText,
+  svgPathD,
+  serializeSvgElement,
+  downloadBlob,
+  downloadText,
+  downloadJson,
+  openTextPreview,
+  copyText,
+  extractJsonOrSvgMetadata,
+  rafDebounce,
+  makeZipBlob
+};

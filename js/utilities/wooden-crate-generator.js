@@ -1,8 +1,6 @@
-(function() {
-  'use strict';
+import * as U from './shared.js';
 
-  const U = window.HakoMachiUtils;
-  const $ = id => U.byId(id);
+const $ = id => U.byId(id);
 
   const ids = [
     'outerW',
@@ -423,4 +421,3 @@
   $('reset').addEventListener('click', () => setSettings(defaults));
   ids.forEach(id => $(id).addEventListener('input', render));
   render();
-})();

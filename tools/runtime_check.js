@@ -1,10 +1,50 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { spawnSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'split-manifest.json'), 'utf8'));
-const jsFiles = manifest.filter(entry => entry.type === 'js').map(entry => entry.path);
+const jsEntries = manifest.filter(entry => entry.type === 'js');
+function listJsFiles(relativeDir) {
+  const absoluteDir = path.join(root, relativeDir);
+  if (!fs.existsSync(absoluteDir)) return [];
+  const out = [];
+  for (const entry of fs.readdirSync(absoluteDir, { withFileTypes: true })) {
+    const relativePath = path.join(relativeDir, entry.name).replace(/\\/g, '/');
+    if (entry.isDirectory()) out.push(...listJsFiles(relativePath));
+    else if (entry.isFile() && entry.name.endsWith('.js')) out.push(relativePath);
+  }
+  return out;
+}
+const additionalModuleFiles = [
+  'js/site-planner/main.js',
+  'js/site-planner/icons.js',
+  'js/site-planner/state.js',
+  'js/site-planner/platform.js',
+  'js/site-planner/geometry.js',
+  'js/site-planner/presets.js',
+  ...listJsFiles('js/building-generator'),
+];
+const moduleJsFiles = [...new Set([
+  ...jsEntries.filter(entry => entry.module).map(entry => entry.path),
+  ...additionalModuleFiles,
+])];
+const jsFiles = jsEntries.filter(entry => !entry.module).map(entry => entry.path);
+
+for (const file of moduleJsFiles) {
+  const code = fs.readFileSync(path.join(root, file), 'utf8');
+  const result = spawnSync(process.execPath, ['--check', '--input-type=module'], {
+    input: code,
+    encoding: 'utf8',
+  });
+  if (result.status !== 0) {
+    console.error('Module syntax error in', file);
+    if (result.stderr) console.error(result.stderr.trim());
+    if (result.stdout) console.error(result.stdout.trim());
+    process.exit(1);
+  }
+}
 
 function dummy() {
   return new Proxy(function () {}, {

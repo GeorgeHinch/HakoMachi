@@ -1,64 +1,22 @@
+import githubData from './shared/github-data.js';
+import { hydrateIcons } from './site-planner/icons.js';
+import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
+import { isLikelyIPad } from './site-planner/platform.js';
+import { clamp, deg, dist, fmt, rad, uid } from './site-planner/geometry.js';
+import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS } from './site-planner/presets.js';
+
 (() => {
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
   const wrap = canvas.parentElement;
   const $ = id => document.getElementById(id);
-  const ICONS={
-    road:'<svg viewBox="0 0 24 24"><path d="M4 19l4-14"/><path d="M16 5l4 14"/><path d="M12 8v-2"/><path d="M12 13v-2"/><path d="M12 18v-2"/></svg>',
-    select:'<svg viewBox="0 0 24 24"><path d="M4 3l9 18 2.1-7.1L22 12 4 3z"/></svg>',
-    pan:'<svg viewBox="0 0 24 24"><path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12"/><path d="M11 12V5.5a1.5 1.5 0 0 1 3 0V12"/><path d="M14 12V7.5a1.5 1.5 0 0 1 3 0V13"/><path d="M17 13v-2.5a1.5 1.5 0 0 1 3 0V15c0 4-2.4 7-7 7h-1.8c-2.2 0-3.9-.9-5.1-2.5L3 15.5a1.7 1.7 0 0 1 2.6-2.1L8 16"/></svg>',
-    ruler:'<svg viewBox="0 0 24 24"><path d="M3 17l14-14 4 4L7 21l-4-4z"/><path d="M14 6l2 2"/><path d="M11 9l2 2"/><path d="M8 12l2 2"/><path d="M5 15l2 2"/></svg>',
-    rectangle:'<svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/></svg>',
-    polygon:'<svg viewBox="0 0 24 24"><path d="M12 3l8 6-3 10H7L4 9l8-6z"/></svg>',
-    measure:'<svg viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M8 8l-4 4 4 4"/><path d="M16 8l4 4-4 4"/><path d="M4 5v14"/><path d="M20 5v14"/></svg>',
-    pencil:'<svg viewBox="0 0 24 24"><path d="M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20z"/><path d="M13.5 7.5l3 3"/></svg>',
-    benchwork:'<svg viewBox="0 0 24 24"><path d="M5 5h14v14H5z" stroke-dasharray="3 2"/><path d="M9 3H3v6"/><path d="M15 3h6v6"/><path d="M21 15v6h-6"/><path d="M9 21H3v-6"/></svg>',
-    roadCenterline:'<svg viewBox="0 0 24 24"><path d="M4 19l4-14"/><path d="M16 5l4 14"/><path d="M12 8v-2"/><path d="M12 13v-2"/><path d="M12 18v-2"/></svg>',
-    roadOutline:'<svg viewBox="0 0 24 24"><path d="M4 19l4-14"/><path d="M16 5l4 14"/><path d="M12 8v-2"/><path d="M12 13v-2"/><path d="M12 18v-2"/></svg>',
-    fabric:'<svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M4 11h16"/><path d="M9 5v14"/><path d="M15 5v14"/><path d="M9 11l6 8"/></svg>',
-    manhole:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M7 10h10"/><path d="M7 14h10"/><path d="M10 5v14"/><path d="M14 5v14"/></svg>',
-    roadMarking:'<svg viewBox="0 0 24 24"><path d="M5 19h14"/><path d="M8 15h8"/><path d="M10 11h4"/><path d="M12 5v4"/><path d="M9 8l3-3 3 3"/></svg>',
-    lamp:'<svg viewBox="0 0 24 24"><path d="M7 22h8"/><path d="M11 22V8"/><path d="M11 8h6l2 3"/><path d="M17 8v5"/><path d="M14 13h6"/><path d="M16 16h2"/></svg>',
-    lampAnchored:'<svg viewBox="0 0 24 24"><path d="M7 22h8"/><path d="M11 22V8"/><path d="M11 8h6l2 3"/><path d="M17 8v5"/><path d="M14 13h6"/><circle cx="11" cy="22" r="2"/><path d="M4 22h14"/></svg>'
-  };
-  function setIcon(el, key){ if(el) el.innerHTML = ICONS[key] || ''; }
-  function hydrateIcons(root=document){ root.querySelectorAll('[data-icon]').forEach(el=>setIcon(el, el.dataset.icon)); }
-  function isLikelyIPad(){
-    const ua = navigator.userAgent || '';
-    const platform = navigator.platform || '';
-    const touch = navigator.maxTouchPoints || 0;
-    return /iPad/i.test(ua) || (platform === 'MacIntel' && touch > 1);
-  }
-  const state = {
-    tool:'select', image:null, imageMeta:null, imageOpacity:.75, imageLocked:true,
-    view:{x:0,y:0,scale:1}, pxPerMm:null, calibrationLine:null, lastCalibrationLine:null,
-    buildings:[], selectedId:null, selectedIds:[], hoverBuildingId:null, drag:null, hover:null, polygonDraft:[], measureLine:null, projectName:'hakomachi-site',
-    roads:[], selectedRoadId:null, hoverRoadId:null, hoverRoadSegment:null, roadOutlineEditId:null, roadMode:'centerline', roadDraft:[],
-    roadFeatures:[], selectedRoadFeatureId:null, hoverRoadFeatureId:null,
-    benchworkOutlines:[], selectedBenchworkId:null, hoverBenchworkId:null, hoverBenchworkSegment:null, benchworkDraft:[],
-    fabricRegions:[], selectedFabricId:null, fabricDraft:[], fabricPreset:'localMixedUseFabric',
-    roadExportPreview:false, roadExportSettings:{maxPieceMm:120, avoidJunctionMm:18, minPieceMm:35},
-    streetlights:[], selectedStreetlightId:null, hoverStreetlightId:null, streetlightMode:'free',
-    footprintClipboard:null, pasteOffsetCount:0,
-    inputMode:'penDrawFingerPan', snapOn:false, pointers:new Map(), pinch:null, annotations:[], selectedAnnotationId:null, hoverPreview:null, longPress:null, contextTarget:null, sidebarOpen:false, autosaveReady:false, autosaveRestored:false, dirty:false, dirtySinceManualSave:false, lastAutosaveAt:null,
-    history:[], historyIndex:-1, historySuppressed:false
-  };
-  const AUTOSAVE_KEY = 'hakomachiSitePlannerAutosave_v1';
-  const AUTOSAVE_META_KEY = 'hakomachiSitePlannerAutosaveMeta_v1';
-  const githubData = window.HakoMachiGithubDataShared;
-  if(!githubData) throw new Error('HakoMachi GitHub data helpers did not load.');
-  const GITHUB_CURRENT_KEY = 'hakomachi_site_planner_github_current_v1';
+  const state = createInitialState();
   const GITHUB_DEFAULT_LIBRARY = githubData.DEFAULT_LIBRARY_PATH;
   const GITHUB_DEFAULT_SITE_DIR = githubData.DEFAULT_SITE_PLANS_DIR;
   let autosaveTimer = null;
   let autosaveSuppressed = false;
   let renderQueued = false;
   const colors = ['#d79631','#b8672d','#0f766e','#7c5f3f','#8b5a2b','#5f7f54','#9b6b44','#496a78'];
-  const uid = p => p + '_' + Math.random().toString(36).slice(2,9);
-  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-  const dist = (a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-  const rad = d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
-  const fmt = n => Number.isFinite(n) ? (Math.abs(n)>=100? n.toFixed(1): n.toFixed(2)).replace(/\.00$/,'') : '—';
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw();}
   window.addEventListener('resize', resize);
   function setSidebarOpen(open){
@@ -79,25 +37,6 @@
   function mmToPx(mm){return state.pxPerMm? mm*state.pxPerMm : mm;}
   function pxToMm(px){return state.pxPerMm? px/state.pxPerMm : px;}
   function modelKnownMm(){let v=parseFloat($('knownValue').value)||0; const unit=$('knownUnit').value; const sc=parseFloat($('modelScale').value)||150; if(unit==='mm'||unit==='model_mm') return v; if(unit==='in'||unit==='model_in') return v*25.4; if(unit==='source_mm'||unit==='real_mm') return v/sc; if(unit==='source_m'||unit==='real_m') return v*1000/sc; if(unit==='source_ft'||unit==='real_ft') return v*304.8/sc; return v;}
-
-  const ROAD_WIDTH_PRESETS = [
-    {key:'custom', label:'Custom / override', realM:null},
-    {key:'service_alley', label:'Service alley', realM:3.0},
-    {key:'one_lane_local', label:'One-lane local road', realM:4.0},
-    {key:'residential_street', label:'Residential street', realM:5.5},
-    {key:'two_lane_local', label:'Two-lane local street', realM:6.0},
-    {key:'collector_street', label:'Collector street', realM:7.0},
-    {key:'main_street', label:'Main street', realM:9.0},
-    {key:'industrial_service', label:'Industrial/service road', realM:10.5}
-  ];
-  const SIDEWALK_WIDTH_PRESETS = [
-    {key:'custom', label:'Custom / override', realM:null},
-    {key:'narrow', label:'Narrow sidewalk', realM:1.2},
-    {key:'standard', label:'Standard sidewalk', realM:1.5},
-    {key:'comfortable', label:'Comfortable sidewalk', realM:2.0},
-    {key:'commercial', label:'Commercial sidewalk', realM:3.0},
-    {key:'wide_plaza', label:'Wide sidewalk / plaza edge', realM:4.0}
-  ];
 
   const JP_ROAD_MARKING_STANDARD_ID = 'JP_Order_on_Road_Signs_Road_Lines_and_Road_Surface_Markings_1960';
   const ROAD_MARKING_PRESETS = [
@@ -1218,12 +1157,6 @@
     return l;
   }
 
-  const BUILDING_STATES = {
-    notStarted: 'Not Started',
-    inProgress: 'In Progress',
-    awaitingConstruction: 'Awaiting Construction',
-    complete: 'Complete'
-  };
   function buildingStateLabel(value){return BUILDING_STATES[value] || BUILDING_STATES.notStarted;}
   function normalizeBuilding(b){
     if(!b) return b;
@@ -2260,21 +2193,6 @@
   function duplicateStreetlight(l){
     const c=structuredClone(normalizeStreetlight(l)); c.id=uid('light'); c.name=(c.name||'Streetlight')+' copy'; c.x+=16; c.y+=16; state.streetlights.push(c); state.selectedStreetlightId=c.id; clearBuildingSelection(); state.selectedAnnotationId=null; return c;
   }
-
-
-
-  const FABRIC_PRESETS = {
-    lowRiseResidentialFabric:{label:'Low-Rise Residential Fabric',types:['smallHouse','smallHouse','apartment','shopHouse'],floors:[1,2,3],lotW:[18,38],depth:[22,55],commercial:.12,signage:.12,detail:.35},
-    localMixedUseFabric:{label:'Local Mixed-Use Fabric',types:['shopHouse','shopHouse','workshopHouse','apartment','restrainedZakkyo'],floors:[2,3,4],lotW:[22,45],depth:[30,70],commercial:.65,signage:.35,detail:.55},
-    edgeEnclosedPocketFabric:{label:'Edge-Enclosed Pocket Fabric',types:['apartment','officeBlock','zakkyo','smallHouse','shopHouse'],floors:[2,3,5,6],lotW:[25,55],depth:[28,75],commercial:.45,signage:.35,detail:.55},
-    stationCommercialStack:{label:'Station Commercial Stack',types:['zakkyo','officeBlock','stackedCommercialBuilding','shopHouse'],floors:[4,6,8,10],lotW:[18,36],depth:[35,85],commercial:.9,signage:.75,detail:.85},
-    shopWorkshopStreet:{label:'Shop-Workshop Street',types:['workshopHouse','shopHouse','warehouse','smallOffice'],floors:[2,3,4,5],lotW:[28,60],depth:[35,90],commercial:.55,signage:.3,detail:.55},
-    signHeavyCommercialCanyon:{label:'Sign-Heavy Commercial Canyon',types:['zakkyo','signCoveredTenantStack','stackedCommercialBuilding'],floors:[6,8,10,12],lotW:[16,34],depth:[42,95],commercial:1,signage:1,detail:1},
-    midRiseMixedUseStreet:{label:'Mid-Rise Mixed-Use Street',types:['restrainedZakkyo','shopHouse','smallOffice','apartment'],floors:[3,4,5,6,8],lotW:[22,44],depth:[35,80],commercial:.65,signage:.45,detail:.7},
-    perimeterLanewayBlock:{label:'Perimeter Laneway Block',types:['perimeterTenantBlock','alleyTenantCell','barAlleyUnit','tinyRestaurant'],floors:[1,2,3,6,8],lotW:[14,34],depth:[20,65],commercial:.9,signage:.65,detail:.9},
-    underViaductInfill:{label:'Under-Viaduct Infill',types:['undertrackBay'],floors:[1,2],lotW:[18,28],depth:[18,42],commercial:.75,signage:.5,detail:.75},
-    industrialServiceFabric:{label:'Industrial Service Fabric',types:['warehouse','workshopHouse','officeBlock','serviceBuilding'],floors:[1,2,3,4],lotW:[45,110],depth:[45,130],commercial:.25,signage:.15,detail:.45}
-  };
   function initFabricControls(){
     const sel=$('fabricPreset'); if(sel && !sel.options.length){ sel.innerHTML=Object.entries(FABRIC_PRESETS).map(([k,p])=>`<option value="${k}">${escapeHtml(p.label)}</option>`).join(''); sel.value=state.fabricPreset||'localMixedUseFabric'; sel.onchange=()=>{state.fabricPreset=sel.value;}; }
     const bind=(id,fn)=>{const el=$(id); if(el && !el.dataset.fabricBound){el.dataset.fabricBound='1'; el.oninput=()=>fn(el.value);}};

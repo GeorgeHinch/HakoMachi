@@ -1,4 +1,4 @@
-'use strict';
+import * as githubData from './shared/github-data.js';
 
 /* =====================================================================
    HAKOMACHI PRIVATE GITHUB DATA SAVE
@@ -10,8 +10,6 @@
    ===================================================================== */
 
 (function installHakoMachiGithubDataSave() {
-  const githubData = window.HakoMachiGithubDataShared;
-  if (!githubData) throw new Error('HakoMachi GitHub data helpers did not load.');
   const DEFAULT_LIBRARY_PATH = githubData.DEFAULT_LIBRARY_PATH;
   const DEFAULT_BUILDINGS_DIR = githubData.DEFAULT_BUILDINGS_DIR;
   const cleanRepoPath = githubData.cleanRepoPath;

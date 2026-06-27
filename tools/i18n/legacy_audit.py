@@ -4,7 +4,7 @@ HakoMachi i18n audit helper.
 
 Run after adding or changing user-facing UI text:
 
-    python tools/i18n_audit.py hakomachi_building_generator_sheet_split.html
+    python tools/i18n/legacy_audit.py hakomachi_building_generator_sheet_split.html
 
 The goal is not to understand all JavaScript perfectly; it catches the
 common failures:
@@ -90,7 +90,7 @@ def extract_style_i18n_group(src: str, group: str) -> set[str]:
 
 def main() -> int:
     if len(sys.argv) != 2:
-        print("usage: i18n_audit.py <hakomachi_html>", file=sys.stderr)
+        print("usage: legacy_audit.py <hakomachi_html>", file=sys.stderr)
         return 2
     src = Path(sys.argv[1]).read_text(encoding="utf-8")
 

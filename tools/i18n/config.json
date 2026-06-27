@@ -1,0 +1,13 @@
+{
+  "languages": ["en", "ja"],
+  "pages": [
+    {
+      "name": "landing",
+      "html": "index.html",
+      "translations": "js/i18n/landing.js",
+      "translationObject": "LANDING_TRANSLATIONS",
+      "textTags": ["h1", "h2", "h3", "h4", "h5", "h6", "p", "button", "label"],
+      "i18nFunctions": ["t", "tx", "tfmt", "i18nText"]
+    }
+  ]
+}

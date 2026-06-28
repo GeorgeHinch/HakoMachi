@@ -1,4 +1,6 @@
-export const HAKOMACHI_FAVICON_PATH = 'assets/hakomachi-house-favicon.svg';
+import { HAKOMACHI_SITE_URL } from './seo.js';
+
+export const HAKOMACHI_FAVICON_PATH = new URL('assets/hakomachi-house-favicon.svg', HAKOMACHI_SITE_URL).href;
 
 export function installHakoMachiFavicon(path = HAKOMACHI_FAVICON_PATH) {
   const doc = globalThis.document;

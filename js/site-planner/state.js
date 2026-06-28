@@ -1,9 +1,6 @@
 import { installHakoMachiFavicon } from '../shared/favicon.js';
 import { installHakoMachiSeo } from '../shared/seo.js';
 
-if (typeof globalThis !== 'undefined' && globalThis.document) {
-  globalThis.document.title = 'HakoMachi - Site Planner';
-}
 installHakoMachiFavicon();
 installHakoMachiSeo({
   title: 'HakoMachi - Site Planner',

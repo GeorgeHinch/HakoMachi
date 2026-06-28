@@ -64,8 +64,6 @@ export function installHakoMachiSeo({
   const canonicalUrl = absoluteUrl(path);
   const imageUrl = absoluteUrl(image);
 
-  doc.title = resolvedTitle;
-
   upsertLink('link[rel="canonical"]', { rel: 'canonical', href: canonicalUrl });
   upsertMeta('meta[name="description"]', { name: 'description', content: resolvedDescription });
   upsertMeta('meta[name="robots"]', { name: 'robots', content: 'index, follow' });

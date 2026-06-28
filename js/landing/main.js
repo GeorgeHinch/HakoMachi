@@ -1,10 +1,13 @@
 'use strict';
 
+import { installHakoMachiFavicon } from '../shared/favicon.js';
 import {
   initialHakoMachiLanguage,
   saveHakoMachiLanguage,
 } from '../shared/hakomachi-language.js';
 import { LANDING_TRANSLATIONS } from '../i18n/landing.js';
+
+installHakoMachiFavicon();
 
 const languageSelect = document.getElementById('languageSelect');
 const toolsNav = document.querySelector('.landing-tools');

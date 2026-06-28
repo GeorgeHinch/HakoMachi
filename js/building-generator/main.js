@@ -6,7 +6,6 @@ import { uiModules } from './ui/index.js';
 import { wingModules } from './wing/index.js';
 import { previewModules } from './preview/index.js';
 
-document.title = 'HakoMachi - Building Generator';
 installHakoMachiFavicon();
 installHakoMachiSeo({
   title: 'HakoMachi - Building Generator',

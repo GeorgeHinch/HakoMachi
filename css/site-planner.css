@@ -89,15 +89,40 @@ body {
   align-items: center;
   justify-content: center;
   white-space: nowrap;
+  height: 34px;
+  min-height: 34px;
+  line-height: 1;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .iconBtn {
-  width: 31px !important;
-  min-width: 31px !important;
-  height: 31px !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
   padding: 0 !important;
-  font-size: 16px !important;
   line-height: 1 !important;
+}
+
+.topIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: currentColor;
+}
+
+.topIcon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .menuWrap {
@@ -131,8 +156,8 @@ body {
   align-items: stretch;
   gap: 0;
   flex: 0 0 auto;
-  height: 36px;
-  min-height: 36px;
+  height: 34px;
+  min-height: 34px;
 }
 
 .splitExport #svgBtn {
@@ -144,13 +169,12 @@ body {
 .splitExport #exportMenuBtn {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
-  width: 28px !important;
-  min-width: 28px !important;
-  max-width: 28px !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  max-width: 34px !important;
   padding: 0 !important;
-  flex: 0 0 28px !important;
+  flex: 0 0 34px !important;
   border-left: 1px solid var(--border) !important;
-  font-size: 14px !important;
 }
 
 .splitExport #exportMenuBtn:hover,
@@ -772,7 +796,7 @@ canvas {
   .splitExport #svgBtn,
   .splitExport #exportMenuBtn { height: 34px !important; min-height: 34px !important; }
   .splitExport #svgBtn { padding: 7px 9px !important; max-width: 132px; overflow: hidden; text-overflow: ellipsis; }
-  .splitExport #exportMenuBtn { width: 28px !important; min-width: 28px !important; max-width: 28px !important; flex-basis: 28px !important; }
+  .splitExport #exportMenuBtn { width: 34px !important; min-width: 34px !important; max-width: 34px !important; flex-basis: 34px !important; }
   .splitExport #exportMenu { position: absolute !important; top: calc(100% + 4px) !important; left: 0 !important; right: auto !important; max-width: min(280px, calc(100vw - 16px)); }
 }
 
@@ -791,5 +815,5 @@ canvas {
   .emptyImageOverlay { padding: 14px; }
   .emptyImageCard { width: 100%; padding: 18px; }
   .splitExport #svgBtn { max-width: 105px; }
-  .splitExport #exportMenuBtn { width: 26px !important; min-width: 26px !important; max-width: 26px !important; flex-basis: 26px !important; }
+  .splitExport #exportMenuBtn { width: 34px !important; min-width: 34px !important; max-width: 34px !important; flex-basis: 34px !important; }
 }

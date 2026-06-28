@@ -117,13 +117,13 @@
     <input id="loadFile" class="hiddenFile" type="file" accept="application/json,.json,.hako-site.json"/>
     <div class="topActions">
       <label id="imageBtn" class="fileButton" for="imageFile">Import Image</label>
-      <button id="undoBtn" class="iconBtn" title="Undo" aria-label="Undo" disabled>↶</button>
-      <button id="redoBtn" class="iconBtn" title="Redo" aria-label="Redo" disabled>↷</button>
+      <button id="undoBtn" class="iconBtn" title="Undo" aria-label="Undo" disabled><span class="topIcon" data-icon="undo"></span></button>
+      <button id="redoBtn" class="iconBtn" title="Redo" aria-label="Redo" disabled><span class="topIcon" data-icon="redo"></span></button>
       <button id="saveBtn" class="desktopAction">Save .hako-site.json</button>
       <label id="loadBtn" class="fileButton desktopAction" for="loadFile">Load</label>
       <div class="menuWrap splitExport">
         <button id="svgBtn" title="Export simplified site SVG">Export SVG</button>
-        <button id="exportMenuBtn" class="iconBtn" title="More export options" aria-label="More export options">▾</button>
+        <button id="exportMenuBtn" class="iconBtn" title="More export options" aria-label="More export options"><span class="topIcon" data-icon="chevronDown"></span></button>
         <div id="exportMenu" class="dropdownMenu exportMobile">
           <button id="csvBtn">Export CSV</button>
           <button id="seedBtn">Export Selected Seed</button>
@@ -135,7 +135,7 @@
     <div class="spacer"></div>
     <div class="topRight">
       <div class="menuWrap">
-        <button id="settingsBtn" class="iconBtn" title="View and cache settings" aria-label="Settings">⚙</button>
+        <button id="settingsBtn" class="iconBtn" title="View and cache settings" aria-label="Settings"><span class="topIcon" data-icon="settings"></span></button>
         <div id="settingsMenu" class="dropdownMenu right">
           <button id="fitBtn">Fit Image</button>
           <button id="resetBtn">Reset View</button>

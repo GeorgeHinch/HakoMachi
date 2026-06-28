@@ -1,3 +1,7 @@
+if (typeof globalThis !== 'undefined' && globalThis.document) {
+  globalThis.document.title = 'HakoMachi - Site Planner';
+}
+
 export const AUTOSAVE_KEY = 'hakomachiSitePlannerAutosave_v1';
 export const AUTOSAVE_META_KEY = 'hakomachiSitePlannerAutosaveMeta_v1';
 export const GITHUB_CURRENT_KEY = 'hakomachi_site_planner_github_current_v1';

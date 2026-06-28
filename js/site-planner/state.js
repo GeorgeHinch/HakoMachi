@@ -1,6 +1,9 @@
+import { installHakoMachiFavicon } from '../shared/favicon.js';
+
 if (typeof globalThis !== 'undefined' && globalThis.document) {
   globalThis.document.title = 'HakoMachi - Site Planner';
 }
+installHakoMachiFavicon();
 
 export const AUTOSAVE_KEY = 'hakomachiSitePlannerAutosave_v1';
 export const AUTOSAVE_META_KEY = 'hakomachiSitePlannerAutosaveMeta_v1';

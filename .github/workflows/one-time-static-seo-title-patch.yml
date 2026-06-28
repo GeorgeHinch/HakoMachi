@@ -1,0 +1,124 @@
+name: One-time static SEO title patch
+
+on:
+  push:
+    paths:
+      - .github/workflows/one-time-static-seo-title-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch static titles and remove JS title updates
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          site = 'https://georgehinch.github.io/HakoMachi/'
+          image = site + 'img/HakoMachi_Hero.jpg'
+          icon = site + 'assets/hakomachi-house-favicon.svg'
+
+          pages = {
+              'site-planner.html': {
+                  'title': 'HakoMachi - Site Planner',
+                  'canonical': site + 'site-planner.html',
+                  'description': 'Plan where your HakoMachi buildings will sit on a Japanese N gauge model railway layout before cutting and assembly. レーザーカットする前に、HakoMachiで作成した建物を日本型Nゲージレイアウト上に配置して計画できます。',
+                  'jsonld': '{"@context":"https://schema.org","@type":"SoftwareApplication","name":"HakoMachi - Site Planner","url":"https://georgehinch.github.io/HakoMachi/site-planner.html","inLanguage":["en","ja"],"applicationCategory":"DesignApplication","operatingSystem":"Any modern web browser","description":"Plan where HakoMachi buildings will sit on a Japanese N gauge model railway layout. HakoMachiで作成した建物を日本型Nゲージレイアウト上に配置して計画できます。"}'
+              },
+              'building-generator.html': {
+                  'title': 'HakoMachi - Building Generator',
+                  'canonical': site + 'building-generator.html',
+                  'description': 'Design Japanese-style laser-cut buildings for N gauge model railway layouts, with 1:150 parts ready for cutting and assembly. 日本型Nゲージレイアウト向けのレーザーカット建物を設計し、1:150スケールで組み立てられるパーツを作成できます。',
+                  'jsonld': '{"@context":"https://schema.org","@type":"SoftwareApplication","name":"HakoMachi - Building Generator","url":"https://georgehinch.github.io/HakoMachi/building-generator.html","inLanguage":["en","ja"],"applicationCategory":"DesignApplication","operatingSystem":"Any modern web browser","description":"Design Japanese-style laser-cut buildings for N gauge model railway layouts. 日本型Nゲージレイアウト向けのレーザーカット建物を設計できます。"}'
+              },
+          }
+
+          def meta_block(title, description, canonical, jsonld):
+              return f'''<title>{title}</title>
+<meta name="description" content="{description}" />
+<meta name="robots" content="index, follow" />
+<meta name="theme-color" content="#c8493a" />
+<link rel="canonical" href="{canonical}" />
+<link rel="icon" type="image/svg+xml" href="{icon}" />
+<meta property="og:site_name" content="HakoMachi" />
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="en_US" />
+<meta property="og:locale:alternate" content="ja_JP" />
+<meta property="og:title" content="{title}" />
+<meta property="og:description" content="{description}" />
+<meta property="og:url" content="{canonical}" />
+<meta property="og:image" content="{image}" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="{title}" />
+<meta name="twitter:description" content="{description}" />
+<meta name="twitter:image" content="{image}" />
+<script type="application/ld+json" id="hakomachi-seo-jsonld">{jsonld}</script>'''
+
+          def patch_head(path, meta):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              block = meta_block(meta['title'], meta['description'], meta['canonical'], meta['jsonld'])
+              text = re.sub(r'<title>.*?</title>', block, text, count=1, flags=re.S)
+              head_start, head_end = text.find('<head>'), text.find('</head>')
+              if head_start == -1 or head_end == -1:
+                  raise RuntimeError(f'No head found in {path}')
+              before = text[:head_start]
+              head = text[head_start:head_end]
+              after = text[head_end:]
+              remove_patterns = [
+                  r'\n<meta name="description"[^>]*>',
+                  r'\n<meta name="robots"[^>]*>',
+                  r'\n<meta name="theme-color"[^>]*>',
+                  r'\n<link rel="canonical"[^>]*>',
+                  r'\n<link rel="icon"[^>]*>',
+                  r'\n<meta property="og:[^"]+"[^>]*>',
+                  r'\n<meta name="twitter:[^"]+"[^>]*>',
+                  r'\n<script type="application/ld\+json" id="hakomachi-seo-jsonld">.*?</script>',
+              ]
+              # Preserve the first meta block inserted above; remove any duplicates that may already be in the head after it.
+              first_title = head.find(block)
+              prefix = head[:first_title + len(block)] if first_title != -1 else head
+              suffix = head[first_title + len(block):] if first_title != -1 else ''
+              for pat in remove_patterns:
+                  suffix = re.sub(pat, '', suffix, flags=re.S)
+              p.write_text(before + prefix + suffix + after, encoding='utf-8')
+
+          for path, meta in pages.items():
+              patch_head(path, meta)
+
+          seo = Path('js/shared/seo.js')
+          if seo.exists():
+              text = seo.read_text(encoding='utf-8')
+              text = text.replace('\n  doc.title = resolvedTitle;\n', '\n')
+              seo.write_text(text, encoding='utf-8')
+
+          sp = Path('js/site-planner/state.js')
+          if sp.exists():
+              text = sp.read_text(encoding='utf-8')
+              text = re.sub(r"\nif \(typeof globalThis !== 'undefined' && globalThis\.document\) \{\n  globalThis\.document\.title = 'HakoMachi - Site Planner';\n\}\n", '\n', text)
+              sp.write_text(text, encoding='utf-8')
+
+          bg = Path('js/building-generator/main.js')
+          if bg.exists():
+              text = bg.read_text(encoding='utf-8')
+              text = text.replace("\ndocument.title = 'HakoMachi - Building Generator';\n", '\n')
+              bg.write_text(text, encoding='utf-8')
+
+          Path('.github/workflows/one-time-static-seo-title-patch.yml').unlink()
+          PY
+      - name: Commit patch
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add site-planner.html building-generator.html js/shared/seo.js js/site-planner/state.js js/building-generator/main.js .github/workflows/one-time-static-seo-title-patch.yml
+          git commit -m "Embed page titles and SEO metadata in HTML"
+          git push

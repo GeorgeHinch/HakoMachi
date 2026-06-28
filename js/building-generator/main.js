@@ -1,3 +1,4 @@
+import { installHakoMachiFavicon } from '../shared/favicon.js';
 import * as data from './data/index.js';
 import { coreModules } from './core/index.js';
 import { uiModules } from './ui/index.js';
@@ -5,6 +6,7 @@ import { wingModules } from './wing/index.js';
 import { previewModules } from './preview/index.js';
 
 document.title = 'HakoMachi - Building Generator';
+installHakoMachiFavicon();
 
 window.HakoMachiBuildingGenerator = Object.freeze({
   ...(window.HakoMachiBuildingGenerator || {}),

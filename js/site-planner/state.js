@@ -7,9 +7,8 @@ if (typeof globalThis !== 'undefined' && globalThis.document) {
 installHakoMachiFavicon();
 installHakoMachiSeo({
   title: 'HakoMachi - Site Planner',
-  description: 'Plan Japanese N-scale model railway streetscapes with calibrated reference images, roads, sidewalks, benchwork, traced building pads, metadata, and HakoMachi building links.',
+  description: 'Plan where your HakoMachi buildings will sit on a Japanese N gauge model railway layout before cutting and assembly. レーザーカットする前に、HakoMachiで作成した建物を日本型Nゲージレイアウト上に配置して計画できます。',
   path: 'site-planner.html',
-  keywords: ['HakoMachi site planner', 'N scale layout planner', 'Japanese model railway layout', 'model train streetscape planner', '1:150 layout design'],
 });
 
 export const AUTOSAVE_KEY = 'hakomachiSitePlannerAutosave_v1';

@@ -4,6 +4,8 @@ import { uiModules } from './ui/index.js';
 import { wingModules } from './wing/index.js';
 import { previewModules } from './preview/index.js';
 
+document.title = 'HakoMachi - Building Generator';
+
 window.HakoMachiBuildingGenerator = Object.freeze({
   ...(window.HakoMachiBuildingGenerator || {}),
   data,

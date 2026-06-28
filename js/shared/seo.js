@@ -60,7 +60,7 @@ export function installHakoMachiSeo({
   if (!doc?.head) return;
 
   const resolvedTitle = title || HAKOMACHI_SITE_NAME;
-  const resolvedDescription = description || 'Browser-based tools for planning Japanese N-scale streetscapes and generating laser-cut model railway building kits.';
+  const resolvedDescription = description || 'Generate laser-cut buildings for Japanese N gauge model railways. 日本型Nゲージ鉄道模型向けにレーザーカット建物を作成できます。';
   const canonicalUrl = absoluteUrl(path);
   const imageUrl = absoluteUrl(image);
 
@@ -77,6 +77,8 @@ export function installHakoMachiSeo({
 
   upsertMeta('meta[property="og:site_name"]', { property: 'og:site_name', content: HAKOMACHI_SITE_NAME });
   upsertMeta('meta[property="og:type"]', { property: 'og:type', content: type });
+  upsertMeta('meta[property="og:locale"]', { property: 'og:locale', content: 'en_US' });
+  upsertMeta('meta[property="og:locale:alternate"]', { property: 'og:locale:alternate', content: 'ja_JP' });
   upsertMeta('meta[property="og:title"]', { property: 'og:title', content: resolvedTitle });
   upsertMeta('meta[property="og:description"]', { property: 'og:description', content: resolvedDescription });
   upsertMeta('meta[property="og:url"]', { property: 'og:url', content: canonicalUrl });
@@ -93,6 +95,7 @@ export function installHakoMachiSeo({
     name: resolvedTitle,
     description: resolvedDescription,
     url: canonicalUrl,
+    inLanguage: ['en', 'ja'],
     applicationCategory: 'DesignApplication',
     operatingSystem: 'Any modern web browser',
   });

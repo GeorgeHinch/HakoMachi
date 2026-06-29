@@ -1,4 +1,4 @@
-import githubData from './shared/github-data.js?v=github-site-load-content-fix-2';
+import githubData from './shared/github-data.js?v=site3d-rotation-sync-3';
 import { installCanvasGestureBoundary, installThreeRenderCanvas } from './shared/browser-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
@@ -1818,6 +1818,10 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     try{ c=new THREE.Color(color || fallback); }catch(_err){ c=new THREE.Color(fallback); }
     return new THREE.MeshStandardMaterial({color:c,roughness:.82,metalness:0,...opts});
   }
+  function site3DPlannerRotationY(b, opts={}){
+    if(opts.geometryAlreadyInSiteCoordinates && b?.padType==='polygon') return 0;
+    return -(Number(b?.rotationDeg)||0)*Math.PI/180;
+  }
   function site3DTypeDefaults(type,fabricType){
     const key=String(type||'').toLowerCase();
     const fabric=String(fabricType||'').toLowerCase();
@@ -2047,7 +2051,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     };
     if(b.padType!=='polygon') addSite3DFacadeDetails(group,bounds,profile,detailBox);
     group.position.set(center.x-bounds.cx,site3DBuildingElevationMm(b),center.y-bounds.cy);
-    group.rotation.y=-(Number(b.rotationDeg)||0)*Math.PI/180;
+    group.rotation.y=site3DPlannerRotationY(b,{geometryAlreadyInSiteCoordinates:b.padType==='polygon'});
     return group;
   }
   function buildSite3DBuildingGroup(b,bounds){
@@ -2061,7 +2065,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
         group.userData.sitePlannerGeneratorPreview=true;
         tagSite3DBuilding(group,b);
         group.position.set(center.x-bounds.cx,site3DBuildingElevationMm(b),center.y-bounds.cy);
-        group.rotation.y=-(Number(b.rotationDeg)||0)*Math.PI/180;
+        group.rotation.y=site3DPlannerRotationY(b);
         return group;
       }catch(err){ console.warn('[HakoMachi Site Planner] 3D generated building fallback:',err); }
     }

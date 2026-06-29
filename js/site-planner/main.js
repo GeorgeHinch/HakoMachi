@@ -1,3 +1,3 @@
 'use strict';
 
-import '../site-planner.js?v=github-site-load-content-fix-2';
+import '../site-planner.js?v=site3d-rotation-sync-3';

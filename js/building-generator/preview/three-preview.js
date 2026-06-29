@@ -4,8 +4,8 @@
    ===================================================================== */
 
 import { installThreeRenderCanvas } from '../../shared/browser-utils.js';
-import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=shared-building-preview-24';
-import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, layoutCutsActive, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=shared-building-preview-24';
+import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=shared-building-preview-25';
+import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, layoutCutsActive, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=shared-building-preview-25';
 
 let threeScene, threeCamera, threeRenderer, threeControls, buildingMesh;
 export let threePreviewConfig = null;
@@ -3300,9 +3300,9 @@ export function applyLayoutCutClippingToGroup(group, cfg, transformMatrix = null
         const sideOffset = dx * (d / 2 - a.y) - dy * (w / 2 - a.x);
         const keepRight = cut.keepSide === 'right';
         const normal = keepRight
-          ? new THREE.Vector3(-dy, 0, dx)
-          : new THREE.Vector3(dy, 0, -dx);
-        const constant = keepRight ? sideOffset : -sideOffset;
+          ? new THREE.Vector3(dy, 0, -dx)
+          : new THREE.Vector3(-dy, 0, dx);
+        const constant = keepRight ? -sideOffset : sideOffset;
         const len = normal.length();
         if (len <= 0.000001) continue;
         normal.multiplyScalar(1 / len);

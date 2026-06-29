@@ -1,4 +1,4 @@
-import githubData from './shared/github-data.js?v=site3d-layout-cut-clipping-6';
+import githubData from './shared/github-data.js?v=site3d-layout-cut-clipping-7';
 import { installCanvasGestureBoundary, installThreeRenderCanvas } from './shared/browser-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';

@@ -1,4 +1,4 @@
-import githubData from './shared/github-data.js?v=site3d-rotation-sync-3';
+import githubData from './shared/github-data.js?v=site3d-hako-polygon-orientation-4';
 import { installCanvasGestureBoundary, installThreeRenderCanvas } from './shared/browser-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
@@ -1822,6 +1822,42 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     if(opts.geometryAlreadyInSiteCoordinates && b?.padType==='polygon') return 0;
     return -(Number(b?.rotationDeg)||0)*Math.PI/180;
   }
+  function site3DLongestFootprintEdgeAngleDeg(b){
+    const pts=site3DBuildingFootprintMm(b);
+    if(!pts || pts.length<2) return null;
+    let bestLen=-1;
+    let bestAngle=null;
+    for(let i=0;i<pts.length;i++){
+      const p=pts[i], q=pts[(i+1)%pts.length];
+      const dx=q.x-p.x, dy=q.y-p.y;
+      const len=Math.hypot(dx,dy);
+      if(len>bestLen){
+        bestLen=len;
+        bestAngle=Math.atan2(dy,dx)*180/Math.PI;
+      }
+    }
+    return bestAngle;
+  }
+  function site3DAlignAxisAngleDeg(angle, preferred){
+    let next=Number(angle);
+    const target=Number(preferred);
+    if(!Number.isFinite(next) || !Number.isFinite(target)) return next;
+    while(next-target>90) next-=180;
+    while(next-target<=-90) next+=180;
+    return next;
+  }
+  function site3DGeneratorModelRotationY(b,cfg){
+    if(b?.padType==='polygon'){
+      const edgeAngle=site3DLongestFootprintEdgeAngleDeg(b);
+      const modelW=positiveNumber(cfg?.width,cfg?.widthMm,cfg?.dimensions?.width,cfg?.dimensions?.widthMm);
+      const modelD=positiveNumber(cfg?.depth,cfg?.depthMm,cfg?.dimensions?.depth,cfg?.dimensions?.depthMm);
+      if(Number.isFinite(edgeAngle) && modelW && modelD){
+        const widthAxisAngle=site3DAlignAxisAngleDeg(modelD>modelW*1.05 ? edgeAngle+90 : edgeAngle, b?.rotationDeg);
+        return -widthAxisAngle*Math.PI/180;
+      }
+    }
+    return site3DPlannerRotationY(b);
+  }
   function site3DTypeDefaults(type,fabricType){
     const key=String(type||'').toLowerCase();
     const fabric=String(fabricType||'').toLowerCase();
@@ -2065,7 +2101,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
         group.userData.sitePlannerGeneratorPreview=true;
         tagSite3DBuilding(group,b);
         group.position.set(center.x-bounds.cx,site3DBuildingElevationMm(b),center.y-bounds.cy);
-        group.rotation.y=site3DPlannerRotationY(b);
+        group.rotation.y=site3DGeneratorModelRotationY(b,cfg);
         return group;
       }catch(err){ console.warn('[HakoMachi Site Planner] 3D generated building fallback:',err); }
     }

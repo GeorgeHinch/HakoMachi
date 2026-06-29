@@ -1,4 +1,4 @@
-import githubData from './shared/github-data.js?v=github-site-load-raw-fallback-1';
+import githubData from './shared/github-data.js?v=github-site-load-content-fix-2';
 import { installCanvasGestureBoundary, installThreeRenderCanvas } from './shared/browser-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';

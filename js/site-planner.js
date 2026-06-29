@@ -3,6 +3,17 @@
   const ctx = canvas.getContext('2d');
   const wrap = canvas.parentElement;
   const $ = id => document.getElementById(id);
+  function ensureSite3dView(){
+    let view = $('site3dView');
+    if(view) return view;
+    view = document.createElement('div');
+    view.id = 'site3dView';
+    view.className = 'site3dView';
+    view.setAttribute('aria-label', '3D site view');
+    view.innerHTML = '<div id="site3dStatus" class="site3dStatus">3D view</div>';
+    wrap.insertBefore(view, canvas.nextSibling);
+    return view;
+  }
   function browserHakoMachiLanguage(){
     const languages = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
     return languages.some(lang => /^ja\b/i.test(lang)) ? 'ja' : 'en';
@@ -50,7 +61,7 @@
     roadExportPreview:false, roadExportSettings:{maxPieceMm:120, avoidJunctionMm:18, minPieceMm:35},
     streetlights:[], selectedStreetlightId:null, hoverStreetlightId:null, streetlightMode:'free',
     footprintClipboard:null, pasteOffsetCount:0,
-    inputMode:'penDrawFingerPan', snapOn:false, pointers:new Map(), pinch:null, annotations:[], selectedAnnotationId:null, hoverPreview:null, longPress:null, contextTarget:null, sidebarOpen:false, autosaveReady:false, autosaveRestored:false, dirty:false, dirtySinceManualSave:false, lastAutosaveAt:null,
+    inputMode:'penDrawFingerPan', snapOn:false, pointers:new Map(), pinch:null, annotations:[], selectedAnnotationId:null, hoverPreview:null, longPress:null, contextTarget:null, sidebarOpen:false, viewMode:'2d', site3d:{baseThicknessMm:4}, autosaveReady:false, autosaveRestored:false, dirty:false, dirtySinceManualSave:false, lastAutosaveAt:null,
     history:[], historyIndex:-1, historySuppressed:false
   };
   const AUTOSAVE_KEY = 'hakomachiSitePlannerAutosave_v1';
@@ -69,7 +80,7 @@
   const dist = (a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
   const rad = d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
   const fmt = n => Number.isFinite(n) ? (Math.abs(n)>=100? n.toFixed(1): n.toFixed(2)).replace(/\.00$/,'') : '—';
-  function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw();}
+  function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
   function setSidebarOpen(open){
     state.sidebarOpen = !!open;
@@ -1760,7 +1771,209 @@
     renderSelected();
     updateHandoff();
     draw();
+    updateSite3D();
     if(!opts.skipDirty) markDirty('project change');
+  }
+
+
+  const site3d = {
+    view:null, status:null, scene:null, camera:null, renderer:null, controls:null,
+    root:null, initialized:false
+  };
+  function setSite3DStatus(message){ const el=site3d.status || $('site3dStatus'); if(el) el.textContent=message; }
+  function site3DScale(v){ return state.pxPerMm ? pxToMm(v) : v; }
+  function positiveNumber(...values){ for(const v of values){ const n=Number(v); if(Number.isFinite(n) && n>0) return n; } return null; }
+  function site3DBuildingFootprintMm(b){ const pts=(b.padType==='rect'?transformedRect(b):(b.pointsPx||[])).map(p=>({x:site3DScale(p.x), y:site3DScale(p.y)})); return pts.length>=3 ? pts : null; }
+  function site3DBuildingCenterMm(b){ const c=buildingCenter(b); return {x:site3DScale(c.x), y:site3DScale(c.y)}; }
+  function site3DBuildingHeightMm(b,cfg){ const byFloors=Number.isFinite(Number(b.floorCount)) ? Number(b.floorCount)*18 : null; return positiveNumber(b.plannerHeightMm,b.heightMm,cfg?.height,cfg?.dimensions?.height,byFloors,24) || 24; }
+  function site3DBuildingElevationMm(b){ return positiveNumber(b.baseElevationMm,b.elevationMm,b.siteElevationMm,0) || 0; }
+  function site3DBuildingConfig(b){
+    const raw=b.hakoConfig || b.hakoFile?.parsedConfig || null;
+    if(!raw || typeof raw!=='object') return null;
+    const cfg=structuredClone(raw);
+    const h=site3DBuildingHeightMm(b,cfg);
+    if(h) cfg.height=h;
+    if(b.padType==='rect'){
+      const w=positiveNumber(b.widthMm), d=positiveNumber(b.depthMm);
+      if(w) cfg.width=w;
+      if(d) cfg.depth=d;
+    }
+    return cfg;
+  }
+  function site3DBounds(){
+    const xs=[], ys=[];
+    if(state.image || state.imageMeta){
+      const w=Number(state.image?.naturalWidth||state.image?.width||state.imageMeta?.naturalWidthPx);
+      const h=Number(state.image?.naturalHeight||state.image?.height||state.imageMeta?.naturalHeightPx);
+      if(Number.isFinite(w)&&Number.isFinite(h)&&w>0&&h>0){ xs.push(0,site3DScale(w)); ys.push(0,site3DScale(h)); }
+    }
+    state.buildings.forEach(raw=>{
+      const b=normalizeBuilding(raw);
+      if(b.hidden) return;
+      const pts=site3DBuildingFootprintMm(b);
+      if(pts) pts.forEach(p=>{ xs.push(p.x); ys.push(p.y); });
+    });
+    if(!xs.length || !ys.length) return {minX:-60,maxX:60,minY:-40,maxY:40,width:120,depth:80,cx:0,cy:0};
+    const width=Math.max(...xs)-Math.min(...xs), depth=Math.max(...ys)-Math.min(...ys);
+    const pad=Math.max(8,Math.min(60,Math.max(width,depth)*.06));
+    const minX=Math.min(...xs)-pad, maxX=Math.max(...xs)+pad, minY=Math.min(...ys)-pad, maxY=Math.max(...ys)+pad;
+    return {minX,maxX,minY,maxY,width:Math.max(1,maxX-minX),depth:Math.max(1,maxY-minY),cx:(minX+maxX)/2,cy:(minY+maxY)/2};
+  }
+  function disposeSite3DObject(obj){
+    if(!obj) return;
+    obj.traverse?.(child=>{
+      child.geometry?.dispose?.();
+      const mats=Array.isArray(child.material)?child.material:[child.material];
+      mats.filter(Boolean).forEach(mat=>{
+        Object.values(mat).forEach(v=>{ if(v && v.isTexture) v.dispose?.(); });
+        mat.dispose?.();
+      });
+    });
+  }
+  function site3DMaterial(color,fallback=0xd7b56d,opts={}){
+    let c;
+    try{ c=new THREE.Color(color || fallback); }catch(_err){ c=new THREE.Color(fallback); }
+    return new THREE.MeshStandardMaterial({color:c,roughness:.82,metalness:0,...opts});
+  }
+  function buildSite3DMassing(b,bounds){
+    const pts=site3DBuildingFootprintMm(b);
+    const center=site3DBuildingCenterMm(b);
+    const height=site3DBuildingHeightMm(b,null);
+    const mat=site3DMaterial(b.color,0xd79631);
+    let mesh;
+    if(pts && pts.length>=3 && b.padType==='polygon'){
+      const shape=new THREE.Shape();
+      pts.forEach((p,i)=>{ const x=p.x-center.x, y=-(p.y-center.y); if(i===0) shape.moveTo(x,y); else shape.lineTo(x,y); });
+      shape.closePath();
+      const geo=new THREE.ExtrudeGeometry(shape,{depth:height,bevelEnabled:false});
+      geo.rotateX(-Math.PI/2);
+      mesh=new THREE.Mesh(geo,mat);
+    } else {
+      const w=positiveNumber(b.widthMm,pts&&Math.max(...pts.map(p=>p.x))-Math.min(...pts.map(p=>p.x)),20) || 20;
+      const d=positiveNumber(b.depthMm,pts&&Math.max(...pts.map(p=>p.y))-Math.min(...pts.map(p=>p.y)),20) || 20;
+      mesh=new THREE.Mesh(new THREE.BoxGeometry(w,height,d),mat);
+      mesh.position.y=height/2;
+    }
+    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry,30),new THREE.LineBasicMaterial({color:0x4b3828,transparent:true,opacity:.55})));
+    const group=new THREE.Group();
+    group.name=b.name||'Building massing';
+    group.add(mesh);
+    group.position.set(center.x-bounds.cx,site3DBuildingElevationMm(b),center.y-bounds.cy);
+    group.rotation.y=-(Number(b.rotationDeg)||0)*Math.PI/180;
+    return group;
+  }
+  function buildSite3DBuildingGroup(b,bounds){
+    const cfg=site3DBuildingConfig(b);
+    const center=site3DBuildingCenterMm(b);
+    if(cfg && window.HakoMachiPreview3D?.buildBuildingPreviewGroup){
+      try{
+        const group=window.HakoMachiPreview3D.buildBuildingPreviewGroup(cfg,{includeStlOverlay:false});
+        group.name=b.name||'HakoMachi building';
+        group.position.set(center.x-bounds.cx,site3DBuildingElevationMm(b),center.y-bounds.cy);
+        group.rotation.y=-(Number(b.rotationDeg)||0)*Math.PI/180;
+        return group;
+      }catch(err){ console.warn('[HakoMachi Site Planner] 3D generated building fallback:',err); }
+    }
+    return buildSite3DMassing(b,bounds);
+  }
+  function initSite3D(){
+    if(site3d.initialized) return true;
+    site3d.view=ensureSite3dView();
+    site3d.status=$('site3dStatus');
+    if(typeof THREE==='undefined'){ setSite3DStatus('3D view unavailable: Three.js did not load.'); return false; }
+    site3d.scene=new THREE.Scene();
+    site3d.scene.background=new THREE.Color(0xecece6);
+    site3d.camera=new THREE.PerspectiveCamera(45,1,.1,5000);
+    site3d.renderer=new THREE.WebGLRenderer({antialias:true});
+    site3d.renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+    site3d.view.appendChild(site3d.renderer.domElement);
+    const ambient=new THREE.AmbientLight(0xffffff,.72);
+    const dir=new THREE.DirectionalLight(0xffffff,.82);
+    dir.position.set(160,220,140);
+    site3d.scene.add(ambient,dir);
+    site3d.root=new THREE.Group();
+    site3d.scene.add(site3d.root);
+    if(THREE.OrbitControls){
+      site3d.controls=new THREE.OrbitControls(site3d.camera,site3d.renderer.domElement);
+      site3d.controls.enableDamping=false;
+      site3d.controls.addEventListener('change',renderSite3D);
+    }
+    site3d.initialized=true;
+    resizeSite3D();
+    return true;
+  }
+  function resizeSite3D(){
+    if(!site3d.initialized || !site3d.renderer || !site3d.camera) return;
+    const r=(site3d.view||ensureSite3dView()).getBoundingClientRect();
+    const w=Math.max(1,Math.floor(r.width)), h=Math.max(1,Math.floor(r.height));
+    site3d.camera.aspect=w/h;
+    site3d.camera.updateProjectionMatrix();
+    site3d.renderer.setSize(w,h,false);
+    renderSite3D();
+  }
+  function renderSite3D(){ if(site3d.renderer && site3d.scene && site3d.camera) site3d.renderer.render(site3d.scene,site3d.camera); }
+  function updateSite3D(){
+    if(state.viewMode!=='3d') return;
+    if(!initSite3D()) return;
+    while(site3d.root.children.length){ const child=site3d.root.children.pop(); disposeSite3DObject(child); }
+    const bounds=site3DBounds();
+    const baseT=Math.max(.1,Number(state.site3d?.baseThicknessMm)||4);
+    const base=new THREE.Mesh(new THREE.BoxGeometry(bounds.width,baseT,bounds.depth),new THREE.MeshStandardMaterial({color:0xcab98d,roughness:.9,metalness:0}));
+    base.name='Negative-thickness site base';
+    base.position.y=-baseT/2;
+    site3d.root.add(base);
+    const grid=new THREE.GridHelper(Math.max(bounds.width,bounds.depth),20,0x8a7f66,0xcfc5aa);
+    grid.position.y=.015;
+    site3d.root.add(grid);
+    let rendered=0, generated=0;
+    state.buildings.forEach(raw=>{
+      const b=normalizeBuilding(raw);
+      syncBuildingMetrics(b);
+      if(b.hidden) return;
+      const g=buildSite3DBuildingGroup(b,bounds);
+      if(g){ if(site3DBuildingConfig(b)) generated++; site3d.root.add(g); rendered++; }
+    });
+    const radius=Math.max(bounds.width,bounds.depth,60);
+    site3d.camera.position.set(radius*.72,Math.max(70,radius*.58),radius*.82);
+    site3d.camera.near=.1;
+    site3d.camera.far=Math.max(5000,radius*12);
+    site3d.camera.updateProjectionMatrix();
+    if(site3d.controls){ site3d.controls.target.set(0,0,0); site3d.controls.update(); }
+    else site3d.camera.lookAt(0,0,0);
+    setSite3DStatus(`3D view: ${rendered} buildings, ${generated} generated from .hako. Base extends ${fmt(baseT)} mm below zero.`);
+    renderSite3D();
+  }
+  function setSite3DMode(on){
+    state.viewMode=on?'3d':'2d';
+    wrap.classList.toggle('view3d',state.viewMode==='3d');
+    document.querySelector('.sitePlannerApp')?.classList.toggle('view3d',state.viewMode==='3d');
+    ['view3dBtn','mobileView3dBtn'].forEach(id=>{
+      const btn=$(id);
+      if(btn){ btn.classList.toggle('active',state.viewMode==='3d'); btn.textContent=state.viewMode==='3d'?'2D View':'3D View'; }
+    });
+    updateEmptyImageOverlay();
+    if(state.viewMode==='3d') updateSite3D();
+    else draw();
+  }
+  function bindSite3DButtons(){
+    ['view3dBtn','mobileView3dBtn'].forEach(id=>{
+      const btn=$(id);
+      if(btn && !btn.dataset.site3dBound){
+        btn.dataset.site3dBound='1';
+        btn.onclick=()=>setSite3DMode(state.viewMode!=='3d');
+      }
+    });
+    const baseInput=$('site3dBaseThickness');
+    if(baseInput && !baseInput.dataset.site3dBound){
+      baseInput.dataset.site3dBound='1';
+      baseInput.value=String(state.site3d?.baseThicknessMm ?? 4);
+      baseInput.oninput=()=>{
+        state.site3d=state.site3d||{};
+        state.site3d.baseThicknessMm=Math.max(.1,parseFloat(baseInput.value)||4);
+        updateSite3D();
+        markDirty('3d base thickness');
+      };
+    }
   }
 
 
@@ -1770,6 +1983,7 @@
       imageOpacity: state.imageOpacity,
       imageLocked: state.imageLocked,
       view: state.view,
+      site3d: state.site3d,
       pxPerMm: state.pxPerMm,
       calibrationLine: state.calibrationLine,
       lastCalibrationLine: state.lastCalibrationLine,
@@ -1821,6 +2035,8 @@
     state.imageOpacity=Number.isFinite(Number(data.imageOpacity))?Number(data.imageOpacity):.75;
     state.imageLocked=data.imageLocked!==false;
     state.view=data.view||{x:40,y:40,scale:1};
+    state.site3d={baseThicknessMm:4, ...(data.site3d||{})};
+    if($('site3dBaseThickness')) $('site3dBaseThickness').value=String(state.site3d.baseThicknessMm ?? 4);
     state.pxPerMm=data.pxPerMm||null;
     state.calibrationLine=data.calibrationLine||null;
     state.lastCalibrationLine=data.lastCalibrationLine||state.calibrationLine||null;
@@ -1945,6 +2161,7 @@
       canvasViewport:(()=>{const r=canvas.getBoundingClientRect(); return {widthPx:r.width,heightPx:r.height};})(),
       image:imageMetaForProject({includeDataUrl:includeImageDataUrl}),
       view:state.view,
+      site3d:state.site3d,
       imageOpacity:state.imageOpacity,
       imageLocked:state.imageLocked,
       scale:{calibrated:!!state.pxPerMm,pxPerMm:state.pxPerMm,calibrationLine:state.calibrationLine,units:'mm'},
@@ -2504,6 +2721,7 @@
     <div class="row"><div><label>Category</label><input id="selCat" value="${escapeAttr(b.category||'industrial')}"></div><div><label>Type</label><input value="${b.padType}" disabled></div></div>
     <div class="row"><div><label>Rotation °</label><input id="selRot" type="number" step="0.1" value="${fmt(b.rotationDeg||0)}"></div><div><label>Stored file</label><input value="${b.hakoFile?'.hako attached':'none'}" disabled></div></div>
     ${b.padType==='rect'?`<div class="row"><div><label>Width mm</label><input id="selW" type="number" step="0.1" value="${fmt(b.widthMm)}"></div><div><label>Depth mm</label><input id="selD" type="number" step="0.1" value="${fmt(b.depthMm)}"></div></div>`:`<div class="small"><span class="pill">Area ${fmt(b.derived?.areaMm2||0)} mm²</span><span class="pill">Bounds ${fmt(b.derived?.boundingWidthMm||0)}×${fmt(b.derived?.boundingDepthMm||0)} mm</span></div>`}
+    <div class="row"><div><label>3D height mm</label><input id="sel3dHeight" type="number" min="0.1" step="0.1" value="${fmt(site3DBuildingHeightMm(b,site3DBuildingConfig(b)))}"></div><div><label>Base elevation mm</label><input id="sel3dElevation" type="number" step="0.1" value="${fmt(site3DBuildingElevationMm(b))}"></div></div>
     <div class="buttons" style="margin:10px 0 8px"><button id="openSelectedHakoB" class="ok">Open in HakoMachi</button><button id="copySeedB">Copy HakoSeed</button></div>
     <div class="small muted" style="margin:-2px 0 8px">Creates a HakoSeed payload for this building and opens <code>building-generator.html#sitePlannerSeed</code>.</div>
     <label>Completed .hako file</label>
@@ -2513,7 +2731,7 @@
     <label>Notes</label><textarea id="selNotes" rows="3">${escapeHtml(b.notes||'')}</textarea>
     <div class="buttons" style="margin-top:8px"><button id="copyB">Copy</button><button id="pasteB" ${state.footprintClipboard?'':'disabled'}>Paste</button><button id="dupB">Duplicate</button><button id="hideB">${b.hidden?'Show':'Hide'}</button><button id="lockB">${b.locked?'Unlock':'Lock'}</button>${b.padType==='rect'?'<button id="polyB">Convert to Polygon</button>':''}<button id="delB" class="danger">Delete</button></div>`;
     const bind=(id,fn)=>{const e=$(id); if(e)e.oninput=()=>{fn(e.value); syncAll();};};
-    bind('selName',v=>b.name=v); bind('selCat',v=>b.category=v); bind('selColor',v=>b.color=v); bind('selRot',v=>b.rotationDeg=parseFloat(v)||0); bind('selNotes',v=>b.notes=v);
+    bind('selName',v=>b.name=v); bind('selCat',v=>b.category=v); bind('selColor',v=>b.color=v); bind('selRot',v=>b.rotationDeg=parseFloat(v)||0); bind('sel3dHeight',v=>b.plannerHeightMm=Math.max(.1,parseFloat(v)||.1)); bind('sel3dElevation',v=>b.baseElevationMm=parseFloat(v)||0); bind('selNotes',v=>b.notes=v);
     const stateSel=$('selState'); if(stateSel){stateSel.value=b.state||'notStarted'; stateSel.onchange=e=>{b.state=e.target.value; syncAll();};}
     bind('selW',v=>{if(state.pxPerMm)b.widthPx=mmToPx(Math.max(.1,parseFloat(v)||1));}); bind('selD',v=>{if(state.pxPerMm)b.depthPx=mmToPx(Math.max(.1,parseFloat(v)||1));});
     const hakoInput=$('hakoFileInput');
@@ -3219,7 +3437,7 @@
   function updateEmptyImageOverlay(){
     const overlay=$('emptyImageOverlay');
     if(!overlay) return;
-    const show=!state.image;
+    const show=!state.image && state.viewMode!=='3d';
     overlay.classList.toggle('visible', show);
     overlay.setAttribute('aria-hidden', show ? 'false' : 'true');
   }
@@ -3381,6 +3599,11 @@
     state.imageOpacity=.75;
     state.imageLocked=true;
     state.view={x:40,y:40,scale:1};
+    state.viewMode='2d';
+    state.site3d={baseThicknessMm:4};
+    if($('site3dBaseThickness')) $('site3dBaseThickness').value=String(state.site3d.baseThicknessMm);
+    wrap.classList.remove('view3d');
+    document.querySelector('.sitePlannerApp')?.classList.remove('view3d');
     state.pxPerMm=null;
     state.calibrationLine=null;
     state.lastCalibrationLine=null;
@@ -3821,6 +4044,11 @@
     state.imageOpacity=Number.isFinite(p.imageOpacity)?p.imageOpacity:(state.imageMeta?.opacity ?? state.imageOpacity ?? .75);
     state.imageLocked=p.imageLocked ?? state.imageLocked ?? true;
     state.view=restoreProjectView(p) || state.view;
+    state.viewMode='2d';
+    state.site3d={baseThicknessMm:4, ...(p.site3d||{})};
+    if($('site3dBaseThickness')) $('site3dBaseThickness').value=String(state.site3d.baseThicknessMm ?? 4);
+    wrap.classList.remove('view3d');
+    document.querySelector('.sitePlannerApp')?.classList.remove('view3d');
     state.pxPerMm=p.scale?.pxPerMm||null;
     state.calibrationLine=p.scale?.calibrationLine||null;
     state.lastCalibrationLine=state.calibrationLine;
@@ -3970,6 +4198,7 @@
     });
   }
 
+  bindSite3DButtons();
   resize();
   const restored=restoreAutosaveIfAvailable();
   state.autosaveReady=true;

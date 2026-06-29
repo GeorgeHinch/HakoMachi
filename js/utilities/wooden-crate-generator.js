@@ -264,12 +264,13 @@ const $ = id => U.byId(id);
 
   function makeSvg(s, preview = false) {
     const L = layout(s);
+    const heightAttr = preview ? '' : ` height="${L.sheetH.toFixed(2)}mm"`;
     let body = '';
     L.parts.forEach(p => {
       body += p.fn(p, s);
       if (s.labels) body += text(p.x, p.y - 1.1, p.name, 'label', 1.5);
     });
-    return `<svg${preview ? ' class="previewSvg"' : ''} xmlns="http://www.w3.org/2000/svg" width="${preview ? '100%' : L.sheetW.toFixed(2) + 'mm'}" height="${preview ? 'auto' : L.sheetH.toFixed(2) + 'mm'}" viewBox="0 0 ${L.sheetW.toFixed(2)} ${L.sheetH.toFixed(2)}" data-sheet-width-mm="${L.sheetW.toFixed(2)}" data-sheet-height-mm="${L.sheetH.toFixed(2)}" preserveAspectRatio="xMinYMin meet"><style>.cut{fill:none;stroke:#111;stroke-width:${s.strokeW};vector-effect:non-scaling-stroke}.score{fill:none;stroke:#1b66d1;stroke-width:${s.strokeW};stroke-dasharray:.75 .55;vector-effect:non-scaling-stroke}.etch{fill:none;stroke:#a76015;stroke-width:${s.strokeW};stroke-dasharray:.45 .45;vector-effect:non-scaling-stroke}.label{paint-order:stroke;stroke:white;stroke-width:.35;font-family:Arial;fill:#5d4327}</style><rect x="0" y="0" width="${L.sheetW.toFixed(2)}" height="${L.sheetH.toFixed(2)}" fill="white"/>${body}</svg>`;
+    return `<svg${preview ? ' class="previewSvg"' : ''} xmlns="http://www.w3.org/2000/svg" width="${preview ? '100%' : L.sheetW.toFixed(2) + 'mm'}"${heightAttr} viewBox="0 0 ${L.sheetW.toFixed(2)} ${L.sheetH.toFixed(2)}" data-sheet-width-mm="${L.sheetW.toFixed(2)}" data-sheet-height-mm="${L.sheetH.toFixed(2)}" preserveAspectRatio="xMinYMin meet"><style>.cut{fill:none;stroke:#111;stroke-width:${s.strokeW};vector-effect:non-scaling-stroke}.score{fill:none;stroke:#1b66d1;stroke-width:${s.strokeW};stroke-dasharray:.75 .55;vector-effect:non-scaling-stroke}.etch{fill:none;stroke:#a76015;stroke-width:${s.strokeW};stroke-dasharray:.45 .45;vector-effect:non-scaling-stroke}.label{paint-order:stroke;stroke:white;stroke-width:.35;font-family:Arial;fill:#5d4327}</style><rect x="0" y="0" width="${L.sheetW.toFixed(2)}" height="${L.sheetH.toFixed(2)}" fill="white"/>${body}</svg>`;
   }
 
   function partSpecs(s) {

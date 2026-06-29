@@ -1,17 +1,8 @@
-import { installHakoMachiFavicon } from '../shared/favicon.js';
-import { installHakoMachiSeo } from '../shared/seo.js';
 import * as data from './data/index.js';
 import { coreModules } from './core/index.js';
 import { uiModules } from './ui/index.js';
 import { wingModules } from './wing/index.js';
 import { previewModules } from './preview/index.js';
-
-installHakoMachiFavicon();
-installHakoMachiSeo({
-  title: 'HakoMachi - Building Generator',
-  description: 'Design Japanese-style laser-cut buildings for N gauge model railway layouts, with 1:150 parts ready for cutting and assembly. 日本型Nゲージレイアウト向けのレーザーカット建物を設計し、1:150スケールで組み立てられるパーツを作成できます。',
-  path: 'building-generator.html',
-});
 
 window.HakoMachiBuildingGenerator = Object.freeze({
   ...(window.HakoMachiBuildingGenerator || {}),

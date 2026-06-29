@@ -1,13 +1,3 @@
-import { installHakoMachiFavicon } from '../shared/favicon.js';
-import { installHakoMachiSeo } from '../shared/seo.js';
-
-installHakoMachiFavicon();
-installHakoMachiSeo({
-  title: 'HakoMachi - Site Planner',
-  description: 'Plan where your HakoMachi buildings will sit on a Japanese N gauge model railway layout before cutting and assembly. レーザーカットする前に、HakoMachiで作成した建物を日本型Nゲージレイアウト上に配置して計画できます。',
-  path: 'site-planner.html',
-});
-
 export const AUTOSAVE_KEY = 'hakomachiSitePlannerAutosave_v1';
 export const AUTOSAVE_META_KEY = 'hakomachiSitePlannerAutosaveMeta_v1';
 export const GITHUB_CURRENT_KEY = 'hakomachi_site_planner_github_current_v1';

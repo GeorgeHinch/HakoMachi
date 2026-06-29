@@ -1,11 +1,11 @@
-import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-1';
+import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-2';
 import { installCanvasGestureBoundary, installThreeRenderCanvas } from './shared/browser-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
 import { isLikelyIPad } from './site-planner/platform.js';
 import { clamp, deg, dist, fmt, rad, uid } from './site-planner/geometry.js';
 import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS } from './site-planner/presets.js';
-import { clipPolygonByHalfPlane, sampleLayoutCutSegments } from './building-generator/core/layout-cut-geometry.js?v=shared-building-preview-26';
+import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geometry.js?v=shared-building-preview-26';
 
 (() => {
   const canvas = document.getElementById('canvas');
@@ -162,7 +162,7 @@ import { clipPolygonByHalfPlane, sampleLayoutCutSegments } from './building-gene
   function polygonCenter(pts){const n=pts.length||1; return pts.reduce((s,p)=>({x:s.x+p.x/n,y:s.y+p.y/n}),{x:0,y:0});}
   function polygonArea(pts){let s=0; for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length]; s+=a.x*b.y-b.x*a.y;} return Math.abs(s)/2;}
   function pointInPoly(p, pts){let inside=false; for(let i=0,j=pts.length-1;i<pts.length;j=i++){const a=pts[i],b=pts[j]; if(((a.y>p.y)!=(b.y>p.y))&&(p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)) inside=!inside;} return inside;}
-  function pointInBuilding(p,b){if(b.hidden) return false; const pts=visibleBuildingPoints(b); return pts.length>=3 ? pointInPoly(p,pts) : false;}
+  function pointInBuilding(p,b){if(b.hidden) return false; return visibleBuildingPolygons(b).some(pts=>pts.length>=3 && pointInPoly(p,pts));}
   function lockedHitTolerance(pointerType='mouse'){
     const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
     return (coarse?18:9)/state.view.scale;
@@ -1078,27 +1078,128 @@ import { clipPolygonByHalfPlane, sampleLayoutCutSegments } from './building-gene
 
   function buildingPoints(b){return b.padType==='rect'?transformedRect(b):(b.pointsPx||[]);}
   function buildingCenter(b){return b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(b.pointsPx||[]);}
+  function hakoRectPolygonMm(x,y,w,d){return [{x,y},{x:x+w,y},{x:x+w,y:y+d},{x,y:y+d}];}
+  function hakoWingBoundsMm(cfg,wing){
+    if(!cfg || !wing) return null;
+    const width=Number(cfg.width)||0, depth=Number(cfg.depth)||0;
+    const span=Number(wing.span)||0, wingDepth=Number(wing.depth)||0, offset=Number(wing.offset)||0;
+    if(!(span>0) || !(wingDepth>0)) return null;
+    const face=String(wing.face||'').toLowerCase();
+    if(face==='east'||face==='right') return {x:width,y:offset,w:wingDepth,d:span};
+    if(face==='west'||face==='left') return {x:-wingDepth,y:offset,w:wingDepth,d:span};
+    if(face==='front') return {x:offset,y:-wingDepth,w:span,d:wingDepth};
+    if(face==='back'||face==='rear') return {x:offset,y:depth,w:span,d:wingDepth};
+    return null;
+  }
+  function hakoBlockPolygonsMm(cfg){
+    if(!cfg || typeof cfg!=='object') return [];
+    const width=Number(cfg.width)||Number(cfg.widthMm)||0, depth=Number(cfg.depth)||Number(cfg.depthMm)||0;
+    if(!(width>0) || !(depth>0)) return [];
+    const blocks=[{id:'main', poly:hakoRectPolygonMm(0,0,width,depth)}];
+    (Array.isArray(cfg.wings)?cfg.wings:[]).forEach((wing,i)=>{
+      const b=hakoWingBoundsMm(cfg,wing);
+      if(b) blocks.push({id:wing.id||`wing_${i+1}`, poly:hakoRectPolygonMm(b.x,b.y,b.w,b.d)});
+    });
+    return blocks;
+  }
+  function hakoCutTargetId(cut){return (cut && cut.targetId) ? String(cut.targetId) : 'main';}
+  function hakoCutTargetBoundsMm(cfg,cut){
+    const target=hakoCutTargetId(cut);
+    if(target!=='main'){
+      const wing=(Array.isArray(cfg?.wings)?cfg.wings:[]).find(w=>String(w.id||'')===target);
+      const bounds=hakoWingBoundsMm(cfg,wing);
+      if(bounds) return {kind:'wing', wing, ...bounds};
+    }
+    return {kind:'main', x:0, y:0, w:Number(cfg?.width)||0, d:Number(cfg?.depth)||0};
+  }
+  function resolveHakoLayoutCut(cut,cfg){
+    if(!cut || cut.type!=='arc' || cut.positionMode!=='measured') return cut;
+    const b=hakoCutTargetBoundsMm(cfg,cut);
+    let p1,p2,maxOffset;
+    if(b.kind==='wing' && b.wing){
+      const wing=b.wing;
+      maxOffset=Math.max(0,Number(wing.depth)||0);
+      const a=clamp(Number(cut.startOffset)||0,0,maxOffset);
+      const e=clamp(Number(cut.endOffset)||0,0,maxOffset);
+      const width=Number(cfg.width)||0, depth=Number(cfg.depth)||0;
+      if(wing.face==='east'){p1={x:width+a,y:wing.offset}; p2={x:width+e,y:wing.offset+wing.span};}
+      else if(wing.face==='west'){p1={x:0-a,y:wing.offset}; p2={x:0-e,y:wing.offset+wing.span};}
+      else if(wing.face==='front'){p1={x:wing.offset,y:0-a}; p2={x:wing.offset+wing.span,y:0-e};}
+      else {p1={x:wing.offset,y:depth+a}; p2={x:wing.offset+wing.span,y:depth+e};}
+    }else{
+      const edge=cut.referenceEdge||'back';
+      maxOffset=(edge==='front'||edge==='back')?Math.max(0,b.d):Math.max(0,b.w);
+      const a=clamp(Number(cut.startOffset)||0,0,maxOffset);
+      const e=clamp(Number(cut.endOffset)||0,0,maxOffset);
+      if(edge==='front'){p1={x:b.x,y:b.y+a}; p2={x:b.x+b.w,y:b.y+e};}
+      else if(edge==='back'){p1={x:b.x,y:b.y+b.d-a}; p2={x:b.x+b.w,y:b.y+b.d-e};}
+      else if(edge==='east'){p1={x:b.x+b.w-a,y:b.y}; p2={x:b.x+b.w-e,y:b.y+b.d};}
+      else {p1={x:b.x+a,y:b.y}; p2={x:b.x+e,y:b.y+b.d};}
+    }
+    const dx=p2.x-p1.x, dy=p2.y-p1.y, len=Math.max(0.0001,Math.hypot(dx,dy));
+    const bulge=Number.isFinite(Number(cut.bulge))?Number(cut.bulge):20;
+    const side=Number(cut.bulgeSide)<0?-1:1;
+    const nx=-dy/len, ny=dx/len;
+    const mid={x:(p1.x+p2.x)/2,y:(p1.y+p2.y)/2};
+    return {...cut,x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y,cx:mid.x+nx*bulge*side,cy:mid.y+ny*bulge*side,_measuredResolved:true};
+  }
+  function sampleHakoLayoutCutSegments(cut,cfg){
+    cut=resolveHakoLayoutCut(cut,cfg);
+    if(!cut || cut.enabled===false) return [];
+    if(cut.type!=='arc') return [[{x:+cut.x1,y:+cut.y1},{x:+cut.x2,y:+cut.y2}]];
+    const p0={x:+cut.x1,y:+cut.y1}, p1={x:+cut.cx,y:+cut.cy}, p2={x:+cut.x2,y:+cut.y2};
+    const pts=[];
+    for(let i=0;i<=24;i++){
+      const t=i/24, mt=1-t;
+      pts.push({x:mt*mt*p0.x+2*mt*t*p1.x+t*t*p2.x,y:mt*mt*p0.y+2*mt*t*p1.y+t*t*p2.y});
+    }
+    const segs=[];
+    for(let i=0;i<pts.length-1;i++) if(Math.hypot(pts[i+1].x-pts[i].x,pts[i+1].y-pts[i].y)>0.001) segs.push([pts[i],pts[i+1]]);
+    return segs;
+  }
+  function clipHakoPolygonByLayoutCuts(poly,cuts,cfg){
+    let out=(poly||[]).map(p=>({x:p.x,y:p.y}));
+    (cuts||[]).forEach(cut=>{
+      sampleHakoLayoutCutSegments(cut,cfg).forEach(([a,z])=>{
+        if(out.length<3) return;
+        out=clipPolygonByHalfPlane(out,a,z,cut.keepSide==='right'?'right':'left');
+      });
+    });
+    return out;
+  }
   function activeHakoLayoutCuts(b){
     if(!b || !b.hakoConfig) return [];
     return collectArrayFields(b.hakoConfig,[
       ['layoutCuts'], ['shapeCuts'], ['shapeEditor','layoutCuts'], ['geometry','layoutCuts'], ['building','layoutCuts']
     ]).filter(c=>c && c.enabled!==false);
   }
-  function visibleBuildingPoints(b){
+  function visibleBuildingPolygons(b){
     const base=buildingPoints(b).map(p=>({x:p.x,y:p.y}));
-    if(base.length<3 || !state.pxPerMm || !b || !b.hakoConfig) return base;
-    let out=base;
-    activeHakoLayoutCuts(b).forEach(cut=>{
-      const segs=sampleLayoutCutSegments(cut,b.hakoConfig);
-      segs.forEach(seg=>{
-        if(out.length<3) return;
-        const a=hakoLocalMmToWorld(b,seg[0]);
-        const z=hakoLocalMmToWorld(b,seg[1]);
-        if(Math.hypot(z.x-a.x,z.y-a.y)<0.001) return;
-        out=clipPolygonByHalfPlane(out,a,z,cut.keepSide==='right'?'right':'left');
-      });
+    if(base.length<3 || !state.pxPerMm || !b || !b.hakoConfig) return base.length>=3?[base]:[];
+    const cuts=activeHakoLayoutCuts(b);
+    const hasTargetedCuts=cuts.some(c=>hakoCutTargetId(c)!=='main');
+    const blocks=hasTargetedCuts ? hakoBlockPolygonsMm(b.hakoConfig) : [];
+    if(!blocks.length){
+      let out=base;
+      const mainCuts=cuts.filter(c=>hakoCutTargetId(c)==='main');
+      if(mainCuts.length){
+        const localBase=base.map(p=>hakoWorldToLocalMm(b,p));
+        const clipped=clipHakoPolygonByLayoutCuts(localBase,mainCuts,b.hakoConfig);
+        if(clipped && clipped.length>=3) out=clipped.map(p=>hakoLocalMmToWorld(b,p));
+      }
+      return out.length>=3?[out]:[base];
+    }
+    const polys=[];
+    blocks.forEach(block=>{
+      let poly=block.poly.map(p=>({x:p.x,y:p.y}));
+      const blockCuts=cuts.filter(c=>hakoCutTargetId(c)===block.id);
+      if(blockCuts.length) poly=clipHakoPolygonByLayoutCuts(poly,blockCuts,b.hakoConfig);
+      if(poly && poly.length>=3) polys.push(poly.map(p=>hakoLocalMmToWorld(b,p)));
     });
-    return out.length>=3 ? out : base;
+    return polys.length ? polys : [base];
+  }
+  function visibleBuildingPoints(b){
+    return visibleBuildingPolygons(b).flat();
   }
   function polyEdgeDistance(p,pts){
     if(!pts||pts.length<2) return Infinity;
@@ -2831,6 +2932,17 @@ import { clipPolygonByHalfPlane, sampleLayoutCutSegments } from './building-gene
     const a=rad(Number(b.rotationDeg)||0), ca=Math.cos(a), sa=Math.sin(a);
     return {x:c.x+dx*ca-dy*sa,y:c.y+dx*sa+dy*ca};
   }
+  function hakoWorldToLocalMm(b,p){
+    const c=buildingCenter(b);
+    const origin=b.hakoGeometryOriginMm || {x:0,y:0};
+    const dx=Number(p.x||0)-c.x;
+    const dy=Number(p.y||0)-c.y;
+    const a=rad(Number(b.rotationDeg)||0), ca=Math.cos(a), sa=Math.sin(a);
+    return {
+      x:Number(origin.x||0)+pxToMm(dx*ca+dy*sa),
+      y:Number(origin.y||0)+pxToMm(-dx*sa+dy*ca)
+    };
+  }
   function arcSampleMm(it){
     const r=Math.hypot(it.x1-it.cx,it.y1-it.cy);
     if(!Number.isFinite(r)||r<=0) return [{x:it.x1,y:it.y1},{x:it.x2,y:it.y2}];
@@ -2850,14 +2962,34 @@ import { clipPolygonByHalfPlane, sampleLayoutCutSegments } from './building-gene
     }
     return pts;
   }
+  function hakoDisplayTrimPolylinesMm(b){
+    if(!b || !state.pxPerMm) return [];
+    const cuts=activeHakoLayoutCuts(b);
+    if(cuts.length && b.hakoConfig){
+      return cuts.map(cut=>{
+        const pts=[];
+        sampleHakoLayoutCutSegments(cut,b.hakoConfig).forEach(seg=>{
+          if(!seg || seg.length<2) return;
+          if(!pts.length) pts.push(seg[0]);
+          pts.push(seg[1]);
+        });
+        return {points:pts,label:cut.name||cut.id||'trim',targetId:hakoCutTargetId(cut)};
+      }).filter(it=>it.points.length>=2);
+    }
+    return (Array.isArray(b.hakoTrimLinesMm)?b.hakoTrimLinesMm:[]).map(it=>({
+      points:(it.type==='arc') ? arcSampleMm(it) : [{x:it.x1,y:it.y1},{x:it.x2,y:it.y2}],
+      label:it.label||'trim'
+    })).filter(it=>it.points.length>=2);
+  }
   function drawHakoTrimLines(b,strong=false){
-    if(!b || b.showHakoTrimLines===false || !Array.isArray(b.hakoTrimLinesMm) || !b.hakoTrimLinesMm.length || !state.pxPerMm) return;
+    const trimLines=hakoDisplayTrimPolylinesMm(b);
+    if(!b || b.showHakoTrimLines===false || !trimLines.length || !state.pxPerMm) return;
     ctx.save();
     ctx.strokeStyle=strong?'#d95f24':'rgba(217,95,36,.65)';
     ctx.lineWidth=(strong?2.4:1.6)/state.view.scale;
     ctx.setLineDash([8/state.view.scale,5/state.view.scale]);
-    b.hakoTrimLinesMm.forEach(it=>{
-      const pts=(it.type==='arc') ? arcSampleMm(it) : [{x:it.x1,y:it.y1},{x:it.x2,y:it.y2}];
+    trimLines.forEach(it=>{
+      const pts=it.points;
       if(!pts.length) return;
       ctx.beginPath();
       pts.forEach((p,i)=>{const q=hakoLocalMmToWorld(b,p); i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);});
@@ -2873,9 +3005,9 @@ import { clipPolygonByHalfPlane, sampleLayoutCutSegments } from './building-gene
     ctx.restore();
   }
 
-  function drawBuilding(b){ if(b.hidden) return; syncBuildingMetrics(b); ctx.save(); const isSelected=isBuildingSelected(b.id), isHovered=b.id===state.hoverBuildingId; ctx.lineWidth=(isSelected?4:(isHovered?4:3))/state.view.scale; ctx.strokeStyle=isSelected?'#0f766e':(isHovered?'#2a64aa':b.color); ctx.fillStyle=isHovered&&!isSelected?'rgba(42,100,170,.18)':((b.color||'#d79631')+'33'); ctx.beginPath(); const pts=visibleBuildingPoints(b); pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); ctx.fill(); ctx.stroke();
-    if(b.hakoTrimLinesMm && (isSelected || isHovered)) drawHakoTrimLines(b,isSelected);
-    if(isSelected || isHovered){ const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(pts); const trimNote=(b.hakoTrimLinesMm&&b.hakoTrimLinesMm.length)?` · ${b.hakoTrimLinesMm.length} trim line${b.hakoTrimLinesMm.length===1?'':'s'}`:''; drawLabel(`${b.name||'Building'} ${b.padType==='rect'&&state.pxPerMm?`${fmt(b.widthMm)}×${fmt(b.depthMm)}mm`:''}${trimNote}`,{x:c.x+6/state.view.scale,y:c.y-6/state.view.scale}); }
+  function drawBuilding(b){ if(b.hidden) return; syncBuildingMetrics(b); ctx.save(); const isSelected=isBuildingSelected(b.id), isHovered=b.id===state.hoverBuildingId; ctx.lineWidth=(isSelected?4:(isHovered?4:3))/state.view.scale; ctx.strokeStyle=isSelected?'#0f766e':(isHovered?'#2a64aa':b.color); ctx.fillStyle=isHovered&&!isSelected?'rgba(42,100,170,.18)':((b.color||'#d79631')+'33'); const polys=visibleBuildingPolygons(b); const pts=polys.flat(); polys.forEach(poly=>{if(poly.length<3) return; ctx.beginPath(); poly.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); ctx.fill(); ctx.stroke();});
+    if((isSelected || isHovered) && hakoDisplayTrimPolylinesMm(b).length) drawHakoTrimLines(b,isSelected);
+    if(isSelected || isHovered){ const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(pts); const trimCount=hakoDisplayTrimPolylinesMm(b).length; const trimNote=trimCount?` · ${trimCount} trim line${trimCount===1?'':'s'}`:''; drawLabel(`${b.name||'Building'} ${b.padType==='rect'&&state.pxPerMm?`${fmt(b.widthMm)}×${fmt(b.depthMm)}mm`:''}${trimNote}`,{x:c.x+6/state.view.scale,y:c.y-6/state.view.scale}); }
     if(isSelected && currentSelectedBuildingIds().length===1 && !b.locked){ ctx.fillStyle='#0f766e'; pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,5/state.view.scale,0,Math.PI*2);ctx.fill()}); drawRotateAffordance(b,pts); }
     ctx.restore(); }
   function drawLine(line,color,label){ if(!line) return; ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=3/state.view.scale; ctx.beginPath();ctx.moveTo(line.x1,line.y1);ctx.lineTo(line.x2,line.y2);ctx.stroke(); ctx.fillStyle=color; [{x:line.x1,y:line.y1},{x:line.x2,y:line.y2}].forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()}); if(label) drawLabel(label,{x:(line.x1+line.x2)/2,y:(line.y1+line.y2)/2}); ctx.restore();}
@@ -4649,7 +4781,7 @@ import { clipPolygonByHalfPlane, sampleLayoutCutSegments } from './building-gene
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}mm" height="${h}mm" viewBox="0 0 ${w} ${h}">\n<title>HakoMachi Road Asset Export</title>\n<desc>Road surfaces, sidewalk surfaces, seam cuts, hatch cuts, Japanese road-marking etches, curb etches, and labels. Units follow Site Planner image-pixel coordinate space; use the project calibration for model-mm conversion.</desc>\n<g id="roadSurfaceCut">${roadSurfaces.join('\n')}</g>\n<g id="sidewalkSurfaceCut">${sidewalkSurfaces.join('\n')}</g>\n<g id="roadHatchCut">${hatchCuts.join('\n')}</g>\n<g id="roadMarkingEtch" data-standard="${JP_ROAD_MARKING_STANDARD_ID}">${markingEtches.join('\n')}</g>\n<g id="seamCut">${seamCuts.join('\n')}</g>\n<g id="curbEtch">${curbEtches.join('\n')}</g>\n<g id="labels">${labels.join('\n')}</g>\n</svg>`;
   }
 
-  function svgExport(){syncAll(); const w=state.image?.width||1200,h=state.image?.height||800; const img=state.imageMeta?.dataUrl?`<image href="${state.imageMeta.dataUrl}" x="0" y="0" width="${w}" height="${h}" opacity="${state.imageOpacity}"/>`:''; const notes=state.annotations.map(st=>`<polyline points="${(st.points||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="${st.color||'#6f4326'}" stroke-width="${st.baseWidth||2.2}" stroke-linecap="round" stroke-linejoin="round"/>`).join('\n'); const benchworks=state.benchworkOutlines.map(bw=>{normalizeBenchworkOutline(bw); const pts=bw.pointsPx||[]; if(pts.length<2) return ''; let d=`M ${pts[0].x} ${pts[0].y}`; for(let i=0;i<pts.length;i++){const b=pts[(i+1)%pts.length], c=bw.curvesPx?.[i]; d += c ? ` Q ${c.x} ${c.y} ${b.x} ${b.y}` : ` L ${b.x} ${b.y}`;} d+=' Z'; return `<path d="${d}" fill="rgba(47,111,78,.05)" stroke="${bw.color||'#2f6f4e'}" stroke-width="3" stroke-dasharray="9 7"/>`;}).join('\n'); const roads=state.roads.map(r=>{normalizeRoad(r); const side=(r.sidewalkPolygonsPx||[]).map(sw=>`<polygon points="${(sw.polygon||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="rgba(226,214,188,.62)" stroke="#b9aa86" stroke-width="1"/>`).join(''); const road=`<polygon points="${(r.roadPolygonPx||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="rgba(111,106,94,.26)" stroke="#6f6a5e" stroke-width="2"/>`; return side+road;}).join('\n'); const roadItems=(state.roadFeatures||[]).map(f=>{normalizeRoadFeature(f); if(f.kind==='manhole'){return f.hatchShape==='circle'?`<circle cx="${f.x}" cy="${f.y}" r="${(f.diameterPx||18)/2}" fill="rgba(58,43,30,.18)" stroke="#3a2b1e" stroke-width="1"/>`:`<rect x="${f.x-(f.widthPx||20)/2}" y="${f.y-(f.depthPx||10)/2}" width="${f.widthPx||20}" height="${f.depthPx||10}" transform="rotate(${f.rotationDeg||0} ${f.x} ${f.y})" fill="rgba(58,43,30,.18)" stroke="#3a2b1e" stroke-width="1"/>`; } return `<rect x="${f.x-(f.widthPx||24)/2}" y="${f.y-(f.depthPx||6)/2}" width="${f.widthPx||24}" height="${f.depthPx||6}" transform="rotate(${f.rotationDeg||0} ${f.x} ${f.y})" fill="${f.color||'#f7f2df'}" stroke="none"/>`;}).join('\n'); const lights=state.streetlights.map(l=>{normalizeStreetlight(l); const r=(state.pxPerMm?mmToPx((l.mode==='anchored'?(l.anchor?.mountMode==='roadEdgeBulbMount'?(l.anchor?.bulbMountDiameterMm||3):(l.anchor?.cutHoleDiameterMm||1.2)):(l.poleDiameterMm||.45))/2):3); return `<circle cx="${l.x}" cy="${l.y}" r="${Math.max(2,r)}" fill="${l.color||'#c84a3a'}" stroke="#3a2b1e" stroke-width="1"/><text x="${l.x+5}" y="${l.y-5}" font-size="10" fill="#3a2b1e">${escapeHtml(l.name||'Streetlight')}</text>`;}).join('\n'); const pads=state.buildings.map(b=>{const padPts=visibleBuildingPoints(b); const pts=padPts.map(p=>`${p.x},${p.y}`).join(' '); const c=padPts.length?polygonCenter(padPts):buildingCenter(b); return `<polygon points="${pts}" fill="${b.color}33" stroke="${b.color}" stroke-width="3"/><text x="${c.x+5}" y="${c.y-5}" font-size="12" fill="white">${escapeHtml(b.name)}</text>`;}).join('\n'); return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${img}${notes}${benchworks}${roads}${roadItems}${pads}${lights}</svg>`;}
+  function svgExport(){syncAll(); const w=state.image?.width||1200,h=state.image?.height||800; const img=state.imageMeta?.dataUrl?`<image href="${state.imageMeta.dataUrl}" x="0" y="0" width="${w}" height="${h}" opacity="${state.imageOpacity}"/>`:''; const notes=state.annotations.map(st=>`<polyline points="${(st.points||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="${st.color||'#6f4326'}" stroke-width="${st.baseWidth||2.2}" stroke-linecap="round" stroke-linejoin="round"/>`).join('\n'); const benchworks=state.benchworkOutlines.map(bw=>{normalizeBenchworkOutline(bw); const pts=bw.pointsPx||[]; if(pts.length<2) return ''; let d=`M ${pts[0].x} ${pts[0].y}`; for(let i=0;i<pts.length;i++){const b=pts[(i+1)%pts.length], c=bw.curvesPx?.[i]; d += c ? ` Q ${c.x} ${c.y} ${b.x} ${b.y}` : ` L ${b.x} ${b.y}`;} d+=' Z'; return `<path d="${d}" fill="rgba(47,111,78,.05)" stroke="${bw.color||'#2f6f4e'}" stroke-width="3" stroke-dasharray="9 7"/>`;}).join('\n'); const roads=state.roads.map(r=>{normalizeRoad(r); const side=(r.sidewalkPolygonsPx||[]).map(sw=>`<polygon points="${(sw.polygon||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="rgba(226,214,188,.62)" stroke="#b9aa86" stroke-width="1"/>`).join(''); const road=`<polygon points="${(r.roadPolygonPx||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="rgba(111,106,94,.26)" stroke="#6f6a5e" stroke-width="2"/>`; return side+road;}).join('\n'); const roadItems=(state.roadFeatures||[]).map(f=>{normalizeRoadFeature(f); if(f.kind==='manhole'){return f.hatchShape==='circle'?`<circle cx="${f.x}" cy="${f.y}" r="${(f.diameterPx||18)/2}" fill="rgba(58,43,30,.18)" stroke="#3a2b1e" stroke-width="1"/>`:`<rect x="${f.x-(f.widthPx||20)/2}" y="${f.y-(f.depthPx||10)/2}" width="${f.widthPx||20}" height="${f.depthPx||10}" transform="rotate(${f.rotationDeg||0} ${f.x} ${f.y})" fill="rgba(58,43,30,.18)" stroke="#3a2b1e" stroke-width="1"/>`; } return `<rect x="${f.x-(f.widthPx||24)/2}" y="${f.y-(f.depthPx||6)/2}" width="${f.widthPx||24}" height="${f.depthPx||6}" transform="rotate(${f.rotationDeg||0} ${f.x} ${f.y})" fill="${f.color||'#f7f2df'}" stroke="none"/>`;}).join('\n'); const lights=state.streetlights.map(l=>{normalizeStreetlight(l); const r=(state.pxPerMm?mmToPx((l.mode==='anchored'?(l.anchor?.mountMode==='roadEdgeBulbMount'?(l.anchor?.bulbMountDiameterMm||3):(l.anchor?.cutHoleDiameterMm||1.2)):(l.poleDiameterMm||.45))/2):3); return `<circle cx="${l.x}" cy="${l.y}" r="${Math.max(2,r)}" fill="${l.color||'#c84a3a'}" stroke="#3a2b1e" stroke-width="1"/><text x="${l.x+5}" y="${l.y-5}" font-size="10" fill="#3a2b1e">${escapeHtml(l.name||'Streetlight')}</text>`;}).join('\n'); const pads=state.buildings.map(b=>{const polys=visibleBuildingPolygons(b); const allPts=polys.flat(); const c=allPts.length?polygonCenter(allPts):buildingCenter(b); const shapes=polys.map(poly=>`<polygon points="${poly.map(p=>`${p.x},${p.y}`).join(' ')}" fill="${b.color}33" stroke="${b.color}" stroke-width="3"/>`).join(''); return `${shapes}<text x="${c.x+5}" y="${c.y-5}" font-size="12" fill="white">${escapeHtml(b.name)}</text>`;}).join('\n'); return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${img}${notes}${benchworks}${roads}${roadItems}${pads}${lights}</svg>`;}
   function download(content,name,type){const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([content],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
   function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));} function escapeAttr(s){return escapeHtml(s).replace(/'/g,'&#39;');} function slug(s){return githubData.slugify(s, 'building');}
 

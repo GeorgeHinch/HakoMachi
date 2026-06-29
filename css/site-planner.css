@@ -363,7 +363,7 @@ canvas {
   touch-action: none;
 }
 
-.canvasWrap.view3d canvas {
+.canvasWrap.view3d > #canvas {
   display: none;
 }
 
@@ -371,7 +371,12 @@ canvas {
   display: block;
 }
 
+.canvasWrap.view3d .emptyImageOverlay {
+  display: none;
+}
+
 .site3dView canvas {
+  display: block;
   cursor: grab;
 }
 

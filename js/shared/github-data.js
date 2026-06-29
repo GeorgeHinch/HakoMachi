@@ -115,6 +115,17 @@ async function githubTextRequest(settings, url, options = {}) {
   return response.text();
 }
 
+async function readGithubBlobText(settings, url) {
+  const data = await githubRequest(settings, url, { method: 'GET' });
+  if (data && data.content && data.encoding === 'base64') {
+    return base64ToUtf8(data.content);
+  }
+  if (data && typeof data.content === 'string' && data.content) {
+    return String(data.content);
+  }
+  throw new Error('GitHub file content was unavailable from the blob API.');
+}
+
 export function contentsUrl(settings, path) {
   const repo = encodeURIComponent(settings.repoFullName).replace('%2F', '/');
   const cleanPath = cleanRepoPath(path).split('/').map(encodeURIComponent).join('/');
@@ -128,8 +139,10 @@ export async function readGithubFile(settings, path) {
   let text = '';
   if (data.content && data.encoding === 'base64') {
     text = base64ToUtf8(data.content || '');
-  } else if (data.content) {
+  } else if (data.content && data.encoding !== 'none') {
     text = String(data.content || '');
+  } else if (data.git_url) {
+    text = await readGithubBlobText(settings, data.git_url);
   } else {
     text = await githubTextRequest(settings, url, { method: 'GET', allow404: true });
     if (text == null) return null;

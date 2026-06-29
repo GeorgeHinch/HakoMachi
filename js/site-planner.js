@@ -1343,6 +1343,10 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     }
     return {source, buildings:arr.map((b,i)=>normalizeLoadedBuilding(b,i)).filter(Boolean)};
   }
+  function projectShapeFields(p){
+    if(!p || typeof p!=='object') return String(p ?? 'empty');
+    return Object.keys(p).slice(0,12).join(', ') || 'none';
+  }
   function footprintLoadMessage(p, loadedCount, source){
     if(loadedCount>0){
       if(source && source!=='buildings') return `Loaded ${loadedCount} building footprint${loadedCount===1?'':'s'} from legacy field ${source}.`;
@@ -1351,7 +1355,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     if(Array.isArray(p?.buildings) && p.buildings.length===0){
       return 'Project loaded, but this saved file contains 0 building footprints. Its buildings array is empty, so there are no pads to restore.';
     }
-    return 'Project loaded, but no supported building footprint data was found.';
+    return `Project loaded, but no supported building footprint data was found. Fields found: ${projectShapeFields(p)}.`;
   }
   function hakoFileSummary(b){
     if(!b || !b.hakoFile) return 'No completed .hako file stored.';
@@ -4089,6 +4093,39 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
       createdAt:now
     };
   }
+  function looksLikeSitePlanPayload(value){
+    if(!value || typeof value!=='object') return false;
+    return value.app==='HakoMachi Site Planner'
+      || value.portableProject===true
+      || Array.isArray(value.buildings)
+      || Array.isArray(value.buildingPads)
+      || Array.isArray(value.pads)
+      || Array.isArray(value.lots)
+      || Array.isArray(value.roads)
+      || Array.isArray(value.benchworkOutlines)
+      || value.coordinateSystem?.type==='imagePixels'
+      || value.hakomachiCloud?.kind==='sitePlan'
+      || Array.isArray(value.site?.buildings)
+      || Array.isArray(value.site?.buildingPads);
+  }
+  function isGithubContentsMetadata(value){
+    return !!(value && typeof value==='object' && value.type==='file' && value.path && value.url && value.git_url && value.encoding);
+  }
+  function normalizeLoadedSitePlanPayload(value){
+    const candidates=[
+      ['top-level', value],
+      ['project', value?.project],
+      ['sitePlan', value?.sitePlan],
+      ['payload', value?.payload],
+      ['data', value?.data],
+      ['document', value?.document],
+      ['site', value?.site]
+    ];
+    for(const [source,payload] of candidates){
+      if(looksLikeSitePlanPayload(payload)) return {payload, source};
+    }
+    return {payload:value, source:'top-level'};
+  }
   function openGithubModal(title, body, actions=[]){
     let modal=document.getElementById('githubDataPlannerModal');
     if(!modal){
@@ -4187,6 +4224,14 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
         project=JSON.parse(text);
       }catch(err){
         throw new Error(`Could not parse ${record.path} as JSON (${text.length} bytes): ${err.message||err}`);
+      }
+      if(isGithubContentsMetadata(project)){
+        throw new Error(`GitHub returned file metadata instead of site-plan content for ${record.path}. Refresh the page and try again; if it repeats, the saved file may need to be re-saved from HakoMachi.`);
+      }
+      const normalized=normalizeLoadedSitePlanPayload(project);
+      project=normalized.payload;
+      if(normalized.source!=='top-level'){
+        setGithubStatus(`Loaded site-plan payload from ${normalized.source}.`);
       }
       loadProject(project, {fromFile:true});
       setCurrentGithubSite({id:record.id, name:record.name, path:record.path});

@@ -2206,6 +2206,27 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     renderSite3D();
   }
   function renderSite3D(){ if(site3d.renderer && site3d.scene && site3d.camera) site3d.renderer.render(site3d.scene,site3d.camera); }
+  function site3DCameraSnapshot(){
+    if(!site3d.camera) return null;
+    return {
+      position: site3d.camera.position.clone(),
+      quaternion: site3d.camera.quaternion.clone(),
+      zoom: site3d.camera.zoom,
+      target: site3d.controls?.target?.clone?.() || null
+    };
+  }
+  function restoreSite3DCameraSnapshot(snapshot){
+    if(!snapshot || !site3d.camera) return false;
+    site3d.camera.position.copy(snapshot.position);
+    site3d.camera.quaternion.copy(snapshot.quaternion);
+    site3d.camera.zoom=snapshot.zoom;
+    site3d.camera.updateProjectionMatrix();
+    if(site3d.controls && snapshot.target){
+      site3d.controls.target.copy(snapshot.target);
+      site3d.controls.update();
+    }
+    return true;
+  }
   function handleSite3DPointerUp(e){
     if(state.viewMode!=='3d' || !site3d.raycaster || !site3d.pointer || !site3d.camera || !site3d.renderer) return;
     if(e.button != null && e.button !== 0) return;
@@ -2231,12 +2252,13 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     renderList();
     renderSelected();
     updateHandoff();
-    updateSite3D();
+    updateSite3D({preserveCamera:true});
     setSidebarOpen(true);
   }
-  function updateSite3D(){
+  function updateSite3D(options={}){
     if(state.viewMode!=='3d') return;
     if(!initSite3D()) return;
+    const cameraSnapshot=options.preserveCamera ? site3DCameraSnapshot() : null;
     while(site3d.root.children.length){ const child=site3d.root.children.pop(); disposeSite3DObject(child); }
     const bounds=site3DBounds();
     const baseT=Math.max(.1,Number(state.site3d?.baseThicknessMm)||4);
@@ -2267,12 +2289,14 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
       }
     });
     const radius=Math.max(bounds.width,bounds.depth,60);
-    site3d.camera.position.set(radius*.72,Math.max(70,radius*.58),radius*.82);
     site3d.camera.near=.1;
     site3d.camera.far=Math.max(5000,radius*12);
-    site3d.camera.updateProjectionMatrix();
-    if(site3d.controls){ site3d.controls.target.set(0,0,0); site3d.controls.update(); }
-    else site3d.camera.lookAt(0,0,0);
+    if(!restoreSite3DCameraSnapshot(cameraSnapshot)){
+      site3d.camera.position.set(radius*.72,Math.max(70,radius*.58),radius*.82);
+      site3d.camera.updateProjectionMatrix();
+      if(site3d.controls){ site3d.controls.target.set(0,0,0); site3d.controls.update(); }
+      else site3d.camera.lookAt(0,0,0);
+    }
     const baseSource=benchworkBaseCount ? `Base follows ${benchworkBaseCount} benchwork outline${benchworkBaseCount===1?'':'s'}` : 'Rectangular base';
     setSite3DStatus(`3D view: ${rendered} buildings, ${generated} generator previews, ${detailed} detailed massing. ${baseSource} and extends ${fmt(baseT)} mm below zero.`);
     renderSite3D();

@@ -1,3 +1,3 @@
 'use strict';
 
-import '../site-planner.js?v=building-library-3d-cards-2';
+import '../site-planner.js?v=site3d-select-camera-1';

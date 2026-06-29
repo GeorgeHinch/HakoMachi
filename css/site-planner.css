@@ -345,6 +345,11 @@ body {
   background: #e8e8e0;
 }
 
+.canvasWrap.view3d {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 canvas {
   display: block;
   width: 100%;
@@ -361,6 +366,8 @@ canvas {
   display: none;
   background: #ecece6;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .canvasWrap.view3d > #canvas {
@@ -378,6 +385,8 @@ canvas {
 .site3dView canvas {
   display: block;
   cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .site3dView canvas:active {

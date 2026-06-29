@@ -2037,6 +2037,9 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     site3d.camera=new THREE.PerspectiveCamera(45,1,.1,5000);
     site3d.renderer=new THREE.WebGLRenderer({antialias:true});
     site3d.renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+    site3d.renderer.domElement.draggable=false;
+    site3d.renderer.domElement.addEventListener('selectstart', e=>e.preventDefault());
+    site3d.renderer.domElement.addEventListener('dragstart', e=>e.preventDefault());
     site3d.view.appendChild(site3d.renderer.domElement);
     const ambient=new THREE.AmbientLight(0xffffff,.72);
     const dir=new THREE.DirectionalLight(0xffffff,.82);
@@ -2053,6 +2056,9 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     resizeSite3D();
     return true;
   }
+  document.addEventListener('selectstart', e=>{
+    if(state.viewMode==='3d' && e.target?.closest?.('.canvasWrap')) e.preventDefault();
+  });
   function resizeSite3D(){
     if(!site3d.initialized || !site3d.renderer || !site3d.camera) return;
     const r=(site3d.view||ensureSite3dView()).getBoundingClientRect();

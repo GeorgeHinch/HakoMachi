@@ -138,6 +138,7 @@
       <label id="imageBtn" class="fileButton" for="imageFile">Import Image</label>
       <button id="undoBtn" class="iconBtn" title="Undo" aria-label="Undo" disabled><span class="topIcon" data-icon="undo"></span></button>
       <button id="redoBtn" class="iconBtn" title="Redo" aria-label="Redo" disabled><span class="topIcon" data-icon="redo"></span></button>
+      <button id="view3dBtn" class="desktopAction" title="Toggle the 3D elevation view">3D View</button>
       <button id="saveBtn" class="desktopAction">Save .hako-site.json</button>
       <label id="loadBtn" class="fileButton desktopAction" for="loadFile">Load</label>
       <div class="menuWrap splitExport">
@@ -173,6 +174,7 @@
           <label id="mobileLoadBtn" class="menuItem" for="loadFile">Load</label>
           <button id="mobileUndoBtn" disabled>Undo</button>
           <button id="mobileRedoBtn" disabled>Redo</button>
+          <button id="mobileView3dBtn">3D View</button>
           <button id="mobileCsvBtn">Export CSV</button>
           <button id="mobileSeedBtn">Export Selected Seed</button>
           <button id="mobileRoadExportPreviewBtn">Road Export Preview: Off</button>
@@ -222,6 +224,12 @@
       <div class="row"><div><label>Opacity</label><input id="opacity" type="range" min="0" max="1" step="0.05" value="0.75"></div><div><label>Image Lock</label><button id="imageLockBtn">Locked</button></div></div>
       <div id="imageImportStatus" class="small muted" style="margin-top:8px">No image loaded.</div>
       <div id="imagePortableStatus" class="small muted" style="margin-top:4px">Portable save: no image.</div>
+    </div>
+    <div class="section">
+      <h3>3D View</h3>
+      <label>Base thickness mm</label>
+      <input id="site3dBaseThickness" type="number" min="0.1" step="0.1" value="4">
+      <div class="small muted" style="margin-top:6px">The site base top stays at zero; thickness extends below the buildings.</div>
     </div>
     <div class="section" id="ipadInputSection" style="display:none">
       <h3>Input / iPad Pencil</h3>
@@ -290,6 +298,56 @@
   </aside>
   <div class="bottom"><span id="statusTool">Tool: Select</span><span id="statusScale">Calibration: unset</span><span id="statusZoom">Zoom: 100%</span><span id="statusMouse">Mouse: —</span><span id="statusHint">Tip: import an image, draw a calibration line, then trace pads.</span><span id="statusAutosave">Autosave: ready</span></div>
 </div>
+<script src="js/00-01-constants-defaults.js"></script>
+<script src="js/00-02-building-type-presets.js"></script>
+<script src="js/00-03-cladding-styles.js"></script>
+<script src="js/00-04-window-styles.js"></script>
+<script src="js/00-05-unified-wall-feature-model.js"></script>
+<script src="js/00-06-legacy-hako-import-healing-block.js"></script>
+<script src="js/00-07-config-serialization.js"></script>
+<script src="js/00-08-wall-feature-accessors-current-model.js"></script>
+<script src="js/00-09-embedded-rail-v1-straight-n-gauge-embedded-track-zones.js"></script>
+<script src="js/00-10-internationalisation-i18n.js"></script>
+<script src="js/00-11-door-styles.js"></script>
+<script src="js/00-12-fixture-styles-wall-mounted-surface-fixtures.js"></script>
+<script src="js/00-13-window-feature-shapes.js"></script>
+<script src="js/00-14-shutter-styles-decorative-panels-flanking-a-window.js"></script>
+<script src="js/00-15-printed-items-library.js"></script>
+<script src="js/00-16-rooftop-equipment-library.js"></script>
+<script src="js/00-17-state.js"></script>
+<script src="js/00-18-geometry-primitives.js"></script>
+<script src="js/00-19-part-generators.js"></script>
+<script src="js/00-20-segmented-wall-exposure.js"></script>
+<script src="js/00-21-truss-system.js"></script>
+<script src="js/00-22-truss-bearing-tabs.js"></script>
+<script src="js/00-23-vertical-truss-supports-column-system.js"></script>
+<script src="js/00-24-roof-generator-split-by-roof-type.js"></script>
+<script src="js/00-25-material-registry.js"></script>
+<script src="js/00-26-layout-cut-export-crop-geometry.js"></script>
+<script src="js/00-27-awnings.js"></script>
+<script src="js/00-28-balconies-editor-placed-via-manualbalconies.js"></script>
+<script src="js/00-29-billboards.js"></script>
+<script src="js/00-30-rooftop-shield-wall-japanese-kakoui-parapet-screen.js"></script>
+<script src="js/00-31-ridge-cap.js"></script>
+<script src="js/00-32-soffit-cladding.js"></script>
+<script src="js/00-33-cladding-panel-generator.js"></script>
+<script src="js/00-33-roof-fascia-trim.js"></script>
+<script src="js/00-34-window-parts-generators.js"></script>
+<script src="js/00-35-fixture-parts-generator.js"></script>
+<script src="js/00-36-interior-wall-cladding.js"></script>
+<script src="js/00-37-skylights.js"></script>
+<script src="js/00-38-shared-block-supplemental-part-generation.js"></script>
+<script src="js/00-39-sheet-size-wall-splitting-panelization.js"></script>
+<script src="js/00-40-full-building-generation.js"></script>
+<script src="js/01-00-default-wing-template.js"></script>
+<script src="js/01-01-block-context-shared-face-helpers.js"></script>
+<script src="js/01-02-1-main-block.js"></script>
+<script src="js/02-00-wing-multi-block-building-system.js"></script>
+<script src="js/02-01-billboard-ui-management.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
+<script src="js/03-05-floor-bands.js"></script>
+<script src="js/04-00-live-three-js-preview.js"></script>
 <script type="module" src="js/site-planner/main.js"></script>
 </body>
 </html>

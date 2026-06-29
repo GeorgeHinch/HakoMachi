@@ -1059,21 +1059,9 @@ function buildGeneratedStlPreviewGroup(cfg) {
 
 /* ---- main preview builder ---- */
 
-function updateThreePreview(cfg) {
+function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
   upgradeConfigToCurrentStorage(cfg);
-  if (!threeScene) initThreePreview();
-
-  if (buildingMesh) {
-    threeScene.remove(buildingMesh);
-    buildingMesh = null;
-  }
-
-  const note = document.getElementById('threePreviewModeNote');
-  if (note) {
-    note.textContent = threePreviewUseStlGeometry
-      ? 'Designed/material preview with translucent generated-STL overlay.'
-      : 'Designed/material preview. Enable overlay to compare preview_3d.stl geometry.';
-  }
+  const includeStlOverlay = opts.includeStlOverlay ?? threePreviewUseStlGeometry;
 
   // Use lastPlan if available; otherwise compute it fresh
   // Always rebuild to avoid stale plan / ghost windows mismatch with current cfg
@@ -3190,7 +3178,7 @@ function updateThreePreview(cfg) {
   // against the designed/material preview without replacing the coloured
   // model. The preview STL is a simplified laser-cut assembly/massing STL,
   // so it should be a translucent reference layer, not the main view.
-  if (threePreviewUseStlGeometry) {
+  if (includeStlOverlay) {
     try {
       const stlOverlay = buildGeneratedStlPreviewGroup(cfg);
       stlOverlay.name = 'Generated STL Overlay';
@@ -3199,6 +3187,34 @@ function updateThreePreview(cfg) {
       console.warn('Generated STL overlay failed:', e);
     }
   }
+
+  return group;
+}
+
+if (typeof window !== 'undefined') {
+  window.HakoMachiPreview3D = window.HakoMachiPreview3D || {};
+  window.HakoMachiPreview3D.buildBuildingPreviewGroup = buildHakoMachiBuildingPreviewGroup;
+  window.HakoMachiPreview3D.buildGeneratedStlPreviewGroup = buildGeneratedStlPreviewGroup;
+}
+
+function updateThreePreview(cfg) {
+  if (!threeScene) initThreePreview();
+
+  if (buildingMesh) {
+    threeScene.remove(buildingMesh);
+    buildingMesh = null;
+  }
+
+  const note = document.getElementById('threePreviewModeNote');
+  if (note) {
+    note.textContent = threePreviewUseStlGeometry
+      ? 'Designed/material preview with translucent generated-STL overlay.'
+      : 'Designed/material preview. Enable overlay to compare preview_3d.stl geometry.';
+  }
+
+  const group = buildHakoMachiBuildingPreviewGroup(cfg, {
+    includeStlOverlay: threePreviewUseStlGeometry
+  });
 
   // Add the assembled building to the scene
   threeScene.add(group);
@@ -3258,35 +3274,38 @@ window.addEventListener('resize', () => {
   requestThreePreviewRender(2);
 });
 
-// Hook preview generation
-const oldRegenerate = regenerate;
+// Hook preview generation only on pages that host the building generator preview.
+if (typeof regenerate === 'function' && typeof CONFIG !== 'undefined') {
+  const oldRegenerate = regenerate;
 
-regenerate = function() {
-  oldRegenerate();
-  try {
-    updateThreePreview(CONFIG);
-  } catch(e) {
-    console.error('3D preview error:', e);
-  }
-};
-
-setTimeout(() => {
-  try {
-    const stlToggle = document.getElementById('threePreviewUseStl');
-    if (stlToggle) {
-      const savedMode = localStorage.getItem('hakomachi_three_preview_stl');
-      if (savedMode != null) stlToggle.checked = savedMode === '1';
-      threePreviewUseStlGeometry = !!stlToggle.checked;
-      stlToggle.addEventListener('change', () => {
-        threePreviewUseStlGeometry = !!stlToggle.checked;
-        try { localStorage.setItem('hakomachi_three_preview_stl', threePreviewUseStlGeometry ? '1' : '0'); } catch (_) {}
-        updateThreePreview(CONFIG);
-      });
+  regenerate = function() {
+    oldRegenerate();
+    try {
+      updateThreePreview(CONFIG);
+    } catch(e) {
+      console.error('3D preview error:', e);
     }
-  } catch (_) {}
-  try { initThreePreview(); } catch(e) { console.error('initThreePreview threw:', e); return; }
-  try { updateThreePreview(CONFIG); } catch(e) { console.error('3D init error:', e); }
-}, 100);
+  };
+
+  setTimeout(() => {
+    if (!document.getElementById('threePreview')) return;
+    try {
+      const stlToggle = document.getElementById('threePreviewUseStl');
+      if (stlToggle) {
+        const savedMode = localStorage.getItem('hakomachi_three_preview_stl');
+        if (savedMode != null) stlToggle.checked = savedMode === '1';
+        threePreviewUseStlGeometry = !!stlToggle.checked;
+        stlToggle.addEventListener('change', () => {
+          threePreviewUseStlGeometry = !!stlToggle.checked;
+          try { localStorage.setItem('hakomachi_three_preview_stl', threePreviewUseStlGeometry ? '1' : '0'); } catch (_) {}
+          updateThreePreview(CONFIG);
+        });
+      }
+    } catch (_) {}
+    try { initThreePreview(); } catch(e) { console.error('initThreePreview threw:', e); return; }
+    try { updateThreePreview(CONFIG); } catch(e) { console.error('3D init error:', e); }
+  }, 100);
+}
 
 // window.onerror returning true is the ONLY reliable way to suppress cross-origin
 // "Script error." from CDN scripts (Three.js, OrbitControls) in Chrome/Firefox.

@@ -59,6 +59,8 @@ export function createInitialState() {
     longPress: null,
     contextTarget: null,
     sidebarOpen: false,
+    viewMode: '2d',
+    site3d: { baseThicknessMm: 4 },
     autosaveReady: false,
     autosaveRestored: false,
     dirty: false,

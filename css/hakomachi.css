@@ -139,6 +139,14 @@
   .preview-section h2 { margin-top: 0; }
   .preview-section.preview-3d { margin-top: 40px; }
   .preview-section.preview-3d h2 { font-size: 16px; letter-spacing: 0.03em; text-transform: none; color: var(--fg); margin-bottom: 10px; }
+  #threePreview,
+  #threePreview canvas {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #threePreview canvas {
+    touch-action: none;
+  }
   .part-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

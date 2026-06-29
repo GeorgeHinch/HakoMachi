@@ -36,6 +36,9 @@ function initThreePreview() {
 
   threeRenderer = new THREE.WebGLRenderer({ antialias: true });
   threeRenderer.setSize(container.clientWidth, container.clientHeight);
+  threeRenderer.domElement.draggable = false;
+  threeRenderer.domElement.addEventListener('selectstart', e => e.preventDefault());
+  threeRenderer.domElement.addEventListener('dragstart', e => e.preventDefault());
 
   container.innerHTML = '';
   container.appendChild(threeRenderer.domElement);

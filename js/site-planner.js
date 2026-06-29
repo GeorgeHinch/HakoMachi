@@ -1,4 +1,4 @@
-import githubData from './shared/github-data.js';
+import githubData from './shared/github-data.js?v=github-site-load-raw-fallback-1';
 import { installCanvasGestureBoundary, installThreeRenderCanvas } from './shared/browser-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
@@ -4180,7 +4180,15 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
       setGithubStatus('Loading '+record.path+'...');
       const file=await readGithubFile(settings, record.path);
       if(!file) throw new Error('Missing file: '+record.path);
-      loadProject(JSON.parse(file.text), {fromFile:true});
+      const text=String(file.text||'');
+      if(!text.trim()) throw new Error('GitHub file is empty or could not be read: '+record.path);
+      let project;
+      try{
+        project=JSON.parse(text);
+      }catch(err){
+        throw new Error(`Could not parse ${record.path} as JSON (${text.length} bytes): ${err.message||err}`);
+      }
+      loadProject(project, {fromFile:true});
       setCurrentGithubSite({id:record.id, name:record.name, path:record.path});
       closeGithubModal();
     }catch(err){

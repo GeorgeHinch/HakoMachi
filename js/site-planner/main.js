@@ -1,3 +1,3 @@
 'use strict';
 
-import '../site-planner.js?v=site3d-select-camera-1';
+import '../site-planner.js?v=github-site-load-raw-fallback-1';

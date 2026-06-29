@@ -96,6 +96,25 @@ export async function githubRequest(settings, url, options = {}) {
   return response.json();
 }
 
+async function githubTextRequest(settings, url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      Accept: 'application/vnd.github.raw',
+      'X-GitHub-Api-Version': '2022-11-28',
+      Authorization: 'Bearer ' + settings.token,
+      ...(options.headers || {}),
+    },
+  });
+  if (response.status === 404 && options.allow404) return null;
+  if (!response.ok) {
+    let detail = '';
+    try { detail = ': ' + await response.text(); } catch (_) {}
+    throw new Error('GitHub API ' + response.status + detail);
+  }
+  return response.text();
+}
+
 export function contentsUrl(settings, path) {
   const repo = encodeURIComponent(settings.repoFullName).replace('%2F', '/');
   const cleanPath = cleanRepoPath(path).split('/').map(encodeURIComponent).join('/');
@@ -106,9 +125,18 @@ export async function readGithubFile(settings, path) {
   const url = contentsUrl(settings, path) + '?ref=' + encodeURIComponent(settings.branch || 'main');
   const data = await githubRequest(settings, url, { method: 'GET', allow404: true });
   if (!data) return null;
+  let text = '';
+  if (data.content && data.encoding === 'base64') {
+    text = base64ToUtf8(data.content || '');
+  } else if (data.content) {
+    text = String(data.content || '');
+  } else {
+    text = await githubTextRequest(settings, url, { method: 'GET', allow404: true });
+    if (text == null) return null;
+  }
   return {
     sha: data.sha,
-    text: base64ToUtf8(data.content || ''),
+    text,
   };
 }
 

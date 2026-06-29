@@ -144,6 +144,10 @@
     user-select: none;
     -webkit-user-select: none;
   }
+  #threePreview {
+    overscroll-behavior: contain;
+    touch-action: none;
+  }
   #threePreview canvas {
     touch-action: none;
   }

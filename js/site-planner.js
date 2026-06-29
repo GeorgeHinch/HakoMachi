@@ -1,4 +1,4 @@
-import githubData from './shared/github-data.js?v=site3d-hako-polygon-orientation-4';
+import githubData from './shared/github-data.js?v=site3d-model-rotation-override-5';
 import { installCanvasGestureBoundary, installThreeRenderCanvas } from './shared/browser-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
@@ -1846,7 +1846,24 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     while(next-target<=-90) next+=180;
     return next;
   }
+  function site3DExplicitModelRotationDeg(b,cfg){
+    const values=[
+      b?.site3dModelRotationDeg,
+      b?.hakoModelRotationDeg,
+      b?.site3d?.modelRotationDeg,
+      cfg?.site3dModelRotationDeg,
+      cfg?.hakoModelRotationDeg,
+      cfg?.site3d?.modelRotationDeg
+    ];
+    for(const value of values){
+      const n=Number(value);
+      if(Number.isFinite(n)) return n;
+    }
+    return null;
+  }
   function site3DGeneratorModelRotationY(b,cfg){
+    const explicit=site3DExplicitModelRotationDeg(b,cfg);
+    if(Number.isFinite(explicit)) return -explicit*Math.PI/180;
     if(b?.padType==='polygon'){
       const edgeAngle=site3DLongestFootprintEdgeAngleDeg(b);
       const modelW=positiveNumber(cfg?.width,cfg?.widthMm,cfg?.dimensions?.width,cfg?.dimensions?.widthMm);

@@ -1,3 +1,3 @@
 'use strict';
 
-import '../site-planner.js?v=site3d-hako-polygon-orientation-4';
+import '../site-planner.js?v=site3d-model-rotation-override-5';

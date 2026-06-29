@@ -18,6 +18,7 @@ function listJsFiles(relativeDir) {
   return out;
 }
 const additionalModuleFiles = [
+  'js/building-generator-runtime.js',
   'js/site-planner/main.js',
   'js/site-planner/icons.js',
   'js/site-planner/state.js',
@@ -44,6 +45,11 @@ for (const file of moduleJsFiles) {
     if (result.stdout) console.error(result.stdout.trim());
     process.exit(1);
   }
+}
+
+if (jsFiles.length === 0) {
+  console.log('runtime module syntax ok; no classic runtime entries remain');
+  process.exit(0);
 }
 
 function dummy() {

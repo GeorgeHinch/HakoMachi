@@ -17,30 +17,30 @@ export function bbRenderBillboards() {
   if (!container) return;
   const bbs = CONFIG.billboards || [];
   if (bbs.length === 0) {
-    container.innerHTML = '<div class="small" style="color:var(--muted);">No billboards yet — click Add to place one.</div>';
+    container.innerHTML = '<div class="small" style="color:var(--muted);">No billboards yet â€” click Add to place one.</div>';
     return;
   }
   container.innerHTML = bbs.map((bb, i) => `
     <div style="border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:6px;">
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
         <b style="font-size:12px;">Billboard ${i+1}</b>
-        <button onclick="bbRemoveBillboard(${i})" style="margin-left:auto;padding:1px 8px;font-size:11px;">✕</button>
+        <button data-bb-action="remove" data-bb-index="${i}" style="margin-left:auto;padding:1px 8px;font-size:11px;">âœ•</button>
       </div>
       <div class="row" style="gap:6px;flex-wrap:wrap;font-size:11px;">
         <label>Type
-          <select onchange="CONFIG.billboards[${i}].type=this.value">
+          <select data-bb-field="type" data-bb-index="${i}">
             <option value="single" ${bb.type==='single'?'selected':''}>Single-sided</option>
             <option value="square" ${bb.type==='square'?'selected':''}>4-sided cube</option>
           </select>
         </label>
         <label>Face
-          <select onchange="CONFIG.billboards[${i}].face=this.value">
+          <select data-bb-field="face" data-bb-index="${i}">
             ${['front','back','east','west'].map(f=>`<option value="${f}" ${bb.face===f?'selected':''}>${f}</option>`).join('')}
           </select>
         </label>
-        <label>Width (mm) <input type="number" min="8" max="80" value="${bb.w||25}" style="width:48px" onchange="CONFIG.billboards[${i}].w=+this.value"></label>
-        <label>Sign height <input type="number" min="6" max="40" value="${bb.height||18}" style="width:48px" onchange="CONFIG.billboards[${i}].height=+this.value"></label>
-        <label>Post height <input type="number" min="4" max="30" value="${bb.postHeight||12}" style="width:48px" onchange="CONFIG.billboards[${i}].postHeight=+this.value"></label>
+        <label>Width (mm) <input type="number" min="8" max="80" value="${bb.w||25}" style="width:48px" data-bb-field="w" data-bb-index="${i}"></label>
+        <label>Sign height <input type="number" min="6" max="40" value="${bb.height||18}" style="width:48px" data-bb-field="height" data-bb-index="${i}"></label>
+        <label>Post height <input type="number" min="4" max="30" value="${bb.postHeight||12}" style="width:48px" data-bb-field="postHeight" data-bb-index="${i}"></label>
       </div>
     </div>
   `).join('');
@@ -170,10 +170,10 @@ export function weRender() {
     html += `<text x="${cx}" y="${cy - 4}" font-size="9" fill="${col}" font-weight="600"
       text-anchor="middle" font-family="system-ui" pointer-events="none">Wing ${CONFIG.wings.indexOf(wing) + 1}</text>`;
     html += `<text x="${cx}" y="${cy + 7}" font-size="8" fill="${col}"
-      text-anchor="middle" font-family="system-ui" pointer-events="none">${wing.connection === 'open' ? '⬜ open' : '⬛ wall'}</text>`;
+      text-anchor="middle" font-family="system-ui" pointer-events="none">${wing.connection === 'open' ? 'â¬œ open' : 'â¬› wall'}</text>`;
     const hw = (wing.height || CONFIG.height).toFixed(0);
     html += `<text x="${cx}" y="${cy + 17}" font-size="7" fill="${col}"
-      text-anchor="middle" font-family="system-ui" pointer-events="none">${b.w.toFixed(0)}×${b.d.toFixed(0)}×${hw}mm</text>`;
+      text-anchor="middle" font-family="system-ui" pointer-events="none">${b.w.toFixed(0)}Ã—${b.d.toFixed(0)}Ã—${hw}mm</text>`;
 
     // Resize handles on outer/parallel edges
     if (isSel) {
@@ -187,7 +187,7 @@ export function weRender() {
     }
   }
 
-  // Main block — clickable as sentinel 'main' so the sidebar can show
+  // Main block â€” clickable as sentinel 'main' so the sidebar can show
   // main-only options (currently the truss block; in future other
   // per-block features can hang off the same selector). Highlighted
   // when selected just like wings.
@@ -198,7 +198,7 @@ export function weRender() {
   html += `<text x="${ox+W*s/2}" y="${oy+D*s/2+4}" font-size="11" fill="#555"
     text-anchor="middle" font-family="system-ui" pointer-events="none">Main</text>`;
   html += `<text x="${ox+W*s/2}" y="${oy+D*s/2+16}" font-size="8" fill="#777"
-    text-anchor="middle" font-family="system-ui" pointer-events="none">${W}×${D}×${CONFIG.height}mm</text>`;
+    text-anchor="middle" font-family="system-ui" pointer-events="none">${W}Ã—${D}Ã—${CONFIG.height}mm</text>`;
 
   // "Add wing" arrows on each face
   const arrowDefs = [
@@ -222,7 +222,7 @@ export function weRender() {
 
   svg.innerHTML = html;
 
-  // Event handling — assign rather than stacking listeners each render.
+  // Event handling â€” assign rather than stacking listeners each render.
   // weRender() rebuilds the SVG often while dragging/toggling, and using
   // addEventListener here caused each click to fire multiple old handlers.
   svg.onclick = weOnClick;
@@ -274,7 +274,7 @@ export function weOnClick(e) {
   const addFace = e.target.dataset.addface;
   if (addFace) { weSelectedCutId = null; weAddWing(addFace); return; }
   if (wingId) { weSelectedCutId = null; weSelectedWingId = wingId; weRender(); weRenderSidebar(); return; }
-  // Click on empty canvas → deselect
+  // Click on empty canvas â†’ deselect
   if (!e.target.dataset.handle && !e.target.dataset.cuthandle) { weSelectedWingId = null; weSelectedCutId = null; weRender(); weRenderSidebar(); }
 }
 
@@ -423,7 +423,7 @@ export function weRenderSidebar() {
   sidebar.appendChild(cutNote);
   const cutBtns = document.createElement('div');
   cutBtns.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px;';
-  cutBtns.innerHTML = '<button type="button">＋ Straight</button><button type="button">＋ Arc</button>';
+  cutBtns.innerHTML = '<button type="button">ï¼‹ Straight</button><button type="button">ï¼‹ Arc</button>';
   cutBtns.children[0].onclick = () => weAddLayoutCut('line');
   cutBtns.children[1].onclick = () => weAddLayoutCut('arc');
   sidebar.appendChild(cutBtns);
@@ -432,11 +432,11 @@ export function weRenderSidebar() {
     if (cut) {
       const cutInfo = document.createElement('div');
       cutInfo.style.cssText = 'font-size:10px;color:#a22;background:#fff0f0;border:1px solid #e0b0b0;border-radius:4px;padding:5px;margin-bottom:5px;';
-      cutInfo.textContent = `${cut.type === 'arc' ? 'Arc' : 'Straight'} cut selected — keeping ${cut.keepSide} side.`;
+      cutInfo.textContent = `${cut.type === 'arc' ? 'Arc' : 'Straight'} cut selected â€” keeping ${cut.keepSide} side.`;
       sidebar.appendChild(cutInfo);
       weRenderSelectedCutControls(sidebar, cut);
       const del = document.createElement('button');
-      del.textContent = '🗑 Remove selected cut';
+      del.textContent = 'ðŸ—‘ Remove selected cut';
       del.style.cssText = 'width:100%;font-size:11px;margin-bottom:6px;border-color:#d22;color:#a22;background:#fff5f5;';
       del.onclick = weDeleteSelectedCut;
       sidebar.appendChild(del);
@@ -455,7 +455,7 @@ export function weRenderSidebar() {
     sidebar.appendChild(clear);
   }
 
-  // Block list — Main first, then wings. Selecting "Main" puts the
+  // Block list â€” Main first, then wings. Selecting "Main" puts the
   // sidebar into main-block mode where only main-applicable controls
   // (currently the truss block) are shown; selecting a wing shows the
   // full per-wing property panel as before. The same `weSelectedWingId`
@@ -539,14 +539,14 @@ export function weRenderSidebar() {
   numField('Offset (mm)',  'offset', 0,   500, 1);
   twoNumFields('Span (mm)', 'span', 'Depth (mm)', 'depth', 5, 500, 1);
   numField('Floors',       'floors',  1,   10, 1);
-  // Optional height override — leave blank to derive from Floors × main
+  // Optional height override â€” leave blank to derive from Floors Ã— main
   // building floor heights. Set to a positive value to lock the wing's
   // total height regardless of floor count. The wing's per-floor heights
   // scale to fit, so the floor band positions still divide the override
   // evenly. Best used with 'wall' connections; 'open' connections rely on
   // floor heights matching the main building's, which a height override
   // breaks by design.
-  numField('Height override (mm) — blank inherits', 'height', 10, 500, 1);
+  numField('Height override (mm) â€” blank inherits', 'height', 10, 500, 1);
 
   // Show the derived total height as a read-only hint so users know what
   // floor count / override maps to. The hint adapts to which mode is active.
@@ -566,10 +566,10 @@ export function weRenderSidebar() {
       const scale = h / inheritedTotal;
       const scaledFirst = (firstH * scale).toFixed(1);
       const scaledStd   = (floorH * scale).toFixed(1);
-      hint.textContent = `Height: ${h} mm (OVERRIDE — wing floors scaled to 1st ${scaledFirst} mm + ${(wing.floors||1)-1} × ${scaledStd} mm)`;
+      hint.textContent = `Height: ${h} mm (OVERRIDE â€” wing floors scaled to 1st ${scaledFirst} mm + ${(wing.floors||1)-1} Ã— ${scaledStd} mm)`;
       hint.style.color = '#a05000';
     } else {
-      hint.textContent = `Height: ${h} mm (1st floor ${firstH} mm + ${(wing.floors||1)-1} × ${floorH} mm — inherited from main)`;
+      hint.textContent = `Height: ${h} mm (1st floor ${firstH} mm + ${(wing.floors||1)-1} Ã— ${floorH} mm â€” inherited from main)`;
     }
     sidebar.appendChild(hint);
   })();
@@ -582,12 +582,12 @@ export function weRenderSidebar() {
     const b = document.createElement('button');
     b.textContent = label;
     b.className = wing.connection === val ? 'active' : '';
-    b.title = val === 'wall' ? 'A solid dividing wall separates the two blocks' : 'Open plan — interiors are connected (floor heights must match)';
+    b.title = val === 'wall' ? 'A solid dividing wall separates the two blocks' : 'Open plan â€” interiors are connected (floor heights must match)';
     b.onclick = () => { wing.connection = val; weRender(); weRenderSidebar(); regenerate(); };
     connRow.appendChild(b);
   }
-  connBtn('⬛ Wall', 'wall');
-  connBtn('⬜ Open', 'open');
+  connBtn('â¬› Wall', 'wall');
+  connBtn('â¬œ Open', 'open');
   sidebar.appendChild(connRow);
 
   if (wing.connection === 'open') {
@@ -603,7 +603,7 @@ export function weRenderSidebar() {
 
   function selectField(label, key, options) {
     const d = document.createElement('div'); d.className = 'field';
-    const opts = [['', '— Inherit —'], ...options];
+    const opts = [['', 'â€” Inherit â€”'], ...options];
     d.innerHTML = `<label>${label}</label><select>${opts.map(([v,t]) => `<option value="${v}" ${wing[key] === v || (v === '' && wing[key] == null) ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
     d.querySelector('select').addEventListener('change', ev => { wing[key] = ev.target.value || null; regenerate(); });
     sidebar.appendChild(d);
@@ -615,10 +615,10 @@ export function weRenderSidebar() {
   // main has both metal. Falls back to wing.claddingStyle (and then main's
   // roofCladdingStyle, then main's claddingStyle) via buildWingCfg's
   // `roofCladdingStyle: wing.roofCladdingStyle || cfg.roofCladdingStyle`
-  // — which inherits down the same precedence chain as wing.claddingStyle.
+  // â€” which inherits down the same precedence chain as wing.claddingStyle.
   selectField('Roof cladding', 'roofCladdingStyle', Object.entries(CLADDING_STYLES).map(([k, v]) => [k, v.label || k]));
 
-  // Interior cladding controls — per-wing override. The toggle is a
+  // Interior cladding controls â€” per-wing override. The toggle is a
   // tri-state: 'inherit' (null) follows main's setting, true/false force
   // it on or off for this wing alone. Style picker only shown when the
   // resolved effective state is "on" so the field doesn't claim screen
@@ -630,7 +630,7 @@ export function weRenderSidebar() {
     const inheritLabel = `inherit (${inheritedFromMain ? 'on' : 'off'})`;
     d.innerHTML = `<label>Interior cladding</label>
       <select>
-        <option value=""    ${cur == null  ? 'selected' : ''}>— ${inheritLabel} —</option>
+        <option value=""    ${cur == null  ? 'selected' : ''}>â€” ${inheritLabel} â€”</option>
         <option value="on"  ${cur === true ? 'selected' : ''}>On</option>
         <option value="off" ${cur === false? 'selected' : ''}>Off</option>
       </select>`;
@@ -656,7 +656,7 @@ export function weRenderSidebar() {
     ['gabled',  'Gabled'],
   ]);
 
-  // ── Roof-specific overrides. The effective roof style is the wing's override
+  // â”€â”€ Roof-specific overrides. The effective roof style is the wing's override
   // (when set) or main cfg's value (when wing.roofStyle is null/Inherit). Each
   // sub-field can independently be left empty to inherit main's value.
   const effectiveRoof = wing.roofStyle || CONFIG.roofStyle;
@@ -676,7 +676,7 @@ export function weRenderSidebar() {
   function inheritedSelectField(label, key, options, mainValue) {
     const d = document.createElement('div'); d.className = 'field';
     const mainLabel = options.find(([v]) => v === mainValue);
-    const inheritLabel = mainLabel ? `— Inherit (${mainLabel[1]}) —` : '— Inherit —';
+    const inheritLabel = mainLabel ? `â€” Inherit (${mainLabel[1]}) â€”` : 'â€” Inherit â€”';
     const opts = [['', inheritLabel], ...options];
     d.innerHTML = `<label>${label}</label><select>${opts.map(([v,t]) =>
       `<option value="${v}" ${wing[key] === v || (v === '' && wing[key] == null) ? 'selected' : ''}>${t}</option>`
@@ -701,12 +701,12 @@ export function weRenderSidebar() {
   } else if (effectiveRoof === 'gabled') {
     inheritedNumField('Roof pitch (mm rise)', 'roofPitch', 3, 40, 1, CONFIG.roofPitch);
     inheritedSelectField('Ridge direction', 'roofRidgeDirection', [
-      ['ew', 'East–West (slopes face span ends)'],
-      ['ns', 'North–South (slopes face depth ends)'],
+      ['ew', 'Eastâ€“West (slopes face span ends)'],
+      ['ns', 'Northâ€“South (slopes face depth ends)'],
     ], CONFIG.roofRidgeDirection);
   }
 
-  // Truss section — same renderer as main, but bound to the wing's own
+  // Truss section â€” same renderer as main, but bound to the wing's own
   // trusses object. Auto-initialised when missing so the user's first
   // toggle creates the field rather than throwing.
   if (!wing.trusses) {
@@ -718,7 +718,7 @@ export function weRenderSidebar() {
 
   // Delete button
   const delBtn = document.createElement('button');
-  delBtn.textContent = '🗑 Remove Wing';
+  delBtn.textContent = 'ðŸ—‘ Remove Wing';
   delBtn.style.cssText = 'margin-top:12px;width:100%;padding:6px;font-size:12px;cursor:pointer;border:1px solid var(--accent);color:var(--accent);border-radius:3px;background:#fff3ee;';
   delBtn.onclick = () => {
     weDeleteSelectedWingWithConfirm();
@@ -727,7 +727,7 @@ export function weRenderSidebar() {
 }
 
 /* Renders the Trusses controls block into the given sidebar element.
- * `blockObj` is either CONFIG (for main) or a wing object — both carry
+ * `blockObj` is either CONFIG (for main) or a wing object â€” both carry
  * a `trusses` field with the same shape. `onChange` is fired after every
  * edit; callers pass a closure that rerenders the canvas + regenerates
  * the build. Initialises blockObj.trusses lazily so older saves that
@@ -786,13 +786,13 @@ export function weRenderTrussSection(sidebar, blockObj, onChange) {
   const dirField = document.createElement('div'); dirField.className = 'field';
   const ridgeForLabel = effectiveRidgeDir(blockObj);
   const autoLabel = (blockObj.roofStyle === 'gabled' || blockObj.roofStyle === 'parapet_gable')
-    ? (ridgeForLabel === 'ew' ? 'Auto (NS — perpendicular to ridge)' : 'Auto (EW — perpendicular to ridge)')
+    ? (ridgeForLabel === 'ew' ? 'Auto (NS â€” perpendicular to ridge)' : 'Auto (EW â€” perpendicular to ridge)')
     : `Auto (perpendicular to longer side)`;
   dirField.innerHTML = `<label>Direction</label>
     <select>
       <option value="" ${t.axis == null ? 'selected' : ''}>${autoLabel}</option>
-      <option value="ns" ${t.axis === 'ns' ? 'selected' : ''}>N–S (trusses run north-south)</option>
-      <option value="ew" ${t.axis === 'ew' ? 'selected' : ''}>E–W (trusses run east-west)</option>
+      <option value="ns" ${t.axis === 'ns' ? 'selected' : ''}>Nâ€“S (trusses run north-south)</option>
+      <option value="ew" ${t.axis === 'ew' ? 'selected' : ''}>Eâ€“W (trusses run east-west)</option>
     </select>`;
   const dirInput = dirField.querySelector('select');
   dirInput.addEventListener('change', () => {
@@ -812,7 +812,7 @@ export function weRenderTrussSection(sidebar, blockObj, onChange) {
   });
   sidebar.appendChild(chordField);
 
-  // Wall X-bracing — simplified to a single toggle. The generator automatically
+  // Wall X-bracing â€” simplified to a single toggle. The generator automatically
   // adds braces on the truss-bearing walls for the selected truss direction:
   // N-S trusses = front/back walls; E-W trusses = east/west walls.
   const xbField = document.createElement('div'); xbField.className = 'field';
@@ -841,11 +841,11 @@ export function weRenderTrussSection(sidebar, blockObj, onChange) {
   });
   sidebar.appendChild(xbWidthField);
 
-  // Vertical column supports — the 3-piece I-beam system that holds
+  // Vertical column supports â€” the 3-piece I-beam system that holds
   // each truss up against the wall. Default off so existing users
   // don't get surprise column parts on regenerate; once enabled, the
   // depth+flangeW inputs let the user dial in the visual proportions
-  // (defaults at 4×4 mm read well at N-scale).
+  // (defaults at 4Ã—4 mm read well at N-scale).
   const supHdr = document.createElement('div');
   supHdr.style.cssText = 'font-size:11px;color:#555;margin-top:10px;';
   supHdr.textContent = 'Vertical wall supports';
@@ -870,8 +870,8 @@ export function weRenderTrussSection(sidebar, blockObj, onChange) {
     const supportType = t.supportColumnType === 't' ? 't' : 'i';
     typeField.innerHTML = `<label>Column cross-section</label>
       <select>
-        <option value="i" ${supportType === 'i' ? 'selected' : ''}>I-beam — back + web + end cap</option>
-        <option value="t" ${supportType === 't' ? 'selected' : ''}>T-beam — back + web only</option>
+        <option value="i" ${supportType === 'i' ? 'selected' : ''}>I-beam â€” back + web + end cap</option>
+        <option value="t" ${supportType === 't' ? 'selected' : ''}>T-beam â€” back + web only</option>
       </select>`;
     const typeInput = typeField.querySelector('select');
     typeInput.addEventListener('change', () => {

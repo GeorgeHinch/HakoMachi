@@ -33,15 +33,16 @@ dependent global scripts and toward explicit ES module imports.
      - `js/site-planner/presets.js`
 
 6. `building-generator.html`
-   - GitHub-save prelude module: `js/00-00-prelude.js`
    - Shared GitHub helper: `js/shared/github-data.js`
    - Entrypoint: `js/building-generator/main.js`
+   - Runtime module: `js/building-generator-runtime.js`
    - Data module index: `js/building-generator/data/index.js`
    - Core module index: `js/building-generator/core/index.js`
    - UI module index: `js/building-generator/ui/index.js`
    - Wing module index: `js/building-generator/wing/index.js`
    - Preview module index: `js/building-generator/preview/index.js`
-   - Legacy generator stack remains classic scripts for runtime behavior.
+   - Site Planner preview dependency shim:
+     `js/building-generator/preview/site-planner-dependencies.js`
 
 ## Remaining Migration Batches
 
@@ -54,8 +55,6 @@ moving to the next one.
   named exports.
 - Updated `site-planner.html`, `building-generator.html`, and their scripts to
   import GitHub data helpers instead of depending on script load order.
-- Kept a temporary `window.HakoMachiGithubDataShared` bridge only while legacy
-  consumers still exist.
 - Extended the runtime/module checks so shared browser services are covered.
 
 Validation checkpoint:
@@ -100,10 +99,9 @@ Validation checkpoint:
   - `js/building-generator/data/printed-styles.js`
   - `js/building-generator/data/rooftop-equipment.js`
   - `js/building-generator/data/index.js`
-- Kept the original numbered classic scripts in place for existing consumers.
-- The module shell exposes the native data surface through
-  `window.HakoMachiBuildingGenerator.data` and marks the document with
-  `data-building-generator-module="ready"` for smoke tests.
+- The Building Generator now loads through `js/building-generator/main.js`.
+- The active runtime is bundled into `js/building-generator-runtime.js` so the
+  former numbered stack shares one ES module scope.
 
 Validation checkpoint:
 - Syntax-check changed modules.
@@ -123,12 +121,12 @@ Validation checkpoint:
   - part generators
   - sheet splitting and part metadata helpers
   - full building generation helpers
-- Kept side-effect-heavy modules as syntax-checked module copies only:
+- Kept side-effect-heavy modules as module copies for focused imports:
   - `js/building-generator/core/material-registry.js`
   - `js/building-generator/core/materials-form.js`
   - `js/building-generator/core/stl-export-config.js`
-- The original numbered classic scripts remain in place for current runtime
-  behavior.
+- The numbered classic files have been removed from active loading and from the
+  repository.
 
 Validation checkpoint:
 - Syntax-check changed modules.
@@ -158,6 +156,11 @@ Validation checkpoint:
 - Removed the old numbered live Three.js preview script from active pages; the
   module preview now owns Building Generator startup and exposes
   `window.HakoMachiPreview3D` for Site Planner building previews.
+- Replaced the direct numbered generator script stack with the ES module
+  runtime bundle `js/building-generator-runtime.js`.
+- Added `js/building-generator/preview/site-planner-dependencies.js` so Site
+  Planner can publish generator preview dependencies without loading the
+  Building Generator UI runtime.
 - Extended guardrails to recursively syntax-check the building-generator module
   tree.
 

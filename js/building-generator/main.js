@@ -1,23 +1,13 @@
-import * as data from './data/index.js';
-import { coreModules } from './core/index.js';
-import { uiModules } from './ui/index.js';
-import { wingModules } from './wing/index.js';
+import '../building-generator-runtime.js?v=es-module-runtime-1';
 import { previewModules } from './preview/index.js?v=3d-shared-preview-2';
 
 window.HakoMachiBuildingGenerator = Object.freeze({
   ...(window.HakoMachiBuildingGenerator || {}),
-  data,
-  core: coreModules,
-  ui: uiModules,
-  wing: wingModules,
+  runtime: window.HakoMachiBuildingGeneratorRuntime,
   preview: previewModules,
 });
 
 document.documentElement.dataset.buildingGeneratorModule = 'ready';
-document.documentElement.dataset.buildingGeneratorDataKeys = String(Object.keys(data).length);
-document.documentElement.dataset.buildingGeneratorCoreModules = String(Object.keys(coreModules).length);
-document.documentElement.dataset.buildingGeneratorUiModules = String(Object.keys(uiModules).length);
-document.documentElement.dataset.buildingGeneratorWingModules = String(Object.keys(wingModules).length);
 document.documentElement.dataset.buildingGeneratorPreviewModules = String(Object.keys(previewModules).length);
 
 window.dispatchEvent(new CustomEvent('hakomachi:building-generator-module-ready', {
@@ -25,6 +15,23 @@ window.dispatchEvent(new CustomEvent('hakomachi:building-generator-module-ready'
 }));
 
 if (previewModules.threePreview?.buildHakoMachiBuildingPreviewGroup) {
+  for (const name of [
+    'get3DWallOpenings',
+    'getBlankedWindows3D',
+    'get3DWallProfileForFace',
+    'doorOpeningAs3DBayDoor',
+    'normaliseHexColour',
+    'materialDefinitionForId',
+    'materialColourHex',
+    'materialColourNumber',
+    'claddingMaterialIdForStyle',
+    'claddingColourHexForStyle',
+    'shadeHexColour',
+    'rgbaFromHex',
+  ]) {
+    if (previewModules.threePreview[name]) globalThis[name] = previewModules.threePreview[name];
+  }
+
   const previewApi = {
     ...(window.HakoMachiPreview3D || {}),
     buildBuildingPreviewGroup: previewModules.threePreview.buildHakoMachiBuildingPreviewGroup,
@@ -36,3 +43,4 @@ if (previewModules.threePreview?.buildHakoMachiBuildingPreviewGroup) {
 }
 
 previewModules.installLegacyBehavior?.({ root: window });
+window.startHakoMachiBuildingGeneratorRuntime?.();

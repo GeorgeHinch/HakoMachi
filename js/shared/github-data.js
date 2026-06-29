@@ -195,9 +195,4 @@ const githubData = Object.freeze({
   upsertRecord,
 });
 
-export function installGithubDataBridge(target = globalThis) {
-  target.HakoMachiGithubDataShared = githubData;
-  return githubData;
-}
-
 export default githubData;

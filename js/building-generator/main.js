@@ -1,9 +1,9 @@
-import '../building-generator-runtime.js?v=es-module-runtime-1';
+import '../building-generator-runtime.js?v=es-module-runtime-2';
 import {
   buildingPreviewRenderer,
   installBuildingPreviewGlobal,
   previewModules,
-} from './preview/index.js?v=shared-building-preview-25';
+} from './preview/index.js?v=shared-building-preview-26';
 
 window.HakoMachiBuildingGenerator = Object.freeze({
   ...(window.HakoMachiBuildingGenerator || {}),

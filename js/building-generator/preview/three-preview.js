@@ -4,8 +4,8 @@
    ===================================================================== */
 
 import { installThreeRenderCanvas } from '../../shared/browser-utils.js';
-import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=shared-building-preview-25';
-import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, layoutCutsActive, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=shared-building-preview-25';
+import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=shared-building-preview-26';
+import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, layoutCutsActive, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=shared-building-preview-26';
 
 let threeScene, threeCamera, threeRenderer, threeControls, buildingMesh;
 export let threePreviewConfig = null;

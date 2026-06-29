@@ -1,6 +1,8 @@
 /* =====================================================================
    FLOOR BANDS
    ===================================================================== */
+import { clipPolygonByLayoutCuts, layoutCutsActive } from '../core/layout-cut-geometry.js?v=shared-building-preview-26';
+
 export function oeGetFloorBands(wall) {
   const plan = oeActivePlan();
   if (!plan) return [];
@@ -1362,6 +1364,53 @@ export function collectLayoutReferenceOpeningsForBlock(blockCfg, blockPlan, boun
   return out;
 }
 
+function layoutReferenceRectPolygon(bounds) {
+  return [
+    { x: bounds.x, y: bounds.y },
+    { x: bounds.x + bounds.w, y: bounds.y },
+    { x: bounds.x + bounds.w, y: bounds.y + bounds.d },
+    { x: bounds.x, y: bounds.y + bounds.d },
+  ];
+}
+
+function layoutReferenceClippedPolygon(bounds, rootCfg) {
+  const poly = layoutReferenceRectPolygon(bounds);
+  if (!layoutCutsActive(rootCfg)) return poly;
+  const clipped = clipPolygonByLayoutCuts(poly, rootCfg.layoutCuts, rootCfg);
+  return clipped && clipped.length >= 3 ? clipped : poly;
+}
+
+function layoutReferencePolygonBounds(poly) {
+  const xs = (poly || []).map(p => p.x);
+  const ys = (poly || []).map(p => p.y);
+  return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
+}
+
+function layoutReferencePolygonCenter(poly, fallback) {
+  if (!poly || !poly.length) return { x: fallback.x + fallback.w / 2, y: fallback.y + fallback.d / 2 };
+  return poly.reduce((acc, p) => ({ x: acc.x + p.x / poly.length, y: acc.y + p.y / poly.length }), { x: 0, y: 0 });
+}
+
+function layoutReferencePointInPolygon(point, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i], b = poly[j];
+    if (((a.y > point.y) !== (b.y > point.y)) && point.x < (b.x - a.x) * (point.y - a.y) / ((b.y - a.y) || 1e-9) + a.x) inside = !inside;
+  }
+  return inside;
+}
+
+function layoutReferenceOpeningProbe(op) {
+  if (op.face === 'front') return { x: op.x + op.w / 2, y: op.y + op.h + 0.1 };
+  if (op.face === 'back') return { x: op.x + op.w / 2, y: op.y - 0.1 };
+  if (op.face === 'east') return { x: op.x - 0.1, y: op.y + op.h / 2 };
+  return { x: op.x + op.w + 0.1, y: op.y + op.h / 2 };
+}
+
+function layoutReferenceOpeningRetained(op, poly) {
+  return !poly || poly.length < 3 || layoutReferencePointInPolygon(layoutReferenceOpeningProbe(op), poly);
+}
+
 export function generateBuildingLayoutReferencePart(cfg, mainPlan) {
   if (!cfg) return null;
   ensurePrintedMaterialDefinition(cfg);
@@ -1390,15 +1439,21 @@ export function generateBuildingLayoutReferencePart(cfg, mainPlan) {
     });
   }
 
-  const openings = [];
   for (const block of blocks) {
-    openings.push(...collectLayoutReferenceOpeningsForBlock(block.cfg, block.plan, block.bounds));
+    block.poly = layoutReferenceClippedPolygon(block.bounds, cfg);
   }
 
-  let minX = Math.min(...blocks.map(b => b.bounds.x), 0);
-  let minY = Math.min(...blocks.map(b => b.bounds.y), 0);
-  let maxX = Math.max(...blocks.map(b => b.bounds.x + b.bounds.w), Number(cfg.width) || 80);
-  let maxY = Math.max(...blocks.map(b => b.bounds.y + b.bounds.d), Number(cfg.depth) || 60);
+  const openings = [];
+  for (const block of blocks) {
+    openings.push(...collectLayoutReferenceOpeningsForBlock(block.cfg, block.plan, block.bounds)
+      .filter(op => layoutReferenceOpeningRetained(op, block.poly)));
+  }
+
+  const polyBounds = blocks.map(b => layoutReferencePolygonBounds(b.poly || layoutReferenceRectPolygon(b.bounds)));
+  let minX = Math.min(...polyBounds.map(b => b.minX), 0);
+  let minY = Math.min(...polyBounds.map(b => b.minY), 0);
+  let maxX = Math.max(...polyBounds.map(b => b.maxX), Number(cfg.width) || 80);
+  let maxY = Math.max(...polyBounds.map(b => b.maxY), Number(cfg.depth) || 60);
   for (const op of openings) {
     minX = Math.min(minX, op.x);
     minY = Math.min(minY, op.y);
@@ -1433,10 +1488,11 @@ export function generateBuildingLayoutReferencePart(cfg, mainPlan) {
   body += `<text x="${(canvasW/2).toFixed(3)}" y="13.0" text-anchor="middle" font-family="system-ui" font-size="2.6" fill="${colors.helper}">Footprint with window / door / bay positions</text>`;
 
   for (const block of blocks) {
-    const x = ox + block.bounds.x;
-    const y = oy + block.bounds.y;
-    body += `<rect x="${x.toFixed(3)}" y="${y.toFixed(3)}" width="${block.bounds.w.toFixed(3)}" height="${block.bounds.d.toFixed(3)}" fill="${block.isMain ? colors.mainFill : colors.wingFill}" stroke="${colors.outline}" stroke-width="0.35" rx="0.6" ry="0.6"/>`;
-    body += `<text x="${(x + block.bounds.w/2).toFixed(3)}" y="${(y + block.bounds.d/2 + 1.2).toFixed(3)}" text-anchor="middle" font-family="system-ui" font-size="3.0" fill="${colors.helper}">${block.label}</text>`;
+    const poly = block.poly || layoutReferenceRectPolygon(block.bounds);
+    const pts = poly.map(p => `${(ox + p.x).toFixed(3)},${(oy + p.y).toFixed(3)}`).join(' ');
+    const center = layoutReferencePolygonCenter(poly, block.bounds);
+    body += `<polygon points="${pts}" fill="${block.isMain ? colors.mainFill : colors.wingFill}" stroke="${colors.outline}" stroke-width="0.35"/>`;
+    body += `<text x="${(ox + center.x).toFixed(3)}" y="${(oy + center.y + 1.2).toFixed(3)}" text-anchor="middle" font-family="system-ui" font-size="3.0" fill="${colors.helper}">${block.label}</text>`;
   }
 
   for (const op of openings) {

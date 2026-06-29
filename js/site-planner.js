@@ -5,7 +5,7 @@ import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState
 import { isLikelyIPad } from './site-planner/platform.js';
 import { clamp, deg, dist, fmt, rad, uid } from './site-planner/geometry.js';
 import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS } from './site-planner/presets.js';
-import { clipPolygonByHalfPlane, sampleLayoutCutSegments } from './building-generator/core/layout-cut-geometry.js?v=shared-building-preview-25';
+import { clipPolygonByHalfPlane, sampleLayoutCutSegments } from './building-generator/core/layout-cut-geometry.js?v=shared-building-preview-26';
 
 (() => {
   const canvas = document.getElementById('canvas');

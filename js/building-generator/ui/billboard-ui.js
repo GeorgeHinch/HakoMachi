@@ -128,10 +128,11 @@ export function weRender() {
   let { minX, minY, maxX, maxY } = weAllBounds();
   for (const cut of weEnsureLayoutCuts()) {
     if (!cut || cut.enabled === false) continue;
-    minX = Math.min(minX, cut.x1, cut.x2, cut.cx != null ? cut.cx : cut.x1);
-    minY = Math.min(minY, cut.y1, cut.y2, cut.cy != null ? cut.cy : cut.y1);
-    maxX = Math.max(maxX, cut.x1, cut.x2, cut.cx != null ? cut.cx : cut.x1);
-    maxY = Math.max(maxY, cut.y1, cut.y2, cut.cy != null ? cut.cy : cut.y1);
+    const resolved = resolveLayoutCutGeometry(cut, CONFIG);
+    minX = Math.min(minX, resolved.x1, resolved.x2, resolved.cx != null ? resolved.cx : resolved.x1);
+    minY = Math.min(minY, resolved.y1, resolved.y2, resolved.cy != null ? resolved.cy : resolved.y1);
+    maxX = Math.max(maxX, resolved.x1, resolved.x2, resolved.cx != null ? resolved.cx : resolved.x1);
+    maxY = Math.max(maxY, resolved.y1, resolved.y2, resolved.cy != null ? resolved.cy : resolved.y1);
   }
   // Origin offset so all blocks are visible
   const ox = P - minX * s;

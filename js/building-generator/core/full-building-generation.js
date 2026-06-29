@@ -2,6 +2,8 @@
    FULL BUILDING GENERATION
    Combines all parts into a list.
    ===================================================================== */
+import { clipPolygonByLayoutCuts, layoutCutsActive } from './layout-cut-geometry.js?v=shared-building-preview-26';
+
 
 export function htmlEscapeInline(s) {
   return String(s == null ? '' : s)
@@ -60,6 +62,34 @@ export function referencePrintBounds(blocks) {
   return { minX, minY, maxX, maxY, w: Math.max(1, maxX - minX), d: Math.max(1, maxY - minY) };
 }
 
+function referencePrintRectPolygon(block) {
+  return [
+    { x: block.x, y: block.y },
+    { x: block.x + block.w, y: block.y },
+    { x: block.x + block.w, y: block.y + block.d },
+    { x: block.x, y: block.y + block.d },
+  ];
+}
+
+function referencePrintClippedPolygon(block, cfg) {
+  const poly = referencePrintRectPolygon(block);
+  if (!layoutCutsActive(cfg)) return poly;
+  const clipped = clipPolygonByLayoutCuts(poly, cfg.layoutCuts, cfg);
+  return clipped && clipped.length >= 3 ? clipped : poly;
+}
+
+function referencePrintPolygonBounds(poly) {
+  const xs = (poly || []).map(p => p.x);
+  const ys = (poly || []).map(p => p.y);
+  const minX = Math.min(...xs), minY = Math.min(...ys), maxX = Math.max(...xs), maxY = Math.max(...ys);
+  return { minX, minY, maxX, maxY, w: Math.max(1, maxX - minX), d: Math.max(1, maxY - minY) };
+}
+
+function referencePrintPolygonCenter(poly, block) {
+  if (!poly || !poly.length) return { x: block.x + block.w / 2, y: block.y + block.d / 2 };
+  return poly.reduce((acc, p) => ({ x: acc.x + p.x / poly.length, y: acc.y + p.y / poly.length }), { x: 0, y: 0 });
+}
+
 export function referencePrintStructuralFeatures(blockCfg, face) {
   try {
     if (typeof structuralWallFeaturesForFace === 'function') {
@@ -78,7 +108,16 @@ export function referencePrintStructuralFeatures(blockCfg, face) {
 
 export function createBuildingLayoutReferencePrintPart(cfg, plan) {
   const blocks = referencePrintBlocksForConfig(cfg || {});
-  const b = referencePrintBounds(blocks);
+  for (const blk of blocks) blk.poly = referencePrintClippedPolygon(blk, cfg || {});
+  const clippedBounds = blocks.map(blk => referencePrintPolygonBounds(blk.poly || referencePrintRectPolygon(blk)));
+  const b = {
+    minX: Math.min(...clippedBounds.map(x => x.minX)),
+    minY: Math.min(...clippedBounds.map(x => x.minY)),
+    maxX: Math.max(...clippedBounds.map(x => x.maxX)),
+    maxY: Math.max(...clippedBounds.map(x => x.maxY)),
+  };
+  b.w = Math.max(1, b.maxX - b.minX);
+  b.d = Math.max(1, b.maxY - b.minY);
   const margin = 10;
   const titleH = 25;
   const legendH = 15;
@@ -108,9 +147,11 @@ export function createBuildingLayoutReferencePrintPart(cfg, plan) {
   svg += `<text x="${f(mapX + b.w + 5)}" y="${f(mapY + b.d / 2 + 1)}" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="3.2" fill="#777">E</text>`;
 
   for (const blk of blocks) {
-    const x = leftX(blk), y = topY(blk);
-    svg += `<rect x="${f(x)}" y="${f(y)}" width="${f(blk.w)}" height="${f(blk.d)}" rx="0.4" fill="${blk.fill}" fill-opacity="0.72" stroke="#3a332a" stroke-width="0.28"/>`;
-    svg += `<text x="${f(x + blk.w / 2)}" y="${f(y + blk.d / 2 + 1)}" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="3" fill="#7a6e60">${htmlEscapeInline(blk.label)}</text>`;
+    const poly = blk.poly || referencePrintRectPolygon(blk);
+    const pts = poly.map(p => `${f(px(p.x))},${f(py(p.y))}`).join(' ');
+    const center = referencePrintPolygonCenter(poly, blk);
+    svg += `<polygon points="${pts}" fill="${blk.fill}" fill-opacity="0.72" stroke="#3a332a" stroke-width="0.28"/>`;
+    svg += `<text x="${f(px(center.x))}" y="${f(py(center.y) + 1)}" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="3" fill="#7a6e60">${htmlEscapeInline(blk.label)}</text>`;
   }
 
   function marker(x, y, w, h, type, label) {

@@ -1,4 +1,4 @@
-import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-2';
+import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-3';
 import { installCanvasGestureBoundary, installThreeRenderCanvas } from './shared/browser-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
@@ -1102,6 +1102,38 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     });
     return blocks;
   }
+  function normalizeAngleDeg180(value){
+    let out=Number(value)||0;
+    while(out>180) out-=360;
+    while(out<=-180) out+=360;
+    return out;
+  }
+  function hakoLongestEdgeAngleDeg(polys){
+    let bestLen=-1, bestAngle=null;
+    (polys||[]).forEach(poly=>{
+      if(!Array.isArray(poly) || poly.length<2) return;
+      for(let i=0;i<poly.length;i++){
+        const p=poly[i], q=poly[(i+1)%poly.length];
+        const dx=q.x-p.x, dy=q.y-p.y;
+        const len=Math.hypot(dx,dy);
+        if(len>bestLen){
+          bestLen=len;
+          bestAngle=Math.atan2(dy,dx)*180/Math.PI;
+        }
+      }
+    });
+    return bestAngle;
+  }
+  function hakoFootprintRotationDeg(b){
+    if(!b || !b.hakoConfig || !state.pxPerMm) return Number(b?.rotationDeg)||0;
+    const localPolys=hakoBlockPolygonsMm(b.hakoConfig).map(block=>block.poly);
+    const localAngle=hakoLongestEdgeAngleDeg(localPolys);
+    const siteAngle=hakoLongestEdgeAngleDeg([buildingPoints(b)]);
+    if(Number.isFinite(localAngle) && Number.isFinite(siteAngle)){
+      return normalizeAngleDeg180(siteAngle-localAngle);
+    }
+    return Number(b.rotationDeg)||0;
+  }
   function hakoCutTargetId(cut){return (cut && cut.targetId) ? String(cut.targetId) : 'main';}
   function hakoCutTargetBoundsMm(cfg,cut){
     const target=hakoCutTargetId(cut);
@@ -1988,6 +2020,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function site3DGeneratorModelRotationY(b,cfg){
     const explicit=site3DExplicitModelRotationDeg(b,cfg);
     if(Number.isFinite(explicit)) return -explicit*Math.PI/180;
+    const hakoFootprintAngle=hakoFootprintRotationDeg(b);
+    if(b?.hakoConfig && Number.isFinite(hakoFootprintAngle)) return -hakoFootprintAngle*Math.PI/180;
     if(b?.padType==='polygon'){
       const edgeAngle=site3DLongestFootprintEdgeAngleDeg(b);
       const modelW=positiveNumber(cfg?.width,cfg?.widthMm,cfg?.dimensions?.width,cfg?.dimensions?.widthMm);
@@ -2929,7 +2963,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const origin=b.hakoGeometryOriginMm || {x:0,y:0};
     const dx=mmToPx(Number(p.x||0)-Number(origin.x||0));
     const dy=mmToPx(Number(p.y||0)-Number(origin.y||0));
-    const a=rad(Number(b.rotationDeg)||0), ca=Math.cos(a), sa=Math.sin(a);
+    const a=rad(hakoFootprintRotationDeg(b)), ca=Math.cos(a), sa=Math.sin(a);
     return {x:c.x+dx*ca-dy*sa,y:c.y+dx*sa+dy*ca};
   }
   function hakoWorldToLocalMm(b,p){
@@ -2937,7 +2971,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const origin=b.hakoGeometryOriginMm || {x:0,y:0};
     const dx=Number(p.x||0)-c.x;
     const dy=Number(p.y||0)-c.y;
-    const a=rad(Number(b.rotationDeg)||0), ca=Math.cos(a), sa=Math.sin(a);
+    const a=rad(hakoFootprintRotationDeg(b)), ca=Math.cos(a), sa=Math.sin(a);
     return {
       x:Number(origin.x||0)+pxToMm(dx*ca+dy*sa),
       y:Number(origin.y||0)+pxToMm(-dx*sa+dy*ca)

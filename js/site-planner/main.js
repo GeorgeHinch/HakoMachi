@@ -1,3 +1,3 @@
 'use strict';
 
-import '../site-planner.js?v=site2d-layout-cut-clipping-2';
+import '../site-planner.js?v=site2d-layout-cut-clipping-3';

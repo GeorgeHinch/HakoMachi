@@ -1,4 +1,5 @@
 import githubData from './shared/github-data.js';
+import { installCanvasGestureBoundary, installThreeRenderCanvas } from './shared/browser-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
 import { isLikelyIPad } from './site-planner/platform.js';
@@ -45,6 +46,19 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
   $('sidebarToggle')?.addEventListener('click', ()=>setSidebarOpen(!state.sidebarOpen));
   function screenToWorld(e){const r=canvas.getBoundingClientRect(); return {x:(e.clientX-r.left-state.view.x)/state.view.scale, y:(e.clientY-r.top-state.view.y)/state.view.scale};}
   function worldToScreen(p){return {x:p.x*state.view.scale+state.view.x,y:p.y*state.view.scale+state.view.y};}
+  function setCanvasZoomAtClientPoint(clientX,clientY,nextScale){
+    const r=canvas.getBoundingClientRect();
+    const before={x:(clientX-r.left-state.view.x)/state.view.scale,y:(clientY-r.top-state.view.y)/state.view.scale};
+    const mouse={x:clientX-r.left,y:clientY-r.top};
+    state.view.scale=clamp(nextScale,.05,20);
+    state.view.x=mouse.x-before.x*state.view.scale;
+    state.view.y=mouse.y-before.y*state.view.scale;
+    draw();
+  }
+  function zoomCanvasAtClientPoint(clientX,clientY,deltaY){
+    const factor=deltaY<0?1.1:.9;
+    setCanvasZoomAtClientPoint(clientX,clientY,state.view.scale*factor);
+  }
   function mmToPx(mm){return state.pxPerMm? mm*state.pxPerMm : mm;}
   function pxToMm(px){return state.pxPerMm? px/state.pxPerMm : px;}
   function modelKnownMm(){let v=parseFloat($('knownValue').value)||0; const unit=$('knownUnit').value; const sc=parseFloat($('modelScale').value)||150; if(unit==='mm'||unit==='model_mm') return v; if(unit==='in'||unit==='model_in') return v*25.4; if(unit==='source_mm'||unit==='real_mm') return v/sc; if(unit==='source_m'||unit==='real_m') return v*1000/sc; if(unit==='source_ft'||unit==='real_ft') return v*304.8/sc; return v;}
@@ -2042,6 +2056,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     site3d.renderer.domElement.addEventListener('selectstart', e=>e.preventDefault());
     site3d.renderer.domElement.addEventListener('dragstart', e=>e.preventDefault());
     site3d.view.appendChild(site3d.renderer.domElement);
+    installThreeRenderCanvas(site3d.view,site3d.renderer.domElement);
     const ambient=new THREE.AmbientLight(0xffffff,.72);
     const dir=new THREE.DirectionalLight(0xffffff,.82);
     dir.position.set(160,220,140);
@@ -3436,7 +3451,16 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     if(target?.annotation){state.selectedAnnotationId=target.annotation.id; state.selectedId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
     else if(target?.building){state.selectedId=target.building.id; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
   });
-  canvas.addEventListener('wheel', e=>{e.preventDefault(); const r=canvas.getBoundingClientRect(); const mouse={x:e.clientX-r.left,y:e.clientY-r.top}; const before=screenToWorld(e); const factor=e.deltaY<0?1.1:.9; state.view.scale=clamp(state.view.scale*factor,.05,20); state.view.x=mouse.x-before.x*state.view.scale; state.view.y=mouse.y-before.y*state.view.scale; draw();},{passive:false});
+  installCanvasGestureBoundary({
+    surface:wrap,
+    canvas,
+    stopGesturePropagation:true,
+    shouldHandle:()=>state.viewMode!=='3d',
+    onPinchWheel:(e,p)=>{ zoomCanvasAtClientPoint(p.x,p.y,e.deltaY); return true; },
+    onGestureStart:()=>({startScale:state.view.scale}),
+    onGestureChange:(e,p,gesture)=>setCanvasZoomAtClientPoint(p.x,p.y,gesture.startScale*(Number(e.scale)||1))
+  });
+  canvas.addEventListener('wheel', e=>{e.preventDefault(); zoomCanvasAtClientPoint(e.clientX,e.clientY,e.deltaY);},{passive:false});
   function deleteCurrentSelection(){
     if(state.selectedAnnotationId){ deleteSelectedAnnotation(); return true; }
     if(state.selectedRoadFeatureId){ deleteSelectedRoadFeature(); return true; }

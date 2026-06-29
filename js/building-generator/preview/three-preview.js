@@ -3,6 +3,8 @@
    Browser-local realtime preview of the generated structure.
    ===================================================================== */
 
+import { installThreeRenderCanvas } from '../../shared/browser-utils.js';
+
 let threeScene, threeCamera, threeRenderer, threeControls, buildingMesh;
 export let threePreviewConfig = null;
 export let threePreviewUseStlGeometry = false;
@@ -59,6 +61,7 @@ export function initThreePreview() {
 
   container.innerHTML = '';
   container.appendChild(threeRenderer.domElement);
+  installThreeRenderCanvas(container, threeRenderer.domElement);
 
   threeControls = new THREE.OrbitControls(
     threeCamera,

@@ -885,6 +885,38 @@ canvas {
 
 .githubDataRecord small { color: var(--muted); }
 
+.githubBuildingRecord {
+  grid-template-columns: 150px minmax(0,1fr) auto;
+  align-items: stretch;
+}
+
+.githubBuildingPreview {
+  width: 150px;
+  min-height: 94px;
+  aspect-ratio: 8 / 5;
+  border: 1px solid #d8d2c4;
+  border-radius: 4px;
+  background: #f2f1ea;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font-size: 11px;
+  text-align: center;
+}
+
+.githubBuildingPreview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.githubBuildingInfo {
+  min-width: 0;
+  align-self: center;
+}
+
 .mobileOnly { display: none !important; }
 .overflowOnly { display: none; }
 .hint { display: none !important; }

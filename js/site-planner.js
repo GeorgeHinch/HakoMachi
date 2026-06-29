@@ -1,4 +1,4 @@
-import githubData from './shared/github-data.js?v=site3d-model-rotation-override-5';
+import githubData from './shared/github-data.js?v=site3d-layout-cut-clipping-6';
 import { installCanvasGestureBoundary, installThreeRenderCanvas } from './shared/browser-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
@@ -2119,6 +2119,8 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
         tagSite3DBuilding(group,b);
         group.position.set(center.x-bounds.cx,site3DBuildingElevationMm(b),center.y-bounds.cy);
         group.rotation.y=site3DGeneratorModelRotationY(b,cfg);
+        group.updateMatrixWorld(true);
+        sharedRenderer.applyLayoutCutClippingToGroup?.(group,cfg,group.matrixWorld);
         return group;
       }catch(err){ console.warn('[HakoMachi Site Planner] 3D generated building fallback:',err); }
     }
@@ -2169,6 +2171,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     try{
       const width=240, height=150;
       renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});
+      renderer.localClippingEnabled=true;
       renderer.setPixelRatio(1);
       renderer.setSize(width,height,false);
       const scene=new THREE.Scene();
@@ -2231,6 +2234,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     site3d.raycaster=new THREE.Raycaster();
     site3d.pointer=new THREE.Vector2();
     site3d.renderer=new THREE.WebGLRenderer({antialias:true});
+    site3d.renderer.localClippingEnabled=true;
     site3d.renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
     site3d.renderer.domElement.draggable=false;
     site3d.renderer.domElement.addEventListener('selectstart', e=>e.preventDefault());

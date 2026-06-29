@@ -1,6 +1,6 @@
-import * as data from '../building-generator/data/index.js?v=shared-building-preview-23';
-import { coreModules } from '../building-generator/core/index.js?v=shared-building-preview-23';
-import * as materialRegistry from '../building-generator/core/material-registry.js?v=shared-building-preview-23';
+import * as data from '../building-generator/data/index.js?v=shared-building-preview-24';
+import { coreModules } from '../building-generator/core/index.js?v=shared-building-preview-24';
+import * as materialRegistry from '../building-generator/core/material-registry.js?v=shared-building-preview-24';
 import * as stlExportConfig from '../building-generator/core/stl-export-config.js';
 import { wingModules } from '../building-generator/wing/index.js';
 
@@ -27,14 +27,16 @@ function publishPreviewDependencies(root = globalThis) {
 
 publishPreviewDependencies(globalThis);
 
-const threePreview = await import('../building-generator/preview/three-preview.js?v=shared-building-preview-23');
+const threePreview = await import('../building-generator/preview/three-preview.js?v=shared-building-preview-24');
 
 const buildBuildingPreviewGroup = threePreview.buildHakoMachiBuildingPreviewGroup;
 const buildGeneratedStlPreviewGroup = threePreview.buildGeneratedStlPreviewGroup;
+const applyLayoutCutClippingToGroup = threePreview.applyLayoutCutClippingToGroup;
 
 const buildingPreviewRenderer = Object.freeze({
   buildBuildingPreviewGroup,
   buildGeneratedStlPreviewGroup,
+  applyLayoutCutClippingToGroup,
   helpers: threePreview,
 });
 
@@ -66,6 +68,7 @@ export {
   buildingPreviewRenderer,
   buildBuildingPreviewGroup,
   buildGeneratedStlPreviewGroup,
+  applyLayoutCutClippingToGroup,
   installBuildingPreviewGlobal,
   publishPreviewDependencies,
   threePreview,

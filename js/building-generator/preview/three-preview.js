@@ -4,8 +4,8 @@
    ===================================================================== */
 
 import { installThreeRenderCanvas } from '../../shared/browser-utils.js';
-import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=shared-building-preview-23';
-import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg } from '../core/layout-cut-geometry.js?v=shared-building-preview-23';
+import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=shared-building-preview-24';
+import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, layoutCutsActive, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=shared-building-preview-24';
 
 let threeScene, threeCamera, threeRenderer, threeControls, buildingMesh;
 export let threePreviewConfig = null;
@@ -92,6 +92,7 @@ export function initThreePreview() {
   threeCamera.position.set(120, 100, 120);
 
   threeRenderer = new THREE.WebGLRenderer({ antialias: true });
+  threeRenderer.localClippingEnabled = true;
   threeRenderer.setSize(container.clientWidth, container.clientHeight);
   threeRenderer.domElement.draggable = false;
   threeRenderer.domElement.addEventListener('selectstart', e => e.preventDefault());
@@ -3279,7 +3280,48 @@ export function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
     }
   }
 
+  applyLayoutCutClippingToGroup(group, cfg);
+
   return group;
+}
+
+export function applyLayoutCutClippingToGroup(group, cfg, transformMatrix = null) {
+  if (!group || !cfg || typeof THREE === 'undefined') return [];
+  const w = Number(cfg.width || 0) || 0;
+  const d = Number(cfg.depth || 0) || 0;
+  const planes = [];
+  if (layoutCutsActive(cfg) && w > 0 && d > 0) {
+    for (const cut of (cfg.layoutCuts || [])) {
+      if (!cut || cut.enabled === false) continue;
+      for (const [a, b] of sampleLayoutCutSegments(cut, cfg)) {
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        if (Math.hypot(dx, dy) < 0.001) continue;
+        const sideOffset = dx * (d / 2 - a.y) - dy * (w / 2 - a.x);
+        const keepRight = cut.keepSide === 'right';
+        const normal = keepRight
+          ? new THREE.Vector3(-dy, 0, dx)
+          : new THREE.Vector3(dy, 0, -dx);
+        const constant = keepRight ? sideOffset : -sideOffset;
+        const len = normal.length();
+        if (len <= 0.000001) continue;
+        normal.multiplyScalar(1 / len);
+        const plane = new THREE.Plane(normal, constant / len);
+        if (transformMatrix) plane.applyMatrix4(transformMatrix);
+        planes.push(plane);
+      }
+    }
+  }
+  group.traverse?.(child => {
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.filter(Boolean).forEach(mat => {
+      mat.clippingPlanes = planes.length ? planes : null;
+      mat.clipIntersection = false;
+      mat.needsUpdate = true;
+    });
+  });
+  group.userData.layoutCutClippingPlaneCount = planes.length;
+  return planes;
 }
 
 if (typeof window !== 'undefined') {

@@ -49,6 +49,10 @@ dependent global scripts and toward explicit ES module imports.
 These batches keep related files together so each chunk can be tested before
 moving to the next one.
 
+The detailed file plan for shrinking the Building Generator compatibility
+runtime lives in
+[`docs/building-generator-runtime-breakdown.md`](building-generator-runtime-breakdown.md).
+
 ### 1. Shared Browser Services
 
 - Converted `js/hakomachi-github-data.js` to `js/shared/github-data.js` with

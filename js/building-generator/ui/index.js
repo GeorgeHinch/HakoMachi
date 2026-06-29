@@ -7,6 +7,9 @@ import * as openingEditorToolbox from './opening-editor-toolbox.js';
 import * as openingEditorTopbar from './opening-editor-topbar.js';
 import * as editorModalFramework from './editor-modal-framework.js';
 import * as openingEditorFloorBands from './opening-editor-floor-bands.js';
+import * as formController from './form-controller.js';
+import * as outputController from './output-controller.js';
+import * as materialsController from './materials-controller.js';
 
 export const uiModules = Object.freeze({
   ui,
@@ -18,5 +21,7 @@ export const uiModules = Object.freeze({
   openingEditorTopbar,
   editorModalFramework,
   openingEditorFloorBands,
+  formController,
+  outputController,
+  materialsController,
 });
-

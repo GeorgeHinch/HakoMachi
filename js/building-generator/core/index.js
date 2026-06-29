@@ -26,6 +26,9 @@ import * as blockSupplementalParts from './block-supplemental-parts.js';
 import * as sheetSplitting from './sheet-splitting.js';
 import * as fullBuildingGeneration from './full-building-generation.js';
 import * as partMetadata from './part-metadata.js';
+import * as configSerialization from './config-serialization.js';
+import * as presetStorage from './preset-storage.js';
+import * as exportPipeline from './export-pipeline.js';
 
 export {
   wallFeatureModel,
@@ -56,6 +59,9 @@ export {
   sheetSplitting,
   fullBuildingGeneration,
   partMetadata,
+  configSerialization,
+  presetStorage,
+  exportPipeline,
 };
 
 export const coreModules = Object.freeze({
@@ -87,4 +93,7 @@ export const coreModules = Object.freeze({
   sheetSplitting,
   fullBuildingGeneration,
   partMetadata,
+  configSerialization,
+  presetStorage,
+  exportPipeline,
 });

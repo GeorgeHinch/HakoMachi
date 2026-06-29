@@ -1708,7 +1708,20 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
   function positiveNumber(...values){ for(const v of values){ const n=Number(v); if(Number.isFinite(n) && n>0) return n; } return null; }
   function site3DBuildingFootprintMm(b){ const pts=(b.padType==='rect'?transformedRect(b):(b.pointsPx||[])).map(p=>({x:site3DScale(p.x), y:site3DScale(p.y)})); return pts.length>=3 ? pts : null; }
   function site3DBuildingCenterMm(b){ const c=buildingCenter(b); return {x:site3DScale(c.x), y:site3DScale(c.y)}; }
-  function site3DBuildingHeightMm(b,cfg){ const byFloors=Number.isFinite(Number(b.floorCount)) ? Number(b.floorCount)*18 : null; return positiveNumber(b.plannerHeightMm,b.heightMm,cfg?.height,cfg?.dimensions?.height,byFloors,24) || 24; }
+  function site3DFloorCount(b,cfg){
+    const seed=b.hakoSeed||cfg?.hakoSeed||cfg?.sitePlannerSeed||cfg?.seed||null;
+    const n=positiveNumber(b.floorCount,cfg?.floorCount,cfg?.floors,cfg?.levels,seed?.floorCount,seed?.floors,seed?.levels);
+    return Math.max(1,Math.min(24,Math.round(n||2)));
+  }
+  function site3DFloorHeightMm(b,cfg){
+    const seed=b.hakoSeed||cfg?.hakoSeed||cfg?.sitePlannerSeed||cfg?.seed||null;
+    const v=positiveNumber(cfg?.floorHeight,cfg?.floorHeightMm,seed?.floorHeight,seed?.floorHeightMm);
+    return Math.max(4,Math.min(40,v||12));
+  }
+  function site3DBuildingHeightMm(b,cfg){
+    const byFloors=site3DFloorCount(b,cfg)*site3DFloorHeightMm(b,cfg);
+    return positiveNumber(b.plannerHeightMm,b.heightMm,cfg?.height,cfg?.heightMm,cfg?.dimensions?.height,cfg?.dimensions?.heightMm,byFloors,24) || 24;
+  }
   function site3DBuildingElevationMm(b){ return positiveNumber(b.baseElevationMm,b.elevationMm,b.siteElevationMm,0) || 0; }
   function site3DBenchworkFootprintsMm(){
     return (state.benchworkOutlines||[]).map(raw=>{
@@ -1719,9 +1732,9 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     }).filter(Boolean);
   }
   function site3DBuildingConfig(b){
-    const raw=b.hakoConfig || b.hakoFile?.parsedConfig || null;
+    const raw=b.hakoConfig || b.hakoFile?.parsedConfig || b.hakoSeed || null;
     if(!raw || typeof raw!=='object') return null;
-    const cfg=structuredClone(raw);
+    const cfg=site3DNormalizeBuildingConfig(b, structuredClone(raw));
     const h=site3DBuildingHeightMm(b,cfg);
     if(h) cfg.height=h;
     if(b.padType==='rect'){
@@ -1767,6 +1780,35 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     try{ c=new THREE.Color(color || fallback); }catch(_err){ c=new THREE.Color(fallback); }
     return new THREE.MeshStandardMaterial({color:c,roughness:.82,metalness:0,...opts});
   }
+  function site3DTypeDefaults(type,fabricType){
+    const key=String(type||'').toLowerCase();
+    const fabric=String(fabricType||'').toLowerCase();
+    if(key.includes('house')||key.includes('residential')||fabric.includes('residential')) return {floorHeight:9,roofStyle:'gabled',windowDensity:'normal',commercial:false,roofColor:0x6f5d52};
+    if(key.includes('zakkyo')||key.includes('commercial')||key.includes('tenant')||fabric.includes('commercial')||fabric.includes('station')) return {floorHeight:11,roofStyle:'parapet',windowDensity:'dense',commercial:true,roofColor:0x565656};
+    if(key.includes('office')||key.includes('apartment')||key.includes('mixed')) return {floorHeight:11,roofStyle:'parapet',windowDensity:'normal',commercial:false,roofColor:0x5f6466};
+    if(key.includes('warehouse')||key.includes('workshop')||key.includes('industrial')||key.includes('service')) return {floorHeight:13,roofStyle:'parapet_gable',windowDensity:'sparse',commercial:false,roofColor:0x4f5558};
+    return {floorHeight:12,roofStyle:'parapet',windowDensity:'normal',commercial:false,roofColor:0x5f6466};
+  }
+  function site3DNormalizeBuildingConfig(b,cfg){
+    const seed=(cfg?.kind==='HakoSeed'||cfg?.source==='HakoMachi Site Planner'||cfg?.footprint||cfg?.fabricHints) ? cfg : (b.hakoSeed||null);
+    const fabricType=seed?.fabricHints?.fabricType||b.fabricType||b.fabricRegionId||'';
+    const type=cfg.buildingType||seed?.buildingType||b.suggestedBuildingType||b.category||'building';
+    const defaults=site3DTypeDefaults(type,fabricType);
+    cfg.buildingType=type;
+    cfg.width=positiveNumber(cfg.width,cfg.widthMm,cfg.dimensions?.width,cfg.dimensions?.widthMm,seed?.width,seed?.widthMm,seed?.footprint?.width,seed?.footprint?.widthMm,b.widthMm) || 28;
+    cfg.depth=positiveNumber(cfg.depth,cfg.depthMm,cfg.dimensions?.depth,cfg.dimensions?.depthMm,seed?.depth,seed?.depthMm,seed?.footprint?.depth,seed?.footprint?.depthMm,b.depthMm) || 24;
+    cfg.floorCount=site3DFloorCount(b,{...cfg,...seed});
+    cfg.floorHeight=positiveNumber(cfg.floorHeight,cfg.floorHeightMm,seed?.floorHeight,seed?.floorHeightMm,defaults.floorHeight) || defaults.floorHeight;
+    cfg.height=positiveNumber(cfg.height,cfg.heightMm,seed?.height,seed?.heightMm,cfg.floorCount*cfg.floorHeight,b.heightMm,b.plannerHeightMm) || cfg.floorCount*cfg.floorHeight;
+    cfg.roofStyle=cfg.roofStyle||cfg.roof?.style||seed?.roofStyle||defaults.roofStyle;
+    cfg.windowDensity=cfg.windowDensity||cfg.windows?.density||seed?.windowDensity||defaults.windowDensity;
+    cfg.windowStyle=cfg.windowStyle||cfg.windows?.style||seed?.windowStyle||(defaults.commercial?'storefront':'industrial_small');
+    cfg.doorStyle=cfg.doorStyle||cfg.doors?.style||seed?.doorStyle||(defaults.commercial?'glass_storefront':'industrial_metal');
+    cfg.commercialIntensity=positiveNumber(seed?.fabricHints?.commercialIntensity,cfg.commercialIntensity,defaults.commercial?0.8:0.2) || 0.2;
+    cfg.signageIntensity=positiveNumber(seed?.fabricHints?.signageIntensity,cfg.signageIntensity,defaults.commercial?0.55:0.12) || 0.12;
+    cfg.roofColor=cfg.roofColor||defaults.roofColor;
+    return cfg;
+  }
   function signedArea2D(pts){
     return pts.reduce((sum,p,i)=>{
       const q=pts[(i+1)%pts.length];
@@ -1803,12 +1845,133 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     });
     return group;
   }
+  function site3DAddEdges(mesh,color=0x4b3828,opacity=.45){
+    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry,30),new THREE.LineBasicMaterial({color,transparent:true,opacity})));
+    return mesh;
+  }
+  function site3DBox(w,h,d,mat,x,y,z){
+    const mesh=new THREE.Mesh(new THREE.BoxGeometry(Math.max(.05,w),Math.max(.05,h),Math.max(.05,d)),mat);
+    mesh.position.set(x||0,y||0,z||0);
+    return mesh;
+  }
+  function site3DWindowColumns(width,density){
+    const d=String(density||'normal');
+    if(d==='none') return 0;
+    if(d==='sparse') return Math.max(1,Math.floor(width/22));
+    if(d==='dense') return Math.max(3,Math.floor(width/9));
+    return Math.max(2,Math.floor(width/14));
+  }
+  function site3DGabledRoof(width,depth,roofH,mat,ridgeDirection='ew'){
+    const ew=ridgeDirection!=='ns';
+    const x0=-width/2, x1=width/2, z0=-depth/2, z1=depth/2;
+    const verts=ew
+      ? [[x0,0,z0],[x1,0,z0],[x0,0,z1],[x1,0,z1],[x0,roofH,0],[x1,roofH,0]]
+      : [[x0,0,z0],[x0,0,z1],[x1,0,z0],[x1,0,z1],[0,roofH,z0],[0,roofH,z1]];
+    const faces=ew
+      ? [0,1,5, 0,5,4, 2,4,5, 2,5,3, 0,2,3, 0,3,1, 0,4,2, 1,3,5]
+      : [0,4,5, 0,5,1, 2,3,5, 2,5,4, 0,2,4, 1,5,3, 0,1,3, 0,3,2];
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(verts.flat(),3));
+    geo.setIndex(faces);
+    geo.computeVertexNormals();
+    return site3DAddEdges(new THREE.Mesh(geo,mat),0x3d332b,.45);
+  }
+  function site3DSlopedRoof(width,depth,roofH,mat){
+    const x0=-width/2, x1=width/2, z0=-depth/2, z1=depth/2;
+    const verts=[[x0,0,z0],[x1,0,z0],[x0,roofH,z1],[x1,roofH,z1],[x0,-.6,z0],[x1,-.6,z0],[x0,roofH-.6,z1],[x1,roofH-.6,z1]];
+    const faces=[0,1,3,0,3,2,4,6,7,4,7,5,0,4,5,0,5,1,2,3,7,2,7,6,0,2,6,0,6,4,1,5,7,1,7,3];
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(verts.flat(),3));
+    geo.setIndex(faces);
+    geo.computeVertexNormals();
+    return site3DAddEdges(new THREE.Mesh(geo,mat),0x3d332b,.45);
+  }
+  function addSite3DFacadeDetails(group,bounds,profile,box){
+    const {w,d,height,floors,floorH}=profile;
+    const wallDetailMat=new THREE.MeshStandardMaterial({color:0xf4ead5,roughness:.76,metalness:0});
+    const glassMat=new THREE.MeshStandardMaterial({color:0x6d9fbd,roughness:.25,metalness:.05,transparent:true,opacity:.74});
+    const darkGlassMat=new THREE.MeshStandardMaterial({color:0x315267,roughness:.28,metalness:.08,transparent:true,opacity:.82});
+    const doorMat=new THREE.MeshStandardMaterial({color:0x5f4d3f,roughness:.8,metalness:.02});
+    const signMat=new THREE.MeshStandardMaterial({color:0xc8493a,roughness:.65,metalness:0});
+    const trimMat=new THREE.MeshStandardMaterial({color:0x6d604f,roughness:.8,metalness:0});
+    const frontZ=-d/2-.08, backZ=d/2+.08, rightX=w/2+.08, leftX=-w/2-.08;
+    for(let i=1;i<floors;i++){
+      const y=Math.min(height-.6,i*floorH);
+      group.add(site3DBox(w+.6,.28,.16,trimMat,0,y,frontZ));
+      group.add(site3DBox(w+.6,.28,.16,trimMat,0,y,backZ));
+      group.add(site3DBox(.16,.28,d+.6,trimMat,leftX,y,0));
+      group.add(site3DBox(.16,.28,d+.6,trimMat,rightX,y,0));
+    }
+    const cols=site3DWindowColumns(w,profile.windowDensity);
+    const sideCols=Math.max(1,Math.min(4,site3DWindowColumns(d,profile.windowDensity)-1));
+    const winW=Math.max(2.4,Math.min(7,w/(cols*2.2||3)));
+    const winH=Math.max(2.4,Math.min(5.5,floorH*.42));
+    const addWindow=(x,y,z,side=false,mat=glassMat)=>{
+      const mesh=side?site3DBox(.18,winH,winW,mat,x,y,z):site3DBox(winW,winH,.18,mat,x,y,z);
+      group.add(mesh);
+    };
+    for(let floor=0;floor<floors;floor++){
+      const y=Math.min(height-winH*.55,(floor+.56)*floorH);
+      const first=floor===0;
+      if(first && profile.commercial){
+        const panelW=Math.max(5,Math.min(12,w/4));
+        [-1,0,1].forEach(n=>group.add(site3DBox(panelW,Math.min(7,floorH*.58),.2,darkGlassMat,n*panelW*1.12,Math.min(floorH*.45,4.6),frontZ)));
+      } else if(cols){
+        for(let c=0;c<cols;c++){
+          const x=-w/2+(c+1)*w/(cols+1);
+          addWindow(x,y,frontZ,false,glassMat);
+          addWindow(x,y,backZ,false,glassMat);
+        }
+      }
+      if(floor>0 || !profile.commercial){
+        for(let c=0;c<sideCols;c++){
+          const z=-d/2+(c+1)*d/(sideCols+1);
+          addWindow(leftX,y,z,true,glassMat);
+          addWindow(rightX,y,z,true,glassMat);
+        }
+      }
+    }
+    group.add(site3DBox(Math.min(7,w*.22),Math.min(7,floorH*.62),.22,doorMat,-w*.22,Math.min(floorH*.34,3.4),frontZ-.04));
+    if(profile.industrial){
+      group.add(site3DBox(Math.min(14,w*.36),Math.min(9,floorH*.7),.24,doorMat,w*.22,Math.min(floorH*.38,4.2),frontZ-.05));
+    }
+    if(profile.signage>.25){
+      const signW=Math.min(w*.62,Math.max(8,w*.35));
+      group.add(site3DBox(signW,Math.min(3.2,floorH*.26),.24,signMat,0,Math.min(height-.8,Math.max(floorH*.78,8)),frontZ-.1));
+    }
+    const roofMat=new THREE.MeshStandardMaterial({color:profile.roofColor,roughness:.9,metalness:0});
+    const roofStyle=String(profile.roofStyle||'parapet');
+    if(roofStyle.includes('gable')){
+      const roof=site3DGabledRoof(w+2,d+2,Math.max(3,Math.min(10,Math.min(w,d)*.18)),roofMat,profile.roofRidgeDirection);
+      roof.position.y=height;
+      group.add(roof);
+    } else if(roofStyle.includes('slant')){
+      const roof=site3DSlopedRoof(w+2,d+2,Math.max(2.5,Math.min(8,Math.min(w,d)*.12)),roofMat);
+      roof.position.y=height;
+      group.add(roof);
+    } else {
+      group.add(site3DBox(w+1,.6,d+1,roofMat,0,height+.3,0));
+      if(roofStyle.includes('parapet')){
+        const ph=Math.max(1.2,Math.min(4,profile.floorH*.22));
+        group.add(site3DBox(w+1,ph,.7,roofMat,0,height+ph/2,-d/2));
+        group.add(site3DBox(w+1,ph,.7,roofMat,0,height+ph/2,d/2));
+        group.add(site3DBox(.7,ph,d+1,roofMat,-w/2,height+ph/2,0));
+        group.add(site3DBox(.7,ph,d+1,roofMat,w/2,height+ph/2,0));
+      }
+    }
+    if(profile.industrial || profile.commercial){
+      group.add(site3DBox(Math.min(8,w*.18),2.2,Math.min(7,d*.18),trimMat,-w*.22,height+1.5,d*.18));
+      group.add(site3DBox(Math.min(5,w*.12),1.3,Math.min(4,d*.12),trimMat,w*.18,height+1.05,-d*.12));
+    }
+  }
   function buildSite3DMassing(b,bounds){
     const pts=site3DBuildingFootprintMm(b);
     const center=site3DBuildingCenterMm(b);
-    const height=site3DBuildingHeightMm(b,null);
+    const cfg=site3DBuildingConfig(b);
+    const height=site3DBuildingHeightMm(b,cfg);
     const mat=site3DMaterial(b.color,0xd79631);
     let mesh;
+    let detailBox=null;
     if(pts && pts.length>=3 && b.padType==='polygon'){
       const shape=new THREE.Shape();
       pts.forEach((p,i)=>{ const x=p.x-center.x, y=-(p.y-center.y); if(i===0) shape.moveTo(x,y); else shape.lineTo(x,y); });
@@ -1816,16 +1979,35 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
       const geo=new THREE.ExtrudeGeometry(shape,{depth:height,bevelEnabled:false});
       geo.rotateX(-Math.PI/2);
       mesh=new THREE.Mesh(geo,mat);
+      const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
+      detailBox={w:Math.max(...xs)-Math.min(...xs),d:Math.max(...ys)-Math.min(...ys)};
     } else {
       const w=positiveNumber(b.widthMm,pts&&Math.max(...pts.map(p=>p.x))-Math.min(...pts.map(p=>p.x)),20) || 20;
       const d=positiveNumber(b.depthMm,pts&&Math.max(...pts.map(p=>p.y))-Math.min(...pts.map(p=>p.y)),20) || 20;
       mesh=new THREE.Mesh(new THREE.BoxGeometry(w,height,d),mat);
       mesh.position.y=height/2;
+      detailBox={w,d};
     }
-    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry,30),new THREE.LineBasicMaterial({color:0x4b3828,transparent:true,opacity:.55})));
+    site3DAddEdges(mesh,0x4b3828,.55);
     const group=new THREE.Group();
     group.name=b.name||'Building massing';
+    group.userData.sitePlannerDetailedFallback=true;
     group.add(mesh);
+    const profile={
+      w:Math.max(4,detailBox?.w||cfg?.width||20),
+      d:Math.max(4,detailBox?.d||cfg?.depth||20),
+      height,
+      floors:site3DFloorCount(b,cfg),
+      floorH:Math.max(4,Math.min(40,height/Math.max(1,site3DFloorCount(b,cfg)))),
+      roofStyle:cfg?.roofStyle||'parapet',
+      roofRidgeDirection:cfg?.roofRidgeDirection||'ew',
+      roofColor:cfg?.roofColor||0x5f6466,
+      windowDensity:cfg?.windowDensity||'normal',
+      commercial:Number(cfg?.commercialIntensity||0)>0.5 || /shop|commercial|zakkyo|tenant/i.test(String(cfg?.buildingType||b.category||'')),
+      industrial:/warehouse|industrial|workshop|service/i.test(String(cfg?.buildingType||b.category||'')),
+      signage:Number(cfg?.signageIntensity||0)
+    };
+    addSite3DFacadeDetails(group,bounds,profile,detailBox);
     group.position.set(center.x-bounds.cx,site3DBuildingElevationMm(b),center.y-bounds.cy);
     group.rotation.y=-(Number(b.rotationDeg)||0)*Math.PI/180;
     return group;
@@ -1837,6 +2019,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
       try{
         const group=window.HakoMachiPreview3D.buildBuildingPreviewGroup(cfg,{includeStlOverlay:false});
         group.name=b.name||'HakoMachi building';
+        group.userData.sitePlannerGeneratorPreview=true;
         group.position.set(center.x-bounds.cx,site3DBuildingElevationMm(b),center.y-bounds.cy);
         group.rotation.y=-(Number(b.rotationDeg)||0)*Math.PI/180;
         return group;
@@ -1894,13 +2077,13 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
       grid.position.y=.015;
       site3d.root.add(grid);
     }
-    let rendered=0, generated=0;
+    let rendered=0, generated=0, detailed=0;
     state.buildings.forEach(raw=>{
       const b=normalizeBuilding(raw);
       syncBuildingMetrics(b);
       if(b.hidden) return;
       const g=buildSite3DBuildingGroup(b,bounds);
-      if(g){ if(site3DBuildingConfig(b)) generated++; site3d.root.add(g); rendered++; }
+      if(g){ if(g.userData?.sitePlannerGeneratorPreview) generated++; else if(g.userData?.sitePlannerDetailedFallback) detailed++; site3d.root.add(g); rendered++; }
     });
     const radius=Math.max(bounds.width,bounds.depth,60);
     site3d.camera.position.set(radius*.72,Math.max(70,radius*.58),radius*.82);
@@ -1910,7 +2093,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     if(site3d.controls){ site3d.controls.target.set(0,0,0); site3d.controls.update(); }
     else site3d.camera.lookAt(0,0,0);
     const baseSource=benchworkBaseCount ? `Base follows ${benchworkBaseCount} benchwork outline${benchworkBaseCount===1?'':'s'}` : 'Rectangular base';
-    setSite3DStatus(`3D view: ${rendered} buildings, ${generated} generated from .hako. ${baseSource} and extends ${fmt(baseT)} mm below zero.`);
+    setSite3DStatus(`3D view: ${rendered} buildings, ${generated} generator previews, ${detailed} detailed massing. ${baseSource} and extends ${fmt(baseT)} mm below zero.`);
     renderSite3D();
   }
   function setSite3DMode(on){

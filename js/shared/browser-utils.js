@@ -200,6 +200,10 @@
     };
   }
 
+  function hasClientPoint(e) {
+    return Number.isFinite(e.clientX) && Number.isFinite(e.clientY);
+  }
+
   function eventClientPoint(e, fallbackEl) {
     if (Number.isFinite(e.clientX) && Number.isFinite(e.clientY)) return { x: e.clientX, y: e.clientY };
     const r = fallbackEl.getBoundingClientRect();
@@ -209,6 +213,10 @@
   function pointInElement(el, p) {
     const r = el.getBoundingClientRect();
     return p.x >= r.left && p.x <= r.right && p.y >= r.top && p.y <= r.bottom;
+  }
+
+  function eventTargetInElement(el, target) {
+    return !!(target && target.nodeType === 1 && (target === el || el.contains(target)));
   }
 
   function preventBrowserViewportZoom(e, stopPropagation) {
@@ -231,35 +239,75 @@
     prepareCanvasGestureSurface(surface, canvas);
 
     let gestureState = null;
+    let lastSurfacePoint = null;
+
+    const rememberPoint = e => {
+      if (hasClientPoint(e)) lastSurfacePoint = { x: e.clientX, y: e.clientY };
+    };
+
+    const forgetPoint = () => {
+      lastSurfacePoint = null;
+    };
+
+    const pointForDocumentGesture = e => {
+      if (hasClientPoint(e)) return eventClientPoint(e, surface);
+      if (eventTargetInElement(surface, e.target)) return eventClientPoint(e, surface);
+      if (lastSurfacePoint && pointInElement(surface, lastSurfacePoint)) return lastSurfacePoint;
+      return null;
+    };
 
     const shouldHandle = (e, p) => {
       if (!pointInElement(surface, p)) return false;
       return !options.shouldHandle || options.shouldHandle(e, p) !== false;
     };
 
-    const onWheel = e => {
+    const handleWheel = (e, p) => {
       if (!e.ctrlKey) return;
-      const p = eventClientPoint(e, surface);
       if (!shouldHandle(e, p)) return;
       const handled = options.onPinchWheel ? options.onPinchWheel(e, p) !== false : false;
       preventBrowserViewportZoom(e, handled);
     };
 
-    const onGestureStart = e => {
-      const p = eventClientPoint(e, surface);
+    const onWheel = e => {
+      handleWheel(e, eventClientPoint(e, surface));
+    };
+
+    const onDocumentWheel = e => {
+      const p = pointForDocumentGesture(e);
+      if (p) handleWheel(e, p);
+    };
+
+    const handleGestureStart = (e, p) => {
       if (!shouldHandle(e, p)) return;
       gestureState = options.onGestureStart ? options.onGestureStart(e, p) : true;
       preventBrowserViewportZoom(e, !!options.stopGesturePropagation);
     };
 
-    const onGestureChange = e => {
-      const p = eventClientPoint(e, surface);
+    const onGestureStart = e => {
+      handleGestureStart(e, eventClientPoint(e, surface));
+    };
+
+    const onDocumentGestureStart = e => {
+      const p = pointForDocumentGesture(e);
+      if (p) handleGestureStart(e, p);
+    };
+
+    const handleGestureChange = (e, p) => {
       if (!gestureState || !shouldHandle(e, p)) return;
       if (options.onGestureChange) options.onGestureChange(e, p, gestureState);
       preventBrowserViewportZoom(e, !!options.stopGesturePropagation);
     };
 
-    const onGestureEnd = e => {
+    const onGestureChange = e => {
+      handleGestureChange(e, eventClientPoint(e, surface));
+    };
+
+    const onDocumentGestureChange = e => {
+      const p = pointForDocumentGesture(e);
+      if (p) handleGestureChange(e, p);
+    };
+
+    const handleGestureEnd = e => {
       if (!gestureState) return;
       const endedState = gestureState;
       gestureState = null;
@@ -267,17 +315,45 @@
       preventBrowserViewportZoom(e, !!options.stopGesturePropagation);
     };
 
+    const onGestureEnd = e => {
+      handleGestureEnd(e);
+    };
+
+    const onDocumentGestureEnd = e => {
+      handleGestureEnd(e);
+    };
+
+    surface.addEventListener('pointerenter', rememberPoint, { passive: true });
+    surface.addEventListener('pointermove', rememberPoint, { passive: true });
+    surface.addEventListener('pointerleave', forgetPoint, { passive: true });
+    surface.addEventListener('mouseenter', rememberPoint, { passive: true });
+    surface.addEventListener('mousemove', rememberPoint, { passive: true });
+    surface.addEventListener('mouseleave', forgetPoint, { passive: true });
     surface.addEventListener('wheel', onWheel, { passive: false, capture: true });
     surface.addEventListener('gesturestart', onGestureStart, { passive: false, capture: true });
     surface.addEventListener('gesturechange', onGestureChange, { passive: false, capture: true });
     surface.addEventListener('gestureend', onGestureEnd, { passive: false, capture: true });
+    document.addEventListener('wheel', onDocumentWheel, { passive: false, capture: true });
+    document.addEventListener('gesturestart', onDocumentGestureStart, { passive: false, capture: true });
+    document.addEventListener('gesturechange', onDocumentGestureChange, { passive: false, capture: true });
+    document.addEventListener('gestureend', onDocumentGestureEnd, { passive: false, capture: true });
 
     return {
       destroy() {
+        surface.removeEventListener('pointerenter', rememberPoint);
+        surface.removeEventListener('pointermove', rememberPoint);
+        surface.removeEventListener('pointerleave', forgetPoint);
+        surface.removeEventListener('mouseenter', rememberPoint);
+        surface.removeEventListener('mousemove', rememberPoint);
+        surface.removeEventListener('mouseleave', forgetPoint);
         surface.removeEventListener('wheel', onWheel, { capture: true });
         surface.removeEventListener('gesturestart', onGestureStart, { capture: true });
         surface.removeEventListener('gesturechange', onGestureChange, { capture: true });
         surface.removeEventListener('gestureend', onGestureEnd, { capture: true });
+        document.removeEventListener('wheel', onDocumentWheel, { capture: true });
+        document.removeEventListener('gesturestart', onDocumentGestureStart, { capture: true });
+        document.removeEventListener('gesturechange', onDocumentGestureChange, { capture: true });
+        document.removeEventListener('gestureend', onDocumentGestureEnd, { capture: true });
       }
     };
   }

@@ -1079,21 +1079,9 @@ export function buildGeneratedStlPreviewGroup(cfg) {
 
 /* ---- main preview builder ---- */
 
-export function updateThreePreview(cfg) {
+export function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
   upgradeConfigToCurrentStorage(cfg);
-  if (!threeScene) initThreePreview();
-
-  if (buildingMesh) {
-    threeScene.remove(buildingMesh);
-    buildingMesh = null;
-  }
-
-  const note = document.getElementById('threePreviewModeNote');
-  if (note) {
-    note.textContent = threePreviewUseStlGeometry
-      ? 'Designed/material preview with translucent generated-STL overlay.'
-      : 'Designed/material preview. Enable overlay to compare preview_3d.stl geometry.';
-  }
+  const includeStlOverlay = opts.includeStlOverlay ?? threePreviewUseStlGeometry;
 
   // Use lastPlan if available; otherwise compute it fresh
   // Always rebuild to avoid stale plan / ghost windows mismatch with current cfg
@@ -3210,7 +3198,7 @@ export function updateThreePreview(cfg) {
   // against the designed/material preview without replacing the coloured
   // model. The preview STL is a simplified laser-cut assembly/massing STL,
   // so it should be a translucent reference layer, not the main view.
-  if (threePreviewUseStlGeometry) {
+  if (includeStlOverlay) {
     try {
       const stlOverlay = buildGeneratedStlPreviewGroup(cfg);
       stlOverlay.name = 'Generated STL Overlay';
@@ -3219,6 +3207,41 @@ export function updateThreePreview(cfg) {
       console.warn('Generated STL overlay failed:', e);
     }
   }
+
+  return group;
+}
+
+if (typeof window !== 'undefined') {
+  const previewApi = {
+    ...(window.HakoMachiPreview3D || {}),
+    buildBuildingPreviewGroup: buildHakoMachiBuildingPreviewGroup,
+    buildGeneratedStlPreviewGroup,
+  };
+  window.HakoMachiPreview3D = previewApi;
+  globalThis.HakoMachiPreview3D = previewApi;
+  document.documentElement.dataset.hakomachiPreview3d = 'ready';
+  window.dispatchEvent(new CustomEvent('hakomachi:preview3d-ready', { detail: previewApi }));
+}
+
+export function updateThreePreview(cfg) {
+  upgradeConfigToCurrentStorage(cfg);
+  if (!threeScene) initThreePreview();
+
+  if (buildingMesh) {
+    threeScene.remove(buildingMesh);
+    buildingMesh = null;
+  }
+
+  const note = document.getElementById('threePreviewModeNote');
+  if (note) {
+    note.textContent = threePreviewUseStlGeometry
+      ? 'Designed/material preview with translucent generated-STL overlay.'
+      : 'Designed/material preview. Enable overlay to compare preview_3d.stl geometry.';
+  }
+
+  const group = buildHakoMachiBuildingPreviewGroup(cfg, {
+    includeStlOverlay: threePreviewUseStlGeometry
+  });
 
   // Add the assembled building to the scene
   threeScene.add(group);

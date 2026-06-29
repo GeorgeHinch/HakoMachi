@@ -155,9 +155,9 @@ Validation checkpoint:
 - Added `js/building-generator/preview/index.js` and exposed the preview
   namespace plus the explicit legacy installer through
   `window.HakoMachiBuildingGenerator.preview`.
-- Kept the original numbered classic scripts in place for current runtime
-  behavior; removing them should wait until consumers call the module imports
-  directly.
+- Removed the old numbered live Three.js preview script from active pages; the
+  module preview now owns Building Generator startup and exposes
+  `window.HakoMachiPreview3D` for Site Planner building previews.
 - Extended guardrails to recursively syntax-check the building-generator module
   tree.
 

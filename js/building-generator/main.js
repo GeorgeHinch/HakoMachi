@@ -2,7 +2,7 @@ import * as data from './data/index.js';
 import { coreModules } from './core/index.js';
 import { uiModules } from './ui/index.js';
 import { wingModules } from './wing/index.js';
-import { previewModules } from './preview/index.js';
+import { previewModules } from './preview/index.js?v=3d-shared-preview-2';
 
 window.HakoMachiBuildingGenerator = Object.freeze({
   ...(window.HakoMachiBuildingGenerator || {}),
@@ -23,3 +23,16 @@ document.documentElement.dataset.buildingGeneratorPreviewModules = String(Object
 window.dispatchEvent(new CustomEvent('hakomachi:building-generator-module-ready', {
   detail: window.HakoMachiBuildingGenerator,
 }));
+
+if (previewModules.threePreview?.buildHakoMachiBuildingPreviewGroup) {
+  const previewApi = {
+    ...(window.HakoMachiPreview3D || {}),
+    buildBuildingPreviewGroup: previewModules.threePreview.buildHakoMachiBuildingPreviewGroup,
+    buildGeneratedStlPreviewGroup: previewModules.threePreview.buildGeneratedStlPreviewGroup,
+  };
+  window.HakoMachiPreview3D = previewApi;
+  globalThis.HakoMachiPreview3D = previewApi;
+  document.documentElement.dataset.hakomachiPreview3d = 'ready';
+}
+
+previewModules.installLegacyBehavior?.({ root: window });

@@ -416,12 +416,5 @@
     "path": "js/03-05-floor-bands.js",
     "bytes": 121215,
     "title": "FLOOR BANDS"
-  },
-  {
-    "type": "js",
-    "script_index": 4,
-    "path": "js/04-00-live-three-js-preview.js",
-    "bytes": 139385,
-    "title": "LIVE THREE.JS PREVIEW"
   }
 ]

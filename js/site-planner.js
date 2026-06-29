@@ -1745,10 +1745,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
       return pts.length>=3 ? pts : null;
     }).filter(Boolean);
   }
-  function site3DBuildingConfig(b){
-    const raw=b.hakoConfig || b.hakoFile?.parsedConfig || b.hakoSeed || null;
-    if(!raw || typeof raw!=='object') return null;
-    const cfg=site3DNormalizeBuildingConfig(b, structuredClone(raw));
+  function site3DApplyPlannerDimensions(b,cfg){
     const h=site3DBuildingHeightMm(b,cfg);
     if(h) cfg.height=h;
     if(b.padType==='rect'){
@@ -1757,6 +1754,18 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
       if(d) cfg.depth=d;
     }
     return cfg;
+  }
+  function site3DBuildingConfig(b){
+    const raw=b.hakoConfig || b.hakoFile?.parsedConfig || b.hakoSeed || null;
+    if(!raw || typeof raw!=='object') return null;
+    const cfg=site3DNormalizeBuildingConfig(b, structuredClone(raw));
+    return site3DApplyPlannerDimensions(b,cfg);
+  }
+  function site3DGeneratorBuildingConfig(b){
+    const raw=b.hakoConfig || b.hakoFile?.parsedConfig || null;
+    if(!raw || typeof raw!=='object') return null;
+    const cfg=site3DNormalizeBuildingConfig(b, structuredClone(raw));
+    return site3DApplyPlannerDimensions(b,cfg);
   }
   function site3DBounds(){
     const xs=[], ys=[];
@@ -2021,15 +2030,15 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
       industrial:/warehouse|industrial|workshop|service/i.test(String(cfg?.buildingType||b.category||'')),
       signage:Number(cfg?.signageIntensity||0)
     };
-    addSite3DFacadeDetails(group,bounds,profile,detailBox);
+    if(b.padType!=='polygon') addSite3DFacadeDetails(group,bounds,profile,detailBox);
     group.position.set(center.x-bounds.cx,site3DBuildingElevationMm(b),center.y-bounds.cy);
     group.rotation.y=-(Number(b.rotationDeg)||0)*Math.PI/180;
     return group;
   }
   function buildSite3DBuildingGroup(b,bounds){
-    const cfg=site3DBuildingConfig(b);
+    const cfg=site3DGeneratorBuildingConfig(b);
     const center=site3DBuildingCenterMm(b);
-    const sharedRenderer=window.HakoMachiBuildingPreviewRenderer || window.HakoMachiPreview3D;
+    const sharedRenderer=window.HakoMachiBuildingPreviewRenderer;
     if(cfg && sharedRenderer?.buildBuildingPreviewGroup){
       try{
         const group=sharedRenderer.buildBuildingPreviewGroup(cfg,{includeStlOverlay:false});

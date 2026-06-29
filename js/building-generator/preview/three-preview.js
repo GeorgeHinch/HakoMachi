@@ -3215,15 +3215,7 @@ export function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
 }
 
 if (typeof window !== 'undefined') {
-  const previewApi = {
-    ...(window.HakoMachiPreview3D || {}),
-    buildBuildingPreviewGroup: buildHakoMachiBuildingPreviewGroup,
-    buildGeneratedStlPreviewGroup,
-  };
-  window.HakoMachiPreview3D = previewApi;
-  globalThis.HakoMachiPreview3D = previewApi;
   document.documentElement.dataset.hakomachiPreview3d = 'ready';
-  window.dispatchEvent(new CustomEvent('hakomachi:preview3d-ready', { detail: previewApi }));
 }
 
 export function updateThreePreview(cfg) {

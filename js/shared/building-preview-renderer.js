@@ -1,5 +1,33 @@
-import '../building-generator/preview/site-planner-dependencies.js';
-import * as threePreview from '../building-generator/preview/three-preview.js?v=3d-shared-preview-2';
+import * as data from '../building-generator/data/index.js';
+import { coreModules } from '../building-generator/core/index.js';
+import * as materialRegistry from '../building-generator/core/material-registry.js';
+import * as stlExportConfig from '../building-generator/core/stl-export-config.js';
+import { wingModules } from '../building-generator/wing/index.js';
+
+function publishModuleDependencies(root, moduleNamespace) {
+  for (const [name, value] of Object.entries(moduleNamespace || {})) {
+    if (value !== undefined && root[name] === undefined) {
+      root[name] = value;
+    }
+  }
+}
+
+function publishPreviewDependencies(root = globalThis) {
+  publishModuleDependencies(root, data);
+  for (const moduleNamespace of Object.values(coreModules)) publishModuleDependencies(root, moduleNamespace);
+  publishModuleDependencies(root, materialRegistry);
+  publishModuleDependencies(root, stlExportConfig);
+  for (const moduleNamespace of Object.values(wingModules)) publishModuleDependencies(root, moduleNamespace);
+
+  const documentElement = root.document?.documentElement || globalThis.document?.documentElement;
+  if (documentElement) {
+    documentElement.dataset.hakomachiPreview3dDependencies = 'ready';
+  }
+}
+
+publishPreviewDependencies(globalThis);
+
+const threePreview = await import('../building-generator/preview/three-preview.js?v=shared-building-preview-3');
 
 const buildBuildingPreviewGroup = threePreview.buildHakoMachiBuildingPreviewGroup;
 const buildGeneratedStlPreviewGroup = threePreview.buildGeneratedStlPreviewGroup;
@@ -13,13 +41,6 @@ const buildingPreviewRenderer = Object.freeze({
 function installBuildingPreviewGlobal(root = globalThis) {
   if (!root) return buildingPreviewRenderer;
 
-  const legacyPreviewApi = {
-    ...(root.HakoMachiPreview3D || {}),
-    buildBuildingPreviewGroup,
-    buildGeneratedStlPreviewGroup,
-  };
-
-  root.HakoMachiPreview3D = legacyPreviewApi;
   root.HakoMachiBuildingPreviewRenderer = buildingPreviewRenderer;
 
   const documentElement = root.document?.documentElement || globalThis.document?.documentElement;
@@ -46,5 +67,6 @@ export {
   buildBuildingPreviewGroup,
   buildGeneratedStlPreviewGroup,
   installBuildingPreviewGlobal,
+  publishPreviewDependencies,
   threePreview,
 };

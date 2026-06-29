@@ -1710,6 +1710,14 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
   function site3DBuildingCenterMm(b){ const c=buildingCenter(b); return {x:site3DScale(c.x), y:site3DScale(c.y)}; }
   function site3DBuildingHeightMm(b,cfg){ const byFloors=Number.isFinite(Number(b.floorCount)) ? Number(b.floorCount)*18 : null; return positiveNumber(b.plannerHeightMm,b.heightMm,cfg?.height,cfg?.dimensions?.height,byFloors,24) || 24; }
   function site3DBuildingElevationMm(b){ return positiveNumber(b.baseElevationMm,b.elevationMm,b.siteElevationMm,0) || 0; }
+  function site3DBenchworkFootprintsMm(){
+    return (state.benchworkOutlines||[]).map(raw=>{
+      const bw=normalizeBenchworkOutline(raw);
+      if(!bw || bw.hidden) return null;
+      const pts=benchworkSamples(bw,24).map(p=>({x:site3DScale(p.x), y:site3DScale(p.y)}));
+      return pts.length>=3 ? pts : null;
+    }).filter(Boolean);
+  }
   function site3DBuildingConfig(b){
     const raw=b.hakoConfig || b.hakoFile?.parsedConfig || null;
     if(!raw || typeof raw!=='object') return null;
@@ -1730,6 +1738,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
       const h=Number(state.image?.naturalHeight||state.image?.height||state.imageMeta?.naturalHeightPx);
       if(Number.isFinite(w)&&Number.isFinite(h)&&w>0&&h>0){ xs.push(0,site3DScale(w)); ys.push(0,site3DScale(h)); }
     }
+    site3DBenchworkFootprintsMm().forEach(pts=>pts.forEach(p=>{ xs.push(p.x); ys.push(p.y); }));
     state.buildings.forEach(raw=>{
       const b=normalizeBuilding(raw);
       if(b.hidden) return;
@@ -1757,6 +1766,42 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     let c;
     try{ c=new THREE.Color(color || fallback); }catch(_err){ c=new THREE.Color(fallback); }
     return new THREE.MeshStandardMaterial({color:c,roughness:.82,metalness:0,...opts});
+  }
+  function signedArea2D(pts){
+    return pts.reduce((sum,p,i)=>{
+      const q=pts[(i+1)%pts.length];
+      return sum + p.x*q.y - q.x*p.y;
+    },0)/2;
+  }
+  function buildSite3DBase(bounds,baseT){
+    const mat=new THREE.MeshStandardMaterial({color:0xcab98d,roughness:.9,metalness:0,side:THREE.DoubleSide});
+    const benchworks=site3DBenchworkFootprintsMm();
+    if(!benchworks.length){
+      const base=new THREE.Mesh(new THREE.BoxGeometry(bounds.width,baseT,bounds.depth),mat);
+      base.name='Negative-thickness rectangular site base';
+      base.position.y=-baseT/2;
+      return base;
+    }
+    const group=new THREE.Group();
+    group.name='Negative-thickness benchwork site base';
+    benchworks.forEach((pts,idx)=>{
+      const ordered=signedArea2D(pts)<0 ? pts.slice().reverse() : pts.slice();
+      const shape=new THREE.Shape();
+      ordered.forEach((p,i)=>{
+        const x=p.x-bounds.cx;
+        const y=p.y-bounds.cy;
+        if(i===0) shape.moveTo(x,y);
+        else shape.lineTo(x,y);
+      });
+      shape.closePath();
+      const geo=new THREE.ExtrudeGeometry(shape,{depth:baseT,bevelEnabled:false});
+      geo.rotateX(Math.PI/2);
+      const mesh=new THREE.Mesh(geo,mat);
+      mesh.name=`Benchwork base ${idx+1}`;
+      mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry,30),new THREE.LineBasicMaterial({color:0x8a6f43,transparent:true,opacity:.6})));
+      group.add(mesh);
+    });
+    return group;
   }
   function buildSite3DMassing(b,bounds){
     const pts=site3DBuildingFootprintMm(b);
@@ -1841,13 +1886,14 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     while(site3d.root.children.length){ const child=site3d.root.children.pop(); disposeSite3DObject(child); }
     const bounds=site3DBounds();
     const baseT=Math.max(.1,Number(state.site3d?.baseThicknessMm)||4);
-    const base=new THREE.Mesh(new THREE.BoxGeometry(bounds.width,baseT,bounds.depth),new THREE.MeshStandardMaterial({color:0xcab98d,roughness:.9,metalness:0}));
-    base.name='Negative-thickness site base';
-    base.position.y=-baseT/2;
+    const benchworkBaseCount=site3DBenchworkFootprintsMm().length;
+    const base=buildSite3DBase(bounds,baseT);
     site3d.root.add(base);
-    const grid=new THREE.GridHelper(Math.max(bounds.width,bounds.depth),20,0x8a7f66,0xcfc5aa);
-    grid.position.y=.015;
-    site3d.root.add(grid);
+    if(!benchworkBaseCount){
+      const grid=new THREE.GridHelper(Math.max(bounds.width,bounds.depth),20,0x8a7f66,0xcfc5aa);
+      grid.position.y=.015;
+      site3d.root.add(grid);
+    }
     let rendered=0, generated=0;
     state.buildings.forEach(raw=>{
       const b=normalizeBuilding(raw);
@@ -1863,7 +1909,8 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     site3d.camera.updateProjectionMatrix();
     if(site3d.controls){ site3d.controls.target.set(0,0,0); site3d.controls.update(); }
     else site3d.camera.lookAt(0,0,0);
-    setSite3DStatus(`3D view: ${rendered} buildings, ${generated} generated from .hako. Base extends ${fmt(baseT)} mm below zero.`);
+    const baseSource=benchworkBaseCount ? `Base follows ${benchworkBaseCount} benchwork outline${benchworkBaseCount===1?'':'s'}` : 'Rectangular base';
+    setSite3DStatus(`3D view: ${rendered} buildings, ${generated} generated from .hako. ${baseSource} and extends ${fmt(baseT)} mm below zero.`);
     renderSite3D();
   }
   function setSite3DMode(on){

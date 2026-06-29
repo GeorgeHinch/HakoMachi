@@ -219,6 +219,14 @@
     return !!(target && target.nodeType === 1 && (target === el || el.contains(target)));
   }
 
+  function elementHovered(el) {
+    try {
+      return !!(el && el.matches && el.matches(':hover'));
+    } catch (_) {
+      return false;
+    }
+  }
+
   function preventBrowserViewportZoom(e, stopPropagation) {
     if (e.cancelable !== false) e.preventDefault();
     if (stopPropagation) e.stopPropagation();
@@ -240,12 +248,16 @@
 
     let gestureState = null;
     let lastSurfacePoint = null;
+    let pointerInsideSurface = false;
 
     const rememberPoint = e => {
+      pointerInsideSurface = true;
       if (hasClientPoint(e)) lastSurfacePoint = { x: e.clientX, y: e.clientY };
     };
 
-    const forgetPoint = () => {
+    const forgetPoint = e => {
+      if (eventTargetInElement(surface, e && e.relatedTarget)) return;
+      pointerInsideSurface = false;
       lastSurfacePoint = null;
     };
 
@@ -253,6 +265,7 @@
       if (hasClientPoint(e)) return eventClientPoint(e, surface);
       if (eventTargetInElement(surface, e.target)) return eventClientPoint(e, surface);
       if (lastSurfacePoint && pointInElement(surface, lastSurfacePoint)) return lastSurfacePoint;
+      if (pointerInsideSurface || elementHovered(surface) || elementHovered(canvas)) return eventClientPoint(e, surface);
       return null;
     };
 
@@ -324,15 +337,23 @@
     };
 
     surface.addEventListener('pointerenter', rememberPoint, { passive: true });
+    surface.addEventListener('pointerover', rememberPoint, { passive: true });
     surface.addEventListener('pointermove', rememberPoint, { passive: true });
+    surface.addEventListener('pointerout', forgetPoint, { passive: true });
     surface.addEventListener('pointerleave', forgetPoint, { passive: true });
     surface.addEventListener('mouseenter', rememberPoint, { passive: true });
+    surface.addEventListener('mouseover', rememberPoint, { passive: true });
     surface.addEventListener('mousemove', rememberPoint, { passive: true });
+    surface.addEventListener('mouseout', forgetPoint, { passive: true });
     surface.addEventListener('mouseleave', forgetPoint, { passive: true });
     surface.addEventListener('wheel', onWheel, { passive: false, capture: true });
     surface.addEventListener('gesturestart', onGestureStart, { passive: false, capture: true });
     surface.addEventListener('gesturechange', onGestureChange, { passive: false, capture: true });
     surface.addEventListener('gestureend', onGestureEnd, { passive: false, capture: true });
+    window.addEventListener('wheel', onDocumentWheel, { passive: false, capture: true });
+    window.addEventListener('gesturestart', onDocumentGestureStart, { passive: false, capture: true });
+    window.addEventListener('gesturechange', onDocumentGestureChange, { passive: false, capture: true });
+    window.addEventListener('gestureend', onDocumentGestureEnd, { passive: false, capture: true });
     document.addEventListener('wheel', onDocumentWheel, { passive: false, capture: true });
     document.addEventListener('gesturestart', onDocumentGestureStart, { passive: false, capture: true });
     document.addEventListener('gesturechange', onDocumentGestureChange, { passive: false, capture: true });
@@ -341,15 +362,23 @@
     return {
       destroy() {
         surface.removeEventListener('pointerenter', rememberPoint);
+        surface.removeEventListener('pointerover', rememberPoint);
         surface.removeEventListener('pointermove', rememberPoint);
+        surface.removeEventListener('pointerout', forgetPoint);
         surface.removeEventListener('pointerleave', forgetPoint);
         surface.removeEventListener('mouseenter', rememberPoint);
+        surface.removeEventListener('mouseover', rememberPoint);
         surface.removeEventListener('mousemove', rememberPoint);
+        surface.removeEventListener('mouseout', forgetPoint);
         surface.removeEventListener('mouseleave', forgetPoint);
         surface.removeEventListener('wheel', onWheel, { capture: true });
         surface.removeEventListener('gesturestart', onGestureStart, { capture: true });
         surface.removeEventListener('gesturechange', onGestureChange, { capture: true });
         surface.removeEventListener('gestureend', onGestureEnd, { capture: true });
+        window.removeEventListener('wheel', onDocumentWheel, { capture: true });
+        window.removeEventListener('gesturestart', onDocumentGestureStart, { capture: true });
+        window.removeEventListener('gesturechange', onDocumentGestureChange, { capture: true });
+        window.removeEventListener('gestureend', onDocumentGestureEnd, { capture: true });
         document.removeEventListener('wheel', onDocumentWheel, { capture: true });
         document.removeEventListener('gesturestart', onDocumentGestureStart, { capture: true });
         document.removeEventListener('gesturechange', onDocumentGestureChange, { capture: true });

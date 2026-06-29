@@ -18,6 +18,15 @@ window.dispatchEvent(new CustomEvent('hakomachi:building-generator-module-ready'
   detail: window.HakoMachiBuildingGenerator,
 }));
 
+function refreshBuildingPreview() {
+  try {
+    previewModules.threePreview?.setThreePreviewConfig?.(window.CONFIG);
+    previewModules.threePreview?.updateThreePreview?.(window.CONFIG);
+  } catch (err) {
+    console.error('3D preview refresh error:', err);
+  }
+}
+
 if (buildingPreviewRenderer?.buildBuildingPreviewGroup) {
   for (const name of [
     'get3DWallOpenings',
@@ -44,3 +53,5 @@ if (buildingPreviewRenderer?.buildBuildingPreviewGroup) {
 
 previewModules.installLegacyBehavior?.({ root: window });
 window.startHakoMachiBuildingGeneratorRuntime?.();
+window.setTimeout?.(refreshBuildingPreview, 0);
+window.setTimeout?.(refreshBuildingPreview, 250);

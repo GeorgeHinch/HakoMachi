@@ -1715,7 +1715,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
 
   const site3d = {
     view:null, status:null, scene:null, camera:null, renderer:null, controls:null,
-    root:null, initialized:false
+    root:null, raycaster:null, pointer:null, pointerDown:null, initialized:false
   };
   function setSite3DStatus(message){ const el=site3d.status || $('site3dStatus'); if(el) el.textContent=message; }
   function site3DScale(v){ return state.pxPerMm ? pxToMm(v) : v; }
@@ -1797,6 +1797,17 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
         mat.dispose?.();
       });
     });
+  }
+  function tagSite3DBuilding(group,b){
+    if(!group || !b) return group;
+    group.userData.sitePlannerBuildingId=b.id;
+    group.userData.sitePlannerBuildingName=b.name||'Building';
+    group.traverse?.(child=>{
+      child.userData=child.userData||{};
+      child.userData.sitePlannerBuildingId=b.id;
+      child.userData.sitePlannerBuildingName=b.name||'Building';
+    });
+    return group;
   }
   function site3DMaterial(color,fallback=0xd7b56d,opts={}){
     let c;
@@ -2044,6 +2055,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
         const group=sharedRenderer.buildBuildingPreviewGroup(cfg,{includeStlOverlay:false});
         group.name=b.name||'HakoMachi building';
         group.userData.sitePlannerGeneratorPreview=true;
+        tagSite3DBuilding(group,b);
         group.position.set(center.x-bounds.cx,site3DBuildingElevationMm(b),center.y-bounds.cy);
         group.rotation.y=-(Number(b.rotationDeg)||0)*Math.PI/180;
         return group;
@@ -2059,11 +2071,15 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     site3d.scene=new THREE.Scene();
     site3d.scene.background=new THREE.Color(0xecece6);
     site3d.camera=new THREE.PerspectiveCamera(45,1,.1,5000);
+    site3d.raycaster=new THREE.Raycaster();
+    site3d.pointer=new THREE.Vector2();
     site3d.renderer=new THREE.WebGLRenderer({antialias:true});
     site3d.renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
     site3d.renderer.domElement.draggable=false;
     site3d.renderer.domElement.addEventListener('selectstart', e=>e.preventDefault());
     site3d.renderer.domElement.addEventListener('dragstart', e=>e.preventDefault());
+    site3d.renderer.domElement.addEventListener('pointerdown', e=>{ site3d.pointerDown={x:e.clientX,y:e.clientY}; });
+    site3d.renderer.domElement.addEventListener('pointerup', handleSite3DPointerUp);
     site3d.view.appendChild(site3d.renderer.domElement);
     installThreeRenderCanvas(site3d.view,site3d.renderer.domElement);
     const ambient=new THREE.AmbientLight(0xffffff,.72);
@@ -2094,6 +2110,34 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     renderSite3D();
   }
   function renderSite3D(){ if(site3d.renderer && site3d.scene && site3d.camera) site3d.renderer.render(site3d.scene,site3d.camera); }
+  function handleSite3DPointerUp(e){
+    if(state.viewMode!=='3d' || !site3d.raycaster || !site3d.pointer || !site3d.camera || !site3d.renderer) return;
+    if(e.button != null && e.button !== 0) return;
+    const start=site3d.pointerDown;
+    site3d.pointerDown=null;
+    if(start && Math.hypot(e.clientX-start.x,e.clientY-start.y)>6) return;
+    const rect=site3d.renderer.domElement.getBoundingClientRect();
+    if(!rect.width || !rect.height) return;
+    site3d.pointer.x=((e.clientX-rect.left)/rect.width)*2-1;
+    site3d.pointer.y=-(((e.clientY-rect.top)/rect.height)*2-1);
+    site3d.raycaster.setFromCamera(site3d.pointer,site3d.camera);
+    const hits=site3d.raycaster.intersectObjects(site3d.root?.children||[],true);
+    const hit=hits.find(item=>item.object?.userData?.sitePlannerBuildingId);
+    if(!hit) return;
+    const id=hit.object.userData.sitePlannerBuildingId;
+    const b=state.buildings.find(item=>item.id===id);
+    if(!b) return;
+    state.selectedRoadId=null;
+    state.selectedBenchworkId=null;
+    state.selectedStreetlightId=null;
+    state.selectedAnnotationId=null;
+    setBuildingSelection([id],id);
+    renderList();
+    renderSelected();
+    updateHandoff();
+    updateSite3D();
+    setSidebarOpen(true);
+  }
   function updateSite3D(){
     if(state.viewMode!=='3d') return;
     if(!initSite3D()) return;
@@ -2114,7 +2158,17 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
       syncBuildingMetrics(b);
       if(b.hidden) return;
       const g=buildSite3DBuildingGroup(b,bounds);
-      if(g){ if(g.userData?.sitePlannerGeneratorPreview) generated++; else if(g.userData?.sitePlannerDetailedFallback) detailed++; site3d.root.add(g); rendered++; }
+      if(g){
+        tagSite3DBuilding(g,b);
+        if(g.userData?.sitePlannerGeneratorPreview) generated++; else if(g.userData?.sitePlannerDetailedFallback) detailed++;
+        site3d.root.add(g);
+        if(isBuildingSelected(b.id)){
+          const helper=new THREE.BoxHelper(g,0x0f766e);
+          helper.userData.sitePlannerSelectionHelper=true;
+          site3d.root.add(helper);
+        }
+        rendered++;
+      }
     });
     const radius=Math.max(bounds.width,bounds.depth,60);
     site3d.camera.position.set(radius*.72,Math.max(70,radius*.58),radius*.82);
@@ -2131,22 +2185,17 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
     state.viewMode=on?'3d':'2d';
     wrap.classList.toggle('view3d',state.viewMode==='3d');
     document.querySelector('.sitePlannerApp')?.classList.toggle('view3d',state.viewMode==='3d');
-    ['view3dBtn','mobileView3dBtn'].forEach(id=>{
-      const btn=$(id);
-      if(btn){ btn.classList.toggle('active',state.viewMode==='3d'); btn.textContent=state.viewMode==='3d'?'2D View':'3D View'; }
-    });
+    $('view2dCanvasBtn')?.classList.toggle('active',state.viewMode!=='3d');
+    $('view3dCanvasBtn')?.classList.toggle('active',state.viewMode==='3d');
     updateEmptyImageOverlay();
     if(state.viewMode==='3d') updateSite3D();
     else draw();
   }
   function bindSite3DButtons(){
-    ['view3dBtn','mobileView3dBtn'].forEach(id=>{
-      const btn=$(id);
-      if(btn && !btn.dataset.site3dBound){
-        btn.dataset.site3dBound='1';
-        btn.onclick=()=>setSite3DMode(state.viewMode!=='3d');
-      }
-    });
+    const view2d=$('view2dCanvasBtn');
+    const view3d=$('view3dCanvasBtn');
+    if(view2d && !view2d.dataset.site3dBound){ view2d.dataset.site3dBound='1'; view2d.onclick=()=>setSite3DMode(false); }
+    if(view3d && !view3d.dataset.site3dBound){ view3d.dataset.site3dBound='1'; view3d.onclick=()=>setSite3DMode(true); }
     const baseInput=$('site3dBaseThickness');
     if(baseInput && !baseInput.dataset.site3dBound){
       baseInput.dataset.site3dBound='1';

@@ -138,7 +138,6 @@
       <label id="imageBtn" class="fileButton" for="imageFile">Import Image</label>
       <button id="undoBtn" class="iconBtn" title="Undo" aria-label="Undo" disabled><span class="topIcon" data-icon="undo"></span></button>
       <button id="redoBtn" class="iconBtn" title="Redo" aria-label="Redo" disabled><span class="topIcon" data-icon="redo"></span></button>
-      <button id="view3dBtn" class="desktopAction" title="Toggle the 3D elevation view">3D View</button>
       <button id="saveBtn" class="desktopAction">Save .hako-site.json</button>
       <label id="loadBtn" class="fileButton desktopAction" for="loadFile">Load</label>
       <div class="menuWrap splitExport">
@@ -174,7 +173,6 @@
           <label id="mobileLoadBtn" class="menuItem" for="loadFile">Load</label>
           <button id="mobileUndoBtn" disabled>Undo</button>
           <button id="mobileRedoBtn" disabled>Redo</button>
-          <button id="mobileView3dBtn">3D View</button>
           <button id="mobileCsvBtn">Export CSV</button>
           <button id="mobileSeedBtn">Export Selected Seed</button>
           <button id="mobileRoadExportPreviewBtn">Road Export Preview: Off</button>
@@ -217,19 +215,13 @@
       </div>
     </div>
   </div>
-  <div class="canvasWrap"><canvas id="canvas"></canvas><div id="emptyImageOverlay" class="emptyImageOverlay" aria-live="polite"><div id="emptyImageCard" class="emptyImageCard"><div class="emptyImageIcon">▧</div><h2>Import a reference image to start</h2><p>The Site Planner needs a PNG, JPG, SVG, or WEBP plan image before you trace buildings, roads, benchwork, and site objects.</p><div class="emptyImageActions"><label class="fileButton" for="imageFile">Import Image</label></div><div class="emptyImageDropHint">Drop an image here, or use <strong>Import Image</strong> in the header.</div></div></div><button id="sidebarToggle" class="sidebarToggle" title="Open properties panel" aria-label="Open properties panel">‹</button><div id="contextMenu" class="contextMenu"></div><div id="roadExportBadge" class="roadExportBadge" style="display:none"></div></div>
+  <div class="canvasWrap"><canvas id="canvas"></canvas><div class="site3dFloatingToolbar" aria-label="Canvas view controls"><div class="site3dSegment" role="group" aria-label="View mode"><button id="view2dCanvasBtn" class="site3dFabBtn active" type="button">2D</button><button id="view3dCanvasBtn" class="site3dFabBtn" type="button">3D</button></div><span class="site3dFabSep"></span><label class="site3dBaseControl">Base <input id="site3dBaseThickness" type="number" min="0.1" step="0.1" value="4"><span>mm</span></label></div><div id="emptyImageOverlay" class="emptyImageOverlay" aria-live="polite"><div id="emptyImageCard" class="emptyImageCard"><div class="emptyImageIcon">▧</div><h2>Import a reference image to start</h2><p>The Site Planner needs a PNG, JPG, SVG, or WEBP plan image before you trace buildings, roads, benchwork, and site objects.</p><div class="emptyImageActions"><label class="fileButton" for="imageFile">Import Image</label></div><div class="emptyImageDropHint">Drop an image here, or use <strong>Import Image</strong> in the header.</div></div></div><button id="sidebarToggle" class="sidebarToggle" title="Open properties panel" aria-label="Open properties panel">‹</button><div id="contextMenu" class="contextMenu"></div><div id="roadExportBadge" class="roadExportBadge" style="display:none"></div></div>
   <aside class="sidebar">
     <div class="section">
       <h3>Image</h3>
       <div class="row"><div><label>Opacity</label><input id="opacity" type="range" min="0" max="1" step="0.05" value="0.75"></div><div><label>Image Lock</label><button id="imageLockBtn">Locked</button></div></div>
       <div id="imageImportStatus" class="small muted" style="margin-top:8px">No image loaded.</div>
       <div id="imagePortableStatus" class="small muted" style="margin-top:4px">Portable save: no image.</div>
-    </div>
-    <div class="section">
-      <h3>3D View</h3>
-      <label>Base thickness mm</label>
-      <input id="site3dBaseThickness" type="number" min="0.1" step="0.1" value="4">
-      <div class="small muted" style="margin-top:6px">The site base top stays at zero; thickness extends below the buildings.</div>
     </div>
     <div class="section" id="ipadInputSection" style="display:none">
       <h3>Input / iPad Pencil</h3>

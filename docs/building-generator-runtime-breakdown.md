@@ -20,6 +20,8 @@ The existing module folders remain the ownership boundaries:
 - `js/building-generator/ui/` owns DOM controls, editors, and event binding.
 - `js/building-generator/wing/` owns multi-block building and wing editing.
 - `js/building-generator/preview/` owns Three.js preview rendering.
+- `js/shared/building-preview-renderer.js` owns the cross-page generated
+  building preview API consumed by both Building Generator and Site Planner.
 - `js/building-generator/app/` should be added for page bootstrap,
   persistence wiring, and cross-module orchestration.
 - Each module folder exposes a local `index.js` for discoverable imports.
@@ -174,8 +176,9 @@ Move:
 - render loop start/stop for the Building Generator page
 - hooks from `regenerate` or config changes into `preview/three-preview.js`
 
-Keep reusable Three.js mesh creation in `preview/three-preview.js` so Site
-Planner can keep sharing it.
+Keep reusable Three.js mesh creation in `preview/three-preview.js`, and keep
+the cross-page public renderer contract in
+`js/shared/building-preview-renderer.js`.
 
 ### `js/building-generator/app/runtime-surface.js`
 
@@ -217,8 +220,10 @@ removed.
    - Completes material UI ownership after form/output boundaries exist.
 
 7. `preview/controller.js`
-   - Leaves `preview/three-preview.js` as the reusable mesh/rendering engine and
-     keeps page-specific preview startup separate.
+   - Leaves `preview/three-preview.js` as the reusable mesh/rendering engine.
+   - Leaves `js/shared/building-preview-renderer.js` as the cross-page renderer
+     API.
+   - Keeps page-specific preview startup separate.
 
 8. `app/bootstrap.js` and `app/runtime-surface.js`
    - Final shell extraction after dependencies are explicit.

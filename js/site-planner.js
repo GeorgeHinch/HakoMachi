@@ -2015,9 +2015,10 @@ import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRE
   function buildSite3DBuildingGroup(b,bounds){
     const cfg=site3DBuildingConfig(b);
     const center=site3DBuildingCenterMm(b);
-    if(cfg && window.HakoMachiPreview3D?.buildBuildingPreviewGroup){
+    const sharedRenderer=window.HakoMachiBuildingPreviewRenderer || window.HakoMachiPreview3D;
+    if(cfg && sharedRenderer?.buildBuildingPreviewGroup){
       try{
-        const group=window.HakoMachiPreview3D.buildBuildingPreviewGroup(cfg,{includeStlOverlay:false});
+        const group=sharedRenderer.buildBuildingPreviewGroup(cfg,{includeStlOverlay:false});
         group.name=b.name||'HakoMachi building';
         group.userData.sitePlannerGeneratorPreview=true;
         group.position.set(center.x-bounds.cx,site3DBuildingElevationMm(b),center.y-bounds.cy);

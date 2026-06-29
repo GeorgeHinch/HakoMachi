@@ -25,6 +25,8 @@ dependent global scripts and toward explicit ES module imports.
    - Entrypoint: `js/site-planner/main.js`
    - Legacy side-effect module: `js/site-planner.js`
    - Shared GitHub helper: `js/shared/github-data.js`
+   - Shared building preview renderer:
+     `js/shared/building-preview-renderer.js`
    - Extracted modules:
      - `js/site-planner/state.js`
      - `js/site-planner/icons.js`
@@ -34,6 +36,8 @@ dependent global scripts and toward explicit ES module imports.
 
 6. `building-generator.html`
    - Shared GitHub helper: `js/shared/github-data.js`
+   - Shared building preview renderer:
+     `js/shared/building-preview-renderer.js`
    - Entrypoint: `js/building-generator/main.js`
    - Runtime module: `js/building-generator-runtime.js`
    - Data module index: `js/building-generator/data/index.js`
@@ -41,7 +45,7 @@ dependent global scripts and toward explicit ES module imports.
    - UI module index: `js/building-generator/ui/index.js`
    - Wing module index: `js/building-generator/wing/index.js`
    - Preview module index: `js/building-generator/preview/index.js`
-   - Site Planner preview dependency shim:
+   - Site Planner preview dependency shim, imported by the shared renderer:
      `js/building-generator/preview/site-planner-dependencies.js`
 
 ## Remaining Migration Batches
@@ -158,12 +162,15 @@ Validation checkpoint:
   namespace plus the explicit legacy installer through
   `window.HakoMachiBuildingGenerator.preview`.
 - Removed the old numbered live Three.js preview script from active pages; the
-  module preview now owns Building Generator startup and exposes
-  `window.HakoMachiPreview3D` for Site Planner building previews.
+  module preview now owns Building Generator startup.
+- Added `js/shared/building-preview-renderer.js` so Building Generator and Site
+  Planner consume the same generated-building 3D renderer API. The shared
+  renderer exposes `window.HakoMachiBuildingPreviewRenderer` and preserves
+  `window.HakoMachiPreview3D` as a legacy compatibility surface.
 - Replaced the direct numbered generator script stack with the ES module
   runtime bundle `js/building-generator-runtime.js`.
-- Added `js/building-generator/preview/site-planner-dependencies.js` so Site
-  Planner can publish generator preview dependencies without loading the
+- Added `js/building-generator/preview/site-planner-dependencies.js` so the
+  shared renderer can publish generator preview dependencies without loading the
   Building Generator UI runtime.
 - Extended guardrails to recursively syntax-check the building-generator module
   tree.

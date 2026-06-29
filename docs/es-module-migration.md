@@ -11,15 +11,15 @@ dependent global scripts and toward explicit ES module imports.
 
 2. `utils/wooden-crate-generator.html`
    - Entrypoint: `js/utilities/wooden-crate-generator.js`
-   - Shared helpers: `js/utilities/shared.js`
+   - Shared helpers: `js/shared/browser-utils.js`
 
 3. `utils/industrial-shelf-generator.html`
    - Entrypoint: `js/utilities/industrial-shelf-generator.js`
-   - Shared helpers: `js/utilities/shared.js`
+   - Shared helpers: `js/shared/browser-utils.js`
 
 4. `utils/safety-railing-generator.html`
    - Entrypoint: `js/utilities/safety-railing-generator.js`
-   - Shared helpers: `js/utilities/shared.js`
+   - Shared helpers: `js/shared/browser-utils.js`
 
 5. `site-planner.html`
    - Entrypoint: `js/site-planner/main.js`

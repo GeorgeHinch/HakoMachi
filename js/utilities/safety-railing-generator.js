@@ -1,4 +1,4 @@
-import * as HakoMachiUtils from './shared.js';
+import * as HakoMachiUtils from '../shared/browser-utils.js';
 
 window.addEventListener('DOMContentLoaded', function(){
 'use strict';

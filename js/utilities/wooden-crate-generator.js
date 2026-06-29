@@ -1,4 +1,4 @@
-import * as U from './shared.js';
+import * as U from '../shared/browser-utils.js';
 
 const $ = id => U.byId(id);
 

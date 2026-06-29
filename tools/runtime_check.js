@@ -26,6 +26,7 @@ const additionalModuleFiles = [
   'js/site-planner/geometry.js',
   'js/site-planner/presets.js',
   ...listJsFiles('js/building-generator'),
+  ...listJsFiles('js/shared'),
 ];
 const moduleJsFiles = [...new Set([
   ...jsEntries.filter(entry => entry.module).map(entry => entry.path),

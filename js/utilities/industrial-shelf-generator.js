@@ -1,4 +1,4 @@
-import * as HakoMachiUtils from './shared.js';
+import * as HakoMachiUtils from '../shared/browser-utils.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const CUT = '#d22';

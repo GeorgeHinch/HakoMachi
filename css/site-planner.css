@@ -319,6 +319,8 @@ body {
   position: relative;
   overflow: hidden;
   background: #e8e8e0;
+  overscroll-behavior: contain;
+  touch-action: none;
 }
 
 canvas {

@@ -80,6 +80,17 @@
   const dist = (a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
   const rad = d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
   const fmt = n => Number.isFinite(n) ? (Math.abs(n)>=100? n.toFixed(1): n.toFixed(2)).replace(/\.00$/,'') : '—';
+  let canvasGesturesModulePromise = null;
+  function loadCanvasGesturesModule(){
+    if(!canvasGesturesModulePromise){
+      canvasGesturesModulePromise = import(new URL('js/shared/hakomachi-canvas-gestures.js', document.baseURI).href)
+        .catch(err => {
+          console.warn('[HakoMachi Site Planner] canvas gesture module unavailable:', err);
+          return null;
+        });
+    }
+    return canvasGesturesModulePromise;
+  }
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
   function setSidebarOpen(open){
@@ -97,6 +108,28 @@
   $('sidebarToggle')?.addEventListener('click', ()=>setSidebarOpen(!state.sidebarOpen));
   function screenToWorld(e){const r=canvas.getBoundingClientRect(); return {x:(e.clientX-r.left-state.view.x)/state.view.scale, y:(e.clientY-r.top-state.view.y)/state.view.scale};}
   function worldToScreen(p){return {x:p.x*state.view.scale+state.view.x,y:p.y*state.view.scale+state.view.y};}
+  function eventClientPoint(e){
+    if(Number.isFinite(e.clientX) && Number.isFinite(e.clientY)) return {x:e.clientX,y:e.clientY};
+    const r=wrap.getBoundingClientRect();
+    return {x:r.left+r.width/2,y:r.top+r.height/2};
+  }
+  function clientPointInWrap(p){
+    const r=wrap.getBoundingClientRect();
+    return p.x>=r.left && p.x<=r.right && p.y>=r.top && p.y<=r.bottom;
+  }
+  function setCanvasZoomAtClientPoint(clientX,clientY,nextScale){
+    const r=canvas.getBoundingClientRect();
+    const before={x:(clientX-r.left-state.view.x)/state.view.scale,y:(clientY-r.top-state.view.y)/state.view.scale};
+    const mouse={x:clientX-r.left,y:clientY-r.top};
+    state.view.scale=clamp(nextScale,.05,20);
+    state.view.x=mouse.x-before.x*state.view.scale;
+    state.view.y=mouse.y-before.y*state.view.scale;
+    draw();
+  }
+  function zoomCanvasAtClientPoint(clientX,clientY,deltaY){
+    const factor=deltaY<0?1.1:.9;
+    setCanvasZoomAtClientPoint(clientX,clientY,state.view.scale*factor);
+  }
   function mmToPx(mm){return state.pxPerMm? mm*state.pxPerMm : mm;}
   function pxToMm(px){return state.pxPerMm? px/state.pxPerMm : px;}
   function modelKnownMm(){let v=parseFloat($('knownValue').value)||0; const unit=$('knownUnit').value; const sc=parseFloat($('modelScale').value)||150; if(unit==='mm'||unit==='model_mm') return v; if(unit==='in'||unit==='model_in') return v*25.4; if(unit==='source_mm'||unit==='real_mm') return v/sc; if(unit==='source_m'||unit==='real_m') return v*1000/sc; if(unit==='source_ft'||unit==='real_ft') return v*304.8/sc; return v;}
@@ -1887,6 +1920,9 @@
     site3d.renderer=new THREE.WebGLRenderer({antialias:true});
     site3d.renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
     site3d.view.appendChild(site3d.renderer.domElement);
+    loadCanvasGesturesModule().then(mod => {
+      mod?.installThreeRenderCanvas(site3d.view,site3d.renderer.domElement);
+    });
     const ambient=new THREE.AmbientLight(0xffffff,.72);
     const dir=new THREE.DirectionalLight(0xffffff,.82);
     dir.position.set(160,220,140);
@@ -3291,7 +3327,55 @@
     if(target?.annotation){state.selectedAnnotationId=target.annotation.id; state.selectedId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
     else if(target?.building){state.selectedId=target.building.id; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
   });
-  canvas.addEventListener('wheel', e=>{e.preventDefault(); const r=canvas.getBoundingClientRect(); const mouse={x:e.clientX-r.left,y:e.clientY-r.top}; const before=screenToWorld(e); const factor=e.deltaY<0?1.1:.9; state.view.scale=clamp(state.view.scale*factor,.05,20); state.view.x=mouse.x-before.x*state.view.scale; state.view.y=mouse.y-before.y*state.view.scale; draw();},{passive:false});
+  function installCanvasGestureFallback(){
+    let canvasGestureZoom=null;
+    wrap.addEventListener('wheel', e=>{
+      if(!e.ctrlKey || state.viewMode==='3d') return;
+      const p=eventClientPoint(e);
+      if(!clientPointInWrap(p)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      zoomCanvasAtClientPoint(p.x,p.y,e.deltaY);
+    },{passive:false,capture:true});
+    wrap.addEventListener('gesturestart', e=>{
+      if(state.viewMode==='3d') return;
+      const p=eventClientPoint(e);
+      if(!clientPointInWrap(p)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      canvasGestureZoom={startScale:state.view.scale};
+    },{passive:false,capture:true});
+    wrap.addEventListener('gesturechange', e=>{
+      if(state.viewMode==='3d') return;
+      const p=eventClientPoint(e);
+      if(!canvasGestureZoom || !clientPointInWrap(p)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setCanvasZoomAtClientPoint(p.x,p.y,canvasGestureZoom.startScale*(Number(e.scale)||1));
+    },{passive:false,capture:true});
+    wrap.addEventListener('gestureend', e=>{
+      if(!canvasGestureZoom) return;
+      e.preventDefault();
+      e.stopPropagation();
+      canvasGestureZoom=null;
+    },{passive:false,capture:true});
+  }
+  loadCanvasGesturesModule().then(mod => {
+    if(!mod){
+      installCanvasGestureFallback();
+      return;
+    }
+    mod.installCanvasGestureBoundary({
+      surface:wrap,
+      canvas,
+      stopGesturePropagation:true,
+      shouldHandle:()=>state.viewMode!=='3d',
+      onPinchWheel:(e,p)=>{ zoomCanvasAtClientPoint(p.x,p.y,e.deltaY); return true; },
+      onGestureStart:()=>({startScale:state.view.scale}),
+      onGestureChange:(e,p,gesture)=>setCanvasZoomAtClientPoint(p.x,p.y,gesture.startScale*(Number(e.scale)||1))
+    });
+  });
+  canvas.addEventListener('wheel', e=>{e.preventDefault(); zoomCanvasAtClientPoint(e.clientX,e.clientY,e.deltaY);},{passive:false});
   function deleteCurrentSelection(){
     if(state.selectedAnnotationId){ deleteSelectedAnnotation(); return true; }
     if(state.selectedRoadFeatureId){ deleteSelectedRoadFeature(); return true; }

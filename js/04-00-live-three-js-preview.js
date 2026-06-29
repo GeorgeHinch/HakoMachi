@@ -8,6 +8,18 @@ let threePreviewUseStlGeometry = false;
 let threePreviewRenderRequested = true;
 let threePreviewLoopActive = false;
 let threePreviewDampingFrames = 0;
+let threePreviewCanvasGesturesModulePromise = null;
+
+function loadThreePreviewCanvasGesturesModule() {
+  if (!threePreviewCanvasGesturesModulePromise) {
+    threePreviewCanvasGesturesModulePromise = import(new URL('js/shared/hakomachi-canvas-gestures.js', document.baseURI).href)
+      .catch(err => {
+        console.warn('[HakoMachi 3D Preview] canvas gesture module unavailable:', err);
+        return null;
+      });
+  }
+  return threePreviewCanvasGesturesModulePromise;
+}
 
 function requestThreePreviewRender(extraFrames = 2) {
   threePreviewRenderRequested = true;
@@ -39,6 +51,9 @@ function initThreePreview() {
 
   container.innerHTML = '';
   container.appendChild(threeRenderer.domElement);
+  loadThreePreviewCanvasGesturesModule().then(mod => {
+    mod?.installThreeRenderCanvas(container, threeRenderer.domElement);
+  });
 
   threeControls = new THREE.OrbitControls(
     threeCamera,

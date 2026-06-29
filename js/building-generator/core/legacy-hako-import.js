@@ -12,6 +12,36 @@
    this block is the part to remove/replace with no-op migration.
    ===================================================================== */
 
+export function roofStyleHasParapet(roofStyle) {
+  return roofStyle === 'parapet' || roofStyle === 'parapet_gable';
+}
+
+export function effectiveParapetHeightFromConfig(cfg) {
+  if (!cfg) return 0;
+  const roofStyle = cfg.roofStyle || 'flat';
+  return roofStyleHasParapet(roofStyle) ? Math.max(0, Number(cfg.parapetHeight) || 0) : 0;
+}
+
+export function configHeightIncludesParapet(cfg) {
+  return !!(cfg && cfg.heightIncludesParapet);
+}
+
+export function wallBodyHeightFromConfig(cfg) {
+  if (!cfg) return 1;
+  const total = Math.max(1, Number(cfg.height) || 1);
+  const p = effectiveParapetHeightFromConfig(cfg);
+  return Math.max(1, total - p);
+}
+
+export function migrateHeightToIncludeParapet(cfg) {
+  if (!cfg || typeof cfg !== 'object') return cfg;
+  if (cfg.heightIncludesParapet === true) return cfg;
+  const p = effectiveParapetHeightFromConfig(cfg);
+  cfg.height = Math.max(1, Number(cfg.height) || 1) + p;
+  cfg.heightIncludesParapet = true;
+  return cfg;
+}
+
 export const LegacyHakoImportAndHealing = {
   readFaceFeatures(cfg, face) {
     const out = [];

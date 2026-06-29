@@ -15,6 +15,41 @@ export function layoutCutsActive(cfg) {
   return Array.isArray(cfg && cfg.layoutCuts) && cfg.layoutCuts.some(c => c && c.enabled !== false);
 }
 
+export function embeddedRailsForCfg(cfg) {
+  return (cfg && Array.isArray(cfg.embeddedRails)) ? cfg.embeddedRails.filter(z => z && z.w > 1 && z.h > 1) : [];
+}
+
+export const EMBEDDED_RAIL_DEFAULT_PROFILE = {
+  label: 'N gauge Code 80 starter profile',
+  gaugeInsideRailsMm: 9.0,
+  railCode: 80,
+  railHeightMm: 2.03,
+  totalTrackHeightMm: 3.0,
+  sleeperWidthMm: 16.0,
+  outsideRailWidthMm: 10.8,
+  betweenRailsInsertWidthMm: 7.2,
+  flangeSideClearanceMm: 0.9,
+  safetyMarginMm: 2.0,
+  bayOpeningWidthMm: 27,
+  bayOpeningHeightMm: 45,
+};
+
+export function embeddedRailProfile(z) {
+  return { ...EMBEDDED_RAIL_DEFAULT_PROFILE, ...((z && z.trackProfile) || {}) };
+}
+
+export function embeddedRailOrientation(z) {
+  const raw = z && z.orientation;
+  if (raw === 'ns' || raw === 'ew') return raw;
+  return ((z && Number(z.w) || 0) >= ((z && Number(z.h)) || 0)) ? 'ew' : 'ns';
+}
+
+export function embeddedRailOrientationLabel(z) {
+  const eff = embeddedRailOrientation(z);
+  const raw = (z && z.orientation) || 'auto';
+  if (raw === 'auto' || raw == null) return `Auto ${eff.toUpperCase()}`;
+  return eff.toUpperCase();
+}
 
 export function clampMm(v, min, max, fallback) {
   v = Number(v);

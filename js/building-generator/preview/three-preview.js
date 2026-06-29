@@ -4,6 +4,8 @@
    ===================================================================== */
 
 import { installThreeRenderCanvas } from '../../shared/browser-utils.js';
+import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=shared-building-preview-23';
+import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg } from '../core/layout-cut-geometry.js?v=shared-building-preview-23';
 
 let threeScene, threeCamera, threeRenderer, threeControls, buildingMesh;
 export let threePreviewConfig = null;
@@ -16,15 +18,35 @@ export let threePreviewLegacyRegenerate = null;
 
 let threePreviewResizeHandler = null;
 let threePreviewInitTimer = null;
+let threePreviewConfigRetryTimer = null;
+
+function publishThreePreviewGlobals(root = globalThis) {
+  if (!root) return;
+  root.initThreePreview = initThreePreview;
+  root.updateThreePreview = updateThreePreview;
+  root.requestThreePreviewRender = requestThreePreviewRender;
+  root.getThreePreviewConfig = getThreePreviewConfig;
+  root.setThreePreviewConfig = setThreePreviewConfig;
+  root.threeScene = threeScene;
+  root.threeCamera = threeCamera;
+  root.threeRenderer = threeRenderer;
+  root.threeControls = threeControls;
+  root.buildingMesh = buildingMesh;
+  root.threePreviewUseStlGeometry = threePreviewUseStlGeometry;
+}
 
 export function setThreePreviewConfig(config) {
   threePreviewConfig = config || null;
+  publishThreePreviewGlobals();
   return threePreviewConfig;
 }
 
 export function getThreePreviewConfig(config) {
   if (config) return config;
   if (threePreviewConfig) return threePreviewConfig;
+  if (globalThis.HakoMachiBuildingGeneratorRuntime?.CONFIG) {
+    return globalThis.HakoMachiBuildingGeneratorRuntime.CONFIG;
+  }
   return globalThis.CONFIG || null;
 }
 
@@ -35,6 +57,22 @@ export function requestThreePreviewRender(extraFrames = 2) {
     threePreviewLoopActive = true;
     requestAnimationFrame(animateThree);
   }
+}
+
+function scheduleThreePreviewConfigRefresh(attempt = 0) {
+  const schedule = globalThis.setTimeout || setTimeout;
+  if (threePreviewConfigRetryTimer) {
+    try { clearTimeout(threePreviewConfigRetryTimer); } catch (_) {}
+  }
+  threePreviewConfigRetryTimer = schedule(() => {
+    threePreviewConfigRetryTimer = null;
+    const cfg = getThreePreviewConfig();
+    if (cfg) {
+      try { updateThreePreview(cfg); } catch (err) { console.error('3D preview refresh error:', err); }
+      return;
+    }
+    if (attempt < 40) scheduleThreePreviewConfigRefresh(attempt + 1);
+  }, attempt === 0 ? 0 : 100);
 }
 
 export function initThreePreview() {
@@ -83,7 +121,9 @@ export function initThreePreview() {
   const grid = new THREE.GridHelper(300, 30);
   threeScene.add(grid);
 
+  publishThreePreviewGlobals();
   requestThreePreviewRender(2);
+  scheduleThreePreviewConfigRefresh();
 }
 
 /**
@@ -632,13 +672,41 @@ export function buildWallMesh3D(wallW, wallH, baseH, thickness, openings, materi
       map: texture,
       roughness: material.roughness != null ? material.roughness : 0.82,
       metalness: material.metalness != null ? material.metalness : 0.0,
-      side: material.side,
+      side: material.side || THREE.DoubleSide,
     });
   } else {
     mat = material;
   }
 
   return new THREE.Mesh(geo, mat);
+}
+
+function frameThreePreviewObject(object) {
+  if (!object || !threeCamera) return;
+  const box = new THREE.Box3().setFromObject(object);
+  if (box.isEmpty()) return;
+
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z, 1);
+  const distance = Math.max(90, maxDim * 1.55);
+  const verticalLift = Math.max(size.y * 0.45, 35);
+
+  threeCamera.position.set(
+    center.x + distance * 0.72,
+    center.y + verticalLift,
+    center.z + distance * 0.72
+  );
+  threeCamera.near = Math.max(0.1, maxDim / 800);
+  threeCamera.far = Math.max(2000, maxDim * 8);
+  threeCamera.updateProjectionMatrix();
+
+  if (threeControls) {
+    threeControls.target.copy(center);
+    threeControls.update();
+  } else {
+    threeCamera.lookAt(center);
+  }
 }
 
 /**
@@ -3219,8 +3287,12 @@ if (typeof window !== 'undefined') {
 }
 
 export function updateThreePreview(cfg) {
+  cfg = getThreePreviewConfig(cfg);
+  if (!cfg) return null;
+  setThreePreviewConfig(cfg);
   upgradeConfigToCurrentStorage(cfg);
   if (!threeScene) initThreePreview();
+  if (!threeScene) return null;
 
   if (buildingMesh) {
     threeScene.remove(buildingMesh);
@@ -3241,7 +3313,10 @@ export function updateThreePreview(cfg) {
   // Add the assembled building to the scene
   threeScene.add(group);
   buildingMesh = group;
+  publishThreePreviewGlobals();
+  frameThreePreviewObject(group);
   requestThreePreviewRender(2);
+  return group;
 }  // end updateThreePreview
 
 export function animateThree() {
@@ -3339,8 +3414,10 @@ export function installThreePreviewLegacyBehavior({
           : null;
         if (savedMode != null) stlToggle.checked = savedMode === '1';
         threePreviewUseStlGeometry = !!stlToggle.checked;
+        publishThreePreviewGlobals(root);
         stlToggle.addEventListener('change', () => {
           threePreviewUseStlGeometry = !!stlToggle.checked;
+          publishThreePreviewGlobals(root);
           try {
             const nextStorage = root.localStorage || win.localStorage;
             if (nextStorage && nextStorage.setItem) {
@@ -3366,3 +3443,5 @@ export function installThreePreviewLegacyBehavior({
 
   return true;
 }
+
+publishThreePreviewGlobals();

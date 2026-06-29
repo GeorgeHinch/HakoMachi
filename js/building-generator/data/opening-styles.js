@@ -179,6 +179,253 @@ export const WINDOW_SCALES = {
   xlarge: 1.8,
 };
 
+export function getWindowDims(cfg) {
+  const style = WINDOW_STYLES[cfg.windowStyle];
+  if (!style) return { w: 8, h: 5, mullion: 'none' };
+  const scale = WINDOW_SCALES[cfg.windowScale] || 1.0;
+  return {
+    w: style.baseW * scale,
+    h: style.baseH * scale,
+    mullion: style.mullion,
+    styleKey: cfg.windowStyle,
+    scaleKey: cfg.windowScale,
+  };
+}
+
+export function getGroundFloorWindowDims(cfg) {
+  if (!cfg.firstFloorWindowStyleEnabled) return getWindowDims(cfg);
+  const style = WINDOW_STYLES[cfg.firstFloorWindowStyle];
+  if (!style) return getWindowDims(cfg);
+  const scale = WINDOW_SCALES[cfg.firstFloorWindowScale] || 1.0;
+  return {
+    w: style.baseW * scale,
+    h: style.baseH * scale,
+    mullion: style.mullion,
+    styleKey: cfg.firstFloorWindowStyle,
+    scaleKey: cfg.firstFloorWindowScale,
+  };
+}
+
+function renjiBarCount(width) {
+  return Math.max(3, Math.min(12, Math.floor((width - 1.0) / 0.9)));
+}
+
+function ranmaBarCount(width) {
+  return Math.max(5, Math.min(24, Math.floor((width - 1.0) / 1.0)));
+}
+
+function mushikoSlitCount(width) {
+  return Math.max(2, Math.floor((width - 1.2) / 2.2));
+}
+
+function shojiCellCount(width, height) {
+  return {
+    cols: Math.max(2, Math.round(width / 2.7)),
+    rows: Math.max(2, Math.round(height / 2.7)),
+  };
+}
+
+export function windowFeatureShapes(spec, width, height) {
+  if (!spec || !spec.mullion) return [];
+  const out = [];
+  const mullion = spec.mullion;
+
+  if (mullion === 'renji_vertical') {
+    const n = renjiBarCount(width);
+    const inset = 0.5;
+    const pitch = (width - inset * 2) / (n + 1);
+    for (let i = 1; i <= n; i++) {
+      const x = inset + i * pitch;
+      out.push({ type: 'line', x1: x, y1: 0.3, x2: x, y2: height - 0.3, thick: true });
+    }
+    return out;
+  }
+
+  if (mullion === 'ranma_lattice') {
+    const n = ranmaBarCount(width);
+    const inset = 0.4;
+    const pitch = (width - inset * 2) / (n + 1);
+    for (let i = 1; i <= n; i++) {
+      const x = inset + i * pitch;
+      out.push({ type: 'line', x1: x, y1: 0.25, x2: x, y2: height - 0.25 });
+    }
+    return out;
+  }
+
+  if (mullion === 'shoji_grid') {
+    const { cols, rows } = shojiCellCount(width, height);
+    const inset = 0.25;
+    const usableWidth = width - inset * 2;
+    const usableHeight = height - inset * 2;
+    for (let col = 1; col < cols; col++) {
+      const x = inset + (col / cols) * usableWidth;
+      out.push({ type: 'line', x1: x, y1: inset, x2: x, y2: height - inset });
+    }
+    for (let row = 1; row < rows; row++) {
+      const y = inset + (row / rows) * usableHeight;
+      out.push({ type: 'line', x1: inset, y1: y, x2: width - inset, y2: y });
+    }
+    return out;
+  }
+
+  if (mullion === 'yukimi_split') {
+    const splitY = height * 0.55;
+    const inset = 0.25;
+    const usableWidth = width - inset * 2;
+    const usableHeight = splitY - inset;
+    out.push({ type: 'line', x1: 0, y1: splitY, x2: width, y2: splitY, thick: true });
+    const { cols, rows } = shojiCellCount(width, splitY);
+    for (let col = 1; col < cols; col++) {
+      const x = inset + (col / cols) * usableWidth;
+      out.push({ type: 'line', x1: x, y1: inset, x2: x, y2: splitY });
+    }
+    for (let row = 1; row < rows; row++) {
+      const y = inset + (row / rows) * usableHeight;
+      out.push({ type: 'line', x1: inset, y1: y, x2: width - inset, y2: y });
+    }
+  }
+
+  return out;
+}
+
+export function emitWindowShapesSvg(shapes, originX = 0, originY = 0, scale = 1, options = {}) {
+  const stroke = options.stroke || '#2a64aa';
+  const strokeWidth = options.strokeWidth != null ? options.strokeWidth : 0.18;
+  const thickStrokeWidth = options.thickStrokeWidth != null ? options.thickStrokeWidth : strokeWidth * 1.8;
+  const pointerEvents = options.pointerEvents ? '' : ' pointer-events="none"';
+  let svg = '';
+
+  for (const shape of shapes || []) {
+    if (shape.type === 'line') {
+      const x1 = (originX + shape.x1 * scale).toFixed(2);
+      const y1 = (originY + shape.y1 * scale).toFixed(2);
+      const x2 = (originX + shape.x2 * scale).toFixed(2);
+      const y2 = (originY + shape.y2 * scale).toFixed(2);
+      const width = shape.thick ? thickStrokeWidth : strokeWidth;
+      svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="${width}" stroke-linecap="square"${pointerEvents}/>`;
+    } else if (shape.type === 'rect') {
+      const x = (originX + shape.x * scale).toFixed(2);
+      const y = (originY + shape.y * scale).toFixed(2);
+      const width = (shape.w * scale).toFixed(2);
+      const height = (shape.h * scale).toFixed(2);
+      const fill = shape.tint ? (options.tintFill || 'rgba(0,0,0,0.18)') : 'none';
+      svg += `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"${pointerEvents}/>`;
+    }
+  }
+
+  return svg;
+}
+
+export function mushikoSlitRects(width, height) {
+  const n = mushikoSlitCount(width);
+  const slitWidth = 1.0;
+  const gap = (width - n * slitWidth) / (n + 1);
+  const inset = Math.max(0.5, height * 0.18);
+  const slitHeight = height - inset * 2;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    out.push({
+      x: gap + i * (slitWidth + gap),
+      y: inset,
+      w: slitWidth,
+      h: slitHeight,
+    });
+  }
+  return out;
+}
+
+export function buildWindowSvgBody(style, width, height, options = {}) {
+  const frameColor = (style && style.frameColor) || (options.stroke || '#2a64aa');
+  const paneFill = (style && style.paneFill) || 'rgba(160,205,245,0.85)';
+  const strokeWidth = options.strokeWidth != null ? options.strokeWidth : 0.3;
+  const thickStrokeWidth = strokeWidth * 1.6;
+  let svg = '';
+
+  if (style && (style.placement === 'etched' || style.placement === 'blanked')) {
+    const innerWidth = (width - 0.4).toFixed(2);
+    const innerHeight = (height - 0.4).toFixed(2);
+    if (style.placement === 'etched') {
+      svg += `<rect x="0.2" y="0.2" width="${innerWidth}" height="${innerHeight}" fill="rgba(60,55,48,0.18)" stroke="${frameColor}" stroke-width="${strokeWidth}" stroke-dasharray="0.8 0.5"/>`;
+      if (width > 4 && height > 4) {
+        svg += `<line x1="${(width / 2).toFixed(2)}" y1="0.4" x2="${(width / 2).toFixed(2)}" y2="${innerHeight}" stroke="${frameColor}" stroke-width="${(strokeWidth * 0.7).toFixed(3)}" stroke-dasharray="0.6 0.4"/>`;
+        svg += `<line x1="0.4" y1="${(height / 2).toFixed(2)}" x2="${innerWidth}" y2="${(height / 2).toFixed(2)}" stroke="${frameColor}" stroke-width="${(strokeWidth * 0.7).toFixed(3)}" stroke-dasharray="0.6 0.4"/>`;
+      }
+    } else {
+      svg += `<rect x="0.2" y="0.2" width="${innerWidth}" height="${innerHeight}" fill="${paneFill}" stroke="${frameColor}" stroke-width="${strokeWidth}"/>`;
+      const bandCount = Math.max(2, Math.min(5, Math.floor(height / 2.5)));
+      for (let i = 1; i < bandCount; i++) {
+        const y = (height * i / bandCount).toFixed(2);
+        svg += `<line x1="0.4" y1="${y}" x2="${innerWidth}" y2="${y}" stroke="rgba(0,0,0,0.25)" stroke-width="${(strokeWidth * 0.5).toFixed(3)}"/>`;
+      }
+    }
+    return svg;
+  }
+
+  if (style && style.mullion === 'mushiko_slits') {
+    svg += `<rect x="0.2" y="0.2" width="${(width - 0.4).toFixed(2)}" height="${(height - 0.4).toFixed(2)}" fill="${paneFill}" stroke="${frameColor}" stroke-width="${strokeWidth}"/>`;
+    const insetX = Math.min(0.7, width * 0.07);
+    const insetY = Math.min(0.5, height * 0.12);
+    svg += `<rect x="${insetX.toFixed(2)}" y="${insetY.toFixed(2)}" width="${(width - insetX * 2).toFixed(2)}" height="${(height - insetY * 2).toFixed(2)}" fill="none" stroke="${frameColor}" stroke-width="${(strokeWidth * 0.5).toFixed(3)}" opacity="0.6"/>`;
+    for (const slit of mushikoSlitRects(width, height)) {
+      svg += `<rect x="${slit.x.toFixed(2)}" y="${slit.y.toFixed(2)}" width="${slit.w.toFixed(2)}" height="${slit.h.toFixed(2)}" fill="#3a3028"/>`;
+    }
+    return svg;
+  }
+
+  if (style && style.mullion === 'yukimi_split') {
+    const splitY = height * 0.55;
+    svg += `<rect x="0.2" y="0.2" width="${(width - 0.4).toFixed(2)}" height="${(splitY - 0.2).toFixed(2)}" fill="${paneFill}" stroke="${frameColor}" stroke-width="${strokeWidth}"/>`;
+    svg += `<rect x="0.2" y="${splitY.toFixed(2)}" width="${(width - 0.4).toFixed(2)}" height="${(height - splitY - 0.2).toFixed(2)}" fill="rgba(160,205,245,0.85)" stroke="${frameColor}" stroke-width="${strokeWidth}"/>`;
+    svg += emitWindowShapesSvg(windowFeatureShapes(style, width, height), 0, 0, 1, {
+      stroke: frameColor,
+      strokeWidth: strokeWidth * 0.6,
+      thickStrokeWidth,
+    });
+    return svg;
+  }
+
+  svg += `<rect x="0.2" y="0.2" width="${(width - 0.4).toFixed(2)}" height="${(height - 0.4).toFixed(2)}" fill="${paneFill}" stroke="${frameColor}" stroke-width="${strokeWidth}"/>`;
+
+  if (style && style.mullion) {
+    const mullion = style.mullion;
+    if (mullion === 'vertical_1') {
+      svg += `<line x1="${(width / 2).toFixed(2)}" y1="0.3" x2="${(width / 2).toFixed(2)}" y2="${(height - 0.3).toFixed(2)}" stroke="${frameColor}" stroke-width="${thickStrokeWidth}"/>`;
+    } else if (mullion === 'vertical_many') {
+      const n = Math.max(3, Math.min(5, Math.floor(width / 6)));
+      for (let i = 1; i < n; i++) {
+        const x = (width / n) * i;
+        svg += `<line x1="${x.toFixed(2)}" y1="0.3" x2="${x.toFixed(2)}" y2="${(height - 0.3).toFixed(2)}" stroke="${frameColor}" stroke-width="${thickStrokeWidth}"/>`;
+      }
+    } else if (mullion === 'grid_2x2') {
+      svg += `<line x1="${(width / 2).toFixed(2)}" y1="0.3" x2="${(width / 2).toFixed(2)}" y2="${(height - 0.3).toFixed(2)}" stroke="${frameColor}" stroke-width="${thickStrokeWidth}"/>`;
+      svg += `<line x1="0.3" y1="${(height / 2).toFixed(2)}" x2="${(width - 0.3).toFixed(2)}" y2="${(height / 2).toFixed(2)}" stroke="${frameColor}" stroke-width="${thickStrokeWidth}"/>`;
+    } else if (mullion === 'grid_3x2') {
+      svg += `<line x1="${(width / 3).toFixed(2)}" y1="0.3" x2="${(width / 3).toFixed(2)}" y2="${(height - 0.3).toFixed(2)}" stroke="${frameColor}" stroke-width="${thickStrokeWidth}"/>`;
+      svg += `<line x1="${(2 * width / 3).toFixed(2)}" y1="0.3" x2="${(2 * width / 3).toFixed(2)}" y2="${(height - 0.3).toFixed(2)}" stroke="${frameColor}" stroke-width="${thickStrokeWidth}"/>`;
+      svg += `<line x1="0.3" y1="${(height / 2).toFixed(2)}" x2="${(width - 0.3).toFixed(2)}" y2="${(height / 2).toFixed(2)}" stroke="${frameColor}" stroke-width="${thickStrokeWidth}"/>`;
+    } else if (mullion === 'industrial_slider_3' || mullion === 'industrial_slider_4' || mullion === 'industrial_slider_6') {
+      const cols = mullion === 'industrial_slider_3' ? 3 : (mullion === 'industrial_slider_4' ? 4 : 6);
+      for (let i = 1; i < cols; i++) {
+        const x = (width / cols) * i;
+        svg += `<line x1="${x.toFixed(2)}" y1="0.3" x2="${x.toFixed(2)}" y2="${(height - 0.3).toFixed(2)}" stroke="${frameColor}" stroke-width="${thickStrokeWidth}"/>`;
+      }
+      const splitY = height * 0.68;
+      svg += `<line x1="0.3" y1="${splitY.toFixed(2)}" x2="${(width - 0.3).toFixed(2)}" y2="${splitY.toFixed(2)}" stroke="${frameColor}" stroke-width="${thickStrokeWidth}"/>`;
+    }
+  }
+
+  const shapes = style ? windowFeatureShapes(style, width, height) : [];
+  if (shapes.length) {
+    svg += emitWindowShapesSvg(shapes, 0, 0, 1, {
+      stroke: frameColor,
+      strokeWidth: strokeWidth * 0.6,
+      thickStrokeWidth: thickStrokeWidth * 0.8,
+    });
+  }
+
+  return svg;
+}
+
 /* ---- Awning styles: w=wall width, d=depth (projection outward) ---- */
 export const AWNING_STYLES = {
   narrow:    { label: 'Narrow',    baseW: 14, baseD: 7  },

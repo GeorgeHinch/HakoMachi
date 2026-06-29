@@ -3,7 +3,7 @@ import {
   buildingPreviewRenderer,
   installBuildingPreviewGlobal,
   previewModules,
-} from './preview/index.js?v=shared-building-preview-3';
+} from './preview/index.js?v=shared-building-preview-23';
 
 window.HakoMachiBuildingGenerator = Object.freeze({
   ...(window.HakoMachiBuildingGenerator || {}),
@@ -20,8 +20,12 @@ window.dispatchEvent(new CustomEvent('hakomachi:building-generator-module-ready'
 
 function refreshBuildingPreview() {
   try {
-    previewModules.threePreview?.setThreePreviewConfig?.(window.CONFIG);
-    previewModules.threePreview?.updateThreePreview?.(window.CONFIG);
+    const config = window.HakoMachiBuildingGeneratorRuntime?.CONFIG
+      || globalThis.HakoMachiBuildingGeneratorRuntime?.CONFIG
+      || window.CONFIG
+      || globalThis.CONFIG;
+    previewModules.threePreview?.setThreePreviewConfig?.(config);
+    previewModules.threePreview?.updateThreePreview?.(config);
   } catch (err) {
     console.error('3D preview refresh error:', err);
   }

@@ -7,6 +7,25 @@
    compatibility wrappers so the rest of the code can migrate gradually.
    ===================================================================== */
 
+export function sanitiseFolderName(raw) {
+  return String(raw || 'misc')
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80) || 'misc';
+}
+
+export function normaliseHexColour(raw, fallback = '#cccccc') {
+  let hex = String(raw || '').trim();
+  if (!hex) hex = fallback;
+  if (!hex.startsWith('#')) hex = `#${hex}`;
+  if (/^#[0-9a-fA-F]{3}$/.test(hex)) {
+    hex = `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
+  }
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return fallback;
+  return hex.toLowerCase();
+}
+
 export const MaterialRegistry = {
   cfg(cfg = CONFIG) {
     if (!cfg.materials) cfg.materials = [];

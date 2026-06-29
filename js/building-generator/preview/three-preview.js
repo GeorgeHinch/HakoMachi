@@ -3248,7 +3248,7 @@ export function animateThree() {
   // Pause rendering while the opening editor is visible — the modal covers the
   // 3D canvas and OrbitControls/WebGL event listeners can throw "Script error."
   // (cross-origin CDN) while items are being placed.
-  if (oeEditorOpen) {
+  if (globalThis.oeEditorOpen === true) {
     threePreviewLoopActive = false;
     return;
   }

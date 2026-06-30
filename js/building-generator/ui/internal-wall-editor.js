@@ -3264,12 +3264,21 @@ export function currentBuildingName(cfg) {
 }
 
 export function renderBuildingNameHtml() {
+  const hasSitePlannerHandoff = !!(
+    CONFIG?.hakomachiHandoff
+    || CONFIG?.sitePlannerHandoff
+    || CONFIG?.sitePlanSeedSource?.sourceId
+  );
   return `<div class="building-title-card" id="buildingTitleCard">`
     + `<div class="building-title-label">Building name</div>`
     + `<div class="building-title-row">`
     + `<div class="building-title-text" id="buildingTitleText">${escapeHtml(currentBuildingName(CONFIG))}</div>`
     + `<button class="building-title-edit" id="buildingTitleEdit" type="button" title="Edit building name" aria-label="Edit building name">✎</button>`
-    + `</div></div>`;
+    + `</div>`
+    + (hasSitePlannerHandoff
+      ? `<button class="primary building-title-return-btn" id="sitePlannerTitleReturnBtn" type="button">Save and return to Site Planner</button>`
+      : '')
+    + `</div>`;
 }
 
 export function bindBuildingNameEditor() {

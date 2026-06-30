@@ -657,6 +657,10 @@
     border: 1px solid var(--accent);
     border-radius: 4px;
   }
+  .building-title-return-btn {
+    width: 100%;
+    margin-top: 10px;
+  }
 
 
   .preview {

@@ -2016,6 +2016,15 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     updateSite3D();
     if(!opts.skipDirty) markDirty('project change');
   }
+  function syncSelectedBuildingLive(b){
+    if(!b) return;
+    syncBuildingMetrics(b);
+    renderList();
+    updateHandoff();
+    draw();
+    updateSite3D({preserveCamera:true});
+    markDirty('building field change');
+  }
 
 
   const site3d = {
@@ -3540,7 +3549,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     <div class="small muted" style="margin:-4px 0 8px">Drop a .hako anywhere in this sidebar to attach it to this footprint.</div>
     <label>Notes</label><textarea id="selNotes" rows="3">${escapeHtml(b.notes||'')}</textarea>
     <div class="buttons" style="margin-top:8px"><button id="copyB">Copy</button><button id="pasteB" ${state.footprintClipboard?'':'disabled'}>Paste</button><button id="dupB">Duplicate</button><button id="hideB">${b.hidden?'Show':'Hide'}</button><button id="lockB">${b.locked?'Unlock':'Lock'}</button>${b.padType==='rect'?'<button id="polyB">Convert to Polygon</button>':''}<button id="delB" class="danger">Delete</button></div>`;
-    const bind=(id,fn)=>{const e=$(id); if(e)e.oninput=()=>{fn(e.value); syncAll();};};
+    const bind=(id,fn)=>{const e=$(id); if(e)e.oninput=()=>{fn(e.value); syncSelectedBuildingLive(b);};};
     bind('selName',v=>b.name=v); bind('selCat',v=>b.category=v); bind('selColor',v=>b.color=v); bind('selRot',v=>b.rotationDeg=parseFloat(v)||0); bind('sel3dHeight',v=>b.plannerHeightMm=Math.max(.1,parseFloat(v)||.1)); bind('sel3dElevation',v=>b.baseElevationMm=parseFloat(v)||0); bind('selNotes',v=>b.notes=v);
     const stateSel=$('selState'); if(stateSel){stateSel.value=b.state||'notStarted'; stateSel.onchange=e=>{b.state=e.target.value; syncAll();};}
     bind('selW',v=>{if(state.pxPerMm)b.widthPx=mmToPx(Math.max(.1,parseFloat(v)||1));}); bind('selD',v=>{if(state.pxPerMm)b.depthPx=mmToPx(Math.max(.1,parseFloat(v)||1));});

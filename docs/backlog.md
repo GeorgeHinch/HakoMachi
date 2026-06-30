@@ -339,7 +339,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-006: Engrave orientation and part labels on core SVG pieces
 
-- Status: Proposed
+- Status: Done
 - Group: Export and fabrication
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/10

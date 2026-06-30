@@ -20702,6 +20702,95 @@ function geometryStrokeColor(part, op, kind, index) {
   return COLOR_ETCH;
 }
 
+const CORE_ASSEMBLY_LABEL_ROLES = new Set([
+  'core_wall',
+  'floor_panel',
+  'interfloor_panel',
+  'roof_panel',
+  'interior_wall',
+  'truss',
+  'support',
+  'parapet_panel',
+]);
+
+function partNeedsCoreAssemblyLabel(part) {
+  if (!part || part.material !== 'core') return false;
+  normalizePartMetadata(part);
+  const role = (part.meta && part.meta.role) || inferPartRole(part);
+  return CORE_ASSEMBLY_LABEL_ROLES.has(role);
+}
+
+function coreAssemblyLabelLines(part) {
+  normalizePartMetadata(part);
+  const stem = exportPartFileStem(part).replace(/_/g, ' ');
+  const id = String(part.id || '').replace(/_/g, ' ');
+  const line1 = id || stem;
+  const line2 = stem && stem !== line1 ? stem : '';
+  return [line1, line2].filter(Boolean).map(s => s.length > 32 ? s.slice(0, 29) + '...' : s);
+}
+
+function coreLabelObstacles(part) {
+  const obstacles = [];
+  const grow = 1.2;
+  for (const r of ((part && part.rects) || [])) {
+    const x = Number(r.x), y = Number(r.y), w = Number(r.w), h = Number(r.h);
+    if (![x, y, w, h].every(Number.isFinite)) continue;
+    obstacles.push({ x: x - grow, y: y - grow, w: w + grow * 2, h: h + grow * 2 });
+  }
+  for (const l of ((part && part.lines) || [])) {
+    const x1 = Number(l.x1), y1 = Number(l.y1), x2 = Number(l.x2), y2 = Number(l.y2);
+    if (![x1, y1, x2, y2].every(Number.isFinite)) continue;
+    const x = Math.min(x1, x2) - grow;
+    const y = Math.min(y1, y2) - grow;
+    obstacles.push({ x, y, w: Math.abs(x2 - x1) + grow * 2, h: Math.abs(y2 - y1) + grow * 2 });
+  }
+  return obstacles;
+}
+
+function assemblyLabelRectsOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function assemblyLabelEscape(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function coreAssemblyLabelSvg(part) {
+  if (!partNeedsCoreAssemblyLabel(part)) return '';
+  const b = partLocalBounds(part);
+  if (b.w < 14 || b.h < 10) return '';
+  const lines = coreAssemblyLabelLines(part);
+  if (!lines.length) return '';
+  const fontSize = Math.max(1.8, Math.min(3.2, Math.min(b.w, b.h) * 0.085));
+  const lineGap = fontSize * 1.25;
+  const textW = Math.min(b.w - 4, Math.max(...lines.map(line => line.length)) * fontSize * 0.56);
+  const textH = fontSize + (lines.length - 1) * lineGap;
+  const margin = Math.max(3, fontSize * 1.4);
+  if (textW <= 0 || textH <= 0 || b.w < textW + margin * 2 || b.h < textH + margin * 2) return '';
+  const candidates = [
+    { x: b.minX + b.w / 2, y: b.minY + b.h / 2 },
+    { x: b.minX + margin + textW / 2, y: b.minY + margin + textH / 2 },
+    { x: b.maxX - margin - textW / 2, y: b.minY + margin + textH / 2 },
+    { x: b.minX + margin + textW / 2, y: b.maxY - margin - textH / 2 },
+    { x: b.maxX - margin - textW / 2, y: b.maxY - margin - textH / 2 },
+  ];
+  const obstacles = coreLabelObstacles(part);
+  const pos = candidates.find(c => {
+    const box = { x: c.x - textW / 2, y: c.y - textH / 2, w: textW, h: textH };
+    return !obstacles.some(o => assemblyLabelRectsOverlap(box, o));
+  }) || candidates[0];
+  const firstY = pos.y - textH / 2 + fontSize;
+  const tspans = lines.map((line, index) => {
+    const dy = index === 0 ? 0 : lineGap;
+    return `<tspan x="${pos.x.toFixed(3)}" dy="${dy.toFixed(3)}">${assemblyLabelEscape(line)}</tspan>`;
+  }).join('');
+  return `<text data-hakomachi-assembly-label="true" x="${pos.x.toFixed(3)}" y="${firstY.toFixed(3)}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${fontSize.toFixed(3)}" fill="${COLOR_ETCH}" stroke="none">${tspans}</text>`;
+}
+
 function partRawGeometrySvg(part, options = {}) {
   const strokeW = options.strokeMm || 0.05;
   const kerf = options.kerf || 0;
@@ -20732,6 +20821,7 @@ function partRawGeometrySvg(part, options = {}) {
       const sw = isCrop ? (strokeW * 1.5) : strokeW;
       out += `<line x1="${Number(l.x1).toFixed(3)}" y1="${Number(l.y1).toFixed(3)}" x2="${Number(l.x2).toFixed(3)}" y2="${Number(l.y2).toFixed(3)}" stroke="${color}" stroke-width="${sw}"/>`;
     }
+    if (options.assemblyLabels !== false) out += coreAssemblyLabelSvg(part);
     return out;
   };
 
@@ -21595,7 +21685,7 @@ function partToSvg(part, options) {
     + `width="${vbW.toFixed(3)}mm" height="${vbH.toFixed(3)}mm" `
     + `viewBox="${vbX.toFixed(3)} ${vbY.toFixed(3)} ${vbW.toFixed(3)} ${vbH.toFixed(3)}">`;
 
-  svg += partRawGeometrySvg(part, { strokeMm: strokeW, kerf: options.kerf || 0 });
+  svg += partRawGeometrySvg(part, { strokeMm: strokeW, kerf: options.kerf || 0, assemblyLabels: options.assemblyLabels });
   svg += `</svg>`;
   return svg;
 }
@@ -21631,9 +21721,9 @@ function partToPreviewSvg(part) {
       lines: (part.tileGeom.lines || []).map(l => ({ ...l })),
       svgContent: part.tileGeom.svgContent || undefined,
     });
-    return partToSvg(tilePart, { strokeMm: 0.2, kerf: 0 });
+    return partToSvg(tilePart, { strokeMm: 0.2, kerf: 0, assemblyLabels: false });
   }
-  return partToSvg(part, { strokeMm: 0.2, kerf: 0 });
+  return partToSvg(part, { strokeMm: 0.2, kerf: 0, assemblyLabels: false });
 }
 
 /* ===== js/00-41-ui.js ===== */

@@ -5,7 +5,7 @@
 
 import { installThreeRenderCanvas } from '../../shared/browser-utils.js';
 import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=shared-building-preview-26';
-import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, layoutCutsActive, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=shared-building-preview-26';
+import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=shared-building-preview-29';
 
 let threeScene, threeCamera, threeRenderer, threeControls, buildingMesh, threePreviewGrid;
 export let threePreviewConfig = null;
@@ -48,6 +48,42 @@ export function getThreePreviewConfig(config) {
     return globalThis.HakoMachiBuildingGeneratorRuntime.CONFIG;
   }
   return globalThis.CONFIG || null;
+}
+
+function collectPreviewLayoutCuts(cfg) {
+  if (!cfg || typeof cfg !== 'object') return [];
+  const paths = [
+    cfg.layoutCuts,
+    cfg.shapeCuts,
+    cfg.cutLines,
+    cfg.trimLines,
+    cfg.shapeEditor?.layoutCuts,
+    cfg.shapeEditor?.cutLines,
+    cfg.geometry?.layoutCuts,
+    cfg.building?.layoutCuts,
+    cfg.sitePlannerSeed?.layoutCuts,
+    cfg.hakoSeed?.layoutCuts,
+    cfg.seed?.layoutCuts,
+  ];
+  const out = [];
+  const seen = new Set();
+  for (const value of paths) {
+    if (!Array.isArray(value)) continue;
+    for (const cut of value) {
+      if (!cut || cut.enabled === false) continue;
+      const type = String(cut.type || cut.kind || 'line').toLowerCase();
+      if (type !== 'line' && type !== 'arc') continue;
+      const key = cut.id || JSON.stringify([type, cut.x1, cut.y1, cut.x2, cut.y2, cut.cx, cut.cy, cut.keepSide]);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ ...cut, type });
+    }
+  }
+  return out;
+}
+
+function previewLayoutCutsActive(cfg) {
+  return collectPreviewLayoutCuts(cfg).length > 0;
 }
 
 export function requestThreePreviewRender(extraFrames = 2) {
@@ -3287,7 +3323,8 @@ export function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
 }
 
 function addLayoutCutGuidePreview3D(group, cfg, topY) {
-  if (!group || !layoutCutsActive(cfg) || typeof THREE === 'undefined') return null;
+  const cuts = collectPreviewLayoutCuts(cfg);
+  if (!group || !cuts.length || typeof THREE === 'undefined') return null;
   const w = Number(cfg.width || 0) || 0;
   const d = Number(cfg.depth || 0) || 0;
   if (!(w > 0) || !(d > 0)) return null;
@@ -3321,8 +3358,7 @@ function addLayoutCutGuidePreview3D(group, cfg, topY) {
     mesh.userData.layoutCutGuide = true;
     guide.add(mesh);
   };
-  for (const cut of (cfg.layoutCuts || [])) {
-    if (!cut || cut.enabled === false) continue;
+  for (const cut of cuts) {
     for (const [a, b] of sampleLayoutCutSegments(cut, cfg)) {
       const p0 = toWorld(a), p1 = toWorld(b);
       verts.push(p0.x, yTop, p0.z, p1.x, yTop, p1.z);
@@ -3379,9 +3415,9 @@ export function applyLayoutCutClippingToGroup(group, cfg, transformMatrix = null
   const w = Number(cfg.width || 0) || 0;
   const d = Number(cfg.depth || 0) || 0;
   const planes = [];
-  if (layoutCutsActive(cfg) && w > 0 && d > 0) {
-    for (const cut of (cfg.layoutCuts || [])) {
-      if (!cut || cut.enabled === false) continue;
+  const cuts = collectPreviewLayoutCuts(cfg);
+  if (cuts.length && w > 0 && d > 0) {
+    for (const cut of cuts) {
       for (const [a, b] of sampleLayoutCutSegments(cut, cfg)) {
         const dx = b.x - a.x;
         const dy = b.y - a.y;
@@ -3437,7 +3473,7 @@ export function updateThreePreview(cfg) {
       ? 'Designed/material preview with translucent generated-STL overlay.'
       : 'Designed/material preview. Enable overlay to compare preview_3d.stl geometry.';
   }
-  if (threePreviewGrid) threePreviewGrid.visible = !layoutCutsActive(cfg);
+  if (threePreviewGrid) threePreviewGrid.visible = !previewLayoutCutsActive(cfg);
 
   const group = buildHakoMachiBuildingPreviewGroup(cfg, {
     includeStlOverlay: threePreviewUseStlGeometry

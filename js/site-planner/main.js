@@ -1,3 +1,3 @@
 'use strict';
 
-import '../site-planner.js?v=selected-panel-toolbar-4';
+import '../site-planner.js?v=structured-hako-dimensions-1';

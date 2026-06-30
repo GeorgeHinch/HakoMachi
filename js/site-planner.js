@@ -1566,6 +1566,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const date=b.hakoFile.importedAt ? new Date(b.hakoFile.importedAt).toLocaleString() : 'unknown date';
     return `${escapeHtml(b.hakoFile.fileName||'building.hako')} · ${sizeText} · ${date}`;
   }
+  function hasAttachedHakoFile(b){ return !!b?.hakoFile; }
 
   function renameAttachedHakoFileForBuilding(b){
     if(!b?.hakoFile) return false;
@@ -1810,6 +1811,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       delete b.hakoTrimLinesMm;
     }
     if(opts.resizeFootprint) applyHakoConfigToPlannerFootprint(b, parsed);
+    delete b.plannerHeightMm;
     if(b.state==='notStarted') b.state='inProgress';
     normalizeBuilding(b);
     syncBuildingMetrics(b);
@@ -2107,6 +2109,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function site3DBuildingHeightMm(b,cfg){
     const byFloors=site3DFloorCount(b,cfg)*site3DFloorHeightMm(b,cfg);
+    if(hasAttachedHakoFile(b)){
+      return positiveNumber(cfg?.height,cfg?.heightMm,cfg?.dimensions?.height,cfg?.dimensions?.heightMm,byFloors,b.heightMm,24) || 24;
+    }
     return positiveNumber(b.plannerHeightMm,b.heightMm,cfg?.height,cfg?.heightMm,cfg?.dimensions?.height,cfg?.dimensions?.heightMm,byFloors,24) || 24;
   }
   function site3DBuildingElevationMm(b){ return positiveNumber(b.baseElevationMm,b.elevationMm,b.siteElevationMm,0) || 0; }
@@ -3618,14 +3623,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const slSide=$('slSide'); if(slSide){slSide.value=light.anchor.sidewalkSide; slSide.onchange=e=>{light.anchor.sidewalkSide=e.target.value; syncAll();};}
       bind('slCutDia',v=>light.anchor.cutHoleDiameterMm=parseFloat(v)||0); bind('slBulbDia',v=>light.anchor.bulbMountDiameterMm=parseFloat(v)||0); bind('slEdgeOffset',v=>light.anchor.edgeOffsetMm=parseFloat(v)||0); bind('slLockEdge',v=>light.anchor.lockToRoadEdge=!!v);
       $('dupSl').onclick=()=>{duplicateStreetlight(light); syncAll();}; $('lockSl').onclick=()=>{light.locked=!light.locked; syncAll();}; $('delSl').onclick=deleteSelectedStreetlight;
-    } else if(note){const pts=note.points||[]; box.innerHTML=`<b>Annotation selected</b><br><span class="small muted">${pts.length} points</span><div class="buttons" style="margin-top:8px"><button id="delNoteB" class="danger">Delete Annotation</button></div>`; const del=$('delNoteB'); if(del) del.onclick=deleteSelectedAnnotation;} else box.innerHTML='No building selected.'; const btn=$('deleteAnnotationBtn'); if(btn) btn.disabled=!note; return;} if($('deleteAnnotationBtn')) $('deleteAnnotationBtn').disabled=true; syncBuildingMetrics(b); box.innerHTML=`
+    } else if(note){const pts=note.points||[]; box.innerHTML=`<b>Annotation selected</b><br><span class="small muted">${pts.length} points</span><div class="buttons" style="margin-top:8px"><button id="delNoteB" class="danger">Delete Annotation</button></div>`; const del=$('delNoteB'); if(del) del.onclick=deleteSelectedAnnotation;} else box.innerHTML='No building selected.'; const btn=$('deleteAnnotationBtn'); if(btn) btn.disabled=!note; return;} if($('deleteAnnotationBtn')) $('deleteAnnotationBtn').disabled=true; syncBuildingMetrics(b); const dimensionLock=hasAttachedHakoFile(b), lockedDimAttr=dimensionLock?' disabled title="Dimension is defined by the attached .hako file"':''; box.innerHTML=`
     ${sidebarDetailToolbarHtml('building')}
     <label>Name</label><input id="selName" value="${escapeAttr(b.name||'')}">
     <div class="row"><div><label>Status</label><select id="selState"><option value="notStarted">Not Started</option><option value="inProgress">In Progress</option><option value="awaitingConstruction">Awaiting Construction</option><option value="complete">Complete</option></select></div><div><label>Color</label><input id="selColor" type="color" value="${b.color||'#d79631'}"></div></div>
     <div class="row"><div><label>Category</label><input id="selCat" value="${escapeAttr(b.category||'industrial')}"></div><div><label>Type</label><input value="${b.padType}" disabled></div></div>
     <div class="row"><div><label>Rotation °</label><input id="selRot" type="number" step="0.1" value="${fmt(b.rotationDeg||0)}"></div><div><label>Stored file</label><input value="${b.hakoFile?'.hako attached':'none'}" disabled></div></div>
-    ${b.padType==='rect'?`<div class="row"><div><label>Width mm</label><input id="selW" type="number" step="0.1" value="${fmt(b.widthMm)}"></div><div><label>Depth mm</label><input id="selD" type="number" step="0.1" value="${fmt(b.depthMm)}"></div></div>`:`<div class="small"><span class="pill">Area ${fmt(b.derived?.areaMm2||0)} mm²</span><span class="pill">Bounds ${fmt(b.derived?.boundingWidthMm||0)}×${fmt(b.derived?.boundingDepthMm||0)} mm</span></div>`}
-    <div class="row"><div><label>3D height mm</label><input id="sel3dHeight" type="number" min="0.1" step="0.1" value="${fmt(site3DBuildingHeightMm(b,site3DBuildingConfig(b)))}"></div><div><label>Base elevation mm</label><input id="sel3dElevation" type="number" step="0.1" value="${fmt(site3DBuildingElevationMm(b))}"></div></div>
+    ${b.padType==='rect'?`<div class="row"><div><label>Width mm</label><input id="selW" type="number" step="0.1" value="${fmt(b.widthMm)}"${lockedDimAttr}></div><div><label>Depth mm</label><input id="selD" type="number" step="0.1" value="${fmt(b.depthMm)}"${lockedDimAttr}></div></div>`:`<div class="small"><span class="pill">Area ${fmt(b.derived?.areaMm2||0)} mm²</span><span class="pill">Bounds ${fmt(b.derived?.boundingWidthMm||0)}×${fmt(b.derived?.boundingDepthMm||0)} mm</span></div>`}
+    <div class="row"><div><label>3D height mm</label><input id="sel3dHeight" type="number" min="0.1" step="0.1" value="${fmt(site3DBuildingHeightMm(b,site3DBuildingConfig(b)))}"${lockedDimAttr}></div><div><label>Base elevation mm</label><input id="sel3dElevation" type="number" step="0.1" value="${fmt(site3DBuildingElevationMm(b))}"></div></div>
     <div class="buttons" style="margin:10px 0 8px"><button id="openSelectedHakoB" class="ok">Open in HakoMachi</button><button id="copySeedB">Copy HakoSeed</button></div>
     <div class="small muted" style="margin:-2px 0 8px">Creates a HakoSeed payload for this building and opens <code>building-generator.html#sitePlannerSeed</code>.</div>
     <label>Completed .hako file</label>
@@ -3944,6 +3949,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     };
     b.hakoFileId=fileName;
     b.hakomachiHandoff=payload.sitePlannerHandoff || payload.hakomachiHandoff || cfg.hakomachiHandoff || null;
+    delete b.plannerHeightMm;
     if(b.state==='notStarted') b.state='inProgress';
     applyHakoConfigToPlannerFootprint(b,cfg);
     normalizeBuilding(b);

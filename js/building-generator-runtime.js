@@ -88,6 +88,288 @@ globalThis.HakoMachiGithubDataShared = githubData;
     githubData.assertSettings(s, tr('missingSettings'));
   }
 
+  const saveState = {
+    source: { type: 'cache' },
+    lastComparableText: null,
+    githubAutosaveTimer: null,
+    githubAutosaveInFlight: false,
+    lastGithubAutosaveAt: 0,
+  };
+
+  const GITHUB_AUTOSAVE_DELAY_MS = 60000;
+  const GITHUB_AUTOSAVE_MIN_INTERVAL_MS = 5 * 60000;
+
+  function normalizeSaveSource(source = {}) {
+    const type = source.type || 'cache';
+    return {
+      type,
+      fileName: source.fileName || null,
+      fileHandle: source.fileHandle || null,
+      repoFullName: source.repoFullName || null,
+      branch: source.branch || null,
+      id: source.id || null,
+      name: source.name || null,
+      path: source.path || null,
+      libraryPath: source.libraryPath || null,
+      savedAt: source.savedAt || null,
+    };
+  }
+
+  function setActiveSaveSource(source, comparableText = null) {
+    saveState.source = normalizeSaveSource(source);
+    saveState.lastComparableText = comparableText;
+    updatePrimarySaveUi();
+    return saveState.source;
+  }
+
+  function cloudSourceFromConfig(data) {
+    const cloud = data && data.hakomachiCloud;
+    if (!cloud || !cloud.path) return null;
+    const s = settings();
+    return normalizeSaveSource({
+      type: 'github',
+      repoFullName: cloud.repoFullName || s.repoFullName || null,
+      branch: cloud.branch || s.branch || 'main',
+      id: cloud.id || null,
+      name: cloud.name || data.buildingName || null,
+      path: cloud.path,
+      libraryPath: cloud.libraryPath || s.libraryPath || DEFAULT_LIBRARY_PATH,
+      savedAt: cloud.savedAt || null,
+    });
+  }
+
+  function clonePlain(value) {
+    return value == null ? value : JSON.parse(JSON.stringify(value));
+  }
+
+  function comparableConfigText(config) {
+    const copy = clonePlain(config || {});
+    if (copy && copy.hakomachiCloud) {
+      // savedAt is regenerated on save and should not create a commit by itself.
+      delete copy.hakomachiCloud.savedAt;
+    }
+    return JSON.stringify(copy, null, 2) + '\n';
+  }
+
+  function currentSerializableConfig() {
+    if (typeof readForm === 'function') readForm();
+    if (typeof upgradeConfigToCurrentStorage === 'function') upgradeConfigToCurrentStorage(CONFIG);
+    return (typeof serializableCurrentConfig === 'function')
+      ? serializableCurrentConfig(CONFIG)
+      : clonePlain(CONFIG || {});
+  }
+
+  function currentConfigTextForSource(source = saveState.source, savedAt = null) {
+    const cfg = currentSerializableConfig();
+    if (source && source.type === 'github') {
+      const name = source.name || cfg.buildingName || defaultBuildingName();
+      const id = source.id || slugify(name);
+      const path = source.path || `${cleanRepoPath(settings().buildingsDir || DEFAULT_BUILDINGS_DIR)}/${id}.hako`;
+      cfg.buildingName = name;
+      cfg.hakomachiCloud = {
+        schema: 'hakomachi.cloud-ref',
+        schemaVersion: 1,
+        kind: 'building',
+        id,
+        name,
+        path,
+        repoFullName: source.repoFullName || settings().repoFullName || null,
+        branch: source.branch || settings().branch || 'main',
+        libraryPath: source.libraryPath || settings().libraryPath || DEFAULT_LIBRARY_PATH,
+        savedAt: savedAt || source.savedAt || null,
+      };
+    }
+    return JSON.stringify(cfg, null, 2) + '\n';
+  }
+
+  function parseComparableText(text) {
+    try {
+      return comparableConfigText(JSON.parse(text));
+    } catch (_) {
+      return String(text || '');
+    }
+  }
+
+  function markLoadedConfigSource(data, source = {}) {
+    const cloud = cloudSourceFromConfig(data);
+    if (cloud) {
+      setActiveSaveSource(cloud, comparableConfigText(data));
+      return saveState.source;
+    }
+    const next = source.type === 'local-file'
+      ? source
+      : { type: 'cache' };
+    setActiveSaveSource(next, data ? comparableConfigText(data) : null);
+    return saveState.source;
+  }
+
+  function markCurrentConfigSavedToCache() {
+    setActiveSaveSource({ type: 'cache' }, comparableConfigText(currentSerializableConfig()));
+  }
+
+  function defaultConfigFileName() {
+    const typeName = (CONFIG && CONFIG.buildingType) || 'building';
+    const w = CONFIG && CONFIG.width != null ? CONFIG.width : '';
+    const d = CONFIG && CONFIG.depth != null ? CONFIG.depth : '';
+    const h = CONFIG && CONFIG.height != null ? CONFIG.height : '';
+    const suffix = w && d && h ? `_${w}x${d}x${h}` : '';
+    return `building_${typeName}${suffix}.hako`;
+  }
+
+  function downloadConfigText(text, filename) {
+    const blob = new Blob([text], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename || defaultConfigFileName();
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  }
+
+  async function saveCurrentBuildingToLocalSource() {
+    const text = currentConfigTextForSource({ type: 'local-file' });
+    const filename = saveState.source.fileName || defaultConfigFileName();
+    if (saveState.source.fileHandle && typeof saveState.source.fileHandle.createWritable === 'function') {
+      const writable = await saveState.source.fileHandle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      setActiveSaveSource({ ...saveState.source, type: 'local-file', fileName: filename }, parseComparableText(text));
+      flashMessage(`Saved ${filename}.`, 'ok');
+      return;
+    }
+    downloadConfigText(text, filename);
+    setActiveSaveSource({ ...saveState.source, type: 'local-file', fileName: filename }, parseComparableText(text));
+    flashMessage(`Downloaded updated ${filename}.`, 'ok');
+  }
+
+  async function saveSmartBuilding() {
+    try {
+      if (saveState.source.type === 'github' || (CONFIG && CONFIG.hakomachiCloud && CONFIG.hakomachiCloud.path)) {
+        await saveCurrentBuildingToGithub({ promptForName: false, source: saveState.source, reason: 'manual' });
+        return;
+      }
+      if (saveState.source.type === 'local-file') {
+        await saveCurrentBuildingToLocalSource();
+        return;
+      }
+      if (typeof readForm === 'function') readForm();
+      if (typeof savePreset === 'function') savePreset();
+    } catch (err) {
+      flashMessage('Save failed: ' + (err && err.message ? err.message : err), 'err');
+    }
+  }
+
+  async function openLocalBuildingFile() {
+    if (window.showOpenFilePicker) {
+      try {
+        const [handle] = await window.showOpenFilePicker({
+          multiple: false,
+          types: [{
+            description: 'HakoMachi building settings',
+            accept: { 'application/json': ['.hako', '.hakoseed', '.hakoplan', '.json'] },
+          }],
+        });
+        if (!handle) return;
+        const file = await handle.getFile();
+        const text = await file.text();
+        openImportProgressModal('Import building settings', 'Reading file...', `Reading ${file.name || 'building settings'}.`);
+        setImportProgress(2, 4, 'Validating settings...', 'Checking the JSON and upgrading old HakoMachi formats if needed.');
+        const data = JSON.parse(text);
+        setImportProgress(3, 4, 'Applying settings...', 'Updating the building form and regenerating previews.');
+        const warnings = applyLoadedConfig(data);
+        markLoadedConfigSource(data, { type: 'local-file', fileName: file.name || handle.name || defaultConfigFileName(), fileHandle: handle });
+        writeForm();
+        regenerate();
+        if (warnings.length) {
+          flashMessage('Imported with warnings: ' + warnings.join(' '), 'warn');
+          finishImportProgress('Imported with warnings.', warnings.join(' '), 1200);
+        } else {
+          flashMessage('Settings imported from file.', 'ok');
+          finishImportProgress('Building settings imported.', `${file.name || 'Settings file'} has been applied.`);
+        }
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        flashMessage('Import failed: ' + (err && err.message ? err.message : err), 'err');
+        failImportProgress('Import failed.', err && err.message ? err.message : String(err));
+        return;
+      }
+    }
+    document.getElementById('importConfigFile')?.click();
+  }
+
+  function scheduleGithubAutosave() {
+    if (saveState.source.type !== 'github') return;
+    if (saveState.githubAutosaveTimer) clearTimeout(saveState.githubAutosaveTimer);
+    saveState.githubAutosaveTimer = setTimeout(runGithubAutosave, GITHUB_AUTOSAVE_DELAY_MS);
+  }
+
+  async function runGithubAutosave() {
+    saveState.githubAutosaveTimer = null;
+    if (saveState.source.type !== 'github' || saveState.githubAutosaveInFlight) return;
+    const now = Date.now();
+    if (saveState.lastGithubAutosaveAt && now - saveState.lastGithubAutosaveAt < GITHUB_AUTOSAVE_MIN_INTERVAL_MS) {
+      saveState.githubAutosaveTimer = setTimeout(runGithubAutosave, GITHUB_AUTOSAVE_MIN_INTERVAL_MS - (now - saveState.lastGithubAutosaveAt));
+      return;
+    }
+    saveState.githubAutosaveInFlight = true;
+    try {
+      const result = await saveCurrentBuildingToGithub({ promptForName: false, source: saveState.source, reason: 'autosave', quietNoChanges: true });
+      if (result && result.saved) saveState.lastGithubAutosaveAt = Date.now();
+    } finally {
+      saveState.githubAutosaveInFlight = false;
+    }
+  }
+
+  function updatePrimarySaveUi() {
+    const btn = document.getElementById('saveBtn');
+    if (!btn) return;
+    const setLabel = (label) => {
+      const icon = btn.querySelector('[data-icon]');
+      btn.textContent = '';
+      if (icon) btn.appendChild(icon);
+      btn.appendChild(document.createTextNode(' ' + label));
+    };
+    if (saveState.source.type === 'github') {
+      btn.title = 'Save changes back to the GitHub-backed .hako file.';
+      btn.dataset.saveSource = 'github';
+      setLabel('Save to GitHub');
+    } else if (saveState.source.type === 'local-file') {
+      btn.title = saveState.source.fileHandle
+        ? 'Save changes back to the opened .hako file.'
+        : 'Download an updated copy of the opened .hako file.';
+      btn.dataset.saveSource = 'local-file';
+      setLabel(saveState.source.fileHandle ? 'Save file' : 'Download file');
+    } else {
+      btn.title = 'Save current settings to browser cache so they reload next visit';
+      btn.dataset.saveSource = 'cache';
+      setLabel('Save to cache');
+    }
+  }
+
+  function installSmartSaveShortcuts() {
+    document.addEventListener('keydown', event => {
+      const isAccel = event.ctrlKey || event.metaKey;
+      if (!isAccel || event.altKey || event.shiftKey) return;
+      const key = String(event.key || '').toLowerCase();
+      if (key === 's') {
+        event.preventDefault();
+        saveSmartBuilding();
+      } else if (key === 'o') {
+        event.preventDefault();
+        openLocalBuildingFile();
+      }
+    });
+    document.addEventListener('input', scheduleGithubAutosave, true);
+    document.addEventListener('change', scheduleGithubAutosave, true);
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', updatePrimarySaveUi, { once: true });
+    } else {
+      updatePrimarySaveUi();
+    }
+  }
+
   function defaultBuildingName() {
     try {
       if (typeof CONFIG !== 'undefined' && CONFIG) {
@@ -102,11 +384,8 @@ globalThis.HakoMachiGithubDataShared = githubData;
     return 'HakoMachi building';
   }
 
-  function currentConfigForSave(name, id, path) {
-    if (typeof readForm === 'function') readForm();
-    const cfg = (typeof serializableCurrentConfig === 'function')
-      ? serializableCurrentConfig(CONFIG)
-      : JSON.parse(JSON.stringify(CONFIG || {}));
+  function currentConfigForSave(name, id, path, savedAt = new Date().toISOString()) {
+    const cfg = currentSerializableConfig();
     const now = new Date().toISOString();
     cfg.buildingName = name;
     cfg.hakomachiCloud = {
@@ -116,7 +395,10 @@ globalThis.HakoMachiGithubDataShared = githubData;
       id,
       name,
       path,
-      savedAt: now,
+      repoFullName: settings().repoFullName || null,
+      branch: settings().branch || 'main',
+      libraryPath: settings().libraryPath || DEFAULT_LIBRARY_PATH,
+      savedAt: savedAt || now,
     };
     if (typeof CONFIG !== 'undefined' && CONFIG) {
       CONFIG.buildingName = name;
@@ -192,40 +474,93 @@ globalThis.HakoMachiGithubDataShared = githubData;
     };
   }
 
-  async function saveCurrentBuildingToGithub() {
+  async function saveCurrentBuildingToGithub(options = {}) {
     const s = settings();
     try {
       assertSettings(s);
-      const defaultName = (CONFIG && CONFIG.hakomachiCloud && CONFIG.hakomachiCloud.name) || defaultBuildingName();
-      const name = window.prompt(tr('buildingName'), defaultName);
+      const source = normalizeSaveSource(options.source || saveState.source || {});
+      const defaultName = source.name || (CONFIG && CONFIG.hakomachiCloud && CONFIG.hakomachiCloud.name) || defaultBuildingName();
+      const promptForName = options.promptForName !== false;
+      const name = promptForName ? window.prompt(tr('buildingName'), defaultName) : defaultName;
       if (!name) return;
-      const existingId = CONFIG && CONFIG.hakomachiCloud && CONFIG.hakomachiCloud.id;
+      const existingId = source.id || (CONFIG && CONFIG.hakomachiCloud && CONFIG.hakomachiCloud.id);
       const id = existingId || slugify(name);
       const buildingDir = cleanRepoPath(s.buildingsDir || DEFAULT_BUILDINGS_DIR);
-      const path = (CONFIG && CONFIG.hakomachiCloud && CONFIG.hakomachiCloud.path)
-        ? CONFIG.hakomachiCloud.path
-        : `${buildingDir}/${id}.hako`;
-      setStatus(tr('saving'));
+      const existingPath = source.path || (CONFIG && CONFIG.hakomachiCloud && CONFIG.hakomachiCloud.path);
+      const path = existingPath || `${buildingDir}/${id}.hako`;
+      const githubSource = normalizeSaveSource({
+        ...source,
+        type: 'github',
+        repoFullName: s.repoFullName || source.repoFullName || null,
+        branch: s.branch || source.branch || 'main',
+        id,
+        name,
+        path,
+        libraryPath: s.libraryPath || source.libraryPath || DEFAULT_LIBRARY_PATH,
+      });
+      setStatus(options.reason === 'autosave' ? 'Autosaving building to GitHub...' : tr('saving'));
 
-      const cfg = currentConfigForSave(name, id, path);
+      const cfg = currentConfigForSave(name, id, path, githubSource.savedAt);
+      cfg.hakomachiCloud.repoFullName = githubSource.repoFullName;
+      cfg.hakomachiCloud.branch = githubSource.branch;
+      cfg.hakomachiCloud.libraryPath = githubSource.libraryPath;
+      const comparableText = comparableConfigText(cfg);
+      if (saveState.lastComparableText && saveState.lastComparableText === comparableText) {
+        if (!options.quietNoChanges) {
+          setStatus('No GitHub changes to save.');
+          flashMessage('No GitHub changes to save.', 'ok');
+        }
+        setActiveSaveSource(githubSource, comparableText);
+        return { saved: false, skipped: true, reason: 'unchanged-local' };
+      }
+
+      const remote = await readGithubFile(s, path);
+      if (remote && parseComparableText(remote.text) === comparableText) {
+        if (!options.quietNoChanges) {
+          setStatus('No GitHub changes to save.');
+          flashMessage('No GitHub changes to save.', 'ok');
+        }
+        setActiveSaveSource({ ...githubSource, savedAt: cfg.hakomachiCloud.savedAt }, comparableText);
+        return { saved: false, skipped: true, reason: 'unchanged-remote' };
+      }
+
+      cfg.hakomachiCloud.savedAt = new Date().toISOString();
+      if (typeof CONFIG !== 'undefined' && CONFIG) CONFIG.hakomachiCloud = cfg.hakomachiCloud;
       const hakoText = JSON.stringify(cfg, null, 2) + '\n';
       await writeGithubFile(s, path, hakoText, `Save HakoMachi building: ${name}`);
 
       const library = await loadLibrary(s);
+      const beforeLibraryText = JSON.stringify(library, null, 2) + '\n';
       upsertBuildingRecord(library, buildRecord(id, name, path, cfg));
-      await writeGithubFile(
-        s,
-        s.libraryPath || DEFAULT_LIBRARY_PATH,
-        JSON.stringify(library, null, 2) + '\n',
-        `Update HakoMachi footprint library: ${name}`,
-      );
+      const afterLibraryText = JSON.stringify(library, null, 2) + '\n';
+      if (beforeLibraryText !== afterLibraryText) {
+        await writeGithubFile(
+          s,
+          s.libraryPath || DEFAULT_LIBRARY_PATH,
+          afterLibraryText,
+          `Update HakoMachi footprint library: ${name}`,
+        );
+      }
 
       setStatus(`${tr('saved')} ${path}`);
-      alert(`${tr('saved')}\n\n${s.repoFullName}\n${path}\n${s.libraryPath || DEFAULT_LIBRARY_PATH}`);
+      setActiveSaveSource({ ...githubSource, savedAt: cfg.hakomachiCloud.savedAt }, comparableConfigText(cfg));
+      if (options.reason === 'autosave') {
+        flashMessage('Autosaved building to GitHub.', 'ok');
+      } else if (promptForName) {
+        alert(`${tr('saved')}\n\n${s.repoFullName}\n${path}\n${s.libraryPath || DEFAULT_LIBRARY_PATH}`);
+      } else {
+        flashMessage(`${tr('saved')} ${path}`, 'ok');
+      }
+      return { saved: true, path };
     } catch (err) {
       const msg = err && err.message ? err.message : String(err);
       setStatus('GitHub save failed: ' + msg, true);
-      alert('GitHub save failed:\n\n' + msg);
+      if (options.reason === 'autosave') {
+        flashMessage('GitHub autosave failed: ' + msg, 'err');
+      } else {
+        alert('GitHub save failed:\n\n' + msg);
+      }
+      return { saved: false, error: err };
     }
   }
 
@@ -308,7 +643,7 @@ globalThis.HakoMachiGithubDataShared = githubData;
     saveBtn.id = 'githubSaveBuildingBtn';
     saveBtn.type = 'button';
     saveBtn.textContent = tr('save');
-    saveBtn.addEventListener('click', saveCurrentBuildingToGithub);
+    saveBtn.addEventListener('click', () => saveCurrentBuildingToGithub());
 
     const resetBtn = document.getElementById('resetBtn');
     if (resetBtn && resetBtn.parentNode === menu) {
@@ -330,7 +665,18 @@ globalThis.HakoMachiGithubDataShared = githubData;
     defaultLibrary,
   };
 
+  window.HakoMachiBuildingSaveState = {
+    get source() { return saveState.source; },
+    setActiveSaveSource,
+    markLoadedConfigSource,
+    markCurrentConfigSavedToCache,
+    saveSmartBuilding,
+    openLocalBuildingFile,
+    scheduleGithubAutosave,
+  };
+
   document.addEventListener('DOMContentLoaded', injectMenuItems);
+  installSmartSaveShortcuts();
 })();
 
 /* ===== js/00-01-constants-defaults.js ===== */
@@ -27909,6 +28255,7 @@ function savePreset() {
   try {
     upgradeConfigToCurrentStorage(CONFIG);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(serializableCurrentConfig(CONFIG)));
+    window.HakoMachiBuildingSaveState?.markCurrentConfigSavedToCache?.();
     flashMessage('Preset saved to browser cache.', 'ok');
   } catch (e) {
     flashMessage('Save failed: ' + e.message, 'err');
@@ -27922,6 +28269,7 @@ function loadPreset() {
       const data = JSON.parse(raw);
       const warnings = applyLoadedConfig(data);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(serializableCurrentConfig(CONFIG)));
+      window.HakoMachiBuildingSaveState?.markLoadedConfigSource?.(data, { type: 'cache' });
       writeForm();
       regenerate();
       if (warnings.length) {
@@ -28080,6 +28428,7 @@ function importConfigFile(file) {
       const data = JSON.parse(e.target.result);
       setImportProgress(3, 4, 'Applying settings...', 'Updating the building form and regenerating previews.');
       const warnings = applyLoadedConfig(data);
+      window.HakoMachiBuildingSaveState?.markLoadedConfigSource?.(data, { type: 'local-file', fileName: file.name || 'building.hako' });
       writeForm();
       regenerate();
       if (warnings.length) {
@@ -28338,6 +28687,7 @@ function tryAutoLoadPreset() {
       // Rewrite the cache once in the current storage format so future loads
       // no longer carry legacy manual* buckets.
       localStorage.setItem(STORAGE_KEY, JSON.stringify(serializableCurrentConfig(CONFIG)));
+      window.HakoMachiBuildingSaveState?.markLoadedConfigSource?.(data, { type: 'cache' });
       return true;
     }
   } catch (e) {
@@ -29002,7 +29352,7 @@ function init() {
   bindClick('weApplyBtn', weApply);
   bindClick('weCloseBtn', weClose);
   document.getElementById('exportBtn').addEventListener('click', exportZip);
-  document.getElementById('saveBtn').addEventListener('click', () => { readForm(); savePreset(); });
+  document.getElementById('saveBtn').addEventListener('click', () => window.HakoMachiBuildingSaveState?.saveSmartBuilding?.());
   document.getElementById('loadBtn').addEventListener('click', loadPreset);
   document.getElementById('clearBtn').addEventListener('click', clearPreset);
   document.getElementById('exportConfigBtn').addEventListener('click', exportConfigFile);

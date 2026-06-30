@@ -3780,8 +3780,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         toolbar.className='sidebarDetailToolbar';
       }
       toolbar.innerHTML=sidebarDetailToolbarContents(kind);
-      if(toolbar.parentElement!==detailSection || toolbar.nextElementSibling!==h3){
-        detailSection.insertBefore(toolbar, h3 || detailSection.firstChild);
+      if(toolbar.parentElement!==sidebar || toolbar.nextElementSibling!==detailSection){
+        sidebar.insertBefore(toolbar, detailSection);
       }
       if(detailKey && detailKey!==activeSidebarDetailKey){
         sidebar.scrollTop=0;

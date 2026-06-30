@@ -7,13 +7,21 @@
   .app {
     display: grid;
     grid-template-columns: 340px 1fr;
+    gap: 14px;
     height: 100vh;
     height: 100dvh;
     min-height: 0;
+    padding: 14px;
+    background: var(--panel-2);
   }
   .controls {
-    background: var(--panel);
-    border-right: 1px solid var(--border);
+    background: rgba(255,255,255,.86);
+    border: 1px solid rgba(200,74,58,.16);
+    border-radius: 8px;
+    box-shadow:
+      0 18px 48px rgba(42,42,40,.13),
+      0 1px 0 rgba(255,255,255,.86) inset;
+    backdrop-filter: blur(18px) saturate(1.08);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -39,7 +47,8 @@
     position: sticky;
     bottom: 0;
     z-index: 20;
-    background: var(--panel);
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(14px) saturate(1.05);
     padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid var(--border);
     flex-shrink: 0;
@@ -130,9 +139,9 @@
       grid-template-columns: minmax(300px, 42vw) minmax(420px, 1fr);
     }
     .controls {
-      max-height: 100dvh;
+      max-height: calc(100dvh - 28px);
       position: sticky;
-      top: 0;
+      top: 14px;
       align-self: start;
     }
     .sticky-actions {
@@ -146,12 +155,18 @@
       display: block;
       height: auto;
       min-height: 100dvh;
+      padding: 0;
     }
     .controls {
       position: relative;
       max-height: none;
+      border-left: 0;
       border-right: 0;
+      border-top: 0;
       border-bottom: 1px solid var(--border);
+      border-radius: 0;
+      box-shadow: none;
+      background: rgba(255,255,255,.94);
     }
     .controls-scroll {
       max-height: none;
@@ -298,8 +313,6 @@
     padding: 2px 6px; border-radius: 3px;
     pointer-events: none;
   }
-  .stat-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; }
-  .stat-row span:first-child { color: var(--muted); }
   .legend { display: flex; gap: 12px; font-size: 11px; margin-bottom: 12px; align-items: center; }
   .legend span { display: flex; align-items: center; gap: 4px; }
   .swatch { width: 14px; height: 2px; display: inline-block; }
@@ -658,6 +671,10 @@
     padding: 4px 6px;
     border: 1px solid var(--accent);
     border-radius: 4px;
+  }
+  .building-title-return-btn {
+    width: 100%;
+    margin-top: 10px;
   }
 
 

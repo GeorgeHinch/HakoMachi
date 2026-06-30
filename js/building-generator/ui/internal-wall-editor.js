@@ -92,6 +92,23 @@ export function iwTarget() {
   return CONFIG;
 }
 
+export function iwWallFloorKey(f = iwFloor) {
+  return (typeof f === 'number' && Number.isFinite(f) && f >= 0) ? String(Math.floor(f)) : null;
+}
+
+export function iwEnsureInternalWalls(target = iwTarget()) {
+  if (!target.internalWalls || typeof target.internalWalls !== 'object') target.internalWalls = {};
+  return target.internalWalls;
+}
+
+export function iwWallListForFloor(target, floor) {
+  const key = iwWallFloorKey(floor);
+  if (key == null) return [];
+  const store = iwEnsureInternalWalls(target);
+  if (!Array.isArray(store[key])) store[key] = [];
+  return store[key];
+}
+
 /* ----------------------------------------------------------------------
  * SELECTABLE ITEM REFERENCES
  * The IW editor lets the user select and manipulate four kinds of
@@ -557,8 +574,7 @@ export function openInternalWallEditor(startFloor, wingIndex) {
     iwWingPlan  = null;
   }
   const target = iwTarget();
-  if (!CONFIG.internalWalls) CONFIG.internalWalls = {};
-  if (!CONFIG.internalWalls[0]) CONFIG.internalWalls[0] = [];   // single shared layout
+  iwWallListForFloor(target, 0);
   if (!target.rooftopItems) target.rooftopItems = [];
   document.getElementById('iwModal').style.display = '';
   const gridInput = document.getElementById('iwGridInput');
@@ -581,9 +597,12 @@ export function openInternalWallEditor(startFloor, wingIndex) {
   // Honour the requested floor tab. Previously every non-roof part opened
   // the ground-floor tab, so clicking inter-floor panels or wing floor pieces
   // appeared to use the wrong editor context.
+  const floorMax = Math.max(0, iwFloorCount() - 1);
   const initialFloor = (startFloor === IW_ROOF)
     ? IW_ROOF
-    : (startFloor === IW_INTER ? IW_INTER : 0);
+    : (startFloor === IW_INTER
+      ? IW_INTER
+      : Math.max(0, Math.min(floorMax, Math.floor(Number(startFloor) || 0))));
   iwSetFloor(initialFloor);
 }
 export function iwClose() {
@@ -641,9 +660,15 @@ export function iwKeyUp(e) {
   });
 }
 
-export function iwFloorCount() { return lastPlan ? Math.max(1, lastPlan.floors || 1) : 1; }
+export function iwPlanFloorCount(plan = lastPlan, cfg = (iwWingCfg || CONFIG)) {
+  const configured = Math.max(1, Number(cfg && (cfg.floorCount || cfg.floors)) || 1);
+  if (!plan) return configured;
+  const interCount = Array.isArray(plan.interFloorYs) && plan.interFloorYs.length ? plan.interFloorYs.length + 1 : 0;
+  return Math.max(1, Number(plan.floors || plan.floorCount) || interCount || configured);
+}
+export function iwFloorCount() { return iwPlanFloorCount(lastPlan); }
 export function iwIsRoof()     { return iwFloor === IW_ROOF; }
-export function iwWalls() { return iwIsRoof() ? [] : ((CONFIG.internalWalls || {})[0] || []); }
+export function iwWalls() { return (iwIsRoof() || iwFloor === IW_INTER) ? [] : iwWallListForFloor(iwTarget(), iwFloor); }
 export function iwIsFloor() { return !iwIsRoof(); }
 
 /* Ensure CONFIG.rooftopShield.bounds is set explicitly (not null).
@@ -931,8 +956,7 @@ export function iwToggleCladding() {
 export function iwSetFloor(f) {
   iwFloor = f;
   if (!iwIsRoof()) {
-    if (!CONFIG.internalWalls) CONFIG.internalWalls = {};
-    if (!CONFIG.internalWalls[0]) CONFIG.internalWalls[0] = [];
+    iwWallListForFloor(iwTarget(), iwFloor);
   } else {
     // First time the user lands on the Roof tab after loading a preset, the
     // preset's rooftopEquipment count map may still hold the equipment but
@@ -1201,9 +1225,9 @@ export function iwBuildTabs() {
   if (!el) return;
   el.innerHTML = '';
   const tabs = [
-    { key: 0,         label: 'Ground Floor' },
-    { key: IW_INTER,  label: 'Inter Floors' },
-    { key: IW_ROOF,   label: 'Roof'         },
+    ...Array.from({ length: iwFloorCount() }, (_, i) => ({ key: i, label: i === 0 ? 'Ground Floor' : `Floor ${i + 1}` })),
+    { key: IW_INTER, label: 'Inter Floors' },
+    { key: IW_ROOF,  label: 'Roof'         },
   ];
   for (const { key, label } of tabs) {
     const b = document.createElement('button');
@@ -1595,7 +1619,7 @@ export function iwPopulateTopbar() {
       addLbl('NOTE');
       const note = document.createElement('span');
       note.style.cssText = 'font-size:11px;color:var(--muted);padding:0 8px;';
-      note.textContent = 'Wall layout is shared across all intermediate floors.';
+      note.textContent = 'Floor holes placed here are shared across inter-floor panels. Use a numbered floor tab for interior walls.';
       bar.appendChild(note);
     }
   }
@@ -2275,7 +2299,7 @@ export function iwRender() {
       svg.querySelectorAll('.iw-wall').forEach(line => {
         line.addEventListener('click', e => {
           e.stopPropagation();
-          CONFIG.internalWalls[0].splice(parseInt(line.dataset.i), 1);
+          iwWalls().splice(parseInt(line.dataset.i), 1);
           iwRender();
         });
       });
@@ -2937,7 +2961,7 @@ export function iwHandleMouseUp(e) {
     iwRender(); return;
   }
   iwDragItem = null;
-  if (!iwDrag || iwTool !== 'draw' || iwIsRoof()) { iwDrag = false; return; }
+  if (!iwDrag || iwTool !== 'draw' || iwIsRoof() || iwFloor === IW_INTER) { iwDrag = false; return; }
   iwDrag = false;
   if (!iwDragPt || !iwCurMM) return;
   const { bW, bD } = iwBounds();
@@ -2945,8 +2969,7 @@ export function iwHandleMouseUp(e) {
   const al = iwAxisAlign(iwDragPt, iwSnapPt(cl.x, cl.y));
   const len = Math.hypot(al.x - iwDragPt.x, al.y - iwDragPt.y);
   if (len < 3) { iwDragPt = null; return; }
-  if (!CONFIG.internalWalls[0]) CONFIG.internalWalls[0] = [];
-  CONFIG.internalWalls[0].push({ x1: iwDragPt.x, y1: iwDragPt.y, x2: al.x, y2: al.y });
+  iwWalls().push({ x1: iwDragPt.x, y1: iwDragPt.y, x2: al.x, y2: al.y });
   iwDragPt = null;
   iwRender();
 }
@@ -3079,10 +3102,10 @@ export function iwBuildPanelPath(panelL, panelH, matT, tabPos, halfLaps) {
  * making it the full outside wall/floor-band height and then adding tabs on
  * top of that.
  */
-export function internalWallLevelSpecs(plan) {
+export function internalWallLevelSpecs(plan, cfg = (iwWingCfg || CONFIG)) {
   const matT = plan.matT || 1.5;
   const H = plan.H || 0;
-  const floors = Math.max(1, plan.floors || 1);
+  const floors = iwPlanFloorCount(plan, cfg);
 
   // Use the same floor boundary model as window/floor-band placement. These
   // are y-from-top wall coordinates; H is ground/base. If visual boundaries
@@ -3146,24 +3169,44 @@ export function internalWallLevelSpecs(plan) {
   return levels;
 }
 
+export function internalWallMap(cfg) {
+  const src = (cfg && cfg.internalWalls && typeof cfg.internalWalls === 'object') ? cfg.internalWalls : {};
+  const out = {};
+  for (const [key, value] of Object.entries(src)) {
+    const idx = Math.max(0, Math.floor(Number(key)));
+    if (!Number.isFinite(idx) || !Array.isArray(value)) continue;
+    out[idx] = value;
+  }
+  return out;
+}
+
+export function internalWallSlotsForFloor(walls, matT) {
+  const slots = [];
+  (walls || []).forEach((w, wi) => {
+    const { tabPositions, isH, x0, y0 } = iwComputeTabs(wi, walls, matT);
+    for (const tp of tabPositions) {
+      slots.push(isH ? { cx: x0 + tp, cy: w.y1 } : { cx: w.x1, cy: y0 + tp });
+    }
+  });
+  return slots;
+}
+
 /* ---- Generate SVG parts for all internal walls ---- */
 export function generateInternalWallParts(cfg, plan) {
-  const sharedWalls = (cfg.internalWalls || {})[0] || [];
-  if (!sharedWalls.length) return [];
-
   const matT   = plan.matT;
-  const levels = internalWallLevelSpecs(plan);
+  const levels = internalWallLevelSpecs(plan, cfg);
+  const wallsByFloor = internalWallMap(cfg);
+  if (!Object.values(wallsByFloor).some(walls => walls && walls.length)) return [];
   const parts  = [];
 
-  // Same plan layout applied to each occupied floor level, but each level's
-  // wall body height is the clear distance between horizontal plates rather
-  // than the full wall/floor-band height.
   for (const lvlSpec of levels) {
     const lvl = lvlSpec.idx;
+    const floorWalls = wallsByFloor[lvl] || [];
+    if (!floorWalls.length) continue;
     const lvlLabel = lvlSpec.label;
     const panelH = lvlSpec.clearH;
-    sharedWalls.forEach((w, wi) => {
-      const { tabPositions, crossings, isH, len } = iwComputeTabs(wi, sharedWalls, matT);
+    floorWalls.forEach((w, wi) => {
+      const { tabPositions, crossings, isH, len } = iwComputeTabs(wi, floorWalls, matT);
       if (len < matT * 2) return;
       const halfLaps   = crossings.map(c => ({ pos: c.pos, edge: isH ? 'top' : 'bottom' }));
       const { paths, lines } = iwBuildPanelPath(len, panelH, matT, tabPositions, halfLaps);
@@ -3184,40 +3227,39 @@ export function generateInternalWallParts(cfg, plan) {
 }
 /* ---- Inject wall-tab slots into floor & inter-floor panel parts ---- */
 export function injectInternalWallSlots(parts, cfg, plan) {
-  const sharedWalls = (cfg.internalWalls || {})[0] || [];
-  if (!sharedWalls.length) return;
-
   const matT = plan.matT;
   const kerf = cfg.kerfComp || 0;
+  const levels = internalWallLevelSpecs(plan, cfg);
+  const wallsByFloor = internalWallMap(cfg);
+  if (!Object.values(wallsByFloor).some(walls => walls && walls.length)) return;
 
   function slotPath(cx, cy) {
     const hw = matT / 2 - kerf;
     return `M ${(cx-hw).toFixed(3)},${(cy-hw).toFixed(3)} L ${(cx+hw).toFixed(3)},${(cy-hw).toFixed(3)} L ${(cx+hw).toFixed(3)},${(cy+hw).toFixed(3)} L ${(cx-hw).toFixed(3)},${(cy+hw).toFixed(3)} Z`;
   }
 
-  // Shared slot positions (interior coordinates)
-  const sharedSlots = [];
-  sharedWalls.forEach((w, wi) => {
-    const { tabPositions, isH, x0, y0 } = iwComputeTabs(wi, sharedWalls, matT);
-    for (const tp of tabPositions) {
-      sharedSlots.push(isH ? { cx: x0 + tp, cy: w.y1 } : { cx: w.x1, cy: y0 + tp });
-    }
-  });
-
-  // Inject into every inter-floor panel (same slots on all levels)
-  const sortedIFYs = plan.interFloorYs ? [...plan.interFloorYs].sort((a, b) => a - b) : [];
-  for (let panelN = 1; panelN <= sortedIFYs.length; panelN++) {
-    const ifPart = parts.find(p => p.id === `inter_floor_panel_${panelN}`);
-    if (!ifPart) continue;
-    for (const sl of sharedSlots)
-      ifPart.paths.push({ type: 'cut', d: slotPath(sl.cx, sl.cy) });
+  const panelCount = plan.interFloorYs ? plan.interFloorYs.length : 0;
+  const floorPart = parts.find(p => p.id === 'floor');
+  function interFloorPartForBoundaryAbove(floorIdx) {
+    const panelN = panelCount - floorIdx;
+    return panelN >= 1 ? parts.find(p => p.id === `inter_floor_panel_${panelN}`) : null;
+  }
+  function addSlotsToPart(part, slots, ox = 0, oy = 0) {
+    if (!part) return;
+    for (const sl of slots) part.paths.push({ type: 'cut', d: slotPath(sl.cx + ox, sl.cy + oy) });
   }
 
-  // Inject into base floor plate (exterior coordinates: +matT offset)
-  const floorPart = parts.find(p => p.id === 'floor');
-  if (floorPart) {
-    for (const sl of sharedSlots)
-      floorPart.paths.push({ type: 'cut', d: slotPath(sl.cx + matT, sl.cy + matT) });
+  for (const lvlSpec of levels) {
+    const lvl = lvlSpec.idx;
+    const floorWalls = wallsByFloor[lvl] || [];
+    if (!floorWalls.length) continue;
+    const slots = internalWallSlotsForFloor(floorWalls, matT);
+    if (!slots.length) continue;
+
+    if (lvl === 0) addSlotsToPart(floorPart, slots, matT, matT);
+    else addSlotsToPart(interFloorPartForBoundaryAbove(lvl - 1), slots);
+
+    addSlotsToPart(interFloorPartForBoundaryAbove(lvl), slots);
   }
 
   // Inject top-tab sockets into horizontal roof/ceiling panels when the roof
@@ -3232,7 +3274,8 @@ export function injectInternalWallSlots(parts, cfg, plan) {
       const O = Math.max(0, cfg.roofOverhang || 5);
       ox = O + matT; oy = O + matT;
     }
-    for (const sl of sharedSlots) {
+    const topFloorIdx = Math.max(0, (levels[levels.length - 1] || { idx: 0 }).idx);
+    for (const sl of internalWallSlotsForFloor(wallsByFloor[topFloorIdx] || [], matT)) {
       roofPart.paths.push({ type: 'cut', d: slotPath(sl.cx + ox, sl.cy + oy) });
     }
   }
@@ -3264,12 +3307,21 @@ export function currentBuildingName(cfg) {
 }
 
 export function renderBuildingNameHtml() {
+  const hasSitePlannerHandoff = !!(
+    CONFIG?.hakomachiHandoff
+    || CONFIG?.sitePlannerHandoff
+    || CONFIG?.sitePlanSeedSource?.sourceId
+  );
   return `<div class="building-title-card" id="buildingTitleCard">`
     + `<div class="building-title-label">Building name</div>`
     + `<div class="building-title-row">`
     + `<div class="building-title-text" id="buildingTitleText">${escapeHtml(currentBuildingName(CONFIG))}</div>`
     + `<button class="building-title-edit" id="buildingTitleEdit" type="button" title="Edit building name" aria-label="Edit building name">✎</button>`
-    + `</div></div>`;
+    + `</div>`
+    + (hasSitePlannerHandoff
+      ? `<button class="primary building-title-return-btn" id="sitePlannerTitleReturnBtn" type="button">Save and return to Site Planner</button>`
+      : '')
+    + `</div>`;
 }
 
 export function bindBuildingNameEditor() {
@@ -3316,8 +3368,6 @@ export function regenerate() {
   let warning = '';
   try {
     result = generateBuilding(CONFIG);
-    const layoutReferencePart = generateBuildingLayoutReferencePart(CONFIG, result.plan);
-    if (layoutReferencePart) result.parts.push(layoutReferencePart);
     lastPlan = result.plan;
     lastResult = result;
     renderMaterialsForm();   // keep cladding-style → material list current
@@ -3327,24 +3377,13 @@ export function regenerate() {
     return;
   }
   result.parts = applySheetSplittingToParts(result.parts, CONFIG);
-  const { parts, plan, totalWindows, totalDoors } = result;
+  const { parts, plan, totalWindows } = result;
 
   // Render preview — grouped by material then sheet
   renderPartsOutput(parts);
 
-  // Stats
-  const totalCoreParts = parts.filter(p => p.material === 'core').length;
-  const totalCladdingParts = parts.filter(p => p.material === 'cladding').length;
-  let statsHtml = renderBuildingNameHtml();
-  statsHtml += '<div class="preview-section"><h2>Stats</h2>';
-  statsHtml += `<div class="stat-row"><span>Building footprint</span><span>${CONFIG.width} × ${CONFIG.depth} × ${CONFIG.height} mm</span></div>`;
-  statsHtml += `<div class="stat-row"><span>Real-world (1:150)</span><span>${(CONFIG.width * 0.15).toFixed(1)} × ${(CONFIG.depth * 0.15).toFixed(1)} × ${(CONFIG.height * 0.15).toFixed(1)} m</span></div>`;
-  statsHtml += `<div class="stat-row"><span>Core parts</span><span>${totalCoreParts}</span></div>`;
-  statsHtml += `<div class="stat-row"><span>Cladding parts</span><span>${totalCladdingParts}</span></div>`;
-  statsHtml += `<div class="stat-row"><span>Total windows</span><span>${totalWindows}</span></div>`;
-  statsHtml += `<div class="stat-row"><span>Total doors</span><span>${totalDoors}</span></div>`;
-  statsHtml += '</div>';
-  document.getElementById('stats').innerHTML = statsHtml;
+  const titlePanel = document.getElementById('buildingTitlePanel');
+  if (titlePanel) titlePanel.innerHTML = renderBuildingNameHtml();
   bindBuildingNameEditor();
 
   // Warnings

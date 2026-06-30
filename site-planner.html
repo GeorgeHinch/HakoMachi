@@ -24,7 +24,7 @@
 <meta name="twitter:image" content="https://georgehinch.github.io/HakoMachi/img/HakoMachi_Hero.jpg" />
 <script type="application/ld+json" id="hakomachi-seo-jsonld">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"HakoMachi Site Planner - Japanese N Gauge Streetscape Layout Tool","description":"Plan Japanese N gauge streetscapes before cutting: place roads, sidewalks, benchwork, traced pads, and HakoMachi building metadata on a reference image.","url":"https://georgehinch.github.io/HakoMachi/site-planner.html","inLanguage":["en","ja"],"applicationCategory":"DesignApplication","operatingSystem":"Any modern web browser"}</script>
 <link rel="stylesheet" href="css/hakomachi-shared.css">
-<link rel="stylesheet" href="css/site-planner.css?v=structured-hako-dimensions-1">
+<link rel="stylesheet" href="css/site-planner.css?v=selected-panel-toolbar-2">
 </head>
 <body>
 <div class="app sitePlannerApp">
@@ -215,7 +215,7 @@
       </div>
     </div>
   </div>
-  <div class="canvasWrap"><canvas id="canvas"></canvas><div class="site3dFloatingToolbar" aria-label="Canvas view controls"><div class="site3dSegment" role="group" aria-label="View mode"><button id="view2dCanvasBtn" class="site3dFabBtn active" type="button">2D</button><button id="view3dCanvasBtn" class="site3dFabBtn" type="button">3D</button></div><span class="site3dFabSep"></span><label class="site3dBaseControl">Base <input id="site3dBaseThickness" type="number" min="0.1" step="0.1" value="4"><span>mm</span></label></div><div id="emptyImageOverlay" class="emptyImageOverlay" aria-live="polite"><div id="emptyImageCard" class="emptyImageCard"><div class="emptyImageIcon">▧</div><h2>Import a reference image to start</h2><p>The Site Planner needs a PNG, JPG, SVG, or WEBP plan image before you trace buildings, roads, benchwork, and site objects.</p><div class="emptyImageActions"><label class="fileButton" for="imageFile">Import Image</label></div><div class="emptyImageDropHint">Drop an image here, or use <strong>Import Image</strong> in the header.</div></div></div><button id="sidebarToggle" class="sidebarToggle" title="Open properties panel" aria-label="Open properties panel">‹</button><div id="contextMenu" class="contextMenu"></div><div id="roadExportBadge" class="roadExportBadge" style="display:none"></div></div>
+  <div class="canvasWrap"><canvas id="canvas"></canvas><div class="site3dFloatingToolbar" aria-label="Canvas view controls"><div class="site3dSegment" role="group" aria-label="View mode"><button id="view2dCanvasBtn" class="site3dFabBtn active" type="button">2D</button><button id="view3dCanvasBtn" class="site3dFabBtn" type="button">3D</button></div><div class="site3dImageControls" aria-label="3D reference image controls"><label class="site3dImageToggle"><input id="site3dImageVisible" type="checkbox" checked><span>Image</span></label><label class="site3dImageOpacity"><span>Opacity</span><input id="site3dImageOpacity" type="range" min="0" max="1" step="0.05" value="0.45"></label></div></div><div id="emptyImageOverlay" class="emptyImageOverlay" aria-live="polite"><div id="emptyImageCard" class="emptyImageCard"><div class="emptyImageIcon">▧</div><h2>Import a reference image to start</h2><p>The Site Planner needs a PNG, JPG, SVG, or WEBP plan image before you trace buildings, roads, benchwork, and site objects.</p><div class="emptyImageActions"><label class="fileButton" for="imageFile">Import Image</label></div><div class="emptyImageDropHint">Drop an image here, or use <strong>Import Image</strong> in the header.</div></div></div><button id="sidebarToggle" class="sidebarToggle" title="Open properties panel" aria-label="Open properties panel">‹</button><div id="contextMenu" class="contextMenu"></div><div id="roadExportBadge" class="roadExportBadge" style="display:none"></div></div>
   <aside class="sidebar">
     <div class="section">
       <h3>Image</h3>
@@ -251,9 +251,9 @@
       <div class="small muted">All pad dimensions are physical output millimeters. Use the “source … ÷ scale” units only when calibrating from a full-size/reference plan.</div>
       <div class="buttons" style="margin-top:8px"><button id="applyScaleBtn" class="ok">Apply Last Line</button><button id="clearScaleBtn">Clear</button></div>
     </div>
-    <div class="section">
-      <h3>Buildings</h3>
-      <div id="buildingList"></div>
+    <div class="section" id="objectBrowserSection">
+      <h3 id="objectBrowserTitle">Plan Objects</h3>
+      <div id="objectBrowser"></div>
     </div>
     <div class="section" id="fabricSection" style="display:none">
       <h3>Urban Fabric Fill</h3>
@@ -272,27 +272,15 @@
       <div class="small muted" style="margin-top:8px">Draw a polygon around an area, then generate. The Site Planner creates editable BuildingPads with HakoSeed metadata; HakoMachi still generates the actual laser-cut building geometry.</div>
     </div>
     <div class="section">
-      <h3>Selected Building</h3>
+      <h3>Selected Item</h3>
       <div id="selectedPanel" class="small muted">No building selected.</div>
-    </div>
-    <div class="section">
-      <h3>Roads</h3>
-      <div id="roadList" class="small muted">No roads yet.</div>
-    </div>
-    <div class="section">
-      <h3>Streetlights</h3>
-      <div id="streetlightList" class="small muted">No streetlights yet.</div>
-    </div>
-    <div class="section" id="hakoHandoffSection" style="display:none">
-      <h3>HakoMachi Handoff</h3>
-      <div id="handoffPreview" class="codebox" style="margin-top:8px"></div>
     </div>
   </aside>
   <div class="bottom"><span id="statusTool">Tool: Select</span><span id="statusScale">Calibration: unset</span><span id="statusZoom">Zoom: 100%</span><span id="statusMouse">Mouse: —</span><span id="statusHint">Tip: import an image, draw a calibration line, then trace pads.</span><span id="statusAutosave">Autosave: ready</span></div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
-<script type="module" src="js/shared/building-preview-renderer.js?v=shared-building-preview-31"></script>
-<script type="module" src="js/site-planner/main.js?v=structured-hako-dimensions-1"></script>
+<script type="module" src="js/shared/building-preview-renderer.js?v=shared-building-preview-30"></script>
+<script type="module" src="js/site-planner/main.js?v=selected-panel-toolbar-2"></script>
 </body>
 </html>

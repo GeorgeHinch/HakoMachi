@@ -416,6 +416,18 @@ export function generateBuildingStl(cfg) {
   const H = cfg.height;
   const parapetH = cfg.parapetHeight;
 
+  function stlOpeningAlongInterval(face, x, w, span) {
+    const a = Number(x || 0);
+    const width = Number(w || 0);
+    // The downloaded STL uses physical assembled coordinates. Front/back wall
+    // openings come from the flat wall editor/SVG convention, which the live
+    // Three.js preview mirrors when it places those panels into the assembled
+    // model. Mirror only this STL preview coordinate so the ZIP's preview_3d.stl
+    // matches the live assembled preview without changing laser-cut SVG output.
+    if (face === 'front' || face === 'back') return { u0: span - a - width, u1: span - a };
+    return { u0: a, u1: a + width };
+  }
+
   function visibleBayDoorPanelStl(op) {
     if (!op || op.type !== 'bay') return null;
     const styleKey = op.doorStyle || 'none';
@@ -444,8 +456,10 @@ export function generateBuildingStl(cfg) {
     const reliefT = Math.max(0.08, doorT * 0.55);
     const zTop = H - Number(op.y || 0);
     const zBot = H - (Number(op.y || 0) + Number(op.h || 0));
-    const along0 = Number(op.x || 0);
-    const along1 = along0 + Number(op.w || 0);
+    const wallSpan = (face === 'front' || face === 'back') ? W : plan.sideLen;
+    const interval = stlOpeningAlongInterval(face, op.x, op.w, wallSpan);
+    const along0 = interval.u0;
+    const along1 = interval.u1;
 
     function faceBox(a0, a1, zz0, zz1, proud) {
       const p = proud || 0;
@@ -630,14 +644,16 @@ export function generateBuildingStl(cfg) {
           const style = op.style ? WINDOW_STYLES[op.style] : null;
           const placement = (style && style.placement) || 'opening';
           if (placement === 'etched') continue;  // no hole — etched outline only
+          const interval = stlOpeningAlongInterval(which, op.x, op.w, plan.fbWidth);
           holes.push({
-            u0: op.x, u1: op.x + op.w,
+            u0: interval.u0, u1: interval.u1,
             v0: H - (op.y + op.h), v1: H - op.y,
           });
         } else if (op.type === 'door') {
           // All doors cut through in the 3D preview, regardless of glass.
+          const interval = stlOpeningAlongInterval(which, op.x, op.w, plan.fbWidth);
           holes.push({
-            u0: op.x, u1: op.x + op.w,
+            u0: interval.u0, u1: interval.u1,
             v0: H - (op.y + op.h), v1: H - op.y,
           });
         }
@@ -665,8 +681,9 @@ export function generateBuildingStl(cfg) {
         cfg, plan, edgeId: which,
       });
       for (const w of allWins) {
+        const interval = stlOpeningAlongInterval(which, w.x, w.width, plan.fbWidth);
         holes.push({
-          u0: w.x, u1: w.x + w.width,
+          u0: interval.u0, u1: interval.u1,
           v0: H - (w.y + w.height), v1: H - w.y,
         });
       }
@@ -677,8 +694,9 @@ export function generateBuildingStl(cfg) {
           cfg, plan, edgeId: which,
         });
         for (const d of doors) {
+          const interval = stlOpeningAlongInterval(which, d.x, d.width, plan.fbWidth);
           holes.push({
-            u0: d.x, u1: d.x + d.width,
+            u0: interval.u0, u1: interval.u1,
             v0: H - (d.y + d.height), v1: H - d.y,
           });
         }
@@ -686,8 +704,9 @@ export function generateBuildingStl(cfg) {
     }
     // Bay opening always added (independent of manual/auto for non-bay openings)
     if (hasBay) {
+      const interval = stlOpeningAlongInterval(which, plan.bayXStart, plan.bayXEnd - plan.bayXStart, plan.fbWidth);
       holes.push({
-        u0: plan.bayXStart, u1: plan.bayXEnd,
+        u0: interval.u0, u1: interval.u1,
         v0: 0, v1: plan.bayHeight || 0,
       });
     }
@@ -1189,6 +1208,104 @@ export function exportConfigFile() {
   flashMessage('Settings file downloaded.', 'ok');
 }
 
+let importProgressCloseTimer = null;
+let importProgressLastFocus = null;
+
+function ensureImportProgressModal() {
+  let modal = document.getElementById('hakoImportProgressModal');
+  if (modal) return modal;
+  modal = document.createElement('div');
+  modal.id = 'hakoImportProgressModal';
+  modal.className = 'hakoProgressModal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'hakoImportProgressTitle');
+  modal.innerHTML = `
+    <div class="hakoProgressCard" tabindex="-1">
+      <h2 id="hakoImportProgressTitle">Import file</h2>
+      <div id="hakoImportProgress" class="hakoProgress" role="progressbar" aria-label="Import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="hakoProgressTrack"><div id="hakoImportProgressFill" class="hakoProgressFill"></div></div>
+        <div class="hakoProgressSummary"><b id="hakoImportProgressLabel">Preparing import...</b><span id="hakoImportProgressPercent">0%</span></div>
+        <div id="hakoImportProgressDetail" class="hakoProgressDetail" aria-live="polite">Waiting for the selected file.</div>
+      </div>
+      <div class="hakoProgressActions"><button type="button" id="hakoImportProgressClose">Close</button></div>
+    </div>`;
+  const close = () => closeImportProgressModal();
+  modal.addEventListener('click', event => {
+    if (event.target === modal && modal.dataset.locked !== 'true') close();
+  });
+  modal.querySelector('#hakoImportProgressClose')?.addEventListener('click', close);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && modal.classList.contains('open') && modal.dataset.locked !== 'true') close();
+  });
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function openImportProgressModal(title = 'Import file', label = 'Preparing import...', detail = 'Waiting for the selected file.') {
+  const modal = ensureImportProgressModal();
+  if (importProgressCloseTimer) {
+    clearTimeout(importProgressCloseTimer);
+    importProgressCloseTimer = null;
+  }
+  importProgressLastFocus = document.activeElement;
+  modal.dataset.locked = 'true';
+  document.getElementById('hakoImportProgressTitle').textContent = title;
+  document.getElementById('hakoImportProgressClose').style.display = 'none';
+  modal.classList.add('open');
+  setImportProgress(0, 4, label, detail);
+  modal.querySelector('.hakoProgressCard')?.focus?.();
+  return modal;
+}
+
+function setImportProgress(step, total, label, detail) {
+  const safeTotal = Math.max(1, total || 1);
+  const percent = Math.max(0, Math.min(100, Math.round((Math.max(0, step || 0) / safeTotal) * 100)));
+  const progress = document.getElementById('hakoImportProgress');
+  if (progress) progress.setAttribute('aria-valuenow', String(percent));
+  const fill = document.getElementById('hakoImportProgressFill');
+  if (fill) fill.style.width = percent + '%';
+  const pct = document.getElementById('hakoImportProgressPercent');
+  if (pct) pct.textContent = percent + '%';
+  const labelEl = document.getElementById('hakoImportProgressLabel');
+  if (labelEl) labelEl.textContent = label || 'Working...';
+  const detailEl = document.getElementById('hakoImportProgressDetail');
+  if (detailEl) detailEl.textContent = detail || '';
+}
+
+function closeImportProgressModal() {
+  const modal = document.getElementById('hakoImportProgressModal');
+  if (!modal) return;
+  modal.classList.remove('open');
+  modal.dataset.locked = 'false';
+  if (importProgressCloseTimer) {
+    clearTimeout(importProgressCloseTimer);
+    importProgressCloseTimer = null;
+  }
+  importProgressLastFocus?.focus?.();
+  importProgressLastFocus = null;
+}
+
+function finishImportProgress(label, detail, delay = 900) {
+  const modal = ensureImportProgressModal();
+  modal.dataset.locked = 'false';
+  setImportProgress(4, 4, label || 'Import complete.', detail || 'The file has been applied.');
+  document.getElementById('hakoImportProgressClose').style.display = '';
+  importProgressCloseTimer = setTimeout(() => closeImportProgressModal(), delay);
+}
+
+function failImportProgress(label, detail) {
+  const modal = ensureImportProgressModal();
+  if (importProgressCloseTimer) {
+    clearTimeout(importProgressCloseTimer);
+    importProgressCloseTimer = null;
+  }
+  modal.dataset.locked = 'false';
+  modal.classList.add('open');
+  setImportProgress(0, 4, label || 'Import failed.', detail || 'Check the file and try again.');
+  document.getElementById('hakoImportProgressClose').style.display = '';
+}
+
 /* Import a .hako (or legacy .json) settings file picked by the user.
    Both are JSON internally — same payload, different extension. */
 export function importConfigFile(file) {
@@ -1197,25 +1314,35 @@ export function importConfigFile(file) {
   const looksLikeConfig = /\.(hako|hakoseed|hakoplan|json)$/i.test(name) || file.type === 'application/json' || file.type === '';
   if (!looksLikeConfig) {
     flashMessage('Drop a .hako, .hakoseed, .hakoplan, or .json settings/seed file.', 'warn');
+    failImportProgress('Unsupported file type.', 'Drop a .hako, .hakoseed, .hakoplan, or .json settings/seed file.');
     return;
   }
+  openImportProgressModal('Import building settings', 'Reading file...', `Reading ${file.name || 'building settings'}.`);
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
+      setImportProgress(2, 4, 'Validating settings...', 'Checking the JSON and upgrading old HakoMachi formats if needed.');
       const data = JSON.parse(e.target.result);
+      setImportProgress(3, 4, 'Applying settings...', 'Updating the building form and regenerating previews.');
       const warnings = applyLoadedConfig(data);
       writeForm();
       regenerate();
       if (warnings.length) {
         flashMessage('Imported with warnings: ' + warnings.join(' '), 'warn');
+        finishImportProgress('Imported with warnings.', warnings.join(' '), 1200);
       } else {
         flashMessage('Settings imported from file.', 'ok');
+        finishImportProgress('Building settings imported.', `${file.name || 'Settings file'} has been applied.`);
       }
     } catch (err) {
       flashMessage('Import failed: ' + err.message, 'err');
+      failImportProgress('Import failed.', err.message);
     }
   };
-  reader.onerror = () => flashMessage('File read error.', 'err');
+  reader.onerror = () => {
+    flashMessage('File read error.', 'err');
+    failImportProgress('Could not read file.', 'The browser could not read that settings file.');
+  };
   reader.readAsText(file);
 }
 

@@ -11128,7 +11128,7 @@ function generateGableRoofAngleLockParts(cfg, plan, stationCount, halfSpan, pitc
   // the roof slope. This is the critical alignment value.
   const slotY = slotSpec && slotSpec.slotY != null ? Number(slotSpec.slotY) : Math.max(0, slantLen - tabAlong - matT);
   const slotLenForCenter = slotSpec && slotSpec.slotLen ? Number(slotSpec.slotLen) : tabAlong;
-  const tabCenterFromApex = Math.max(tabAlong / 2 + 0.3, slantLen - (slotY + slotLenForCenter / 2));
+  const tabCenterFromApex = Math.max(tabAlong / 2 + 0.3, Math.min(slantLen - 0.3, slotY + slotLenForCenter / 2));
 
   // Keep the roof-contact edge compact, but make the vertical web deep enough
   // to be a real gusset. This avoids the shallow-roof failure where the lock
@@ -11457,10 +11457,13 @@ function generateGabledRoof(cfg, plan) {
     const angleLockSlotEndClearance = Math.max(0.8, Math.min(1.4, matT * 0.75));
     const angleLockSlotLen = angleLockTabLen + 2 * angleLockSlotEndClearance;
 
-    // Keep the slot close to the ridge. The tab center is derived from the
-    // slot center, so the lock and panel now share one along-slope datum.
+    // Keep the slot close to the ridge. Gabled roof panel coordinates use
+    // y=0 at the ridge and y=slantLen at the eave, so this must stay near 0.
+    // The tab center is derived from the slot center, so the lock and panel
+    // share one along-slope datum.
     const angleLockRidgeInset = Math.max(0.2, Math.min(0.5, matT * 0.2));
-    const angleLockSlotY = Math.max(0.2, slantLen - angleLockSlotLen - angleLockRidgeInset);
+    const angleLockSlotY = Math.max(0.2, angleLockRidgeInset);
+    const angleLockEtchY = Math.min(slantLen - 0.2, angleLockSlotY + angleLockSlotLen + 0.8);
     const angleLockSlotSpec = {
       slantLen,
       slotY: angleLockSlotY,
@@ -11475,8 +11478,8 @@ function generateGabledRoof(cfg, plan) {
       const slot = { type: 'cut', x, y: angleLockSlotY, w: angleLockSlotW, h: angleLockSlotLen, compensateKerf: true };
       panel0.rects.push({ ...slot });
       panel1.rects.push({ ...slot });
-      panel0.lines.push({ type: 'etch', x1: st - 2.5, y1: angleLockSlotY - 0.8, x2: st + 2.5, y2: angleLockSlotY - 0.8 });
-      panel1.lines.push({ type: 'etch', x1: st - 2.5, y1: angleLockSlotY - 0.8, x2: st + 2.5, y2: angleLockSlotY - 0.8 });
+      panel0.lines.push({ type: 'etch', x1: st - 2.5, y1: angleLockEtchY, x2: st + 2.5, y2: angleLockEtchY });
+      panel1.lines.push({ type: 'etch', x1: st - 2.5, y1: angleLockEtchY, x2: st + 2.5, y2: angleLockEtchY });
     }
 
     // Matching skylight cut paths for the single folded roof-cladding piece.
@@ -20702,6 +20705,95 @@ function geometryStrokeColor(part, op, kind, index) {
   return COLOR_ETCH;
 }
 
+const CORE_ASSEMBLY_LABEL_ROLES = new Set([
+  'core_wall',
+  'floor_panel',
+  'interfloor_panel',
+  'roof_panel',
+  'interior_wall',
+  'truss',
+  'support',
+  'parapet_panel',
+]);
+
+function partNeedsCoreAssemblyLabel(part) {
+  if (!part || part.material !== 'core') return false;
+  normalizePartMetadata(part);
+  const role = (part.meta && part.meta.role) || inferPartRole(part);
+  return CORE_ASSEMBLY_LABEL_ROLES.has(role);
+}
+
+function coreAssemblyLabelLines(part) {
+  normalizePartMetadata(part);
+  const stem = exportPartFileStem(part).replace(/_/g, ' ');
+  const id = String(part.id || '').replace(/_/g, ' ');
+  const line1 = id || stem;
+  const line2 = stem && stem !== line1 ? stem : '';
+  return [line1, line2].filter(Boolean).map(s => s.length > 32 ? s.slice(0, 29) + '...' : s);
+}
+
+function coreLabelObstacles(part) {
+  const obstacles = [];
+  const grow = 1.2;
+  for (const r of ((part && part.rects) || [])) {
+    const x = Number(r.x), y = Number(r.y), w = Number(r.w), h = Number(r.h);
+    if (![x, y, w, h].every(Number.isFinite)) continue;
+    obstacles.push({ x: x - grow, y: y - grow, w: w + grow * 2, h: h + grow * 2 });
+  }
+  for (const l of ((part && part.lines) || [])) {
+    const x1 = Number(l.x1), y1 = Number(l.y1), x2 = Number(l.x2), y2 = Number(l.y2);
+    if (![x1, y1, x2, y2].every(Number.isFinite)) continue;
+    const x = Math.min(x1, x2) - grow;
+    const y = Math.min(y1, y2) - grow;
+    obstacles.push({ x, y, w: Math.abs(x2 - x1) + grow * 2, h: Math.abs(y2 - y1) + grow * 2 });
+  }
+  return obstacles;
+}
+
+function assemblyLabelRectsOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function assemblyLabelEscape(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function coreAssemblyLabelSvg(part) {
+  if (!partNeedsCoreAssemblyLabel(part)) return '';
+  const b = partLocalBounds(part);
+  if (b.w < 14 || b.h < 10) return '';
+  const lines = coreAssemblyLabelLines(part);
+  if (!lines.length) return '';
+  const fontSize = Math.max(1.8, Math.min(3.2, Math.min(b.w, b.h) * 0.085));
+  const lineGap = fontSize * 1.25;
+  const textW = Math.min(b.w - 4, Math.max(...lines.map(line => line.length)) * fontSize * 0.56);
+  const textH = fontSize + (lines.length - 1) * lineGap;
+  const margin = Math.max(3, fontSize * 1.4);
+  if (textW <= 0 || textH <= 0 || b.w < textW + margin * 2 || b.h < textH + margin * 2) return '';
+  const candidates = [
+    { x: b.minX + b.w / 2, y: b.minY + b.h / 2 },
+    { x: b.minX + margin + textW / 2, y: b.minY + margin + textH / 2 },
+    { x: b.maxX - margin - textW / 2, y: b.minY + margin + textH / 2 },
+    { x: b.minX + margin + textW / 2, y: b.maxY - margin - textH / 2 },
+    { x: b.maxX - margin - textW / 2, y: b.maxY - margin - textH / 2 },
+  ];
+  const obstacles = coreLabelObstacles(part);
+  const pos = candidates.find(c => {
+    const box = { x: c.x - textW / 2, y: c.y - textH / 2, w: textW, h: textH };
+    return !obstacles.some(o => assemblyLabelRectsOverlap(box, o));
+  }) || candidates[0];
+  const firstY = pos.y - textH / 2 + fontSize;
+  const tspans = lines.map((line, index) => {
+    const dy = index === 0 ? 0 : lineGap;
+    return `<tspan x="${pos.x.toFixed(3)}" dy="${dy.toFixed(3)}">${assemblyLabelEscape(line)}</tspan>`;
+  }).join('');
+  return `<text data-hakomachi-assembly-label="true" x="${pos.x.toFixed(3)}" y="${firstY.toFixed(3)}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${fontSize.toFixed(3)}" fill="${COLOR_ETCH}" stroke="none">${tspans}</text>`;
+}
+
 function partRawGeometrySvg(part, options = {}) {
   const strokeW = options.strokeMm || 0.05;
   const kerf = options.kerf || 0;
@@ -20732,6 +20824,7 @@ function partRawGeometrySvg(part, options = {}) {
       const sw = isCrop ? (strokeW * 1.5) : strokeW;
       out += `<line x1="${Number(l.x1).toFixed(3)}" y1="${Number(l.y1).toFixed(3)}" x2="${Number(l.x2).toFixed(3)}" y2="${Number(l.y2).toFixed(3)}" stroke="${color}" stroke-width="${sw}"/>`;
     }
+    if (options.assemblyLabels !== false) out += coreAssemblyLabelSvg(part);
     return out;
   };
 
@@ -21595,7 +21688,7 @@ function partToSvg(part, options) {
     + `width="${vbW.toFixed(3)}mm" height="${vbH.toFixed(3)}mm" `
     + `viewBox="${vbX.toFixed(3)} ${vbY.toFixed(3)} ${vbW.toFixed(3)} ${vbH.toFixed(3)}">`;
 
-  svg += partRawGeometrySvg(part, { strokeMm: strokeW, kerf: options.kerf || 0 });
+  svg += partRawGeometrySvg(part, { strokeMm: strokeW, kerf: options.kerf || 0, assemblyLabels: options.assemblyLabels });
   svg += `</svg>`;
   return svg;
 }
@@ -21631,9 +21724,9 @@ function partToPreviewSvg(part) {
       lines: (part.tileGeom.lines || []).map(l => ({ ...l })),
       svgContent: part.tileGeom.svgContent || undefined,
     });
-    return partToSvg(tilePart, { strokeMm: 0.2, kerf: 0 });
+    return partToSvg(tilePart, { strokeMm: 0.2, kerf: 0, assemblyLabels: false });
   }
-  return partToSvg(part, { strokeMm: 0.2, kerf: 0 });
+  return partToSvg(part, { strokeMm: 0.2, kerf: 0, assemblyLabels: false });
 }
 
 /* ===== js/00-41-ui.js ===== */
@@ -22651,6 +22744,23 @@ function iwTarget() {
   return CONFIG;
 }
 
+function iwWallFloorKey(f = iwFloor) {
+  return (typeof f === 'number' && Number.isFinite(f) && f >= 0) ? String(Math.floor(f)) : null;
+}
+
+function iwEnsureInternalWalls(target = iwTarget()) {
+  if (!target.internalWalls || typeof target.internalWalls !== 'object') target.internalWalls = {};
+  return target.internalWalls;
+}
+
+function iwWallListForFloor(target, floor) {
+  const key = iwWallFloorKey(floor);
+  if (key == null) return [];
+  const store = iwEnsureInternalWalls(target);
+  if (!Array.isArray(store[key])) store[key] = [];
+  return store[key];
+}
+
 /* ----------------------------------------------------------------------
  * SELECTABLE ITEM REFERENCES
  * The IW editor lets the user select and manipulate four kinds of
@@ -23116,8 +23226,7 @@ function openInternalWallEditor(startFloor, wingIndex) {
     iwWingPlan  = null;
   }
   const target = iwTarget();
-  if (!CONFIG.internalWalls) CONFIG.internalWalls = {};
-  if (!CONFIG.internalWalls[0]) CONFIG.internalWalls[0] = [];   // single shared layout
+  iwWallListForFloor(target, 0);
   if (!target.rooftopItems) target.rooftopItems = [];
   document.getElementById('iwModal').style.display = '';
   const gridInput = document.getElementById('iwGridInput');
@@ -23140,9 +23249,12 @@ function openInternalWallEditor(startFloor, wingIndex) {
   // Honour the requested floor tab. Previously every non-roof part opened
   // the ground-floor tab, so clicking inter-floor panels or wing floor pieces
   // appeared to use the wrong editor context.
+  const floorMax = Math.max(0, iwFloorCount() - 1);
   const initialFloor = (startFloor === IW_ROOF)
     ? IW_ROOF
-    : (startFloor === IW_INTER ? IW_INTER : 0);
+    : (startFloor === IW_INTER
+      ? IW_INTER
+      : Math.max(0, Math.min(floorMax, Math.floor(Number(startFloor) || 0))));
   iwSetFloor(initialFloor);
 }
 function iwClose() {
@@ -23200,9 +23312,15 @@ function iwKeyUp(e) {
   });
 }
 
-function iwFloorCount() { return lastPlan ? Math.max(1, lastPlan.floors || 1) : 1; }
+function iwPlanFloorCount(plan = lastPlan, cfg = (iwWingCfg || CONFIG)) {
+  const configured = Math.max(1, Number(cfg && (cfg.floorCount || cfg.floors)) || 1);
+  if (!plan) return configured;
+  const interCount = Array.isArray(plan.interFloorYs) && plan.interFloorYs.length ? plan.interFloorYs.length + 1 : 0;
+  return Math.max(1, Number(plan.floors || plan.floorCount) || interCount || configured);
+}
+function iwFloorCount() { return iwPlanFloorCount(lastPlan); }
 function iwIsRoof()     { return iwFloor === IW_ROOF; }
-function iwWalls() { return iwIsRoof() ? [] : ((CONFIG.internalWalls || {})[0] || []); }
+function iwWalls() { return (iwIsRoof() || iwFloor === IW_INTER) ? [] : iwWallListForFloor(iwTarget(), iwFloor); }
 function iwIsFloor() { return !iwIsRoof(); }
 
 /* Ensure CONFIG.rooftopShield.bounds is set explicitly (not null).
@@ -23490,8 +23608,7 @@ function iwToggleCladding() {
 function iwSetFloor(f) {
   iwFloor = f;
   if (!iwIsRoof()) {
-    if (!CONFIG.internalWalls) CONFIG.internalWalls = {};
-    if (!CONFIG.internalWalls[0]) CONFIG.internalWalls[0] = [];
+    iwWallListForFloor(iwTarget(), iwFloor);
   } else {
     // First time the user lands on the Roof tab after loading a preset, the
     // preset's rooftopEquipment count map may still hold the equipment but
@@ -23760,9 +23877,9 @@ function iwBuildTabs() {
   if (!el) return;
   el.innerHTML = '';
   const tabs = [
-    { key: 0,         label: 'Ground Floor' },
-    { key: IW_INTER,  label: 'Inter Floors' },
-    { key: IW_ROOF,   label: 'Roof'         },
+    ...Array.from({ length: iwFloorCount() }, (_, i) => ({ key: i, label: i === 0 ? 'Ground Floor' : `Floor ${i + 1}` })),
+    { key: IW_INTER, label: 'Inter Floors' },
+    { key: IW_ROOF,  label: 'Roof'         },
   ];
   for (const { key, label } of tabs) {
     const b = document.createElement('button');
@@ -24154,7 +24271,7 @@ function iwPopulateTopbar() {
       addLbl('NOTE');
       const note = document.createElement('span');
       note.style.cssText = 'font-size:11px;color:var(--muted);padding:0 8px;';
-      note.textContent = 'Wall layout is shared across all intermediate floors.';
+      note.textContent = 'Floor holes placed here are shared across inter-floor panels. Use a numbered floor tab for interior walls.';
       bar.appendChild(note);
     }
   }
@@ -24834,7 +24951,7 @@ function iwRender() {
       svg.querySelectorAll('.iw-wall').forEach(line => {
         line.addEventListener('click', e => {
           e.stopPropagation();
-          CONFIG.internalWalls[0].splice(parseInt(line.dataset.i), 1);
+          iwWalls().splice(parseInt(line.dataset.i), 1);
           iwRender();
         });
       });
@@ -25496,7 +25613,7 @@ function iwHandleMouseUp(e) {
     iwRender(); return;
   }
   iwDragItem = null;
-  if (!iwDrag || iwTool !== 'draw' || iwIsRoof()) { iwDrag = false; return; }
+  if (!iwDrag || iwTool !== 'draw' || iwIsRoof() || iwFloor === IW_INTER) { iwDrag = false; return; }
   iwDrag = false;
   if (!iwDragPt || !iwCurMM) return;
   const { bW, bD } = iwBounds();
@@ -25504,8 +25621,7 @@ function iwHandleMouseUp(e) {
   const al = iwAxisAlign(iwDragPt, iwSnapPt(cl.x, cl.y));
   const len = Math.hypot(al.x - iwDragPt.x, al.y - iwDragPt.y);
   if (len < 3) { iwDragPt = null; return; }
-  if (!CONFIG.internalWalls[0]) CONFIG.internalWalls[0] = [];
-  CONFIG.internalWalls[0].push({ x1: iwDragPt.x, y1: iwDragPt.y, x2: al.x, y2: al.y });
+  iwWalls().push({ x1: iwDragPt.x, y1: iwDragPt.y, x2: al.x, y2: al.y });
   iwDragPt = null;
   iwRender();
 }
@@ -25638,10 +25754,10 @@ function iwBuildPanelPath(panelL, panelH, matT, tabPos, halfLaps) {
  * making it the full outside wall/floor-band height and then adding tabs on
  * top of that.
  */
-function internalWallLevelSpecs(plan) {
+function internalWallLevelSpecs(plan, cfg = (iwWingCfg || CONFIG)) {
   const matT = plan.matT || 1.5;
   const H = plan.H || 0;
-  const floors = Math.max(1, plan.floors || 1);
+  const floors = iwPlanFloorCount(plan, cfg);
 
   // Use the same floor boundary model as window/floor-band placement. These
   // are y-from-top wall coordinates; H is ground/base. If visual boundaries
@@ -25705,24 +25821,44 @@ function internalWallLevelSpecs(plan) {
   return levels;
 }
 
+function internalWallMap(cfg) {
+  const src = (cfg && cfg.internalWalls && typeof cfg.internalWalls === 'object') ? cfg.internalWalls : {};
+  const out = {};
+  for (const [key, value] of Object.entries(src)) {
+    const idx = Math.max(0, Math.floor(Number(key)));
+    if (!Number.isFinite(idx) || !Array.isArray(value)) continue;
+    out[idx] = value;
+  }
+  return out;
+}
+
+function internalWallSlotsForFloor(walls, matT) {
+  const slots = [];
+  (walls || []).forEach((w, wi) => {
+    const { tabPositions, isH, x0, y0 } = iwComputeTabs(wi, walls, matT);
+    for (const tp of tabPositions) {
+      slots.push(isH ? { cx: x0 + tp, cy: w.y1 } : { cx: w.x1, cy: y0 + tp });
+    }
+  });
+  return slots;
+}
+
 /* ---- Generate SVG parts for all internal walls ---- */
 function generateInternalWallParts(cfg, plan) {
-  const sharedWalls = (cfg.internalWalls || {})[0] || [];
-  if (!sharedWalls.length) return [];
-
   const matT   = plan.matT;
-  const levels = internalWallLevelSpecs(plan);
+  const levels = internalWallLevelSpecs(plan, cfg);
+  const wallsByFloor = internalWallMap(cfg);
+  if (!Object.values(wallsByFloor).some(walls => walls && walls.length)) return [];
   const parts  = [];
 
-  // Same plan layout applied to each occupied floor level, but each level's
-  // wall body height is the clear distance between horizontal plates rather
-  // than the full wall/floor-band height.
   for (const lvlSpec of levels) {
     const lvl = lvlSpec.idx;
+    const floorWalls = wallsByFloor[lvl] || [];
+    if (!floorWalls.length) continue;
     const lvlLabel = lvlSpec.label;
     const panelH = lvlSpec.clearH;
-    sharedWalls.forEach((w, wi) => {
-      const { tabPositions, crossings, isH, len } = iwComputeTabs(wi, sharedWalls, matT);
+    floorWalls.forEach((w, wi) => {
+      const { tabPositions, crossings, isH, len } = iwComputeTabs(wi, floorWalls, matT);
       if (len < matT * 2) return;
       const halfLaps   = crossings.map(c => ({ pos: c.pos, edge: isH ? 'top' : 'bottom' }));
       const { paths, lines } = iwBuildPanelPath(len, panelH, matT, tabPositions, halfLaps);
@@ -25743,40 +25879,39 @@ function generateInternalWallParts(cfg, plan) {
 }
 /* ---- Inject wall-tab slots into floor & inter-floor panel parts ---- */
 function injectInternalWallSlots(parts, cfg, plan) {
-  const sharedWalls = (cfg.internalWalls || {})[0] || [];
-  if (!sharedWalls.length) return;
-
   const matT = plan.matT;
   const kerf = cfg.kerfComp || 0;
+  const levels = internalWallLevelSpecs(plan, cfg);
+  const wallsByFloor = internalWallMap(cfg);
+  if (!Object.values(wallsByFloor).some(walls => walls && walls.length)) return;
 
   function slotPath(cx, cy) {
     const hw = matT / 2 - kerf;
     return `M ${(cx-hw).toFixed(3)},${(cy-hw).toFixed(3)} L ${(cx+hw).toFixed(3)},${(cy-hw).toFixed(3)} L ${(cx+hw).toFixed(3)},${(cy+hw).toFixed(3)} L ${(cx-hw).toFixed(3)},${(cy+hw).toFixed(3)} Z`;
   }
 
-  // Shared slot positions (interior coordinates)
-  const sharedSlots = [];
-  sharedWalls.forEach((w, wi) => {
-    const { tabPositions, isH, x0, y0 } = iwComputeTabs(wi, sharedWalls, matT);
-    for (const tp of tabPositions) {
-      sharedSlots.push(isH ? { cx: x0 + tp, cy: w.y1 } : { cx: w.x1, cy: y0 + tp });
-    }
-  });
-
-  // Inject into every inter-floor panel (same slots on all levels)
-  const sortedIFYs = plan.interFloorYs ? [...plan.interFloorYs].sort((a, b) => a - b) : [];
-  for (let panelN = 1; panelN <= sortedIFYs.length; panelN++) {
-    const ifPart = parts.find(p => p.id === `inter_floor_panel_${panelN}`);
-    if (!ifPart) continue;
-    for (const sl of sharedSlots)
-      ifPart.paths.push({ type: 'cut', d: slotPath(sl.cx, sl.cy) });
+  const panelCount = plan.interFloorYs ? plan.interFloorYs.length : 0;
+  const floorPart = parts.find(p => p.id === 'floor');
+  function interFloorPartForBoundaryAbove(floorIdx) {
+    const panelN = panelCount - floorIdx;
+    return panelN >= 1 ? parts.find(p => p.id === `inter_floor_panel_${panelN}`) : null;
+  }
+  function addSlotsToPart(part, slots, ox = 0, oy = 0) {
+    if (!part) return;
+    for (const sl of slots) part.paths.push({ type: 'cut', d: slotPath(sl.cx + ox, sl.cy + oy) });
   }
 
-  // Inject into base floor plate (exterior coordinates: +matT offset)
-  const floorPart = parts.find(p => p.id === 'floor');
-  if (floorPart) {
-    for (const sl of sharedSlots)
-      floorPart.paths.push({ type: 'cut', d: slotPath(sl.cx + matT, sl.cy + matT) });
+  for (const lvlSpec of levels) {
+    const lvl = lvlSpec.idx;
+    const floorWalls = wallsByFloor[lvl] || [];
+    if (!floorWalls.length) continue;
+    const slots = internalWallSlotsForFloor(floorWalls, matT);
+    if (!slots.length) continue;
+
+    if (lvl === 0) addSlotsToPart(floorPart, slots, matT, matT);
+    else addSlotsToPart(interFloorPartForBoundaryAbove(lvl - 1), slots);
+
+    addSlotsToPart(interFloorPartForBoundaryAbove(lvl), slots);
   }
 
   // Inject top-tab sockets into horizontal roof/ceiling panels when the roof
@@ -25791,7 +25926,8 @@ function injectInternalWallSlots(parts, cfg, plan) {
       const O = Math.max(0, cfg.roofOverhang || 5);
       ox = O + matT; oy = O + matT;
     }
-    for (const sl of sharedSlots) {
+    const topFloorIdx = Math.max(0, (levels[levels.length - 1] || { idx: 0 }).idx);
+    for (const sl of internalWallSlotsForFloor(wallsByFloor[topFloorIdx] || [], matT)) {
       roofPart.paths.push({ type: 'cut', d: slotPath(sl.cx + ox, sl.cy + oy) });
     }
   }
@@ -25823,12 +25959,21 @@ function currentBuildingName(cfg) {
 }
 
 function renderBuildingNameHtml() {
+  const hasSitePlannerHandoff = !!(
+    CONFIG?.hakomachiHandoff
+    || CONFIG?.sitePlannerHandoff
+    || CONFIG?.sitePlanSeedSource?.sourceId
+  );
   return `<div class="building-title-card" id="buildingTitleCard">`
     + `<div class="building-title-label">Building name</div>`
     + `<div class="building-title-row">`
     + `<div class="building-title-text" id="buildingTitleText">${escapeHtml(currentBuildingName(CONFIG))}</div>`
     + `<button class="building-title-edit" id="buildingTitleEdit" type="button" title="Edit building name" aria-label="Edit building name">✎</button>`
-    + `</div></div>`;
+    + `</div>`
+    + (hasSitePlannerHandoff
+      ? `<button class="primary building-title-return-btn" id="sitePlannerTitleReturnBtn" type="button">Save and return to Site Planner</button>`
+      : '')
+    + `</div>`;
 }
 
 function bindBuildingNameEditor() {
@@ -25875,8 +26020,6 @@ function regenerate() {
   let warning = '';
   try {
     result = generateBuilding(CONFIG);
-    const layoutReferencePart = generateBuildingLayoutReferencePart(CONFIG, result.plan);
-    if (layoutReferencePart) result.parts.push(layoutReferencePart);
     lastPlan = result.plan;
     lastResult = result;
     renderMaterialsForm();   // keep cladding-style → material list current
@@ -25886,24 +26029,13 @@ function regenerate() {
     return;
   }
   result.parts = applySheetSplittingToParts(result.parts, CONFIG);
-  const { parts, plan, totalWindows, totalDoors } = result;
+  const { parts, plan, totalWindows } = result;
 
   // Render preview — grouped by material then sheet
   renderPartsOutput(parts);
 
-  // Stats
-  const totalCoreParts = parts.filter(p => p.material === 'core').length;
-  const totalCladdingParts = parts.filter(p => p.material === 'cladding').length;
-  let statsHtml = renderBuildingNameHtml();
-  statsHtml += '<div class="preview-section"><h2>Stats</h2>';
-  statsHtml += `<div class="stat-row"><span>Building footprint</span><span>${CONFIG.width} × ${CONFIG.depth} × ${CONFIG.height} mm</span></div>`;
-  statsHtml += `<div class="stat-row"><span>Real-world (1:150)</span><span>${(CONFIG.width * 0.15).toFixed(1)} × ${(CONFIG.depth * 0.15).toFixed(1)} × ${(CONFIG.height * 0.15).toFixed(1)} m</span></div>`;
-  statsHtml += `<div class="stat-row"><span>Core parts</span><span>${totalCoreParts}</span></div>`;
-  statsHtml += `<div class="stat-row"><span>Cladding parts</span><span>${totalCladdingParts}</span></div>`;
-  statsHtml += `<div class="stat-row"><span>Total windows</span><span>${totalWindows}</span></div>`;
-  statsHtml += `<div class="stat-row"><span>Total doors</span><span>${totalDoors}</span></div>`;
-  statsHtml += '</div>';
-  document.getElementById('stats').innerHTML = statsHtml;
+  const titlePanel = document.getElementById('buildingTitlePanel');
+  if (titlePanel) titlePanel.innerHTML = renderBuildingNameHtml();
   bindBuildingNameEditor();
 
   // Warnings
@@ -26464,15 +26596,7 @@ async function exportZip() {
   // Pre-flight: verify each tongue has a matching slot.
   const verify = verifyTongueSlotMatch(result.parts, result.plan.matT);
   if (verify.issues.length > 0) {
-    const msg =
-      'Tongue/slot consistency check found issues:\n\n' +
-      verify.issues.map(s => '  • ' + s).join('\n') +
-      '\n\nThis usually means a part has tongues that won\'t plug into anything,' +
-      ' or slots that nothing will plug into.\n\nProceed with download anyway?';
-    if (!confirm(msg)) {
-      if (typeof flashMessage === 'function') flashMessage('Download cancelled — fix tongue/slot mismatches first.', 'warn');
-      return;
-    }
+    console.warn('[HakoMachi] Tongue/slot consistency check reported issues during export:', verify.issues);
   }
 
   result.parts = applySheetSplittingToParts(result.parts, CONFIG);
@@ -27020,6 +27144,18 @@ function generateBuildingStl(cfg) {
   const H = cfg.height;
   const parapetH = cfg.parapetHeight;
 
+  function stlOpeningAlongInterval(face, x, w, span) {
+    const a = Number(x || 0);
+    const width = Number(w || 0);
+    // The downloaded STL uses physical assembled coordinates. Front/back wall
+    // openings come from the flat wall editor/SVG convention, which the live
+    // Three.js preview mirrors when it places those panels into the assembled
+    // model. Mirror only this STL preview coordinate so the ZIP's preview_3d.stl
+    // matches the live assembled preview without changing laser-cut SVG output.
+    if (face === 'front' || face === 'back') return { u0: span - a - width, u1: span - a };
+    return { u0: a, u1: a + width };
+  }
+
   function visibleBayDoorPanelStl(op) {
     if (!op || op.type !== 'bay') return null;
     const styleKey = op.doorStyle || 'none';
@@ -27048,8 +27184,10 @@ function generateBuildingStl(cfg) {
     const reliefT = Math.max(0.08, doorT * 0.55);
     const zTop = H - Number(op.y || 0);
     const zBot = H - (Number(op.y || 0) + Number(op.h || 0));
-    const along0 = Number(op.x || 0);
-    const along1 = along0 + Number(op.w || 0);
+    const wallSpan = (face === 'front' || face === 'back') ? W : plan.sideLen;
+    const interval = stlOpeningAlongInterval(face, op.x, op.w, wallSpan);
+    const along0 = interval.u0;
+    const along1 = interval.u1;
 
     function faceBox(a0, a1, zz0, zz1, proud) {
       const p = proud || 0;
@@ -27234,14 +27372,16 @@ function generateBuildingStl(cfg) {
           const style = op.style ? WINDOW_STYLES[op.style] : null;
           const placement = (style && style.placement) || 'opening';
           if (placement === 'etched') continue;  // no hole — etched outline only
+          const interval = stlOpeningAlongInterval(which, op.x, op.w, plan.fbWidth);
           holes.push({
-            u0: op.x, u1: op.x + op.w,
+            u0: interval.u0, u1: interval.u1,
             v0: H - (op.y + op.h), v1: H - op.y,
           });
         } else if (op.type === 'door') {
           // All doors cut through in the 3D preview, regardless of glass.
+          const interval = stlOpeningAlongInterval(which, op.x, op.w, plan.fbWidth);
           holes.push({
-            u0: op.x, u1: op.x + op.w,
+            u0: interval.u0, u1: interval.u1,
             v0: H - (op.y + op.h), v1: H - op.y,
           });
         }
@@ -27269,8 +27409,9 @@ function generateBuildingStl(cfg) {
         cfg, plan, edgeId: which,
       });
       for (const w of allWins) {
+        const interval = stlOpeningAlongInterval(which, w.x, w.width, plan.fbWidth);
         holes.push({
-          u0: w.x, u1: w.x + w.width,
+          u0: interval.u0, u1: interval.u1,
           v0: H - (w.y + w.height), v1: H - w.y,
         });
       }
@@ -27281,8 +27422,9 @@ function generateBuildingStl(cfg) {
           cfg, plan, edgeId: which,
         });
         for (const d of doors) {
+          const interval = stlOpeningAlongInterval(which, d.x, d.width, plan.fbWidth);
           holes.push({
-            u0: d.x, u1: d.x + d.width,
+            u0: interval.u0, u1: interval.u1,
             v0: H - (d.y + d.height), v1: H - d.y,
           });
         }
@@ -27290,8 +27432,9 @@ function generateBuildingStl(cfg) {
     }
     // Bay opening always added (independent of manual/auto for non-bay openings)
     if (hasBay) {
+      const interval = stlOpeningAlongInterval(which, plan.bayXStart, plan.bayXEnd - plan.bayXStart, plan.fbWidth);
       holes.push({
-        u0: plan.bayXStart, u1: plan.bayXEnd,
+        u0: interval.u0, u1: interval.u1,
         v0: 0, v1: plan.bayHeight || 0,
       });
     }
@@ -27793,6 +27936,104 @@ function exportConfigFile() {
   flashMessage('Settings file downloaded.', 'ok');
 }
 
+let importProgressCloseTimer = null;
+let importProgressLastFocus = null;
+
+function ensureImportProgressModal() {
+  let modal = document.getElementById('hakoImportProgressModal');
+  if (modal) return modal;
+  modal = document.createElement('div');
+  modal.id = 'hakoImportProgressModal';
+  modal.className = 'hakoProgressModal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'hakoImportProgressTitle');
+  modal.innerHTML = `
+    <div class="hakoProgressCard" tabindex="-1">
+      <h2 id="hakoImportProgressTitle">Import file</h2>
+      <div id="hakoImportProgress" class="hakoProgress" role="progressbar" aria-label="Import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="hakoProgressTrack"><div id="hakoImportProgressFill" class="hakoProgressFill"></div></div>
+        <div class="hakoProgressSummary"><b id="hakoImportProgressLabel">Preparing import...</b><span id="hakoImportProgressPercent">0%</span></div>
+        <div id="hakoImportProgressDetail" class="hakoProgressDetail" aria-live="polite">Waiting for the selected file.</div>
+      </div>
+      <div class="hakoProgressActions"><button type="button" id="hakoImportProgressClose">Close</button></div>
+    </div>`;
+  const close = () => closeImportProgressModal();
+  modal.addEventListener('click', event => {
+    if (event.target === modal && modal.dataset.locked !== 'true') close();
+  });
+  modal.querySelector('#hakoImportProgressClose')?.addEventListener('click', close);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && modal.classList.contains('open') && modal.dataset.locked !== 'true') close();
+  });
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function openImportProgressModal(title = 'Import file', label = 'Preparing import...', detail = 'Waiting for the selected file.') {
+  const modal = ensureImportProgressModal();
+  if (importProgressCloseTimer) {
+    clearTimeout(importProgressCloseTimer);
+    importProgressCloseTimer = null;
+  }
+  importProgressLastFocus = document.activeElement;
+  modal.dataset.locked = 'true';
+  document.getElementById('hakoImportProgressTitle').textContent = title;
+  document.getElementById('hakoImportProgressClose').style.display = 'none';
+  modal.classList.add('open');
+  setImportProgress(0, 4, label, detail);
+  modal.querySelector('.hakoProgressCard')?.focus?.();
+  return modal;
+}
+
+function setImportProgress(step, total, label, detail) {
+  const safeTotal = Math.max(1, total || 1);
+  const percent = Math.max(0, Math.min(100, Math.round((Math.max(0, step || 0) / safeTotal) * 100)));
+  const progress = document.getElementById('hakoImportProgress');
+  if (progress) progress.setAttribute('aria-valuenow', String(percent));
+  const fill = document.getElementById('hakoImportProgressFill');
+  if (fill) fill.style.width = percent + '%';
+  const pct = document.getElementById('hakoImportProgressPercent');
+  if (pct) pct.textContent = percent + '%';
+  const labelEl = document.getElementById('hakoImportProgressLabel');
+  if (labelEl) labelEl.textContent = label || 'Working...';
+  const detailEl = document.getElementById('hakoImportProgressDetail');
+  if (detailEl) detailEl.textContent = detail || '';
+}
+
+function closeImportProgressModal() {
+  const modal = document.getElementById('hakoImportProgressModal');
+  if (!modal) return;
+  modal.classList.remove('open');
+  modal.dataset.locked = 'false';
+  if (importProgressCloseTimer) {
+    clearTimeout(importProgressCloseTimer);
+    importProgressCloseTimer = null;
+  }
+  importProgressLastFocus?.focus?.();
+  importProgressLastFocus = null;
+}
+
+function finishImportProgress(label, detail, delay = 900) {
+  const modal = ensureImportProgressModal();
+  modal.dataset.locked = 'false';
+  setImportProgress(4, 4, label || 'Import complete.', detail || 'The file has been applied.');
+  document.getElementById('hakoImportProgressClose').style.display = '';
+  importProgressCloseTimer = setTimeout(() => closeImportProgressModal(), delay);
+}
+
+function failImportProgress(label, detail) {
+  const modal = ensureImportProgressModal();
+  if (importProgressCloseTimer) {
+    clearTimeout(importProgressCloseTimer);
+    importProgressCloseTimer = null;
+  }
+  modal.dataset.locked = 'false';
+  modal.classList.add('open');
+  setImportProgress(0, 4, label || 'Import failed.', detail || 'Check the file and try again.');
+  document.getElementById('hakoImportProgressClose').style.display = '';
+}
+
 /* Import a .hako (or legacy .json) settings file picked by the user.
    Both are JSON internally — same payload, different extension. */
 function importConfigFile(file) {
@@ -27801,25 +28042,35 @@ function importConfigFile(file) {
   const looksLikeConfig = /\.(hako|hakoseed|hakoplan|json)$/i.test(name) || file.type === 'application/json' || file.type === '';
   if (!looksLikeConfig) {
     flashMessage('Drop a .hako, .hakoseed, .hakoplan, or .json settings/seed file.', 'warn');
+    failImportProgress('Unsupported file type.', 'Drop a .hako, .hakoseed, .hakoplan, or .json settings/seed file.');
     return;
   }
+  openImportProgressModal('Import building settings', 'Reading file...', `Reading ${file.name || 'building settings'}.`);
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
+      setImportProgress(2, 4, 'Validating settings...', 'Checking the JSON and upgrading old HakoMachi formats if needed.');
       const data = JSON.parse(e.target.result);
+      setImportProgress(3, 4, 'Applying settings...', 'Updating the building form and regenerating previews.');
       const warnings = applyLoadedConfig(data);
       writeForm();
       regenerate();
       if (warnings.length) {
         flashMessage('Imported with warnings: ' + warnings.join(' '), 'warn');
+        finishImportProgress('Imported with warnings.', warnings.join(' '), 1200);
       } else {
         flashMessage('Settings imported from file.', 'ok');
+        finishImportProgress('Building settings imported.', `${file.name || 'Settings file'} has been applied.`);
       }
     } catch (err) {
       flashMessage('Import failed: ' + err.message, 'err');
+      failImportProgress('Import failed.', err.message);
     }
   };
-  reader.onerror = () => flashMessage('File read error.', 'err');
+  reader.onerror = () => {
+    flashMessage('File read error.', 'err');
+    failImportProgress('Could not read file.', 'The browser could not read that settings file.');
+  };
   reader.readAsText(file);
 }
 
@@ -28902,18 +29153,27 @@ function exportMaterialLibrary() {
 }
 
 function importMaterialLibraryFile(file) {
+  if (!file) return;
+  openImportProgressModal('Import material library', 'Reading file...', `Reading ${file.name || 'material library'}.`);
   const reader = new FileReader();
   reader.onload = e => {
     try {
+      setImportProgress(2, 4, 'Validating library...', 'Checking material definitions and color metadata.');
       const data = JSON.parse(e.target.result);
       const library = normaliseImportedMaterialLibrary(data);
+      setImportProgress(3, 4, 'Applying library...', 'Replacing the current material library.');
       applyMaterialLibrary(library);
       flashMessage(`Imported ${library.materials.length} material${library.materials.length === 1 ? '' : 's'}.`, 'ok');
+      finishImportProgress('Material library imported.', `Imported ${library.materials.length} material${library.materials.length === 1 ? '' : 's'}.`);
     } catch (err) {
       flashMessage('Material library import failed: ' + err.message, 'err');
+      failImportProgress('Material library import failed.', err.message);
     }
   };
-  reader.onerror = () => flashMessage('Material library file read error.', 'err');
+  reader.onerror = () => {
+    flashMessage('Material library file read error.', 'err');
+    failImportProgress('Could not read file.', 'The browser could not read that material library file.');
+  };
   reader.readAsText(file);
 }
 
@@ -29531,6 +29791,7 @@ function buildWingCfg(cfg, wing) {
     skylights:    wing.skylights    || [],
     roofHoles:    wing.roofHoles    || [],
     floorHoles:   wing.floorHoles   || [],
+    internalWalls: wing.internalWalls || {},
     // Embedded rail zones are floor-local. Do NOT inherit the main building's
     // embeddedRails into wing cfgs: the 3D preview and wing wall generators
     // interpret any inherited zones in wing-local coordinates, which creates

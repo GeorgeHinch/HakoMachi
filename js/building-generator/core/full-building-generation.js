@@ -432,7 +432,7 @@ export function partToSvg(part, options) {
     + `width="${vbW.toFixed(3)}mm" height="${vbH.toFixed(3)}mm" `
     + `viewBox="${vbX.toFixed(3)} ${vbY.toFixed(3)} ${vbW.toFixed(3)} ${vbH.toFixed(3)}">`;
 
-  svg += partRawGeometrySvg(part, { strokeMm: strokeW, kerf: options.kerf || 0 });
+  svg += partRawGeometrySvg(part, { strokeMm: strokeW, kerf: options.kerf || 0, assemblyLabels: options.assemblyLabels });
   svg += `</svg>`;
   return svg;
 }
@@ -468,7 +468,7 @@ export function partToPreviewSvg(part) {
       lines: (part.tileGeom.lines || []).map(l => ({ ...l })),
       svgContent: part.tileGeom.svgContent || undefined,
     });
-    return partToSvg(tilePart, { strokeMm: 0.2, kerf: 0 });
+    return partToSvg(tilePart, { strokeMm: 0.2, kerf: 0, assemblyLabels: false });
   }
-  return partToSvg(part, { strokeMm: 0.2, kerf: 0 });
+  return partToSvg(part, { strokeMm: 0.2, kerf: 0, assemblyLabels: false });
 }

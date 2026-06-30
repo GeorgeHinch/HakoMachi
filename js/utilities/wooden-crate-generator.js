@@ -1,6 +1,8 @@
 import * as U from '../shared/browser-utils.js';
 
 const $ = id => U.byId(id);
+const COLOR_CUT = '#FF0000';
+const COLOR_ENGRAVE = '#0000FF';
 
   const ids = [
     'outerW',
@@ -64,7 +66,7 @@ const $ = id => U.byId(id);
       class: cls,
       'font-size': size,
       'font-family': 'Arial',
-      fill: '#5d4327'
+      fill: COLOR_ENGRAVE
     });
   }
 
@@ -119,7 +121,7 @@ const $ = id => U.byId(id);
       ['Core right', coreD, coreH, 'side'],
       ['Core top', coreW, coreD, 'topbottom'],
       ['Core bottom', coreW, coreD, 'topbottom']
-    ].forEach(p => place(p[0], p[1], p[2], 'core', () => corePanel(p[3])));
+    ].forEach(p => place(p[0], p[1], p[2], 'core', corePanel(p[3])));
 
     const insetD = Math.max(1, s.outerD - 4 * s.matT);
     [
@@ -129,16 +131,16 @@ const $ = id => U.byId(id);
       ['Cladding right', insetD, s.outerH, 3],
       ['Cladding top', s.outerW, insetD, 4],
       ['Cladding bottom', s.outerW, insetD, 5]
-    ].forEach(p => place(p[0], p[1], p[2], 'skin', () => skinPanel(p[3])));
+    ].forEach(p => place(p[0], p[1], p[2], 'skin', skinPanel(p[3])));
 
     [
       ['Brace front', s.outerW, s.outerH],
       ['Brace back', s.outerW, s.outerH],
       ['Brace left', insetD, s.outerH],
       ['Brace right', insetD, s.outerH]
-    ].forEach(p => place(p[0], p[1], p[2], 'brace', () => bracePanel()));
+    ].forEach(p => place(p[0], p[1], p[2], 'brace', bracePanel()));
 
-    if (s.topBrace) place('Brace top', s.outerW, insetD, 'brace', () => bracePanel());
+    if (s.topBrace) place('Brace top', s.outerW, insetD, 'brace', bracePanel());
 
     return {
       parts,
@@ -270,7 +272,7 @@ const $ = id => U.byId(id);
       body += p.fn(p, s);
       if (s.labels) body += text(p.x, p.y - 1.1, p.name, 'label', 1.5);
     });
-    return `<svg${preview ? ' class="previewSvg"' : ''} xmlns="http://www.w3.org/2000/svg" width="${preview ? '100%' : L.sheetW.toFixed(2) + 'mm'}"${heightAttr} viewBox="0 0 ${L.sheetW.toFixed(2)} ${L.sheetH.toFixed(2)}" data-sheet-width-mm="${L.sheetW.toFixed(2)}" data-sheet-height-mm="${L.sheetH.toFixed(2)}" preserveAspectRatio="xMinYMin meet"><style>.cut{fill:none;stroke:#111;stroke-width:${s.strokeW};vector-effect:non-scaling-stroke}.score{fill:none;stroke:#1b66d1;stroke-width:${s.strokeW};stroke-dasharray:.75 .55;vector-effect:non-scaling-stroke}.etch{fill:none;stroke:#a76015;stroke-width:${s.strokeW};stroke-dasharray:.45 .45;vector-effect:non-scaling-stroke}.label{paint-order:stroke;stroke:white;stroke-width:.35;font-family:Arial;fill:#5d4327}</style><rect x="0" y="0" width="${L.sheetW.toFixed(2)}" height="${L.sheetH.toFixed(2)}" fill="white"/>${body}</svg>`;
+    return `<svg${preview ? ' class="previewSvg"' : ''} xmlns="http://www.w3.org/2000/svg" width="${preview ? '100%' : L.sheetW.toFixed(2) + 'mm'}"${heightAttr} viewBox="0 0 ${L.sheetW.toFixed(2)} ${L.sheetH.toFixed(2)}" data-sheet-width-mm="${L.sheetW.toFixed(2)}" data-sheet-height-mm="${L.sheetH.toFixed(2)}" preserveAspectRatio="xMinYMin meet"><style>.cut{fill:none;stroke:${COLOR_CUT};stroke-width:${s.strokeW};vector-effect:non-scaling-stroke}.score{fill:none;stroke:${COLOR_ENGRAVE};stroke-width:${s.strokeW};stroke-dasharray:.75 .55;vector-effect:non-scaling-stroke}.etch{fill:none;stroke:${COLOR_ENGRAVE};stroke-width:${s.strokeW};stroke-dasharray:.45 .45;vector-effect:non-scaling-stroke}.label{font-family:Arial;fill:${COLOR_ENGRAVE};stroke:none}</style><rect x="0" y="0" width="${L.sheetW.toFixed(2)}" height="${L.sheetH.toFixed(2)}" fill="white"/>${body}</svg>`;
   }
 
   function partSpecs(s) {

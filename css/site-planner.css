@@ -147,6 +147,12 @@ body {
 .dropdownMenu.right { left: auto; right: 0; }
 .dropdownMenu.exportMobile { right: auto; }
 .dropdownMenu.open { display: flex; }
+.top .dropdownMenu button,
+.top .dropdownMenu .menuItem {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
 .menuWrap.menuOpen { z-index: 90; }
 .menuWrap.menuOpen > button { background: var(--panel-3); border-color: #999; }
 
@@ -395,22 +401,6 @@ canvas {
   cursor: grabbing;
 }
 
-.site3dStatus {
-  position: absolute;
-  left: 12px;
-  top: 12px;
-  z-index: 2;
-  padding: 7px 10px;
-  background: rgba(255,255,255,.92);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text);
-  font-size: 12px;
-  line-height: 1.25;
-  box-shadow: 0 4px 16px rgba(0,0,0,.12);
-  pointer-events: none;
-}
-
 .site3dFloatingToolbar {
   position: absolute;
   top: 8px;
@@ -419,6 +409,8 @@ canvas {
   z-index: 18;
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 4px 10px;
   background: #fff;
@@ -431,40 +423,72 @@ canvas {
 }
 
 .site3dSegment {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 0;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #f5f5f0;
+  isolation: isolate;
+}
+
+.site3dSegment::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border-radius: 13px;
+  background: var(--accent);
+  transition: transform .16s ease;
+  z-index: 0;
+}
+
+.sitePlannerApp.view3d .site3dSegment::before {
+  transform: translateX(100%);
 }
 
 .site3dFabBtn {
+  position: relative;
+  z-index: 1;
   height: 26px;
   min-height: 26px;
+  min-width: 42px;
   padding: 3px 10px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: 13px;
-  background: #f5f5f0;
+  background: transparent;
   color: var(--text);
   font-size: 12px;
+  font-weight: 700;
   line-height: 1;
+  box-shadow: none;
 }
 
-.site3dFabBtn:hover { background: #e8e8e2; }
+.site3dFabBtn:hover { background: transparent; color: var(--accent); }
 
 .site3dFabBtn.active {
-  background: #0057ff;
+  background: transparent;
   color: #fff;
-  border-color: #1a4488;
 }
 
-.site3dFabSep {
-  width: 1px;
-  height: 18px;
-  background: #ddd;
-  margin: 0 5px;
-  flex: 0 0 auto;
+.site3dImageControls {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding-left: 8px;
+  border-left: 1px solid #ddd;
 }
 
-.site3dBaseControl {
+.sitePlannerApp.view3d .site3dImageControls {
+  display: inline-flex;
+}
+
+.site3dImageToggle,
+.site3dImageOpacity {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -473,17 +497,18 @@ canvas {
   font-weight: 600;
 }
 
-.site3dBaseControl input {
-  width: 52px;
-  height: 24px;
-  min-height: 24px;
-  padding: 2px 5px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: #fff;
-  color: var(--text);
-  font-size: 12px;
-  text-align: right;
+.site3dImageToggle input {
+  width: 14px;
+  height: 14px;
+  min-height: 14px;
+  margin: 0;
+}
+
+.site3dImageOpacity input {
+  width: 88px;
+  height: 22px;
+  min-height: 22px;
+  accent-color: var(--accent);
 }
 
 .sitePlannerApp.view3d .toolbtn,
@@ -536,6 +561,48 @@ canvas {
 .sidebar.hakoAttachDragover {
   background: #fff7f2;
   box-shadow: inset 0 0 0 2px rgba(200,70,50,.32);
+}
+
+.sitePlannerPageDropOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: rgba(250, 250, 247, .72);
+  backdrop-filter: blur(2px);
+}
+
+.sitePlannerPageDropOverlay.active {
+  display: flex;
+}
+
+.sitePlannerPageDropOverlay > div {
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .96);
+  box-shadow: 0 12px 40px rgba(0,0,0,.16);
+  padding: 20px 28px;
+  text-align: center;
+  max-width: min(460px, calc(100vw - 48px));
+}
+
+.sitePlannerPageDropOverlay strong,
+.sitePlannerPageDropOverlay span {
+  display: block;
+}
+
+.sitePlannerPageDropOverlay strong {
+  color: var(--fg);
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
+.sitePlannerPageDropOverlay span {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .bottom {
@@ -612,6 +679,89 @@ canvas {
   margin-top: 2px;
 }
 
+.objectTypeGrid {
+  display: grid;
+  gap: 8px;
+}
+
+.objectTypeCard {
+  appearance: none;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 18px minmax(0,1fr) auto;
+  gap: 9px;
+  align-items: center;
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 9px;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.objectTypeCard:hover,
+.objectTypeCard:focus-visible {
+  background: #f5f5f0;
+  border-color: #999;
+  transform: none;
+  box-shadow: none;
+}
+
+.objectTypeSwatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(0,0,0,.25);
+}
+
+.objectTypeText {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.objectTypeText b,
+.objectTypeText span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.objectTypeText span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.objectBrowserToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -2px 0 8px;
+}
+
+.objectBrowserEmpty {
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  padding: 10px;
+  background: #fafaf7;
+}
+
+.buildingListActions {
+  margin-top: 10px;
+}
+
+.sitePlannerPrimaryActionRow {
+  margin-top: 12px;
+}
+
+.sitePlannerPrimaryAction {
+  width: 100%;
+}
+
 .swatch {
   width: 14px;
   height: 14px;
@@ -653,6 +803,36 @@ canvas {
   border-radius: 4px;
   color: var(--muted);
   box-shadow: 0 4px 16px rgba(0,0,0,.12);
+}
+
+.contextMenu button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+  color: var(--text);
+}
+
+.contextMenu button:hover {
+  background: #f5f5f0;
+  color: var(--accent);
+}
+
+.contextMenu button.dangerItem {
+  color: var(--accent);
+}
+
+.contextMenu button.dangerItem:hover {
+  background: #fef0ee;
+  border-color: #f5d0c8;
+  color: var(--accent-dark);
 }
 
 .toolFlyout {
@@ -932,6 +1112,48 @@ canvas {
   margin-top: 6px;
 }
 
+.githubProgress {
+  display: grid;
+  gap: 8px;
+}
+
+.githubProgressTrack {
+  height: 9px;
+  overflow: hidden;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.githubProgressFill {
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width .24s ease;
+}
+
+.githubProgressSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.githubProgressSummary b {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.githubProgressDetail {
+  min-height: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .githubDataRecord {
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -986,6 +1208,13 @@ canvas {
   align-self: center;
 }
 
+.githubBuildingActions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+
 .mobileOnly { display: none !important; }
 .overflowOnly { display: none; }
 .hint { display: none !important; }
@@ -1036,8 +1265,8 @@ canvas {
   .dropdownMenu { position: fixed; top: 48px; left: auto; right: 8px; max-width: calc(100vw - 16px); min-width: 230px; }
   .site3dFloatingToolbar { top: 6px; max-width: calc(100% - 16px); padding: 4px 8px; }
   .site3dFabBtn { padding-inline: 9px; }
-  .site3dBaseControl { gap: 4px; }
-  .site3dBaseControl input { width: 46px; }
+  .site3dImageControls { gap: 6px; padding-left: 6px; }
+  .site3dImageOpacity input { width: 72px; }
   .splitExport { height: 34px; min-height: 34px; }
   .splitExport #svgBtn,
   .splitExport #exportMenuBtn { height: 34px !important; min-height: 34px !important; }

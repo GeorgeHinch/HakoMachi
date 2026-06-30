@@ -82,6 +82,22 @@ function plannerHandoffFromConfig(config) {
   };
 }
 
+function currentGeneratorConfigForPlannerHandoff() {
+  return window.HakoMachiBuildingGeneratorRuntime?.CONFIG
+    || globalThis.HakoMachiBuildingGeneratorRuntime?.CONFIG
+    || window.CONFIG
+    || globalThis.CONFIG
+    || null;
+}
+
+function hasSitePlannerHandoff(config) {
+  return !!(
+    config?.hakomachiHandoff
+    || config?.sitePlannerHandoff
+    || config?.sitePlanSeedSource?.sourceId
+  );
+}
+
 function showBridgeStatus(text, kind = 'ok') {
   const flash = window.HakoMachiBuildingGeneratorRuntime?.flashMessage || globalThis.flashMessage;
   if (typeof flash === 'function') {
@@ -169,6 +185,25 @@ function pushCurrentBuildingToSitePlanner() {
   }
 }
 
+function bindSitePlannerTitleReturnButton() {
+  const btn = document.getElementById('sitePlannerTitleReturnBtn');
+  if (!btn || btn.dataset.sitePlannerReturnBound === '1') return;
+  btn.dataset.sitePlannerReturnBound = '1';
+  btn.addEventListener('click', pushCurrentBuildingToSitePlanner);
+}
+
+let sitePlannerTitleReturnObserver = null;
+function installSitePlannerTitleReturnButton() {
+  const config = currentGeneratorConfigForPlannerHandoff();
+  if (!hasSitePlannerHandoff(config)) return;
+  bindSitePlannerTitleReturnButton();
+  if (sitePlannerTitleReturnObserver) return;
+  const titlePanel = document.getElementById('buildingTitlePanel');
+  if (!titlePanel || typeof MutationObserver !== 'function') return;
+  sitePlannerTitleReturnObserver = new MutationObserver(bindSitePlannerTitleReturnButton);
+  sitePlannerTitleReturnObserver.observe(titlePanel, { childList: true, subtree: true });
+}
+
 window.addEventListener('message', event => {
   if (event.origin && event.origin !== window.location.origin) return;
   const data = event.data || {};
@@ -178,21 +213,10 @@ window.addEventListener('message', event => {
 });
 
 function installSitePlannerPushButton() {
-  const menu = document.getElementById('overflowDropdown');
-  const resetBtn = document.getElementById('resetBtn');
-  if (!menu || document.getElementById('pushSitePlannerBtn')) return;
-  const sep = document.createElement('div');
-  sep.className = 'overflow-sep';
-  const btn = document.createElement('button');
-  btn.id = 'pushSitePlannerBtn';
-  btn.type = 'button';
-  btn.title = 'Send the current building settings back to the Site Planner footprint, close this tab, and return to the planner.';
-  btn.innerHTML = '<span data-icon="upload"></span> Push, Close & Return';
-  btn.addEventListener('click', pushCurrentBuildingToSitePlanner);
-  menu.insertBefore(sep, resetBtn || null);
-  menu.insertBefore(btn, resetBtn || null);
-  window.HakoMachiIcons?.hydrate?.(btn);
+  installSitePlannerTitleReturnButton();
 }
+
+window.addEventListener('hakomachi:building-generator-regenerated', installSitePlannerTitleReturnButton);
 
 document.querySelector('.controls')?.addEventListener('input', () => {
   scheduleBuildingPreviewRefresh(380);

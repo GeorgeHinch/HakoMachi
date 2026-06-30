@@ -431,6 +431,7 @@ export function generateGableRoofAngleLockOutline(edgeLen, roofCos, roofSin, tab
     ...leftEdge.slice(1),
     ...rightEdge.slice(1),
     RB,
+    LB,
   ];
 }
 

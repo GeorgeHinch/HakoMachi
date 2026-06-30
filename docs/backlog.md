@@ -19,7 +19,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 ```md
 ### HM-BACKLOG-000: Feature title
 
-- Status: Proposed
+- Status: Done
 - Group: UI and workflow
 - Priority: Untriaged
 - GitHub Issue: TBD
@@ -37,12 +37,12 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-007: Fix interior wall floor and orientation placement
 
-- Status: Proposed
+- Status: Done
 - Group: Building generation
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/11
 - Goal: Make interior wall placement generate geometry on the intended floor and in the orientation shown in the floor editor.
-- Notes: User observed interior walls generating on the wrong floor and wrong orientation; floor spots did not appear to match the intended wall locations.
+- Notes: User observed interior walls generating on the wrong floor and wrong orientation; floor spots did not appear to match the intended wall locations. Implemented per-floor interior wall storage and generation so numbered floor tabs keep separate wall layouts, wall parts are generated only for floors with walls, and sockets are cut only into the floor/inter-floor/roof plates adjacent to those walls. The editor now derives floor tabs from configured floor count when no inter-floor panel parts are enabled, keeps the Inter Floors tab for shared floor-hole work, and carries wing-local internal walls into wing generation.
 - Acceptance Criteria:
   - Interior walls placed on a specific floor tab generate only for that floor unless explicitly configured otherwise.
   - Generated wall parts match the editor preview orientation and position.

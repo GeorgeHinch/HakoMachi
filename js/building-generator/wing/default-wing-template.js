@@ -169,6 +169,7 @@ export function buildWingCfg(cfg, wing) {
     skylights:    wing.skylights    || [],
     roofHoles:    wing.roofHoles    || [],
     floorHoles:   wing.floorHoles   || [],
+    internalWalls: wing.internalWalls || {},
     // Embedded rail zones are floor-local. Do NOT inherit the main building's
     // embeddedRails into wing cfgs: the 3D preview and wing wall generators
     // interpret any inherited zones in wing-local coordinates, which creates

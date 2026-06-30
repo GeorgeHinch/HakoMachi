@@ -596,6 +596,14 @@ canvas {
   margin-top: 2px;
 }
 
+.sitePlannerPrimaryActionRow {
+  margin-top: 12px;
+}
+
+.sitePlannerPrimaryAction {
+  width: 100%;
+}
+
 .swatch {
   width: 14px;
   height: 14px;

@@ -768,35 +768,94 @@ canvas {
   margin-bottom: 0;
 }
 
+.sidebarDetailToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 8px 0;
+  min-height: 32px;
+}
+
 .sidebarBackBtn {
   appearance: none;
   border: 0;
   background: transparent;
-  color: var(--accent-dark);
+  color: var(--text);
   font: inherit;
   font-weight: 700;
-  padding: 4px 2px;
-  margin: 0 0 8px 0;
-  min-height: 0;
+  padding: 5px 4px;
+  margin: 0;
+  min-height: 30px;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   cursor: pointer;
   box-shadow: none;
+  border-radius: 4px;
 }
 
 .sidebarBackBtn:hover {
   background: transparent;
   color: var(--accent);
-  text-decoration: underline;
   transform: none;
   box-shadow: none;
 }
 
-.sidebarBackBtn::before {
-  content: '<';
-  font-size: 18px;
-  line-height: 1;
+.sidebarBackBtn [data-icon],
+.sidebarOverflowBtn [data-icon] {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+}
+
+.sidebarBackBtn [data-icon] svg,
+.sidebarOverflowBtn [data-icon] svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sidebarOverflowWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.sidebarOverflowBtn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.sidebarOverflowBtn:hover,
+.sidebarOverflowWrap.menuOpen .sidebarOverflowBtn {
+  background: var(--panel-3);
+  color: var(--accent);
+  transform: none;
+  box-shadow: none;
+}
+
+.sidebarOverflowMenu {
+  top: calc(100% + 5px);
 }
 
 .roadExportBadge {

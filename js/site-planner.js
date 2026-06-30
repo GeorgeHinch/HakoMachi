@@ -3609,7 +3609,21 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     setBuildingSelection([b.id], b.id);
     syncAll();
     $('statusHint').textContent=`Updated ${b.name||'building'} from Building Generator.`;
-    return true;
+    return {buildingId:b.id, buildingName:b.name||name||'building'};
+  }
+  function acknowledgeSitePlannerBuildingUpdate(sourceWindow, origin, result){
+    if(!sourceWindow || !result) return;
+    const targetOrigin=origin && origin !== 'null' ? origin : '*';
+    try{
+      sourceWindow.postMessage({
+        type:'hakomachi:site-planner-building-update-applied',
+        schema:'hakomachi.building-update-ack',
+        schemaVersion:1,
+        buildingId:result.buildingId,
+        buildingName:result.buildingName,
+        appliedAt:new Date().toISOString(),
+      }, targetOrigin);
+    }catch(_err){}
   }
   function processQueuedSitePlannerBuildingUpdate(){
     let raw=null;
@@ -5047,11 +5061,17 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
 
   window.addEventListener('message', e=>{
     if(e.origin && e.origin !== window.location.origin) return;
-    if(applySitePlannerBuildingUpdate(e.data)){
+    const payload=sitePlannerBuildingUpdatePayload(e.data);
+    const result=applySitePlannerBuildingUpdate(payload);
+    if(result){
       try{
         localStorage.removeItem(SITE_PLANNER_BUILDING_UPDATE_KEY);
         sessionStorage.removeItem(SITE_PLANNER_BUILDING_UPDATE_KEY);
       }catch(_err){}
+      acknowledgeSitePlannerBuildingUpdate(e.source, e.origin, result);
+      if(payload?.returnToSitePlanner){
+        try{ window.focus(); }catch(_err){}
+      }
     }
   });
   window.addEventListener('storage', e=>{

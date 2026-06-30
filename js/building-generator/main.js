@@ -117,6 +117,15 @@ function makeSitePlannerBuildingUpdate() {
   };
 }
 
+function focusSitePlannerWindow(plannerWindow) {
+  try {
+    plannerWindow?.focus?.();
+    return true;
+  } catch (_err) {
+    return false;
+  }
+}
+
 function pushCurrentBuildingToSitePlanner() {
   try {
     const payload = makeSitePlannerBuildingUpdate();
@@ -124,21 +133,33 @@ function pushCurrentBuildingToSitePlanner() {
       window.alert('This building was not opened from a Site Planner footprint, so there is no planner building to update.');
       return;
     }
+    payload.returnToSitePlanner = true;
     const opener = window.opener && !window.opener.closed ? window.opener : null;
     const targetOrigin = window.location.origin && window.location.origin !== 'null' ? window.location.origin : '*';
     if (opener) {
       opener.postMessage(payload, targetOrigin);
-      showBridgeStatus('Pushed building update to Site Planner.', 'ok');
+      focusSitePlannerWindow(opener);
+      window.setTimeout?.(() => focusSitePlannerWindow(opener), 120);
+      showBridgeStatus('Sent update and returned to Site Planner.', 'ok');
     } else {
       localStorage.setItem(SITE_PLANNER_BUILDING_UPDATE_KEY, JSON.stringify(payload));
       window.open('site-planner.html#buildingUpdate', '_blank');
-      showBridgeStatus('Queued building update for Site Planner.', 'ok');
+      showBridgeStatus('Queued update and opened Site Planner.', 'ok');
     }
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
     showBridgeStatus('Push to Site Planner failed: ' + message, 'err');
   }
 }
+
+window.addEventListener('message', event => {
+  if (event.origin && event.origin !== window.location.origin) return;
+  const data = event.data || {};
+  if (data.type !== 'hakomachi:site-planner-building-update-applied') return;
+  const opener = window.opener && !window.opener.closed ? window.opener : null;
+  if (opener) focusSitePlannerWindow(opener);
+  showBridgeStatus(`Site Planner updated ${data.buildingName || 'building'}.`, 'ok');
+});
 
 function installSitePlannerPushButton() {
   const menu = document.getElementById('overflowDropdown');
@@ -149,8 +170,8 @@ function installSitePlannerPushButton() {
   const btn = document.createElement('button');
   btn.id = 'pushSitePlannerBtn';
   btn.type = 'button';
-  btn.title = 'Send the current building settings back to the Site Planner footprint that opened this generator.';
-  btn.innerHTML = '<span data-icon="upload"></span> Push to Site Planner';
+  btn.title = 'Send the current building settings back to the Site Planner footprint and return to the planner tab.';
+  btn.innerHTML = '<span data-icon="upload"></span> Push & Return to Site Planner';
   btn.addEventListener('click', pushCurrentBuildingToSitePlanner);
   menu.insertBefore(sep, resetBtn || null);
   menu.insertBefore(btn, resetBtn || null);

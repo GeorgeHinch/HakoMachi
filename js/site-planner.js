@@ -3781,7 +3781,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     applySidebarDrillIn();
   }
 
-  function updateHandoff(){const b=selected(); $('handoffPreview').textContent=b? JSON.stringify(makeSeed(b),null,2):'';}
+  function updateHandoff(){const preview=$('handoffPreview'); if(!preview) return; const b=selected(); preview.textContent=b? JSON.stringify(makeSeed(b),null,2):'';}
   function plannerHandoffForBuilding(b){
     return {
       schema:'hakomachi.building-handoff',

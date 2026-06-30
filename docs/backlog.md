@@ -524,7 +524,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-015: Clarify or remove the Site Planner HakoMachi handoff panel
 
-- Status: Proposed
+- Status: Done
 - Group: UI and workflow
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/19

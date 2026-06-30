@@ -898,12 +898,12 @@ _No feature entries yet._
 
 ### HM-BACKLOG-030: Add privacy-conscious analytics with test/dev exclusion
 
-- Status: Proposed
+- Status: Blocked
 - Group: Documentation and maintenance
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/34
 - Goal: Add lightweight analytics, such as Google Analytics or another free/privacy-conscious option, so we can understand how many people use HakoMachi and which app areas/features are being used.
-- Notes: User wants basic usage visibility across the app, including feature usage, while avoiding analytics capture during Playwright tests and similar automated/dev activity. Local inspection did not find an existing analytics implementation.
+- Notes: User wants basic usage visibility across the app, including feature usage, while avoiding analytics capture during Playwright tests and similar automated/dev activity. Local inspection did not find an existing analytics implementation. Blocked until the analytics provider and production measurement/project ID are chosen; do not hard-code a placeholder that would silently fail or send data to the wrong account.
 - Acceptance Criteria:
   - A free analytics option is selected and documented, with rationale for Google Analytics versus plausible alternatives such as Plausible, Umami, or another lightweight choice.
   - Analytics load only in appropriate deployed/production contexts and are disabled for local development, localhost/127.0.0.1, `file://` usage, automated tests, and Playwright-controlled sessions.

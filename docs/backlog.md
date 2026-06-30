@@ -278,7 +278,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-018: Support whole-page .hako drop import in Site Planner
 
-- Status: Proposed
+- Status: Done
 - Group: Site planner
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/22

@@ -1914,9 +1914,60 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return files.find(file=>/\.(hako|hakoseed|hakoplan|json)$/i.test(file.name||'')) || null;
   }
 
+  function pageHakoImportFileFromDataTransfer(dataTransfer){
+    const files=Array.from(dataTransfer?.files||[]);
+    return files.find(file=>{
+      const name=String(file.name||'');
+      if(/\.hako-site\.json$/i.test(name)) return false;
+      return /\.(hako|hakoseed|hakoplan|json)$/i.test(name);
+    }) || null;
+  }
+
   function dataTransferHasFile(dataTransfer){
     const items=Array.from(dataTransfer?.items||[]);
     return items.some(item=>item.kind==='file') || (dataTransfer?.files?.length||0)>0;
+  }
+
+  function installWholePageHakoDrop(){
+    if(document.body?.dataset.hakoPageDropInstalled) return;
+    if(document.body) document.body.dataset.hakoPageDropInstalled='true';
+    const overlay=document.createElement('div');
+    overlay.className='sitePlannerPageDropOverlay';
+    overlay.innerHTML='<div><strong>Import building footprint</strong><span>Drop .hako, .hakoseed, .hakoplan, or compatible JSON here</span></div>';
+    document.body.appendChild(overlay);
+    let dragDepth=0;
+    const clear=()=>{dragDepth=0; overlay.classList.remove('active');};
+    const hasUnhandledFile=ev=>!ev.defaultPrevented && dataTransferHasFile(ev.dataTransfer);
+    document.addEventListener('dragenter', ev=>{
+      if(!hasUnhandledFile(ev)) return;
+      dragDepth++;
+      ev.preventDefault();
+      overlay.classList.add('active');
+      if(ev.dataTransfer) ev.dataTransfer.dropEffect='copy';
+    });
+    document.addEventListener('dragover', ev=>{
+      if(!hasUnhandledFile(ev)) return;
+      ev.preventDefault();
+      overlay.classList.add('active');
+      if(ev.dataTransfer) ev.dataTransfer.dropEffect='copy';
+    });
+    document.addEventListener('dragleave', ev=>{
+      if(!dataTransferHasFile(ev.dataTransfer)) return;
+      dragDepth=Math.max(0,dragDepth-1);
+      if(dragDepth===0 || ev.target===document || ev.target===document.documentElement) clear();
+    });
+    document.addEventListener('drop', ev=>{
+      if(!hasUnhandledFile(ev)) return;
+      ev.preventDefault();
+      clear();
+      const file=pageHakoImportFileFromDataTransfer(ev.dataTransfer);
+      if(!file){
+        alert('Drop a .hako, .hakoseed, .hakoplan, or compatible JSON building file to import a building footprint.');
+        return;
+      }
+      importHakoAsBuilding(file);
+    });
+    document.addEventListener('dragend', clear);
   }
 
   function installSelectedHakoSidebarDrop(){
@@ -4746,6 +4797,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   const emptyImageCard=$('emptyImageCard');
   if(emptyImageOverlay){
     ['dragenter','dragover'].forEach(type=>emptyImageOverlay.addEventListener(type, e=>{
+      if(pageHakoImportFileFromDataTransfer(e.dataTransfer)) return;
       if(!state.image){
         e.preventDefault();
         e.stopPropagation();
@@ -4756,6 +4808,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       emptyImageCard?.classList.remove('dragOver');
     }));
     emptyImageOverlay.addEventListener('drop', async e=>{
+      if(pageHakoImportFileFromDataTransfer(e.dataTransfer)) return;
       if(!state.image){
         e.preventDefault();
         e.stopPropagation();
@@ -5511,6 +5564,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
 
   bindSite3DButtons();
+  installWholePageHakoDrop();
   installSelectedHakoSidebarDrop();
   resize();
   const restored=restoreAutosaveIfAvailable();

@@ -555,6 +555,48 @@ canvas {
   box-shadow: inset 0 0 0 2px rgba(200,70,50,.32);
 }
 
+.sitePlannerPageDropOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: rgba(250, 250, 247, .72);
+  backdrop-filter: blur(2px);
+}
+
+.sitePlannerPageDropOverlay.active {
+  display: flex;
+}
+
+.sitePlannerPageDropOverlay > div {
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .96);
+  box-shadow: 0 12px 40px rgba(0,0,0,.16);
+  padding: 20px 28px;
+  text-align: center;
+  max-width: min(460px, calc(100vw - 48px));
+}
+
+.sitePlannerPageDropOverlay strong,
+.sitePlannerPageDropOverlay span {
+  display: block;
+}
+
+.sitePlannerPageDropOverlay strong {
+  color: var(--fg);
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
+.sitePlannerPageDropOverlay span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .bottom {
   grid-column: 1 / 4;
   grid-row: 3;

@@ -25946,6 +25946,18 @@ function regenerate() {
     warnings += `<div class="warn">${msg}</div>`;
   }
   document.getElementById('warnings').innerHTML = warnings;
+
+  try {
+    window.dispatchEvent(new CustomEvent('hakomachi:building-generator-regenerated', {
+      detail: {
+        config: CONFIG,
+        plan: lastPlan,
+        result: lastResult,
+      },
+    }));
+  } catch (_) {
+    /* Preview refresh notifications are best-effort only. */
+  }
 }
 
 /* ---------------------------------------------------------------------------

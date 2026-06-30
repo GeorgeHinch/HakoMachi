@@ -2,7 +2,7 @@ import {
   buildingPreviewRenderer,
   installBuildingPreviewGlobal,
   threePreview,
-} from '../../shared/building-preview-renderer.js?v=shared-building-preview-29';
+} from '../../shared/building-preview-renderer.js?v=shared-building-preview-30';
 import * as controller from './controller.js';
 
 export const installPreviewLegacyBehavior = threePreview.installThreePreviewLegacyBehavior;

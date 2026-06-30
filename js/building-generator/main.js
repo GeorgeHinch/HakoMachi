@@ -1,9 +1,9 @@
-import '../building-generator-runtime.js?v=es-module-runtime-3';
+import '../building-generator-runtime.js?v=es-module-runtime-4';
 import {
   buildingPreviewRenderer,
   installBuildingPreviewGlobal,
   previewModules,
-} from './preview/index.js?v=shared-building-preview-29';
+} from './preview/index.js?v=shared-building-preview-30';
 
 window.HakoMachiBuildingGenerator = Object.freeze({
   ...(window.HakoMachiBuildingGenerator || {}),
@@ -31,6 +31,37 @@ function refreshBuildingPreview() {
   }
 }
 
+let buildingPreviewRefreshTimer = null;
+function scheduleBuildingPreviewRefresh(delayMs = 0) {
+  if (buildingPreviewRefreshTimer != null) {
+    window.clearTimeout?.(buildingPreviewRefreshTimer);
+  }
+  buildingPreviewRefreshTimer = window.setTimeout?.(() => {
+    buildingPreviewRefreshTimer = null;
+    refreshBuildingPreview();
+  }, delayMs);
+}
+
+window.addEventListener('hakomachi:building-generator-regenerated', event => {
+  try {
+    const config = event.detail?.config
+      || window.HakoMachiBuildingGeneratorRuntime?.CONFIG
+      || window.CONFIG;
+    previewModules.threePreview?.setThreePreviewConfig?.(config);
+  } catch (_) {
+    /* The scheduled refresh below will report real preview errors. */
+  }
+  scheduleBuildingPreviewRefresh(0);
+});
+
+document.querySelector('.controls')?.addEventListener('input', () => {
+  scheduleBuildingPreviewRefresh(380);
+}, true);
+
+document.querySelector('.controls')?.addEventListener('change', () => {
+  scheduleBuildingPreviewRefresh(380);
+}, true);
+
 if (buildingPreviewRenderer?.buildBuildingPreviewGroup) {
   for (const name of [
     'get3DWallOpenings',
@@ -57,5 +88,5 @@ if (buildingPreviewRenderer?.buildBuildingPreviewGroup) {
 
 previewModules.installLegacyBehavior?.({ root: window });
 window.startHakoMachiBuildingGeneratorRuntime?.();
-window.setTimeout?.(refreshBuildingPreview, 0);
+scheduleBuildingPreviewRefresh(0);
 window.setTimeout?.(refreshBuildingPreview, 250);

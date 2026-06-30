@@ -5,7 +5,7 @@
 
 import { installThreeRenderCanvas } from '../../shared/browser-utils.js';
 import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=shared-building-preview-26';
-import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=shared-building-preview-29';
+import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=shared-building-preview-30';
 
 let threeScene, threeCamera, threeRenderer, threeControls, buildingMesh, threePreviewGrid;
 export let threePreviewConfig = null;
@@ -62,8 +62,14 @@ function collectPreviewLayoutCuts(cfg) {
     cfg.geometry?.layoutCuts,
     cfg.building?.layoutCuts,
     cfg.sitePlannerSeed?.layoutCuts,
+    cfg.sitePlannerSeed?.shapeEditor?.layoutCuts,
+    cfg.sitePlannerSeed?.shapeEditor?.cutLines,
     cfg.hakoSeed?.layoutCuts,
+    cfg.hakoSeed?.shapeEditor?.layoutCuts,
+    cfg.hakoSeed?.shapeEditor?.cutLines,
     cfg.seed?.layoutCuts,
+    cfg.seed?.shapeEditor?.layoutCuts,
+    cfg.seed?.shapeEditor?.cutLines,
   ];
   const out = [];
   const seen = new Set();

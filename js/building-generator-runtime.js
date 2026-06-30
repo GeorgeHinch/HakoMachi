@@ -11128,7 +11128,7 @@ function generateGableRoofAngleLockParts(cfg, plan, stationCount, halfSpan, pitc
   // the roof slope. This is the critical alignment value.
   const slotY = slotSpec && slotSpec.slotY != null ? Number(slotSpec.slotY) : Math.max(0, slantLen - tabAlong - matT);
   const slotLenForCenter = slotSpec && slotSpec.slotLen ? Number(slotSpec.slotLen) : tabAlong;
-  const tabCenterFromApex = Math.max(tabAlong / 2 + 0.3, slantLen - (slotY + slotLenForCenter / 2));
+  const tabCenterFromApex = Math.max(tabAlong / 2 + 0.3, Math.min(slantLen - 0.3, slotY + slotLenForCenter / 2));
 
   // Keep the roof-contact edge compact, but make the vertical web deep enough
   // to be a real gusset. This avoids the shallow-roof failure where the lock
@@ -11457,10 +11457,13 @@ function generateGabledRoof(cfg, plan) {
     const angleLockSlotEndClearance = Math.max(0.8, Math.min(1.4, matT * 0.75));
     const angleLockSlotLen = angleLockTabLen + 2 * angleLockSlotEndClearance;
 
-    // Keep the slot close to the ridge. The tab center is derived from the
-    // slot center, so the lock and panel now share one along-slope datum.
+    // Keep the slot close to the ridge. Gabled roof panel coordinates use
+    // y=0 at the ridge and y=slantLen at the eave, so this must stay near 0.
+    // The tab center is derived from the slot center, so the lock and panel
+    // share one along-slope datum.
     const angleLockRidgeInset = Math.max(0.2, Math.min(0.5, matT * 0.2));
-    const angleLockSlotY = Math.max(0.2, slantLen - angleLockSlotLen - angleLockRidgeInset);
+    const angleLockSlotY = Math.max(0.2, angleLockRidgeInset);
+    const angleLockEtchY = Math.min(slantLen - 0.2, angleLockSlotY + angleLockSlotLen + 0.8);
     const angleLockSlotSpec = {
       slantLen,
       slotY: angleLockSlotY,
@@ -11475,8 +11478,8 @@ function generateGabledRoof(cfg, plan) {
       const slot = { type: 'cut', x, y: angleLockSlotY, w: angleLockSlotW, h: angleLockSlotLen, compensateKerf: true };
       panel0.rects.push({ ...slot });
       panel1.rects.push({ ...slot });
-      panel0.lines.push({ type: 'etch', x1: st - 2.5, y1: angleLockSlotY - 0.8, x2: st + 2.5, y2: angleLockSlotY - 0.8 });
-      panel1.lines.push({ type: 'etch', x1: st - 2.5, y1: angleLockSlotY - 0.8, x2: st + 2.5, y2: angleLockSlotY - 0.8 });
+      panel0.lines.push({ type: 'etch', x1: st - 2.5, y1: angleLockEtchY, x2: st + 2.5, y2: angleLockEtchY });
+      panel1.lines.push({ type: 'etch', x1: st - 2.5, y1: angleLockEtchY, x2: st + 2.5, y2: angleLockEtchY });
     }
 
     // Matching skylight cut paths for the single folded roof-cladding piece.

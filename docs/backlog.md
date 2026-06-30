@@ -78,7 +78,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-010: Fix gabled roof core panel fit at eaves
 
-- Status: Proposed
+- Status: Done
 - Group: Building generation
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/14

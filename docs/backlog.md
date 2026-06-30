@@ -404,7 +404,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-034: Fix wooden crate SVG preview and laser color conventions
 
-- Status: Proposed
+- Status: Done
 - Group: Export and fabrication
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/38

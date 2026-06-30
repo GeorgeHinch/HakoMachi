@@ -1189,6 +1189,104 @@ export function exportConfigFile() {
   flashMessage('Settings file downloaded.', 'ok');
 }
 
+let importProgressCloseTimer = null;
+let importProgressLastFocus = null;
+
+function ensureImportProgressModal() {
+  let modal = document.getElementById('hakoImportProgressModal');
+  if (modal) return modal;
+  modal = document.createElement('div');
+  modal.id = 'hakoImportProgressModal';
+  modal.className = 'hakoProgressModal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'hakoImportProgressTitle');
+  modal.innerHTML = `
+    <div class="hakoProgressCard" tabindex="-1">
+      <h2 id="hakoImportProgressTitle">Import file</h2>
+      <div id="hakoImportProgress" class="hakoProgress" role="progressbar" aria-label="Import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="hakoProgressTrack"><div id="hakoImportProgressFill" class="hakoProgressFill"></div></div>
+        <div class="hakoProgressSummary"><b id="hakoImportProgressLabel">Preparing import...</b><span id="hakoImportProgressPercent">0%</span></div>
+        <div id="hakoImportProgressDetail" class="hakoProgressDetail" aria-live="polite">Waiting for the selected file.</div>
+      </div>
+      <div class="hakoProgressActions"><button type="button" id="hakoImportProgressClose">Close</button></div>
+    </div>`;
+  const close = () => closeImportProgressModal();
+  modal.addEventListener('click', event => {
+    if (event.target === modal && modal.dataset.locked !== 'true') close();
+  });
+  modal.querySelector('#hakoImportProgressClose')?.addEventListener('click', close);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && modal.classList.contains('open') && modal.dataset.locked !== 'true') close();
+  });
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function openImportProgressModal(title = 'Import file', label = 'Preparing import...', detail = 'Waiting for the selected file.') {
+  const modal = ensureImportProgressModal();
+  if (importProgressCloseTimer) {
+    clearTimeout(importProgressCloseTimer);
+    importProgressCloseTimer = null;
+  }
+  importProgressLastFocus = document.activeElement;
+  modal.dataset.locked = 'true';
+  document.getElementById('hakoImportProgressTitle').textContent = title;
+  document.getElementById('hakoImportProgressClose').style.display = 'none';
+  modal.classList.add('open');
+  setImportProgress(0, 4, label, detail);
+  modal.querySelector('.hakoProgressCard')?.focus?.();
+  return modal;
+}
+
+function setImportProgress(step, total, label, detail) {
+  const safeTotal = Math.max(1, total || 1);
+  const percent = Math.max(0, Math.min(100, Math.round((Math.max(0, step || 0) / safeTotal) * 100)));
+  const progress = document.getElementById('hakoImportProgress');
+  if (progress) progress.setAttribute('aria-valuenow', String(percent));
+  const fill = document.getElementById('hakoImportProgressFill');
+  if (fill) fill.style.width = percent + '%';
+  const pct = document.getElementById('hakoImportProgressPercent');
+  if (pct) pct.textContent = percent + '%';
+  const labelEl = document.getElementById('hakoImportProgressLabel');
+  if (labelEl) labelEl.textContent = label || 'Working...';
+  const detailEl = document.getElementById('hakoImportProgressDetail');
+  if (detailEl) detailEl.textContent = detail || '';
+}
+
+function closeImportProgressModal() {
+  const modal = document.getElementById('hakoImportProgressModal');
+  if (!modal) return;
+  modal.classList.remove('open');
+  modal.dataset.locked = 'false';
+  if (importProgressCloseTimer) {
+    clearTimeout(importProgressCloseTimer);
+    importProgressCloseTimer = null;
+  }
+  importProgressLastFocus?.focus?.();
+  importProgressLastFocus = null;
+}
+
+function finishImportProgress(label, detail, delay = 900) {
+  const modal = ensureImportProgressModal();
+  modal.dataset.locked = 'false';
+  setImportProgress(4, 4, label || 'Import complete.', detail || 'The file has been applied.');
+  document.getElementById('hakoImportProgressClose').style.display = '';
+  importProgressCloseTimer = setTimeout(() => closeImportProgressModal(), delay);
+}
+
+function failImportProgress(label, detail) {
+  const modal = ensureImportProgressModal();
+  if (importProgressCloseTimer) {
+    clearTimeout(importProgressCloseTimer);
+    importProgressCloseTimer = null;
+  }
+  modal.dataset.locked = 'false';
+  modal.classList.add('open');
+  setImportProgress(0, 4, label || 'Import failed.', detail || 'Check the file and try again.');
+  document.getElementById('hakoImportProgressClose').style.display = '';
+}
+
 /* Import a .hako (or legacy .json) settings file picked by the user.
    Both are JSON internally — same payload, different extension. */
 export function importConfigFile(file) {
@@ -1197,25 +1295,35 @@ export function importConfigFile(file) {
   const looksLikeConfig = /\.(hako|hakoseed|hakoplan|json)$/i.test(name) || file.type === 'application/json' || file.type === '';
   if (!looksLikeConfig) {
     flashMessage('Drop a .hako, .hakoseed, .hakoplan, or .json settings/seed file.', 'warn');
+    failImportProgress('Unsupported file type.', 'Drop a .hako, .hakoseed, .hakoplan, or .json settings/seed file.');
     return;
   }
+  openImportProgressModal('Import building settings', 'Reading file...', `Reading ${file.name || 'building settings'}.`);
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
+      setImportProgress(2, 4, 'Validating settings...', 'Checking the JSON and upgrading old HakoMachi formats if needed.');
       const data = JSON.parse(e.target.result);
+      setImportProgress(3, 4, 'Applying settings...', 'Updating the building form and regenerating previews.');
       const warnings = applyLoadedConfig(data);
       writeForm();
       regenerate();
       if (warnings.length) {
         flashMessage('Imported with warnings: ' + warnings.join(' '), 'warn');
+        finishImportProgress('Imported with warnings.', warnings.join(' '), 1200);
       } else {
         flashMessage('Settings imported from file.', 'ok');
+        finishImportProgress('Building settings imported.', `${file.name || 'Settings file'} has been applied.`);
       }
     } catch (err) {
       flashMessage('Import failed: ' + err.message, 'err');
+      failImportProgress('Import failed.', err.message);
     }
   };
-  reader.onerror = () => flashMessage('File read error.', 'err');
+  reader.onerror = () => {
+    flashMessage('File read error.', 'err');
+    failImportProgress('Could not read file.', 'The browser could not read that settings file.');
+  };
   reader.readAsText(file);
 }
 

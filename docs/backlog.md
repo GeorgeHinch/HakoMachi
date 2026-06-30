@@ -815,7 +815,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-031: Add branded import/upload modal for file imports
 
-- Status: Proposed
+- Status: Done
 - Group: UI and workflow
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/35

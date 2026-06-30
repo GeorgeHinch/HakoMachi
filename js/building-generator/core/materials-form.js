@@ -117,18 +117,27 @@ export function exportMaterialLibrary() {
 }
 
 export function importMaterialLibraryFile(file) {
+  if (!file) return;
+  openImportProgressModal('Import material library', 'Reading file...', `Reading ${file.name || 'material library'}.`);
   const reader = new FileReader();
   reader.onload = e => {
     try {
+      setImportProgress(2, 4, 'Validating library...', 'Checking material definitions and color metadata.');
       const data = JSON.parse(e.target.result);
       const library = normaliseImportedMaterialLibrary(data);
+      setImportProgress(3, 4, 'Applying library...', 'Replacing the current material library.');
       applyMaterialLibrary(library);
       flashMessage(`Imported ${library.materials.length} material${library.materials.length === 1 ? '' : 's'}.`, 'ok');
+      finishImportProgress('Material library imported.', `Imported ${library.materials.length} material${library.materials.length === 1 ? '' : 's'}.`);
     } catch (err) {
       flashMessage('Material library import failed: ' + err.message, 'err');
+      failImportProgress('Material library import failed.', err.message);
     }
   };
-  reader.onerror = () => flashMessage('Material library file read error.', 'err');
+  reader.onerror = () => {
+    flashMessage('Material library file read error.', 'err');
+    failImportProgress('Could not read file.', 'The browser could not read that material library file.');
+  };
   reader.readAsText(file);
 }
 

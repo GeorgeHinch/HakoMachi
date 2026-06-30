@@ -33,7 +33,83 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let autosaveSuppressed = false;
   let renderQueued = false;
   let activeSidebarDetailKey = null;
+  let importProgressCloseTimer = null;
+  let importProgressLastFocus = null;
   const colors = ['#d79631','#b8672d','#0f766e','#7c5f3f','#8b5a2b','#5f7f54','#9b6b44','#496a78'];
+  function ensureImportProgressModal(){
+    let modal=$('hakoImportProgressModal');
+    if(modal) return modal;
+    modal=document.createElement('div');
+    modal.id='hakoImportProgressModal';
+    modal.className='hakoProgressModal';
+    modal.setAttribute('role','dialog');
+    modal.setAttribute('aria-modal','true');
+    modal.setAttribute('aria-labelledby','hakoImportProgressTitle');
+    modal.innerHTML=`
+      <div class="hakoProgressCard" tabindex="-1">
+        <h2 id="hakoImportProgressTitle">Import file</h2>
+        <div id="hakoImportProgress" class="hakoProgress" role="progressbar" aria-label="Import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="hakoProgressTrack"><div id="hakoImportProgressFill" class="hakoProgressFill"></div></div>
+          <div class="hakoProgressSummary"><b id="hakoImportProgressLabel">Preparing import...</b><span id="hakoImportProgressPercent">0%</span></div>
+          <div id="hakoImportProgressDetail" class="hakoProgressDetail" aria-live="polite">Waiting for the selected file.</div>
+        </div>
+        <div class="hakoProgressActions"><button type="button" id="hakoImportProgressClose">Close</button></div>
+      </div>`;
+    const close=()=>closeImportProgressModal();
+    modal.addEventListener('click', ev=>{if(ev.target===modal && modal.dataset.locked!=='true') close();});
+    modal.querySelector('#hakoImportProgressClose')?.addEventListener('click', close);
+    document.addEventListener('keydown', ev=>{
+      if(ev.key==='Escape' && modal.classList.contains('open') && modal.dataset.locked!=='true') close();
+    });
+    document.body.appendChild(modal);
+    return modal;
+  }
+  function openImportProgressModal(title='Import file', label='Preparing import...', detail='Waiting for the selected file.'){
+    const modal=ensureImportProgressModal();
+    if(importProgressCloseTimer){clearTimeout(importProgressCloseTimer); importProgressCloseTimer=null;}
+    importProgressLastFocus=document.activeElement;
+    modal.dataset.locked='true';
+    $('hakoImportProgressTitle').textContent=title;
+    $('hakoImportProgressClose').style.display='none';
+    modal.classList.add('open');
+    setImportProgress(0,4,label,detail);
+    modal.querySelector('.hakoProgressCard')?.focus?.();
+    return modal;
+  }
+  function setImportProgress(step,total,label,detail){
+    const safeTotal=Math.max(1,total||1);
+    const percent=Math.max(0,Math.min(100,Math.round((Math.max(0,step||0)/safeTotal)*100)));
+    const progress=$('hakoImportProgress');
+    if(progress) progress.setAttribute('aria-valuenow', String(percent));
+    const fill=$('hakoImportProgressFill'); if(fill) fill.style.width=percent+'%';
+    const pct=$('hakoImportProgressPercent'); if(pct) pct.textContent=percent+'%';
+    const labelEl=$('hakoImportProgressLabel'); if(labelEl) labelEl.textContent=label||'Working...';
+    const detailEl=$('hakoImportProgressDetail'); if(detailEl) detailEl.textContent=detail||'';
+  }
+  function closeImportProgressModal(){
+    const modal=$('hakoImportProgressModal');
+    if(!modal) return;
+    modal.classList.remove('open');
+    modal.dataset.locked='false';
+    if(importProgressCloseTimer){clearTimeout(importProgressCloseTimer); importProgressCloseTimer=null;}
+    importProgressLastFocus?.focus?.();
+    importProgressLastFocus=null;
+  }
+  function finishImportProgress(label, detail, delay=900){
+    const modal=ensureImportProgressModal();
+    modal.dataset.locked='false';
+    setImportProgress(4,4,label||'Import complete.',detail||'The file has been applied.');
+    $('hakoImportProgressClose').style.display='';
+    importProgressCloseTimer=setTimeout(()=>closeImportProgressModal(), delay);
+  }
+  function failImportProgress(label, detail){
+    const modal=ensureImportProgressModal();
+    if(importProgressCloseTimer){clearTimeout(importProgressCloseTimer); importProgressCloseTimer=null;}
+    modal.dataset.locked='false';
+    modal.classList.add('open');
+    setImportProgress(0,4,label||'Import failed.',detail||'Check the file and try again.');
+    $('hakoImportProgressClose').style.display='';
+  }
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
   function setSidebarOpen(open){
@@ -1826,32 +1902,42 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
 
   function attachHakoFileToSelectedBuilding(file, opts={}){
     const b=selected();
-    if(!b) return alert('Select a building footprint before attaching a .hako file.');
+    if(!b){ failImportProgress('Select a building first.','Choose one footprint, then attach the .hako file again.'); return; }
     if(!file) return;
+    openImportProgressModal('Attach building file','Reading file...',`Reading ${file.name||'building file'}.`);
     if(!/\.(hako|hakoseed|hakoplan|json)$/i.test(file.name||'')){
-      alert('Drop a .hako or JSON building file to attach it to the selected footprint.');
+      failImportProgress('Unsupported file type.','Drop a .hako, .hakoseed, .hakoplan, or JSON building file.');
       return;
     }
     const reader=new FileReader();
-    reader.onerror=()=>alert('Could not read that .hako file.');
+    reader.onerror=()=>failImportProgress('Could not read file.','The browser could not read that .hako file.');
     reader.onload=ev=>{
       const text=String(ev.target.result||'');
+      setImportProgress(2,4,'Validating building file...','Checking the JSON and footprint dimensions.');
       let parsed=null;
       try{ parsed=JSON.parse(text); }
-      catch(_err){ alert('That .hako file was not valid JSON, so I could not check its footprint size.'); return; }
+      catch(_err){ failImportProgress('Invalid building file.','That .hako file was not valid JSON, so its footprint size could not be checked.'); return; }
       const derived=deriveFootprintFromHakoConfig(parsed||{});
       const incomingSize=sizeFromDerivedHakoFootprint(derived);
       if(!incomingSize){
-        alert('Could not find a usable footprint, width/depth, or polygon size in that .hako file.');
+        failImportProgress('Missing footprint data.','Could not find a usable footprint, width/depth, or polygon size in that .hako file.');
         return;
       }
       const currentSize=selectedFootprintSizeMm(b);
       const resizeFootprint=!footprintSizesMatch(currentSize, incomingSize);
-      if(resizeFootprint && !confirmSelectedHakoSizeMismatch(b, currentSize, incomingSize, file.name||'building.hako')) return;
+      if(resizeFootprint){
+        setImportProgress(3,4,'Confirming footprint resize...','The incoming building size differs from the selected footprint.');
+        if(!confirmSelectedHakoSizeMismatch(b, currentSize, incomingSize, file.name||'building.hako')){
+          finishImportProgress('Import canceled.','No changes were made to the selected footprint.',650);
+          return;
+        }
+      }
+      setImportProgress(3,4,'Applying building file...',`Attaching ${file.name||'building.hako'} to the selected footprint.`);
       storeHakoFileOnBuilding(b, file.name||`${slug(b.name||'building')}.hako`, text, parsed, {
         source:opts.source||'selected-building-upload',
         resizeFootprint,
       });
+      finishImportProgress('Building file attached.',`${file.name||'building.hako'} is linked to ${b.name||'the selected footprint'}.`);
     };
     reader.readAsText(file);
   }
@@ -2009,14 +2095,23 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
 
   function importHakoAsBuilding(file){
     if(!file) return;
+    openImportProgressModal('Import building footprint','Reading file...',`Reading ${file.name||'building file'}.`);
     const reader=new FileReader();
-    reader.onerror=()=>alert('Could not read that .hako file.');
+    reader.onerror=()=>failImportProgress('Could not read file.','The browser could not read that .hako file.');
     reader.onload=ev=>{
       const text=String(ev.target.result||'');
+      setImportProgress(2,4,'Validating building file...','Checking the JSON and deriving a footprint.');
       let parsed=null;
       try{ parsed=JSON.parse(text); }
-      catch(_err){ alert('That .hako file was not valid JSON, so I could not derive a footprint from it.'); return; }
-      createBuildingFromImportedHako(file.name||'building.hako', text, parsed);
+      catch(_err){ failImportProgress('Invalid building file.','That .hako file was not valid JSON, so a footprint could not be derived.'); return; }
+      if(!deriveFootprintFromHakoConfig(parsed||{})){
+        failImportProgress('Missing footprint data.','Could not find a footprint, width/depth, or polygon in that .hako file.');
+        return;
+      }
+      setImportProgress(3,4,'Placing footprint...','Creating a Site Planner footprint from the imported building.');
+      const b=createBuildingFromImportedHako(file.name||'building.hako', text, parsed);
+      if(!b){ failImportProgress('Import failed.','The file could not be converted into a Site Planner footprint.'); return; }
+      finishImportProgress('Building footprint imported.',`${b.name||'Imported building'} is selected on the plan.`);
     };
     reader.readAsText(file);
   }
@@ -2074,7 +2169,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       clear();
       const file=pageHakoImportFileFromDataTransfer(ev.dataTransfer);
       if(!file){
-        alert('Drop a .hako, .hakoseed, .hakoplan, or compatible JSON building file to import a building footprint.');
+        failImportProgress('Unsupported file type.','Drop a .hako, .hakoseed, .hakoplan, or compatible JSON building file to import a building footprint.');
         return;
       }
       importHakoAsBuilding(file);
@@ -2104,7 +2199,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       clearDragState();
       const file=hakoFileFromDataTransfer(ev.dataTransfer);
       if(!file){
-        alert('Drop a .hako or JSON building file to attach it to the selected footprint.');
+        failImportProgress('Unsupported file type.','Drop a .hako or JSON building file to attach it to the selected footprint.');
         return;
       }
       attachHakoFileToSelectedBuilding(file,{source:'selected-building-drop'});
@@ -4983,6 +5078,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   async function loadReferenceImage(file){
     if(!file) return;
+    openImportProgressModal('Import reference image','Reading image...',`Loading ${file.name||'reference image'}.`);
     setImageStatus(`Loading ${file.name}…`);
     const objectUrl=URL.createObjectURL(file);
     let dataUrl=null;
@@ -4994,9 +5090,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       });
       img.src=objectUrl;
       await loaded;
+      setImportProgress(2,4,'Decoding image...','Preparing the reference layer for the canvas.');
       if(img.decode){
         try{ await img.decode(); } catch(_err){}
       }
+      setImportProgress(3,4,'Embedding image data...','Preparing a portable copy when the browser allows it.');
       try{ dataUrl=await readFileAsDataURL(file); }
       catch(_err){ dataUrl=null; }
       state.image=img;
@@ -5016,11 +5114,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       setImageStatus(`Loaded ${file.name} (${state.imageMeta.naturalWidthPx} × ${state.imageMeta.naturalHeightPx}px).`, 'okText');
       updateImagePortableStatus();
       updateEmptyImageOverlay();
+      finishImportProgress('Reference image imported.',`${file.name||'Reference image'} is ready on the canvas.`);
       console.info('[HakoMachi Site Planner] image loaded', state.imageMeta);
     }catch(err){
       console.error('[HakoMachi Site Planner] image import failed', err);
       setImageStatus(err.message || 'Image import failed.', 'warning');
-      alert(err.message || 'Image import failed.');
+      failImportProgress('Image import failed.', err.message || 'The image could not be loaded.');
       URL.revokeObjectURL(objectUrl);
     }
   }
@@ -5040,7 +5139,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   async function handleEmptyImageDrop(file){
     if(!file) return;
     if(!isSupportedImageFile(file)){
-      alert('Drop a PNG, JPG, SVG, or WEBP image here. Use Load for .hako-site.json project files.');
+      failImportProgress('Unsupported image type.','Drop a PNG, JPG, SVG, or WEBP image here. Use Load for .hako-site.json project files.');
       return;
     }
     await loadReferenceImage(file);
@@ -5542,11 +5641,18 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   $('loadFile').addEventListener('change', e=>{
     const f=e.target.files && e.target.files[0];
     if(!f) return;
+    openImportProgressModal('Import site plan','Reading file...',`Reading ${f.name||'site plan file'}.`);
     const reader=new FileReader();
-    reader.onerror=()=>alert('Could not read that project file.');
+    reader.onerror=()=>failImportProgress('Could not read file.','The browser could not read that project file.');
     reader.onload=ev=>{
-      try{loadProject(JSON.parse(ev.target.result), {fromFile:true});}
-      catch(err){alert('Could not load project JSON: '+err.message);}
+      try{
+        setImportProgress(2,4,'Validating site plan...','Checking the project JSON and save format.');
+        const project=JSON.parse(ev.target.result);
+        setImportProgress(3,4,'Applying site plan...','Restoring the canvas, image metadata, and placed objects.');
+        loadProject(project, {fromFile:true});
+        finishImportProgress('Site plan imported.',`${f.name||'Project file'} has been loaded.`);
+      }
+      catch(err){failImportProgress('Could not load project JSON.', err.message);}
       e.target.value='';
     };
     reader.readAsText(f);

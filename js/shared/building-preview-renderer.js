@@ -27,7 +27,7 @@ function publishPreviewDependencies(root = globalThis) {
 
 publishPreviewDependencies(globalThis);
 
-const threePreview = await import('../building-generator/preview/three-preview.js?v=shared-building-preview-27');
+const threePreview = await import('../building-generator/preview/three-preview.js?v=shared-building-preview-28');
 
 const buildBuildingPreviewGroup = threePreview.buildHakoMachiBuildingPreviewGroup;
 const buildGeneratedStlPreviewGroup = threePreview.buildGeneratedStlPreviewGroup;

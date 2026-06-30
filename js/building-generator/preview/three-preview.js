@@ -3281,8 +3281,97 @@ export function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
   }
 
   applyLayoutCutClippingToGroup(group, cfg);
+  addLayoutCutGuidePreview3D(group, cfg, h + t + 0.45);
 
   return group;
+}
+
+function addLayoutCutGuidePreview3D(group, cfg, topY) {
+  if (!group || !layoutCutsActive(cfg) || typeof THREE === 'undefined') return null;
+  const w = Number(cfg.width || 0) || 0;
+  const d = Number(cfg.depth || 0) || 0;
+  if (!(w > 0) || !(d > 0)) return null;
+  const verts = [];
+  const ribbonVerts = [];
+  const yTop = Number.isFinite(Number(topY)) ? Number(topY) : 2;
+  const yBase = 0.18;
+  const toWorld = p => ({ x: Number(p.x || 0) - w / 2, z: Number(p.y || 0) - d / 2 });
+  const guide = new THREE.Group();
+  guide.name = 'Layout cut guide';
+  guide.renderOrder = 50;
+  guide.userData.layoutCutGuide = true;
+  const tubeMat = new THREE.MeshStandardMaterial({
+    color: 0xd95f24,
+    emissive: 0x5a1f0f,
+    emissiveIntensity: 0.35,
+    roughness: 0.65,
+    depthTest: false,
+    depthWrite: false,
+  });
+  const addTube = (p0, p1, y, radius = 0.55) => {
+    const dx = p1.x - p0.x;
+    const dz = p1.z - p0.z;
+    const len = Math.hypot(dx, dz);
+    if (len <= 0.001) return;
+    const geo = new THREE.CylinderGeometry(radius, radius, len, 8);
+    const mesh = new THREE.Mesh(geo, tubeMat);
+    mesh.position.set((p0.x + p1.x) / 2, y, (p0.z + p1.z) / 2);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx / len, 0, dz / len));
+    mesh.renderOrder = 51;
+    mesh.userData.layoutCutGuide = true;
+    guide.add(mesh);
+  };
+  for (const cut of (cfg.layoutCuts || [])) {
+    if (!cut || cut.enabled === false) continue;
+    for (const [a, b] of sampleLayoutCutSegments(cut, cfg)) {
+      const p0 = toWorld(a), p1 = toWorld(b);
+      verts.push(p0.x, yTop, p0.z, p1.x, yTop, p1.z);
+      verts.push(p0.x, yBase, p0.z, p1.x, yBase, p1.z);
+      ribbonVerts.push(
+        p0.x, yBase, p0.z, p1.x, yBase, p1.z, p1.x, yTop, p1.z,
+        p0.x, yBase, p0.z, p1.x, yTop, p1.z, p0.x, yTop, p0.z
+      );
+      addTube(p0, p1, yTop);
+      addTube(p0, p1, yBase, 0.38);
+    }
+  }
+  if (!verts.length) return null;
+  if (ribbonVerts.length) {
+    const ribbonGeo = new THREE.BufferGeometry();
+    ribbonGeo.setAttribute('position', new THREE.Float32BufferAttribute(ribbonVerts, 3));
+    ribbonGeo.computeVertexNormals();
+    const ribbonMat = new THREE.MeshStandardMaterial({
+      color: 0xd95f24,
+      emissive: 0x5a1f0f,
+      emissiveIntensity: 0.18,
+      transparent: true,
+      opacity: 0.28,
+      side: THREE.DoubleSide,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const ribbon = new THREE.Mesh(ribbonGeo, ribbonMat);
+    ribbon.name = 'Layout cut ribbon';
+    ribbon.renderOrder = 49;
+    ribbon.userData.layoutCutGuide = true;
+    guide.add(ribbon);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  const mat = new THREE.LineBasicMaterial({
+    color: 0xd95f24,
+    transparent: true,
+    opacity: 0.96,
+    depthTest: false,
+    depthWrite: false,
+  });
+  mat.clippingPlanes = null;
+  const lines = new THREE.LineSegments(geo, mat);
+  lines.renderOrder = 52;
+  lines.userData.layoutCutGuide = true;
+  guide.add(lines);
+  group.add(guide);
+  return guide;
 }
 
 export function applyLayoutCutClippingToGroup(group, cfg, transformMatrix = null) {
@@ -3313,6 +3402,7 @@ export function applyLayoutCutClippingToGroup(group, cfg, transformMatrix = null
     }
   }
   group.traverse?.(child => {
+    if (child.userData && child.userData.layoutCutGuide) return;
     const mats = Array.isArray(child.material) ? child.material : [child.material];
     mats.filter(Boolean).forEach(mat => {
       mat.clippingPlanes = planes.length ? planes : null;

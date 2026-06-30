@@ -3,7 +3,7 @@ import {
   buildingPreviewRenderer,
   installBuildingPreviewGlobal,
   previewModules,
-} from './preview/index.js?v=shared-building-preview-27';
+} from './preview/index.js?v=shared-building-preview-28';
 
 window.HakoMachiBuildingGenerator = Object.freeze({
   ...(window.HakoMachiBuildingGenerator || {}),

@@ -263,7 +263,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const calibrationSection=$('calibrationSection');
     if(calibrationSection) calibrationSection.style.display = state.tool==='calibrate' ? '' : 'none';
     const fabricSection=$('fabricSection');
-    if(fabricSection) fabricSection.style.display = state.tool==='fabric' ? '' : 'none';
+    if(fabricSection) fabricSection.style.display = (state.tool==='fabric' && !activeSidebarDetailKind()) ? '' : 'none';
     initFabricControls();
     const ipadInputSection=$('ipadInputSection');
     if(ipadInputSection) ipadInputSection.style.display = isLikelyIPad() ? '' : 'none';
@@ -4226,7 +4226,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       <b>${escapeHtml(fabric.name||'Fabric Region')} selected</b>
       <label>Name</label><input id="fabricNameSel" value="${escapeAttr(fabric.name||'')}">
       <label>Fabric preset</label><select id="fabricPresetSel">${presetOptions}</select>
-      <div class="row"><div><label>Density</label><input id="fabricDensitySel" type="number" min="0.4" max="1.6" step="0.1" value="${fmt(fabric.density)}"></div><div><label>Randomness</label><input id="fabricRandomnessSel" type="number" min="0" max="1" step="0.05" value="${fmt(fabric.randomness)}"></div></div>
+      <div class="row"><div><label>Density</label><input id="fabricDensitySel" type="range" min="0.4" max="1.6" step="0.1" value="${fmt(fabric.density)}"></div><div><label>Randomness</label><input id="fabricRandomnessSel" type="range" min="0" max="1" step="0.05" value="${fmt(fabric.randomness)}"></div></div>
       <div class="row"><div><label>Seed</label><input id="fabricSeedSel" type="number" step="1" value="${fmt(fabric.seed)}"></div><div><label>Color</label><input id="fabricColorSel" type="color" value="${fabric.color||'#7c5f3f'}"></div></div>
       <div class="row"><div><label>Average floors</label><input id="fabricAvgFloorsSel" type="number" min="1" max="12" step="1" value="${fmt(fabric.averageFloorCount)}"></div><div><label>Max floors</label><input id="fabricMaxFloorsSel" type="number" min="1" max="16" step="1" value="${fmt(fabric.maxFloorCount)}"></div></div>
       <div class="small muted" style="margin-top:6px">${padCount} generated pad${padCount===1?'':'s'} currently reference this region. Deleting the region keeps those pads and detaches them.</div>

@@ -409,6 +409,8 @@ canvas {
   z-index: 18;
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 4px 10px;
   background: #fff;
@@ -473,15 +475,20 @@ canvas {
   color: #fff;
 }
 
-.site3dFabSep {
-  width: 1px;
-  height: 18px;
-  background: #ddd;
-  margin: 0 5px;
-  flex: 0 0 auto;
+.site3dImageControls {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding-left: 8px;
+  border-left: 1px solid #ddd;
 }
 
-.site3dBaseControl {
+.sitePlannerApp.view3d .site3dImageControls {
+  display: inline-flex;
+}
+
+.site3dImageToggle,
+.site3dImageOpacity {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -490,17 +497,18 @@ canvas {
   font-weight: 600;
 }
 
-.site3dBaseControl input {
-  width: 52px;
-  height: 24px;
-  min-height: 24px;
-  padding: 2px 5px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: #fff;
-  color: var(--text);
-  font-size: 12px;
-  text-align: right;
+.site3dImageToggle input {
+  width: 14px;
+  height: 14px;
+  min-height: 14px;
+  margin: 0;
+}
+
+.site3dImageOpacity input {
+  width: 88px;
+  height: 22px;
+  min-height: 22px;
+  accent-color: var(--accent);
 }
 
 .sitePlannerApp.view3d .toolbtn,
@@ -1133,8 +1141,8 @@ canvas {
   .dropdownMenu { position: fixed; top: 48px; left: auto; right: 8px; max-width: calc(100vw - 16px); min-width: 230px; }
   .site3dFloatingToolbar { top: 6px; max-width: calc(100% - 16px); padding: 4px 8px; }
   .site3dFabBtn { padding-inline: 9px; }
-  .site3dBaseControl { gap: 4px; }
-  .site3dBaseControl input { width: 46px; }
+  .site3dImageControls { gap: 6px; padding-left: 6px; }
+  .site3dImageOpacity input { width: 72px; }
   .splitExport { height: 34px; min-height: 34px; }
   .splitExport #svgBtn,
   .splitExport #exportMenuBtn { height: 34px !important; min-height: 34px !important; }

@@ -60,7 +60,7 @@ export function createInitialState() {
     contextTarget: null,
     sidebarOpen: false,
     viewMode: '2d',
-    site3d: { baseThicknessMm: 4 },
+    site3d: { imageVisible: true, imageOpacity: 0.45 },
     autosaveReady: false,
     autosaveRestored: false,
     dirty: false,

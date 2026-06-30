@@ -27,6 +27,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   const GITHUB_DEFAULT_SITE_DIR = githubData.DEFAULT_SITE_PLANS_DIR;
   const SITE_PLANNER_SEED_KEY = 'hakomachiSitePlannerSeed';
   const SITE_PLANNER_BUILDING_UPDATE_KEY = 'hakomachiSitePlannerBuildingUpdate_v1';
+  const SITE3D_BASE_THICKNESS_MM = 4;
+  const SITE3D_DEFAULT_IMAGE_OPACITY = 0.45;
   let autosaveTimer = null;
   let autosaveSuppressed = false;
   let renderQueued = false;
@@ -2136,6 +2138,21 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     view:null, scene:null, camera:null, renderer:null, controls:null,
     root:null, raycaster:null, pointer:null, pointerDown:null, hoverHelper:null, bounds:null, initialized:false
   };
+  function applySite3DSettings(raw=state.site3d){
+    const opacity=Number(raw?.imageOpacity);
+    state.site3d={
+      imageVisible: raw?.imageVisible !== false,
+      imageOpacity: clamp(Number.isFinite(opacity) ? opacity : SITE3D_DEFAULT_IMAGE_OPACITY, 0, 1)
+    };
+    return state.site3d;
+  }
+  function syncSite3DControls(){
+    const settings=applySite3DSettings();
+    const imageVisible=$('site3dImageVisible');
+    const imageOpacity=$('site3dImageOpacity');
+    if(imageVisible) imageVisible.checked=settings.imageVisible;
+    if(imageOpacity) imageOpacity.value=String(settings.imageOpacity);
+  }
   function site3DScale(v){ return state.pxPerMm ? pxToMm(v) : v; }
   function positiveNumber(...values){ for(const v of values){ const n=Number(v); if(Number.isFinite(n) && n>0) return n; } return null; }
   function site3DBuildingFootprintMm(b){ const pts=(b.padType==='rect'?transformedRect(b):(b.pointsPx||[])).map(p=>({x:site3DScale(p.x), y:site3DScale(p.y)})); return pts.length>=3 ? pts : null; }
@@ -2374,6 +2391,35 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       group.add(mesh);
     });
     return group;
+  }
+  function buildSite3DReferenceImage(bounds){
+    const settings=applySite3DSettings();
+    if(!settings.imageVisible || !state.image) return null;
+    const w=Number(state.image.naturalWidth||state.image.width||state.imageMeta?.naturalWidthPx);
+    const h=Number(state.image.naturalHeight||state.image.height||state.imageMeta?.naturalHeightPx);
+    if(!Number.isFinite(w)||!Number.isFinite(h)||w<=0||h<=0) return null;
+    const tex=new THREE.Texture(state.image);
+    tex.needsUpdate=true;
+    tex.minFilter=THREE.LinearFilter;
+    tex.magFilter=THREE.LinearFilter;
+    if(THREE.SRGBColorSpace) tex.colorSpace=THREE.SRGBColorSpace;
+    const mat=new THREE.MeshBasicMaterial({
+      map:tex,
+      transparent:true,
+      opacity:settings.imageOpacity,
+      side:THREE.DoubleSide,
+      depthWrite:false,
+      polygonOffset:true,
+      polygonOffsetFactor:-2,
+      polygonOffsetUnits:-2
+    });
+    const width=site3DScale(w);
+    const depth=site3DScale(h);
+    const mesh=new THREE.Mesh(new THREE.PlaneGeometry(width,depth),mat);
+    mesh.name='3D reference image plane';
+    mesh.rotation.x=Math.PI/2;
+    mesh.position.set(width/2-bounds.cx,.035,depth/2-bounds.cy);
+    return mesh;
   }
   function site3DAddFlatPolygon(group, pts, mat, outlineMat, name, y=.07){
     if(!pts || pts.length<3) return;
@@ -2868,10 +2914,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     while(site3d.root.children.length){ const child=site3d.root.children.pop(); disposeSite3DObject(child); }
     const bounds=site3DBounds();
     site3d.bounds=bounds;
-    const baseT=Math.max(.1,Number(state.site3d?.baseThicknessMm)||4);
+    const baseT=SITE3D_BASE_THICKNESS_MM;
     const benchworkBaseCount=site3DBenchworkFootprintsMm().length;
     const base=buildSite3DBase(bounds,baseT);
     site3d.root.add(base);
+    const referenceImage=buildSite3DReferenceImage(bounds);
+    if(referenceImage) site3d.root.add(referenceImage);
     const roads=buildSite3DRoadGroup(bounds);
     if(roads) site3d.root.add(roads);
     if(!benchworkBaseCount){
@@ -2920,17 +2968,27 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const view3d=$('view3dCanvasBtn');
     if(view2d && !view2d.dataset.site3dBound){ view2d.dataset.site3dBound='1'; view2d.onclick=()=>setSite3DMode(false); }
     if(view3d && !view3d.dataset.site3dBound){ view3d.dataset.site3dBound='1'; view3d.onclick=()=>setSite3DMode(true); }
-    const baseInput=$('site3dBaseThickness');
-    if(baseInput && !baseInput.dataset.site3dBound){
-      baseInput.dataset.site3dBound='1';
-      baseInput.value=String(state.site3d?.baseThicknessMm ?? 4);
-      baseInput.oninput=()=>{
+    const imageVisible=$('site3dImageVisible');
+    const imageOpacity=$('site3dImageOpacity');
+    if(imageVisible && !imageVisible.dataset.site3dBound){
+      imageVisible.dataset.site3dBound='1';
+      imageVisible.onchange=()=>{
         state.site3d=state.site3d||{};
-        state.site3d.baseThicknessMm=Math.max(.1,parseFloat(baseInput.value)||4);
+        state.site3d.imageVisible=!!imageVisible.checked;
         updateSite3D();
-        markDirty('3d base thickness');
+        markDirty('3d reference image visibility');
       };
     }
+    if(imageOpacity && !imageOpacity.dataset.site3dBound){
+      imageOpacity.dataset.site3dBound='1';
+      imageOpacity.oninput=()=>{
+        state.site3d=state.site3d||{};
+        state.site3d.imageOpacity=clamp(parseFloat(imageOpacity.value)||0,0,1);
+        updateSite3D();
+        markDirty('3d reference image opacity');
+      };
+    }
+    syncSite3DControls();
   }
 
 
@@ -2993,8 +3051,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.imageOpacity=Number.isFinite(Number(data.imageOpacity))?Number(data.imageOpacity):.75;
     state.imageLocked=data.imageLocked!==false;
     state.view=data.view||{x:40,y:40,scale:1};
-    state.site3d={baseThicknessMm:4, ...(data.site3d||{})};
-    if($('site3dBaseThickness')) $('site3dBaseThickness').value=String(state.site3d.baseThicknessMm ?? 4);
+    applySite3DSettings(data.site3d||{});
+    syncSite3DControls();
     state.pxPerMm=data.pxPerMm||null;
     state.calibrationLine=data.calibrationLine||null;
     state.lastCalibrationLine=data.lastCalibrationLine||state.calibrationLine||null;
@@ -4932,8 +4990,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.imageLocked=true;
     state.view={x:40,y:40,scale:1};
     state.viewMode='2d';
-    state.site3d={baseThicknessMm:4};
-    if($('site3dBaseThickness')) $('site3dBaseThickness').value=String(state.site3d.baseThicknessMm);
+    applySite3DSettings({});
+    syncSite3DControls();
     wrap.classList.remove('view3d');
     document.querySelector('.sitePlannerApp')?.classList.remove('view3d');
     state.pxPerMm=null;
@@ -5440,8 +5498,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.imageLocked=p.imageLocked ?? state.imageLocked ?? true;
     state.view=restoreProjectView(p) || state.view;
     state.viewMode='2d';
-    state.site3d={baseThicknessMm:4, ...(p.site3d||{})};
-    if($('site3dBaseThickness')) $('site3dBaseThickness').value=String(state.site3d.baseThicknessMm ?? 4);
+    applySite3DSettings(p.site3d||{});
+    syncSite3DControls();
     wrap.classList.remove('view3d');
     document.querySelector('.sitePlannerApp')?.classList.remove('view3d');
     state.pxPerMm=p.scale?.pxPerMm||null;

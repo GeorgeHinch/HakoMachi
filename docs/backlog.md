@@ -252,7 +252,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-017: Move layout image controls into Site Planner 3D view
 
-- Status: Proposed
+- Status: Done
 - Group: Site planner
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/21

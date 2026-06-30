@@ -204,7 +204,7 @@ body {
 .toolbar {
   grid-column: 1;
   grid-row: 2 / 3;
-  background: #f8f8f4;
+  background: #e8e8e0;
   border-right: 1px solid var(--border);
   box-shadow: none;
   display: flex;

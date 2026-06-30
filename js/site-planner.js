@@ -19,7 +19,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     view.id = 'site3dView';
     view.className = 'site3dView';
     view.setAttribute('aria-label', '3D site view');
-    view.innerHTML = '<div id="site3dStatus" class="site3dStatus">3D view</div>';
     wrap.insertBefore(view, canvas.nextSibling);
     return view;
   }
@@ -2083,10 +2082,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
 
 
   const site3d = {
-    view:null, status:null, scene:null, camera:null, renderer:null, controls:null,
+    view:null, scene:null, camera:null, renderer:null, controls:null,
     root:null, raycaster:null, pointer:null, pointerDown:null, hoverHelper:null, bounds:null, initialized:false
   };
-  function setSite3DStatus(message){ const el=site3d.status || $('site3dStatus'); if(el) el.textContent=message; }
   function site3DScale(v){ return state.pxPerMm ? pxToMm(v) : v; }
   function positiveNumber(...values){ for(const v of values){ const n=Number(v); if(Number.isFinite(n) && n>0) return n; } return null; }
   function site3DBuildingFootprintMm(b){ const pts=(b.padType==='rect'?transformedRect(b):(b.pointsPx||[])).map(p=>({x:site3DScale(p.x), y:site3DScale(p.y)})); return pts.length>=3 ? pts : null; }
@@ -2635,8 +2633,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function initSite3D(){
     if(site3d.initialized) return true;
     site3d.view=ensureSite3dView();
-    site3d.status=$('site3dStatus');
-    if(typeof THREE==='undefined'){ setSite3DStatus('3D view unavailable: Three.js did not load.'); return false; }
+    if(typeof THREE==='undefined'){ console.warn('[HakoMachi Site Planner] 3D view unavailable: Three.js did not load.'); return false; }
     site3d.scene=new THREE.Scene();
     site3d.scene.background=new THREE.Color(0xecece6);
     site3d.camera=new THREE.PerspectiveCamera(45,1,.1,5000);
@@ -2772,7 +2769,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       grid.position.y=.015;
       site3d.root.add(grid);
     }
-    let rendered=0, generated=0, detailed=0;
     state.buildings.forEach(raw=>{
       const b=normalizeBuilding(raw);
       syncBuildingMetrics(b);
@@ -2780,13 +2776,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const g=buildSite3DBuildingGroup(b,bounds);
       if(g){
         tagSite3DBuilding(g,b);
-        if(g.userData?.sitePlannerGeneratorPreview) generated++; else if(g.userData?.sitePlannerDetailedFallback) detailed++;
         site3d.root.add(g);
         if(isBuildingSelected(b.id)){
           const helper=buildSite3DSelectionHelper(b,bounds);
           if(helper) site3d.root.add(helper);
         }
-        rendered++;
       }
     });
     const radius=Math.max(bounds.width,bounds.depth,60);
@@ -2798,8 +2792,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(site3d.controls){ site3d.controls.target.set(0,0,0); site3d.controls.update(); }
       else site3d.camera.lookAt(0,0,0);
     }
-    const baseSource=benchworkBaseCount ? `Base follows ${benchworkBaseCount} benchwork outline${benchworkBaseCount===1?'':'s'}` : 'Rectangular base';
-    setSite3DStatus(`3D view: ${rendered} buildings, ${generated} generator previews, ${detailed} detailed massing. ${baseSource} and extends ${fmt(baseT)} mm below zero.`);
     updateSite3DHoverIndicator();
     renderSite3D();
   }

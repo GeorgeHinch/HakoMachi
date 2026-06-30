@@ -1,4 +1,4 @@
-﻿/* Generated ES module runtime for the HakoMachi Building Generator. */
+/* Generated ES module runtime for the HakoMachi Building Generator. */
 /* Source files are the former numbered classic runtime stack, kept in one module scope so shared editor state remains coherent. */
 
 
@@ -29,8 +29,8 @@ globalThis.HakoMachiGithubDataShared = githubData;
 
   const I18N = {
     en: {
-      settings: 'â˜ GitHub data settings',
-      save: 'â˜ Save building to GitHub',
+      settings: '☁ GitHub data settings',
+      save: '☁ Save building to GitHub',
       title: 'GitHub data repository',
       repo: 'Private data repo',
       repoHelp: 'Use owner/repo, for example GeorgeHinch/HakoMachi-data. Keep this repo private if the footprint library should be private.',
@@ -44,27 +44,27 @@ globalThis.HakoMachiGithubDataShared = githubData;
       savedSettings: 'GitHub data settings saved in this browser.',
       missingSettings: 'Add GitHub data settings first.',
       buildingName: 'Building name for GitHub save',
-      saving: 'Saving building to GitHubâ€¦',
+      saving: 'Saving building to GitHub…',
       saved: 'Saved building to GitHub data repo.',
     },
     ja: {
-      settings: 'â˜ GitHubãƒ‡ãƒ¼ã‚¿è¨­å®š',
-      save: 'â˜ å»ºç‰©ã‚’GitHubã¸ä¿å­˜',
-      title: 'GitHubãƒ‡ãƒ¼ã‚¿ãƒªãƒã‚¸ãƒˆãƒª',
-      repo: 'éžå…¬é–‹ãƒ‡ãƒ¼ã‚¿repo',
-      repoHelp: 'owner/repoå½¢å¼ã§å…¥åŠ›ã—ã¾ã™ï¼ˆä¾‹: GeorgeHinch/HakoMachi-dataï¼‰ã€‚ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã‚’éžå…¬é–‹ã«ã—ãŸã„å ´åˆã¯ã€ã“ã®repoã‚’éžå…¬é–‹ã«ã—ã¦ãã ã•ã„ã€‚',
-      branch: 'ãƒ–ãƒ©ãƒ³ãƒ',
+      settings: '☁ GitHubデータ設定',
+      save: '☁ 建物をGitHubへ保存',
+      title: 'GitHubデータリポジトリ',
+      repo: '非公開データrepo',
+      repoHelp: 'owner/repo形式で入力します（例: GeorgeHinch/HakoMachi-data）。ライブラリを非公開にしたい場合は、このrepoを非公開にしてください。',
+      branch: 'ブランチ',
       token: 'Fine-grained token',
-      tokenHelp: 'ã“ã®ãƒ–ãƒ©ã‚¦ã‚¶å†…ã«ã®ã¿ä¿å­˜ã•ã‚Œã¾ã™ã€‚éžå…¬é–‹ãƒ‡ãƒ¼ã‚¿repoã® Contents: read/write æ¨©é™ãŒå¿…è¦ã§ã™ã€‚',
-      libraryPath: 'ãƒ•ãƒƒãƒˆãƒ—ãƒªãƒ³ãƒˆãƒ©ã‚¤ãƒ–ãƒ©ãƒªã®ãƒ‘ã‚¹',
-      buildingsDir: 'å»ºç‰©ãƒ•ã‚¡ã‚¤ãƒ«ã®ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª',
-      saveSettings: 'è¨­å®šã‚’ä¿å­˜',
-      close: 'é–‰ã˜ã‚‹',
-      savedSettings: 'GitHubãƒ‡ãƒ¼ã‚¿è¨­å®šã‚’ã“ã®ãƒ–ãƒ©ã‚¦ã‚¶ã«ä¿å­˜ã—ã¾ã—ãŸã€‚',
-      missingSettings: 'å…ˆã«GitHubãƒ‡ãƒ¼ã‚¿è¨­å®šã‚’è¿½åŠ ã—ã¦ãã ã•ã„ã€‚',
-      buildingName: 'GitHubä¿å­˜ç”¨ã®å»ºç‰©å',
-      saving: 'GitHubã¸å»ºç‰©ã‚’ä¿å­˜ä¸­â€¦',
-      saved: 'GitHubãƒ‡ãƒ¼ã‚¿repoã¸å»ºç‰©ã‚’ä¿å­˜ã—ã¾ã—ãŸã€‚',
+      tokenHelp: 'このブラウザ内にのみ保存されます。非公開データrepoの Contents: read/write 権限が必要です。',
+      libraryPath: 'フットプリントライブラリのパス',
+      buildingsDir: '建物ファイルのディレクトリ',
+      saveSettings: '設定を保存',
+      close: '閉じる',
+      savedSettings: 'GitHubデータ設定をこのブラウザに保存しました。',
+      missingSettings: '先にGitHubデータ設定を追加してください。',
+      buildingName: 'GitHub保存用の建物名',
+      saving: 'GitHubへ建物を保存中…',
+      saved: 'GitHubデータrepoへ建物を保存しました。',
     },
   };
 
@@ -96,7 +96,7 @@ globalThis.HakoMachiGithubDataShared = githubData;
         const label = (typeof BUILDING_TYPES !== 'undefined' && BUILDING_TYPES[type] && BUILDING_TYPES[type].label) || type || 'building';
         const w = Number(CONFIG.width) || 0;
         const d = Number(CONFIG.depth) || 0;
-        return `${label} ${w.toFixed(0)}Ã—${d.toFixed(0)}mm`;
+        return `${label} ${w.toFixed(0)}×${d.toFixed(0)}mm`;
       }
     } catch (_) {}
     return 'HakoMachi building';
@@ -340,7 +340,7 @@ globalThis.HakoMachiGithubDataShared = githubData;
    CONSTANTS & DEFAULTS
    ===================================================================== */
 
-const PT_PER_MM = 1 / 0.3528;  // â‰ˆ 2.8346  (1pt = 0.3528mm)
+const PT_PER_MM = 1 / 0.3528;  // ≈ 2.8346  (1pt = 0.3528mm)
 
 // Color palette for SVG output
 const COLOR_CUT = '#FF0000';
@@ -413,7 +413,7 @@ const BUILDING_TYPES = {
   },
   workshop: {
     label: 'Small workshop / Factory',
-    description: 'Small-to-medium factory ("ç”ºå·¥å ´"). One bay door, modest windows, sometimes corrugated metal.',
+    description: 'Small-to-medium factory ("町工場"). One bay door, modest windows, sometimes corrugated metal.',
     defaults: {
       width: 80, depth: 70, height: 50,
       claddingStyle: 'ribbed_metal_narrow',
@@ -447,7 +447,7 @@ const BUILDING_TYPES = {
   },
   shop: {
     label: 'Storefront / Shop',
-    description: 'Small commercial shop ("å•†åº—"). Wide front windows, narrow facade.',
+    description: 'Small commercial shop ("商店"). Wide front windows, narrow facade.',
     defaults: {
       width: 60, depth: 80, height: 50,
       claddingStyle: 'concrete_panel_small',
@@ -528,45 +528,45 @@ const BUILDING_TYPES = {
 /* =====================================================================
    CLADDING STYLES
    Each defines how to add etched detail to a cladding panel.
-   Dimensions are in mm at 1:150 N-scale (real-world dim Ã· 150).
-   
+   Dimensions are in mm at 1:150 N-scale (real-world dim ÷ 150).
+
    Pattern types:
-     'lines'         â€” simple horizontal/vertical seam grid (panel siding)
-     'offset_courses'â€” brick/stone with staggered horizontal courses
-     'diagonal_grid' â€” namako-kabe diagonal tile pattern
-     'tile_overlap'  â€” kawara roof-tile-like overlapping wave pattern
+     'lines'         — simple horizontal/vertical seam grid (panel siding)
+     'offset_courses'— brick/stone with staggered horizontal courses
+     'diagonal_grid' — namako-kabe diagonal tile pattern
+     'tile_overlap'  — kawara roof-tile-like overlapping wave pattern
    ===================================================================== */
 const CLADDING_STYLES = {
   // ---- Modern industrial / commercial ----
   alc_panel: {
     label: 'ALC panel (vertical, 4mm wide)',
-    description: 'Autoclaved Lightweight Concrete panels. Real size 600Ã—3000mm. Most common on Japanese factories, warehouses, commercial buildings. Vertical orientation, narrow joint lines.',
+    description: 'Autoclaved Lightweight Concrete panels. Real size 600×3000mm. Most common on Japanese factories, warehouses, commercial buildings. Vertical orientation, narrow joint lines.',
     pattern: 'lines',
-    seamSpacing: { vertical: 4, horizontal: 20 },  // 600mm wide Ã— 3000mm tall at 1:150
+    seamSpacing: { vertical: 4, horizontal: 20 },  // 600mm wide × 3000mm tall at 1:150
     notes: 'Vertical primary seams every ~4mm; faint horizontal lines mark panel ends every ~20mm.',
   },
   alc_panel_horizontal: {
     label: 'ALC panel (horizontal, 4mm tall)',
-    description: 'Same 600Ã—3000mm ALC panels as the standard vertical variant, but laid flat. Horizontal courses every ~4mm with faint vertical lines every ~20mm where each panel ends. Common on small commercial and modern residential â€” the rotated layout reads quite differently from vertical ALC and gives the building a stretched, low-slung feel.',
+    description: 'Same 600×3000mm ALC panels as the standard vertical variant, but laid flat. Horizontal courses every ~4mm with faint vertical lines every ~20mm where each panel ends. Common on small commercial and modern residential — the rotated layout reads quite differently from vertical ALC and gives the building a stretched, low-slung feel.',
     pattern: 'lines',
     seamSpacing: { vertical: 20, horizontal: 4 },
     notes: 'Horizontal primary seams every ~4mm; faint vertical lines mark panel ends every ~20mm. Swap with alc_panel for a different visual rhythm without changing material.',
   },
   alc_panel_wide: {
     label: 'ALC panel (wide 1200mm)',
-    description: 'Wider 1200Ã—3000mm ALC panels used on big-box retail, logistics centres, and modern large-format warehouses. Verticals spaced every ~8mm instead of 4mm gives a cleaner, more spacious read â€” fewer joints across a long elevation. Same material as standard ALC, different module size.',
+    description: 'Wider 1200×3000mm ALC panels used on big-box retail, logistics centres, and modern large-format warehouses. Verticals spaced every ~8mm instead of 4mm gives a cleaner, more spacious read — fewer joints across a long elevation. Same material as standard ALC, different module size.',
     pattern: 'lines',
     seamSpacing: { vertical: 8, horizontal: 20 },
     notes: 'Double-width ALC. Use on long elevations where the standard 4mm seams would look too busy.',
   },
   alc_panel_bolted: {
     label: 'ALC panel (exposed fasteners)',
-    description: 'ALC with visible corner-bolt fasteners â€” heavier industrial spec used on factories, silos, and steel-frame warehouses where the panels are bolted through to the structural frame rather than concealed-fastened. Small etched dots mark each panel-corner intersection.',
+    description: 'ALC with visible corner-bolt fasteners — heavier industrial spec used on factories, silos, and steel-frame warehouses where the panels are bolted through to the structural frame rather than concealed-fastened. Small etched dots mark each panel-corner intersection.',
     pattern: 'lines',
     seamSpacing: { vertical: 4, horizontal: 20 },
     boltDots: true,
     boltSize: 0.55,
-    notes: 'Standard 4mm ALC seams plus a small + tick at each panel corner representing the visible fastener. Bolts approach laser-etch resolution at 1:150 â€” they show as compact crosses rather than round dots, which still reads as "exposed-fastener industrial" without needing higher resolution than the laser can cleanly produce.',
+    notes: 'Standard 4mm ALC seams plus a small + tick at each panel corner representing the visible fastener. Bolts approach laser-etch resolution at 1:150 — they show as compact crosses rather than round dots, which still reads as "exposed-fastener industrial" without needing higher resolution than the laser can cleanly produce.',
   },
   alc_panel_ribbed: {
     label: 'ALC panel (decorative ribs)',
@@ -574,7 +574,7 @@ const CLADDING_STYLES = {
     pattern: 'lines',
     seamSpacing: { vertical: 4, horizontal: 20 },
     verticalSubdivide: 3,
-    notes: 'Three decorative ribs etched within each ALC panel. Reads finer than plain ALC at the same panel spacing â€” gives a more refined commercial look without the busyness of corrugated metal.',
+    notes: 'Three decorative ribs etched within each ALC panel. Reads finer than plain ALC at the same panel spacing — gives a more refined commercial look without the busyness of corrugated metal.',
   },
   ribbed_metal_wide: {
     label: 'Ribbed metal panel (wide)',
@@ -600,7 +600,7 @@ const CLADDING_STYLES = {
     description: 'Long flat metal sheets joined by raised vertical seams every ~400-500mm real (~3mm at scale). Common on residential, light-commercial, and shop roofs across Japan. Pairs naturally with the flat-overhang roof style.',
     pattern: 'lines',
     seamSpacing: { vertical: 3, horizontal: null },
-    notes: 'Single bold seam direction. For a flat roof seen from above the seam direction is just visual â€” pick whichever orientation reads better with the building proportions.',
+    notes: 'Single bold seam direction. For a flat roof seen from above the seam direction is just visual — pick whichever orientation reads better with the building proportions.',
   },
   ribbed_metal_narrow: {
     label: 'Ribbed metal panel (narrow)',
@@ -618,7 +618,7 @@ const CLADDING_STYLES = {
   },
   galvalume_vertical: {
     label: 'Galvalume vertical (residential metal)',
-    description: 'Galvalume (zinc-aluminium-coated steel) sheets installed vertically with narrow seams every ~450mm = 3mm at scale. Modern residential and small commercial â€” the dominant cladding on contemporary Japanese houses since the early 2000s. Sits between standing-seam roof (wider seams) and ribbed metal (denser ribs) in the metal-cladding family.',
+    description: 'Galvalume (zinc-aluminium-coated steel) sheets installed vertically with narrow seams every ~450mm = 3mm at scale. Modern residential and small commercial — the dominant cladding on contemporary Japanese houses since the early 2000s. Sits between standing-seam roof (wider seams) and ribbed metal (denser ribs) in the metal-cladding family.',
     pattern: 'lines',
     seamSpacing: { vertical: 3, horizontal: null },
     notes: 'Vertical metal seams only. Pairs visually with metal-roof and flat-overhang styles.',
@@ -632,20 +632,20 @@ const CLADDING_STYLES = {
   },
   mosaic_tile: {
     label: 'Mosaic tile (50mm)',
-    description: 'Small 50Ã—50mm ceramic mosaic tiles in a tight grid â€” the classic 1970s-80s commercial-bathhouse-older-shop look, also seen on entry plinths of mid-century apartments. Grid at ~0.5mm sits at the edge of laser-etch resolution at 1:150; the result reads as a fine texture rather than individually-distinguishable tiles, which matches how it looks at viewing distance anyway.',
+    description: 'Small 50×50mm ceramic mosaic tiles in a tight grid — the classic 1970s-80s commercial-bathhouse-older-shop look, also seen on entry plinths of mid-century apartments. Grid at ~0.5mm sits at the edge of laser-etch resolution at 1:150; the result reads as a fine texture rather than individually-distinguishable tiles, which matches how it looks at viewing distance anyway.',
     pattern: 'lines',
     seamSpacing: { vertical: 0.5, horizontal: 0.5 },
-    notes: 'Fine 0.5mm grid â€” at the edge of laser resolution. Test-cut a small swatch before committing to a full elevation; you may need to thin the etch line or widen to 0.6mm depending on your laser and material combination.',
+    notes: 'Fine 0.5mm grid — at the edge of laser resolution. Test-cut a small swatch before committing to a full elevation; you may need to thin the etch line or widen to 0.6mm depending on your laser and material combination.',
   },
   concrete_panel_large: {
     label: 'Concrete panel (large)',
-    description: 'Pre-cast concrete panels with grid joints. Real 3Ã—3m panels = 20Ã—20mm grid. Office buildings, modern retail.',
+    description: 'Pre-cast concrete panels with grid joints. Real 3×3m panels = 20×20mm grid. Office buildings, modern retail.',
     pattern: 'lines',
     seamSpacing: { vertical: 20, horizontal: 20 },
   },
   concrete_panel_small: {
     label: 'Concrete panel (small)',
-    description: 'Smaller pre-cast panels in 1.5Ã—1.5m grid (10Ã—10mm at scale). Office faÃ§ades, parking structures.',
+    description: 'Smaller pre-cast panels in 1.5×1.5m grid (10×10mm at scale). Office façades, parking structures.',
     pattern: 'lines',
     seamSpacing: { vertical: 10, horizontal: 10 },
   },
@@ -659,16 +659,16 @@ const CLADDING_STYLES = {
     notes: 'Tightly-spaced vertical plank seams.',
   },
   board_batten: {
-    label: 'Board and batten (æŠ¼ç¸å¼µã‚Š)',
-    description: 'Vertical wood boards joined edge-to-edge with raised batten strips covering each joint. The battens read as paired etched lines marking each batten\'s left and right edge â€” a distinctive doubled-rhythm look that\'s hard to confuse with plain plank siding. Traditional storehouses (kura), country houses, modern accent walls and some contemporary architect-designed residences.',
+    label: 'Board and batten (押縁張り)',
+    description: 'Vertical wood boards joined edge-to-edge with raised batten strips covering each joint. The battens read as paired etched lines marking each batten\'s left and right edge — a distinctive doubled-rhythm look that\'s hard to confuse with plain plank siding. Traditional storehouses (kura), country houses, modern accent walls and some contemporary architect-designed residences.',
     pattern: 'board_batten',
     boardWidth: 2.0,     // ~300mm board at 1:150
-    battenWidth: 0.6,    // ~90mm batten at 1:150 â€” exaggerated to be visible at scale; real battens (~50mm = 0.3mm) would etch as a single line and lose the doubled-line character that defines this cladding type
-    // Swatch-only hint for the editor's popover preview â€” the actual
+    battenWidth: 0.6,    // ~90mm batten at 1:150 — exaggerated to be visible at scale; real battens (~50mm = 0.3mm) would etch as a single line and lose the doubled-line character that defines this cladding type
+    // Swatch-only hint for the editor's popover preview — the actual
     // pattern is emitted by the `board_batten` branch in
     // generateCladdingPattern using boardWidth/battenWidth above. The
     // simple swatch can only draw evenly-spaced lines, so we use the
-    // cycle (board + batten) as the vertical spacing â€” close enough to
+    // cycle (board + batten) as the vertical spacing — close enough to
     // "looks like vertical wood siding" for the picker thumbnail.
     seamSpacing: { vertical: 2.6, horizontal: null },
     notes: 'Battens slightly oversized at 1:150 so the paired lines read as two distinct etches rather than merging. The cycle (board + batten) is what matches the real-world rhythm.',
@@ -681,26 +681,26 @@ const CLADDING_STYLES = {
   },
   hira_gawara_wall: {
     label: 'Hira-gawara wall (square tile)',
-    description: 'Flat square clay-tile wall cladding â€” distinct from the overlapping ridged kawara roof tile. Tiles laid edge-to-edge in a regular grid, ~265mm = 1.8mm at scale. Used on temple foundations, traditional commercial buildings, and some refined residential plinths. The square grid reads quite differently from offset stone courses.',
+    description: 'Flat square clay-tile wall cladding — distinct from the overlapping ridged kawara roof tile. Tiles laid edge-to-edge in a regular grid, ~265mm = 1.8mm at scale. Used on temple foundations, traditional commercial buildings, and some refined residential plinths. The square grid reads quite differently from offset stone courses.',
     pattern: 'lines',
     seamSpacing: { vertical: 1.8, horizontal: 1.8 },
-    notes: 'Wall cladding, NOT roof â€” use kawara_tile for overlapping ridged roof tile.',
+    notes: 'Wall cladding, NOT roof — use kawara_tile for overlapping ridged roof tile.',
   },
   kawara_tile: {
     label: 'Kawara (roof tile)',
-    description: 'Traditional clay roof tiles, used on roof CLADDING ONLY. Real ~265Ã—305mm = 1.8Ã—2mm. Houses, temples, shrines.',
+    description: 'Traditional clay roof tiles, used on roof CLADDING ONLY. Real ~265×305mm = 1.8×2mm. Houses, temples, shrines.',
     pattern: 'tile_overlap',
     tileW: 1.8, tileH: 2.0,
     notes: 'Use on roof cladding piece, not walls.',
   },
   corrugated_metal_overlap: {
     label: 'Corrugated metal (overlapping sheets)',
-    description: 'Galvanized corrugated metal roofing in overlapping sheets â€” the classic "tin roof" look seen on industrial sheds, agricultural buildings, and weathered tropical residences. Sheets ~750Ã—1800mm real (5Ã—12mm at 1:150), each with fine vertical corrugation ridges; adjacent rows offset half a sheet width so the lap joints stagger like brickwork.',
+    description: 'Galvanized corrugated metal roofing in overlapping sheets — the classic "tin roof" look seen on industrial sheds, agricultural buildings, and weathered tropical residences. Sheets ~750×1800mm real (5×12mm at 1:150), each with fine vertical corrugation ridges; adjacent rows offset half a sheet width so the lap joints stagger like brickwork.',
     pattern: 'corrugated_overlap',
     sheetW: 5, sheetH: 12,
     corrugationSpacing: 0.7,
     offsetFraction: 0.5,
-    // For the editor's mini-swatch preview only â€” the actual etched pattern
+    // For the editor's mini-swatch preview only — the actual etched pattern
     // is emitted by the `corrugated_overlap` branch in generateCladdingPattern,
     // which uses sheetW/sheetH/corrugationSpacing/offsetFraction above.
     // seamSpacing here just gives the popover swatch a sane "dense vertical
@@ -708,27 +708,27 @@ const CLADDING_STYLES = {
     // ish in the picker; without it the swatch would draw as a plain
     // rectangle.
     seamSpacing: { vertical: 0.7, horizontal: 12 },
-    notes: 'Roof cladding style â€” pairs naturally with slanted or gabled roofs. Corrugation spacing is at the edge of laser-etch resolution at 1:150; verify on a sample cut and widen the spacing if ridges blur together.',
+    notes: 'Roof cladding style — pairs naturally with slanted or gabled roofs. Corrugation spacing is at the edge of laser-etch resolution at 1:150; verify on a sample cut and widen the spacing if ridges blur together.',
   },
 
   // ---- Stone & brick ----
   brick_course: {
     label: 'Brick (running bond)',
-    description: 'Standard Japanese brick: 210Ã—60mm = 1.4Ã—0.4mm at scale. Pattern is etched only (individual bricks too small to cut). Banks, post offices, station buildings.',
+    description: 'Standard Japanese brick: 210×60mm = 1.4×0.4mm at scale. Pattern is etched only (individual bricks too small to cut). Banks, post offices, station buildings.',
     pattern: 'offset_courses',
     courseW: 1.4, courseH: 0.4,
     offsetFraction: 0.5,
   },
   stone_ashlar_small: {
     label: 'Stone ashlar (small course)',
-    description: 'Small dressed stone blocks ~300Ã—200mm = 2Ã—1.3mm. Government buildings, older banks, retaining walls.',
+    description: 'Small dressed stone blocks ~300×200mm = 2×1.3mm. Government buildings, older banks, retaining walls.',
     pattern: 'offset_courses',
     courseW: 2.0, courseH: 1.3,
     offsetFraction: 0.5,
   },
   stone_ashlar_large: {
     label: 'Stone ashlar (large course)',
-    description: 'Large rusticated stone blocks ~600Ã—400mm = 4Ã—2.7mm. Civic landmarks, monumental architecture.',
+    description: 'Large rusticated stone blocks ~600×400mm = 4×2.7mm. Civic landmarks, monumental architecture.',
     pattern: 'offset_courses',
     courseW: 4.0, courseH: 2.7,
     offsetFraction: 0.5,
@@ -771,13 +771,13 @@ const WINDOW_STYLES = {
     mullion: 'vertical_1',
   },
   office_grid_2x2: {
-    label: 'Office 2Ã—2 grid',
+    label: 'Office 2×2 grid',
     description: 'Square window with cross mullion making four panes. Mid-rise office buildings.',
     baseW: 10, baseH: 10,
     mullion: 'grid_2x2',
   },
   office_grid_3x2: {
-    label: 'Office 3Ã—2 grid',
+    label: 'Office 3×2 grid',
     description: 'Wide window with three vertical and one horizontal mullion (six panes).',
     baseW: 15, baseH: 10,
     mullion: 'grid_3x2',
@@ -834,13 +834,13 @@ const WINDOW_STYLES = {
   /* ---- Japanese window types ----
    * `frameColor` / `paneFill` are preview-rendering hints used by the toolbox
    * icon and editor canvas so the on-screen appearance matches the laser-cut
-   * material. They do not change what gets cut â€” the actual frame piece is
+   * material. They do not change what gets cut — the actual frame piece is
    * still cladding (or `frameMaterial` if specified, e.g. plaster for mushiko).
    * `mullion` values trigger Japanese-specific lattice generators inside
    * `windowFeatureShapes` (etched bars / kumiko) or `panesForMullion`
    * (real cut-through slits for mushiko). */
   renji_mado: {
-    label: 'Renji-mado (é€£å­çª“)',
+    label: 'Renji-mado (連子窓)',
     description: 'Dense vertical wooden bars over a single fixed pane. Machiya shops, alleys.',
     baseW: 9, baseH: 7,
     mullion: 'renji_vertical',
@@ -848,7 +848,7 @@ const WINDOW_STYLES = {
     paneFill:   'rgba(248,232,200,0.85)',
   },
   mushiko_mado: {
-    label: 'Mushiko-mado (è™«ç± çª“)',
+    label: 'Mushiko-mado (虫籠窓)',
     description: 'Thick plaster grille with narrow cut-through slits. Upper floors of historic machiya.',
     baseW: 10, baseH: 4,
     mullion: 'mushiko_slits',
@@ -857,7 +857,7 @@ const WINDOW_STYLES = {
     frameMaterial: 'plaster',
   },
   shoji_grid: {
-    label: 'Shoji-grid (éšœå­)',
+    label: 'Shoji-grid (障子)',
     description: 'Fine kumiko lattice over a single warm-tinted pane. Traditional residences and tea houses.',
     baseW: 8, baseH: 11,
     mullion: 'shoji_grid',
@@ -865,7 +865,7 @@ const WINDOW_STYLES = {
     paneFill:   'rgba(252,245,225,0.92)',
   },
   ranma_lattice: {
-    label: 'Ranma (æ¬„é–“)',
+    label: 'Ranma (欄間)',
     description: 'Decorative transom band with fine vertical lattice. Above doorways and in upper-wall bands.',
     baseW: 14, baseH: 3,
     mullion: 'ranma_lattice',
@@ -873,15 +873,15 @@ const WINDOW_STYLES = {
     paneFill:   'rgba(248,232,200,0.85)',
   },
   yukimi_shoji: {
-    label: 'Yukimi-shoji (é›ªè¦‹éšœå­)',
-    description: 'Upper half gridded shoji, lower half clear glass â€” "snow-viewing" window.',
+    label: 'Yukimi-shoji (雪見障子)',
+    description: 'Upper half gridded shoji, lower half clear glass — "snow-viewing" window.',
     baseW: 7, baseH: 11,
     mullion: 'yukimi_split',
     frameColor: '#6a4a2a',
     paneFill:   'rgba(252,245,225,0.92)',  // top half (paper); bottom half is clear glass
   },
   renji_tall: {
-    label: 'Renji-tall (ç¸¦é€£å­)',
+    label: 'Renji-tall (縦連子)',
     description: 'Tall narrow renji variant. Stairwell-height vertical lattice on machiya side walls.',
     baseW: 5, baseH: 13,
     mullion: 'renji_vertical',
@@ -891,27 +891,27 @@ const WINDOW_STYLES = {
 
   /* ---- Blanked windows ----
    * Two no-glass variants for facade detail without a real opening:
-   *   â€¢ blanked_etched   â€” NO cut anywhere; cladding gets an etched rectangle
+   *   • blanked_etched   — NO cut anywhere; cladding gets an etched rectangle
    *                        (with a faint sash cross) at the window's location.
    *                        Use for painted/faux windows or alley-side walls
    *                        where you want to indicate "window space" without
    *                        cutting through to the interior.
-   *   â€¢ blanked_filled   â€” Cladding + core are cut as usual, but instead of
+   *   • blanked_filled   — Cladding + core are cut as usual, but instead of
    *                        glass + frames, a single opaque blanking panel
    *                        (cladding material, sized to fit the core hole)
    *                        sits behind the cladding. Reads as a solid darker
-   *                        rectangle from outside â€” like a boarded-up or
+   *                        rectangle from outside — like a boarded-up or
    *                        bricked-in window.
    * Both use placement: 'etched' / 'blanked' which the wall + parts
    * generators check; existing 'opening' styles need no flag (default). */
   blanked_etched: {
     label: 'Blanked (etched on cladding)',
-    description: 'Faux/painted window â€” etched outline + sash cross on the cladding. No cut, no glass. Use for blank walls that need visual rhythm.',
+    description: 'Faux/painted window — etched outline + sash cross on the cladding. No cut, no glass. Use for blank walls that need visual rhythm.',
     baseW: 8, baseH: 10,
     mullion: 'none',
     placement: 'etched',
     frameColor: '#2a1808',
-    paneFill: 'rgba(60,55,48,0.4)',  // editor preview only â€” darker patch with no transparency
+    paneFill: 'rgba(60,55,48,0.4)',  // editor preview only — darker patch with no transparency
   },
 
   blanked_filled: {
@@ -921,11 +921,11 @@ const WINDOW_STYLES = {
     mullion: 'none',
     placement: 'blanked',
     frameColor: '#2a1808',
-    paneFill: 'rgba(50,42,32,0.92)',  // editor preview â€” opaque dark fill
+    paneFill: 'rgba(50,42,32,0.92)',  // editor preview — opaque dark fill
   },
 };
 
-/* Window size SCALE â€” multiplies the style's intrinsic size */
+/* Window size SCALE — multiplies the style's intrinsic size */
 const WINDOW_SCALES = {
   small: 0.75,
   default: 1.0,
@@ -952,29 +952,29 @@ const BALCONY_STYLES = {
   ext_m: { label: 'External M',  baseW: 28, baseD: 12, baseH: 8,  balconyType: 'external' },
   ext_l: { label: 'External L',  baseW: 40, baseD: 16, baseH: 10, balconyType: 'external' },
 };
-const BALCONY_TOUCH_MARGIN = 1.5; // mm â€” closeness to side wall that triggers L-shape
+const BALCONY_TOUCH_MARGIN = 1.5; // mm — closeness to side wall that triggers L-shape
 
 /* ---- Bay styles ----
  * A bay is a ground-floor opening that cuts the wall(s) up to a fixed height.
  * 'side': cuts only the wall it sits on
  * 'through': cuts BOTH the front and back walls at the same X (drive-through)
  *
- * Bays live in cfg.manualOpenings just like windows/doors â€” type='bay' with
+ * Bays live in cfg.manualOpenings just like windows/doors — type='bay' with
  * a 'style' field. They are bottom-anchored (y = H - h) and only valid on
  * front/back walls. Only one bay per building; 'through' must sit on front.
  */
 const BAY_STYLES = {
   side:    { label: 'Side bay',           baseW: 50, baseH: 24, description: 'Single-wall ground-floor opening (a doorway-sized cut)' },
-  through: { label: 'Through bay',        baseW: 50, baseH: 24, description: 'Drive-through opening â€” cuts both the front and back walls' },
+  through: { label: 'Through bay',        baseW: 50, baseH: 24, description: 'Drive-through opening — cuts both the front and back walls' },
 };
 
-/* Bay door styles â€” the panel that closes a bay opening when the user wants
+/* Bay door styles — the panel that closes a bay opening when the user wants
  * the bay to look like a real warehouse / shop / garage door rather than a
  * bare hole. Each entry's `etchFn(w, h)` returns an array of features that
  * the bay-door-parts generator stamps onto a single cut rectangle sized to
  * the (possibly partially-retracted) visible door area. The cut layer glues
  * to the INSIDE face of the core panel, behind the bay opening, so the door
- * sits one matT deeper than the cladding â€” this small recess gives the bay
+ * sits one matT deeper than the cladding — this small recess gives the bay
  * visible depth and reads convincingly as a real door rather than a stuck-on
  * decoration.
  *
@@ -983,24 +983,24 @@ const BAY_STYLES = {
  * to the panel (0..w, 0..h, y growing downward).
  *
  * `direction` controls how the panel shrinks when partially open:
- *   â€¢ 'overhead': door retracts UPWARD into a ceiling track â€” the visible
+ *   • 'overhead': door retracts UPWARD into a ceiling track — the visible
  *     piece is the BOTTOM portion of the original (it's what's still hanging
  *     in front of the opening as the door rolls up). Roller / sectional /
  *     paneled / tilt_up all behave this way.
- *   â€¢ 'side': door slides sideways â€” visible piece is the LEFT portion of
+ *   • 'side': door slides sideways — visible piece is the LEFT portion of
  *     the original. Slatted (Japanese shop shutters) use this.
  */
 const BAY_DOOR_STYLES = {
   none: {
     label: 'None (open bay)',
-    description: 'No door panel â€” the bay is left fully open. Default for new bays.',
+    description: 'No door panel — the bay is left fully open. Default for new bays.',
   },
   roller: {
     label: 'Roller (corrugated)',
     description: 'Horizontal corrugated-metal slats every ~1 mm, like a warehouse or industrial roller shutter.',
     direction: 'overhead',
     etchFn: (w, h) => {
-      // Horizontal slats at ~1 mm spacing (â‰ˆ150 mm real at 1:150 scale,
+      // Horizontal slats at ~1 mm spacing (≈150 mm real at 1:150 scale,
       // matching a typical commercial roller slat). 0.6 mm minimum spacing
       // so very short visible doors still get at least two seams.
       const slatH = Math.max(0.6, Math.min(1.2, h / 8));
@@ -1047,10 +1047,10 @@ const BAY_DOOR_STYLES = {
   },
   paneled: {
     label: 'Paneled (garage)',
-    description: 'Classic sectional garage door â€” three or four horizontal panels with a row of small windows near the top.',
+    description: 'Classic sectional garage door — three or four horizontal panels with a row of small windows near the top.',
     direction: 'overhead',
     etchFn: (w, h) => {
-      // Pick panel count by height â€” taller doors get more panels.
+      // Pick panel count by height — taller doors get more panels.
       const nPanels = (h >= 18) ? 4 : (h >= 12) ? 3 : 2;
       const panelH = h / nPanels;
       const out = [];
@@ -1059,7 +1059,7 @@ const BAY_DOOR_STYLES = {
         const y = i * panelH;
         out.push({ type: 'line', x1: 0.4, y1: y, x2: w - 0.4, y2: y });
       }
-      // Window row in the UPPER panel (when there's room â€” needs panelH â‰¥ 3)
+      // Window row in the UPPER panel (when there's room — needs panelH ≥ 3)
       if (panelH >= 3 && w >= 8 && h >= 6) {
         const nWin = Math.max(2, Math.min(5, Math.round(w / 5)));
         const winW = w * 0.7 / nWin;
@@ -1077,7 +1077,7 @@ const BAY_DOOR_STYLES = {
   },
   sectional: {
     label: 'Sectional (no windows)',
-    description: 'Horizontal sectional panels stacked head-to-toe, no glass. Cleaner than paneled â€” fits modern industrial buildings.',
+    description: 'Horizontal sectional panels stacked head-to-toe, no glass. Cleaner than paneled — fits modern industrial buildings.',
     direction: 'overhead',
     etchFn: (w, h) => {
       const nPanels = (h >= 20) ? 5 : (h >= 14) ? 4 : 3;
@@ -1087,7 +1087,7 @@ const BAY_DOOR_STYLES = {
         const y = i * panelH;
         out.push({ type: 'line', x1: 0.4, y1: y, x2: w - 0.4, y2: y });
       }
-      // Subtle stipple â€” short vertical accent lines at the panel midpoints
+      // Subtle stipple — short vertical accent lines at the panel midpoints
       // to suggest the embossed ribs typical on sectional doors. Skip when
       // there's no room (very short panels).
       if (panelH >= 2 && w >= 6) {
@@ -1109,10 +1109,10 @@ const BAY_DOOR_STYLES = {
     direction: 'overhead',
     etchFn: (w, h) => {
       const out = [];
-      // Outer inset rectangle â€” implied frame around the slab edge.
+      // Outer inset rectangle — implied frame around the slab edge.
       const inset = Math.min(0.8, Math.min(w, h) * 0.08);
       out.push({ type: 'rect', x: inset, y: inset, w: w - 2 * inset, h: h - 2 * inset });
-      // Diagonal brace (X-pattern) inside the frame â€” only when there's room.
+      // Diagonal brace (X-pattern) inside the frame — only when there's room.
       if (w > 6 && h > 6) {
         out.push({ type: 'line', x1: inset + 0.4, y1: inset + 0.4, x2: w - inset - 0.4, y2: h - inset - 0.4 });
         out.push({ type: 'line', x1: w - inset - 0.4, y1: inset + 0.4, x2: inset + 0.4, y2: h - inset - 0.4 });
@@ -1129,7 +1129,7 @@ const BAY_DOOR_STYLES = {
   },
   slatted: {
     label: 'Slatted (vertical, sliding)',
-    description: 'Vertical wooden slats â€” traditional Japanese shop shutter (shitomi / amado). Slides sideways instead of rolling up.',
+    description: 'Vertical wooden slats — traditional Japanese shop shutter (shitomi / amado). Slides sideways instead of rolling up.',
     direction: 'side',
     etchFn: (w, h) => {
       // Vertical slats at ~1 mm spacing.
@@ -1138,7 +1138,7 @@ const BAY_DOOR_STYLES = {
       for (let x = slatW; x < w - 0.1; x += slatW) {
         out.push({ type: 'line', x1: x, y1: 0.4, x2: x, y2: h - 0.4 });
       }
-      // A single horizontal rail near the middle â€” classic on amado-style
+      // A single horizontal rail near the middle — classic on amado-style
       // shutters where boards are joined by a cross-brace.
       out.push({ type: 'line', x1: 0.4, y1: h * 0.5, x2: w - 0.4, y2: h * 0.5 });
       return out;
@@ -1434,7 +1434,7 @@ function serializableCurrentConfig(cfg) {
 'use strict';
 
 /* =====================================================================
-   WALL FEATURE ACCESSORS â€” CURRENT MODEL
+   WALL FEATURE ACCESSORS — CURRENT MODEL
    ===================================================================== */
 
 function wallFeaturesForFace(cfg, face, opts = {}) {
@@ -1472,7 +1472,7 @@ function structuralWallFeaturesForFace(cfg, face) {
 'use strict';
 
 /* =====================================================================
-   EMBEDDED RAIL V1 â€” straight N-gauge embedded track zones
+   EMBEDDED RAIL V1 — straight N-gauge embedded track zones
    ---------------------------------------------------------------------
    This feature is intentionally modelled as a floor-zone recipe rather than
    as generic objects that slot through the floor. Trusses/supports remain
@@ -1707,7 +1707,7 @@ function manualStructuralOps(cfg, face) {
  *
  * Returns { hasFrontBay, hasBackBay, bayXStart, bayXEnd, bayWidth, bayHeight }.
  *
- * Source of truth is cfg.manualOpenings â€” bays are placed through the
+ * Source of truth is cfg.manualOpenings — bays are placed through the
  * opening editor's toolbox, never via top-level cfg fields. A through-bay
  * is stored as twin entries on both front and back walls (same local-X),
  * but resolveBay is defensive: if it sees a through entry on only one
@@ -1733,7 +1733,7 @@ function resolveBay(cfg, fbWidth) {
 
   // Bay parameters come from whichever bay actually exists. When both exist
   // (the twin entries created by a through-bay drop), the FRONT entry is
-  // the canonical source â€” its x is the world position from west, which
+  // the canonical source — its x is the world position from west, which
   // also equals the front wall's local x in the laser layout. The BACK
   // wall's local x must be MIRRORED for a through-bay (fbWidth - x - w)
   // because the back wall is assembled with its cladding face turned
@@ -1745,7 +1745,7 @@ function resolveBay(cfg, fbWidth) {
   // frame; consumers that draw the back wall pass `which='back'` to
   // planBayXFor() to get the mirrored coordinates. Side bays (no front
   // partner, no through-bay style) use the bay's own stored x directly
-  // with no mirror â€” they're a single-wall feature.
+  // with no mirror — they're a single-wall feature.
   const src = frontBay || backBay;
   const bayWidth  = src.w;
   const bayHeight = src.h;
@@ -1797,8 +1797,8 @@ function getWindowDims(cfg) {
   };
 }
 
-/* Returns the window dims for the GROUND FLOOR specifically. If the override 
-   is enabled, uses cfg.firstFloorWindowStyle and firstFloorWindowScale. 
+/* Returns the window dims for the GROUND FLOOR specifically. If the override
+   is enabled, uses cfg.firstFloorWindowStyle and firstFloorWindowScale.
    Otherwise returns the same dims as the regular getWindowDims. */
 function getGroundFloorWindowDims(cfg) {
   if (!cfg.firstFloorWindowStyleEnabled) return getWindowDims(cfg);
@@ -1815,7 +1815,7 @@ function getGroundFloorWindowDims(cfg) {
 }
 
 /* Returns the cladding style key to use for the GROUND FLOOR specifically.
-   When the override is enabled, returns cfg.firstFloorCladdingStyle; otherwise 
+   When the override is enabled, returns cfg.firstFloorCladdingStyle; otherwise
    returns cfg.claddingStyle (same as upper floors). */
 function getGroundFloorCladdingStyle(cfg) {
   if (cfg.firstFloorCladdingStyleEnabled && CLADDING_STYLES[cfg.firstFloorCladdingStyle]) {
@@ -1824,10 +1824,10 @@ function getGroundFloorCladdingStyle(cfg) {
   return cfg.claddingStyle;
 }
 
-/* Returns true if the ground floor has a different cladding style than the upper 
+/* Returns true if the ground floor has a different cladding style than the upper
    floors and we need to split the cladding panels. */
 function hasSplitCladding(cfg) {
-  return cfg.firstFloorCladdingStyleEnabled 
+  return cfg.firstFloorCladdingStyleEnabled
     && CLADDING_STYLES[cfg.firstFloorCladdingStyle]
     && cfg.firstFloorCladdingStyle !== cfg.claddingStyle;
 }
@@ -1875,7 +1875,7 @@ function getMullionLines(x, y, w, h, mullion) {
         first setLanguage() call and stores {node, orig} where orig is the
         original English string.
      2. applyI18n() iterates the registry, looks each orig up in the
-        reverse-map (EN value â†’ key), and replaces node.textContent with
+        reverse-map (EN value → key), and replaces node.textContent with
         the translation for the target language.
    This covers every piece of static text without needing data-i18n on
    every element.  Elements with mixed HTML (bold, code) use data-i18n-html
@@ -1920,7 +1920,7 @@ const TRANSLATIONS = {
     lbl_ffcEnabled: 'Different ground-floor cladding',
     lbl_ffc: 'Ground-floor cladding style',
     lbl_gfoEnabled: 'Ground floor depth offset (front)',
-    lbl_gfoAmount: 'Offset amount (mm; +/âˆ’)',
+    lbl_gfoAmount: 'Offset amount (mm; +/−)',
     /* roof labels */
     lbl_roofStyle: 'Roof style',
     lbl_parapetH: 'Parapet height (mm)',
@@ -1943,20 +1943,20 @@ const TRANSLATIONS = {
     lbl_doorStyle: 'Door style',
     lbl_doorCount: 'Doors per wall (front / back / side)',
     /* bay labels */
-    lbl_baySize: 'Bay size WÃ—H (mm)',
+    lbl_baySize: 'Bay size W×H (mm)',
     /* trim labels */
     lbl_trimTop: 'Top trim band',
     lbl_trimBottom: 'Bottom trim band',
     lbl_trimH: 'Trim height (mm)',
     lbl_trimOver: 'Corner overhang past cladding (mm)',
     lbl_cornerTrim: 'Corner trim',
-    hlp_cornerTrim: 'Four narrow 3 mm strips with an etched centre fold line. Score along the etch, fold 90Â°, and glue 1.5 mm to each face that meets at the corner â€” hides the exposed cladding edges where two walls join.',
+    hlp_cornerTrim: 'Four narrow 3 mm strips with an etched centre fold line. Score along the etch, fold 90°, and glue 1.5 mm to each face that meets at the corner — hides the exposed cladding edges where two walls join.',
     /* inter-floor labels */
     lbl_floorPanels: 'Include inter-floor panels',
     lbl_lastWall: 'Last wall installed',
     /* mech-room labels */
     lbl_mrEnabled: 'Include mechanical room',
-    lbl_mrDims: 'Width Ã— Depth Ã— Height (mm)',
+    lbl_mrDims: 'Width × Depth × Height (mm)',
     lbl_mrPos: 'Position offset from roof center (mm)',
     /* shield labels */
     lbl_shieldEnabled: 'Include shield wall',
@@ -1976,13 +1976,13 @@ const TRANSLATIONS = {
     desc_gfo: 'Common in Japanese architecture: ground-floor shop projects forward of the upper-floor footprint, OR upper floors overhang the ground floor (covered walkway / arcade). Adds an extra sub-assembly on the front face. Positive value = extends forward; negative = recessed under upper-floor overhang.',
     desc_trimOver: 'Each F/B trim strip extends past the cladding by this amount on each end so it wraps to meet the side trim.',
     desc_ifloor: 'Horizontal core-stock panels at each floor height. Panels have tongues on 3 sides; the 4th side rests against the wall installed last.',
-    desc_lastWall: "The wall you'll attach last during assembly. This wall has no slots for inter-floor tongues â€” the panels' open edges rest against its inner face when you close up the building.",
+    desc_lastWall: "The wall you'll attach last during assembly. This wall has no slots for inter-floor tongues — the panels' open edges rest against its inner face when you close up the building.",
     desc_mech: 'A small penthouse on the roof for HVAC, elevator overrun, water tanks, or stairwell access. Tongue-and-slot connection to the main roof.',
     desc_mechPos: 'Negative X = west, positive X = east. Negative Y = front, positive Y = back. Auto-clamped to fit on roof.',
     desc_equip: '3D-printable rooftop equipment. Each enabled type is included as an STL in the download, with its footprint etched on the roof piece showing where to glue it. A manifest text file lists how many of each are needed.',
-    desc_shield: 'A low parapet wall around the rooftop equipment area â€” common on Japanese commercial buildings to hide AC units and tanks from street level.',
+    desc_shield: 'A low parapet wall around the rooftop equipment area — common on Japanese commercial buildings to hide AC units and tanks from street level.',
     desc_bill: 'Rooftop billboard structures. Each is a laser-cut assembly that glues to the roof.',
-    desc_billEmpty: 'No billboards yet â€” click Add to place one.',
+    desc_billEmpty: 'No billboards yet — click Add to place one.',
     desc_doors: "Doors are placed at ground level. Walls with bay openings can't have doors there.",
     desc_mat: 'Name each material. These names become subfolder names in the ZIP download. Assign each cladding style to a material so parts are grouped correctly.',
     /* select options */
@@ -1993,8 +1993,8 @@ const TRANSLATIONS = {
     opt_flat_overhang: 'Flat with overhang (metal-clad)',
     opt_slanted: 'Slanted (single slope)',
     opt_gabled: 'Gabled (peaked)',
-    opt_ridgeEW: 'Eastâ€“West (slopes face front & back)',
-    opt_ridgeNS: 'Northâ€“South (slopes face east & west)',
+    opt_ridgeEW: 'East–West (slopes face front & back)',
+    opt_ridgeNS: 'North–South (slopes face east & west)',
     opt_slopeBack: 'Back (north) is high',
     opt_slopeFront: 'Front (south) is high',
     opt_slopeEast: 'East is high',
@@ -2019,29 +2019,29 @@ const TRANSLATIONS = {
     opt_shieldLattice: 'Lattice / grid',
     opt_shieldBraced: 'X-braced (structural with louvered cladding)',
     /* buttons */
-    btn_shape: 'â¬¡ Edit Shape',
-    btn_open: 'âœï¸ Edit Openings',
-    btn_dl: 'â¬‡ Download',
-    btn_save: 'ðŸ’¾ Save to cache',
-    btn_load: 'ðŸ“‚ Load from cache',
-    btn_clear: 'ðŸ—‘ Clear cache',
-    btn_export: 'â¬‡ Export settings (.hako)',
-    btn_import: 'â¬† Import settings (.hako)',
-    btn_reset: 'â†º Reset to defaults',
-    btn_addBill: 'ï¼‹ Add Billboard',
-    btn_overflowTip: 'Â·Â·Â·',
+    btn_shape: 'Edit Shape',
+    btn_open: 'Edit Openings',
+    btn_dl: 'Download',
+    btn_save: 'Save to cache',
+    btn_load: 'Load from cache',
+    btn_clear: 'Clear cache',
+    btn_export: 'Export settings (.hako)',
+    btn_import: 'Import settings (.hako)',
+    btn_reset: 'Reset to defaults',
+    btn_addBill: 'Add Billboard',
+    btn_overflowTip: 'More options',
     /* language / overflow menu */
-    menu_lang: 'ðŸŒ Language',
+    menu_lang: 'Language',
     lang_en: 'English',
-    lang_ja: 'æ—¥æœ¬èªž',
+    lang_ja: '日本語',
     /* HTML-containing elements (innerHTML replacement) */
-    html_thickWarn: 'âš ï¸ <strong>Set core thickness to match your actual sheet material.</strong> Side walls (east &amp; west) are cut <code>depth âˆ’ 2 Ã— core</code> mm long so they fit between the front and back walls. Wrong thickness = wrong-length side panels.',
+    html_thickWarn: '⚠️ <strong>Set core thickness to match your actual sheet material.</strong> Side walls (east &amp; west) are cut <code>depth − 2 × core</code> mm long so they fit between the front and back walls. Wrong thickness = wrong-length side panels.',
     /* materials form (dynamically built) */
-    mat_clHdr: 'Cladding style â†’ material',
+    mat_clHdr: 'Cladding style → material',
     mat_clHint: 'Route each cladding style to a specific material so panels are grouped into different ZIP folders.',
     mat_addBtn: '+ Add material',
     mat_namePh: 'Folder name (e.g. 1.5mm Plywood)',
-    mat_nameTitle: 'Material name â€” used as subfolder name in the ZIP download',
+    mat_nameTitle: 'Material name — used as subfolder name in the ZIP download',
     mat_swatchTitle: 'Pick a colour for this material',
     mat_idTitle: 'Internal ID (used in part.material)',
     mat_delTitle: 'Remove this material',
@@ -2066,9 +2066,9 @@ const TRANSLATIONS = {
     ed_delete: 'Delete',
     ed_deleteN: 'Delete {n}',
     ed_deleteSelectedTitle: 'Delete selected (Delete)',
-    ed_deleteSelectTitle: 'Delete (select â‰¥ 1)',
+    ed_deleteSelectTitle: 'Delete (select ≥ 1)',
     ed_copyTitle: 'Copy (Ctrl/Cmd+C)',
-    ed_copySelectTitle: 'Copy (select â‰¥ 1)',
+    ed_copySelectTitle: 'Copy (select ≥ 1)',
     ed_pasteTitle: 'Paste (Ctrl/Cmd+V)',
     ed_pasteEmptyTitle: 'Paste (clipboard empty)',
     ed_selectWallItemDelete: 'Select a wall item to delete it',
@@ -2077,14 +2077,14 @@ const TRANSLATIONS = {
     ed_clearAllEquipment: 'Clear all equipment',
     ed_autoSeedReplaceConfirm: 'Replace {n} existing equipment item{s} with an auto-seeded layout?',
     ed_clearEquipmentConfirm: 'Remove all {n} placed equipment item{s}?',
-    ed_autoSeedStatus: 'Auto-seeded {n} equipment item{s} using traditional rooftop layout â€” drag any item to adjust.',
+    ed_autoSeedStatus: 'Auto-seeded {n} equipment item{s} using traditional rooftop layout — drag any item to adjust.',
     ed_shieldWallToolHint: 'Click a roof edge to toggle a parapet.',
     ed_eraseItem: 'Erase item',
     ed_eraseItemHint: 'Click a roof item or cutout to remove it.',
     ed_deleteSelected: 'Delete selected',
     ed_deleteSelectedItem: 'Delete selected item',
     ed_wallItem: 'wall item',
-    ed_searchPlaceholder: 'Search objectsâ€¦',
+    ed_searchPlaceholder: 'Search objects…',
     lbl_parapetCap: 'Parapet cap / coping',
     hlp_parapetCap: 'Adds foldable cap strips that cover the top of parapet walls.',
     lbl_parapetSides: 'Parapet cap sides',
@@ -2104,221 +2104,221 @@ const TRANSLATIONS = {
   ja: {
     /* page header */
     title: 'HakoMachi',
-    subtitle: 'æ—¥æœ¬åž‹Nã‚²ãƒ¼ã‚¸ï¼ˆ1:150ï¼‰ãƒ¬ã‚¤ã‚¢ã‚¦ãƒˆç”¨ã€‚ã‚¿ãƒ³ã‚°ï¼†ã‚¹ãƒ­ãƒƒãƒˆæ–¹å¼ã®ãƒ¬ãƒ¼ã‚¶ãƒ¼ã‚«ãƒƒãƒˆSVGãƒ—ãƒ©ãƒ³ã‚’ç”Ÿæˆã—ã¾ã™ã€‚',
+    subtitle: '日本型Nゲージ（1:150）レイアウト用。タング＆スロット方式のレーザーカットSVGプランを生成します。',
     /* section summaries */
-    s_type: 'å»ºç‰©ã‚¿ã‚¤ãƒ—',
-    s_dim: 'å¯¸æ³•',
-    s_ground: '1éšŽè¨­å®š',
-    s_defaults: 'æ—¢å®šå€¤',
-    s_roof: 'å±‹æ ¹',
-    s_cladding: 'å¤–å£ä»•ä¸Šã’',
-    s_windows: 'çª“',
-    s_doors: 'ãƒ‰ã‚¢',
-    s_bay: 'æ¬å…¥å£',
-    s_trim: 'ãƒ¢ãƒ¼ãƒ«',
-    s_ifloor: 'ä¸­é–“åºŠãƒ‘ãƒãƒ«',
-    s_mech: 'å±‹ä¸Šæ©Ÿæ¢°å®¤',
-    s_equip: 'å±‹ä¸Šè¨­å‚™',
-    s_shield: 'å±‹ä¸Šç›®éš ã—',
-    s_bill: 'çœ‹æ¿',
-    s_thick: 'ææ–™åŽšã•',
-    s_mat: 'ç´ æ',
+    s_type: '建物タイプ',
+    s_dim: '寸法',
+    s_ground: '1階設定',
+    s_defaults: '既定値',
+    s_roof: '屋根',
+    s_cladding: '外壁仕上げ',
+    s_windows: '窓',
+    s_doors: 'ドア',
+    s_bay: '搬入口',
+    s_trim: 'モール',
+    s_ifloor: '中間床パネル',
+    s_mech: '屋上機械室',
+    s_equip: '屋上設備',
+    s_shield: '屋上目隠し',
+    s_bill: '看板',
+    s_thick: '材料厚さ',
+    s_mat: '素材',
     /* dimension labels */
-    lbl_width: 'å¹…ï¼ˆmmãƒ»Nã‚²ãƒ¼ã‚¸å®Ÿå¯¸ï¼‰',
-    lbl_depth: 'å¥¥è¡Œãï¼ˆmmï¼‰',
-    lbl_heightMode: 'é«˜ã•æŒ‡å®šæ–¹æ³•',
-    lbl_height: 'é«˜ã•ï¼ˆmmï¼‰',
-    lbl_floors: 'éšŽæ•°',
-    lbl_floorH: 'éšŽé«˜ï¼ˆmmï¼‰',
+    lbl_width: '幅（mm・Nゲージ実寸）',
+    lbl_depth: '奥行き（mm）',
+    lbl_heightMode: '高さ指定方法',
+    lbl_height: '高さ（mm）',
+    lbl_floors: '階数',
+    lbl_floorH: '階高（mm）',
     /* ground-floor labels */
-    lbl_ffhEnabled: '1éšŽã‚’åˆ¥ã®é«˜ã•ã«ã™ã‚‹',
-    lbl_ffh: '1éšŽé«˜ã•ï¼ˆmmï¼‰',
-    lbl_ffwEnabled: '1éšŽã®çª“ã‚¹ã‚¿ã‚¤ãƒ«ã‚’å¤‰ãˆã‚‹',
-    lbl_ffw: '1éšŽçª“ã‚¹ã‚¿ã‚¤ãƒ«',
-    lbl_ffwScale: '1éšŽçª“ã‚µã‚¤ã‚º',
-    lbl_ffcEnabled: '1éšŽã®å¤–å£ä»•ä¸Šã’ã‚’å¤‰ãˆã‚‹',
-    lbl_ffc: '1éšŽå¤–å£ã‚¹ã‚¿ã‚¤ãƒ«',
-    lbl_gfoEnabled: '1éšŽå‰é¢ã‚ªãƒ•ã‚»ãƒƒãƒˆ',
-    lbl_gfoAmount: 'ã‚ªãƒ•ã‚»ãƒƒãƒˆé‡ï¼ˆmmã€ãƒ—ãƒ©ã‚¹ï¼ãƒžã‚¤ãƒŠã‚¹ï¼‰',
+    lbl_ffhEnabled: '1階を別の高さにする',
+    lbl_ffh: '1階高さ（mm）',
+    lbl_ffwEnabled: '1階の窓スタイルを変える',
+    lbl_ffw: '1階窓スタイル',
+    lbl_ffwScale: '1階窓サイズ',
+    lbl_ffcEnabled: '1階の外壁仕上げを変える',
+    lbl_ffc: '1階外壁スタイル',
+    lbl_gfoEnabled: '1階前面オフセット',
+    lbl_gfoAmount: 'オフセット量（mm、プラス／マイナス）',
     /* roof labels */
-    lbl_roofStyle: 'å±‹æ ¹ã‚¹ã‚¿ã‚¤ãƒ«',
-    lbl_parapetH: 'ãƒ‘ãƒ©ãƒšãƒƒãƒˆé«˜ã•ï¼ˆmmï¼‰',
-    lbl_parapetInner: 'ãƒ‘ãƒ©ãƒšãƒƒãƒˆä¸Šç«¯å›žã‚Šè¾¼ã¿å†…å´å£æã‚’è¿½åŠ ',
-    hlp_parapetInner: 'ãƒ‘ãƒ©ãƒšãƒƒãƒˆå£ã®ä¸Šç«¯ã‚’å›žã‚Šè¾¼ã¿ã€å±‹æ ¹é¢ã¾ã§å†…å´ã«ä¸‹ãŒã‚‹æŠ˜ã‚Šæ›²ã’å¼ã®å£æ4æžšã§ã™ã€‚éœ²å‡ºã™ã‚‹ä¸Šç«¯ã¨å†…å´é¢ã®ä¸¡æ–¹ã‚’éš ã—ã¾ã™ã€‚',
-    lbl_pitch: 'å±‹æ ¹å‹¾é…ãƒ»ç«‹ã¡ä¸ŠãŒã‚Šï¼ˆmmï¼‰',
-    lbl_roofOverhangAll: 'å››æ–¹ã®è»’ã®å‡ºï¼ˆmmï¼‰',
-    hlp_roofOverhangAll: 'å±‹æ ¹ãŒå£ã‚ˆã‚Šå¤–å´ã«ã©ã‚Œã ã‘å¼µã‚Šå‡ºã™ã‹ã€‚ä¸Šã«è²¼ã‚‹å¤–è£…æã‚‚å¼µã‚Šå‡ºã—å…¨ä½“ã‚’è¦†ã„ã¾ã™ã€‚',
-    lbl_ridge: 'æ£Ÿã®æ–¹å‘',
-    lbl_slope: 'é«˜ã„å´',
-    lbl_overhang: 'è»’ã®å‡ºï¼ˆmmï¼‰',
-    lbl_ohFB: 'å‰å¾Œ',
-    lbl_ohEW: 'æ±è¥¿',
+    lbl_roofStyle: '屋根スタイル',
+    lbl_parapetH: 'パラペット高さ（mm）',
+    lbl_parapetInner: 'パラペット上端回り込み内側壁材を追加',
+    hlp_parapetInner: 'パラペット壁の上端を回り込み、屋根面まで内側に下がる折り曲げ式の壁材4枚です。露出する上端と内側面の両方を隠します。',
+    lbl_pitch: '屋根勾配・立ち上がり（mm）',
+    lbl_roofOverhangAll: '四方の軒の出（mm）',
+    hlp_roofOverhangAll: '屋根が壁より外側にどれだけ張り出すか。上に貼る外装材も張り出し全体を覆います。',
+    lbl_ridge: '棟の方向',
+    lbl_slope: '高い側',
+    lbl_overhang: '軒の出（mm）',
+    lbl_ohFB: '前後',
+    lbl_ohEW: '東西',
     /* cladding / window / door labels */
-    lbl_claddingStyle: 'ã‚¹ã‚¿ã‚¤ãƒ«',
-    lbl_roofCladding: 'å±‹æ ¹å¤–è£…ã‚¹ã‚¿ã‚¤ãƒ«',
-    lbl_winStyle: 'çª“ã‚¹ã‚¿ã‚¤ãƒ«ï¼ˆã‚¹ã‚¿ã‚¤ãƒ«ã”ã¨ã«å½¢çŠ¶ãŒç•°ãªã‚Šã¾ã™ï¼‰',
-    lbl_winScale: 'ã‚µã‚¤ã‚ºã‚¹ã‚±ãƒ¼ãƒ«',
-    lbl_winDensity: 'å¯†åº¦',
-    lbl_doorStyle: 'ãƒ‰ã‚¢ã‚¹ã‚¿ã‚¤ãƒ«',
-    lbl_doorCount: 'ãƒ‰ã‚¢æ•°ï¼ˆå‰é¢ / èƒŒé¢ / å´é¢ï¼‰',
+    lbl_claddingStyle: 'スタイル',
+    lbl_roofCladding: '屋根外装スタイル',
+    lbl_winStyle: '窓スタイル（スタイルごとに形状が異なります）',
+    lbl_winScale: 'サイズスケール',
+    lbl_winDensity: '密度',
+    lbl_doorStyle: 'ドアスタイル',
+    lbl_doorCount: 'ドア数（前面 / 背面 / 側面）',
     /* bay labels */
-    lbl_baySize: 'æ¬å…¥å£ã‚µã‚¤ã‚º å¹…Ã—é«˜ã•ï¼ˆmmï¼‰',
+    lbl_baySize: '搬入口サイズ 幅×高さ（mm）',
     /* trim labels */
-    lbl_trimTop: 'ä¸Šéƒ¨ãƒ¢ãƒ¼ãƒ«',
-    lbl_trimBottom: 'ä¸‹éƒ¨ãƒ¢ãƒ¼ãƒ«',
-    lbl_trimH: 'ãƒ¢ãƒ¼ãƒ«é«˜ã•ï¼ˆmmï¼‰',
-    lbl_trimOver: 'ã‚³ãƒ¼ãƒŠãƒ¼ã‚ªãƒ¼ãƒãƒ¼ãƒãƒ³ã‚°ï¼ˆmmï¼‰',
-    lbl_cornerTrim: 'ã‚³ãƒ¼ãƒŠãƒ¼ãƒ¢ãƒ¼ãƒ«',
-    hlp_cornerTrim: 'ä¸­å¤®ã«æŠ˜ã‚Šç›®ç”¨ã‚¨ãƒƒãƒãƒ³ã‚°ç·šãŒã‚ã‚‹å¹…3mmã®ç´°é•·ã„ã‚¹ãƒˆãƒªãƒƒãƒ—4æœ¬ã€‚ã‚¨ãƒƒãƒãƒ³ã‚°ç·šã«æ²¿ã£ã¦ã‚¹ã‚³ã‚¢ã—ã€90Â°ã«æŠ˜ã‚Šã€ã‚³ãƒ¼ãƒŠãƒ¼ã§æŽ¥ã™ã‚‹å„é¢ã«1.5mmãšã¤æŽ¥ç€ã—ã¾ã™ â€” 2ã¤ã®å£ãŒæŽ¥åˆã™ã‚‹å ´æ‰€ã®éœ²å‡ºã—ãŸå¤–è£…ã‚¨ãƒƒã‚¸ã‚’éš ã—ã¾ã™ã€‚',
+    lbl_trimTop: '上部モール',
+    lbl_trimBottom: '下部モール',
+    lbl_trimH: 'モール高さ（mm）',
+    lbl_trimOver: 'コーナーオーバーハング（mm）',
+    lbl_cornerTrim: 'コーナーモール',
+    hlp_cornerTrim: '中央に折り目用エッチング線がある幅3mmの細長いストリップ4本。エッチング線に沿ってスコアし、90°に折り、コーナーで接する各面に1.5mmずつ接着します — 2つの壁が接合する場所の露出した外装エッジを隠します。',
     /* inter-floor labels */
-    lbl_floorPanels: 'ä¸­é–“åºŠãƒ‘ãƒãƒ«ã‚’å«ã‚ã‚‹',
-    lbl_lastWall: 'æœ€å¾Œã«å–ã‚Šä»˜ã‘ã‚‹å£',
+    lbl_floorPanels: '中間床パネルを含める',
+    lbl_lastWall: '最後に取り付ける壁',
     /* mech-room labels */
-    lbl_mrEnabled: 'æ©Ÿæ¢°å®¤ã‚’å«ã‚ã‚‹',
-    lbl_mrDims: 'å¹… Ã— å¥¥è¡Œã Ã— é«˜ã•ï¼ˆmmï¼‰',
-    lbl_mrPos: 'å±‹æ ¹ä¸­å¿ƒã‹ã‚‰ã®ã‚ªãƒ•ã‚»ãƒƒãƒˆï¼ˆmmï¼‰',
+    lbl_mrEnabled: '機械室を含める',
+    lbl_mrDims: '幅 × 奥行き × 高さ（mm）',
+    lbl_mrPos: '屋根中心からのオフセット（mm）',
     /* shield labels */
-    lbl_shieldEnabled: 'ç›®éš ã—ãƒ‘ãƒãƒ«ã‚’å«ã‚ã‚‹',
-    lbl_shieldStyle: 'ã‚¹ã‚¿ã‚¤ãƒ«',
-    lbl_shieldH: 'é«˜ã•ï¼ˆmmï¼‰',
-    lbl_shieldOffset: 'å±‹æ ¹ç«¯ã‹ã‚‰ã®å†…å´è·é›¢ï¼ˆmmï¼‰',
+    lbl_shieldEnabled: '目隠しパネルを含める',
+    lbl_shieldStyle: 'スタイル',
+    lbl_shieldH: '高さ（mm）',
+    lbl_shieldOffset: '屋根端からの内側距離（mm）',
     /* thickness labels */
-    lbl_coreT: 'ã‚³ã‚¢æåŽšã•ï¼ˆmmï¼‰',
-    lbl_claddingT: 'å¤–è£…æåŽšã•ï¼ˆmmï¼‰',
-    lbl_tongueW: 'ã‚¿ãƒ³ã‚°å¹…ï¼ˆmmï¼‰',
-    lbl_kerf: 'ã‚«ãƒ¼ãƒ•è£œæ­£ï¼ˆmmï¼‰',
+    lbl_coreT: 'コア材厚さ（mm）',
+    lbl_claddingT: '外装材厚さ（mm）',
+    lbl_tongueW: 'タング幅（mm）',
+    lbl_kerf: 'カーフ補正（mm）',
     /* descriptions */
-    desc_ground: '1éšŽã¨ä¸ŠéšŽã‚’åŒºåˆ¥ã™ã‚‹è¨­å®šã§ã™ã€‚åº—èˆ—å‰é¢ãƒ»ãƒ­ãƒ“ãƒ¼ãƒ»å·¥å ´æ¬å…¥å£ãƒ»çŸ³ç©ã¿ã®è”µãƒ»æ•°å¯„å±‹é€ ã‚Šã®åº‡ãªã©ã«æ´»ç”¨ã§ãã¾ã™ã€‚',
-    desc_ffh: 'å®Ÿéš›ã®å»ºç‰©ã§ã¯åº—èˆ—ãƒ»ãƒ­ãƒ“ãƒ¼ãƒ»æ¬å…¥ã®ãŸã‚1éšŽã‚’é«˜ãè¨­å®šã™ã‚‹ã“ã¨ãŒå¤šã„ã§ã™ã€‚ä¸ŠéšŽã¯æ¨™æº–ã®éšŽé«˜ã‚’ç¶­æŒã—ã¾ã™ã€‚',
-    desc_ffw: 'åº—èˆ—å‰é¢ãƒ»ãƒ­ãƒ“ãƒ¼ãƒ»ä¸ŠéšŽã‚ˆã‚Šå¤§ãã„çª“ãŒå¿…è¦ãª1éšŽå°å£²ã‚¹ãƒšãƒ¼ã‚¹ã«ä¾¿åˆ©ã§ã™ã€‚',
-    desc_ffc: 'è”µï¼ˆç™½æ¼†å–°ã®ä¸‹ã«çŸ³ç©ã¿ã‚„æµªæ¿ï¼‰ãƒ»æœ¨æã‚„å¡—è£…ã®ä¸‹ã®çŸ³ç©ã¿ãƒ™ãƒ¼ã‚¹ãƒ»çŸ³æãƒˆãƒªãƒ ã®å°å£²ãƒ•ã‚¡ã‚µãƒ¼ãƒ‰ãªã©ã«ä¸€èˆ¬çš„ã§ã™ã€‚å„å£ã®å¤–è£…ã‚’2æžšã®ãƒ‘ãƒãƒ«ã«åˆ†å‰²ã—ã¾ã™ã€‚',
-    desc_gfo: 'æ—¥æœ¬å»ºç¯‰ã«ã‚ˆãè¦‹ã‚‰ã‚Œã¾ã™ï¼š1éšŽã®åº—èˆ—ãŒä¸ŠéšŽã‚ˆã‚Šå‰ã«å¼µã‚Šå‡ºã™ã€ã¾ãŸã¯ä¸ŠéšŽãŒ1éšŽã®ä¸Šã«è¦†ã„ã‹ã¶ã•ã‚‹ï¼ˆé€šã‚Šåº‡ãƒ»ã‚¢ãƒ¼ã‚±ãƒ¼ãƒ‰ï¼‰ã€‚å‰é¢ã«ã‚µãƒ–ã‚¢ã‚»ãƒ³ãƒ–ãƒªã‚’è¿½åŠ ã—ã¾ã™ã€‚æ­£ã®å€¤ï¼å‰æ–¹ã«å¼µã‚Šå‡ºã—ã€è² ã®å€¤ï¼ä¸ŠéšŽåº‡ã®ä¸‹ã«å¼•ã£è¾¼ã¿ã¾ã™ã€‚',
-    desc_trimOver: 'å„å‰å¾Œé¢ã®ãƒ¢ãƒ¼ãƒ«æã¯ã€å´é¢ãƒ¢ãƒ¼ãƒ«ã«æŽ¥ç¶šã™ã‚‹ã‚ˆã†ä¸¡ç«¯ã‚’ã“ã®é‡ã ã‘å¤–è£…ã‚’è¶…ãˆã¦å»¶é•·ã—ã¾ã™ã€‚',
-    desc_ifloor: 'å„éšŽé«˜ã•ã«é…ç½®ã™ã‚‹æ°´å¹³ã‚³ã‚¢æãƒ‘ãƒãƒ«ã§ã™ã€‚3è¾ºã«ã‚¿ãƒ³ã‚°ãŒã‚ã‚Šã€4è¾ºç›®ã¯æœ€å¾Œã«å–ã‚Šä»˜ã‘ã‚‹å£ã®å†…é¢ã«å½“ãŸã‚Šã¾ã™ã€‚',
-    desc_lastWall: 'çµ„ã¿ç«‹ã¦æ™‚ã«æœ€å¾Œã«å–ã‚Šä»˜ã‘ã‚‹å£ã‚’é¸æŠžã—ã¾ã™ã€‚ã“ã®å£ã«ã¯ä¸­é–“åºŠã‚¿ãƒ³ã‚°ç”¨ã®ã‚¹ãƒ­ãƒƒãƒˆãŒãªãã€ãƒ‘ãƒãƒ«ã®é–‹ã„ãŸç«¯ãŒå»ºç‰©ã‚’é–‰ã˜ã‚‹éš›ã«å†…é¢ã«å½“ãŸã‚Šã¾ã™ã€‚',
-    desc_mech: 'HVACãƒ»ã‚¨ãƒ¬ãƒ™ãƒ¼ã‚¿ãƒ¼æ©Ÿæ¢°å®¤ãƒ»æ°´ã‚¿ãƒ³ã‚¯ãƒ»éšŽæ®µå®¤ç”¨ã®å°ã•ãªå±‹ä¸Šãƒšãƒ³ãƒˆãƒã‚¦ã‚¹ã§ã™ã€‚æœ¬ä½“å±‹æ ¹ã¨ã‚¿ãƒ³ã‚°ï¼†ã‚¹ãƒ­ãƒƒãƒˆæŽ¥ç¶šã—ã¾ã™ã€‚',
-    desc_mechPos: 'è² ã®Xï¼è¥¿ã€æ­£ã®Xï¼æ±ã€‚è² ã®Yï¼å‰é¢ã€æ­£ã®Yï¼èƒŒé¢ã€‚å±‹æ ¹ã«åŽã¾ã‚‹ã‚ˆã†è‡ªå‹•èª¿æ•´ã•ã‚Œã¾ã™ã€‚',
-    desc_equip: '3Då°åˆ·å¯èƒ½ãªå±‹ä¸Šè¨­å‚™ã§ã™ã€‚æœ‰åŠ¹ã«ã—ãŸå„ã‚¿ã‚¤ãƒ—ã¯STLã¨ã—ã¦ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã«å«ã¾ã‚Œã€æŽ¥ç€ä½ç½®ã‚’ç¤ºã™è¨­ç½®å›³ãŒå±‹æ ¹ãƒ‘ãƒ¼ãƒ„ã«ã‚¨ãƒƒãƒãƒ³ã‚°ã•ã‚Œã¾ã™ã€‚å¿…è¦æ•°ã‚’è¨˜è¼‰ã—ãŸãƒžãƒ‹ãƒ•ã‚§ã‚¹ãƒˆãƒ•ã‚¡ã‚¤ãƒ«ã‚‚å«ã¾ã‚Œã¾ã™ã€‚',
-    desc_shield: 'å±‹ä¸Šè¨­å‚™ã‚¨ãƒªã‚¢å‘¨å›²ã®ä½Žã„ãƒ‘ãƒ©ãƒšãƒƒãƒˆå£ã§ã™ã€‚ã‚¨ã‚¢ã‚³ãƒ³å®¤å¤–æ©Ÿã‚„ã‚¿ãƒ³ã‚¯ã‚’éš ã™ãŸã‚ã€æ—¥æœ¬ã®å•†æ¥­å»ºç¯‰ã«ã‚ˆãè¦‹ã‚‰ã‚Œã¾ã™ã€‚',
-    desc_bill: 'å±‹ä¸Šçœ‹æ¿æ§‹é€ ç‰©ã§ã™ã€‚å„ãƒ¦ãƒ‹ãƒƒãƒˆã¯å±‹æ ¹ã«æŽ¥ç€ã™ã‚‹ãƒ¬ãƒ¼ã‚¶ãƒ¼ã‚«ãƒƒãƒˆã‚¢ã‚»ãƒ³ãƒ–ãƒªã§ã™ã€‚',
-    desc_billEmpty: 'ã¾ã çœ‹æ¿ãŒã‚ã‚Šã¾ã›ã‚“ã€‚è¿½åŠ ãƒœã‚¿ãƒ³ã§é…ç½®ã—ã¦ãã ã•ã„ã€‚',
-    desc_doors: 'ãƒ‰ã‚¢ã¯åœ°é¢ãƒ¬ãƒ™ãƒ«ã«é…ç½®ã•ã‚Œã¾ã™ã€‚æ¬å…¥å£ã®ã‚ã‚‹å£ã«ã¯ãƒ‰ã‚¢ã‚’é…ç½®ã§ãã¾ã›ã‚“ã€‚',
-    desc_mat: 'å„ç´ æã«åå‰ã‚’ä»˜ã‘ã¦ãã ã•ã„ã€‚åå‰ã¯ZIPã®ã‚µãƒ–ãƒ•ã‚©ãƒ«ãƒ€åã«ãªã‚Šã¾ã™ã€‚å¤–è£…ã‚¹ã‚¿ã‚¤ãƒ«ã‚’ç´ æã«å‰²ã‚Šå½“ã¦ã¦ãƒ‘ãƒ¼ãƒ„ã‚’æ­£ã—ãã‚°ãƒ«ãƒ¼ãƒ—åŒ–ã—ã¦ãã ã•ã„ã€‚',
+    desc_ground: '1階と上階を区別する設定です。店舗前面・ロビー・工場搬入口・石積みの蔵・数寄屋造りの庇などに活用できます。',
+    desc_ffh: '実際の建物では店舗・ロビー・搬入のため1階を高く設定することが多いです。上階は標準の階高を維持します。',
+    desc_ffw: '店舗前面・ロビー・上階より大きい窓が必要な1階小売スペースに便利です。',
+    desc_ffc: '蔵（白漆喰の下に石積みや浪板）・木材や塗装の下の石積みベース・石材トリムの小売ファサードなどに一般的です。各壁の外装を2枚のパネルに分割します。',
+    desc_gfo: '日本建築によく見られます：1階の店舗が上階より前に張り出す、または上階が1階の上に覆いかぶさる（通り庇・アーケード）。前面にサブアセンブリを追加します。正の値＝前方に張り出し、負の値＝上階庇の下に引っ込みます。',
+    desc_trimOver: '各前後面のモール材は、側面モールに接続するよう両端をこの量だけ外装を超えて延長します。',
+    desc_ifloor: '各階高さに配置する水平コア材パネルです。3辺にタングがあり、4辺目は最後に取り付ける壁の内面に当たります。',
+    desc_lastWall: '組み立て時に最後に取り付ける壁を選択します。この壁には中間床タング用のスロットがなく、パネルの開いた端が建物を閉じる際に内面に当たります。',
+    desc_mech: 'HVAC・エレベーター機械室・水タンク・階段室用の小さな屋上ペントハウスです。本体屋根とタング＆スロット接続します。',
+    desc_mechPos: '負のX＝西、正のX＝東。負のY＝前面、正のY＝背面。屋根に収まるよう自動調整されます。',
+    desc_equip: '3D印刷可能な屋上設備です。有効にした各タイプはSTLとしてダウンロードに含まれ、接着位置を示す設置図が屋根パーツにエッチングされます。必要数を記載したマニフェストファイルも含まれます。',
+    desc_shield: '屋上設備エリア周囲の低いパラペット壁です。エアコン室外機やタンクを隠すため、日本の商業建築によく見られます。',
+    desc_bill: '屋上看板構造物です。各ユニットは屋根に接着するレーザーカットアセンブリです。',
+    desc_billEmpty: 'まだ看板がありません。追加ボタンで配置してください。',
+    desc_doors: 'ドアは地面レベルに配置されます。搬入口のある壁にはドアを配置できません。',
+    desc_mat: '各素材に名前を付けてください。名前はZIPのサブフォルダ名になります。外装スタイルを素材に割り当ててパーツを正しくグループ化してください。',
     /* select options */
-    opt_absolute: 'é«˜ã•ã‚’ç›´æŽ¥å…¥åŠ›ï¼ˆmmï¼‰',
-    opt_floors: 'éšŽæ•°ã‹ã‚‰è¨ˆç®—',
-    opt_parapet: 'ãƒ‘ãƒ©ãƒšãƒƒãƒˆï¼ˆé™¸å±‹æ ¹ï¼‰',
-    opt_flat: 'ãƒ•ãƒ©ãƒƒãƒˆï¼ˆå¹³è‘ºãï¼‰',
-    opt_flat_overhang: 'ãƒ•ãƒ©ãƒƒãƒˆï¼‹åº‡ï¼ˆé‡‘å±žè‘ºãï¼‰',
-    opt_slanted: 'ç‰‡æµã‚Œ',
-    opt_gabled: 'åˆ‡å¦»',
-    opt_ridgeEW: 'æ±è¥¿æ£Ÿï¼ˆå‹¾é…ã¯å‰å¾Œé¢ï¼‰',
-    opt_ridgeNS: 'å—åŒ—æ£Ÿï¼ˆå‹¾é…ã¯æ±è¥¿é¢ï¼‰',
-    opt_slopeBack: 'å¥¥ï¼ˆåŒ—å´ï¼‰ãŒé«˜ã„',
-    opt_slopeFront: 'æ‰‹å‰ï¼ˆå—å´ï¼‰ãŒé«˜ã„',
-    opt_slopeEast: 'æ±å´ãŒé«˜ã„',
-    opt_slopeWest: 'è¥¿å´ãŒé«˜ã„',
-    opt_densNone: 'ãªã—',
-    opt_densSparse: 'å°‘ãªã„',
-    opt_densMedium: 'ä¸­ç¨‹åº¦',
-    opt_densDense: 'å¤šã„',
-    opt_scSmall: 'å°ï¼ˆ75%ï¼‰',
-    opt_scDefault: 'æ¨™æº–ï¼ˆ100%ï¼‰',
-    opt_scLarge: 'å¤§ï¼ˆ140%ï¼‰',
-    opt_scXL: 'ç‰¹å¤§ï¼ˆ180%ï¼‰',
-    opt_bayNone: 'æ¬å…¥å£ãªã—',
-    opt_bayFront: 'å‰é¢ã®ã¿',
-    opt_bayDrive: 'é€šã‚ŠæŠœã‘ï¼ˆå‰å¾Œï¼‰',
-    opt_wallBack: 'èƒŒé¢',
-    opt_wallFront: 'å‰é¢',
-    opt_wallEast: 'æ±å´',
-    opt_wallWest: 'è¥¿å´',
-    opt_shieldSolid: 'ã‚½ãƒªãƒƒãƒ‰ãƒ‘ãƒãƒ«',
-    opt_shieldLouvered: 'ãƒ«ãƒ¼ãƒãƒ¼ï¼ˆæ¨ªã‚¹ãƒ©ãƒƒãƒˆï¼‰',
-    opt_shieldLattice: 'æ ¼å­',
-    opt_shieldBraced: 'Xå½¢ãƒ–ãƒ¬ãƒ¼ã‚¹ï¼ˆæ§‹é€ æï¼‹ãƒ«ãƒ¼ãƒãƒ¼å¤–è£…ï¼‰',
+    opt_absolute: '高さを直接入力（mm）',
+    opt_floors: '階数から計算',
+    opt_parapet: 'パラペット（陸屋根）',
+    opt_flat: 'フラット（平葺き）',
+    opt_flat_overhang: 'フラット＋庇（金属葺き）',
+    opt_slanted: '片流れ',
+    opt_gabled: '切妻',
+    opt_ridgeEW: '東西棟（勾配は前後面）',
+    opt_ridgeNS: '南北棟（勾配は東西面）',
+    opt_slopeBack: '奥（北側）が高い',
+    opt_slopeFront: '手前（南側）が高い',
+    opt_slopeEast: '東側が高い',
+    opt_slopeWest: '西側が高い',
+    opt_densNone: 'なし',
+    opt_densSparse: '少ない',
+    opt_densMedium: '中程度',
+    opt_densDense: '多い',
+    opt_scSmall: '小（75%）',
+    opt_scDefault: '標準（100%）',
+    opt_scLarge: '大（140%）',
+    opt_scXL: '特大（180%）',
+    opt_bayNone: '搬入口なし',
+    opt_bayFront: '前面のみ',
+    opt_bayDrive: '通り抜け（前後）',
+    opt_wallBack: '背面',
+    opt_wallFront: '前面',
+    opt_wallEast: '東側',
+    opt_wallWest: '西側',
+    opt_shieldSolid: 'ソリッドパネル',
+    opt_shieldLouvered: 'ルーバー（横スラット）',
+    opt_shieldLattice: '格子',
+    opt_shieldBraced: 'X形ブレース（構造材＋ルーバー外装）',
     /* buttons */
-    btn_shape: 'â¬¡ å½¢çŠ¶ç·¨é›†',
-    btn_open: 'âœï¸ é–‹å£ç·¨é›†',
-    btn_dl: 'â¬‡ ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰',
-    btn_save: 'ðŸ’¾ ã‚­ãƒ£ãƒƒã‚·ãƒ¥ä¿å­˜',
-    btn_load: 'ðŸ“‚ ã‚­ãƒ£ãƒƒã‚·ãƒ¥èª­è¾¼',
-    btn_clear: 'ðŸ—‘ ã‚­ãƒ£ãƒƒã‚·ãƒ¥æ¶ˆåŽ»',
-    btn_export: 'â¬‡ è¨­å®šã‚¨ã‚¯ã‚¹ãƒãƒ¼ãƒˆï¼ˆ.hakoï¼‰',
-    btn_import: 'â¬† è¨­å®šã‚¤ãƒ³ãƒãƒ¼ãƒˆï¼ˆ.hakoï¼‰',
-    btn_reset: 'â†º ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã«ãƒªã‚»ãƒƒãƒˆ',
-    btn_addBill: 'ï¼‹ çœ‹æ¿ã‚’è¿½åŠ ',
-    btn_overflowTip: 'Â·Â·Â·',
+    btn_shape: '形状編集',
+    btn_open: '開口編集',
+    btn_dl: 'ダウンロード',
+    btn_save: 'キャッシュ保存',
+    btn_load: 'キャッシュ読込',
+    btn_clear: 'キャッシュ消去',
+    btn_export: '設定エクスポート（.hako）',
+    btn_import: '設定インポート（.hako）',
+    btn_reset: 'デフォルトにリセット',
+    btn_addBill: '看板を追加',
+    btn_overflowTip: 'その他',
     /* language / overflow menu */
-    menu_lang: 'ðŸŒ è¨€èªž',
+    menu_lang: '言語',
     lang_en: 'English',
-    lang_ja: 'æ—¥æœ¬èªž',
+    lang_ja: '日本語',
     /* HTML-containing elements (innerHTML replacement) */
-    html_thickWarn: 'âš ï¸ <strong>ã‚³ã‚¢æåŽšã•ã‚’å®Ÿéš›ã®ã‚·ãƒ¼ãƒˆææ–™ã«åˆã‚ã›ã¦ãã ã•ã„ã€‚</strong> å´å£ï¼ˆæ±è¥¿ï¼‰ã¯ <code>å¥¥è¡Œã âˆ’ 2 Ã— ã‚³ã‚¢</code> mm é•·ã«åˆ‡æ–­ã•ã‚Œã¾ã™ã€‚åŽšã•ãŒé–“é•ã†ã¨å´é¢ãƒ‘ãƒãƒ«ã®é•·ã•ãŒåˆã„ã¾ã›ã‚“ã€‚',
+    html_thickWarn: '⚠️ <strong>コア材厚さを実際のシート材料に合わせてください。</strong> 側壁（東西）は <code>奥行き − 2 × コア</code> mm 長に切断されます。厚さが間違うと側面パネルの長さが合いません。',
     /* materials form (dynamically built) */
-    mat_clHdr: 'å¤–å£ã‚¹ã‚¿ã‚¤ãƒ« â†’ ç´ æ',
-    mat_clHint: 'å„å¤–å£ã‚¹ã‚¿ã‚¤ãƒ«ã‚’ç‰¹å®šã®ç´ æã«å‰²ã‚Šå½“ã¦ã¦ã€ãƒ‘ãƒãƒ«ã‚’ZIPã®ç•°ãªã‚‹ãƒ•ã‚©ãƒ«ãƒ€ã«ã‚°ãƒ«ãƒ¼ãƒ—åŒ–ã—ã¾ã™ã€‚',
-    mat_addBtn: 'ï¼‹ ç´ æã‚’è¿½åŠ ',
-    mat_namePh: 'ãƒ•ã‚©ãƒ«ãƒ€åï¼ˆä¾‹ï¼š1.5mmåˆæ¿ï¼‰',
-    mat_nameTitle: 'ç´ æå â€” ZIPãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã®ã‚µãƒ–ãƒ•ã‚©ãƒ«ãƒ€åã¨ã—ã¦ä½¿ç”¨ã•ã‚Œã¾ã™',
-    mat_swatchTitle: 'ã“ã®ç´ æã®è‰²ã‚’é¸æŠž',
-    mat_idTitle: 'å†…éƒ¨IDï¼ˆpart.materialã§ä½¿ç”¨ï¼‰',
-    mat_delTitle: 'ã“ã®ç´ æã‚’å‰Šé™¤',
-    mat_newName: 'æ–°ã—ã„ç´ æ',
-    ed_grid: 'ã‚°ãƒªãƒƒãƒ‰',
-    ed_step: 'é–“éš”',
-    ed_cladding: 'å¤–è£…',
-    ed_roofCladdingStyle: 'å±‹æ ¹å¤–è£…ã‚¹ã‚¿ã‚¤ãƒ«',
-    ed_drawMode: 'ä½œå›³ãƒ¢ãƒ¼ãƒ‰',
-    ed_drawHint: 'å¹³é¢å›³ä¸Šã§ã‚¯ãƒªãƒƒã‚¯ï¼†ãƒ‰ãƒ©ãƒƒã‚°ã—ã¦å£ã‚’é…ç½®ã—ã€é›¢ã™ã¨ç¢ºå®šã—ã¾ã™ã€‚',
-    ed_snap: 'ã‚¹ãƒŠãƒƒãƒ—',
-    ed_snapAxis: 'æ°´å¹³ã¾ãŸã¯åž‚ç›´ã®ã¿',
-    ed_eraseMode: 'å‰Šé™¤ãƒ¢ãƒ¼ãƒ‰',
-    ed_eraseRoofHint: 'å±‹ä¸Šã‚¢ã‚¤ãƒ†ãƒ ã‚’ã‚¯ãƒªãƒƒã‚¯ã—ã¦å‰Šé™¤ã—ã¾ã™ã€‚',
-    ed_eraseWallHint: 'å£ã‚’ã‚¯ãƒªãƒƒã‚¯ã—ã¦å‰Šé™¤ã—ã¾ã™ã€‚',
-    ed_shieldWall: 'ç›®éš ã—å£',
-    ed_shieldHint: 'å››è§’ã„è§’ãƒãƒ³ãƒ‰ãƒ«ã§å›²ã„ã‚’ãƒªã‚µã‚¤ã‚ºã€ç ´ç·šã®æœ¬ä½“ã§ç§»å‹•ã€ç™½ã„ä¸¸ãƒãƒ³ãƒ‰ãƒ«ã§å„å£ã‚’èª¿æ•´ã€ï¼‹ã§é–‹å£ã‚’è¿½åŠ ã—ã¾ã™ã€‚',
-    ed_placing: 'é…ç½®ä¸­',
-    ed_placeRelease: 'å¹³é¢å›³ä¸Šã§é›¢ã™ã¨é…ç½®ã—ã¾ã™ã€‚',
-    ed_copy: 'ã‚³ãƒ”ãƒ¼',
-    ed_paste: 'è²¼ã‚Šä»˜ã‘',
-    ed_delete: 'å‰Šé™¤',
-    ed_deleteN: '{n}ä»¶å‰Šé™¤',
-    ed_deleteSelectedTitle: 'é¸æŠžé …ç›®ã‚’å‰Šé™¤ï¼ˆDeleteï¼‰',
-    ed_deleteSelectTitle: 'å‰Šé™¤ï¼ˆ1ä»¶ä»¥ä¸Šé¸æŠžï¼‰',
-    ed_copyTitle: 'ã‚³ãƒ”ãƒ¼ï¼ˆCtrl/Cmd+Cï¼‰',
-    ed_copySelectTitle: 'ã‚³ãƒ”ãƒ¼ï¼ˆ1ä»¶ä»¥ä¸Šé¸æŠžï¼‰',
-    ed_pasteTitle: 'è²¼ã‚Šä»˜ã‘ï¼ˆCtrl/Cmd+Vï¼‰',
-    ed_pasteEmptyTitle: 'è²¼ã‚Šä»˜ã‘ï¼ˆã‚¯ãƒªãƒƒãƒ—ãƒœãƒ¼ãƒ‰ç©ºï¼‰',
-    ed_selectWallItemDelete: 'å‰Šé™¤ã™ã‚‹å£ã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠž',
-    ed_deleteWallItemTitle: 'é¸æŠžä¸­ã®å£ã‚¢ã‚¤ãƒ†ãƒ {n}ä»¶ã‚’å‰Šé™¤',
-    ed_autoSeedLayout: 'ãƒ¬ã‚¤ã‚¢ã‚¦ãƒˆè‡ªå‹•é…ç½®',
-    ed_clearAllEquipment: 'è¨­å‚™ã‚’ã™ã¹ã¦æ¶ˆåŽ»',
-    ed_autoSeedReplaceConfirm: 'æ—¢å­˜ã®è¨­å‚™{n}ä»¶ã‚’è‡ªå‹•é…ç½®ãƒ¬ã‚¤ã‚¢ã‚¦ãƒˆã§ç½®ãæ›ãˆã¾ã™ã‹ï¼Ÿ',
-    ed_clearEquipmentConfirm: 'é…ç½®æ¸ˆã¿è¨­å‚™{n}ä»¶ã‚’å‰Šé™¤ã—ã¾ã™ã‹ï¼Ÿ',
-    ed_autoSeedStatus: 'è¨­å‚™{n}ä»¶ã‚’ä¸€èˆ¬çš„ãªå±‹ä¸Šé…ç½®ã§è‡ªå‹•é…ç½®ã—ã¾ã—ãŸã€‚å¿…è¦ã«å¿œã˜ã¦å„ã‚¢ã‚¤ãƒ†ãƒ ã‚’ãƒ‰ãƒ©ãƒƒã‚°ã—ã¦èª¿æ•´ã—ã¦ãã ã•ã„ã€‚',
-    ed_shieldWallToolHint: 'å±‹æ ¹ç«¯ã‚’ã‚¯ãƒªãƒƒã‚¯ã—ã¦ãƒ‘ãƒ©ãƒšãƒƒãƒˆã‚’åˆ‡ã‚Šæ›¿ãˆã¾ã™ã€‚',
-    ed_eraseItem: 'ã‚¢ã‚¤ãƒ†ãƒ å‰Šé™¤',
-    ed_eraseItemHint: 'å±‹ä¸Šã‚¢ã‚¤ãƒ†ãƒ ã¾ãŸã¯åˆ‡ã‚ŠæŠœãã‚’ã‚¯ãƒªãƒƒã‚¯ã—ã¦å‰Šé™¤ã—ã¾ã™ã€‚',
-    ed_deleteSelected: 'é¸æŠžé …ç›®ã‚’å‰Šé™¤',
-    ed_deleteSelectedItem: 'é¸æŠžã‚¢ã‚¤ãƒ†ãƒ ã‚’å‰Šé™¤',
-    ed_wallItem: 'å£ã‚¢ã‚¤ãƒ†ãƒ ',
-    ed_searchPlaceholder: 'ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆæ¤œç´¢â€¦',
-    lbl_parapetCap: 'ãƒ‘ãƒ©ãƒšãƒƒãƒˆç¬ æœ¨',
-    hlp_parapetCap: 'ãƒ‘ãƒ©ãƒšãƒƒãƒˆå£ã®ä¸Šç«¯ã‚’è¦†ã†æŠ˜ã‚Šæ›²ã’å¼ã®ç¬ æœ¨ã‚¹ãƒˆãƒªãƒƒãƒ—ã‚’è¿½åŠ ã—ã¾ã™ã€‚',
-    lbl_parapetSides: 'ç¬ æœ¨ã‚’ä»˜ã‘ã‚‹è¾º',
-    hlp_parapetSides: 'ãƒ‘ãƒ©ãƒšãƒƒãƒˆç¬ æœ¨ã‚’å–ã‚Šä»˜ã‘ã‚‹è¾ºã‚’é¸æŠžã—ã¾ã™ã€‚',
-    opt_parapetSidesAll: 'å…¨è¾º',
-    opt_parapetSidesFB: 'å‰å¾Œã®ã¿',
-    opt_parapetSidesEW: 'æ±è¥¿ã®ã¿',
-    lbl_soffitCladding: 'åº‡è£ã®å¤–è£…æ',
-    hlp_soffitCladding: 'å±‹æ ¹ã®å¼µã‚Šå‡ºã—ä¸‹é¢ã«è²¼ã‚‹å¤–è£…ãƒ‘ãƒãƒ«ã‚’è¿½åŠ ã—ã¾ã™ã€‚',
-    lbl_roofFasciaTrim: 'å±‹æ ¹é¼»éš ã—ãƒˆãƒªãƒ ',
-    hlp_roofFasciaTrim: 'å±‹æ ¹ç«¯éƒ¨ã¾ã‚ã‚Šã«é¼»éš ã—ãƒˆãƒªãƒ ã‚’è¿½åŠ ã—ã¾ã™ã€‚',
-    lbl_interiorCladding: 'å†…å£å´å¤–è£…ãƒ‘ãƒãƒ«',
-    hlp_interiorCladding: 'å¤–å‘¨å£ã®å†…å´é¢ã«è²¼ã‚‹å†…è£…ï¼å¤–è£…ãƒ‘ãƒãƒ«ã‚’è¿½åŠ ã—ã¾ã™ã€‚',
-    lbl_interiorCladdingStyle: 'å†…å´ãƒ‘ãƒãƒ«ã‚¹ã‚¿ã‚¤ãƒ«',
-    opt_parapet_gable: 'ãƒ‘ãƒ©ãƒšãƒƒãƒˆåˆ‡å¦»',
+    mat_clHdr: '外壁スタイル → 素材',
+    mat_clHint: '各外壁スタイルを特定の素材に割り当てて、パネルをZIPの異なるフォルダにグループ化します。',
+    mat_addBtn: '＋ 素材を追加',
+    mat_namePh: 'フォルダ名（例：1.5mm合板）',
+    mat_nameTitle: '素材名 — ZIPダウンロードのサブフォルダ名として使用されます',
+    mat_swatchTitle: 'この素材の色を選択',
+    mat_idTitle: '内部ID（part.materialで使用）',
+    mat_delTitle: 'この素材を削除',
+    mat_newName: '新しい素材',
+    ed_grid: 'グリッド',
+    ed_step: '間隔',
+    ed_cladding: '外装',
+    ed_roofCladdingStyle: '屋根外装スタイル',
+    ed_drawMode: '作図モード',
+    ed_drawHint: '平面図上でクリック＆ドラッグして壁を配置し、離すと確定します。',
+    ed_snap: 'スナップ',
+    ed_snapAxis: '水平または垂直のみ',
+    ed_eraseMode: '削除モード',
+    ed_eraseRoofHint: '屋上アイテムをクリックして削除します。',
+    ed_eraseWallHint: '壁をクリックして削除します。',
+    ed_shieldWall: '目隠し壁',
+    ed_shieldHint: '四角い角ハンドルで囲いをリサイズ、破線の本体で移動、白い丸ハンドルで各壁を調整、＋で開口を追加します。',
+    ed_placing: '配置中',
+    ed_placeRelease: '平面図上で離すと配置します。',
+    ed_copy: 'コピー',
+    ed_paste: '貼り付け',
+    ed_delete: '削除',
+    ed_deleteN: '{n}件削除',
+    ed_deleteSelectedTitle: '選択項目を削除（Delete）',
+    ed_deleteSelectTitle: '削除（1件以上選択）',
+    ed_copyTitle: 'コピー（Ctrl/Cmd+C）',
+    ed_copySelectTitle: 'コピー（1件以上選択）',
+    ed_pasteTitle: '貼り付け（Ctrl/Cmd+V）',
+    ed_pasteEmptyTitle: '貼り付け（クリップボード空）',
+    ed_selectWallItemDelete: '削除する壁アイテムを選択',
+    ed_deleteWallItemTitle: '選択中の壁アイテム{n}件を削除',
+    ed_autoSeedLayout: 'レイアウト自動配置',
+    ed_clearAllEquipment: '設備をすべて消去',
+    ed_autoSeedReplaceConfirm: '既存の設備{n}件を自動配置レイアウトで置き換えますか？',
+    ed_clearEquipmentConfirm: '配置済み設備{n}件を削除しますか？',
+    ed_autoSeedStatus: '設備{n}件を一般的な屋上配置で自動配置しました。必要に応じて各アイテムをドラッグして調整してください。',
+    ed_shieldWallToolHint: '屋根端をクリックしてパラペットを切り替えます。',
+    ed_eraseItem: 'アイテム削除',
+    ed_eraseItemHint: '屋上アイテムまたは切り抜きをクリックして削除します。',
+    ed_deleteSelected: '選択項目を削除',
+    ed_deleteSelectedItem: '選択アイテムを削除',
+    ed_wallItem: '壁アイテム',
+    ed_searchPlaceholder: 'オブジェクト検索…',
+    lbl_parapetCap: 'パラペット笠木',
+    hlp_parapetCap: 'パラペット壁の上端を覆う折り曲げ式の笠木ストリップを追加します。',
+    lbl_parapetSides: '笠木を付ける辺',
+    hlp_parapetSides: 'パラペット笠木を取り付ける辺を選択します。',
+    opt_parapetSidesAll: '全辺',
+    opt_parapetSidesFB: '前後のみ',
+    opt_parapetSidesEW: '東西のみ',
+    lbl_soffitCladding: '庇裏の外装材',
+    hlp_soffitCladding: '屋根の張り出し下面に貼る外装パネルを追加します。',
+    lbl_roofFasciaTrim: '屋根鼻隠しトリム',
+    hlp_roofFasciaTrim: '屋根端部まわりに鼻隠しトリムを追加します。',
+    lbl_interiorCladding: '内壁側外装パネル',
+    hlp_interiorCladding: '外周壁の内側面に貼る内装／外装パネルを追加します。',
+    lbl_interiorCladdingStyle: '内側パネルスタイル',
+    opt_parapet_gable: 'パラペット切妻',
   },
 };
 
@@ -2336,150 +2336,150 @@ function tx(key, fallback) {
 
 const STYLE_I18N_JA = {
   BUILDING_TYPES: {
-    industrial_loading: { label:'å·¥æ¥­ãƒ»è·å½¹æ–½è¨­' },
-    storage: { label:'å€‰åº«' },
-    office: { label:'ã‚ªãƒ•ã‚£ã‚¹ãƒ“ãƒ«' },
-    workshop: { label:'å°å·¥å ´ãƒ»ä½œæ¥­å ´' },
-    silo_tower: { label:'ã‚µã‚¤ãƒ­å¡”ãƒ»ç´°é•·ã„å»ºç‰©' },
-    shop: { label:'åº—èˆ—ãƒ»å•†åº—' },
-    traditional_house: { label:'ä¼çµ±ä½å®…ãƒ»èŒ¶å±‹' },
-    storehouse: { label:'è”µï¼ˆç™½å£ï¼‰' },
-    station_brick: { label:'ãƒ¬ãƒ³ã‚¬é§…èˆŽãƒ»éŠ€è¡Œ' },
-    stone_civic: { label:'çŸ³é€ å…¬å…±å»ºç¯‰' },
+    industrial_loading: { label:'工業・荷役施設' },
+    storage: { label:'倉庫' },
+    office: { label:'オフィスビル' },
+    workshop: { label:'小工場・作業場' },
+    silo_tower: { label:'サイロ塔・細長い建物' },
+    shop: { label:'店舗・商店' },
+    traditional_house: { label:'伝統住宅・茶屋' },
+    storehouse: { label:'蔵（白壁）' },
+    station_brick: { label:'レンガ駅舎・銀行' },
+    stone_civic: { label:'石造公共建築' },
   },
   CLADDING_STYLES: {
-    alc_panel: { label:'ALCãƒ‘ãƒãƒ«ï¼ˆç¸¦ç›®åœ°ãƒ»4mmå¹…ï¼‰' },
-    alc_panel_horizontal: { label:'ALCãƒ‘ãƒãƒ«ï¼ˆæ¨ªç›®åœ°ãƒ»4mmé«˜ï¼‰' },
-    alc_panel_wide: { label:'ALCãƒ‘ãƒãƒ«ï¼ˆ1200mmå¹…ï¼‰' },
-    alc_panel_bolted: { label:'ALCãƒ‘ãƒãƒ«ï¼ˆéœ²å‡ºãƒ•ã‚¡ã‚¹ãƒŠãƒ¼ï¼‰' },
-    alc_panel_ribbed: { label:'ALCãƒ‘ãƒãƒ«ï¼ˆè£…é£¾ãƒªãƒ–ï¼‰' },
-    ribbed_metal_wide: { label:'ãƒªãƒ–ä»˜ãé‡‘å±žãƒ‘ãƒãƒ«ï¼ˆå¹…åºƒï¼‰' },
-    ribbed_metal_wide_fasteners: { label:'ãƒªãƒ–ä»˜ãé‡‘å±žãƒ‘ãƒãƒ«ï¼ˆå¹…åºƒï¼‹ãƒ•ã‚¡ã‚¹ãƒŠãƒ¼ï¼‰' },
-    standing_seam_metal: { label:'ç«‹å¹³è‘ºãé‡‘å±žå±‹æ ¹' },
-    ribbed_metal_narrow: { label:'ãƒªãƒ–ä»˜ãé‡‘å±žãƒ‘ãƒãƒ«ï¼ˆç´°å¹…ï¼‰' },
-    cement_siding_lap: { label:'çª¯æ¥­ç³»ãƒ©ãƒƒãƒ—ã‚µã‚¤ãƒ‡ã‚£ãƒ³ã‚°' },
-    galvalume_vertical: { label:'ã‚¬ãƒ«ãƒãƒªã‚¦ãƒ ç¸¦å¼µã‚Š' },
-    fluted_concrete: { label:'ãƒªãƒ–ä»˜ãã‚³ãƒ³ã‚¯ãƒªãƒ¼ãƒˆ' },
-    mosaic_tile: { label:'ãƒ¢ã‚¶ã‚¤ã‚¯ã‚¿ã‚¤ãƒ«ï¼ˆ50mmï¼‰' },
-    concrete_panel_large: { label:'ã‚³ãƒ³ã‚¯ãƒªãƒ¼ãƒˆãƒ‘ãƒãƒ«ï¼ˆå¤§ï¼‰' },
-    concrete_panel_small: { label:'ã‚³ãƒ³ã‚¯ãƒªãƒ¼ãƒˆãƒ‘ãƒãƒ«ï¼ˆå°ï¼‰' },
-    yakisugi: { label:'ç„¼æ‰æ¿å¼µã‚Š' },
-    board_batten: { label:'æŠ¼ç¸å¼µã‚Š' },
-    namako: { label:'ãªã¾ã“å£ï¼ˆæ–œã‚ã‚¿ã‚¤ãƒ«ï¼‰' },
-    namako_kabe: { label:'ãªã¾ã“å£ï¼ˆæ–œã‚ã‚¿ã‚¤ãƒ«ï¼‰' },
-    hira_gawara: { label:'å¹³ç“¦å£ï¼ˆè§’ã‚¿ã‚¤ãƒ«ï¼‰' },
-    hira_gawara_wall: { label:'å¹³ç“¦å£ï¼ˆè§’ã‚¿ã‚¤ãƒ«ï¼‰' },
-    kawara_roof: { label:'ç“¦å±‹æ ¹' },
-    kawara_tile: { label:'ç“¦ï¼ˆå±‹æ ¹ã‚¿ã‚¤ãƒ«ï¼‰' },
-    corrugated_metal: { label:'æ³¢æ¿é‡‘å±žï¼ˆé‡ã­å¼µã‚Šï¼‰' },
-    corrugated_metal_overlap: { label:'æ³¢æ¿é‡‘å±žï¼ˆé‡ã­ã‚ã‚Šï¼‰' },
-    brick_running: { label:'ãƒ¬ãƒ³ã‚¬ï¼ˆé¦¬è¸ã¿ç›®åœ°ï¼‰' },
-    brick_course: { label:'ãƒ¬ãƒ³ã‚¬ï¼ˆæ®µç©ã¿ï¼‰' },
-    stone_ashlar_small: { label:'åˆ‡çŸ³ç©ã¿ï¼ˆå°ï¼‰' },
-    stone_ashlar_large: { label:'åˆ‡çŸ³ç©ã¿ï¼ˆå¤§ï¼‰' },
-    stone_rubble: { label:'ä¹±çŸ³ç©ã¿' },
-    stone_random_rubble: { label:'ä¹±çŸ³ç©ã¿ï¼ˆãƒ©ãƒ³ãƒ€ãƒ ï¼‰' },
-    smooth: { label:'ç„¡åœ°ï¼ˆãƒ‡ã‚£ãƒ†ãƒ¼ãƒ«ãªã—ï¼‰' },
+    alc_panel: { label:'ALCパネル（縦目地・4mm幅）' },
+    alc_panel_horizontal: { label:'ALCパネル（横目地・4mm高）' },
+    alc_panel_wide: { label:'ALCパネル（1200mm幅）' },
+    alc_panel_bolted: { label:'ALCパネル（露出ファスナー）' },
+    alc_panel_ribbed: { label:'ALCパネル（装飾リブ）' },
+    ribbed_metal_wide: { label:'リブ付き金属パネル（幅広）' },
+    ribbed_metal_wide_fasteners: { label:'リブ付き金属パネル（幅広＋ファスナー）' },
+    standing_seam_metal: { label:'立平葺き金属屋根' },
+    ribbed_metal_narrow: { label:'リブ付き金属パネル（細幅）' },
+    cement_siding_lap: { label:'窯業系ラップサイディング' },
+    galvalume_vertical: { label:'ガルバリウム縦張り' },
+    fluted_concrete: { label:'リブ付きコンクリート' },
+    mosaic_tile: { label:'モザイクタイル（50mm）' },
+    concrete_panel_large: { label:'コンクリートパネル（大）' },
+    concrete_panel_small: { label:'コンクリートパネル（小）' },
+    yakisugi: { label:'焼杉板張り' },
+    board_batten: { label:'押縁張り' },
+    namako: { label:'なまこ壁（斜めタイル）' },
+    namako_kabe: { label:'なまこ壁（斜めタイル）' },
+    hira_gawara: { label:'平瓦壁（角タイル）' },
+    hira_gawara_wall: { label:'平瓦壁（角タイル）' },
+    kawara_roof: { label:'瓦屋根' },
+    kawara_tile: { label:'瓦（屋根タイル）' },
+    corrugated_metal: { label:'波板金属（重ね張り）' },
+    corrugated_metal_overlap: { label:'波板金属（重ねあり）' },
+    brick_running: { label:'レンガ（馬踏み目地）' },
+    brick_course: { label:'レンガ（段積み）' },
+    stone_ashlar_small: { label:'切石積み（小）' },
+    stone_ashlar_large: { label:'切石積み（大）' },
+    stone_rubble: { label:'乱石積み' },
+    stone_random_rubble: { label:'乱石積み（ランダム）' },
+    smooth: { label:'無地（ディテールなし）' },
   },
   WINDOW_STYLES: {
-    industrial_small: { label:'å·¥æ¥­çª“ãƒ»å°ï¼ˆç¸¦æ¡Ÿï¼‰' },
-    industrial_tall: { label:'å·¥æ¥­çª“ãƒ»ç¸¦é•·ï¼ˆç¸¦æ¡Ÿï¼‰' },
-    office_grid_2x2: { label:'ã‚ªãƒ•ã‚£ã‚¹çª“ 2Ã—2æ ¼å­' },
-    office_grid_3x2: { label:'ã‚ªãƒ•ã‚£ã‚¹çª“ 3Ã—2æ ¼å­' },
-    storefront: { label:'åº—èˆ—æ­£é¢ï¼ˆé€æ˜Žãƒ»æ¡Ÿãªã—ï¼‰' },
-    ribbon: { label:'æ¨ªé€£çª“' },
-    industrial_slider_3: { label:'å·¥æ¥­ç”¨å¼•é•ã„å¸¯çª“ï¼ˆ3é€£ï¼‰' },
-    industrial_slider_4: { label:'å·¥æ¥­ç”¨å¼•é•ã„å¸¯çª“ï¼ˆ4é€£ï¼‰' },
-    industrial_slider_6: { label:'å·¥æ¥­ç”¨å¼•é•ã„å¸¯çª“ï¼ˆ6é€£ï¼‰' },
-    factory_square: { label:'å·¥å ´è§’çª“ï¼ˆ4æžšï¼‰' },
-    vertical_strip: { label:'ç¸¦ã‚¹ãƒªãƒƒãƒˆçª“' },
-    renji_mado: { label:'é€£å­çª“' },
-    mushiko_mado: { label:'è™«ç± çª“' },
-    shoji_grid: { label:'éšœå­æ ¼å­' },
-    ranma_lattice: { label:'æ¬„é–“æ ¼å­' },
-    yukimi_shoji: { label:'é›ªè¦‹éšœå­' },
-    renji_tall: { label:'ç¸¦é€£å­' },
-    blanked_etched: { label:'å¡žãŽçª“ï¼ˆå¤–è£…ã«ã‚¨ãƒƒãƒãƒ³ã‚°ï¼‰' },
-    blanked_filled: { label:'å¡žãŽçª“ï¼ˆå¤–è£…è£ã«åŸ‹ã‚æï¼‰' },
+    industrial_small: { label:'工業窓・小（縦桟）' },
+    industrial_tall: { label:'工業窓・縦長（縦桟）' },
+    office_grid_2x2: { label:'オフィス窓 2×2格子' },
+    office_grid_3x2: { label:'オフィス窓 3×2格子' },
+    storefront: { label:'店舗正面（透明・桟なし）' },
+    ribbon: { label:'横連窓' },
+    industrial_slider_3: { label:'工業用引違い帯窓（3連）' },
+    industrial_slider_4: { label:'工業用引違い帯窓（4連）' },
+    industrial_slider_6: { label:'工業用引違い帯窓（6連）' },
+    factory_square: { label:'工場角窓（4枚）' },
+    vertical_strip: { label:'縦スリット窓' },
+    renji_mado: { label:'連子窓' },
+    mushiko_mado: { label:'虫籠窓' },
+    shoji_grid: { label:'障子格子' },
+    ranma_lattice: { label:'欄間格子' },
+    yukimi_shoji: { label:'雪見障子' },
+    renji_tall: { label:'縦連子' },
+    blanked_etched: { label:'塞ぎ窓（外装にエッチング）' },
+    blanked_filled: { label:'塞ぎ窓（外装裏に埋め材）' },
   },
   DOOR_STYLES: {
-    single: { label:'ç‰‡é–‹ããƒ‰ã‚¢ï¼ˆç„¡åœ°ï¼‰' },
-    single_glass: { label:'ç‰‡é–‹ãã‚¬ãƒ©ã‚¹ãƒ‰ã‚¢' },
-    single_full_glass: { label:'å…¨é¢ã‚¬ãƒ©ã‚¹ç‰‡é–‹ããƒ‰ã‚¢' },
-    double: { label:'ä¸¡é–‹ããƒ‰ã‚¢ï¼ˆç„¡åœ°ï¼‰' },
-    double_glass: { label:'ä¸¡é–‹ãã‚¬ãƒ©ã‚¹ãƒ‰ã‚¢' },
-    double_full_glass: { label:'å…¨é¢ã‚¬ãƒ©ã‚¹ä¸¡é–‹ããƒ‰ã‚¢' },
-    rolling: { label:'ã‚·ãƒ£ãƒƒã‚¿ãƒ¼' },
-    sliding_glass: { label:'å¼•é•ã„ã‚¬ãƒ©ã‚¹å…¥å£' },
-    single_metal_exterior_handle: { label:'å¤–éƒ¨ãƒãƒ³ãƒ‰ãƒ«ä»˜ãå·¥æ¥­ç”¨é‡‘å±žãƒ‰ã‚¢' },
-    single_metal_window: { label:'å°çª“ä»˜ãé‡‘å±žã‚µãƒ¼ãƒ“ã‚¹ãƒ‰ã‚¢' },
-    single_louvered_utility: { label:'ãƒ«ãƒ¼ãƒãƒ¼ä»˜ãè¨­å‚™ãƒ‰ã‚¢' },
-    double_metal_exterior_handle: { label:'å¤–éƒ¨ãƒãƒ³ãƒ‰ãƒ«ä»˜ãä¸¡é–‹ãé‡‘å±žãƒ‰ã‚¢' },
-    single_industrial: { label:'ã‚¯ãƒ©ãƒƒã‚·ãƒ¥ãƒãƒ¼ä»˜ãç‰‡é–‹ãå·¥æ¥­ãƒ‰ã‚¢' },
-    double_industrial: { label:'ã‚¯ãƒ©ãƒƒã‚·ãƒ¥ãƒãƒ¼ä»˜ãä¸¡é–‹ãå·¥æ¥­ãƒ‰ã‚¢' },
-    apartment_service_jp: { label:'æ—¥æœ¬åž‹ã‚¢ãƒ«ãƒŸçŽ„é–¢ãƒ»é›†åˆä½å®…ãƒ‰ã‚¢' },
-    koshi_do: { label:'æ ¼å­æˆ¸' },
-    koshi_do_glass: { label:'æ ¼å­æˆ¸ï¼ˆã‚¬ãƒ©ã‚¹å…¥ã‚Šï¼‰' },
-    koshi_do_double: { label:'ä¸¡é–‹ãæ ¼å­æˆ¸' },
-    sliding_shoji: { label:'éšœå­å¼•æˆ¸' },
-    itado: { label:'æ¿æˆ¸' },
-    kura_do: { label:'è”µæˆ¸' },
-    yotsume_koshi_do: { label:'å››ã¤ç›®æ ¼å­æˆ¸' },
+    single: { label:'片開きドア（無地）' },
+    single_glass: { label:'片開きガラスドア' },
+    single_full_glass: { label:'全面ガラス片開きドア' },
+    double: { label:'両開きドア（無地）' },
+    double_glass: { label:'両開きガラスドア' },
+    double_full_glass: { label:'全面ガラス両開きドア' },
+    rolling: { label:'シャッター' },
+    sliding_glass: { label:'引違いガラス入口' },
+    single_metal_exterior_handle: { label:'外部ハンドル付き工業用金属ドア' },
+    single_metal_window: { label:'小窓付き金属サービスドア' },
+    single_louvered_utility: { label:'ルーバー付き設備ドア' },
+    double_metal_exterior_handle: { label:'外部ハンドル付き両開き金属ドア' },
+    single_industrial: { label:'クラッシュバー付き片開き工業ドア' },
+    double_industrial: { label:'クラッシュバー付き両開き工業ドア' },
+    apartment_service_jp: { label:'日本型アルミ玄関・集合住宅ドア' },
+    koshi_do: { label:'格子戸' },
+    koshi_do_glass: { label:'格子戸（ガラス入り）' },
+    koshi_do_double: { label:'両開き格子戸' },
+    sliding_shoji: { label:'障子引戸' },
+    itado: { label:'板戸' },
+    kura_do: { label:'蔵戸' },
+    yotsume_koshi_do: { label:'四つ目格子戸' },
   },
   FIXTURE_STYLES: {
-    passthrough_circle: { label:'è²«é€šç©´ï¼ˆä¸¸ï¼‰' },
-    passthrough_square: { label:'è²«é€šç©´ï¼ˆå››è§’ï¼‰' },
-    emergency_hatch: { label:'éžå¸¸ç”¨ãƒãƒƒãƒ' },
-    vent_louvered: { label:'ãƒ«ãƒ¼ãƒãƒ¼æ›æ°—å£' },
-    vent_round: { label:'ä¸¸åž‹æŽ’æ°—å£' },
-    downspout: { label:'é›¨æ¨‹ãŸã¦ç®¡' },
-    noren: { label:'æš–ç°¾' },
-    sudare: { label:'ç°¾' },
-    address_plate: { label:'ä½æ‰€ãƒ—ãƒ¬ãƒ¼ãƒˆ' },
-    conduit_box: { label:'é…ç·šãƒ»ã‚¸ãƒ£ãƒ³ã‚¯ã‚·ãƒ§ãƒ³ãƒœãƒƒã‚¯ã‚¹' },
-    electric_meter: { label:'é›»åŠ›é‡è¨ˆ' },
-    gas_meter: { label:'ã‚¬ã‚¹ãƒ¡ãƒ¼ã‚¿ãƒ¼' },
-    sign_wall_plaque: { label:'å£é¢çœ‹æ¿ãƒ»ãƒ—ãƒ¬ãƒ¼ãƒˆ' },
-    mailbox_jp: { label:'éƒµä¾¿å—ã‘' },
-    mini_split_ac: { label:'å£æŽ›ã‘ã‚¨ã‚¢ã‚³ãƒ³å®¤å†…æ©Ÿ' },
-    sign_vertical_banner: { label:'ç¸¦çœ‹æ¿' },
-    lantern_chochin: { label:'æç¯' },
-    sign_kanban: { label:'çœ‹æ¿' },
-    louver_bank_industrial: { label:'ãƒ«ãƒ¼ãƒãƒ¼ãƒãƒ³ã‚¯' },
-    large_vent_grille: { label:'å¤§åž‹æ›æ°—ã‚°ãƒªãƒ«' },
-    pipe_penetration_ring: { label:'é…ç®¡è²«é€šãƒªãƒ³ã‚°' },
-    cable_tray_wall: { label:'ã‚±ãƒ¼ãƒ–ãƒ«ãƒˆãƒ¬ã‚¤' },
-    exterior_electrical_cabinet: { label:'å±‹å¤–é›»æ°—ç›¤' },
-    dust_collector_box: { label:'é›†å¡µãƒœãƒƒã‚¯ã‚¹' },
-    wall_mounted_duct: { label:'å£ä»˜ã‘ãƒ€ã‚¯ãƒˆ' },
-    ladder_strip: { label:'ã¯ã—ã”ã‚¹ãƒˆãƒªãƒƒãƒ—' },
-    safety_cage: { label:'å®‰å…¨ã‚±ãƒ¼ã‚¸' },
-    platform_brackets: { label:'ãƒ—ãƒ©ãƒƒãƒˆãƒ•ã‚©ãƒ¼ãƒ ãƒ–ãƒ©ã‚±ãƒƒãƒˆ' },
-    service_platform_brackets: { label:'ã‚µãƒ¼ãƒ“ã‚¹è¶³å ´ãƒ–ãƒ©ã‚±ãƒƒãƒˆ' },
+    passthrough_circle: { label:'貫通穴（丸）' },
+    passthrough_square: { label:'貫通穴（四角）' },
+    emergency_hatch: { label:'非常用ハッチ' },
+    vent_louvered: { label:'ルーバー換気口' },
+    vent_round: { label:'丸型排気口' },
+    downspout: { label:'雨樋たて管' },
+    noren: { label:'暖簾' },
+    sudare: { label:'簾' },
+    address_plate: { label:'住所プレート' },
+    conduit_box: { label:'配線・ジャンクションボックス' },
+    electric_meter: { label:'電力量計' },
+    gas_meter: { label:'ガスメーター' },
+    sign_wall_plaque: { label:'壁面看板・プレート' },
+    mailbox_jp: { label:'郵便受け' },
+    mini_split_ac: { label:'壁掛けエアコン室内機' },
+    sign_vertical_banner: { label:'縦看板' },
+    lantern_chochin: { label:'提灯' },
+    sign_kanban: { label:'看板' },
+    louver_bank_industrial: { label:'ルーバーバンク' },
+    large_vent_grille: { label:'大型換気グリル' },
+    pipe_penetration_ring: { label:'配管貫通リング' },
+    cable_tray_wall: { label:'ケーブルトレイ' },
+    exterior_electrical_cabinet: { label:'屋外電気盤' },
+    dust_collector_box: { label:'集塵ボックス' },
+    wall_mounted_duct: { label:'壁付けダクト' },
+    ladder_strip: { label:'はしごストリップ' },
+    safety_cage: { label:'安全ケージ' },
+    platform_brackets: { label:'プラットフォームブラケット' },
+    service_platform_brackets: { label:'サービス足場ブラケット' },
   },
   ROOFTOP_EQUIPMENT: {
-    ac_small: { label:'å°åž‹ACå®¤å¤–æ©Ÿ' },
-    ac_large: { label:'å¤§åž‹ãƒ»å·¥æ¥­ç”¨ACå®¤å¤–æ©Ÿ' },
-    cooling_tower: { label:'å†·å´å¡”' },
-    water_tank_round: { label:'å††ç­’æ°´æ§½ï¼ˆè„šä»˜ãï¼‰' },
-    water_tank_square: { label:'FRPè§’åž‹æ°´æ§½ï¼ˆè„šä»˜ãï¼‰' },
-    mushroom_vent: { label:'ãã®ã“åž‹å±‹ä¸Šãƒ™ãƒ³ãƒˆ' },
-    elec_cabinet: { label:'é›»æ°—ãƒ»åˆ¶å¾¡ç›¤' },
-    antenna_mast: { label:'ã‚¢ãƒ³ãƒ†ãƒŠãƒžã‚¹ãƒˆ' },
+    ac_small: { label:'小型AC室外機' },
+    ac_large: { label:'大型・工業用AC室外機' },
+    cooling_tower: { label:'冷却塔' },
+    water_tank_round: { label:'円筒水槽（脚付き）' },
+    water_tank_square: { label:'FRP角型水槽（脚付き）' },
+    mushroom_vent: { label:'きのこ型屋上ベント' },
+    elec_cabinet: { label:'電気・制御盤' },
+    antenna_mast: { label:'アンテナマスト' },
   },
   AWNING_STYLES: {
-    narrow: { label:'ç‹­ã„' },
-    standard: { label:'æ¨™æº–' },
-    wide: { label:'åºƒã„' },
-    shopfront: { label:'åº—èˆ—æ­£é¢' },
+    narrow: { label:'狭い' },
+    standard: { label:'標準' },
+    wide: { label:'広い' },
+    shopfront: { label:'店舗正面' },
   },
   BALCONY_STYLES: {
-    int_s: { label:'å†…å´ S' },
-    int_m: { label:'å†…å´ M' },
-    int_l: { label:'å†…å´ L' },
-    ext_s: { label:'å¤–å´ S' },
-    ext_m: { label:'å¤–å´ M' },
-    ext_l: { label:'å¤–å´ L' },
+    int_s: { label:'内側 S' },
+    int_m: { label:'内側 M' },
+    int_l: { label:'内側 L' },
+    ext_s: { label:'外側 S' },
+    ext_m: { label:'外側 M' },
+    ext_l: { label:'外側 L' },
   },
 };
 
@@ -2513,7 +2513,7 @@ function applyDynamicObjectI18n() {
 }
 
 /* -------------------------------------------------------------------
-   Text-node registry â€” populated once before the first translation.
+   Text-node registry — populated once before the first translation.
    Each entry: { node: TextNode, orig: string (original English text) }
    ------------------------------------------------------------------- */
 let _textRegistry = null;
@@ -2552,8 +2552,8 @@ function applyI18n() {
   const T = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
   const enT = TRANSLATIONS.en;
 
-  // Build reverse map: English string value â†’ key (built fresh each call so
-  // duplicate values resolve consistently â€” last key in object order wins,
+  // Build reverse map: English string value → key (built fresh each call so
+  // duplicate values resolve consistently — last key in object order wins,
   // which is fine because duplicates always share the same translation).
   const enToKey = Object.create(null);
   for (const [k, v] of Object.entries(enT)) {
@@ -2574,7 +2574,7 @@ function applyI18n() {
     }
   }
 
-  // HTML-containing elements (can't use text nodes â€” replace innerHTML)
+  // HTML-containing elements (can't use text nodes — replace innerHTML)
   document.querySelectorAll('[data-i18n-html]').forEach(el => {
     const key = el.getAttribute('data-i18n-html');
     if (T[key]) el.innerHTML = T[key];
@@ -2842,11 +2842,11 @@ const DOOR_STYLES = {
   /* ---- Japanese door types ----
    * Three optional preview-rendering hints carry per-style colour identity
    * so toolbox / editor / laser-etched insert all match visually:
-   *   frameColor â†’ stroke for outer body + all etched features
-   *   panelFill  â†’ fill for the solid door body
-   *   glassFill  â†’ fill for glass apertures (defaults to clear blue)
+   *   frameColor → stroke for outer body + all etched features
+   *   panelFill  → fill for the solid door body
+   *   glassFill  → fill for glass apertures (defaults to clear blue)
    * `frameMaterial` (e.g. 'plaster') overrides the cut material at laser
-   * time â€” kura-do is cut from plaster card rather than basswood cladding.
+   * time — kura-do is cut from plaster card rather than basswood cladding.
    */
   apartment_service_jp: {
     label: 'Japanese aluminum service/apartment door',
@@ -2868,7 +2868,7 @@ const DOOR_STYLES = {
     ],
   },
   koshi_do: {
-    label: 'Koshi-do (æ ¼å­æˆ¸)',
+    label: 'Koshi-do (格子戸)',
     description: 'Vertical wooden lattice door with top rail and bottom kick panel. Iconic machiya shopfront.',
     width: 7, height: 18,
     glassPanes: [],
@@ -2882,8 +2882,8 @@ const DOOR_STYLES = {
     ],
   },
   koshi_do_glass: {
-    label: 'Koshi-do with glass (æ ¼å­æˆ¸ãƒ»ã‚¬ãƒ©ã‚¹å…¥ã‚Š)',
-    description: 'Modern koshi-do with a glass-backed lattice â€” see-through interior visible through the bars.',
+    label: 'Koshi-do with glass (格子戸・ガラス入り)',
+    description: 'Modern koshi-do with a glass-backed lattice — see-through interior visible through the bars.',
     width: 7, height: 18,
     // Glass aperture covers the lattice region; bars are etched on top.
     glassPanes: [{ x1: 0.5, y1: 1.7, x2: 6.5, y2: 14.4 }],
@@ -2898,7 +2898,7 @@ const DOOR_STYLES = {
     ],
   },
   koshi_do_double: {
-    label: 'Koshi-do double (ä¸¡é–‹ãæ ¼å­æˆ¸)',
+    label: 'Koshi-do double (両開き格子戸)',
     description: 'Two-leaf koshi-do for wider entrances. Sake shops, tea houses, ryokan main entries.',
     width: 12, height: 18,
     glassPanes: [],
@@ -2914,7 +2914,7 @@ const DOOR_STYLES = {
     ],
   },
   sliding_shoji: {
-    label: 'Sliding shoji (éšœå­å¼•æˆ¸)',
+    label: 'Sliding shoji (障子引戸)',
     description: 'Two-leaf sliding entry with kumiko grid and paper/frosted glass. Modern Japanese shop and home entries.',
     width: 14, height: 18,
     // Each leaf is a full glass aperture with kumiko etched on top.
@@ -2925,7 +2925,7 @@ const DOOR_STYLES = {
     centerSplit: true,
     frameColor: '#6a4a2a',
     panelFill:  'rgba(252,245,225,0.92)',
-    glassFill:  'rgba(252,245,225,0.92)',  // paper-tinted glass â€” uniform appearance
+    glassFill:  'rgba(252,245,225,0.92)',  // paper-tinted glass — uniform appearance
     features: [
       { type: 'track',        y: 0.8 },
       { type: 'track',        y: 17.2 },
@@ -2936,7 +2936,7 @@ const DOOR_STYLES = {
     ],
   },
   itado: {
-    label: 'Itado (æ¿æˆ¸)',
+    label: 'Itado (板戸)',
     description: 'Heavy vertical-plank wooden door with iron-studded rails. Storehouses, service entries, alley doors.',
     width: 7, height: 18,
     glassPanes: [],
@@ -2959,7 +2959,7 @@ const DOOR_STYLES = {
     ],
   },
   kura_do: {
-    label: 'Kura-do (è”µæˆ¸)',
+    label: 'Kura-do (蔵戸)',
     description: 'Thick plaster-clad storehouse door with iron banding and studs. Reuses the plaster material.',
     width: 9, height: 18,
     glassPanes: [],
@@ -2987,8 +2987,8 @@ const DOOR_STYLES = {
     ],
   },
   yotsume_koshi_do: {
-    label: 'Yotsume-gÅshi-do (å››ã¤ç›®æ ¼å­æˆ¸)',
-    description: 'Square-lattice variant of koshi-do â€” "four-eye" grid. Tea houses, formal residences.',
+    label: 'Yotsume-gōshi-do (四つ目格子戸)',
+    description: 'Square-lattice variant of koshi-do — "four-eye" grid. Tea houses, formal residences.',
     width: 7, height: 18,
     glassPanes: [],
     frameColor: '#5a3a1a',
@@ -3001,7 +3001,7 @@ const DOOR_STYLES = {
   },
 };
 
-/** True when the door style has at least one glass pane â†’ needs a core cut-through.
+/** True when the door style has at least one glass pane → needs a core cut-through.
  *  Solid doors (no glass) only need a cladding cutout, not a core hole. */
 function doorHasGlass(styleKey) {
   const spec = DOOR_STYLES[styleKey];
@@ -3014,7 +3014,7 @@ function doorHasGlass(styleKey) {
  *    (1) the style requires a wall-core cutout (glass door), so the door
  *        actually breaks the wall material rather than just gluing a
  *        cladding insert onto an intact surface; AND
- *    (2) the door reaches the bottom of the wall (op.y + op.h â‰¥ wallH),
+ *    (2) the door reaches the bottom of the wall (op.y + op.h ≥ wallH),
  *        so its cutout actually intersects the ground-level band where
  *        bottom tongues live. A glass door floating in the middle of a
  *        two-storey wall leaves the lower wall material continuous; a
@@ -3029,7 +3029,7 @@ function doorHasGlass(styleKey) {
  *  global `cfg.doorStyle` (which is what auto-generated doors carry when
  *  they don't store a per-door style). Both manual ops (`w`,`h`) and
  *  computeDoors output (`width`,`height`) are accepted. wallH may be
- *  omitted; in that case (2) is skipped â€” included for callers that
+ *  omitted; in that case (2) is skipped — included for callers that
  *  haven't been threaded the value yet, conservatively keeping the door
  *  in the forbidden list. The +/-2 mm padding around the door footprint
  *  matches the rest of the forbidden-zone code. */
@@ -3054,7 +3054,7 @@ function bottomTongueForbiddenZones(doors, cfg, wallH) {
  *    - the door insert (cladding-level) then glues on top of the glass and
  *      its smaller cladding aperture reveals only the visible glass area
  *
- *  Solid doors produce no core cut at all â€” the cladding insert glues
+ *  Solid doors produce no core cut at all — the cladding insert glues
  *  directly to the wall surface.
  *
  *  Aperture coordinates are scaled from the base DOOR_STYLES dims to the
@@ -3085,7 +3085,7 @@ function cutDoorCoreHoles(rects, x, y, w, h, style, mirrorX) {
 }
 
 /** Expand a door style's feature list into a flat array of primitive shapes
- *  in door-local mm coordinates (0..width Ã— 0..height).
+ *  in door-local mm coordinates (0..width × 0..height).
  *
  *  Used by three consumers so the toolbox icon, the editor canvas, and the
  *  laser-etched insert are always identical:
@@ -3099,17 +3099,17 @@ function cutDoorCoreHoles(rects, x, y, w, h, style, mirrorX) {
  *    { type: 'line', x1, y1, x2, y2, thick? } line segment
  *    { type: 'circle', cx, cy, r, fill? }   circle (filled = solid disc for knobs)
  *
- *  Feature â†’ shape mapping (semantics of each feature kept in one place):
- *    panel      â†’ 1 outline rect
- *    knob       â†’ 1 filled circle
- *    handle     â†’ 1 thick line
- *    crashBar   â†’ 1 tinted thin rect (the bar) + 2 outline rects (end brackets)
- *    kickPlate  â†’ 1 outline rect
- *    lockPlate  â†’ 1 outline rect
- *    track      â†’ 1 line spanning the door
+ *  Feature → shape mapping (semantics of each feature kept in one place):
+ *    panel      → 1 outline rect
+ *    knob       → 1 filled circle
+ *    handle     → 1 thick line
+ *    crashBar   → 1 tinted thin rect (the bar) + 2 outline rects (end brackets)
+ *    kickPlate  → 1 outline rect
+ *    lockPlate  → 1 outline rect
+ *    track      → 1 line spanning the door
  *  Plus the boolean style flags:
- *    centerSplit  â†’ 1 vertical line at x = width/2
- *    rollingSlats â†’ 1 tinted drum-band rect + N horizontal slat lines
+ *    centerSplit  → 1 vertical line at x = width/2
+ *    rollingSlats → 1 tinted drum-band rect + N horizontal slat lines
  */
 function doorFeatureShapes(spec) {
   if (!spec) return [];
@@ -3159,7 +3159,7 @@ function doorFeatureShapes(spec) {
         out.push({ type: 'line', x1: f.x1, y1: f.y1, x2: f.x2, y2: f.y2, thick: !!f.thick });
         break;
       case 'latticeVertical': {
-        // N vertical etched bars across {f.x1..f.x2} Ã— {f.y1..f.y2}. Bar
+        // N vertical etched bars across {f.x1..f.x2} × {f.y1..f.y2}. Bar
         // count is picked from the available width to match the renji-mado
         // window engine. Bars are etched (no kerf concern).
         const usable = f.x2 - f.x1;
@@ -3172,9 +3172,9 @@ function doorFeatureShapes(spec) {
         break;
       }
       case 'latticeGrid': {
-        // Cell grid across {f.x1..f.x2} Ã— {f.y1..f.y2}. Cell size targets
+        // Cell grid across {f.x1..f.x2} × {f.y1..f.y2}. Cell size targets
         // ~2.5 mm by default; override with f.targetCell. Used by sliding
-        // shoji and yotsume-gÅshi.
+        // shoji and yotsume-gōshi.
         const targetCell = f.targetCell || 2.5;
         const cols = Math.max(2, Math.round((f.x2 - f.x1) / targetCell));
         const rows = Math.max(2, Math.round((f.y2 - f.y1) / targetCell));
@@ -3208,7 +3208,7 @@ function doorFeatureShapes(spec) {
         out.push({ type: 'circle', cx: f.cx, cy: f.cy, r: f.r || 0.18, fill: true });
         break;
       case 'hikite':
-        // Recessed pull handle on traditional Japanese sliding doors â€”
+        // Recessed pull handle on traditional Japanese sliding doors —
         // rendered as a small etched rectangle outline.
         out.push({ type: 'rect', x: f.x1, y: f.y1, w: f.x2 - f.x1, h: f.y2 - f.y1 });
         break;
@@ -3233,7 +3233,7 @@ function doorFeatureShapes(spec) {
 }
 
 /** Emit SVG markup for the given door-local shapes. Used by the toolbox card
- *  and the editor canvas. `s` is the inputâ†’output unit scale (e.g. px/mm),
+ *  and the editor canvas. `s` is the input→output unit scale (e.g. px/mm),
  *  `ox`/`oy` translate the shapes' origin into the output coordinate space.
  *  Stroke widths are given in OUTPUT units (so the caller picks pixels or
  *  mm depending on what the surrounding SVG uses).
@@ -3279,7 +3279,7 @@ function emitDoorShapesSvg(shapes, ox, oy, s, opts) {
  * the editor canvas, so both show the actual style-specific door (body fill,
  * glass apertures, etched features) rather than diverging. Mirrors the
  * windows' `buildWindowSvgBody` so doors get the same per-style colour
- * identity (frameColor / panelFill / glassFill) â€” Western doors fall through
+ * identity (frameColor / panelFill / glassFill) — Western doors fall through
  * to the existing orange-cream defaults.
  *
  * Output coordinates use the spec's mm units, scaled to (w, h) for any
@@ -3299,7 +3299,7 @@ function buildDoorSvgBody(style, w, h, opts) {
   const sw         = (opts.strokeWidth      != null) ? opts.strokeWidth      : 0.3;
   const swThick    = (opts.thickStrokeWidth != null) ? opts.thickStrokeWidth : 0.4;
   const glassSw    = (opts.glassStrokeWidth != null) ? opts.glassStrokeWidth : 0.25;
-  // Tint fill â€” used by rolling-shutter drum band, crash-bar bar etc.
+  // Tint fill — used by rolling-shutter drum band, crash-bar bar etc.
   // Defaults to a translucent dark on Japanese doors (better against the
   // brown body) and the original reddish wash on Western doors.
   const tintFill = opts.tintFill || (style.frameColor ? 'rgba(0,0,0,0.32)' : 'rgba(200,74,58,0.18)');
@@ -3316,7 +3316,7 @@ function buildDoorSvgBody(style, w, h, opts) {
          + ` fill="${glassFill}" stroke="${glassStroke}" stroke-width="${glassSw}"/>`;
   }
 
-  // 3. Engraved features â€” shape data is in spec base coords, wrap in a <g>
+  // 3. Engraved features — shape data is in spec base coords, wrap in a <g>
   //    that scales to target size.
   const shapes = doorFeatureShapes(style);
   if (shapes.length) {
@@ -3338,40 +3338,40 @@ function buildDoorSvgBody(style, w, h, opts) {
 'use strict';
 
 /* =====================================================================
-   FIXTURE STYLES  â€” wall-mounted surface fixtures
+   FIXTURE STYLES  — wall-mounted surface fixtures
    =====================================================================
    Each fixture is a small accessory glued onto the cladding face:
    vents, meters, signs, lanterns, etc. Unlike doors and windows, fixtures
    don't cut through the wall; they sit on top of it.
 
    Each entry has a `pieces: [...]` array of stacked layers. Order is
-   bottom-to-top â€” the first piece is glued to the cladding, the rest are
+   bottom-to-top — the first piece is glued to the cladding, the rest are
    glued in turn on top of it. Multiple identical base layers create
    visible depth (a "double-base" mini-split AC stands 3 layers proud of
    the wall). Smaller pieces (offsetX/offsetY/width/height) become accent
-   details â€” meter dial circles, vent slot strips, sign inset panels.
+   details — meter dial circles, vent slot strips, sign inset panels.
 
    Tier convention (depthTier):
-     deep    â†’ 3+ base layers (banners, AC heads, lanterns, kanban)
-     medium  â†’ 2 base layers + detail (meters, plaques, mailboxes)
-     shallow â†’ 1 layer (vents, downspouts, noren, sudare)
+     deep    → 3+ base layers (banners, AC heads, lanterns, kanban)
+     medium  → 2 base layers + detail (meters, plaques, mailboxes)
+     shallow → 1 layer (vents, downspouts, noren, sudare)
 
    Per-piece keys:
-     material   â€” laser-cut material id (defaults to 'cladding')
-     panelFill  â€” preview/editor fill colour
-     frameColor â€” preview/editor stroke colour
-     shape      â€” 'rect' (default) or 'circle'
-     offsetX, offsetY, width, height â€” piece bounds within the fixture
+     material   — laser-cut material id (defaults to 'cladding')
+     panelFill  — preview/editor fill colour
+     frameColor — preview/editor stroke colour
+     shape      — 'rect' (default) or 'circle'
+     offsetX, offsetY, width, height — piece bounds within the fixture
                                        (defaults to full fixture footprint)
-     features   â€” etched detail primitives (same vocab as doors:
+     features   — etched detail primitives (same vocab as doors:
                   rail, panel, stud, ironBand, plankSeams, etc.)
 
    Top-level keys:
-     placement  â€” 'layered' (default) | 'etched' | 'cutout'
+     placement  — 'layered' (default) | 'etched' | 'cutout'
                   'layered' fixtures have their pieces cut from material
                   sheets and glued on top of the cladding (depth tiers
                   shallow/medium/deep control how proud they sit).
-                  'etched' fixtures don't produce any cut pieces at all â€”
+                  'etched' fixtures don't produce any cut pieces at all —
                   their features are engraved DIRECTLY onto the cladding
                   panel where the user places them. Use for flat painted
                   markings: emergency-hatch outlines, hazard stripes,
@@ -3379,13 +3379,13 @@ function buildDoorSvgBody(style, w, h, opts) {
                   'cutout' fixtures cut a clean hole through BOTH the
                   cladding and the core at the same size (no insert).
                   Use for wiring pass-throughs, LED light openings, etc.
-     depthTier  â€” 'flush' | 'shallow' | 'medium' | 'deep'
+     depthTier  — 'flush' | 'shallow' | 'medium' | 'deep'
                   'flush' implies placement: 'etched' or 'cutout' (no
                   projection at all).
 */
 const FIXTURE_STYLES = {
 
-  /* ---- TIER 0: flush â€” etched OR cutout (no projection from the wall) ---- */
+  /* ---- TIER 0: flush — etched OR cutout (no projection from the wall) ---- */
 
   passthrough_circle: {
     label: 'Pass-through (round)',
@@ -3415,7 +3415,7 @@ const FIXTURE_STYLES = {
     depthTier: 'flush',
     pieces: [
       {
-        // Default rect shape â†’ square/rectangular cut at the fixture's bbox.
+        // Default rect shape → square/rectangular cut at the fixture's bbox.
         material: 'cladding',
         panelFill: '#1a1814',
         frameColor: '#000000',
@@ -3426,7 +3426,7 @@ const FIXTURE_STYLES = {
 
   emergency_hatch: {
     label: 'Emergency escape hatch',
-    description: 'Engraved hatch outline with beacon and warning triangle. Etched on the cladding â€” no parts.',
+    description: 'Engraved hatch outline with beacon and warning triangle. Etched on the cladding — no parts.',
     width: 6, height: 11,
     placement: 'etched',
     depthTier: 'flush',
@@ -3443,17 +3443,17 @@ const FIXTURE_STYLES = {
         panelFill: 'transparent',
         frameColor: '#c8323a',
         features: [
-          // Beacon â€” small filled circle at top centre (the red dome light)
+          // Beacon — small filled circle at top centre (the red dome light)
           { type: 'stud', cx: 3.0, cy: 0.85, r: 0.5 },
-          // Inverted warning triangle (â–¼) â€” 3 lines forming the outline
+          // Inverted warning triangle (▼) — 3 lines forming the outline
           { type: 'rail', x1: 2.3, y1: 2.2, x2: 3.7, y2: 2.2 },
           { type: 'rail', x1: 2.3, y1: 2.2, x2: 3.0, y2: 3.2 },
           { type: 'rail', x1: 3.7, y1: 2.2, x2: 3.0, y2: 3.2 },
-          // Hatch panel â€” outer outline + inner recessed edge for depth
+          // Hatch panel — outer outline + inner recessed edge for depth
           { type: 'panel', x1: 0.4, y1: 3.7, x2: 5.6, y2: 10.7 },
           { type: 'panel', x1: 0.7, y1: 4.0, x2: 5.3, y2: 10.4 },
           // Small triangle marker INSIDE the hatch (the directional indicator
-          // painted on the door itself) â€” matches the building photo
+          // painted on the door itself) — matches the building photo
           { type: 'rail', x1: 2.65, y1: 4.3, x2: 3.35, y2: 4.3 },
           { type: 'rail', x1: 2.65, y1: 4.3, x2: 3.0,  y2: 4.85 },
           { type: 'rail', x1: 3.35, y1: 4.3, x2: 3.0,  y2: 4.85 },
@@ -3541,7 +3541,7 @@ const FIXTURE_STYLES = {
   },
 
   noren: {
-    label: 'Noren (æš–ç°¾)',
+    label: 'Noren (暖簾)',
     description: 'Split cloth curtain above a shop entrance. Signals open shop.',
     width: 8, height: 4,
     depthTier: 'shallow',
@@ -3566,7 +3566,7 @@ const FIXTURE_STYLES = {
   },
 
   sudare: {
-    label: 'Sudare (ç°¾)',
+    label: 'Sudare (簾)',
     description: 'Rolled bamboo blind in front of a window. Summer / traditional.',
     width: 8, height: 6,
     depthTier: 'shallow',
@@ -3624,9 +3624,9 @@ const FIXTURE_STYLES = {
     width: 3.5, height: 4.5,
     depthTier: 'medium',
     pieces: [
-      // Base layer 1 â€” plain grey (extra depth)
+      // Base layer 1 — plain grey (extra depth)
       { material: 'cladding', panelFill: '#c0c0b8', frameColor: '#3a3a34', features: [] },
-      // Base layer 2 â€” grey with breaker box etched
+      // Base layer 2 — grey with breaker box etched
       {
         material: 'cladding', panelFill: '#c0c0b8', frameColor: '#3a3a34',
         features: [
@@ -3635,7 +3635,7 @@ const FIXTURE_STYLES = {
           { type: 'rail',  x1: 0.7, y1: 3.75, x2: 2.8, y2: 3.75 },
         ],
       },
-      // Top accent â€” white dial circle
+      // Top accent — white dial circle
       {
         material: 'plaster', panelFill: '#f5f5ee', frameColor: '#3a3a34',
         shape: 'circle',
@@ -3654,9 +3654,9 @@ const FIXTURE_STYLES = {
     width: 4.5, height: 5.5,
     depthTier: 'medium',
     pieces: [
-      // Base layer 1 â€” plain cream (extra depth)
+      // Base layer 1 — plain cream (extra depth)
       { material: 'cladding', panelFill: '#d8c8a8', frameColor: '#5a4632', features: [] },
-      // Base layer 2 â€” cream with label panel etched
+      // Base layer 2 — cream with label panel etched
       {
         material: 'cladding', panelFill: '#d8c8a8', frameColor: '#5a4632',
         features: [
@@ -3665,14 +3665,14 @@ const FIXTURE_STYLES = {
           { type: 'rail',  x1: 0.9, y1: 4.25, x2: 3.6, y2: 4.25 },
         ],
       },
-      // Top accent â€” left dial circle
+      // Top accent — left dial circle
       {
         material: 'plaster', panelFill: '#f5f0e2', frameColor: '#5a4632',
         shape: 'circle',
         offsetX: 0.65, offsetY: 0.9, width: 1.3, height: 1.3,
         features: [],
       },
-      // Top accent â€” right dial circle
+      // Top accent — right dial circle
       {
         material: 'plaster', panelFill: '#f5f0e2', frameColor: '#5a4632',
         shape: 'circle',
@@ -3688,16 +3688,16 @@ const FIXTURE_STYLES = {
     width: 10, height: 3.5,
     depthTier: 'medium',
     pieces: [
-      // Base layer 1 â€” plain dark (extra depth)
+      // Base layer 1 — plain dark (extra depth)
       { material: 'cladding', panelFill: '#3a2818', frameColor: '#1a1208', features: [] },
-      // Base layer 2 â€” dark with subtle border etched
+      // Base layer 2 — dark with subtle border etched
       {
         material: 'cladding', panelFill: '#3a2818', frameColor: '#1a1208',
         features: [
           { type: 'panel', x1: 0.4, y1: 0.3, x2: 9.6, y2: 3.2 },
         ],
       },
-      // Top accent â€” lighter cream inset panel
+      // Top accent — lighter cream inset panel
       {
         material: 'plaster', panelFill: '#d8c8a0', frameColor: '#5a4632',
         offsetX: 0.6, offsetY: 0.5, width: 8.8, height: 2.5,
@@ -3710,14 +3710,14 @@ const FIXTURE_STYLES = {
   },
 
   mailbox_jp: {
-    label: 'Mailbox (éƒµä¾¿å—ã‘)',
+    label: 'Mailbox (郵便受け)',
     description: 'Red wall-mounted Japanese postbox with horizontal slot.',
     width: 2.4, height: 3,
     depthTier: 'medium',
     pieces: [
-      // Base layer 1 â€” plain red (extra depth)
+      // Base layer 1 — plain red (extra depth)
       { material: 'cladding', panelFill: '#9a4a3a', frameColor: '#3a1a0e', features: [] },
-      // Base layer 2 â€” red with details
+      // Base layer 2 — red with details
       {
         material: 'cladding', panelFill: '#9a4a3a', frameColor: '#3a1a0e',
         features: [
@@ -3740,9 +3740,9 @@ const FIXTURE_STYLES = {
     width: 9, height: 3.5,
     depthTier: 'deep',
     pieces: [
-      // Base 1 â€” plain white
+      // Base 1 — plain white
       { material: 'cladding', panelFill: '#e8e8e0', frameColor: '#6a6660', features: [] },
-      // Base 2 â€” white with panel outline + adaptive louver lines + LED.
+      // Base 2 — white with panel outline + adaptive louver lines + LED.
       // Panel occupies the lower ~55% of the AC; louvers fill the panel.
       {
         material: 'cladding', panelFill: '#e8e8e0', frameColor: '#6a6660',
@@ -3753,7 +3753,7 @@ const FIXTURE_STYLES = {
             { type: 'panel', x1: panelX1, y1: panelY1, x2: panelX2, y2: panelY2 },
             { type: 'stud',  cx: w * 0.89, cy: h * 0.37, r: 0.15 },
           ];
-          // Adaptive louver density â€” ~0.4 mm pitch
+          // Adaptive louver density — ~0.4 mm pitch
           const louverPitch = 0.4;
           const louverMargin = 0.2;
           const louverUsable = Math.max(0, (panelY2 - panelY1) - 2 * louverMargin);
@@ -3766,7 +3766,7 @@ const FIXTURE_STYLES = {
           return features;
         },
       },
-      // Top accent â€” grey vent slot strip
+      // Top accent — grey vent slot strip
       {
         material: 'cladding', panelFill: '#a0a098', frameColor: '#3a3a34',
         offsetX: 0.5, offsetY: 0.5, width: 8.0, height: 0.7,
@@ -3776,16 +3776,16 @@ const FIXTURE_STYLES = {
   },
 
   sign_vertical_banner: {
-    label: 'Vertical banner (ç¸¦çœ‹æ¿)',
+    label: 'Vertical banner (縦看板)',
     description: 'Tall narrow signboard sticking perpendicular from the wall. Very proud. Panel count adapts to height.',
     width: 2, height: 14,
     depthTier: 'deep',
     pieces: [
-      // Base 1 â€” plain red
+      // Base 1 — plain red
       { material: 'cladding', panelFill: '#c8242a', frameColor: '#5a0a0e', features: [] },
-      // Base 2 â€” plain red (extra depth)
+      // Base 2 — plain red (extra depth)
       { material: 'cladding', panelFill: '#c8242a', frameColor: '#5a0a0e', features: [] },
-      // Base 3 â€” red with stacked text-panel boxes etched (count adaptive)
+      // Base 3 — red with stacked text-panel boxes etched (count adaptive)
       {
         material: 'cladding', panelFill: '#c8242a', frameColor: '#5a0a0e',
         featureGenerator: (w, h) => {
@@ -3811,14 +3811,14 @@ const FIXTURE_STYLES = {
   },
 
   lantern_chochin: {
-    label: 'Chochin lantern (æç¯)',
+    label: 'Chochin lantern (提灯)',
     description: 'Hanging paper lantern, golden-orange with red ribbing and dark caps. Ribs adapt to height.',
     width: 2.4, height: 3.5,
     depthTier: 'deep',
     pieces: [
-      // Base 1 â€” plain yellow body
+      // Base 1 — plain yellow body
       { material: 'cladding', panelFill: '#e8c248', frameColor: '#9a3a18', features: [] },
-      // Base 2 â€” yellow body with horizontal ribbing (count adapts to height)
+      // Base 2 — yellow body with horizontal ribbing (count adapts to height)
       {
         material: 'cladding', panelFill: '#e8c248', frameColor: '#9a3a18',
         featureGenerator: (w, h) => {
@@ -3837,13 +3837,13 @@ const FIXTURE_STYLES = {
           return ribs;
         },
       },
-      // Top accent â€” top cap (dark)
+      // Top accent — top cap (dark)
       {
         material: 'backing', panelFill: '#3a2818', frameColor: '#1a1208',
         offsetX: 0.65, offsetY: 0.35, width: 1.1, height: 0.25,
         features: [],
       },
-      // Top accent â€” bottom cap (dark)
+      // Top accent — bottom cap (dark)
       {
         material: 'backing', panelFill: '#3a2818', frameColor: '#1a1208',
         offsetX: 0.65, offsetY: 2.9, width: 1.1, height: 0.25,
@@ -3853,16 +3853,16 @@ const FIXTURE_STYLES = {
   },
 
   sign_kanban: {
-    label: 'Kanban (çœ‹æ¿)',
+    label: 'Kanban (看板)',
     description: 'Traditional wooden shop signboard. Chunky and proud.',
     width: 8, height: 4,
     depthTier: 'deep',
     pieces: [
-      // Base 1 â€” plain wood
+      // Base 1 — plain wood
       { material: 'cladding', panelFill: 'rgba(186,148,98,0.95)', frameColor: '#3a2410', features: [] },
-      // Base 2 â€” plain wood (extra depth)
+      // Base 2 — plain wood (extra depth)
       { material: 'cladding', panelFill: 'rgba(186,148,98,0.95)', frameColor: '#3a2410', features: [] },
-      // Base 3 â€” wood with frame and calligraphy stripes
+      // Base 3 — wood with frame and calligraphy stripes
       {
         material: 'cladding', panelFill: 'rgba(186,148,98,0.95)', frameColor: '#3a2410',
         features: [
@@ -4156,7 +4156,7 @@ function getFixtureDims(styleKey) {
 function buildFixtureSvgBody(style, w, h, opts) {
   if (!style || !style.pieces || !style.pieces.length) return '';
   opts = opts || {};
-  // Etched fixtures don't have visible piece bodies â€” they're pure engraving
+  // Etched fixtures don't have visible piece bodies — they're pure engraving
   // on the cladding. The features ARE the visual, so skip body shapes and
   // only render features.
   const isEtched = style.placement === 'etched';
@@ -4208,7 +4208,7 @@ function buildFixtureSvgBody(style, w, h, opts) {
     }
 
     // 2. Etched features on this piece (coords in piece-local space).
-    // featureGenerator(pw, ph) lets pieces produce density-adaptive etches â€”
+    // featureGenerator(pw, ph) lets pieces produce density-adaptive etches —
     // bracket bands on a tall downspout, louvers on a wide vent, stacked
     // panels on a long banner. Static `features` are used when the etched
     // detail scales naturally with linear stretch.
@@ -4216,8 +4216,8 @@ function buildFixtureSvgBody(style, w, h, opts) {
       ? piece.featureGenerator(pw, ph)
       : (piece.features || []);
     if (pieceFeatures.length) {
-      // Reuse doorFeatureShapes to expand the feature list â€” same vocabulary
-      // (rail, panel, stud, ironBand, latticeVertical, horizontalRailsâ€¦).
+      // Reuse doorFeatureShapes to expand the feature list — same vocabulary
+      // (rail, panel, stud, ironBand, latticeVertical, horizontalRails…).
       const shapes = doorFeatureShapes({ width: pw, height: ph, features: pieceFeatures });
       if (shapes.length) {
         // Transform from piece-local mm to target SVG units, anchored at
@@ -4248,14 +4248,14 @@ function buildFixtureSvgBody(style, w, h, opts) {
    colours); windowFeatureShapes() turns that into low-level geometric
    primitives ({type:'line'|'rect'|...}); emitWindowShapesSvg() renders them
    inline; the laser-output generator uses the same primitives to drive etches
-   and cuts on the frame piece. One data source, three consumers â€” the
+   and cuts on the frame piece. One data source, three consumers — the
    toolbox icon, the editor canvas, and the physical frame stay in sync.
    ===================================================================== */
 
-/* Cell-count helpers â€” picked from window dimensions so the lattice adapts
+/* Cell-count helpers — picked from window dimensions so the lattice adapts
  * to custom-sized windows. Returns at least the minimum count. */
 function _renjiBarCount(W) {
-  // bars ~0.4mm thick with ~0.5mm gap â†’ 0.9mm pitch, 0.5mm end margin each side
+  // bars ~0.4mm thick with ~0.5mm gap → 0.9mm pitch, 0.5mm end margin each side
   return Math.max(3, Math.min(12, Math.floor((W - 1.0) / 0.9)));
 }
 function _ranmaBarCount(W) {
@@ -4263,8 +4263,8 @@ function _ranmaBarCount(W) {
   return Math.max(5, Math.min(24, Math.floor((W - 1.0) / 1.0)));
 }
 function _mushikoSlitCount(W) {
-  // Slits are 1.0mm wide with â‰¥1.2mm plaster between (kerf-safe).
-  // Total = N*1.0 + (N+1)*1.2 â‰¤ W  â‡’  N â‰¤ (W-1.2)/2.2
+  // Slits are 1.0mm wide with ≥1.2mm plaster between (kerf-safe).
+  // Total = N*1.0 + (N+1)*1.2 ≤ W  ⇒  N ≤ (W-1.2)/2.2
   return Math.max(2, Math.floor((W - 1.2) / 2.2));
 }
 function _shojiCellCount(W, H) {
@@ -4278,10 +4278,10 @@ function _shojiCellCount(W, H) {
  * bars / kumiko etched on the window's external frame piece. Coordinates are
  * in window-local mm, origin at top-left of the visible aperture.
  *
- *   line   â†’ {type:'line', x1, y1, x2, y2, thick?}
- *   rect   â†’ {type:'rect', x, y, w, h, tint?}      (etched outline)
+ *   line   → {type:'line', x1, y1, x2, y2, thick?}
+ *   rect   → {type:'rect', x, y, w, h, tint?}      (etched outline)
  *
- * NOTE: mushiko_slits are NOT returned here â€” they're real cut-throughs and
+ * NOTE: mushiko_slits are NOT returned here — they're real cut-throughs and
  * are handled by panesForMullion in layoutDividerFrame.
  */
 function windowFeatureShapes(spec, W, H) {
@@ -4316,7 +4316,7 @@ function windowFeatureShapes(spec, W, H) {
   }
 
   if (m === 'shoji_grid') {
-    // Fine kumiko grid â€” cell count picked from W & H.
+    // Fine kumiko grid — cell count picked from W & H.
     const { cols, rows } = _shojiCellCount(W, H);
     const inset = 0.25;
     const usableW = W - inset * 2, usableH = H - inset * 2;
@@ -4342,7 +4342,7 @@ function windowFeatureShapes(spec, W, H) {
     const usableH = splitY - inset;
     // Meeting rail (thicker etch line)
     out.push({ type: 'line', x1: 0, y1: splitY, x2: W, y2: splitY, thick: true });
-    // Kumiko in the top half â€” generator picks counts based on top-half size
+    // Kumiko in the top half — generator picks counts based on top-half size
     const { cols, rows } = _shojiCellCount(W, splitY);
     for (let c = 1; c < cols; c++) {
       const x = inset + (c / cols) * usableW;
@@ -4355,13 +4355,13 @@ function windowFeatureShapes(spec, W, H) {
     return out;
   }
 
-  // Other mullion types (vertical_1, grid_2x2, etc.) â€” no etched features;
+  // Other mullion types (vertical_1, grid_2x2, etc.) — no etched features;
   // their mullion bars are real retained material in the divider frame.
   return [];
 }
 
 /** Emit SVG markup for window-local shapes. Mirrors emitDoorShapesSvg.
- *  `s` is the inputâ†’output unit scale. `ox/oy` translate origin. */
+ *  `s` is the input→output unit scale. `ox/oy` translate origin. */
 function emitWindowShapesSvg(shapes, ox, oy, s, opts) {
   opts = opts || {};
   const stroke  = opts.stroke      || '#2a64aa';
@@ -4415,10 +4415,10 @@ function mushikoSlitRects(W, H) {
 /* Build the inline SVG body for a window preview. Used by the toolbox card
  * and the editor canvas so both show the actual visual pattern. The same
  * three sources of geometric truth are consulted as for the laser output:
- *   - style.mullion=mushiko_slits â†’ slit rects via mushikoSlitRects()
- *   - style.mullion=yukimi_split  â†’ top paper + bottom clear glass
- *   - other Japanese lattices     â†’ windowFeatureShapes() (etched lines)
- *   - Western mullions            â†’ drawn as thick lines (retained material
+ *   - style.mullion=mushiko_slits → slit rects via mushikoSlitRects()
+ *   - style.mullion=yukimi_split  → top paper + bottom clear glass
+ *   - other Japanese lattices     → windowFeatureShapes() (etched lines)
+ *   - Western mullions            → drawn as thick lines (retained material
  *                                   in the divider frame at laser time)
  * Output coordinates use the spec's mm units (caller wraps in viewBox or
  * <g transform> as needed).
@@ -4435,7 +4435,7 @@ function buildWindowSvgBody(style, w, h, opts) {
   if (style && (style.placement === 'etched' || style.placement === 'blanked')) {
     const isEtched = style.placement === 'etched';
     if (isEtched) {
-      // Etched-on-cladding â€” no cut. Dashed outline + a faint sash cross to
+      // Etched-on-cladding — no cut. Dashed outline + a faint sash cross to
       // show "this is a faux window, won't actually have an opening".
       svg += `<rect x="0.2" y="0.2" width="${(w-0.4).toFixed(2)}" height="${(h-0.4).toFixed(2)}"`
            + ` fill="rgba(60,55,48,0.18)" stroke="${frameColor}"`
@@ -4447,11 +4447,11 @@ function buildWindowSvgBody(style, w, h, opts) {
              + ` stroke="${frameColor}" stroke-width="${(sw*0.7).toFixed(3)}" stroke-dasharray="0.6 0.4"/>`;
       }
     } else {
-      // Blanked filled â€” solid opaque dark panel that fills the hole, no
+      // Blanked filled — solid opaque dark panel that fills the hole, no
       // transparency. Reads as boarded-up / bricked-in from outside.
       svg += `<rect x="0.2" y="0.2" width="${(w-0.4).toFixed(2)}" height="${(h-0.4).toFixed(2)}"`
            + ` fill="${paneFill}" stroke="${frameColor}" stroke-width="${sw}"/>`;
-      // Subtle "boards" hint â€” a few horizontal etch lines
+      // Subtle "boards" hint — a few horizontal etch lines
       const bandCount = Math.max(2, Math.min(5, Math.floor(h / 2.5)));
       for (let i = 1; i < bandCount; i++) {
         const y = (h * i / bandCount).toFixed(2);
@@ -4553,18 +4553,18 @@ function buildWindowSvgBody(style, w, h, opts) {
 'use strict';
 
 /* =====================================================================
-   SHUTTER STYLES â€” decorative panels flanking a window
+   SHUTTER STYLES — decorative panels flanking a window
    =====================================================================
    Each window opening can opt into a pair of shutters via the
    `hasShutters` + `shutterStyle` fields on its op. Shutters are NOT
-   structural â€” they sit on top of the cladding next to the window like
+   structural — they sit on top of the cladding next to the window like
    layered fixtures. Each window with shutters produces 2 identical cut
    pieces (one for each side); the laser sheets group by (style, size).
 
    Each entry provides:
-     label, description â€” UI strings
-     panelFill, frameColor â€” editor/preview hints
-     featureGenerator(w, h) â€” etch primitives that adapt to actual size
+     label, description — UI strings
+     panelFill, frameColor — editor/preview hints
+     featureGenerator(w, h) — etch primitives that adapt to actual size
 
    Shutter dimensions are derived from the window:
      shutterW = max(2, window.w * SHUTTER_W_RATIO)  // default ratio 0.5
@@ -4619,7 +4619,7 @@ const SHUTTER_STYLES = {
         const x = (w / boards) * i;
         out.push({ type: 'rail', x1: x, y1: 0.2, x2: x, y2: h - 0.2 });
       }
-      // 3 horizontal battens â€” top, middle, bottom (thicker stroke)
+      // 3 horizontal battens — top, middle, bottom (thicker stroke)
       const battenY = [0.7, h * 0.5, h - 0.7];
       for (const y of battenY) {
         out.push({ type: 'rail', x1: 0, y1: y, x2: w, y2: y, thick: true });
@@ -4645,7 +4645,7 @@ const SHUTTER_STYLES = {
   },
   plain: {
     label: 'Plain',
-    description: 'Simple solid panel â€” minimalist or to be painted with custom decoration.',
+    description: 'Simple solid panel — minimalist or to be painted with custom decoration.',
     panelFill: '#5a3a22', frameColor: '#2a1808',
     featureGenerator: (w, h) => [],
   },
@@ -4775,8 +4775,8 @@ if (typeof FIXTURE_STYLES !== 'undefined') {
   if (typeof STYLE_I18N_JA !== 'undefined') {
     STYLE_I18N_JA.FIXTURE_STYLES = STYLE_I18N_JA.FIXTURE_STYLES || {};
     STYLE_I18N_JA.FIXTURE_STYLES.exterior_light = {
-      label: 'å¤–ç¯',
-      description: 'é…ç·šæ¸ˆã¿SMD LEDã‚’é€šã™ãŸã‚ã®0.75mmä¸¸ç©´ã‚’æŒã¤å£é¢ãƒ©ã‚¤ãƒˆã€‚ä¸¸ã¿ã®ã‚ã‚‹ã‚³ã‚¢æã®é€†Uå­—ã‚¹ãƒšãƒ¼ã‚µãƒ¼ã¨ã€åŒå½¢çŠ¶ã§ä¸­å¤®ãŒå¡žãŒã£ãŸå¤–è£…ã‚­ãƒ£ãƒƒãƒ—ã‚’å‡ºåŠ›ã—ã¾ã™ã€‚',
+      label: '外灯',
+      description: '配線済みSMD LEDを通すための0.75mm丸穴を持つ壁面ライト。丸みのあるコア材の逆U字スペーサーと、同形状で中央が塞がった外装キャップを出力します。',
     };
   }
 }
@@ -4817,9 +4817,9 @@ if (typeof buildFixtureSvgBody === 'function' && !buildFixtureSvgBody.__supports
    and glued onto the model by the user.
 
    Each entry defines:
-     label, description     â€” UI strings
-     width, height          â€” default size in mm
-     designSvg(w, h)        â€” returns inline SVG for the printed design at
+     label, description     — UI strings
+     width, height          — default size in mm
+     designSvg(w, h)        — returns inline SVG for the printed design at
                               the given dimensions. Used in the toolbox
                               preview, editor canvas, 3D plate texture,
                               AND the printed-sheet output. One source of
@@ -4829,7 +4829,7 @@ if (typeof buildFixtureSvgBody === 'function' && !buildFixtureSvgBody.__supports
  * and Buffer-Small.svg artwork files. The polygons are positioned in their
  * original Adobe Illustrator coordinates (bbox starts at the bb_x/bb_y noted
  * in each PRINTED_STYLES entry), and the designSvg function below transforms
- * them into the printed item's local 0..w Ã— 0..h frame via a single
+ * them into the printed item's local 0..w × 0..h frame via a single
  * `transform="scale(sx,sy) translate(-bb_x,-bb_y)"` wrapper. CSS class
  * references in the source SVGs have already been resolved to explicit
  * fill attributes so the bodies stand alone without a <style> block. */
@@ -4857,7 +4857,7 @@ const PRINTED_STYLES = {
     designSvg: (w, h) => {
       return `<rect x="0" y="0" width="${w}" height="${h}" fill="#0a2a4a"/>`
            + `<rect x="0.1" y="0.1" width="${(w-0.2).toFixed(2)}" height="${(h-0.2).toFixed(2)}" fill="none" stroke="#fcd34d" stroke-width="0.1"/>`
-           + `<text x="${(w/2).toFixed(2)}" y="${(h*0.68).toFixed(2)}" font-family="serif" font-weight="bold" font-size="${(h*0.55).toFixed(2)}" fill="#fcd34d" text-anchor="middle">â˜… MARKET â˜…</text>`;
+           + `<text x="${(w/2).toFixed(2)}" y="${(h*0.68).toFixed(2)}" font-family="serif" font-weight="bold" font-size="${(h*0.55).toFixed(2)}" fill="#fcd34d" text-anchor="middle">★ MARKET ★</text>`;
     },
   },
   billboard_ad: {
@@ -4868,7 +4868,7 @@ const PRINTED_STYLES = {
       return `<rect x="0" y="0" width="${w}" height="${h}" fill="#fff"/>`
            + `<rect x="0" y="0" width="${(w*0.45).toFixed(2)}" height="${h}" fill="#1862c5"/>`
            + `<text x="${(w*0.225).toFixed(2)}" y="${(h*0.55).toFixed(2)}" font-family="sans-serif" font-weight="900" font-size="${(h*0.35).toFixed(2)}" fill="#fff" text-anchor="middle">DRINK</text>`
-           + `<text x="${(w*0.225).toFixed(2)}" y="${(h*0.82).toFixed(2)}" font-family="sans-serif" font-weight="900" font-size="${(h*0.18).toFixed(2)}" fill="#fcd34d" text-anchor="middle">â˜… COLA â˜…</text>`
+           + `<text x="${(w*0.225).toFixed(2)}" y="${(h*0.82).toFixed(2)}" font-family="sans-serif" font-weight="900" font-size="${(h*0.18).toFixed(2)}" fill="#fcd34d" text-anchor="middle">★ COLA ★</text>`
            + `<text x="${(w*0.72).toFixed(2)}" y="${(h*0.48).toFixed(2)}" font-family="sans-serif" font-weight="bold" font-size="${(h*0.18).toFixed(2)}" fill="#1a1a1a" text-anchor="middle">Refreshes</text>`
            + `<text x="${(w*0.72).toFixed(2)}" y="${(h*0.72).toFixed(2)}" font-family="sans-serif" font-weight="bold" font-size="${(h*0.18).toFixed(2)}" fill="#d4422a" text-anchor="middle">EVERY SIP</text>`;
     },
@@ -4896,7 +4896,7 @@ const PRINTED_STYLES = {
   },
   street_poster: {
     label: 'Street poster (small)',
-    description: 'Small wheatpaste poster â€” band gigs, political slogans, lost-cat notices.',
+    description: 'Small wheatpaste poster — band gigs, political slogans, lost-cat notices.',
     width: 3, height: 4.5,
     designSvg: (w, h) => {
       return `<rect x="0" y="0" width="${w}" height="${h}" fill="#fefce8"/>`
@@ -4906,18 +4906,18 @@ const PRINTED_STYLES = {
            + `<line x1="${(w*0.2).toFixed(2)}" y1="${(h*0.5).toFixed(2)}" x2="${(w*0.8).toFixed(2)}" y2="${(h*0.5).toFixed(2)}" stroke="#1a1a1a" stroke-width="0.05"/>`
            + `<text x="${(w/2).toFixed(2)}" y="${(h*0.65).toFixed(2)}" font-family="sans-serif" font-size="${(h*0.07).toFixed(2)}" fill="#1a1a1a" text-anchor="middle">SAT 9PM</text>`
            + `<text x="${(w/2).toFixed(2)}" y="${(h*0.78).toFixed(2)}" font-family="sans-serif" font-size="${(h*0.06).toFixed(2)}" fill="#1a1a1a" text-anchor="middle">THE WAREHOUSE</text>`
-           + `<text x="${(w/2).toFixed(2)}" y="${(h*0.9).toFixed(2)}" font-family="sans-serif" font-size="${(h*0.045).toFixed(2)}" fill="#777" text-anchor="middle">â˜… ALL AGES â˜…</text>`;
+           + `<text x="${(w/2).toFixed(2)}" y="${(h*0.9).toFixed(2)}" font-family="sans-serif" font-size="${(h*0.045).toFixed(2)}" fill="#777" text-anchor="middle">★ ALL AGES ★</text>`;
     },
   },
   banner: {
     label: 'Banner / flag',
-    description: 'Vertical hanging banner â€” long narrow format for stadium fronts, building flags, festival signage.',
+    description: 'Vertical hanging banner — long narrow format for stadium fronts, building flags, festival signage.',
     width: 2, height: 10,
     designSvg: (w, h) => {
       return `<rect x="0" y="0" width="${w}" height="${(h*0.4).toFixed(2)}" fill="#d4422a"/>`
            + `<rect x="0" y="${(h*0.4).toFixed(2)}" width="${w}" height="${(h*0.6).toFixed(2)}" fill="#0a2a4a"/>`
            + `<text x="${(w/2).toFixed(2)}" y="${(h*0.18).toFixed(2)}" font-family="sans-serif" font-weight="900" font-size="${(w*0.5).toFixed(2)}" fill="#fcd34d" text-anchor="middle">SALE</text>`
-           + `<text x="${(w/2).toFixed(2)}" y="${(h*0.32).toFixed(2)}" font-family="sans-serif" font-weight="900" font-size="${(w*0.5).toFixed(2)}" fill="#fcd34d" text-anchor="middle">â˜…</text>`
+           + `<text x="${(w/2).toFixed(2)}" y="${(h*0.32).toFixed(2)}" font-family="sans-serif" font-weight="900" font-size="${(w*0.5).toFixed(2)}" fill="#fcd34d" text-anchor="middle">★</text>`
            + `<text x="${(w/2).toFixed(2)}" y="${(h*0.6).toFixed(2)}" font-family="serif" font-weight="bold" font-size="${(w*0.35).toFixed(2)}" fill="#fff" text-anchor="middle">NEW</text>`
            + `<text x="${(w/2).toFixed(2)}" y="${(h*0.75).toFixed(2)}" font-family="serif" font-weight="bold" font-size="${(w*0.35).toFixed(2)}" fill="#fff" text-anchor="middle">SEASON</text>`
            + `<line x1="${(w*0.15).toFixed(2)}" y1="${(h*0.92).toFixed(2)}" x2="${(w*0.85).toFixed(2)}" y2="${(h*0.92).toFixed(2)}" stroke="#fcd34d" stroke-width="${(w*0.05).toFixed(2)}"/>`;
@@ -4925,10 +4925,10 @@ const PRINTED_STYLES = {
   },
   buffer_large: {
     label: 'Safety bollard (large)',
-    description: 'Yellow-and-black hazard-striped safety bollard, glued beside large bay/garage door openings to protect them from vehicle impact. The wider profile (often called a "loading-dock bumper" or é˜²è­·ãƒãƒ¼ãƒ« in Japanese) suits truck bays and warehouse roll-up doors.',
+    description: 'Yellow-and-black hazard-striped safety bollard, glued beside large bay/garage door openings to protect them from vehicle impact. The wider profile (often called a "loading-dock bumper" or 防護ポール in Japanese) suits truck bays and warehouse roll-up doors.',
     width: 3, height: 10,
     designSvg: (w, h) => {
-      // Source artwork bbox: x âˆˆ [393.20, 398.80], y âˆˆ [296.20, 315.20]
+      // Source artwork bbox: x ∈ [393.20, 398.80], y ∈ [296.20, 315.20]
       // Translate the bbox origin to (0,0) then scale to fit the printed
       // item's local frame. Original aspect is preserved when w/h match the
       // defaults; user-resizes stretch the bollard accordingly.
@@ -4941,7 +4941,7 @@ const PRINTED_STYLES = {
     description: 'Slimmer hazard-striped safety post for tighter spots beside narrower bay doors, pedestrian entries, or loading bay corners. Same yellow-and-black warning livery; lower visual mass than the large variant.',
     width: 2, height: 7,
     designSvg: (w, h) => {
-      // Source artwork bbox: x âˆˆ [384.60, 390.20], y âˆˆ [348.00, 375.10]
+      // Source artwork bbox: x ∈ [384.60, 390.20], y ∈ [348.00, 375.10]
       const sx = w / 5.6, sy = h / 27.1;
       return `<g transform="scale(${sx.toFixed(4)},${sy.toFixed(4)}) translate(-384.60,-348.00)">${BUFFER_SMALL_BODY}</g>`;
     },
@@ -4968,7 +4968,7 @@ function buildPrintedSvgBody(style, w, h) {
    Each entry defines:
      label: short human-readable name
      description: longer description
-     w, d, h: width Ã— depth Ã— height of the equipment's bounding box (mm)
+     w, d, h: width × depth × height of the equipment's bounding box (mm)
      shape: 'box', 'cylinder', 'box_louvered', 'mushroom', 'cabinet_tall', 'antenna'
      details: shape-specific parameters used by the STL generator
      etchInset: mm to inset the etched outline from the bbox edges (0 = full bbox)
@@ -4976,56 +4976,56 @@ function buildPrintedSvgBody(style, w, h) {
 const ROOFTOP_EQUIPMENT = {
   ac_small: {
     label: 'AC condenser (small)',
-    description: 'Small split-AC outdoor unit. Real ~60Ã—30Ã—40cm.',
+    description: 'Small split-AC outdoor unit. Real ~60×30×40cm.',
     w: 4.0, d: 2.0, h: 2.7,
     shape: 'box_louvered',
     details: { louverSide: 'front', louverCount: 5 },
   },
   ac_large: {
     label: 'AC condenser (large / industrial)',
-    description: 'Large rooftop AC condenser. Real ~120Ã—60Ã—80cm.',
+    description: 'Large rooftop AC condenser. Real ~120×60×80cm.',
     w: 8.0, d: 4.0, h: 5.3,
     shape: 'box_louvered',
     details: { louverSide: 'front', louverCount: 7 },
   },
   cooling_tower: {
     label: 'Cooling tower',
-    description: 'Industrial cooling tower with vertical louvers and fan on top. Real ~150Ã—100Ã—200cm.',
+    description: 'Industrial cooling tower with vertical louvers and fan on top. Real ~150×100×200cm.',
     w: 10.0, d: 6.7, h: 13.3,
     shape: 'cooling_tower',
     details: { fanRadius: 2.5, fanHeight: 1.5, louverCount: 8 },
   },
   water_tank_round: {
     label: 'Water tank (cylindrical, on legs)',
-    description: 'Round FRP rooftop water tank on a steel frame. Real ~150cm dia Ã— 200cm tall, frame ~50cm.',
+    description: 'Round FRP rooftop water tank on a steel frame. Real ~150cm dia × 200cm tall, frame ~50cm.',
     w: 10.0, d: 10.0, h: 16.7,
     shape: 'tank_round_legged',
     details: { tankRadius: 5.0, tankHeight: 13.3, legHeight: 3.3, legCount: 4 },
   },
   water_tank_square: {
     label: 'Water tank (FRP square, on legs)',
-    description: 'Modular FRP panel water tank on a steel frame. Real ~200Ã—100Ã—150cm tank, frame ~50cm.',
+    description: 'Modular FRP panel water tank on a steel frame. Real ~200×100×150cm tank, frame ~50cm.',
     w: 13.3, d: 6.7, h: 13.3,
     shape: 'tank_square_legged',
     details: { tankH: 10.0, legH: 3.3, legCount: 4 },
   },
   mushroom_vent: {
     label: 'Mushroom roof vent',
-    description: 'Cylindrical exhaust vent with rain cap on top. Real ~50cm dia Ã— 80cm tall.',
+    description: 'Cylindrical exhaust vent with rain cap on top. Real ~50cm dia × 80cm tall.',
     w: 3.3, d: 3.3, h: 5.3,
     shape: 'mushroom',
     details: { stackRadius: 1.0, stackHeight: 3.5, capRadius: 1.65, capHeight: 1.0 },
   },
   elec_cabinet: {
     label: 'Electrical / control cabinet',
-    description: 'Tall narrow weatherproof cabinet for electrical or control gear. Real ~80Ã—60Ã—150cm.',
+    description: 'Tall narrow weatherproof cabinet for electrical or control gear. Real ~80×60×150cm.',
     w: 5.3, d: 4.0, h: 10.0,
     shape: 'cabinet_tall',
     details: { doorLines: 1 },
   },
   antenna_mast: {
     label: 'Antenna mast',
-    description: 'Slender antenna or whip mast on a small base. Real base ~40Ã—40cm, mast ~3-5m tall.',
+    description: 'Slender antenna or whip mast on a small base. Real base ~40×40cm, mast ~3-5m tall.',
     w: 2.7, d: 2.7, h: 27.0,
     shape: 'antenna',
     details: { baseW: 2.7, baseH: 1.0, mastRadius: 0.3, mastHeight: 26.0 },
@@ -5046,7 +5046,7 @@ let CONFIG = {
   wallExposureZones: [],
   heightMode: 'absolute', floorCount: 4, floorHeight: 30,
   claddingStyle: 'alc_panel',
-  // Roof cladding style â€” independent from wall cladding so a building can
+  // Roof cladding style — independent from wall cladding so a building can
   // have, say, yakisugi walls with a kawara roof (very common in traditional
   // Japanese architecture). Used by generateRoofCladdingPanel and
   // generateGabledRoofCladding; falls back to claddingStyle if unset (which
@@ -5056,7 +5056,7 @@ let CONFIG = {
   // is produced for each of the four perimeter walls, glued to the INSIDE
   // face. Holes for windows + doors are placed at the same wall_x as the
   // wall core so the inside cutout aligns with the same physical hole the
-  // exterior cladding cut for. Style is independent â€” choose a smooth
+  // exterior cladding cut for. Style is independent — choose a smooth
   // interior finish (cement_siding_lap, alc_panel) regardless of what the
   // exterior shows. Falls back to the exterior style if `interiorCladdingStyle`
   // is null. Defaults off so existing builds don't sprout extra parts.
@@ -5065,7 +5065,7 @@ let CONFIG = {
   windowStyle: 'industrial_small',
   windowScale: 'default',
   windowDensity: 'sparse',
-  // First-floor (ground floor) overrides â€” height and window style independently toggleable
+  // First-floor (ground floor) overrides — height and window style independently toggleable
   firstFloorHeightEnabled: false,
   firstFloorHeight: 35,
   firstFloorWindowStyleEnabled: false,
@@ -5093,7 +5093,7 @@ let CONFIG = {
   roofSlopeDirection: 'back',  // slanted: which side is high ('front','back','east','west')
   roofOverhangFB: 0,           // mm overhang beyond front / back walls
   roofOverhangEW: 0,           // mm overhang beyond east / west walls
-  // For the 'flat_overhang' roof style only â€” one symmetric value
+  // For the 'flat_overhang' roof style only — one symmetric value
   // applied to all four sides. The roof core extends past every wall
   // by this amount and the metal cladding above covers the full
   // oversized footprint.
@@ -5104,20 +5104,20 @@ let CONFIG = {
   // Trim strips along top/bottom of building
   trimTop: false, trimBottom: false, trimBelt: false,
   trimHeight: 2, trimOverhang: 0.28,
-  // Corner trim â€” narrow 3 mm strips that wrap each building corner with
+  // Corner trim — narrow 3 mm strips that wrap each building corner with
   // a centred fold line, covering the exposed cladding edges where two
   // adjacent faces meet.
   cornerTrim: false,
-  // Parapet cap â€” narrow 3 mm strips that fold over each parapet wall's
+  // Parapet cap — narrow 3 mm strips that fold over each parapet wall's
   // top edge (or each plain-gabled wall's triangular peak), hiding the
   // exposed core-material edge that the regular cladding doesn't cover.
   parapetCap: false,
-  // Soffit cladding â€” flat cladding pieces sized to the underside of
+  // Soffit cladding — flat cladding pieces sized to the underside of
   // each eave overhang, covering the bare core material visible from
   // below. Applies to flat_overhang (all 4 sides) and gabled roofs
   // (the 2 eave sides under the current ridge direction).
   soffitCladding: false,
-  // Roof fascia trim â€” 3 mm-wide trim strips following the roof's
+  // Roof fascia trim — 3 mm-wide trim strips following the roof's
   // perimeter (the panel edges), hiding exposed core material there.
   // For gabled: a chevron piece outlining each gable peak's V-shape
   // (the "triangle on each gable") plus a straight strip along each
@@ -5201,7 +5201,7 @@ let CONFIG = {
   // pane = hole + 1.5mm overlap on every side; core curb frame around that
   // pane; top cap = same outside size as the pane with a centred hole.
   skylights:     [],
-  // Awnings: array of {face, x, w, depth, angle} â€” x and w in wall-local mm (0=left edge)
+  // Awnings: array of {face, x, w, depth, angle} — x and w in wall-local mm (0=left edge)
   awnings: [],
   // Rooftop billboards: array of {type:'single'|'square', face, x, w, height, postHeight}
   billboards: [],
@@ -5210,7 +5210,7 @@ let CONFIG = {
   // diagonal cross-bracing as the core, plus a separate 0.28 mm
   // louvered cladding layer that glues on top. `edges` is the per-side
   // enable map (Shield Wall tool toggles individual edges). `bounds`
-  // overrides `offset` once the user drags the outline â€” stored in
+  // overrides `offset` once the user drags the outline — stored in
   // iw-coords (inside-of-building plan frame). When null,
   // getShieldBounds() falls back to an offset-based inset rectangle.
   rooftopShield: { enabled: false, style: 'braced', height: 8, offset: 3,
@@ -5221,15 +5221,15 @@ let CONFIG = {
   // trusses object) emits N flat truss panels cut from core material plus
   // optional X-bracing strips cut from cladding. Style is picked from the
   // block's roofStyle:
-  //   gabled  â†’ Fink (W-pattern), pitch and span from the roof
-  //   slanted â†’ mono-pitch Pratt (one chord sloped, one horizontal)
-  //   flat / parapet / parapet_gable â†’ Pratt parallel-chord truss
+  //   gabled  → Fink (W-pattern), pitch and span from the roof
+  //   slanted → mono-pitch Pratt (one chord sloped, one horizontal)
+  //   flat / parapet / parapet_gable → Pratt parallel-chord truss
   // `spacing` is the centre-to-centre distance between truss positions
   // along the spacing axis. `axis` chooses which way the trusses run
   // (their span direction); null = auto-pick (perpendicular to roof ridge
   // for gabled, perpendicular to the longer footprint dimension otherwise).
   // `chordW` is the visible width of each truss member on the laser sheet
-  // (real-world scale is ~150 mm chord at 1:150 = 1 mm â€” too thin to cut
+  // (real-world scale is ~150 mm chord at 1:150 = 1 mm — too thin to cut
   // cleanly; the default 4 mm reads well at N-scale viewing distance).
   // `xBraceEnabled` toggles automatic crossed-diagonal wall braces on the
   // truss-bearing walls. `xBraceWalls` is kept only for old .hako compatibility.
@@ -5239,13 +5239,13 @@ let CONFIG = {
   // T-beam). `supportDepth` is how far the web sticks out perpendicular
   // from the wall (mm), and `supportFlangeW` is the width of the wall-side
   // flange (and the end cap for I-beams) along the wall axis. Defaults at
-  // 4 Ã— 4 mm produce a column that reads as structural at N-scale viewing
+  // 4 × 4 mm produce a column that reads as structural at N-scale viewing
   // without overpowering the surrounding wall etch detail.
   trusses: { enabled: false, spacing: 30, axis: null, chordW: 2,
              xBraceEnabled: false, xBraceW: 1.0, xBraceWalls: [],
              supports: false, supportColumnType: 'i', supportDepth: 4, supportFlangeW: 4 },
   // Multi-block wings. Each wing attaches to one face of the main block.
-  // face: 'front'|'back'|'east'|'west' â€” which face of the main block it extends from
+  // face: 'front'|'back'|'east'|'west' — which face of the main block it extends from
   // offset: mm from the "start" corner along that face (0 = flush)
   // span:   mm of the wing along the attachment face
   // depth:  mm the wing extends outward
@@ -5260,7 +5260,7 @@ let CONFIG = {
   // Arc cut:  {id,type:'arc', x1,y1,x2,y2,cx,cy,keepSide:'left'|'right'} where
   //           cx/cy is a quadratic Bezier control point.
   layoutCuts: [],
-  // Named material definitions â€” each becomes a subfolder in the ZIP export.
+  // Named material definitions — each becomes a subfolder in the ZIP export.
   // 'id' matches part.material values; 'name' is the human-readable label/folder name.
   materials: [
     { id: 'core',     name: '1.5mm Plywood',          thickness: 1.5,  colour: '#c8b89a', maxWidthMm: 304.8, maxHeightMm: 304.8, sizeUnit: 'mm' },
@@ -5270,14 +5270,14 @@ let CONFIG = {
     { id: 'plaster',  name: '0.28mm Plaster Card',     thickness: 0.28, colour: '#e8e0d0', maxWidthMm: 304.8, maxHeightMm: 304.8, sizeUnit: 'mm' },
     { id: 'printed',  name: 'Printed Paper',           thickness: 0.20, colour: '#f1df72', maxWidthMm: 304.8, maxHeightMm: 304.8, sizeUnit: 'mm' },
   ],
-  // Per-cladding-style material override: { claddingStyleKey â†’ materials[].id }
+  // Per-cladding-style material override: { claddingStyleKey → materials[].id }
   // Any key not listed here defaults to 'cladding'.
   claddingMaterials: {},
 };
 
 /* Fixture library post-load normalization.
  * Pipe penetration rings are a single washer-shaped flange. The inner circle is
- * the through-cut/waste opening through the flange, cladding, and core â€” not a
+ * the through-cut/waste opening through the flange, cladding, and core — not a
  * separate centre insert or second stack layer.
  */
 if (typeof FIXTURE_STYLES !== 'undefined' && FIXTURE_STYLES.pipe_penetration_ring) {
@@ -5306,7 +5306,7 @@ if (typeof FIXTURE_STYLES !== 'undefined' && FIXTURE_STYLES.pipe_penetration_rin
    GEOMETRY PRIMITIVES
    ===================================================================== */
 
-// Stored from the last successful generateBuilding call â€” used by the WYSIWYG editor
+// Stored from the last successful generateBuilding call — used by the WYSIWYG editor
 let lastPlan = null;
 let lastResult = null;
 
@@ -5373,7 +5373,7 @@ function placeTongues(edgeLength, tongueWidth, minMargin, forbidden, targetCount
   // per region, which for two equal-capacity regions splitting around a
   // centered obstacle (e.g. the default single side door) handed the first
   // region its full Math.round(actualCount/2) share and left the second
-  // region short â€” producing visibly lopsided 2+1 tongue rows on side walls.
+  // region short — producing visibly lopsided 2+1 tongue rows on side walls.
   //
   // New algorithm:
   //   pass 1: give every region a baseline of floor(actualCount / numRegions)
@@ -5384,14 +5384,14 @@ function placeTongues(edgeLength, tongueWidth, minMargin, forbidden, targetCount
   //           left-to-right order; never assigns a remainder when the
   //           pre-distributed counts already saturate the regions OR when
   //           giving it would make a strictly-equal-capacity sibling visibly
-  //           emptier â€” i.e. for N equal regions with k < N remainder
+  //           emptier — i.e. for N equal regions with k < N remainder
   //           tongues, those tongues are dropped to keep visual symmetry,
   //           preferring fewer-but-balanced to more-but-lopsided.
   const actualCount = Math.min(targetCount, totalCapacity);
   const numRegions = regions.length;
   const baseShare = (numRegions > 0) ? Math.floor(actualCount / numRegions) : 0;
   // Capacities aligned with the sorted-by-length region order used below
-  // (regions sorted by length desc â†’ same order we'll iterate in pass 2).
+  // (regions sorted by length desc → same order we'll iterate in pass 2).
   const sortedRegions = [...regions].sort((a, b) => (b.end - b.start) - (a.end - a.start));
   const regionCaps = sortedRegions.map(r => {
     const len = r.end - r.start;
@@ -5402,9 +5402,9 @@ function placeTongues(edgeLength, tongueWidth, minMargin, forbidden, targetCount
   let remaining = actualCount - assigned.reduce((s, n) => s + n, 0);
 
   // Distribute the remainder. Each iteration: pick the region whose REMAINING
-  // capacity (cap âˆ’ assigned) is STRICTLY greater than every other region's,
+  // capacity (cap − assigned) is STRICTLY greater than every other region's,
   // and add one tongue there. If no region uniquely wins (all candidates tied
-  // at the same remaining-capacity), stop â€” adding to one would unbalance
+  // at the same remaining-capacity), stop — adding to one would unbalance
   // against its equal sibling. This is the case that fires when a side wall
   // door splits the bottom edge into two equal regions: both regions have
   // the same leftover capacity, so no remainder is assigned and the result
@@ -5585,10 +5585,10 @@ function applyWallAssemblyKeyToTongues(tongues, edgeLength, cfg, face, forbidden
  *     An opening cuts INTO the wall (creates a notch in the perimeter).
  *
  * Direction conventions (clockwise from top-left):
- *   Top edge goes leftâ†’right (x increases), tongues protrude UP (-y), openings cut DOWN
- *   Right edge goes topâ†’bottom (y increases), tongues protrude RIGHT (+x), openings cut LEFT
- *   Bottom edge goes rightâ†’left (x decreases), tongues protrude DOWN (+y), openings cut UP
- *   Left edge goes bottomâ†’top (y decreases), tongues protrude LEFT (-x), openings cut RIGHT
+ *   Top edge goes left→right (x increases), tongues protrude UP (-y), openings cut DOWN
+ *   Right edge goes top→bottom (y increases), tongues protrude RIGHT (+x), openings cut LEFT
+ *   Bottom edge goes right→left (x decreases), tongues protrude DOWN (+y), openings cut UP
+ *   Left edge goes bottom→top (y decreases), tongues protrude LEFT (-x), openings cut RIGHT
  */
 function buildWallPath(spec) {
   const { width: W, height: H, matT, kerf } = spec;
@@ -5692,23 +5692,23 @@ function buildWallPath(spec) {
 }
 
 /* Build an L-shaped wall perimeter path WITH edge tongues.
-   extRight=true  â†’ extension at bottom-right; extRight=false â†’ extension at bottom-left.
-   stepY = mainH âˆ’ extH (where the inner step starts from the top).
+   extRight=true  → extension at bottom-right; extRight=false → extension at bottom-left.
+   stepY = mainH − extH (where the inner step starts from the top).
 
    opts:
-     matT      â€” tongue/slot depth (= material thickness)
-     mainTopTongues  â€” tongues along the main top edge (x in [0, mainW]),    protrude UP
-     extTopTongues   â€” tongues along the extension top edge,                 protrude UP
-     mainBotTongues  â€” tongues along the main-portion bottom (x in [0, mainW])
-     extBotTongues   â€” tongues along the extension-portion bottom
-     extTopShift     â€” offset (in main x) of the ext-top tongues relative to the
+     matT      — tongue/slot depth (= material thickness)
+     mainTopTongues  — tongues along the main top edge (x in [0, mainW]),    protrude UP
+     extTopTongues   — tongues along the extension top edge,                 protrude UP
+     mainBotTongues  — tongues along the main-portion bottom (x in [0, mainW])
+     extBotTongues   — tongues along the extension-portion bottom
+     extTopShift     — offset (in main x) of the ext-top tongues relative to the
                        start of the extension. Used when the L-shape bridges the
                        wing's matT corner so tongue positions still match the
                        wing's roof/wall layout. Defaults to 0.
-     extBotShift     â€” same idea, for the bottom edge.
-     extRightTongues â€” tongues along the extension's right edge (y in [0, extH]), protrude RIGHT
-     leftTongues     â€” tongues along the full left edge (y in [0, mainH]),         protrude LEFT
-     mainRightTonguesâ€” tongues along the main wall's far-side right edge (only used
+     extBotShift     — same idea, for the bottom edge.
+     extRightTongues — tongues along the extension's right edge (y in [0, extH]), protrude RIGHT
+     leftTongues     — tongues along the full left edge (y in [0, mainH]),         protrude LEFT
+     mainRightTongues— tongues along the main wall's far-side right edge (only used
                        when extRight=false; the L-shape's "right" is the main wall there)
 */
 function buildLShapePathWithFeatures(mainW, mainH, extW, extH, extRight, opts) {
@@ -5741,8 +5741,8 @@ function buildLShapePathWithFeatures(mainW, mainH, extW, extH, extRight, opts) {
 
   let d;
 
-  // â”€â”€ extRight=true: extension on the right; path walks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // (0,0) â†’ main top â†’ step at (mainW, 0..stepY) â†’ ext top â†’ ext right â†’ bottom â†’ left â†’ close.
+  // ── extRight=true: extension on the right; path walks ──────────────────────
+  // (0,0) → main top → step at (mainW, 0..stepY) → ext top → ext right → bottom → left → close.
   if (extRight) {
     d = `M 0,0`;
     // Main top (x in [0, mainW], tongues UP at y=-td)
@@ -5767,7 +5767,7 @@ function buildLShapePathWithFeatures(mainW, mainH, extW, extH, extRight, opts) {
     }
     if (x < totalW) d += ` L ${fx(totalW)},${fx(stepY)}`;
     // Ext right (y in [stepY, mainH], tongues RIGHT at x=totalW+td). Tongue positions
-    // are in [0, extH] in local "y from stepY" coords â†’ absolute y = stepY + t.
+    // are in [0, extH] in local "y from stepY" coords → absolute y = stepY + t.
     let y = stepY;
     for (const t of extRT) {
       const ys = stepY + t.start, ye = stepY + t.end;
@@ -5776,7 +5776,7 @@ function buildLShapePathWithFeatures(mainW, mainH, extW, extH, extRight, opts) {
       y = ye;
     }
     if (y < mainH) d += ` L ${fx(totalW)},${fx(mainH)}`;
-    // Bottom (walking RIGHTâ†’LEFT from totalW to 0, tongues DOWN at y=mainH+td)
+    // Bottom (walking RIGHT→LEFT from totalW to 0, tongues DOWN at y=mainH+td)
     // and carving up by `bay.height` between bay.xEnd and bay.xStart if a bay
     // opening sits on this wall. Bay coords are already in L-frame (main side).
     const bay = opts.bay || null;
@@ -5804,7 +5804,7 @@ function buildLShapePathWithFeatures(mainW, mainH, extW, extH, extRight, opts) {
       }
     }
     if (xpos > 0) d += ` L 0,${fx(mainH)}`;
-    // Left (full, walking BOTTOMâ†’TOP from mainH to 0, tongues LEFT at x=-td).
+    // Left (full, walking BOTTOM→TOP from mainH to 0, tongues LEFT at x=-td).
     // leftTongues are in [0, mainH] measured from the TOP.
     let ypos = mainH;
     for (const t of [...leftTng].sort((a, b) => b.start - a.start)) {
@@ -5817,9 +5817,9 @@ function buildLShapePathWithFeatures(mainW, mainH, extW, extH, extRight, opts) {
     return d;
   }
 
-  // â”€â”€ extRight=false: extension on the left; path walks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // (extW,0) â†’ main top (right) â†’ right edge â†’ bottom â†’ left edge UP to (0, stepY) â†’
-  // ext top (right) to (extW, stepY) â†’ step UP to (extW, 0) â†’ close.
+  // ── extRight=false: extension on the left; path walks ──────────────────────
+  // (extW,0) → main top (right) → right edge → bottom → left edge UP to (0, stepY) →
+  // ext top (right) to (extW, stepY) → step UP to (extW, 0) → close.
   d = `M ${fx(extW)},0`;
   // Main top (x in [extW, totalW], tongues UP at y=-td). mainTop positions are
   // in [0, mainW] so add extW to get wall-local x.
@@ -5832,9 +5832,9 @@ function buildLShapePathWithFeatures(mainW, mainH, extW, extH, extRight, opts) {
   }
   if (x < totalW) d += ` L ${fx(totalW)},0`;
   // Right edge (y in [0, mainH], tongues RIGHT at x=totalW+td). The original right
-  // edge tongues belong to the MAIN wall (the side that was unchanged) â€” they
+  // edge tongues belong to the MAIN wall (the side that was unchanged) — they
   // ride along the full mainH. We reuse leftTongues here only if the caller wanted to
-  // â€” for extRight=false the OPPOSITE side is "right", so we pass the original right
+  // — for extRight=false the OPPOSITE side is "right", so we pass the original right
   // tongues via opts. We don't have them here so leave the right edge plain unless
   // opts.mainRightTongues is supplied.
   const mainRight = (opts.mainRightTongues || []).slice().sort((a, b) => a.start - b.start);
@@ -5845,7 +5845,7 @@ function buildLShapePathWithFeatures(mainW, mainH, extW, extH, extRight, opts) {
     y = t.end;
   }
   if (y < mainH) d += ` L ${fx(totalW)},${fx(mainH)}`;
-  // Bottom (walking RIGHTâ†’LEFT, tongues DOWN at y=mainH+td) â€” with optional
+  // Bottom (walking RIGHT→LEFT, tongues DOWN at y=mainH+td) — with optional
   // bay carve. Same logic as the extRight branch above.
   const bayLR = opts.bay || null;
   let xpos = totalW;
@@ -5879,7 +5879,7 @@ function buildLShapePathWithFeatures(mainW, mainH, extW, extH, extRight, opts) {
     ypos = t.start;
   }
   if (ypos > stepY) d += ` L 0,${fx(stepY)}`;
-  // Ext top (walking LEFTâ†’RIGHT from (0, stepY) to (extW, stepY), tongues UP at y=stepY-td)
+  // Ext top (walking LEFT→RIGHT from (0, stepY) to (extW, stepY), tongues UP at y=stepY-td)
   // extTop tongue positions are within [0, wing wall length]; shift by extTopShift.
   x = 0;
   for (const t of extTop) {
@@ -5901,31 +5901,31 @@ function buildLShapePathWithFeatures(mainW, mainH, extW, extH, extRight, opts) {
    with left and right wings hanging from its bottom corners.
 
    Coordinate frame: the merged panel's (0,0) is at the TOP-LEFT of the LEFT
-   WING. Main rectangle occupies x âˆˆ [leftCW, leftCW+mainW], y âˆˆ [0, mainH].
+   WING. Main rectangle occupies x ∈ [leftCW, leftCW+mainW], y ∈ [0, mainH].
 
    opts:
-     matT                â€” tongue depth
-     mainTopTongues      â€” main top tongues, positions in main-local x [0, mainW]
-     mainBotTongues      â€” main bottom tongues, positions in main-local x
-     leftExtTopTongues   â€” left wing top tongues, in wing-local x
-     leftExtTopShift     â€” offset (default 0) from left-merged-x=0 to start of
+     matT                — tongue depth
+     mainTopTongues      — main top tongues, positions in main-local x [0, mainW]
+     mainBotTongues      — main bottom tongues, positions in main-local x
+     leftExtTopTongues   — left wing top tongues, in wing-local x
+     leftExtTopShift     — offset (default 0) from left-merged-x=0 to start of
                            left wing's wall content (allows bridging matT corner)
-     leftExtBotTongues   â€” left wing bottom tongues, in wing-local x
-     leftExtBotShift     â€” offset from left-merged-x=0 to start of left wing
+     leftExtBotTongues   — left wing bottom tongues, in wing-local x
+     leftExtBotShift     — offset from left-merged-x=0 to start of left wing
                            wall content along the bottom
-     leftExtLeftTongues  â€” left wing outer (left) vertical tongues, in wing-
+     leftExtLeftTongues  — left wing outer (left) vertical tongues, in wing-
                            local y [0, leftCH]
-     rightExtTopTongues  â€” right wing top tongues, in wing-local x
-     rightExtTopShift    â€” offset from start of right wing in merged frame to
+     rightExtTopTongues  — right wing top tongues, in wing-local x
+     rightExtTopShift    — offset from start of right wing in merged frame to
                            start of wall content (typically matT)
-     rightExtBotTongues  â€” right wing bottom tongues, in wing-local x
-     rightExtBotShift    â€” same idea for bottom
-     rightExtRightTongues â€” right wing outer (right) vertical tongues, in wing-
+     rightExtBotTongues  — right wing bottom tongues, in wing-local x
+     rightExtBotShift    — same idea for bottom
+     rightExtRightTongues — right wing outer (right) vertical tongues, in wing-
                            local y [0, rightCH]
-     bay                 â€” optional { xStart, xEnd, height } in MERGED-frame x
+     bay                 — optional { xStart, xEnd, height } in MERGED-frame x
 
-   leftCW, leftCH       â€” left wing extension width and height
-   rightCW, rightCH     â€” right wing extension width and height
+   leftCW, leftCH       — left wing extension width and height
+   rightCW, rightCH     — right wing extension width and height
 */
 function buildTShapePathWithFeatures(mainW, mainH, leftCW, leftCH, rightCW, rightCH, opts) {
   const matT  = opts.matT;
@@ -5963,7 +5963,7 @@ function buildTShapePathWithFeatures(mainW, mainH, leftCW, leftCH, rightCW, righ
   // Walk clockwise from (xMain, 0) = top-left of main rectangle.
   let d = `M ${fx(xMain)},0`;
 
-  // 1) Main top edge â€” walk right, tongues UP at y=-td.
+  // 1) Main top edge — walk right, tongues UP at y=-td.
   let x = xMain;
   for (const t of mainTop) {
     const xs = xMain + t.start, xe = xMain + t.end;
@@ -5973,10 +5973,10 @@ function buildTShapePathWithFeatures(mainW, mainH, leftCW, leftCH, rightCW, righ
   }
   if (x < xRight) d += ` L ${fx(xRight)},0`;
 
-  // 2) Main's right edge down to top of right wing (no tongues â€” interior step).
+  // 2) Main's right edge down to top of right wing (no tongues — interior step).
   d += ` L ${fx(xRight)},${fx(stepYR)}`;
 
-  // 3) Right wing top edge â€” walk right, tongues UP at y=stepYR-td.
+  // 3) Right wing top edge — walk right, tongues UP at y=stepYR-td.
   x = xRight;
   for (const t of rightTop) {
     const xs = xRight + rightTopShift + t.start, xe = xRight + rightTopShift + t.end;
@@ -5986,7 +5986,7 @@ function buildTShapePathWithFeatures(mainW, mainH, leftCW, leftCH, rightCW, righ
   }
   if (x < totalW) d += ` L ${fx(totalW)},${fx(stepYR)}`;
 
-  // 4) Right wing's right edge â€” walk down, tongues RIGHT at x=totalW+td.
+  // 4) Right wing's right edge — walk down, tongues RIGHT at x=totalW+td.
   let y = stepYR;
   for (const t of rightRT) {
     const ys = stepYR + t.start, ye = stepYR + t.end;
@@ -5996,7 +5996,7 @@ function buildTShapePathWithFeatures(mainW, mainH, leftCW, leftCH, rightCW, righ
   }
   if (y < mainH) d += ` L ${fx(totalW)},${fx(mainH)}`;
 
-  // 5) Bottom edge â€” walk LEFT from (totalW, mainH) to (0, mainH), tongues DOWN
+  // 5) Bottom edge — walk LEFT from (totalW, mainH) to (0, mainH), tongues DOWN
   //    at y=mainH+td. Optional bay carved upward in the main portion.
   const bay = opts.bay || null;
   let xpos = totalW;
@@ -6021,7 +6021,7 @@ function buildTShapePathWithFeatures(mainW, mainH, leftCW, leftCH, rightCW, righ
   }
   if (xpos > 0) d += ` L 0,${fx(mainH)}`;
 
-  // 6) Left wing's left edge â€” walk UP from (0, mainH) to (0, stepYL),
+  // 6) Left wing's left edge — walk UP from (0, mainH) to (0, stepYL),
   //    tongues LEFT at x=-td. Tongue positions are in wing-local y [0, leftCH]
   //    so merged y = stepYL + t.
   let ypos = mainH;
@@ -6033,7 +6033,7 @@ function buildTShapePathWithFeatures(mainW, mainH, leftCW, leftCH, rightCW, righ
   }
   if (ypos > stepYL) d += ` L 0,${fx(stepYL)}`;
 
-  // 7) Left wing top edge â€” walk RIGHT from (0, stepYL) to (xMain, stepYL),
+  // 7) Left wing top edge — walk RIGHT from (0, stepYL) to (xMain, stepYL),
   //    tongues UP at y=stepYL-td.
   x = 0;
   for (const t of leftTop) {
@@ -6044,16 +6044,16 @@ function buildTShapePathWithFeatures(mainW, mainH, leftCW, leftCH, rightCW, righ
   }
   if (x < xMain) d += ` L ${fx(xMain)},${fx(stepYL)}`;
 
-  // 8) Main's left edge â€” walk UP from (xMain, stepYL) back to (xMain, 0).
+  // 8) Main's left edge — walk UP from (xMain, stepYL) back to (xMain, 0).
   //    No tongues here either (interior step).
   d += ` L ${fx(xMain)},0 Z`;
   return d;
 }
 
-/* Build a simple L-shaped perimeter path (no edge tongues â€” connections added as
-   interior rect slots separately).  extRight=true â†’ extension at bottom-right;
-   extRight=false â†’ extension at bottom-left.
-   stepY = mainH âˆ’ extH (where the inner step starts from the top). */
+/* Build a simple L-shaped perimeter path (no edge tongues — connections added as
+   interior rect slots separately).  extRight=true → extension at bottom-right;
+   extRight=false → extension at bottom-left.
+   stepY = mainH − extH (where the inner step starts from the top). */
 function buildLShapePath(mainW, mainH, extW, extH, extRight) {
   const stepY = mainH - extH;
   const totalW = mainW + extW;
@@ -6071,8 +6071,8 @@ function buildLShapePath(mainW, mainH, extW, extH, extRight) {
 function isGableEndWall(cfg, which) {
   if (cfg.roofStyle !== 'gabled' && cfg.roofStyle !== 'parapet_gable') return false;
   const ridge = effectiveRidgeDir(cfg);
-  // EW ridge: slopes face N/S â†’ eave walls are front/back; GABLE ENDS are east/west
-  // NS ridge: slopes face E/W â†’ eave walls are east/west; GABLE ENDS are front/back
+  // EW ridge: slopes face N/S → eave walls are front/back; GABLE ENDS are east/west
+  // NS ridge: slopes face E/W → eave walls are east/west; GABLE ENDS are front/back
   if (which === 'east'  || which === 'west') return ridge === 'ew';
   if (which === 'front' || which === 'back') return ridge === 'ns';
   return false;
@@ -6081,15 +6081,15 @@ function isGableEndWall(cfg, which) {
 /* Effective ridge direction for gable-style roofs.
  *
  * For the plain `gabled` style, the user picks via cfg.roofRidgeDirection
- * â€” either 'ew' or 'ns'.
+ * — either 'ew' or 'ns'.
  *
  * For `parapet_gable`, the user's parapet-sides choice constrains the
  * ridge so the parapets always sit on the peak-end walls (otherwise the
  * parapets wouldn't be hiding anything and the style would lose its
  * purpose):
- *   â€¢ parapetSides = 'fb' â†’ ridge must be 'ns' (peaks on front/back)
- *   â€¢ parapetSides = 'ew' â†’ ridge must be 'ew' (peaks on east/west)
- *   â€¢ parapetSides = 'all' â†’ ridge is user-picked (defaults to 'ew')
+ *   • parapetSides = 'fb' → ridge must be 'ns' (peaks on front/back)
+ *   • parapetSides = 'ew' → ridge must be 'ew' (peaks on east/west)
+ *   • parapetSides = 'all' → ridge is user-picked (defaults to 'ew')
  *
  * Returns 'ew' or 'ns'. */
 function effectiveRidgeDir(cfg) {
@@ -6097,13 +6097,13 @@ function effectiveRidgeDir(cfg) {
     const sides = cfg.parapetSides || 'all';
     if (sides === 'fb') return 'ns';
     if (sides === 'ew') return 'ew';
-    // 'all' â€” fall through to user pick
+    // 'all' — fall through to user pick
   }
   return cfg.roofRidgeDirection || 'ew';
 }
 
 /* True if the given wall should be extended upward as a parapet under
- * the `parapet_gable` roof style. For other roof styles always false â€”
+ * the `parapet_gable` roof style. For other roof styles always false —
  * the existing wall generators handle their tops in the usual way. */
 function wallHasParapet(cfg, which) {
   if (cfg.roofStyle !== 'parapet_gable') return false;
@@ -6116,12 +6116,12 @@ function wallHasParapet(cfg, which) {
 
 /**
  * Pentagon perimeter for a gable-end wall.
- *   Shape: rectangular body (wallW Ã— wallH) + isoceles triangle above it.
- *   Apex at (wallW/2, âˆ’pitch).  Left/right/bottom edges carry the same
+ *   Shape: rectangular body (wallW × wallH) + isoceles triangle above it.
+ *   Apex at (wallW/2, −pitch).  Left/right/bottom edges carry the same
  *   tongue/opening features as the corresponding rectangular wall.
  *   The two diagonal gable-slope edges carry tabs when slopeTabSpec is provided.
  *
- * slopeTabSpec: { tw, margin, kerf } â€” if supplied, rectangular tabs are
+ * slopeTabSpec: { tw, margin, kerf } — if supplied, rectangular tabs are
  *   generated along both slant edges, matching the slots cut in the slope panels.
  */
 function buildGableWallPath(wallW, wallH, pitch, spec, slopeTabSpec = null) {
@@ -6144,9 +6144,9 @@ function buildGableWallPath(wallW, wallH, pitch, spec, slopeTabSpec = null) {
     const tabCount = Math.max(2, Math.min(3, Math.floor(slantLen / 25)));
     const tabs     = placeTongues(slantLen, tabW, tabMargin, [], tabCount, tabW / 2);
 
-    // Left slant edge: travels from (0,0) â†’ apex (halfW, âˆ’pitch).
-    // Tangent:  (halfW, âˆ’pitch) / slantLen  [in SVG y-down coords]
-    // Outward normal (CW rotate tangent):  (tanY, âˆ’tanX)
+    // Left slant edge: travels from (0,0) → apex (halfW, −pitch).
+    // Tangent:  (halfW, −pitch) / slantLen  [in SVG y-down coords]
+    // Outward normal (CW rotate tangent):  (tanY, −tanX)
     const lTx = halfW / slantLen,  lTy = -pitch / slantLen;
     const lNx = lTy,               lNy = -lTx;   // outward for left edge (upper-left)
 
@@ -6159,9 +6159,9 @@ function buildGableWallPath(wallW, wallH, pitch, spec, slopeTabSpec = null) {
     }
     d += ` L ${halfW.toFixed(3)},${(-pitch).toFixed(3)}`;  // apex
 
-    // Right slant edge: travels from apex (halfW, âˆ’pitch) â†’ (wallW, 0).
+    // Right slant edge: travels from apex (halfW, −pitch) → (wallW, 0).
     // Tangent: (halfW, pitch) / slantLen
-    // Outward normal (CW rotate): (pitch, âˆ’halfW) / slantLen  (upper-right)
+    // Outward normal (CW rotate): (pitch, −halfW) / slantLen  (upper-right)
     const rTx = halfW / slantLen,  rTy = pitch / slantLen;
     const rNx = rTy,               rNy = -rTx;
 
@@ -6176,11 +6176,11 @@ function buildGableWallPath(wallW, wallH, pitch, spec, slopeTabSpec = null) {
     }
     d += ` L ${wallW},0`;  // right eave
   } else {
-    // Plain diagonals â€” no tabs
+    // Plain diagonals — no tabs
     d += ` L ${halfW.toFixed(3)},${(-pitch).toFixed(3)} L ${wallW},0`;
   }
 
-  // ---- RIGHT EDGE (topâ†’bottom) ----
+  // ---- RIGHT EDGE (top→bottom) ----
   const rightFeats = [
     ...(spec.edges.right.tongues  || []).map(t => ({ ...t, kind: 'tongue'  })),
     ...(spec.edges.right.openings || []).map(o => ({ ...o, kind: 'opening' })),
@@ -6197,7 +6197,7 @@ function buildGableWallPath(wallW, wallH, pitch, spec, slopeTabSpec = null) {
   }
   if (y < wallH) d += ` L ${wallW},${wallH}`;
 
-  // ---- BOTTOM EDGE (rightâ†’left) ----
+  // ---- BOTTOM EDGE (right→left) ----
   const botFeats = [
     ...(spec.edges.bottom.tongues  || []).map(t => ({ ...t, kind: 'tongue'  })),
     ...(spec.edges.bottom.openings || []).map(o => ({ ...o, kind: 'opening' })),
@@ -6214,7 +6214,7 @@ function buildGableWallPath(wallW, wallH, pitch, spec, slopeTabSpec = null) {
   }
   if (xp > 0) d += ` L 0,${wallH}`;
 
-  // ---- LEFT EDGE (bottomâ†’top) ----
+  // ---- LEFT EDGE (bottom→top) ----
   const leftFeats = [
     ...(spec.edges.left.tongues  || []).map(t => ({ ...t, kind: 'tongue'  })),
     ...(spec.edges.left.openings || []).map(o => ({ ...o, kind: 'opening' })),
@@ -6237,8 +6237,8 @@ function buildGableWallPath(wallW, wallH, pitch, spec, slopeTabSpec = null) {
 
 /**
  * Trapezoidal perimeter for a wall whose top edge is slanted.
- *   pitchLeft  = extra height at x=0   (top-left  at y = âˆ’pitchLeft)
- *   pitchRight = extra height at x=wallW (top-right at y = âˆ’pitchRight)
+ *   pitchLeft  = extra height at x=0   (top-left  at y = −pitchLeft)
+ *   pitchRight = extra height at x=wallW (top-right at y = −pitchRight)
  * Tongue/opening features are only placed within the rectangular base [0, wallH].
  * The slanted top edge has no tongue features (roof just rests on it).
  */
@@ -6254,15 +6254,15 @@ function buildSlantedWallPath(wallW, wallH, pitchLeft, pitchRight, spec) {
   // ---- TOP EDGE ----
   // Two cases, both can carry tongues:
   //
-  //   â€¢ Horizontal top (pitchLeft === pitchRight): top runs flat at
-  //     y=âˆ’pitch. Tongues stick straight UP just like buildWallPath's
-  //     top edge does â€” used by the HIGH-side FB wall on NS-axis slanted
+  //   • Horizontal top (pitchLeft === pitchRight): top runs flat at
+  //     y=−pitch. Tongues stick straight UP just like buildWallPath's
+  //     top edge does — used by the HIGH-side FB wall on NS-axis slanted
   //     roofs ("rectangular with a flat top raised by pitch", built via
   //     buildSlantedWallPath with equal pitches).
   //
-  //   â€¢ Slanted top (pitchLeft !== pitchRight): top runs diagonally from
-  //     (0, âˆ’pitchLeft) to (wallW, âˆ’pitchRight). Tongues stick
-  //     perpendicular to the slanted edge â€” they end up as small
+  //   • Slanted top (pitchLeft !== pitchRight): top runs diagonally from
+  //     (0, −pitchLeft) to (wallW, −pitchRight). Tongues stick
+  //     perpendicular to the slanted edge — they end up as small
   //     parallelograms protruding outward (UP-and-toward-the-LOWER-end).
   //     This is what the trapezoidal SIDE walls of an NS-axis slanted
   //     roof need so they can key into the roof panel's verge-row slots,
@@ -6272,8 +6272,8 @@ function buildSlantedWallPath(wallW, wallH, pitchLeft, pitchRight, spec) {
   // [start, end] x-ranges along the wall's x-axis (NOT arclength). When
   // the top is slanted, each tongue's outer corners are offset from its
   // base corners by matT in the direction of the outward unit normal
-  // N = ((pitchLeft âˆ’ pitchRight), âˆ’wallW) / slantLenLocal. For a
-  // back-high case (pitchL=0, pitchR=pitch), N points UP-LEFT â€” exactly
+  // N = ((pitchLeft − pitchRight), −wallW) / slantLenLocal. For a
+  // back-high case (pitchL=0, pitchR=pitch), N points UP-LEFT — exactly
   // away from the wall body that sits below the slanted top edge.
   const horizontalTop = (pitchLeft === pitchRight);
   const hasTopTongues = spec.edges.top && (spec.edges.top.tongues || []).length > 0;
@@ -6315,7 +6315,7 @@ function buildSlantedWallPath(wallW, wallH, pitchLeft, pitchRight, spec) {
     d += ` L ${wallW},${(-pitchRight).toFixed(3)}`;
   }
 
-  // ---- RIGHT EDGE (top-right â†’ bottom-right), tongues/openings in [0, wallH] ----
+  // ---- RIGHT EDGE (top-right → bottom-right), tongues/openings in [0, wallH] ----
   const rightFeats = [
     ...(spec.edges.right.tongues  || []).map(t => ({ ...t, kind: 'tongue'  })),
     ...(spec.edges.right.openings || []).map(o => ({ ...o, kind: 'opening' })),
@@ -6332,7 +6332,7 @@ function buildSlantedWallPath(wallW, wallH, pitchLeft, pitchRight, spec) {
   }
   if (y < wallH) d += ` L ${wallW},${wallH}`;
 
-  // ---- BOTTOM EDGE (right â†’ left) ----
+  // ---- BOTTOM EDGE (right → left) ----
   const botFeats = [
     ...(spec.edges.bottom.tongues  || []).map(t => ({ ...t, kind: 'tongue'  })),
     ...(spec.edges.bottom.openings || []).map(o => ({ ...o, kind: 'opening' })),
@@ -6349,7 +6349,7 @@ function buildSlantedWallPath(wallW, wallH, pitchLeft, pitchRight, spec) {
   }
   if (xp > 0) d += ` L 0,${wallH}`;
 
-  // ---- LEFT EDGE (bottom-left â†’ top-left), tongues/openings in [0, wallH] ----
+  // ---- LEFT EDGE (bottom-left → top-left), tongues/openings in [0, wallH] ----
   const leftFeats = [
     ...(spec.edges.left.tongues  || []).map(t => ({ ...t, kind: 'tongue'  })),
     ...(spec.edges.left.openings || []).map(o => ({ ...o, kind: 'opening' })),
@@ -6437,9 +6437,9 @@ function rectPath(x, y, w, h) {
   return `M ${x},${y} L ${x + w},${y} L ${x + w},${y + h} L ${x},${y + h} Z`;
 }
 
-/* Clip a vertical line at fixed x, going from y0 to y1, against a list of 
-   rectangular openings. Returns array of [yStart, yEnd] segments outside any 
-   opening. A small margin is applied around openings so the etch doesn't run 
+/* Clip a vertical line at fixed x, going from y0 to y1, against a list of
+   rectangular openings. Returns array of [yStart, yEnd] segments outside any
+   opening. A small margin is applied around openings so the etch doesn't run
    right up against the cut edge. */
 function clipVerticalLineByCuts(x, y0, y1, cuts, margin) {
   margin = (margin == null) ? 0.5 : margin;
@@ -6471,7 +6471,7 @@ function clipVerticalLineByCuts(x, y0, y1, cuts, margin) {
     cur = Math.max(cur, bEnd);
   }
   if (cur < y1) segments.push([cur, y1]);
-  // Filter out very short segments (< 0.5mm) â€” they'd be invisible/messy
+  // Filter out very short segments (< 0.5mm) — they'd be invisible/messy
   return segments.filter(([a, b]) => b - a >= 0.5);
 }
 
@@ -6504,11 +6504,11 @@ function clipHorizontalLineByCuts(y, x0, x1, cuts, margin) {
   return segments.filter(([a, b]) => b - a >= 0.5);
 }
 
-/* Cladding pattern dispatcher. Returns an array of {x1, y1, x2, y2} line 
-   segments (in cladding-panel coords) representing the etched detail for the 
+/* Cladding pattern dispatcher. Returns an array of {x1, y1, x2, y2} line
+   segments (in cladding-panel coords) representing the etched detail for the
    chosen style. All segments are clipped against cutOpenings.
-   
-   panelLeft/Top/Right/Bottom: the inner region of the cladding panel where 
+
+   panelLeft/Top/Right/Bottom: the inner region of the cladding panel where
      etches should be drawn (typically inset by cT to avoid the panel edge). */
 function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBottom, cutOpenings, topEdge) {
   const out = [];
@@ -6533,7 +6533,7 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
   function pushClippedV(x, y0, y1) {
     // Clip the top of the line against the slanted top edge at this x.
     const yTopHere = topYAt(x);
-    if (yTopHere >= y1) return;          // entirely above the slope â†’ drop
+    if (yTopHere >= y1) return;          // entirely above the slope → drop
     if (yTopHere > y0)  y0 = yTopHere;   // trim the portion above the slope
     const segs = clipVerticalLineByCuts(x, y0, y1, cutOpenings);
     for (const [a, b] of segs) out.push({ x1: x, y1: a, x2: x, y2: b });
@@ -6544,12 +6544,12 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
     // slope and should be dropped.
     if (topEdge) {
       if (slantSlope > 0) {
-        // top edge rises Lâ†’R: y >= leftY + slope*(x-panelLeft) â†’ x <= panelLeft + (y-leftY)/slope
+        // top edge rises L→R: y >= leftY + slope*(x-panelLeft) → x <= panelLeft + (y-leftY)/slope
         const xMax = panelLeft + (y - slantBaseY) / slantSlope;
         if (xMax <= x0) return;          // whole line above the slope
         if (xMax < x1) x1 = xMax;
       } else if (slantSlope < 0) {
-        // top edge falls Lâ†’R: y >= leftY + slope*(x-panelLeft) â†’ x >= panelLeft + (y-leftY)/slope
+        // top edge falls L→R: y >= leftY + slope*(x-panelLeft) → x >= panelLeft + (y-leftY)/slope
         const xMin = panelLeft + (y - slantBaseY) / slantSlope;
         if (xMin >= x1) return;          // whole line above the slope
         if (xMin > x0) x0 = xMin;
@@ -6561,8 +6561,8 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
     const segs = clipHorizontalLineByCuts(y, x0, x1, cutOpenings);
     for (const [a, b] of segs) out.push({ x1: a, y1: y, x2: b, y2: y });
   }
-  /* Push a clipped diagonal line (for namako). Naive: sample line at small 
-     steps and drop samples that fall inside a cut. Build segments from 
+  /* Push a clipped diagonal line (for namako). Naive: sample line at small
+     steps and drop samples that fall inside a cut. Build segments from
      contiguous outside-the-cut runs. */
   function pushClippedDiag(x0, y0, x1, y1) {
     const dx = x1 - x0, dy = y1 - y0;
@@ -6580,7 +6580,7 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
           inside = true; break;
         }
       }
-      // Also drop samples that sit above the slanted top edge (if any) â€”
+      // Also drop samples that sit above the slanted top edge (if any) —
       // the inside-cut test handles only rectangular cuts; the slope is a
       // separate constraint that lives on the panel outline.
       if (!inside && topEdge) {
@@ -6656,7 +6656,7 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
         xs.push(x);
         pushClippedV(x, panelTop, panelBottom);
       }
-      // Optional decorative subdivision â€” emit (verticalSubdivide - 1)
+      // Optional decorative subdivision — emit (verticalSubdivide - 1)
       // secondary verticals between each pair of primaries, including
       // before the first and after the last so the leftmost and
       // rightmost panel edges get the same subdivision pattern as
@@ -6743,15 +6743,15 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
   }
 
   else if (pat === 'board_batten') {
-    // Vertical board-and-batten siding (æŠ¼ç¸å¼µã‚Š). Boards sit flat
+    // Vertical board-and-batten siding (押縁張り). Boards sit flat
     // between the battens; the battens are raised strips covering each
-    // joint between adjacent boards. We etch only the battens â€” each
+    // joint between adjacent boards. We etch only the battens — each
     // batten reads as TWO parallel vertical lines (its left and right
     // edges), giving the cladding its distinctive doubled-rhythm look.
     // The cycle = boardWidth + battenWidth, repeating across the panel.
     //
     // Centre the pattern in the panel so a full board sits on each
-    // edge â€” the run starts and ends on a board rather than half a
+    // edge — the run starts and ends on a board rather than half a
     // batten, which matches how real siding is laid out on a wall.
     const bw = style.boardWidth   || 2.0;
     const tw = style.battenWidth  || 0.6;
@@ -6776,7 +6776,7 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
   }
 
   else if (pat === 'offset_courses') {
-    // Brick / stone with staggered courses. Horizontal mortar lines run full 
+    // Brick / stone with staggered courses. Horizontal mortar lines run full
     // width, vertical joints alternate position by offsetFraction each course.
     const cw = style.courseW || 1.4;     // course width (each unit)
     const ch = style.courseH || 0.4;     // course height
@@ -6802,13 +6802,13 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
   }
 
   else if (pat === 'random_rubble') {
-    // Pseudo-random irregular polygons. Use a deterministic LCG so the same 
+    // Pseudo-random irregular polygons. Use a deterministic LCG so the same
     // panel size produces the same pattern each generation.
     const avg = style.avgSize || 2.5;
     let seed = 12345 + Math.round(W * 31 + H * 17);
     function rnd() { seed = (seed * 1664525 + 1013904223) | 0; return ((seed >>> 0) / 0xFFFFFFFF); }
     // Build a random network of points and connect into Voronoi-ish segments.
-    // Simpler approximation: scatter centers in a jittered grid, then connect 
+    // Simpler approximation: scatter centers in a jittered grid, then connect
     // each center to its right and down neighbors via wavy lines.
     const cellW = avg, cellH = avg;
     const cols = Math.max(2, Math.floor(W / cellW));
@@ -6846,11 +6846,11 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
   }
 
   else if (pat === 'diagonal_grid') {
-    // Namako-kabe diagonal tile pattern: rotated 45Â° grid of square tiles.
+    // Namako-kabe diagonal tile pattern: rotated 45° grid of square tiles.
     const ts = style.tileSize || 1.5;
     const diag = ts * Math.SQRT2;  // diagonal-to-diagonal spacing of the rotated grid
-    // Two families of parallel diagonals: at +45Â° and -45Â°.
-    // Spacing along their normal = diag. Cover all of [panelLeft, panelRight] Ã— [panelTop, panelBottom].
+    // Two families of parallel diagonals: at +45° and -45°.
+    // Spacing along their normal = diag. Cover all of [panelLeft, panelRight] × [panelTop, panelBottom].
     const minDim = Math.min(W, H);
     const maxDim = Math.max(W, H);
     // For + slope (y = -x + c, so c = x + y): c ranges from panelLeft+panelTop to panelRight+panelBottom
@@ -6901,8 +6901,8 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
   }
 
   else if (pat === 'tile_overlap') {
-    // Kawara-like overlapping tile pattern. Approximates the wave look with 
-    // horizontal courses and small vertical "cap" marks staggered by half-tile 
+    // Kawara-like overlapping tile pattern. Approximates the wave look with
+    // horizontal courses and small vertical "cap" marks staggered by half-tile
     // each course (the visible curved overlap).
     const tw = style.tileW || 1.8;
     const th = style.tileH || 2.0;
@@ -6913,7 +6913,7 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
       if (y >= panelBottom) break;
       pushClippedH(y, panelLeft, panelRight);
     }
-    // Short vertical "cap" marks on each course, staggered. Each tile 
+    // Short vertical "cap" marks on each course, staggered. Each tile
     // produces a small downward tick mark from the course line above.
     for (let r = 0; r < nRows; r++) {
       const courseTop = panelTop + r * (H / nRows);
@@ -6929,13 +6929,13 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
   }
 
   else if (pat === 'corrugated_overlap') {
-    // Overlapping corrugated metal roofing sheets â€” the classic "tin roof"
+    // Overlapping corrugated metal roofing sheets — the classic "tin roof"
     // look. Each row of sheets sits staggered laterally from the row above
     // (brick-pattern offset by `offsetFraction * sheetW`), and dense
     // vertical lines etch the corrugation ridges within each row. Two line
     // families render:
     //
-    //   1. Full-width horizontal lines at every sheet-row boundary â€” the
+    //   1. Full-width horizontal lines at every sheet-row boundary — the
     //      visible lap where one course of sheets rests on top of the
     //      course below.
     //   2. Per-row vertical corrugations, each row's grid shifted by
@@ -6948,7 +6948,7 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
     // marks. At typical model scale (~1:150) corrugations are already at
     // the laser-etch resolution limit, and adding an extra vertical line
     // at each sheet-edge would visually compete with the corrugations
-    // rather than reinforce the "sheets" reading â€” the horizontal lap
+    // rather than reinforce the "sheets" reading — the horizontal lap
     // banding plus the row-to-row corrugation stagger does that job
     // cleanly on its own.
     const sheetW = style.sheetW || 5;
@@ -6985,11 +6985,11 @@ function generateCladdingPattern(style, panelLeft, panelTop, panelRight, panelBo
 function slotPath(x, y, w, h, kerf) {
   const k = kerf || 0;
   // Slots get bigger by k on each side (when kerf is negative, slots get smaller by |k|... wait)
-  // Convention: kerf is negative (laser removes material) â†’ tongues are SMALLER than nominal,
+  // Convention: kerf is negative (laser removes material) → tongues are SMALLER than nominal,
   // slots are LARGER than nominal so the (smaller) tongues fit in.
   // To make slots bigger, we ADD |k| on each side.
   const expand = k;  // for k=-0.005, expand=-0.005, slot grows by 0.01 total. Hmm wrong sign.
-  // Let me use -k for expansion: if k = -0.005 (kerf removes 0.005 from each cut), 
+  // Let me use -k for expansion: if k = -0.005 (kerf removes 0.005 from each cut),
   // then to compensate, slot SHOULD be 0.005 BIGGER on each side.
   const exp = -k;
   return `M ${x - exp},${y - exp} L ${x + w + exp},${y - exp} L ${x + w + exp},${y + h + exp} L ${x - exp},${y + h + exp} Z`;
@@ -7172,16 +7172,16 @@ function emitFixtureMarkerEtchesOnOverride(lines, mark, ox, oy) {
 }
 
 /* Compute window grid for a wall. Returns array of {x, y, width, height, isGround} in WALL local frame.
-   
-   Windows are placed at CANONICAL floor center Y positions, identical across all 
-   walls so they align horizontally. A window at any floor center Y is rejected only 
-   if it intersects a wall-specific obstacle (bay opening, door reserve zone, slot 
-   cut). Column X positions are computed per-wall (different walls have different 
+
+   Windows are placed at CANONICAL floor center Y positions, identical across all
+   walls so they align horizontally. A window at any floor center Y is rejected only
+   if it intersects a wall-specific obstacle (bay opening, door reserve zone, slot
+   cut). Column X positions are computed per-wall (different walls have different
    widths) but consistent within one wall so windows stack vertically.
-   
-   Ground-floor override: if groundWinDims is provided AND groundFloorCenterY 
-   matches one of the floorCenterYs, that floor's windows use groundWinDims instead 
-   of winDims. Each window in the result has isGround=true if it sits on the ground 
+
+   Ground-floor override: if groundWinDims is provided AND groundFloorCenterY
+   matches one of the floorCenterYs, that floor's windows use groundWinDims instead
+   of winDims. Each window in the result has isGround=true if it sits on the ground
    floor (lets callers tag them for the correct window-parts file). */
 
 /* ===== js/00-20-segmented-wall-exposure.js ===== */
@@ -7430,7 +7430,7 @@ function computeWindows(wallW, wallH, opts) {
   if (density === 'none') return [];
   if (!floorCenterYs || floorCenterYs.length === 0) return [];
 
-  // Wall-specific forbidden Y zones â€” windows whose bbox overlaps these are rejected.
+  // Wall-specific forbidden Y zones — windows whose bbox overlaps these are rejected.
   const slotPad = 3;
   const forbidden = [];
   for (const sy of (slotYs || [])) {
@@ -7447,7 +7447,7 @@ function computeWindows(wallW, wallH, opts) {
   forbidden.push([wallH - 4, Infinity]);
 
   // ---- Column X positions (based on the regular winDims, since most floors use it) ----
-  // For the ground floor (when override is on), we re-compute columns inside the 
+  // For the ground floor (when override is on), we re-compute columns inside the
   // loop using groundWinDims.
   // Edge clearance: keep window columns away from the structural joint at each wall end.
   const edgeMargin = opts.edgeMargin != null ? opts.edgeMargin : 4;
@@ -7512,7 +7512,7 @@ function computeDoors(wallW, wallH, opts) {
 
   // Door anchored at floor: y = wallH - door.height
   const doorY = wallH - door.height;
-  
+
   // If door is taller than wall - 5mm, skip
   if (door.height > wallH - 5) return [];
 
@@ -7572,14 +7572,14 @@ function buildEdgePlans(cfg) {
   // here in exactly one place.
   const H = wallBodyHeightFromConfig(cfg);
 
-  // The bay opening, ground level, and first floor are all the SAME floor of the 
-  // building (the lowest visible level from the outside). When the first-floor 
-  // height override is enabled, it drives both the bay height (if bay exists) 
-  // and the ground-band height (if no bay) â€” they're the same thing.
+  // The bay opening, ground level, and first floor are all the SAME floor of the
+  // building (the lowest visible level from the outside). When the first-floor
+  // height override is enabled, it drives both the bay height (if bay exists)
+  // and the ground-band height (if no bay) — they're the same thing.
   const ffhEnabled = !!cfg.firstFloorHeightEnabled;
   const fheightCfg = (cfg.floorHeight && cfg.floorHeight > 0) ? cfg.floorHeight : 30;
   const ffh = (cfg.firstFloorHeight && cfg.firstFloorHeight > 0) ? cfg.firstFloorHeight : fheightCfg;
-  // First-floor height â€” determines where the inter-floor panel between floors 1 and 2 sits.
+  // First-floor height — determines where the inter-floor panel between floors 1 and 2 sits.
   // Reads firstFloorHeight when that override is on; otherwise uses the standard floor height.
   // The bay opening height is a SEPARATE value and must not influence this.
   const firstBandH = ffhEnabled ? ffh : fheightCfg;
@@ -7587,7 +7587,7 @@ function buildEdgePlans(cfg) {
   const sideLen = depth - 2 * matT;
   const fbWidth = width;
 
-  // Resolve bay from manual openings (the only source â€” bay placement is
+  // Resolve bay from manual openings (the only source — bay placement is
   // owned entirely by the opening editor).
   const bayResolved = resolveBay(cfg, fbWidth);
   const hasFrontBay = bayResolved.hasFrontBay;
@@ -7605,11 +7605,11 @@ function buildEdgePlans(cfg) {
   const fheight = fheightCfg;
   const hasSecondFloor = fcount >= 2;
 
-  // â”€â”€ Inter-floor panels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Inter-floor panels ──────────────────────────────────────────────────────
   // Placed from floor count/height. The first (lowest) panel sits at
-  // H âˆ’ firstBandH from the top; subsequent panels step upward by fheight.
+  // H − firstBandH from the top; subsequent panels step upward by fheight.
   // When a bay exists, this first panel can act as the bay ceiling /
-  // first-to-second-floor separator â€” but ONLY if the building actually has a
+  // first-to-second-floor separator — but ONLY if the building actually has a
   // second floor. Single-floor bay buildings should not get an automatic
   // hidden inter-floor panel or the matching wall/floor slots.
   const interFloorYs = [];
@@ -7628,7 +7628,7 @@ function buildEdgePlans(cfg) {
     }
   }
 
-  // Bay opening height â€” independent from the floor panel position.
+  // Bay opening height — independent from the floor panel position.
   // Defaults to firstBandH if unset so it fills the first floor by default.
   let bayHeight = (bayResolved.bayHeight && bayResolved.bayHeight > 0)
     ? bayResolved.bayHeight
@@ -7646,14 +7646,14 @@ function buildEdgePlans(cfg) {
   // Top of the bay opening in wall coords (y=0 at top, y=H at ground)
   const bayCeilingY = H - bayHeight;
 
-  // Slot-avoidance Ys for window placement â€” real panel positions only
+  // Slot-avoidance Ys for window placement — real panel positions only
   const slotYs = [...interFloorYs];
 
-  // VISUAL floor boundaries â€” used to align windows to floor levels even when 
-  // no physical inter-floor slots are cut. Always includes real slot Ys, plus 
+  // VISUAL floor boundaries — used to align windows to floor levels even when
+  // no physical inter-floor slots are cut. Always includes real slot Ys, plus
   // implicit floor boundaries derived from floor counts.
   const visualFloorYs = [...slotYs];
-  // Use the fixed first-floor panel position as the base for visual floor bands â€”
+  // Use the fixed first-floor panel position as the base for visual floor bands —
   // NOT bayCeilingY (the opening top), which moves when the user adjusts bay height
   // and would incorrectly add/remove window rows.
   const baseY = ((hasFrontBay || hasBackBay) && hasSecondFloor) ? (H - firstBandH) : H;
@@ -7668,10 +7668,10 @@ function buildEdgePlans(cfg) {
   }
   visualFloorYs.sort((a, b) => a - b);
 
-  // Compute CANONICAL floor center Ys â€” one per visible floor band of the building.
-  // These are the Y positions where windows sit on each floor, identical across 
+  // Compute CANONICAL floor center Ys — one per visible floor band of the building.
+  // These are the Y positions where windows sit on each floor, identical across
   // all walls so windows align horizontally regardless of which wall they're on.
-  // Windows are biased slightly above center (head-height look â€” 55% from band top).
+  // Windows are biased slightly above center (head-height look — 55% from band top).
   // The top band runs from the parapet bottom to the first boundary;
   // the bottom band from the last boundary to the floor (or bay ceiling).
   const allBoundaries = [
@@ -7696,12 +7696,12 @@ function buildEdgePlans(cfg) {
     floorCenterYs.push(cy);
   }
 
-  // The "ground floor" center Y â€” the LOWEST band that contains a window 
-  // AND represents the first floor of the building. When the first-floor-window-style 
+  // The "ground floor" center Y — the LOWEST band that contains a window
+  // AND represents the first floor of the building. When the first-floor-window-style
   // override is enabled, this is the Y where the alternate window dims apply.
-  // 
-  // Per the user's design: the bay level, ground level, and first floor are all 
-  // the SAME floor. So when a bay exists, the bay IS the first floor (no window) 
+  //
+  // Per the user's design: the bay level, ground level, and first floor are all
+  // the SAME floor. So when a bay exists, the bay IS the first floor (no window)
   // and the lowest center Y in floorCenterYs is actually FLOOR 2 (regular style).
   // groundFloorCenterY only gets set when there's no bay.
   const hasBayAnywhere = hasFrontBay || hasBackBay;
@@ -7709,7 +7709,7 @@ function buildEdgePlans(cfg) {
     ? floorCenterYs[floorCenterYs.length - 1]
     : null;
 
-  // Last-wall side: the wall installed last in assembly, which has NO slots for 
+  // Last-wall side: the wall installed last in assembly, which has NO slots for
   // inter-floor tongues (the panel's open edge rests against this wall's inner face).
   const lastWallSide = cfg.lastWallSide || 'back';
 
@@ -7719,24 +7719,24 @@ function buildEdgePlans(cfg) {
   const groundFloorOffset = gfoAmount;  // signed; +ve = extends forward, -ve = recessed
 
   // ---- Rooftop mechanical room ----
-  // Sits on the roof at a user-configurable position. Computes the rectangle 
-  // (in roof-local coords, where 0,0 is the roof's top-left corner = building's 
+  // Sits on the roof at a user-configurable position. Computes the rectangle
+  // (in roof-local coords, where 0,0 is the roof's top-left corner = building's
   // northwest corner from above) where the mech room sits.
   let mechRoom = null;
   if (cfg.rooftopMechRoom) {
     const mw = Math.max(5, cfg.rooftopMechRoomWidth || 25);
     const md = Math.max(5, cfg.rooftopMechRoomDepth || 20);
     const mh = Math.max(5, cfg.rooftopMechRoomHeight || 18);
-    // Roof footprint (matches the parapet-recessed roof or flat roof): 
-    // For parapet, roof is inset by matT from the building outer edge on each side 
-    // (footprint = width-2*matT Ã— depth-2*matT). For flat, roof = full footprint.
+    // Roof footprint (matches the parapet-recessed roof or flat roof):
+    // For parapet, roof is inset by matT from the building outer edge on each side
+    // (footprint = width-2*matT × depth-2*matT). For flat, roof = full footprint.
     // We always work in roof-piece local coords here.
     const roofW = (roofStyle === 'parapet') ? width - 2 * matT : width;
     const roofD = (roofStyle === 'parapet') ? depth - 2 * matT : depth;
     // Center of roof in its own frame
     const cx = roofW / 2;
     const cy = roofD / 2;
-    // User offsets shift the mech room from center; clamp to keep it on the roof 
+    // User offsets shift the mech room from center; clamp to keep it on the roof
     // with a 3mm edge margin.
     const xOff = (cfg.rooftopMechRoomXOffset || 0);
     const yOff = (cfg.rooftopMechRoomYOffset || 0);
@@ -7754,11 +7754,11 @@ function buildEdgePlans(cfg) {
   }
   // ---- Rooftop equipment placement ----
   // Placements come from cfg.rooftopItems (entries placed by the user in the
-  // rooftop editor â€” each carries x/y in roof-local coords, an equipKey
+  // rooftop editor — each carries x/y in roof-local coords, an equipKey
   // identifying its ROOFTOP_EQUIPMENT entry, and its dimensions). The legacy
   // cfg.rooftopEquipment count map is honoured as a fallback so existing
   // presets that ship with counts (rather than item placements) still produce
-  // a populated roof on first build â€” we auto-place via the original greedy
+  // a populated roof on first build — we auto-place via the original greedy
   // scan, then write the result into cfg.rooftopItems so subsequent edits in
   // the editor have something to start from.
   const rooftopEquipPlacements = [];
@@ -7887,7 +7887,7 @@ function generateSideWall(cfg, plan, side) {
   // For flat roof, top has tongues into roof.
 
   const margin = Math.max(matT * 2, 5);
-  
+
   // Top edge: depending on roof style
   // For slanted: side walls have different heights at each end (front lower, back higher)
   // For gabled:  side walls have a triangular peak in the centre
@@ -7899,8 +7899,8 @@ function generateSideWall(cfg, plan, side) {
   // same edge length.
   //
   // Slanted NS-axis: side walls have trapezoidal tops (different pitches at
-  // each end). The tongues here are perpendicular to the slanted edge â€”
-  // buildSlantedWallPath handles the slanted-top tongue rendering â€” and
+  // each end). The tongues here are perpendicular to the slanted edge —
+  // buildSlantedWallPath handles the slanted-top tongue rendering — and
   // key into a corresponding row of slots on the roof panel's verge edge.
   const _earlySideSlopeDir = cfg.roofSlopeDirection || 'back';
   const _earlySideSlantNs  = roofStyle === 'slanted'
@@ -7908,8 +7908,8 @@ function generateSideWall(cfg, plan, side) {
   const topTongues = (roofStyle === 'flat' || roofStyle === 'flat_overhang' || _earlySideSlantNs)
     ? placeTongues(sideLen, tw, margin, [], 3, tw / 2)
     : [];
-  
-  // Bottom edge: tongues into floor â€” but skip under door openings.
+
+  // Bottom edge: tongues into floor — but skip under door openings.
   // Pre-compute door positions so their X ranges can be excluded from tongue placement.
   const _earlySideDoorStyle = cfg.doorStyle;
   const _earlySideDoorCount = cfg.sideDoorCount || 0;
@@ -7928,11 +7928,11 @@ function generateSideWall(cfg, plan, side) {
     placeTongues(sideLen, tw, margin, _sideDoorForbidden, 3, tw / 2),
     sideLen, cfg, _earlySideManualKey, _sideDoorForbidden, matT, tw, margin
   );
-  
+
   // Left/right edges: tongues into front/back wall slots
   // Forbidden zones: top (where roof slot will be cut into wall body) and bay area
   // For a parapet roof, the roof slot is at y=parapetH to parapetH+matT.
-  // The vertical edge tongues need to start BELOW that (with margin) and end ABOVE the bay 
+  // The vertical edge tongues need to start BELOW that (with margin) and end ABOVE the bay
   // ceiling slot (with margin).
   const verticalEdgeMinMargin = Math.max(parapetH + matT + 2, 8);
   const verticalEdgeMaxY = (hasFrontBay || hasBackBay) ? (bayCeilingY - 3) : (H - margin);
@@ -7973,7 +7973,7 @@ function generateSideWall(cfg, plan, side) {
   // Parapet-hidden gable: this wall's top depends on whether it has a
   // parapet under the chosen `parapetSides`. With parapet, the wall
   // extends flat upward by (pitch + parapetH) so its top sits above the
-  // hidden gable peak â€” same shape as the high-side FB wall of an NS
+  // hidden gable peak — same shape as the high-side FB wall of an NS
   // slanted roof, just reused here. Without parapet, the wall keeps the
   // standard gabled shape: triangular peak for gable ends, flat top
   // at H for eave walls.
@@ -7995,8 +7995,8 @@ function generateSideWall(cfg, plan, side) {
 
   // Interior cuts: roof slots, bay ceiling slots, window holes
   const rects = [];
-  
-  // Roof slots â€” only for parapet/flat roofs where the roof panel has matching tongues
+
+  // Roof slots — only for parapet/flat roofs where the roof panel has matching tongues
   if (roofStyle === 'parapet') {
     const roofSlotCount = Math.max(2, Math.min(4, Math.floor(sideLen / 30)));
     const roofTonguePoss = placeTongues(sideLen, tw, margin, [], roofSlotCount, tw / 2);
@@ -8010,7 +8010,7 @@ function generateSideWall(cfg, plan, side) {
     }
   }
 
-  // Inter-floor panel slots â€” but skip if this side IS the "last wall" 
+  // Inter-floor panel slots — but skip if this side IS the "last wall"
   // (the panel's open edge rests against the last wall's inner face).
   const sideKey = (side === 'E') ? 'east' : 'west';
   const skipInterFloorSlots = (plan.lastWallSide === sideKey);
@@ -8096,7 +8096,7 @@ function generateSideWall(cfg, plan, side) {
         compensateKerf: false,
       });
     }
-    // Doors (on side walls â€” only if user requested side doors)
+    // Doors (on side walls — only if user requested side doors)
     sideDoors = computeDoors(sideLen, H, {
       doorStyle: doorStyle,
       doorCount: sideDoorCount,
@@ -8115,13 +8115,13 @@ function generateSideWall(cfg, plan, side) {
   const _sideWallKey = side === 'E' ? 'east' : 'west';
   applyWingOpenings(rects, cfg, _sideWallKey, sideLen, H);
 
-  // Pass-through holes from cutout fixtures â€” east-side x is mirrored, just
+  // Pass-through holes from cutout fixtures — east-side x is mirrored, just
   // like every other opening on the east wall, so the laser part lines up.
   const sideMirrorFn = _sideMirrorX ? (rawX, w) => (sideLen - rawX - w) : null;
   const sideWallPaths = [{ type: 'cut', d: perimeter }];
   cutFixtureHolesInCore(rects, sideWallPaths, cfg, _sideWallKey, sideMirrorFn);
 
-  // parapet_gable VERGE SLOTS â€” interior cuts in this gable wall that
+  // parapet_gable VERGE SLOTS — interior cuts in this gable wall that
   // accept the roof panels' verge tongues. The slots run along the
   // verge line (from corner up to peak at center) at the panel's
   // slope angle, so the joint locks each panel at that angle rather
@@ -8154,8 +8154,8 @@ function generateSideWall(cfg, plan, side) {
       const s2 = slot.end - k;
       const hw = matT / 2 - k;
 
-      // South half: verge from (0,0) â†’ (sideLen/2, -sP). Corners at the
-      // slot's two ends, offset perpendicular by Â±hw.
+      // South half: verge from (0,0) → (sideLen/2, -sP). Corners at the
+      // slot's two ends, offset perpendicular by ±hw.
       const sx2 = s2 * cosA, sy2 = -s2 * sinA;
       const sx1 = s1 * cosA, sy1 = -s1 * sinA;
       const px = hw * sinA, py = hw * cosA;
@@ -8175,18 +8175,18 @@ function generateSideWall(cfg, plan, side) {
   }
 
   // Bbox extension: the slanted-NS side wall has its top edge slanted from
-  // y=âˆ’pitchL at x=0 to y=âˆ’pitchR at x=sideLen â€” the bbox already covers
+  // y=−pitchL at x=0 to y=−pitchR at x=sideLen — the bbox already covers
   // that via `H + sPitch + matT`/`bboxOffsetY = sPitch`. When the wall ALSO
   // carries top tongues (added above for slanted-NS so the side walls key
   // into the roof's verge slots), the tongues protrude perpendicular to
   // the slanted edge by matT. The outermost tongue extent in the y-axis
-  // is matT * (wallW / slantLen) â€” slightly less than matT in absolute
-  // terms because the normal has a small x-component â€” but matT is the
+  // is matT * (wallW / slantLen) — slightly less than matT in absolute
+  // terms because the normal has a small x-component — but matT is the
   // safe upper bound. So when topTongues are present, grow the bbox up
   // by matT (same shape of adjustment as the high-side FB wall).
   const sideTopTongueOverhang = (topTongues.length > 0 && isSlantedRoof && slantNsAxis) ? matT : 0;
   // For parapet_gable walls that carry a parapet, the wall extends
-  // upward by `pitch + parapetH` â€” the perimeter draws that extension
+  // upward by `pitch + parapetH` — the perimeter draws that extension
   // via buildSlantedWallPath, but the bbox needs to grow to match or
   // the upward part gets clipped from the laser preview.
   const parapetUpExt = (hasParapetHere) ? (sPitch + (parapetH || 0)) : 0;
@@ -8215,7 +8215,7 @@ function generateSideWall(cfg, plan, side) {
     // congruent in the wall coordinate system (both high-on-right), which
     // makes the laser-cut sheet show two identical shapes. The west panel
     // gets a render-time horizontal mirror so its outline AND internal
-    // cuts (windows, doors, tongues, slots) all reflect together â€” the
+    // cuts (windows, doors, tongues, slots) all reflect together — the
     // floor-panel slot alignment is preserved because the tongue x-coords
     // mirror in lockstep with the perimeter they sit on. East stays as
     // cut; west is presented as its mirror.
@@ -8230,22 +8230,22 @@ function generateSideWall(cfg, plan, side) {
  * scored lines adjacent to the bay opening and uses them to position
  * the door panel when gluing it to the inside face of the core:
  *
- *   â€¢ Overhead doors (roller, paneled, sectional, tilt_up):
+ *   • Overhead doors (roller, paneled, sectional, tilt_up):
  *       Two short HORIZONTAL ticks, one just outside the left edge of
  *       the bay opening and one just outside the right edge, both at
  *       the Y of the panel's TOP edge. The panel sits with its BOTTOM
- *       glued to the bay opening's bottom edge â€” that matches the
+ *       glued to the bay opening's bottom edge — that matches the
  *       physical reality of an overhead door retracting upward: the
  *       BOTTOM of the door fabric is what stays visible in the opening.
  *       Aligning the panel's TOP edge with these ticks gives the correct
  *       vertical extent for the chosen "% open".
  *
- *   â€¢ Side-sliding doors (slatted):
+ *   • Side-sliding doors (slatted):
  *       A single short VERTICAL tick just above the bay opening at the
  *       X of the panel's RIGHT edge. The panel sits against the bay
  *       opening's left edge; aligning the right with this tick gives
  *       the correct horizontal extent. Only one tick (no second above
- *       OR below) because the bay extends down to the ground line â€”
+ *       OR below) because the bay extends down to the ground line —
  *       there's no wall material below the opening.
  *
  * Returns wall-local etch line objects ready to splice into the wall's
@@ -8272,16 +8272,16 @@ function bayDoorAlignmentMarks(cfg, plan, which) {
   if (!style) return [];
   const pct = Math.max(0, Math.min(100, Number(bay.doorPercentOpen) || 0));
   const ratioClosed = 1 - pct / 100;
-  if (ratioClosed <= 0.01) return [];  // 100% open â€” no panel, no mark
+  if (ratioClosed <= 0.01) return [];  // 100% open — no panel, no mark
 
   const { H, bayWidth, bayHeight, bayCeilingY, fbWidth } = plan;
   // Through-bay alignment marks must follow the same mirror as the wall
-  // cut on the back wall â€” without it, the tick marks on the back wall
+  // cut on the back wall — without it, the tick marks on the back wall
   // would point at the mirror image of where the door panel actually
   // sits in that wall's local frame.
   const { bayXStart, bayXEnd } = planBayXFor(plan, which);
   const lines = [];
-  const tickLen = 2.5;  // mm â€” long enough to spot, short enough not to clutter
+  const tickLen = 2.5;  // mm — long enough to spot, short enough not to clutter
 
   if (style.direction === 'side') {
     // Slatted side-sliding door: panel sits against the bay's LEFT
@@ -8294,7 +8294,7 @@ function bayDoorAlignmentMarks(cfg, plan, which) {
     // Overhead door: panel is anchored at the BAY OPENING's BOTTOM edge
     // and rises upward by panelH = bayHeight * ratioClosed. The far edge
     // (the top of the visible panel) sits at bayCeilingY + bayHeight *
-    // (1 âˆ’ ratioClosed) â€” that's where the tick marks belong. Physically
+    // (1 − ratioClosed) — that's where the tick marks belong. Physically
     // this matches what an overhead door looks like when partially open:
     // the BOTTOM of the door is what stays in the opening, the top has
     // retracted into the housing.
@@ -8334,20 +8334,20 @@ function generateFrontBackWall(cfg, plan, which) {
   // either. The reason in both cases is the same: a tongue rising
   // straight UP from a horizontal wall top would meet the tilted roof
   // PANEL at the slope angle, not at a right angle. That's a bad joint
-  // â€” the tongue would either bottom-out before it's seated or it'd
+  // — the tongue would either bottom-out before it's seated or it'd
   // wedge crooked against the slot's side. The slanted SIDE walls (for
-  // NS-axis slopes â€” handled in generateSideWall) DO get tongues,
+  // NS-axis slopes — handled in generateSideWall) DO get tongues,
   // because their slanted top edge follows the roof's slope, so a
   // tongue perpendicular to that edge points along the roof's normal
   // and enters its verge slot at the right angle. For the FB walls
   // here, the cleaner mechanical answer is to leave the top edge plain
-  // and let the wall rest against the underside of the roof â€” a glue
+  // and let the wall rest against the underside of the roof — a glue
   // joint with no mechanical key, but at the correct geometry.
   const topTongues = (roofStyle === 'flat' || roofStyle === 'flat_overhang')
     ? placeTongues(fbWidth, tw, margin, [], 3, tw / 2)
     : [];
 
-  // Bottom edge: tongues into floor â€” skip bay opening AND door openings.
+  // Bottom edge: tongues into floor — skip bay opening AND door openings.
   // Pre-compute door positions now (before building perimeter) so their X ranges
   // can be excluded from tongue placement, preventing tabs from colliding with doorways.
   const _earlyFbDoorStyle  = cfg.doorStyle;
@@ -8375,13 +8375,13 @@ function generateFrontBackWall(cfg, plan, which) {
   // Use the same vertical positions as the side wall vertical-edge tongues.
   // The side wall computes one set of vertical-edge tongues per wall
   // (East L = East R, West L = West R), driven by `(hasFrontBay ||
-  // hasBackBay)` â€” i.e. ANY bay on the building shrinks the available
+  // hasBackBay)` — i.e. ANY bay on the building shrinks the available
   // range to leave clearance above the bay ceiling. The slots on BOTH FB
   // walls must match those side-wall tongues, so we use the same global
   // criterion here. If we used only THIS wall's `hasBay`, an asymmetric
   // bay (side-style on one wall only) would leave the no-bay FB wall's
   // slots in the full-height range while the side-wall tongues sit in
-  // the bay-restricted range â€” they wouldn't align.
+  // the bay-restricted range — they wouldn't align.
   const verticalEdgeMinMargin = Math.max(parapetH + matT + 2, 8);
   const anyBay = plan.hasFrontBay || plan.hasBackBay;
   const verticalEdgeMaxY = anyBay ? (bayCeilingY - 3) : (H - margin);
@@ -8399,7 +8399,7 @@ function generateFrontBackWall(cfg, plan, which) {
   const wallSpec = {
     width: fbWidth, height: H, matT, kerf: cfg.kerfComp,
     // Bay coords go here so buildFBWallWithBay sees the wall-local (mirrored
-    // for back) coords from planBayXFor â€” without them it would read
+    // for back) coords from planBayXFor — without them it would read
     // plan.bayXStart directly and miss the through-bay mirror for the back
     // wall.
     bayXStart, bayXEnd,
@@ -8428,13 +8428,13 @@ function generateFrontBackWall(cfg, plan, which) {
 
   // Gable-end walls: replace with pentagon (triangle above eave level).
   // When a bay also sits on this wall (industrial through-bays etc.),
-  // the gable peak still applies â€” bay is bottom cutout, peak is top
+  // the gable peak still applies — bay is bottom cutout, peak is top
   // edge, they don't share geometry. The bay path builder accepts a
   // `gablePitch` field on the wallSpec and grows the top edge into a
   // pentagon instead of a flat rectangle when set.
   const pitch = cfg.roofPitch || 10;
   const isGableEnd = isGableEndWall(cfg, which);
-  // Parapet-hidden gable: same logic as the side wall â€” if this FB wall
+  // Parapet-hidden gable: same logic as the side wall — if this FB wall
   // carries a parapet under the chosen parapetSides, replace the top
   // with a flat extension `pitch + parapetH` above the eave. Wins over
   // both isGableEnd and the slanted-FB branches below: when the user
@@ -8468,11 +8468,11 @@ function generateFrontBackWall(cfg, plan, which) {
   // Convention: x=0 is the WEST end, x=fbWidth is the EAST end.
   // For NS-axis slopes the front/back walls are rectangular but the HIGH-side
   // wall extends UP by the slope pitch so its top edge meets the roof angle.
-  // The extension lives ABOVE y=0 (i.e. at y=âˆ’sPitch) so internal cuts
+  // The extension lives ABOVE y=0 (i.e. at y=−sPitch) so internal cuts
   // (windows, doors, slots, tongues) keep their stored y coordinates in
   // the base [0, H] region; the user just sees extra material above them.
-  // This applies whether or not the wall has a bay â€” the bay sits at the
-  // bottom (y=H), the slope extension sits above (y=âˆ’sPitch to 0); they
+  // This applies whether or not the wall has a bay — the bay sits at the
+  // bottom (y=H), the slope extension sits above (y=−sPitch to 0); they
   // don't interact.
   const isSlantedFB = roofStyle === 'slanted' && !isGableEnd;
   const slopeDir = cfg.roofSlopeDirection || 'back';
@@ -8484,7 +8484,7 @@ function generateFrontBackWall(cfg, plan, which) {
   if (isSlantedFB) {
     if (!isSlantedNS) {
       if (!hasBay) {
-        // EW slope, no bay â†’ front/back walls are trapezoidal (top edge follows slope)
+        // EW slope, no bay → front/back walls are trapezoidal (top edge follows slope)
         const pitchL = (slopeDir === 'west') ? pitch : 0;  // west/left end
         const pitchR = (slopeDir === 'east') ? pitch : 0;  // east/right end
         perimeter = buildSlantedWallPath(fbWidth, H, pitchL, pitchR, wallSpec);
@@ -8492,8 +8492,8 @@ function generateFrontBackWall(cfg, plan, which) {
       // EW slope WITH bay: keep buildFBWallWithBay's existing rectangle.
       // (Trapezoidal top + bay is a future enhancement; the wall stays flat-top.)
     } else if (isHighSideFB) {
-      // NS slope, high side â†’ rectangular but extended UP by sPitch so the
-      // wall top sits at y=âˆ’sPitch (reaching the roof's high edge). The
+      // NS slope, high side → rectangular but extended UP by sPitch so the
+      // wall top sits at y=−sPitch (reaching the roof's high edge). The
       // extension lives above y=0; the bay (if any) lives at the bottom.
       if (hasBay) {
         // Rebuild the bay-aware perimeter with the top raised. buildFBWallWithBay
@@ -8512,13 +8512,13 @@ function generateFrontBackWall(cfg, plan, which) {
   // Interior cuts
   const rects = [];
 
-  // Roof slots â€” only for parapet/flat roofs where the roof panel has matching tongues
+  // Roof slots — only for parapet/flat roofs where the roof panel has matching tongues
   if (roofStyle === 'parapet') {
     // Use the SAME placeTongues call as generateRoof so positions match
     // exactly. The roof sits inside the walls (interior dim = fbWidth - 2*matT),
     // so the wall's slots must be at the same positions but offset by matT
     // (wall-content x = matT + roof-local x). When the wing is small and
-    // capacity becomes limiting (e.g. wing.span = 48 â†’ fbWidth=48 capacity 2,
+    // capacity becomes limiting (e.g. wing.span = 48 → fbWidth=48 capacity 2,
     // but interior=45 capacity 1), this prevents wall and roof from disagreeing
     // on tongue count.
     const interiorW = fbWidth - 2 * matT;
@@ -8534,19 +8534,19 @@ function generateFrontBackWall(cfg, plan, which) {
     }
   }
 
-  // Inter-floor panel slots â€” skipped if this wall IS the "last wall".
+  // Inter-floor panel slots — skipped if this wall IS the "last wall".
   // No bay forbidden zones needed: the bay opening is capped below the panel Y
   // so all slots land in solid wall material.
   //
   // CRITICAL: the inter-floor PANEL spans only the inner cavity between
-  // the two side walls â€” its width is bcW = fbWidth âˆ’ 2Â·matT, not the
+  // the two side walls — its width is bcW = fbWidth − 2·matT, not the
   // full fbWidth that the FB wall material spans. The panel's tongues are
   // placed across bcW; this wall's matching slots must use the SAME
   // edge length (bcW) and the same target count, then offset the result
-  // by matT to land at wall-local x positions [matT, fbWidthâˆ’matT].
+  // by matT to land at wall-local x positions [matT, fbWidth−matT].
   // Previously this code ran placeTongues on fbWidth, which produced a
   // shifted layout that drifted apart from the panel tongues by up to
-  // ~matT/2 per side â€” tongues missed slots near the wall ends and the
+  // ~matT/2 per side — tongues missed slots near the wall ends and the
   // panel didn't seat cleanly.
   const skipInterFloorSlots = (plan.lastWallSide === which);
   if (!skipInterFloorSlots && plan.interFloorYs && plan.interFloorYs.length > 0) {
@@ -8590,14 +8590,14 @@ function generateFrontBackWall(cfg, plan, which) {
   const _fbManualOps = manualStructuralOps(cfg, which);
   if (_fbManualOps) {
     // Manual mode: use editor-placed openings directly. Only window and door
-    // entries cut the wall here â€” the bay is a separate structural feature
+    // entries cut the wall here — the bay is a separate structural feature
     // cut via buildFBWallWithBay(), and awnings/fixtures/etc don't penetrate.
     // Treating an unknown type as a window would punch a second hole at the
     // bay's raw stored dims, which is exactly the doubled-cut bug we fixed.
     for (const op of _fbManualOps) {
       if (op.type === 'door') {
         // Glass doors get per-aperture core holes (matching the window
-        // sandwich pattern); solid doors get no core cut â€” the cladding
+        // sandwich pattern); solid doors get no core cut — the cladding
         // insert glues directly to the wall surface.
         cutDoorCoreHoles(rects, op.x, op.y, op.w, op.h, op.style || cfg.doorStyle, false);
         doors.push(op);
@@ -8613,7 +8613,7 @@ function generateFrontBackWall(cfg, plan, which) {
         }
       }
       // All other types (bay, awning, balcony, fixture, cladding_override,
-      // printed_item) are no-ops in this loop â€” handled elsewhere.
+      // printed_item) are no-ops in this loop — handled elsewhere.
     }
   } else {
     // Auto mode: compute windows and doors algorithmically
@@ -8632,8 +8632,8 @@ function generateFrontBackWall(cfg, plan, which) {
       doorReserveH: doorReserveH,
       cfg, plan, edgeId: which,
     });
-    // Front and back walls now produce the same windows by default (aligned). 
-    // We no longer slice the front in half â€” that broke floor alignment. If the user 
+    // Front and back walls now produce the same windows by default (aligned).
+    // We no longer slice the front in half — that broke floor alignment. If the user
     // wants fewer windows on the front, they should adjust density.
     windowsToDraw = windows;
     for (const w of windowsToDraw) {
@@ -8644,7 +8644,7 @@ function generateFrontBackWall(cfg, plan, which) {
         compensateKerf: false,
       });
     }
-    // Doors (front/back walls â€” only if no bay AND user requested doors)
+    // Doors (front/back walls — only if no bay AND user requested doors)
     if (!hasBay) {
       doors = computeDoors(fbWidth, H, {
         doorStyle: doorStyle,
@@ -8667,7 +8667,7 @@ function generateFrontBackWall(cfg, plan, which) {
   const wallPaths = [{ type: 'cut', d: perimeter }];
   cutFixtureHolesInCore(rects, wallPaths, cfg, which, null);
 
-  // parapet_gable VERGE SLOTS â€” same construction as the side wall's
+  // parapet_gable VERGE SLOTS — same construction as the side wall's
   // verge slots (see generateSideWall for the rationale), but applied
   // here when the FB wall is the gable wall (i.e. under ridge-ns:
   // 'fb' mode, or 'all' mode with the user's ridge set to ns). The
@@ -8712,8 +8712,8 @@ function generateFrontBackWall(cfg, plan, which) {
 
   // Bbox extension: the high-side FB wall on a slanted-NS roof has its top
   // edge raised by `pitch` (so the wall reaches the roof angle's upper
-  // end). It does NOT carry top tongues â€” see the topTongues block above
-  // for why â€” so `topTongueOverhang` collapses to 0 for slanted roofs
+  // end). It does NOT carry top tongues — see the topTongues block above
+  // for why — so `topTongueOverhang` collapses to 0 for slanted roofs
   // and the bbox is just `H + pitch + matT` (one matT for the bottom
   // tongues into the floor). For flat / flat_overhang roofs the FB
   // walls DO get top tongues that key into eave slots; in that case
@@ -8723,7 +8723,7 @@ function generateFrontBackWall(cfg, plan, which) {
   // is needed there.
   const topTongueOverhang = (topTongues.length > 0) ? matT : 0;
   // For parapet_gable walls with a parapet, the wall extends upward by
-  // `pitch + parapetH` â€” see the perimeter-build branch above. The bbox
+  // `pitch + parapetH` — see the perimeter-build branch above. The bbox
   // grows to match so the laser preview shows the full parapet.
   const fbParapetUpExt = (hasParapetHere) ? (pitch + (parapetH || 0)) : 0;
   return {
@@ -8744,12 +8744,12 @@ function generateFrontBackWall(cfg, plan, which) {
     rects: rects,
     lines: wallLines,
     // For EW-axis slanted roofs the trapezoidal front/back outlines are
-    // congruent in the wall coordinate system â€” both walls store the slope
-    // at the same end (e.g. east-high â†’ `pitchR = pitch` for both). That
+    // congruent in the wall coordinate system — both walls store the slope
+    // at the same end (e.g. east-high → `pitchR = pitch` for both). That
     // makes the laser-cut sheet show two identical shapes, but the front
     // wall's exterior face is south (east on the right when viewed from
     // outside) and the back wall's exterior face is north (east on the
-    // LEFT when viewed from outside) â€” they need to be physical mirrors
+    // LEFT when viewed from outside) — they need to be physical mirrors
     // of each other for the trapezoid to slope in the same physical
     // direction on both walls. The back panel gets a render-time
     // horizontal mirror so its outline AND internal cuts (windows, doors,
@@ -8758,7 +8758,7 @@ function generateFrontBackWall(cfg, plan, which) {
     //
     // Same trick as `side === 'W' && isSlantedRoof && slantNsAxis` does
     // for the west side wall on NS-axis slanted roofs. Doesn't apply to
-    // NS-axis (FB walls are rectangular there â€” only their height differs
+    // NS-axis (FB walls are rectangular there — only their height differs
     // and the extension is x-symmetric) or to gabled walls (pentagons are
     // x-symmetric about the ridge).
     mirrorX: which === 'back' && isSlantedFB && !isSlantedNS,
@@ -8773,7 +8773,7 @@ function buildFBWallWithBay(spec, plan) {
   const tk = -k;
   const sk = k;
 
-  // Prefer wall-local bay coords from spec â€” they carry the through-bay
+  // Prefer wall-local bay coords from spec — they carry the through-bay
   // mirror for the back wall. Fall back to plan.bayXStart for callers that
   // haven't been updated yet (none in current code, but defensive).
   const bayXStart = (spec.bayXStart != null) ? spec.bayXStart : plan.bayXStart;
@@ -8786,12 +8786,12 @@ function buildFBWallWithBay(spec, plan) {
   // exactly as they would without the slope.
   const tExt = (spec.topExtension > 0) ? spec.topExtension : 0;
   // Gable-end FB walls that also carry a bay need a TRIANGULAR peak on
-  // top of the rectangular wall body â€” the bay is a cutout on the
+  // top of the rectangular wall body — the bay is a cutout on the
   // bottom edge, the gable peak is on top, and they don't interact.
   // Before this was wired in, the FB wall generator's gable-end branch
   // had a `&& !hasBay` guard (see "Gable-end walls" block) that flipped
   // gable-end to false the moment a bay landed on the wall, leaving
-  // the wall body rectangular and silently dropping the peak â€” so the
+  // the wall body rectangular and silently dropping the peak — so the
   // wall core stopped at the eave even though the cladding panel (which
   // never had that guard) correctly drew its pentagon. The roof panels
   // and gable-wall verge tabs then had nothing to slot into. The
@@ -8803,7 +8803,7 @@ function buildFBWallWithBay(spec, plan) {
   const gableTabSpec  = (gablePitch > 0) ? (spec.gableSlopeTabSpec || null) : null;
 
   // Starting y: top extension shifts it up, gable peak doesn't (the
-  // peak is local to the top edge â€” the start corner stays at the eave
+  // peak is local to the top edge — the start corner stays at the eave
   // y=0). Slanted topExtension and gabled peak are mutually exclusive
   // styles (slanted is for non-gable-end walls of a slanted roof;
   // gable-end is for gabled or parapet_gable), so we don't try to mix
@@ -8826,7 +8826,7 @@ function buildFBWallWithBay(spec, plan) {
       const tabCount = Math.max(2, Math.min(3, Math.floor(slantLen / 25)));
       const tabs     = placeTongues(slantLen, tabW, tabMargin, [], tabCount, tabW / 2);
 
-      // Left slope: (0,0) â†’ apex. Tangent (halfW, -gablePitch)/slantLen,
+      // Left slope: (0,0) → apex. Tangent (halfW, -gablePitch)/slantLen,
       // outward normal (tanY, -tanX) (CW rotation).
       const lTx = halfW / slantLen, lTy = -gablePitch / slantLen;
       const lNx = lTy,              lNy = -lTx;
@@ -8839,7 +8839,7 @@ function buildFBWallWithBay(spec, plan) {
       }
       d += ` L ${halfW.toFixed(3)},${(-gablePitch).toFixed(3)}`;  // apex
 
-      // Right slope: apex â†’ (W, 0). Tangent (halfW, gablePitch)/slantLen,
+      // Right slope: apex → (W, 0). Tangent (halfW, gablePitch)/slantLen,
       // outward normal (pitch, -halfW)/slantLen.
       const rTx = halfW / slantLen, rTy = gablePitch / slantLen;
       const rNx = rTy,              rNy = -rTx;
@@ -8875,7 +8875,7 @@ function buildFBWallWithBay(spec, plan) {
     if (x < W) d += ` L ${W},0`;
   }
 
-  // Right edge (with side wall slots = openings) â€” starts at y=-tExt
+  // Right edge (with side wall slots = openings) — starts at y=-tExt
   const rightFeatures = [
     ...spec.edges.right.openings.map(o => ({ ...o, kind: 'opening' })),
   ].sort((a, b) => a.start - b.start);
@@ -8923,7 +8923,7 @@ function buildFBWallWithBay(spec, plan) {
   }
   if (xpos > 0) d += ` L 0,${H}`;
 
-  // Left edge (with side wall slots = openings) â€” ends at y=-tExt
+  // Left edge (with side wall slots = openings) — ends at y=-tExt
   const leftFeatures = [
     ...spec.edges.left.openings.map(o => ({ ...o, kind: 'opening' })),
   ].sort((a, b) => b.start - a.start);
@@ -8940,9 +8940,9 @@ function buildFBWallWithBay(spec, plan) {
   return d;
 }
 
-/* Generate roof â€” depends on style */
-/* Adds rooftop mechanical-room slots (cut-through) and rooftop-equipment 
-   outlines (etched) to the roof piece's rects/lines arrays. The plan's mechRoom 
+/* Generate roof — depends on style */
+/* Adds rooftop mechanical-room slots (cut-through) and rooftop-equipment
+   outlines (etched) to the roof piece's rects/lines arrays. The plan's mechRoom
    and rooftopEquipPlacements are in roof-local coordinates already. */
 function rooftopEquipmentEtchLines(plan, offsetX = 0, offsetY = 0) {
   const lines = [];
@@ -8969,17 +8969,17 @@ function rooftopEquipmentEtchLines(plan, offsetX = 0, offsetY = 0) {
 
 function addRoofMechRoomAndEquipment(plan, cfg, rects, lines, roofIsRecessed) {
   const matT = plan.matT;
-  // For a parapet (recessed) roof, the SVG bbox is offset by matT all around (the 
-  // tongues protrude). Etches and slots are positioned in the BODY frame (which 
+  // For a parapet (recessed) roof, the SVG bbox is offset by matT all around (the
+  // tongues protrude). Etches and slots are positioned in the BODY frame (which
   // is the same as plan-coordinate frame, since plan coords are in the body frame).
-  // For a flat roof, the bbox starts at (0,0). The matT offset applies only to 
-  // the bbox, not to the body â€” but the existing slot rects in flat-roof code 
+  // For a flat roof, the bbox starts at (0,0). The matT offset applies only to
+  // the bbox, not to the body — but the existing slot rects in flat-roof code
   // use matT-offset coords. Hmm.
-  // 
-  // To keep things simple, I'll position everything relative to the BODY origin 
-  // (the upper-left of the inner roof rectangle), which corresponds to plan coords 
+  //
+  // To keep things simple, I'll position everything relative to the BODY origin
+  // (the upper-left of the inner roof rectangle), which corresponds to plan coords
   // directly. The buildWallPath / SVG bbox handles the matT offset for parapet roofs.
-  
+
   if (plan.mechRoom) {
     const mr = plan.mechRoom;
     // Cut slots in the roof to receive the mech room walls' bottom tongues.
@@ -9020,9 +9020,9 @@ function addRoofMechRoomAndEquipment(plan, cfg, rects, lines, roofIsRecessed) {
  * skeleton as material.
  *
  * Three styles, picked automatically from the roof:
- *   â€¢ Fink (W-pattern)              â€” gabled / parapet_gable
- *   â€¢ Mono-pitch Pratt              â€” slanted
- *   â€¢ Pratt parallel-chord          â€” flat / parapet
+ *   • Fink (W-pattern)              — gabled / parapet_gable
+ *   • Mono-pitch Pratt              — slanted
+ *   • Pratt parallel-chord          — flat / parapet
  *
  * All generators take (span, height, chordW) and return { outline, voids }.
  *   outline = array of {x, y} vertices, counter-clockwise winding, defining
@@ -9055,8 +9055,8 @@ function insetTrianglePerpendicular(p1, p2, p3, d) {
     const dx = b.x - a.x, dy = b.y - a.y;
     const len = Math.hypot(dx, dy);
     if (len < 1e-9) return null;
-    // Inward normal: CCW polygons â†’ rotate edge 90Â° CCW = (-dy, dx)/len.
-    // CW polygons â†’ opposite. Multiply by d to get the offset.
+    // Inward normal: CCW polygons → rotate edge 90° CCW = (-dy, dx)/len.
+    // CW polygons → opposite. Multiply by d to get the offset.
     const nx = (ccw ? -dy :  dy) / len;
     const ny = (ccw ?  dx : -dx) / len;
     return { ax: a.x + d * nx, ay: a.y + d * ny,
@@ -9086,7 +9086,7 @@ function insetTrianglePerpendicular(p1, p2, p3, d) {
   // Validity: a successful inset preserves the original winding AND keeps
   // each edge's direction roughly aligned with the original. When d
   // exceeds the inradius the offset lines intersect on the wrong side of
-  // the original â€” the resulting "triangle" still has the same winding
+  // the original — the resulting "triangle" still has the same winding
   // sign because all three vertices flip together, so the cross-product
   // check alone misses it. The edge-reversal check catches it: a flipped
   // triangle has each inset edge running opposite to the original.
@@ -9095,7 +9095,7 @@ function insetTrianglePerpendicular(p1, p2, p3, d) {
   // Edge-direction sanity: each inset edge dot-product with the
   // corresponding original edge must be > 0.
   const insetEdges = [
-    { ax: v1.x, ay: v1.y, bx: v2.x, by: v2.y },  // corresponds to original p1â†’p2
+    { ax: v1.x, ay: v1.y, bx: v2.x, by: v2.y },  // corresponds to original p1→p2
     { ax: v2.x, ay: v2.y, bx: v3.x, by: v3.y },
     { ax: v3.x, ay: v3.y, bx: v1.x, by: v1.y },
   ];
@@ -9114,7 +9114,7 @@ function insetTrianglePerpendicular(p1, p2, p3, d) {
   return [v1, v2, v3];
 }
 
-/** Generic quad inset â€” same logic but for 4-sided polygons. */
+/** Generic quad inset — same logic but for 4-sided polygons. */
 function insetQuadPerpendicular(p1, p2, p3, p4, d) {
   const verts = [p1, p2, p3, p4];
   const cross = (p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x);
@@ -9162,27 +9162,27 @@ function polygonToPath(poly) {
 }
 
 /**
- * Fink truss (W-pattern) â€” for gabled and parapet_gable roofs.
+ * Fink truss (W-pattern) — for gabled and parapet_gable roofs.
  *
  *           apex (span/2, 0)
  *               *
  *              /|\
  *             / | \
  *            /  |  \
- *      r45Â° / d | d \ r45Â°     â† d = diagonals from rafter midpoints
+ *      r45° / d | d \ r45°     ← d = diagonals from rafter midpoints
  *          /  \ | /  \             down to bottom-centre.
- *         / v  \|/  v \         â† v = quarter verticals (left/right).
+ *         / v  \|/  v \         ← v = quarter verticals (left/right).
  *        /_____*|*_____\
  *      (0,h)  (L/4,h)  (L/2,h)  (3L/4,h)  (L,h)
  *
  * Members (centre-lines):
- *   top chords (rafters) (0,h)â†’(L/2,0) and (L/2,0)â†’(L,h)
- *   bottom chord         (0,h)â†’(L,h)
- *   king post            (L/2,0)â†’(L/2,h)
- *   left vertical        (L/4,h)â†’(L/4,h/2)         [meets left rafter at its midpoint]
- *   right vertical       (3L/4,h)â†’(3L/4,h/2)
- *   left diagonal        (L/4,h/2)â†’(L/2,h)         [from rafter midpoint to bottom-centre]
- *   right diagonal       (3L/4,h/2)â†’(L/2,h)
+ *   top chords (rafters) (0,h)→(L/2,0) and (L/2,0)→(L,h)
+ *   bottom chord         (0,h)→(L,h)
+ *   king post            (L/2,0)→(L/2,h)
+ *   left vertical        (L/4,h)→(L/4,h/2)         [meets left rafter at its midpoint]
+ *   right vertical       (3L/4,h)→(3L/4,h/2)
+ *   left diagonal        (L/4,h/2)→(L/2,h)         [from rafter midpoint to bottom-centre]
+ *   right diagonal       (3L/4,h/2)→(L/2,h)
  *
  * These divide the interior into six triangles; each is inset by chordW/2
  * to leave a chordW-thick member at every shared edge.
@@ -9191,7 +9191,7 @@ function generateFinkTruss(span, height, chordW) {
   const L = span, h = height;
   // Outline triangle: apex (L/2, 0) at top, base from (0,h) to (L,h).
   // CCW when y grows downward and the shape is a triangle pointing UP in
-  // SVG: walking apex â†’ bottom-right â†’ bottom-left gives CCW with our
+  // SVG: walking apex → bottom-right → bottom-left gives CCW with our
   // y-down convention. Pick whichever winding the inset helper detects.
   const outline = [
     { x: 0,   y: h },
@@ -9210,11 +9210,11 @@ function generateFinkTruss(span, height, chordW) {
 
   // Six sub-triangles. Order each CCW (in SVG y-down) so insets work.
   const subs = [
-    // Left "ear" â€” between left rafter, left vertical, bottom-left quarter
+    // Left "ear" — between left rafter, left vertical, bottom-left quarter
     [botL, botQL, ratL],
-    // Left middle â€” between left vertical, left diagonal, bottom-quarterâ†’centre
+    // Left middle — between left vertical, left diagonal, bottom-quarter→centre
     [ratL, botQL, botC],
-    // Left apex â€” between left rafter (upper half), king post, left diagonal
+    // Left apex — between left rafter (upper half), king post, left diagonal
     [ratL, botC, apex],
     // Right apex (mirror)
     [apex, botC, ratR],
@@ -9234,10 +9234,10 @@ function generateFinkTruss(span, height, chordW) {
 }
 
 /**
- * Mono-pitch Pratt truss â€” for slanted roofs. Sloped top chord, horizontal
+ * Mono-pitch Pratt truss — for slanted roofs. Sloped top chord, horizontal
  * bottom chord, vertical posts and diagonals in tension (gravity load).
  * The top chord rises from yHigh (at the high end) to yLow (at the low end)
- * â€” both measured from the base y = height (bottom chord level), so yHigh
+ * — both measured from the base y = height (bottom chord level), so yHigh
  * is the bigger rise and yLow is typically 0 if the low end meets the eave.
  * The truss is divided into `bays` vertical panels; each interior panel
  * boundary gets a vertical post, and each panel gets one diagonal sloping
@@ -9253,7 +9253,7 @@ function generateMonoPitchTruss(span, riseAtX0, riseAtXL, height, chordW) {
   const yT0 = height - riseAtX0;
   const yTL = height - riseAtXL;
 
-  // Outline (CCW with y-down): walk base leftâ†’right, then up the right side,
+  // Outline (CCW with y-down): walk base left→right, then up the right side,
   // along the slope back to top-left, down to start.
   const outline = [
     { x: 0, y: height },
@@ -9262,9 +9262,9 @@ function generateMonoPitchTruss(span, riseAtX0, riseAtXL, height, chordW) {
     { x: 0, y: yT0 },
   ];
 
-  // Bay count: aim for roughly 1.5â€“2.5 m per bay at real scale, so for
+  // Bay count: aim for roughly 1.5–2.5 m per bay at real scale, so for
   // span S (mm at N-scale 1:150) the equivalent real span is S * 150 mm;
-  // pick bays so each bay is 10â€“25 mm on the model (real 1.5â€“3.75 m).
+  // pick bays so each bay is 10–25 mm on the model (real 1.5–3.75 m).
   const bays = Math.max(2, Math.min(8, Math.round(L / 15)));
   const dx = L / bays;
   // High end: the side with the larger rise (smaller y). Diagonals point
@@ -9323,7 +9323,7 @@ function generateMonoPitchTruss(span, riseAtX0, riseAtXL, height, chordW) {
 }
 
 /**
- * Pratt parallel-chord truss â€” for flat / parapet roofs.
+ * Pratt parallel-chord truss — for flat / parapet roofs.
  * Two horizontal chords spaced `height` apart, vertical posts at panel
  * boundaries, diagonals sloping down toward the CENTRE in each half
  * (Pratt convention: diagonals carry tension under gravity for parallel
@@ -9339,7 +9339,7 @@ function generateParallelChordTruss(span, height, chordW) {
     { x: 0, y: 0 },
   ];
   // Bay count similar to mono-pitch, but keep it EVEN so the centre
-  // symmetry has a clean mid-post. Round to nearest even number â‰¥ 4.
+  // symmetry has a clean mid-post. Round to nearest even number ≥ 4.
   let bays = Math.max(4, Math.round(L / 15));
   if (bays % 2) bays += 1;
   const dx  = L / bays;
@@ -9349,9 +9349,9 @@ function generateParallelChordTruss(span, height, chordW) {
   const d = chordW / 2;
   for (let i = 0; i < bays; i++) {
     const xL = i * dx, xR = (i + 1) * dx;
-    // Diagonal direction: left half â†’ from top-LEFT down to bottom-RIGHT
-    // (slopes â†˜). Right half â†’ mirrored: top-RIGHT down to bottom-LEFT
-    // (slopes â†™). Both slope toward the centre's bottom.
+    // Diagonal direction: left half → from top-LEFT down to bottom-RIGHT
+    // (slopes ↘). Right half → mirrored: top-RIGHT down to bottom-LEFT
+    // (slopes ↙). Both slope toward the centre's bottom.
     let triA, triB;
     if (i < mid) {
       triA = [{ x: xL, y: 0 }, { x: xR, y: 0 }, { x: xR, y: h }];
@@ -9374,7 +9374,7 @@ function generateParallelChordTruss(span, height, chordW) {
  *                   'flat', 'parapet')
  * @param span       horizontal length of the truss in mm (the spanned
  *                   dimension)
- * @param spanDims   { roofPitch, isHighSideLeft }  â€” extra context for
+ * @param spanDims   { roofPitch, isHighSideLeft }  — extra context for
  *                   the slanted case. roofPitch is the rise from eave to
  *                   ridge for gabled, or rise from low eave to high eave
  *                   for slanted.
@@ -9394,7 +9394,7 @@ function generateTrussGeometry(roofStyle, span, spanDims, chordW) {
       // depth d. Use pitch * 0.6 as the truss depth at the low end so the
       // panel has some thickness even at the eave. (Real mono-pitch
       // trusses taper to a point but a tapered point isn't a useful
-      // laser piece â€” there's no place to glue.)
+      // laser piece — there's no place to glue.)
       // For mvp, just use pitch as the high-end rise and pitch * 0.5 as
       // the low-end depth.
       return generateMonoPitchTruss(span, pitch * 0.5, pitch, pitch * 0.5 + chordW, chordW);
@@ -9402,7 +9402,7 @@ function generateTrussGeometry(roofStyle, span, spanDims, chordW) {
     case 'parapet':
     default:
       // Parallel-chord truss. Depth = span / 10 (standard rule of thumb
-      // for steel parallel-chord trusses), clamped to 10â€“25 mm so it's
+      // for steel parallel-chord trusses), clamped to 10–25 mm so it's
       // neither paper-thin nor over-tall.
       return generateParallelChordTruss(span, Math.max(10, Math.min(25, span / 10)), chordW);
   }
@@ -9450,7 +9450,7 @@ function trussGeometryToPart(geom, partId, partName, materialKey) {
  * Returns an array of x-coordinates (or y-coordinates, depending on
  * axis) along the building's length where each truss centreline sits.
  *
- * Both trusses and column supports must agree on these positions â€”
+ * Both trusses and column supports must agree on these positions —
  * otherwise the floor etchings (placed at column positions) won't line
  * up with where the user actually drops the trusses. Keeping this in a
  * shared helper means the truss generator and the support generator
@@ -9458,8 +9458,8 @@ function trussGeometryToPart(geom, partId, partName, materialKey) {
  *
  * Convention: positions are evenly distributed along `lengthAlong`,
  * with a `marginEachEnd` inset from each end. Count is derived from
- * the target spacing â€” `floor(usable/spacing) + 1` for the
- * "spacing-or-tighter" interpretation, clamped to â‰¥ 2 so even very
+ * the target spacing — `floor(usable/spacing) + 1` for the
+ * "spacing-or-tighter" interpretation, clamped to ≥ 2 so even very
  * short blocks get end-truss + end-truss.
  */
 function trussSupportPositions(lengthAlong, spacing, marginEachEnd) {
@@ -9775,14 +9775,14 @@ function generateTrussesForBlock(blockCfg, blockPlan, sfx, nameLbl, cropCtx) {
   if (chordW <= 0) return [];
 
   // Determine axis. Auto-pick rules:
-  //   gabled / parapet_gable â†’ perpendicular to ridge
-  //   else â†’ perpendicular to longer dimension
+  //   gabled / parapet_gable → perpendicular to ridge
+  //   else → perpendicular to longer dimension
   const ridge = effectiveRidgeDir(blockCfg);
   const isGable = blockCfg.roofStyle === 'gabled' || blockCfg.roofStyle === 'parapet_gable';
   let axis = t.axis;
   if (!axis || (axis !== 'ns' && axis !== 'ew')) {
     if (isGable) {
-      // Ridge ew â†’ trusses span ns; ridge ns â†’ trusses span ew. The truss
+      // Ridge ew → trusses span ns; ridge ns → trusses span ew. The truss
       // bridges between the eave walls (perpendicular to ridge).
       axis = ridge === 'ew' ? 'ns' : 'ew';
     } else {
@@ -9792,7 +9792,7 @@ function generateTrussesForBlock(blockCfg, blockPlan, sfx, nameLbl, cropCtx) {
 
   // Span and station spacing use the clear INSIDE dimensions of the block,
   // not the exterior footprint. Otherwise the truss panels are too long by
-  // 2Ã— wall thickness and the first/last stations are offset into the walls.
+  // 2× wall thickness and the first/last stations are offset into the walls.
   const frame = trussInteriorFrame(blockCfg, blockPlan);
   const fullSpan     = axis === 'ns' ? frame.depth : frame.width;
   const lengthAlong  = axis === 'ns' ? frame.width : frame.depth;
@@ -9858,7 +9858,7 @@ function generateTrussesForBlock(blockCfg, blockPlan, sfx, nameLbl, cropCtx) {
     );
     if (part) {
       if (crop.clipped) {
-        part.assemblyNote = `Layout cut physically trimmed this truss station from the full-size truss. Kept original span interval ${crop.start.toFixed(1)}â€“${crop.end.toFixed(1)}mm; web layout and bearing tabs were not regenerated at the cut edge.`;
+        part.assemblyNote = `Layout cut physically trimmed this truss station from the full-size truss. Kept original span interval ${crop.start.toFixed(1)}–${crop.end.toFixed(1)}mm; web layout and bearing tabs were not regenerated at the cut edge.`;
       }
       parts.push(part);
     }
@@ -9873,7 +9873,7 @@ function resolveTrussAxis(blockCfg) {
   let axis = t.axis;
   if (!axis || (axis !== 'ns' && axis !== 'ew')) {
     if (isGable) {
-      // Ridge ew â†’ trusses span north/south. Ridge ns â†’ trusses span east/west.
+      // Ridge ew → trusses span north/south. Ridge ns → trusses span east/west.
       axis = ridge === 'ew' ? 'ns' : 'ew';
     } else {
       axis = blockCfg.width >= blockCfg.depth ? 'ns' : 'ew';
@@ -10061,8 +10061,8 @@ function generateXBraceBayPart(bayW, wallH, memberW, id, name, note) {
  * Generate one connected interior X-brace for each wall bay between adjacent
  * truss positions. Only the bearing walls for the current truss direction
  * get bay braces:
- *   axis ns â†’ front/back walls have bays between trusses
- *   axis ew â†’ east/west walls have bays between trusses
+ *   axis ns → front/back walls have bays between trusses
+ *   axis ew → east/west walls have bays between trusses
  */
 function generateXBracesForBlock(blockCfg, blockPlan, sfx, nameLbl) {
   const t = blockCfg.trusses;
@@ -10102,7 +10102,7 @@ function generateXBracesForBlock(blockCfg, blockPlan, sfx, nameLbl) {
         braceH,
         memberW,
         `xbrace_${face}_bay${i + 1}${sfx}`,
-        `${nameLbl}Interior X-Brace ${faceTitle} bay ${i + 1}/${positionsLocal.length - 1} (${bayW.toFixed(0)}mm Ã— ${braceH.toFixed(0)}mm)`,
+        `${nameLbl}Interior X-Brace ${faceTitle} bay ${i + 1}/${positionsLocal.length - 1} (${bayW.toFixed(0)}mm × ${braceH.toFixed(0)}mm)`,
         `Glue this connected X brace to the inside ${face} wall cladding between truss stations ${i + 1} and ${i + 2}. Align the four outer ends to the adjacent column/truss and roof/floor edge lines; the ends are trimmed square to the bay corners/edges.`,
       );
       if (part) out.push(part);
@@ -10136,25 +10136,25 @@ function generateXBracesForBlock(blockCfg, blockPlan, sfx, nameLbl) {
  * When column supports are enabled, the bottom chord at each bearing gets
  * two downward tabs that drop into matching notches in the column's back
  * flange and end cap. Both tabs are matT-thick (truss material thickness),
- * tabDepth deep, with a gap between them at the column web's x range â€”
+ * tabDepth deep, with a gap between them at the column web's x range —
  * the web is co-planar with the truss, so the gap lets the truss and the
  * web coexist without overlapping in 3D space.
  *
  * Tab geometry at the left bearing (x increases away from the bearing
  * wall):
- *     â”€â”€â”€â”€â”€â”€â”€â”€â”€  â† bottom chord (truss outline edge at y=h)
- *    â”‚Aâ”‚ â–‘â–‘â–‘ â”‚Bâ”‚
- *    â”‚Aâ”‚      â”‚Bâ”‚ â† tab A passes through back flange notch;
- *    â”‚Aâ”‚      â”‚Bâ”‚   tab B passes through end cap notch;
- *    â””â”€â”˜      â””â”€â”˜   â–‘â–‘â–‘ = gap above the web (web is co-planar)
+ *     ─────────  ← bottom chord (truss outline edge at y=h)
+ *    │A│ ░░░ │B│
+ *    │A│      │B│ ← tab A passes through back flange notch;
+ *    │A│      │B│   tab B passes through end cap notch;
+ *    └─┘      └─┘   ░░░ = gap above the web (web is co-planar)
  *
- *    0 â”¼ matT     matT+webDepth â”¼ matT*2+webDepth
+ *    0 ┼ matT     matT+webDepth ┼ matT*2+webDepth
  *
  * The right bearing is the mirror.
  *
  * The injection is a post-processing pass on the truss geometry's
  * outline polygon. All three truss generators (Fink, MonoPitch,
- * ParallelChord) start their outline with a `(0, h) â†’ (L, h)` bottom
+ * ParallelChord) start their outline with a `(0, h) → (L, h)` bottom
  * chord edge, so this helper assumes that pattern and modifies the
  * first two vertices' span to weave the tabs into the outline. CCW
  * winding (y-down) is preserved.
@@ -10166,7 +10166,7 @@ function injectTrussBearingTabs(geom, matT, webDepth, tabDepth, columnType) {
   const v1 = outline[1];
   // Required pattern: outline starts with horizontal bottom-chord edge
   // from (0, h) to (L, h). Bail out (return original geom unchanged)
-  // if the truss generator's output doesn't match â€” better than emitting
+  // if the truss generator's output doesn't match — better than emitting
   // a malformed polygon.
   if (Math.abs(v0.x) > 1e-6 || Math.abs(v1.y - v0.y) > 1e-6 || v1.x <= v0.x) return geom;
   const h = v0.y;
@@ -10174,8 +10174,8 @@ function injectTrussBearingTabs(geom, matT, webDepth, tabDepth, columnType) {
   const type = columnType === 't' ? 't' : 'i';
   const footprintDepth = (type === 't') ? (matT + webDepth) : (matT * 2 + webDepth);
   // Sanity: the chord must be wide enough that the two end tab clusters
-  // don't overlap in the middle. Need 2 Ã— footprintDepth < L with a
-  // small clearance for the central chord run. Falls back gracefully â€”
+  // don't overlap in the middle. Need 2 × footprintDepth < L with a
+  // small clearance for the central chord run. Falls back gracefully —
   // tabs aren't injected on impossibly small trusses; user gets a plain
   // truss + a column that has notches but nothing to fit into them, which
   // is at least obvious during dry-fit assembly.
@@ -10183,7 +10183,7 @@ function injectTrussBearingTabs(geom, matT, webDepth, tabDepth, columnType) {
 
   // Tab boundaries (CCW winding, y-down: walking rightward along the
   // bottom edge of the truss, +y is "outward" away from the polygon
-  // interior â€” the tabs jut downward).
+  // interior — the tabs jut downward).
   if (type === 't') {
     // T-beam: one wall-side flange plus one perpendicular web. The truss
     // gets a single tab at each bearing for the back flange, then a clear
@@ -10223,29 +10223,29 @@ function injectTrussBearingTabs(geom, matT, webDepth, tabDepth, columnType) {
   const rb1 = L;
 
   const newOutline = [
-    v0,  // (0, h)  â€” left bearing corner
-    // Left tab A â€” drops into the back-flange notch on the wall side.
+    v0,  // (0, h)  — left bearing corner
+    // Left tab A — drops into the back-flange notch on the wall side.
     { x: lb0, y: h + tabDepth },
     { x: lb1, y: h + tabDepth },
     { x: lb1, y: h },
     // Chord run over the column web (web is co-planar; nothing in this gap).
     { x: lc0, y: h },
-    // Left tab B â€” drops into the end-cap notch on the room side.
+    // Left tab B — drops into the end-cap notch on the room side.
     { x: lc0, y: h + tabDepth },
     { x: lc1, y: h + tabDepth },
     { x: lc1, y: h },
     // Long central chord run from the left column to the right column.
     { x: rc0, y: h },
-    // Right tab B â€” mirror of left tab B.
+    // Right tab B — mirror of left tab B.
     { x: rc0, y: h + tabDepth },
     { x: rc1, y: h + tabDepth },
     { x: rc1, y: h },
     // Chord run over the right column's web.
     { x: rb0, y: h },
-    // Right tab A â€” mirror of left tab A.
+    // Right tab A — mirror of left tab A.
     { x: rb0, y: h + tabDepth },
     { x: rb1, y: h + tabDepth },
-    v1,  // (L, h) â€” right bearing corner
+    v1,  // (L, h) — right bearing corner
     ...outline.slice(2),
   ];
   return { ...geom, outline: newOutline };
@@ -10261,28 +10261,28 @@ function injectTrussBearingTabs(geom, matT, webDepth, tabDepth, columnType) {
  * floor-to-eave along the wall. Two cross-sections are available:
  * I-beam = back flange + web + end cap; T-beam = back flange + web only.
  *
- *           â•”â•â•â•â•â•â•â•—              â† back flange (against wall, slotted)
- *           â•‘  []  â•‘   â†matT       slot accepts web's inner tabs
- *           â•‘      â•‘
- *           â•‘  []  â•‘
- *           â•‘      â•‘
- *           â•‘  []  â•‘
- *           â•šâ•â•â•â•â•â•â•
- *               â•‘              â”€â”€ web sticks out perpendicular to wall
- *               â•‘              â”€â”€ tabs on both edges feed into back+cap slots
- *               â•‘
- *           â•”â•â•â•â•â•â•â•—              â† end cap (parallel to wall, slotted, identical to back)
- *           â•‘      â•‘
- *           â•‘      â•‘
- *           â•šâ•â•â•â•â•â•â•
+ *           ╔══════╗              ← back flange (against wall, slotted)
+ *           ║  []  ║   ←matT       slot accepts web's inner tabs
+ *           ║      ║
+ *           ║  []  ║
+ *           ║      ║
+ *           ║  []  ║
+ *           ╚══════╝
+ *               ║              ── web sticks out perpendicular to wall
+ *               ║              ── tabs on both edges feed into back+cap slots
+ *               ║
+ *           ╔══════╗              ← end cap (parallel to wall, slotted, identical to back)
+ *           ║      ║
+ *           ║      ║
+ *           ╚══════╝
  *
  * Cross-section viewed from above (the I-beam look):
  *
- *   wall â•â•â•â•â•â•â•â•â•â•â•â•â•â• â† back flange glued flat to wall
- *           â”‚
- *           â”‚ web (perpendicular)
- *           â”‚
- *        â”€â”€â”€â”€â”€â”€         â† end cap (parallel to wall, webDepth out)
+ *   wall ══════════════ ← back flange glued flat to wall
+ *           │
+ *           │ web (perpendicular)
+ *           │
+ *        ──────         ← end cap (parallel to wall, webDepth out)
  *
  * Two columns per truss (one per bearing wall). All pieces are cut
  * from core material so they slot together with kerf-tight tabs at
@@ -10290,7 +10290,7 @@ function injectTrussBearingTabs(geom, matT, webDepth, tabDepth, columnType) {
  * the column tops at eave level (H - parapetH), not the parapet top,
  * so the truss sits where it should.
  *
- * The matching FLOOR ETCHINGS are emitted as part of the same call â€”
+ * The matching FLOOR ETCHINGS are emitted as part of the same call —
  * one small footprint rectangle per column on the main floor, marking
  * where the user should glue each column at assembly time.
  * =========================================================================== */
@@ -10312,9 +10312,9 @@ function generateColumnFlangePiece(H, flangeW, matT, slotPositions, slotLen, top
     const nx0 = (flangeW - nw) / 2;
     const nx1 = nx0 + nw;
     // Outline polygon with notch at top centre. Walk CCW (y-down):
-    // start TL â†’ walk right to notch left â†’ down into notch â†’ across
-    // notch bottom â†’ up out of notch â†’ right to TR â†’ down RH side â†’
-    // across bottom â†’ up LH side back to TL.
+    // start TL → walk right to notch left → down into notch → across
+    // notch bottom → up out of notch → right to TR → down RH side →
+    // across bottom → up LH side back to TL.
     const d = `M 0,0 L ${nx0},0 L ${nx0},${nd} L ${nx1},${nd} L ${nx1},0 L ${flangeW},0 L ${flangeW},${H} L 0,${H} Z`;
     paths = [{ type: 'cut', d }];
   } else {
@@ -10337,7 +10337,7 @@ function generateColumnFlangePiece(H, flangeW, matT, slotPositions, slotLen, top
   };
 }
 
-/** The perpendicular web piece. Rectangle (webDepth Ã— H) with matT-long
+/** The perpendicular web piece. Rectangle (webDepth × H) with matT-long
  *  tab extensions on both long edges at the same y-positions that the
  *  flange's slots use. Outline is a single closed polygon walked CCW
  *  in y-down coords. */
@@ -10421,7 +10421,7 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl, cropC
   const parapetH  = blockPlan.parapetH || 0;
   // Truss sits at eave level: H minus parapet for parapet roofs, the
   // full H for plain flat/gabled/slanted. The user may want a slightly
-  // shorter column to leave room for the truss's own depth on top â€”
+  // shorter column to leave room for the truss's own depth on top —
   // a manual override could be added later; for V1 this matches the
   // truss's reference y=0 to the column top.
   const colH = Math.max(5, blockPlan.H - parapetH);
@@ -10441,14 +10441,14 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl, cropC
   const positions   = trussSupportPositions(lengthAlong, spacing, flangeW / 2);
 
   // Slot positions on the flange/cap: 3 slots evenly along the height
-  // (at H/6, H/2, 5H/6). Tab length = matT Ã— 3 â€” long enough to grip
+  // (at H/6, H/2, 5H/6). Tab length = matT × 3 — long enough to grip
   // well without being so long that the flange feels weak between slots.
   const slotLen = Math.min(colH / 4, matT * 3);
   const slotPositions = [colH / 6, colH / 2, 5 * colH / 6];
 
   // Top notch: a rectangular cut at the top centre of the back flange
   // and the end cap. The truss bottom chord has matching downward tabs
-  // at each bearing â€” the tab slides into this notch from above and
+  // at each bearing — the tab slides into this notch from above and
   // locks the truss in place horizontally without glue. Notch width =
   // matT (the truss material thickness, since the flange is perpendicular
   // to the truss plane and the tab passes through the flange's matT
@@ -10458,26 +10458,26 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl, cropC
   const tabDepth = matT * 2;
   const topNotch = { width: matT, depth: tabDepth };
 
-  // Pre-build one of each piece (every column shares geometry â€” the
+  // Pre-build one of each piece (every column shares geometry — the
   // dedup display will collapse them).
   function tagBack(part, label) {
     return { ...part, id: `col_back_${label}${sfx}`,
-             name: `${nameLbl}Column ${isTBeam ? 'T-beam' : 'I-beam'} back flange â€” ${label}`,
+             name: `${nameLbl}Column ${isTBeam ? 'T-beam' : 'I-beam'} back flange — ${label}`,
              material: 'core' };
   }
   function tagWeb(part, label) {
     return { ...part, id: `col_web_${label}${sfx}`,
-             name: `${nameLbl}Column ${isTBeam ? 'T-beam' : 'I-beam'} web â€” ${label}`,
+             name: `${nameLbl}Column ${isTBeam ? 'T-beam' : 'I-beam'} web — ${label}`,
              material: 'core' };
   }
   function tagCap(part, label) {
     return { ...part, id: `col_cap_${label}${sfx}`,
-             name: `${nameLbl}Column I-beam end cap â€” ${label}`,
+             name: `${nameLbl}Column I-beam end cap — ${label}`,
              material: 'core' };
   }
 
   // Bearing walls for the columns: trusses with axis 'ns' bridge from
-  // front to back wall, so columns sit on front + back. Axis 'ew' â†’
+  // front to back wall, so columns sit on front + back. Axis 'ew' →
   // columns on east + west.
   const bearingWalls = axis === 'ns' ? ['front', 'back'] : ['east', 'west'];
 
@@ -10490,9 +10490,9 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl, cropC
     }
   }
 
-  // Generate parts â€” I-beam uses back/web/cap per bearing; T-beam uses
+  // Generate parts — I-beam uses back/web/cap per bearing; T-beam uses
   // back/web only. All copies are geometrically identical and the parts
-  // panel dedup collapses them into "Cut Ã—N copies".
+  // panel dedup collapses them into "Cut ×N copies".
   const parts = [];
   for (const kb of keptBearings) {
     const label = `truss ${kb.i + 1} ${kb.wall}`;
@@ -10503,13 +10503,13 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl, cropC
     }
   }
 
-  // FLOOR ETCHINGS â€” one footprint rectangle per column at the wall,
+  // FLOOR ETCHINGS — one footprint rectangle per column at the wall,
   // plus a centred web line so the assembler knows which way the fin
   // points. Coordinates are in the floor part's OUTER frame:
-  //   x = 0..floorW (westâ†’east, where floorW = fbWidth)
-  //   y = 0..floorH (frontâ†’back, where floorH = sideLen + 2*matT)
-  // The interior usable area (inside the walls) is x âˆˆ [matT, floorW-matT]
-  // and y âˆˆ [matT, floorH-matT]. Truss positions are stored in the INSIDE
+  //   x = 0..floorW (west→east, where floorW = fbWidth)
+  //   y = 0..floorH (front→back, where floorH = sideLen + 2*matT)
+  // The interior usable area (inside the walls) is x ∈ [matT, floorW-matT]
+  // and y ∈ [matT, floorH-matT]. Truss positions are stored in the INSIDE
   // frame, then converted back to floor x/y with frame.x0/frame.y0 here.
   // The footprint depth is measured from the wall's INTERIOR surface
   // (y=matT for front wall, y=floorH-matT for back, etc.).
@@ -10543,7 +10543,7 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl, cropC
         rx1 = floorW - matT;                   ry1 = pos + halfFlange;
         midX = -1; midY = pos;
       }
-      // Clamp to floor bounds â€” defensive, the margin should have
+      // Clamp to floor bounds — defensive, the margin should have
       // already kept the footprint inside.
       rx0 = Math.max(0, rx0); rx1 = Math.min(floorW, rx1);
       ry0 = Math.max(0, ry0); ry1 = Math.min(floorH, ry1);
@@ -10567,7 +10567,7 @@ function generateColumnSupportsForBlock(blockCfg, blockPlan, sfx, nameLbl, cropC
 
 /** Find the floor part in `parts` and append the given etch segments
  *  to its `lines` array. The floor part id is 'floor' (main block) or
- *  'floor_wing*' / merged 'floor' for wing builds â€” we look for both
+ *  'floor_wing*' / merged 'floor' for wing builds — we look for both
  *  the plain 'floor' and any 'floor*' part with material 'core'. The
  *  first match wins; if nothing matches, the etchings are silently
  *  dropped (better than failing the whole regenerate). */
@@ -10670,7 +10670,7 @@ function generateRoof(cfg, plan) {
 'use strict';
 
 /* =====================================================================
-   ROOF GENERATOR â€” SPLIT BY ROOF TYPE
+   ROOF GENERATOR — SPLIT BY ROOF TYPE
    ---------------------------------------------------------------------
    The old generateRoof function handled every roof style in one long
    branch chain. The dispatcher above now routes to one helper per roof
@@ -10683,7 +10683,7 @@ function generateParapetRoof(cfg, plan) {
 
     // 80x80mm roof piece (interior dim) with tongues on all 4 edges
     // Roof local frame: width = sideLen (depth), height = sideLen (depth)
-    // Wait â€” roof should be sideLen x sideLen? No, it should match interior dim of building.
+    // Wait — roof should be sideLen x sideLen? No, it should match interior dim of building.
     // Building outer footprint: fbWidth x fbWidth-not-quite. Let me think.
     // Actually side wall body length = sideLen = depth - 2*matT. That's the interior depth.
     // Front wall body width = fbWidth = full outer width. Interior width = fbWidth - 2*matT.
@@ -10744,7 +10744,7 @@ function generateFlatRoof(cfg, plan) {
     const rW = fbWidth;
     const rH = cfg.depth; // outer depth
     const margin = Math.max(matT * 2, 5);
-    
+
     // Slots receive wall-top tongues.  Keep these counts and spans locked to
     // generateFrontBackWall()/generateSideWall(), which place exactly 3 roof
     // tongues on flat and flat-overhang walls.  The older dynamic slot count
@@ -10872,7 +10872,7 @@ function generateSlantedRoof(cfg, plan) {
     const ohVerge = nsAxis ? ohEW : ohFB;
     const ohSlant = ohEave > 0 ? ohEave * (slantLen0 / span0) : 0;
 
-    // Total panel dimensions â€” both eave ends overhang, both verge sides overhang
+    // Total panel dimensions — both eave ends overhang, both verge sides overhang
     const slantLen = slantLen0 + 2 * ohSlant;
     const perpLen  = perpLen0  + 2 * ohVerge;
 
@@ -10886,12 +10886,12 @@ function generateSlantedRoof(cfg, plan) {
     // The walls are inset from the roof's outer perimeter by `ohSlant` on
     // each eave end (the eave overhang) and `ohVerge` on each verge side.
     // So the front-wall row sits at roof y = ohSlant and the back-wall row
-    // sits at roof y = slantLen âˆ’ ohSlant âˆ’ matT, with each slot rect's x
+    // sits at roof y = slantLen − ohSlant − matT, with each slot rect's x
     // shifted by ohVerge to land at the wall's actual span. BLEED widens
     // the y dimension slightly so the vertical wall tongue passes through
     // the tilted roof's slot without binding at the slope angle.
     //
-    // EW-axis slope skipped here â€” that case puts the trapezoidal walls on
+    // EW-axis slope skipped here — that case puts the trapezoidal walls on
     // the FB axis and the flat-topped walls on the side axis; not all
     // EW-axis geometry is finished (the side walls don't yet rise to
     // H+pitch on the high-eave end), so we don't try to wire the joints
@@ -10906,11 +10906,11 @@ function generateSlantedRoof(cfg, plan) {
       // NOTE: NO front/back eave slot rows for a slanted roof. The FB
       // walls have flat horizontal tops, and a tongue sticking straight
       // up from a horizontal top would meet this tilted roof at the
-      // SLOPE angle rather than perpendicular â€” a bad, wedge-y joint.
+      // SLOPE angle rather than perpendicular — a bad, wedge-y joint.
       // generateFrontBackWall correspondingly omits the FB walls' top
       // tongues for the slanted style; the FB walls simply rest against
       // the underside of the roof and get glued there. We still keep
-      // the VERGE slot rows below â€” those mate with the SIDE walls'
+      // the VERGE slot rows below — those mate with the SIDE walls'
       // slanted-top tongues, which DO follow the roof's slope and
       // enter their slots perpendicular to the roof plane.
 
@@ -10923,9 +10923,9 @@ function generateSlantedRoof(cfg, plan) {
       //   Side wall x runs from 0 (3D z=matT, just inside front wall) to
       //   sideLen (3D z=depth-matT, just inside back wall). In the roof's
       //   unrolled y, those map to y = ohSlant + matT and
-      //   y = ohSlant + slantLen0 âˆ’ matT respectively. So roof-y for a
+      //   y = ohSlant + slantLen0 − matT respectively. So roof-y for a
       //   wall-x of `x` is approximately ohSlant + matT + x (using
-      //   slantLen0/depth â‰ˆ 1; for typical pitch/depth < 0.25 the error
+      //   slantLen0/depth ≈ 1; for typical pitch/depth < 0.25 the error
       //   is under 3% and well within the BLEED tolerance).
       //
       //   The same `placeTongues(sideLen, tw, slotMargin, [], 3, tw/2)`
@@ -10934,14 +10934,14 @@ function generateSlantedRoof(cfg, plan) {
       //   ohSlant + matT and they land on the roof's verge.
       //
       // West verge sits at roof x = ohVerge (= the west wall's outer
-      // face). East verge sits at roof x = perpLen âˆ’ ohVerge (= the east
+      // face). East verge sits at roof x = perpLen − ohVerge (= the east
       // wall's outer face). The slot rect extends matT INWARD from there
       // to cover the wall material's thickness, plus BLEED on the inside
       // for the same slope-angle clearance the eave slots use; the
       // outward end clamps to the roof's perimeter when ohVerge = 0.
       const vergeSlots = placeTongues(sideLen, tw, slotMargin, [], 3, tw / 2);
       {
-        // West verge â€” slots at roof x â‰ˆ ohVerge (the west wall's outer face)
+        // West verge — slots at roof x ≈ ohVerge (the west wall's outer face)
         let x = ohVerge - BLEED;
         let w = matT + 2 * BLEED;
         if (x < 0) { w += x; x = 0; }
@@ -10955,7 +10955,7 @@ function generateSlantedRoof(cfg, plan) {
         }
       }
       {
-        // East verge â€” slots at roof x â‰ˆ perpLen âˆ’ ohVerge âˆ’ matT (east wall material)
+        // East verge — slots at roof x ≈ perpLen − ohVerge − matT (east wall material)
         let x = perpLen - ohVerge - matT - BLEED;
         let w = matT + 2 * BLEED;
         if (x + w > perpLen) { w = perpLen - x; }
@@ -10974,14 +10974,14 @@ function generateSlantedRoof(cfg, plan) {
 
     const highLabel = { front:'front high', back:'back high', east:'east high', west:'west high' }[slopeDir];
     const corePanel = {
-      id: 'roof', name: `Roof (slanted â€” ${highLabel})`,
+      id: 'roof', name: `Roof (slanted — ${highLabel})`,
       material: 'core',
       bboxW: perpLen, bboxH: slantLen, bboxOffsetX: 0, bboxOffsetY: 0,
       paths: [{ type: 'cut', d: perimeter }, ...holePathsForList(cfg.roofHoles), ...skylightHolePaths(cfg.skylights)],
       rects: rects,
       lines: lines,
     };
-    const claddingPanel = generateRoofCladdingPanel('roof_cladding', `Roof Cladding (slanted â€” ${highLabel})`,
+    const claddingPanel = generateRoofCladdingPanel('roof_cladding', `Roof Cladding (slanted — ${highLabel})`,
       perpLen, slantLen, CLADDING_STYLES[cfg.roofCladdingStyle || cfg.claddingStyle], cfg);
     if (claddingPanel) {
       claddingPanel.lines.push(...rooftopEquipmentEtchLines(plan, ohVerge, ohSlant));
@@ -11164,7 +11164,7 @@ function generateGableRoofAngleLockParts(cfg, plan, stationCount, halfSpan, pitc
 
   return [createPart({
     id: 'gable_roof_angle_locks',
-    name: `Gable roof angle-locks with aligned tabs â€” ${stationCount}Ã— (${ridgeDir} ridge)`,
+    name: `Gable roof angle-locks with aligned tabs — ${stationCount}× (${ridgeDir} ridge)`,
     material: 'core',
     bboxW: sheetW,
     bboxH: sheetH,
@@ -11194,7 +11194,7 @@ function generateGableRoofAngleLockParts(cfg, plan, stationCount, halfSpan, pitc
       tabCenterFromApex,
       roofPitchRatio: roofSin / Math.max(0.0001, roofCos),
     },
-    assemblyNote: `Deep underside gable-angle gussets. The top V follows the exact roof pitch. The tab center is derived from the roof slot center, and the roof slot includes extra along-slope end clearance so the protruding tab does not sit 1â€“2 mm away from the slot. The centre etched line points toward the ridge.`
+    assemblyNote: `Deep underside gable-angle gussets. The top V follows the exact roof pitch. The tab center is derived from the roof slot center, and the roof slot includes extra along-slope end clearance so the protruding tab does not sit 1–2 mm away from the slot. The centre etched line points toward the ridge.`
   })];
 }
 
@@ -11204,13 +11204,13 @@ function generateGabledRoof(cfg, plan) {
     const pitch    = cfg.roofPitch || 10;
     const ridgeDir = effectiveRidgeDir(cfg);
     const ewRidge  = (ridgeDir === 'ew');
-    // For parapet_gable, no roof overhang â€” the roof sits BEHIND the
+    // For parapet_gable, no roof overhang — the roof sits BEHIND the
     // parapet walls (where present) or flush against eave-wall tops
     // (where not). Forcing zero overhang keeps the geometry simple at
     // this MVP stage; user-controlled overhang is a later enhancement.
     // Verge tabs are also suppressed for any wall that has a parapet,
     // because that wall is a flat-top extension (no triangular peak
-    // for tabs to key into) â€” see the gableHasTabs flag below.
+    // for tabs to key into) — see the gableHasTabs flag below.
     const isParapetGabled = (roofStyle === 'parapet_gable');
 
     // Use OUTER building dimensions: each slope spans from outer wall face to ridge centre.
@@ -11232,7 +11232,7 @@ function generateGabledRoof(cfg, plan) {
     const slantLen0 = Math.hypot(halfSpan0, pitch);
 
     // Overhang: eave = low end (beyond wall face); verge = ridge-end sides.
-    // Forced zero for parapet_gable â€” the roof can't extend past walls
+    // Forced zero for parapet_gable — the roof can't extend past walls
     // that are taller than it. User-set overhang values are ignored
     // here (the field is hidden in the UI for this style anyway).
     const ohFB = isParapetGabled ? 0 : (cfg.roofOverhangFB || 0);
@@ -11247,12 +11247,12 @@ function generateGabledRoof(cfg, plan) {
     const perpLen  = perpLen0  + 2 * ohVerge;
     const margin   = Math.max(matT * 2, 5);
 
-    // No tongue-slot joints on any edge â€” panels rest on wall tops and meet at the ridge.
+    // No tongue-slot joints on any edge — panels rest on wall tops and meet at the ridge.
     // Exception: VERGE slots at the gable-wall positions, which receive the tabs on the
     // triangular gable wall tops.
-    // When ohVerge === 0 the slot lands on the panel edge â†’ embed as an open notch in
+    // When ohVerge === 0 the slot lands on the panel edge → embed as an open notch in
     // the perimeter path (same approach as the floor panel).
-    // When ohVerge  >  0 the slot is interior â†’ use a closed-rect cut.
+    // When ohVerge  >  0 the slot is interior → use a closed-rect cut.
     // For parapet_gable, verge slots are SUPPRESSED entirely: the
     // gable-end walls under this style are always flat-top parapets
     // (not triangular peaks), so there's no peak-edge with tabs to slot
@@ -11271,7 +11271,7 @@ function generateGabledRoof(cfg, plan) {
     // sit flat at H and the roof's bottom edge rests on them; the
     // tongues on the wall top key into these slots so the roof aligns
     // before glue-up. Walls under 'all' mode (eave walls also have
-    // parapets) skip this â€” the roof slides down behind the parapet
+    // parapets) skip this — the roof slides down behind the parapet
     // and is glued.
     //
     // Same placeTongues call as the wall generators (interior length
@@ -11281,25 +11281,25 @@ function generateGabledRoof(cfg, plan) {
     // panel's bottom edge (matT + BLEED) so the cut is clean at the
     // edge and the tongue can engage even after kerf compensation.
     //
-    // Geometric caveat: the panel is tilted at angle Î¸ to horizontal,
-    // and the tongue rises vertically from the wall top â€” so the
+    // Geometric caveat: the panel is tilted at angle θ to horizontal,
+    // and the tongue rises vertically from the wall top — so the
     // tongue passes through the panel obliquely. The vertical extent
     // of the tongue (matT) is shorter than the panel's slant thickness
-    // (matT/cos Î¸); the tongue won't fully poke through. For typical
-    // pitches (~10mm rise / 30mm half-span â†’ Î¸â‰ˆ18Â°) the under-engagement
+    // (matT/cos θ); the tongue won't fully poke through. For typical
+    // pitches (~10mm rise / 30mm half-span → θ≈18°) the under-engagement
     // is fractions of a mm and glue takes up the rest. Steeper pitches
     // will start to feel loose; a future enhancement can lengthen the
     // parapet_gable verge joinery: panel verge edges grow tongues
     // sticking OUT toward the gable walls, and the gable walls accept
     // them through INTERIOR slot paths cut along the verge line.
     //
-    // This is the "side that slants" the user pointed at â€” in 3D the
+    // This is the "side that slants" the user pointed at — in 3D the
     // verge edge runs from eave (low) up to ridge (high) along the
     // gable wall, at the slope angle. Slots oriented along this line
     // hold the panel at that angle. The eave and ridge sides aren't
     // tongued: the eave meets its wall at the pitch angle (the panel
     // tilts away from horizontal across that joint), and the ridge
-    // meets the other panel at twice that angle â€” both are too far
+    // meets the other panel at twice that angle — both are too far
     // from perpendicular for a simple slab tongue to hold.
     //
     // For PLAIN gabled, the same joint works the opposite way: the
@@ -11312,8 +11312,8 @@ function generateGabledRoof(cfg, plan) {
     //
     // Both panel and wall use the SAME placeTongues call against
     // vergeSlantLen so positions match bit-for-bit. The dihedral angle
-    // along the verge between a vertical wall and a panel tilted at Î¸
-    // is 90Â° (the panel sticks out perpendicular to the wall â€” a
+    // along the verge between a vertical wall and a panel tilted at θ
+    // is 90° (the panel sticks out perpendicular to the wall — a
     // surprising-but-true result from the cross-product geometry), so
     // the tongue's natural direction in panel plane carries it
     // straight through the wall thickness, perpendicular to the wall
@@ -11333,10 +11333,10 @@ function generateGabledRoof(cfg, plan) {
         // ---- Plain gabled, no overhang: open-edge notches in the
         // perimeter path (panel verge edges INDENT inward by matT to
         // receive the wall's sloping perimeter tabs).
-        // Top edge (leftâ†’right)
+        // Top edge (left→right)
         let d = `M 0,0 L ${perpLen.toFixed(3)},0`;
 
-        // Right edge (topâ†’bottom) â€” right-verge notches indent LEFT by matT
+        // Right edge (top→bottom) — right-verge notches indent LEFT by matT
         let ry = 0;
         for (const s of vergeSlots) {
           const y1 = ohEaveS + s.start, y2 = ohEaveS + s.end;
@@ -11348,10 +11348,10 @@ function generateGabledRoof(cfg, plan) {
         }
         d += ` L ${perpLen.toFixed(3)},${slantLen.toFixed(3)}`;
 
-        // Bottom edge (rightâ†’left)
+        // Bottom edge (right→left)
         d += ` L 0,${slantLen.toFixed(3)}`;
 
-        // Left edge (bottomâ†’top) â€” left-verge notches indent RIGHT by matT
+        // Left edge (bottom→top) — left-verge notches indent RIGHT by matT
         let ly = slantLen;
         for (const s of [...vergeSlots].reverse()) {
           const y1 = ohEaveS + s.start, y2 = ohEaveS + s.end;
@@ -11367,26 +11367,26 @@ function generateGabledRoof(cfg, plan) {
       } else if (vergeTongues.length > 0) {
         // ---- parapet_gable: verge edges PROTRUDE outward by matT at
         // each tongue position. Panel y coords map to slant-distance
-        // s in [0, vergeSlantLen] by y = slantLen âˆ’ s â€” i.e. s=0 is
+        // s in [0, vergeSlantLen] by y = slantLen − s — i.e. s=0 is
         // the eave end (panel y=slantLen) and s=vergeSlantLen is the
         // ridge end (panel y=0). placeTongues returned positions in s;
         // we convert to panel y for the perimeter walk.
         //
         // Kerf convention matches buildWallPath: tongue path is drawn
-        // slightly OUTSIDE the desired final dimension (tk = âˆ’kerf),
+        // slightly OUTSIDE the desired final dimension (tk = −kerf),
         // and the laser cut eats it back to spec.
         const kerf = cfg.kerfComp || 0;
         const tk = -kerf;
-        // Pre-convert s-ranges to panel-y ranges and re-sort topâ†’bottom
+        // Pre-convert s-ranges to panel-y ranges and re-sort top→bottom
         const rightTongues = vergeTongues.map(t => ({
           y1: slantLen - t.end + tk,  // higher on panel (smaller y)
           y2: slantLen - t.start - tk, // lower on panel (larger y)
         })).sort((a, b) => a.y1 - b.y1);
-        const leftTongues = [...rightTongues]; // mirror â€” same y positions, opposite side
+        const leftTongues = [...rightTongues]; // mirror — same y positions, opposite side
 
         let d = `M 0,0 L ${perpLen.toFixed(3)},0`;
 
-        // Right edge (topâ†’bottom): protrude RIGHT to perpLen+matT at each tongue
+        // Right edge (top→bottom): protrude RIGHT to perpLen+matT at each tongue
         let ry = 0;
         for (const t of rightTongues) {
           if (t.y1 > ry) d += ` L ${perpLen.toFixed(3)},${t.y1.toFixed(3)}`;
@@ -11398,7 +11398,7 @@ function generateGabledRoof(cfg, plan) {
         d += ` L ${perpLen.toFixed(3)},${slantLen.toFixed(3)}`;
         d += ` L 0,${slantLen.toFixed(3)}`;
 
-        // Left edge (bottomâ†’top): protrude LEFT to -matT at each tongue
+        // Left edge (bottom→top): protrude LEFT to -matT at each tongue
         let ly = slantLen;
         for (const t of [...leftTongues].reverse()) {
           if (t.y2 < ly) d += ` L 0,${t.y2.toFixed(3)}`;
@@ -11450,7 +11450,7 @@ function generateGabledRoof(cfg, plan) {
 
     // The lock tab and the roof slot need two related but not identical sizes.
     // The tab is the physical protrusion on the lock piece. The roof slot gets
-    // extra length along the roof slope so a 1â€“2 mm visual/assembly offset does
+    // extra length along the roof slope so a 1–2 mm visual/assembly offset does
     // not leave the tab missing the slot. Previously the tight slot and the
     // protruding tab could sit just apart on the panel preview.
     const angleLockTabLen = Math.max(3.2, Math.min(5.2, matT * 2.6));
@@ -11480,8 +11480,8 @@ function generateGabledRoof(cfg, plan) {
     }
 
     // Matching skylight cut paths for the single folded roof-cladding piece.
-    // panel0 lives on the first half of the folded cladding (eaveâ†’ridge);
-    // panel1 is mirrored onto the second half (ridgeâ†’opposite eave).
+    // panel0 lives on the first half of the folded cladding (eave→ridge);
+    // panel1 is mirrored onto the second half (ridge→opposite eave).
     const claddingSkylightPaths = [];
     const claddingRidgeGap = 2 * matT * Math.tan(Math.atan2(pitch, halfSpan0));
     const claddingTotalH = 2 * slantLen + claddingRidgeGap;
@@ -11489,7 +11489,7 @@ function generateGabledRoof(cfg, plan) {
     // Skylights on a gabled roof: place each onto whichever slope panel
     // its CENTRE point lies on, transforming from footprint (x, y) to
     // panel (u, v) coords. Until this branch was added, gabled roofs
-    // silently dropped all cfg.skylights â€” the user would drop one in
+    // silently dropped all cfg.skylights — the user would drop one in
     // the rooftop placement panel and it would never appear on the
     // laser output (and if the building had wings with a flat or
     // parapet roof, the same skylights would leak onto those wing roofs
@@ -11499,15 +11499,15 @@ function generateGabledRoof(cfg, plan) {
     // Geometry: the panel's u-axis runs along the ridge (= perpLen),
     // its v-axis from eave (v=0) to ridge (v=slantLen). A skylight
     // whose footprint dimensions are (w, h) is rectangular when
-    // projected onto the panel plane â€” but the dimension along the
-    // slope stretches by 1/cos Î¸ = slantLen0/halfSpan0 because the
-    // panel is tilted at Î¸. The dimension across the ridge is
+    // projected onto the panel plane — but the dimension along the
+    // slope stretches by 1/cos θ = slantLen0/halfSpan0 because the
+    // panel is tilted at θ. The dimension across the ridge is
     // unchanged. The eave overhang ohEaveS shifts v downward (v=0 is
     // the eave overhang edge, the wall is at v=ohEaveS), and the
     // verge overhang ohVerge shifts u (u=0 is the verge overhang edge,
     // the gable wall is at u=ohVerge).
     //
-    // Skylights whose footprint straddles the ridge are not split â€”
+    // Skylights whose footprint straddles the ridge are not split —
     // the centre's side determines the whole assignment. A skylight
     // wider than half the span across the ridge would produce a cut
     // that extends past the panel's ridge edge; this is left for the
@@ -11523,7 +11523,7 @@ function generateGabledRoof(cfg, plan) {
           // back slope = large-y half (panel1).
           const isFront = sky.y < halfSpan0;
           target = isFront ? panel0 : panel1;
-          const d_h = isFront ? sky.y : (cfg.depth - sky.y);  // horiz dist eaveâ†’centre
+          const d_h = isFront ? sky.y : (cfg.depth - sky.y);  // horiz dist eave→centre
           wPanel = sky.w;                       // along ridge, unchanged
           hPanel = sky.h * slopeStretch;        // along slope, stretched
           u = sky.x + ohVerge - wPanel / 2;
@@ -11584,15 +11584,15 @@ function generateGabledRoof(cfg, plan) {
 /**
  * Single folding cladding panel for a gabled roof.
  * Covers both slopes in one piece:
- *   height = 2 Ã— slantLen + ridgeGap
- *   ridgeGap = 2 Ã— matT Ã— tan(slantAngle)  â€” extra length to clear the core thickness at the ridge
+ *   height = 2 × slantLen + ridgeGap
+ *   ridgeGap = 2 × matT × tan(slantAngle)  — extra length to clear the core thickness at the ridge
  *   fold/score etch line at foldY = slantLen + ridgeGap/2
  *
  * The pattern is generated separately for the BOTTOM half (eave-to-fold)
  * and TOP half (fold-to-back-eave) by calling generateCladdingPattern on
  * each rectangular region. That keeps tile rows / brick courses / panel
  * seams oriented correctly toward their respective eaves on either side
- * of the ridge â€” the pattern reads as "tiles flowing down each slope to
+ * of the ridge — the pattern reads as "tiles flowing down each slope to
  * its eave" rather than as one big block that ignores the fold.
  */
 function generateGabledRoofCladding(perpLen, slantLen, halfSpan, pitch, matT, styleSpec, ridgeDir) {
@@ -11612,10 +11612,10 @@ function generateGabledRoofCladding(perpLen, slantLen, halfSpan, pitch, matT, st
   const backSlopeStartY = slantLen + ridgeGap;
   const foldY = slantLen + ridgeGap / 2;
 
-  // Front/bottom slope â€” eave to roof-core ridge edge.
+  // Front/bottom slope — eave to roof-core ridge edge.
   const bottomSegs = generateCladdingPattern(styleSpec, 0, 0, perpLen, slantLen, [], null);
 
-  // Back/top slope â€” generate in its own eaveâ†’ridge frame, then translate
+  // Back/top slope — generate in its own eave→ridge frame, then translate
   // after the ridge bridge. The gap itself remains free of cladding pattern
   // etches so it behaves visually like a ridge-cap / fold bridge.
   const topSegsLocal = generateCladdingPattern(styleSpec, 0, 0, perpLen, slantLen, [], null);
@@ -11641,7 +11641,7 @@ function generateGabledRoofCladding(perpLen, slantLen, halfSpan, pitch, matT, st
 
   return {
     id: 'roof_gabled_cladding',
-    name: `Roof Cladding (gabled ${ridgeDir} ridge â€” ridge bridge ${ridgeGap.toFixed(2)}mm, score & fold at centre)`,
+    name: `Roof Cladding (gabled ${ridgeDir} ridge — ridge bridge ${ridgeGap.toFixed(2)}mm, score & fold at centre)`,
     material: 'cladding',
     bboxW: perpLen, bboxH: totalH, bboxOffsetX: 0, bboxOffsetY: 0,
     paths: [{ type: 'cut', d: rectPath(0, 0, perpLen, totalH) }],
@@ -11651,7 +11651,7 @@ function generateGabledRoofCladding(perpLen, slantLen, halfSpan, pitch, matT, st
 
 /* Generate a roof cladding panel with groove lines representing tiles/shingles */
 /* Generate a roof cladding panel with the proper pattern for the chosen
- * cladding style. Slanted/gabled roofs only â€” parapet and flat roofs are
+ * cladding style. Slanted/gabled roofs only — parapet and flat roofs are
  * un-clad (the wall cladding wraps the roof line). Delegates pattern
  * generation to generateCladdingPattern so the result matches the wall
  * cladding logic exactly (kawara tile-overlap, brick offset courses,
@@ -11688,7 +11688,7 @@ function generateFloor(cfg, plan) {
   const doorStyle = cfg.doorStyle;
 
   // Forbidden zones for bottom-edge floor slots: same rule as the wall's
-  // bottom-tongue placement â€” only glass doors that reach the bottom of
+  // bottom-tongue placement — only glass doors that reach the bottom of
   // the wall block the slot, since the wall material is continuous to
   // the floor everywhere else.
   function doorForbiddenZones(wallDoors) {
@@ -11713,7 +11713,7 @@ function generateFloor(cfg, plan) {
   const backDoors  = getWallDoors('back',  fbWidth, H, cfg.backDoorCount  || 0, hasBackBay);
   // East and west walls can have INDEPENDENT door layouts when the user
   // places doors manually per-face. The floor needs separate slot lists for
-  // each side â€” the old code shared a single `sideSlots` derived from the
+  // each side — the old code shared a single `sideSlots` derived from the
   // east face only, which left the floor's left (west) edge with slots that
   // didn't match the west wall's bottom tongues whenever the two faces
   // diverged (e.g. east=1 door, west=3 doors in the same building).
@@ -11762,11 +11762,11 @@ function generateFloor(cfg, plan) {
 
   // Build the floor perimeter with slot notches integrated into the path.
   // Each slot is drawn as an inward indent so there is NO separate closing line
-  // on the outside â€” the perimeter itself is the open edge of every slot.
+  // on the outside — the perimeter itself is the open edge of every slot.
   function buildFloorPerimeter() {
     let d = 'M 0,0';
 
-    // TOP (leftâ†’right): front-wall slots indent DOWN by matT
+    // TOP (left→right): front-wall slots indent DOWN by matT
     let x = 0;
     for (const s of [...frontSlots].sort((a,b) => a.start - b.start)) {
       if (s.start > x) d += ` L ${s.start.toFixed(3)},0`;
@@ -11775,7 +11775,7 @@ function generateFloor(cfg, plan) {
     }
     d += ` L ${floorW.toFixed(3)},0`;
 
-    // RIGHT (topâ†’bottom): east-wall slots indent LEFT by matT
+    // RIGHT (top→bottom): east-wall slots indent LEFT by matT
     let y = 0;
     for (const s of [...eastSlots].sort((a,b) => a.start - b.start)) {
       const y1 = matT + s.start, y2 = matT + s.end;
@@ -11785,7 +11785,7 @@ function generateFloor(cfg, plan) {
     }
     d += ` L ${floorW.toFixed(3)},${floorH.toFixed(3)}`;
 
-    // BOTTOM (rightâ†’left): back-wall slots indent UP by matT
+    // BOTTOM (right→left): back-wall slots indent UP by matT
     x = floorW;
     for (const s of [...backSlots].sort((a,b) => b.start - a.start)) {
       if (s.end < x) d += ` L ${s.end.toFixed(3)},${floorH.toFixed(3)}`;
@@ -11794,7 +11794,7 @@ function generateFloor(cfg, plan) {
     }
     d += ` L 0,${floorH.toFixed(3)}`;
 
-    // LEFT (bottomâ†’top): west-wall slots indent RIGHT by matT
+    // LEFT (bottom→top): west-wall slots indent RIGHT by matT
     y = floorH;
     for (const s of [...westSlots].sort((a,b) => b.start - a.start)) {
       const y1 = matT + s.start, y2 = matT + s.end;
@@ -11853,7 +11853,7 @@ function generateMergedFloorRaw(cfg, plan) {
     }
   }
 
-  // â”€â”€ Door forbidden zones, identical to generateFloor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Door forbidden zones, identical to generateFloor ──────────────────────
   // Same rule: only glass doors reaching the wall's bottom edge block.
   function doorForbiddenZones(wallDoors) {
     return bottomTongueForbiddenZones(wallDoors, cfg, H);
@@ -11870,7 +11870,7 @@ function generateMergedFloorRaw(cfg, plan) {
   }
   const frontDoors = getWallDoors('front', fbWidth, H, cfg.frontDoorCount || 0, hasFrontBay);
   const backDoors  = getWallDoors('back',  fbWidth, H, cfg.backDoorCount  || 0, hasBackBay);
-  // East and west computed independently â€” see generateFloor for rationale.
+  // East and west computed independently — see generateFloor for rationale.
   const eastDoors  = getWallDoors('east',  sideLen, H, cfg.sideDoorCount  || 0, false);
   const westDoors  = getWallDoors('west',  sideLen, H, cfg.sideDoorCount  || 0, false);
 
@@ -12004,7 +12004,7 @@ function generateMergedFloorRaw(cfg, plan) {
     };
   }
 
-  // Compute bbox extents (wings extend beyond main floor in Â±x or Â±y)
+  // Compute bbox extents (wings extend beyond main floor in ±x or ±y)
   let xMin = 0, xMax = floorW, yMin = 0, yMax = floorH;
   for (const w of wings) {
     const ext = wingOuterDepth(w);
@@ -12021,13 +12021,13 @@ function generateMergedFloorRaw(cfg, plan) {
   const fx = v => v.toFixed(3);
   let d = 'M 0,0';
 
-  // â”€â”€ Helper: emit slot indents along a 1-D segment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Helper: emit slot indents along a 1-D segment ──────────────────────────
   // Walks from `start` to `end` along an axis-aligned direction, drawing slot
   // indents normal to the walk direction. Filters/sorts the supplied slots so
   // only those overlapping [min(start,end), max(start,end)] are drawn, in walk
   // order.
   //
-  //   axis: 'x' or 'y' â€” which axis we're walking along
+  //   axis: 'x' or 'y' — which axis we're walking along
   //   start, end: walk start and end in that axis
   //   fixed: the other axis's constant coordinate
   //   slots: list of {start, end} in absolute walk-axis coords
@@ -12075,7 +12075,7 @@ function generateMergedFloorRaw(cfg, plan) {
     else              d += ` L ${fx(fixed)},${fx(end)}`;
   }
 
-  // â”€â”€ Detour helpers â€” for each face, walk around the wing's 3 outer edges â”€â”€
+  // ── Detour helpers — for each face, walk around the wing's 3 outer edges ──
 
   // FRONT wing: walking +x along y=0, detour up (negative y) and back
   function detourFront(w) {
@@ -12140,7 +12140,7 @@ function generateMergedFloorRaw(cfg, plan) {
     emit('x', -ext, 0, w.offset, wWestSlotsMain, +matT);
   }
 
-  // â”€â”€ Walk perimeter clockwise: top â†’ right â†’ bottom â†’ left â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Walk perimeter clockwise: top → right → bottom → left ─────────────────
 
   // TOP edge (y=0, walking +x). Detour up into each front wing.
   {
@@ -12166,7 +12166,7 @@ function generateMergedFloorRaw(cfg, plan) {
     emit('y', y, floorH, floorW, eastSlotsFloor, -matT);
   }
 
-  // BOTTOM edge (y=floorH, walking -x). Iterate back wings in REVERSE (rightâ†’left).
+  // BOTTOM edge (y=floorH, walking -x). Iterate back wings in REVERSE (right→left).
   {
     let x = floorW;
     const backWingsRev = [...byFace.back].reverse();
@@ -12178,7 +12178,7 @@ function generateMergedFloorRaw(cfg, plan) {
     emit('x', x, 0, floorH, backSlots, -matT);
   }
 
-  // LEFT edge (x=0, walking -y). Iterate west wings in REVERSE (bottomâ†’top).
+  // LEFT edge (x=0, walking -y). Iterate west wings in REVERSE (bottom→top).
   const westSlotsFloor = westSlots.map(s => ({ start: matT + s.start, end: matT + s.end }));
   {
     let y = floorH;
@@ -12287,7 +12287,7 @@ const MaterialRegistry = {
 
   label(id, cfg = CONFIG) {
     const m = this.get(id, cfg);
-    const t = m && m.thickness != null ? ` â€” ${m.thickness} mm` : '';
+    const t = m && m.thickness != null ? ` — ${m.thickness} mm` : '';
     return ((m && m.name) || id || 'material') + t;
   },
 
@@ -13746,7 +13746,7 @@ function applyLayoutCutsToWallPart(part, cuts, cfg) {
     part.bboxH = b.h;
     part.bboxOffsetX = -b.minX;
     part.bboxOffsetY = -b.minY;
-    if (!/layout cut/.test(part.name || '')) part.name = (part.name || part.id) + ' â€” layout cut';
+    if (!/layout cut/.test(part.name || '')) part.name = (part.name || part.id) + ' — layout cut';
   }
   return true;
 }
@@ -13828,7 +13828,7 @@ function applyLayoutCutsToPart(part, cuts, cfg) {
     part.bboxH = b.h;
     part.bboxOffsetX = -b.minX;
     part.bboxOffsetY = -b.minY;
-    if (!/layout cut/.test(part.name || '')) part.name = (part.name || part.id) + ' â€” layout cut';
+    if (!/layout cut/.test(part.name || '')) part.name = (part.name || part.id) + ' — layout cut';
   }
 }
 
@@ -14095,7 +14095,7 @@ function buildPanelizedWingFloorPart(cfg, plan, wing, index) {
   const faceLabel = wing.face.charAt(0).toUpperCase() + wing.face.slice(1);
   return {
     id: `floor_split_wing_${wing.id || index}`,
-    name: `Floor split piece â€” ${faceLabel} wing (${W.toFixed(1)} Ã— ${H.toFixed(1)}mm, half-width wall slots at join)`,
+    name: `Floor split piece — ${faceLabel} wing (${W.toFixed(1)} × ${H.toFixed(1)}mm, half-width wall slots at join)`,
     material: 'core',
     bboxW: W,
     bboxH: H,
@@ -14139,8 +14139,8 @@ function chooseFloorWingSplits(cfg, plan, wings) {
     const mainPart = generateMergedFloorRaw(mainCfg, plan);
     mainPart.id = 'floor_main_panelized';
     mainPart.name = split.length === 1
-      ? 'Floor split piece â€” main building (with matching half-width wall slots)'
-      : `Floor split piece â€” main building (${split.length} wing joins with matching half-width wall slots)`;
+      ? 'Floor split piece — main building (with matching half-width wall slots)'
+      : `Floor split piece — main building (${split.length} wing joins with matching half-width wall slots)`;
     mainPart._panelizedFloor = true;
 
     const wingParts = split.map((wing, i) => buildPanelizedWingFloorPart(cfg, plan, wing, i + 1));
@@ -14168,11 +14168,11 @@ function generateMergedFloor(cfg, plan) {
   return split.parts;
 }
 
-/* Generate inter-floor core panels. These sit horizontally inside the building 
-   at each interFloorY position. Each panel has tongues on 3 of 4 edges; the 
-   4th edge (the lastWallSide direction) has no tongues â€” it just rests against 
+/* Generate inter-floor core panels. These sit horizontally inside the building
+   at each interFloorY position. Each panel has tongues on 3 of 4 edges; the
+   4th edge (the lastWallSide direction) has no tongues — it just rests against
    the inner face of the wall installed last.
-   
+
    Local frame: x runs LEFT-RIGHT (matches west-east in the building),
                 y runs TOP-BOTTOM (matches front-back).
                 'top' edge of the panel (y=0) corresponds to the FRONT wall.
@@ -14182,7 +14182,7 @@ function generateMergedFloor(cfg, plan) {
 */
 /* ---- Cutout path helpers ---- */
 function holeCirPath(cx, cy, r) {
-  // Full circle as a closed SVG path (two 180Â° arcs)
+  // Full circle as a closed SVG path (two 180° arcs)
   const f = v => v.toFixed(3);
   return `M ${f(cx - r)},${f(cy)} A ${f(r)},${f(r)} 0 1 0 ${f(cx + r)},${f(cy)} A ${f(r)},${f(r)} 0 1 0 ${f(cx - r)},${f(cy)} Z`;
 }
@@ -14274,7 +14274,7 @@ function generateEmbeddedRailParts(cfg, plan) {
     const holes = translatedHolePathsForRect(cfg.floorHoles || [], z.x, z.y, z.w, z.h, cfg);
     parts.push({
       id: `embedded_rail_${i + 1}_riser`,
-      name: `${nameBase} â€” 1.5mm riser layer to bring floor up to sleeper base`,
+      name: `${nameBase} — 1.5mm riser layer to bring floor up to sleeper base`,
       material: 'core', bboxW: z.w, bboxH: z.h, bboxOffsetX: 0, bboxOffsetY: 0,
       paths: [{ type: 'cut', d: rectPath(0, 0, z.w, z.h) }, ...holes],
       rects: [],
@@ -14282,7 +14282,7 @@ function generateEmbeddedRailParts(cfg, plan) {
     });
     parts.push({
       id: `embedded_rail_${i + 1}_sleeper_surround`,
-      name: `${nameBase} â€” sleeper-height surround layer (track + sleeper cutout)`,
+      name: `${nameBase} — sleeper-height surround layer (track + sleeper cutout)`,
       material: 'core', bboxW: z.w, bboxH: z.h, bboxOffsetX: 0, bboxOffsetY: 0,
       paths: [{ type: 'cut', d: rectPath(0, 0, z.w, z.h) }, { type: 'cut', d: embeddedRailSlotPathLocal(z, pr.sleeperWidthMm) }, ...holes],
       rects: [],
@@ -14290,7 +14290,7 @@ function generateEmbeddedRailParts(cfg, plan) {
     });
     parts.push({
       id: `embedded_rail_${i + 1}_rail_surround`,
-      name: `${nameBase} â€” rail-top surround layer (outside-rail cutout)`,
+      name: `${nameBase} — rail-top surround layer (outside-rail cutout)`,
       material: 'core', bboxW: z.w, bboxH: z.h, bboxOffsetX: 0, bboxOffsetY: 0,
       paths: [{ type: 'cut', d: rectPath(0, 0, z.w, z.h) }, { type: 'cut', d: embeddedRailSlotPathLocal(z, pr.outsideRailWidthMm) }, ...holes],
       rects: [],
@@ -14300,7 +14300,7 @@ function generateEmbeddedRailParts(cfg, plan) {
     const isEW = embeddedRailOrientation(z) === 'ew';
     parts.push({
       id: `embedded_rail_${i + 1}_between_rails_insert`,
-      name: `${nameBase} â€” between-rails insert (${insertW.toFixed(1)}mm, flange clearance preserved)`,
+      name: `${nameBase} — between-rails insert (${insertW.toFixed(1)}mm, flange clearance preserved)`,
       material: 'core',
       bboxW: isEW ? z.w : insertW,
       bboxH: isEW ? insertW : z.h,
@@ -14318,7 +14318,7 @@ function generateEmbeddedRailParts(cfg, plan) {
       for (let t = 1; t < 4; t++) treadLines.push({ type:'etch', x1: 0, y1: (stairD * t) / 4, x2: stairW, y2: (stairD * t) / 4 });
       parts.push({
         id: `embedded_rail_${i + 1}_access_stairs_pair`,
-        name: `${nameBase} â€” two access stair/ramp overlays for raised track platform`,
+        name: `${nameBase} — two access stair/ramp overlays for raised track platform`,
         material: 'core', bboxW: stairW, bboxH: stairD * 2 + 2, bboxOffsetX: 0, bboxOffsetY: 0,
         paths: [
           { type:'cut', d: rectPath(0, 0, stairW, stairD) },
@@ -14332,7 +14332,7 @@ function generateEmbeddedRailParts(cfg, plan) {
   return parts;
 }
 
-/* Skylight roof cuts â€” each skylight contributes ONE rectangular hole cut
+/* Skylight roof cuts — each skylight contributes ONE rectangular hole cut
  * through the roof core, sized to its (w, h). Position (x, y) is the centre
  * of the hole in roof-local coords; holeRectPath expects centre-x/centre-y. */
 function skylightHolePaths(skylights) {
@@ -14350,7 +14350,7 @@ function generateInterFloorPanels(cfg, plan) {
   const ifTw = 6;
   const margin = 3;
 
-  // All panels use identical tongue layout â€” no bay-specific forbidden zones.
+  // All panels use identical tongue layout — no bay-specific forbidden zones.
   // The bay opening is capped in buildEdgePlans so it never reaches the panel Y,
   // meaning the panel slots always land in solid wall material.
   const frontTongues = (lastWallSide !== 'front')
@@ -14404,62 +14404,62 @@ function generateInterFloorPanels(cfg, plan) {
   return parts;
 }
 
-/* Generate the ground-floor depth-offset sub-assembly. When the user enables 
-   a ground-floor offset, the first floor either projects forward of the upper 
-   floors (positive amount = extension) or sits behind them (negative = recess 
+/* Generate the ground-floor depth-offset sub-assembly. When the user enables
+   a ground-floor offset, the first floor either projects forward of the upper
+   floors (positive amount = extension) or sits behind them (negative = recess
    under upper-floor overhang).
-   
-   This is modeled as a SEPARATE small sub-assembly that the user glues to the 
-   front of the main building. The main building itself is unmodified (apart from 
-   its bay opening, if any â€” which can pass through the extension/recess to the 
+
+   This is modeled as a SEPARATE small sub-assembly that the user glues to the
+   front of the main building. The main building itself is unmodified (apart from
+   its bay opening, if any — which can pass through the extension/recess to the
    building's interior if desired).
-   
-   Pieces produced (all are simple rectangles with no joinery â€” glue assembly):
-     - 1 front wall (extension) or back wall (recess): full building width Ã— firstFloorHeight
-     - 2 side walls: |offset| Ã— firstFloorHeight
-     - 1 ceiling/roof: full building width Ã— |offset|
+
+   Pieces produced (all are simple rectangles with no joinery — glue assembly):
+     - 1 front wall (extension) or back wall (recess): full building width × firstFloorHeight
+     - 2 side walls: |offset| × firstFloorHeight
+     - 1 ceiling/roof: full building width × |offset|
      - Cladding pieces matching the above (one cT outside each face)
-   
+
    The user assembles these into a small box and glues to the building front. */
 function generateGroundFloorOffsetParts(cfg, plan) {
   if (!cfg.groundFloorOffsetEnabled) return [];
   const offset = plan.groundFloorOffset;
   if (Math.abs(offset) < 0.5) return [];  // no meaningful offset
-  
+
   const W = cfg.width;
   const offsetMag = Math.abs(offset);
   const firstH = plan.firstFloorHeight;
   const matT = cfg.coreThickness;
   const cT = cfg.claddingThickness;
-  
+
   const isExtension = offset > 0;  // true = extends forward; false = recess
   const modeLabel = isExtension ? 'Extension (projects forward)' : 'Recess (under overhang)';
   const namePrefix = isExtension ? 'gfo_extension' : 'gfo_recess';
   const displayPrefix = isExtension ? 'Ground-floor extension' : 'Ground-floor recess';
-  
+
   const parts = [];
-  
+
   // Outer-facing wall of the sub-assembly:
   //   For extension: this is the FRONT wall of the projection (faces -Y in 3D)
-  //   For recess: this is the BACK wall of the recess (the inner wall you see 
+  //   For recess: this is the BACK wall of the recess (the inner wall you see
   //     when looking into the recess from outside, faces +Y in 3D)
   // Width = full building width, height = firstFloorHeight, simple rectangle.
   parts.push({
     id: namePrefix + '_outer_wall',
-    name: displayPrefix + ' â€” outer wall (' + W + ' Ã— ' + firstH + 'mm)',
+    name: displayPrefix + ' — outer wall (' + W + ' × ' + firstH + 'mm)',
     material: 'core',
     bboxW: W, bboxH: firstH,
     bboxOffsetX: 0, bboxOffsetY: 0,
     paths: [{ type: 'cut', d: rectPath(0, 0, W, firstH) }],
     rects: [], lines: [],
   });
-  
+
   // Two side walls of the sub-assembly. Width = |offset|, height = firstFloorHeight.
   // East and west are identical, named separately for clarity in assembly.
   for (const sideName of ['east', 'west']) {
     parts.push({
       id: namePrefix + '_side_' + sideName,
-      name: displayPrefix + ' â€” ' + sideName + ' side wall (' + offsetMag + ' Ã— ' + firstH + 'mm)',
+      name: displayPrefix + ' — ' + sideName + ' side wall (' + offsetMag + ' × ' + firstH + 'mm)',
       material: 'core',
       bboxW: offsetMag, bboxH: firstH,
       bboxOffsetX: 0, bboxOffsetY: 0,
@@ -14467,43 +14467,43 @@ function generateGroundFloorOffsetParts(cfg, plan) {
       rects: [], lines: [],
     });
   }
-  
+
   // Ceiling / roof of the sub-assembly. Sits horizontally at z = firstFloorHeight.
-  // Size: building width Ã— |offset|.
+  // Size: building width × |offset|.
   parts.push({
     id: namePrefix + '_ceiling',
-    name: displayPrefix + ' â€” ' + (isExtension ? 'roof/shelf' : 'overhang ceiling') + ' (' + W + ' Ã— ' + offsetMag + 'mm)',
+    name: displayPrefix + ' — ' + (isExtension ? 'roof/shelf' : 'overhang ceiling') + ' (' + W + ' × ' + offsetMag + 'mm)',
     material: 'core',
     bboxW: W, bboxH: offsetMag,
     bboxOffsetX: 0, bboxOffsetY: 0,
     paths: [{ type: 'cut', d: rectPath(0, 0, W, offsetMag) }],
     rects: [], lines: [],
   });
-  
+
   // ---- Cladding pieces ----
   // For extension: cladding wraps the outside of the box (front, sides, top).
   // For recess: cladding goes on the INSIDE of the box (the surfaces visible from outside).
   // In both cases, cladding sits 1 cT outside the core face.
-  // For the cladding panels we use the same convention as the main building: 
+  // For the cladding panels we use the same convention as the main building:
   // outer face has cladding glued to it, with cT overhang on adjacent corners.
-  
+
   // Cladding for the outer wall: matches the wall + cT overhang on each side
   // (overhanging the side walls' cladding edges, just like main building).
   parts.push({
     id: namePrefix + '_cladding_outer',
-    name: displayPrefix + ' â€” outer wall cladding',
+    name: displayPrefix + ' — outer wall cladding',
     material: 'cladding',
     bboxW: W + 2 * cT, bboxH: firstH + cT,
     bboxOffsetX: 0, bboxOffsetY: 0,
     paths: [{ type: 'cut', d: rectPath(0, 0, W + 2 * cT, firstH + cT) }],
     rects: [], lines: [],
   });
-  
+
   // Side wall cladding: sits between the outer wall's overhangs (so cT shorter on the front-back direction)
   for (const sideName of ['east', 'west']) {
     parts.push({
       id: namePrefix + '_cladding_side_' + sideName,
-      name: displayPrefix + ' â€” ' + sideName + ' side cladding',
+      name: displayPrefix + ' — ' + sideName + ' side cladding',
       material: 'cladding',
       bboxW: offsetMag, bboxH: firstH + cT,
       bboxOffsetX: 0, bboxOffsetY: 0,
@@ -14511,30 +14511,30 @@ function generateGroundFloorOffsetParts(cfg, plan) {
       rects: [], lines: [],
     });
   }
-  
-  // Top cladding (extension only â€” recess ceiling is INSIDE the building so the 
+
+  // Top cladding (extension only — recess ceiling is INSIDE the building so the
   // visible "underside" of the upper-floor overhang gets a thin cladding panel)
   parts.push({
     id: namePrefix + '_cladding_top',
-    name: displayPrefix + ' â€” ceiling cladding',
+    name: displayPrefix + ' — ceiling cladding',
     material: 'cladding',
     bboxW: W + 2 * cT, bboxH: offsetMag,
     bboxOffsetX: 0, bboxOffsetY: 0,
     paths: [{ type: 'cut', d: rectPath(0, 0, W + 2 * cT, offsetMag) }],
     rects: [], lines: [],
   });
-  
+
   return parts;
 }
 
-/* Generate horizontal trim strips. Top and/or bottom bands sit on top of the 
-   cladding (one trim-thickness in front), with optional overhang past the cladding 
+/* Generate horizontal trim strips. Top and/or bottom bands sit on top of the
+   cladding (one trim-thickness in front), with optional overhang past the cladding
    edges so adjacent walls' trim meet cleanly at corners.
-   
-   Returns a single "trim sheet" part with all the strips laid out for cutting, 
+
+   Returns a single "trim sheet" part with all the strips laid out for cutting,
    plus a per-strip annotation in the part name. */
-/* Generate rooftop mechanical room parts. Returns an array of parts (4 walls + 
-   1 roof + cladding pieces). Each wall has tongues on its BOTTOM edge that fit 
+/* Generate rooftop mechanical room parts. Returns an array of parts (4 walls +
+   1 roof + cladding pieces). Each wall has tongues on its BOTTOM edge that fit
    into the slots cut in the main roof piece (created by addRoofMechRoomAndEquipment). */
 function generateRooftopMechRoom(cfg, plan) {
   if (!plan.mechRoom) return [];
@@ -14544,25 +14544,25 @@ function generateRooftopMechRoom(cfg, plan) {
   const tw = cfg.tongueWidth;
   const slotTw = 6;
   const margin = 2;
-  
+
   const parts = [];
-  
+
   // Front and back walls: width = mr.w, height = mr.h
   // East and west walls: width = mr.d, height = mr.h, sit BETWEEN front+back walls
   //   (so their length = mr.d - 2*matT, with tongues on left+right edges going into front+back)
   const fbW = mr.w;
   const sideW = mr.d - 2 * matT;
-  
+
   // Bottom-edge tongues match the slots in the main roof
   const fbBottomTongues = placeTongues(fbW, slotTw, margin, [], 2, slotTw);
   const sideBottomTongues = placeTongues(sideW, slotTw, margin, [], 2, slotTw);
-  
-  // Vertical edges: front/back walls have slots on left+right edges to receive 
+
+  // Vertical edges: front/back walls have slots on left+right edges to receive
   // side-wall tongues. Side walls have tongues on left+right edges.
   const sideVTongueCount = Math.max(1, Math.min(2, Math.floor(mr.h / 12)));
   const verticalForbidden = [[0, 2], [mr.h - 2, mr.h]];
   const sideVTongues = placeTongues(mr.h, tw, 0.1, verticalForbidden, sideVTongueCount, tw / 2);
-  
+
   // Build front wall
   function buildMechWall(label, isSide) {
     const wallW = isSide ? sideW : fbW;
@@ -14579,11 +14579,11 @@ function generateRooftopMechRoom(cfg, plan) {
     };
     return buildWallPath(wallSpec);
   }
-  
+
   // Front
   parts.push({
     id: 'mechroom_front',
-    name: 'Mech room â€” front wall',
+    name: 'Mech room — front wall',
     material: 'core',
     bboxW: fbW + 2 * matT,
     bboxH: mr.h + matT,
@@ -14594,7 +14594,7 @@ function generateRooftopMechRoom(cfg, plan) {
   // Back
   parts.push({
     id: 'mechroom_back',
-    name: 'Mech room â€” back wall',
+    name: 'Mech room — back wall',
     material: 'core',
     bboxW: fbW + 2 * matT,
     bboxH: mr.h + matT,
@@ -14605,7 +14605,7 @@ function generateRooftopMechRoom(cfg, plan) {
   // East
   parts.push({
     id: 'mechroom_east',
-    name: 'Mech room â€” east wall',
+    name: 'Mech room — east wall',
     material: 'core',
     bboxW: sideW + 2 * matT,
     bboxH: mr.h + matT,
@@ -14616,7 +14616,7 @@ function generateRooftopMechRoom(cfg, plan) {
   // West
   parts.push({
     id: 'mechroom_west',
-    name: 'Mech room â€” west wall',
+    name: 'Mech room — west wall',
     material: 'core',
     bboxW: sideW + 2 * matT,
     bboxH: mr.h + matT,
@@ -14624,25 +14624,25 @@ function generateRooftopMechRoom(cfg, plan) {
     paths: [{ type: 'cut', d: buildMechWall('west', true) }],
     rects: [], lines: [],
   });
-  
+
   // Roof: simple rectangle, sized to the mech room footprint INTERIOR
   const mrRoofW = fbW - 2 * matT;
   const mrRoofH = sideW;
   parts.push({
     id: 'mechroom_roof',
-    name: 'Mech room â€” roof',
+    name: 'Mech room — roof',
     material: 'core',
     bboxW: mrRoofW, bboxH: mrRoofH,
     bboxOffsetX: 0, bboxOffsetY: 0,
     paths: [{ type: 'cut', d: rectPath(0, 0, mrRoofW, mrRoofH) }],
     rects: [], lines: [],
   });
-  
+
   // Cladding: 4 walls + 1 roof. Use main building cladding style.
   // Front/back cladding overlaps side cladding (cT extra each side)
   parts.push({
     id: 'mechroom_cladding_front',
-    name: 'Mech room â€” front cladding',
+    name: 'Mech room — front cladding',
     material: 'cladding',
     bboxW: fbW + 2 * cT, bboxH: mr.h + cT,
     bboxOffsetX: 0, bboxOffsetY: 0,
@@ -14651,7 +14651,7 @@ function generateRooftopMechRoom(cfg, plan) {
   });
   parts.push({
     id: 'mechroom_cladding_back',
-    name: 'Mech room â€” back cladding',
+    name: 'Mech room — back cladding',
     material: 'cladding',
     bboxW: fbW + 2 * cT, bboxH: mr.h + cT,
     bboxOffsetX: 0, bboxOffsetY: 0,
@@ -14660,7 +14660,7 @@ function generateRooftopMechRoom(cfg, plan) {
   });
   parts.push({
     id: 'mechroom_cladding_east',
-    name: 'Mech room â€” east cladding',
+    name: 'Mech room — east cladding',
     material: 'cladding',
     bboxW: sideW, bboxH: mr.h + cT,
     bboxOffsetX: 0, bboxOffsetY: 0,
@@ -14669,7 +14669,7 @@ function generateRooftopMechRoom(cfg, plan) {
   });
   parts.push({
     id: 'mechroom_cladding_west',
-    name: 'Mech room â€” west cladding',
+    name: 'Mech room — west cladding',
     material: 'cladding',
     bboxW: sideW, bboxH: mr.h + cT,
     bboxOffsetX: 0, bboxOffsetY: 0,
@@ -14678,14 +14678,14 @@ function generateRooftopMechRoom(cfg, plan) {
   });
   parts.push({
     id: 'mechroom_cladding_roof',
-    name: 'Mech room â€” roof cladding',
+    name: 'Mech room — roof cladding',
     material: 'cladding',
     bboxW: fbW + 2 * cT, bboxH: mr.d + 2 * cT,
     bboxOffsetX: 0, bboxOffsetY: 0,
     paths: [{ type: 'cut', d: rectPath(0, 0, fbW + 2 * cT, mr.d + 2 * cT) }],
     rects: [], lines: [],
   });
-  
+
   return parts;
 }
 
@@ -14703,7 +14703,7 @@ function generateAwningParts(cfg, plan) {
   const matT = cfg.coreThickness || 1.5;
   const parts = [];
 
-  // â”€â”€ Legacy cfg.awnings (sloped top panel + triangular side brackets) â”€â”€
+  // ── Legacy cfg.awnings (sloped top panel + triangular side brackets) ──
   (cfg.awnings || []).forEach((aw, i) => {
     const depth = aw.depth || 15;
     const angle = aw.angle || 20;
@@ -14711,7 +14711,7 @@ function generateAwningParts(cfg, plan) {
     const sideH = depth * Math.tan(angle * Math.PI / 180);
     const id = `awning_${i}`;
     parts.push({
-      id: id + '_top', name: `Awning ${i+1} â€” top panel`,
+      id: id + '_top', name: `Awning ${i+1} — top panel`,
       material: 'cladding',
       bboxW: aw.w, bboxH: slopeLen, bboxOffsetX: 0, bboxOffsetY: 0,
       paths: [{ type: 'cut', d: rectPath(0, 0, aw.w, slopeLen) }],
@@ -14720,7 +14720,7 @@ function generateAwningParts(cfg, plan) {
     const triPath = `M 0,0 L ${slopeLen},0 L ${slopeLen},${sideH} Z`;
     for (const side of ['left', 'right']) {
       parts.push({
-        id: id + '_' + side, name: `Awning ${i+1} â€” ${side} bracket`,
+        id: id + '_' + side, name: `Awning ${i+1} — ${side} bracket`,
         material: 'core',
         bboxW: slopeLen, bboxH: sideH + matT, bboxOffsetX: 0, bboxOffsetY: 0,
         paths: [{ type: 'cut', d: triPath }],
@@ -14729,16 +14729,16 @@ function generateAwningParts(cfg, plan) {
     }
   });
 
-  // â”€â”€ Editor-placed awnings: three layers of 0.28 mm card stock â”€â”€
-  //   Layer 1 â€“ Face  (top, stripe etch visible from outside)
-  //   Layer 2 â€“ Core  (middle, structural)
-  //   Layer 3 â€“ Base  (bottom, mirrored stripe etch + support-glue guides)
+  // ── Editor-placed awnings: three layers of 0.28 mm card stock ──
+  //   Layer 1 – Face  (top, stripe etch visible from outside)
+  //   Layer 2 – Core  (middle, structural)
+  //   Layer 3 – Base  (bottom, mirrored stripe etch + support-glue guides)
   for (const face of ['front', 'back', 'east', 'west']) {
     const awnings = surfaceWallFeaturesForFace(cfg, face, 'awning');
     awnings.forEach((aw, i) => {
       const W = aw.w, D = aw.d;   // width (along wall), depth (projection outward)
       const id = `awning_${face}_${i}`;
-      const lbl = `Awning â€” ${face} wall #${i + 1}`;
+      const lbl = `Awning — ${face} wall #${i + 1}`;
       const stripePitch = 3; // mm between vertical etch stripes
 
       // Vertical etch stripes running along D, spaced every stripePitch across W
@@ -14760,32 +14760,32 @@ function generateAwningParts(cfg, plan) {
           ls.push({ type: 'etch', x1: mx - 1.5, y1: D - 0.5, x2: mx + 1.5, y2: D - 0.5 }); // horiz tick
           ls.push({ type: 'etch', x1: mx, y1: D - 3,   x2: mx, y2: D });                      // vert tick
         }
-        // Fold / attachment score line along the wall-attach edge (y â‰ˆ 0.5)
+        // Fold / attachment score line along the wall-attach edge (y ≈ 0.5)
         ls.push({ type: 'etch', x1: 0, y1: 0.8, x2: W, y2: 0.8 });
         return ls;
       }
 
-      // Layer 1: Face â€” stripe etch on top face, cut border
+      // Layer 1: Face — stripe etch on top face, cut border
       parts.push({
-        id: id + '_face', name: `${lbl} â€” Face (top layer, stripe side out)`,
+        id: id + '_face', name: `${lbl} — Face (top layer, stripe side out)`,
         material: 'cladding',
         bboxW: W, bboxH: D, bboxOffsetX: 0, bboxOffsetY: 0,
         paths: [{ type: 'cut', d: rectPath(0, 0, W, D) }],
         rects: [], lines: stripes(false),
       });
 
-      // Layer 2: Core â€” plain structural layer
+      // Layer 2: Core — plain structural layer
       parts.push({
-        id: id + '_core', name: `${lbl} â€” Core (middle layer)`,
+        id: id + '_core', name: `${lbl} — Core (middle layer)`,
         material: 'cladding',
         bboxW: W, bboxH: D, bboxOffsetX: 0, bboxOffsetY: 0,
         paths: [{ type: 'cut', d: rectPath(0, 0, W, D) }],
         rects: [], lines: [],
       });
 
-      // Layer 3: Base â€” mirrored stripes + support-glue marks (etch side faces inward when assembled)
+      // Layer 3: Base — mirrored stripes + support-glue marks (etch side faces inward when assembled)
       parts.push({
-        id: id + '_base', name: `${lbl} â€” Base (bottom layer, glue-guide side down)`,
+        id: id + '_base', name: `${lbl} — Base (bottom layer, glue-guide side down)`,
         material: 'cladding',
         bboxW: W, bboxH: D, bboxOffsetX: 0, bboxOffsetY: 0,
         paths: [{ type: 'cut', d: rectPath(0, 0, W, D) }],
@@ -14802,7 +14802,7 @@ function generateAwningParts(cfg, plan) {
 
 /* =====================================================================
    BALCONIES  (editor-placed via manualBalconies)
-   Internal: recessed into the building â€” railing face + side divider walls
+   Internal: recessed into the building — railing face + side divider walls
              that have tongue tabs for floor/ceiling slots.
              If the balcony is flush with a building side wall it wraps
              around to form an L-shape; a corner support beam is added.
@@ -14831,7 +14831,7 @@ function generateBalconyParts(cfg, plan) {
       if (W <= 0 || D <= 0 || H <= 0) return;
       const x = Number(b.x) || 0;
       const id   = `balcony_${face}_${i}`;
-      const grp  = `Balcony ${i + 1} â€” ${face} wall (${b.balconyType})`;
+      const grp  = `Balcony ${i + 1} — ${face} wall (${b.balconyType})`;
 
       const touchL = x <= BALCONY_TOUCH_MARGIN;
       const touchR = (x + W) >= (wallW - BALCONY_TOUCH_MARGIN);
@@ -14844,9 +14844,9 @@ function generateBalconyParts(cfg, plan) {
         let seq = 0;
         const s = () => `[${++seq}/${total}] `;
 
-        // 1 â€” Front railing
+        // 1 — Front railing
         parts.push({
-          id: id + '_rail', name: `${grp} â€” ${s()}Front railing`,
+          id: id + '_rail', name: `${grp} — ${s()}Front railing`,
           assemblyNote: 'Glue flush with wall face opening. Etch lines are baluster detail, face outward.',
           material: 'cladding',
           bboxW: W, bboxH: H, bboxOffsetX: 0, bboxOffsetY: 0,
@@ -14854,7 +14854,7 @@ function generateBalconyParts(cfg, plan) {
           rects: [], lines: railingLines(W, H),
         });
 
-        // 2/3 â€” Side divider walls with tongue tabs
+        // 2/3 — Side divider walls with tongue tabs
         function sideDivider(side) {
           const tabX = D / 2 - matT / 2;
           const path = [
@@ -14867,8 +14867,8 @@ function generateBalconyParts(cfg, plan) {
             `L 0,${H} Z`,
           ].join(' ');
           return {
-            id: id + '_' + side, name: `${grp} â€” ${s()}${side.charAt(0).toUpperCase()+side.slice(1)} side wall`,
-            assemblyNote: `Runs perpendicular into the building. Top tab slots into ceiling panel slot, bottom tab into floor panel slot. Cut matching ${matT}Ã—${matT} mm slots in floor/ceiling at this position.`,
+            id: id + '_' + side, name: `${grp} — ${s()}${side.charAt(0).toUpperCase()+side.slice(1)} side wall`,
+            assemblyNote: `Runs perpendicular into the building. Top tab slots into ceiling panel slot, bottom tab into floor panel slot. Cut matching ${matT}×${matT} mm slots in floor/ceiling at this position.`,
             material: 'core',
             bboxW: D, bboxH: H + 2 * matT, bboxOffsetX: 0, bboxOffsetY: matT,
             paths: [{ type: 'cut', d: path }],
@@ -14883,15 +14883,15 @@ function generateBalconyParts(cfg, plan) {
           const side = touchL ? 'left' : 'right';
           const beamSz = matT * 2;
           parts.push({
-            id: id + '_beam', name: `${grp} â€” ${s()}Corner support beam`,
-            assemblyNote: `Vertical post at the outer corner of the L-shape void (${side} end). Two identical pieces cut â€” glue face-to-face to form a ${beamSz}Ã—${beamSz} mm square post.`,
+            id: id + '_beam', name: `${grp} — ${s()}Corner support beam`,
+            assemblyNote: `Vertical post at the outer corner of the L-shape void (${side} end). Two identical pieces cut — glue face-to-face to form a ${beamSz}×${beamSz} mm square post.`,
             material: 'core',
             bboxW: beamSz, bboxH: H, bboxOffsetX: 0, bboxOffsetY: 0,
             paths: [{ type: 'cut', d: rectPath(0, 0, beamSz, H) }],
             rects: [], lines: [],
           });
           parts.push({
-            id: id + '_wrap', name: `${grp} â€” ${s()}Wrap railing (${side} face)`,
+            id: id + '_wrap', name: `${grp} — ${s()}Wrap railing (${side} face)`,
             assemblyNote: `Perpendicular railing on the ${side} side face of the building. Etch lines face outward. Glue inner edge to the corner beam, outer edge flush with the side wall face.`,
             material: 'cladding',
             bboxW: D, bboxH: H, bboxOffsetX: 0, bboxOffsetY: 0,
@@ -14908,7 +14908,7 @@ function generateBalconyParts(cfg, plan) {
         let seq = 0;
         const s = () => `[${++seq}/${total}] `;
 
-        // Floor slab â€” 3 layers
+        // Floor slab — 3 layers
         function slabLines(mirrorX) {
           const ls = [];
           for (let sy = 3; sy < D; sy += 3)
@@ -14927,15 +14927,15 @@ function generateBalconyParts(cfg, plan) {
           return ls;
         }
         for (const [suffix, lnes, lname, note] of [
-          ['face', slabLines(false),  'Floor slab â€” â‘  top layer',
+          ['face', slabLines(false),  'Floor slab — ① top layer',
            'Etch lines face upward (deck surface). Glue onto the core layer.'],
-          ['core', [],                'Floor slab â€” â‘¡ middle layer',
+          ['core', [],                'Floor slab — ② middle layer',
            'Plain structural layer. Sandwiched between face and base. Glue tabs at wall edge slot into the building\'s floor panel.'],
-          ['base', [...slabLines(true), ...slabSupportMarks()], 'Floor slab â€” â‘¢ bottom layer',
-           'Etch lines and support marks face downward (hidden). Glue support-mark positions to â‘  and â‘¡. Wall edge tabs slot into building floor panel.'],
+          ['base', [...slabLines(true), ...slabSupportMarks()], 'Floor slab — ③ bottom layer',
+           'Etch lines and support marks face downward (hidden). Glue support-mark positions to ① and ②. Wall edge tabs slot into building floor panel.'],
         ]) {
           parts.push({
-            id: id + '_slab_' + suffix, name: `${grp} â€” ${s()}${lname}`,
+            id: id + '_slab_' + suffix, name: `${grp} — ${s()}${lname}`,
             assemblyNote: note,
             material: 'cladding',
             bboxW: W, bboxH: D, bboxOffsetX: 0, bboxOffsetY: 0,
@@ -14946,7 +14946,7 @@ function generateBalconyParts(cfg, plan) {
 
         // Railings
         parts.push({
-          id: id + '_rail_front', name: `${grp} â€” ${s()}Front railing`,
+          id: id + '_rail_front', name: `${grp} — ${s()}Front railing`,
           assemblyNote: 'Outer edge of balcony. Etch (balusters) faces outward. Bottom edge sits on floor slab, corner tabs slot into the corner posts.',
           material: 'cladding',
           bboxW: W, bboxH: railH, bboxOffsetX: 0, bboxOffsetY: 0,
@@ -14954,7 +14954,7 @@ function generateBalconyParts(cfg, plan) {
           rects: [], lines: railingLines(W, railH),
         });
         if (!touchL) parts.push({
-          id: id + '_rail_left', name: `${grp} â€” ${s()}Left side railing`,
+          id: id + '_rail_left', name: `${grp} — ${s()}Left side railing`,
           assemblyNote: 'Left side edge. Etch faces left. Slots between left corner post and wall face.',
           material: 'cladding',
           bboxW: D, bboxH: railH, bboxOffsetX: 0, bboxOffsetY: 0,
@@ -14962,7 +14962,7 @@ function generateBalconyParts(cfg, plan) {
           rects: [], lines: railingLines(D, railH),
         });
         if (!touchR) parts.push({
-          id: id + '_rail_right', name: `${grp} â€” ${s()}Right side railing`,
+          id: id + '_rail_right', name: `${grp} — ${s()}Right side railing`,
           assemblyNote: 'Right side edge. Etch faces right. Slots between right corner post and wall face.',
           material: 'cladding',
           bboxW: D, bboxH: railH, bboxOffsetX: 0, bboxOffsetY: 0,
@@ -14971,14 +14971,14 @@ function generateBalconyParts(cfg, plan) {
         });
         const postW = matT * 2;
         if (!touchL) parts.push({
-          id: id + '_post_l', name: `${grp} â€” ${s()}Left corner post`,
-          assemblyNote: `Outer-left vertical post. Two identical pieces â€” glue face-to-face into a ${postW}Ã—${postW} mm square column. Front and side railings butt against it.`,
+          id: id + '_post_l', name: `${grp} — ${s()}Left corner post`,
+          assemblyNote: `Outer-left vertical post. Two identical pieces — glue face-to-face into a ${postW}×${postW} mm square column. Front and side railings butt against it.`,
           material: 'core', bboxW: postW, bboxH: H, bboxOffsetX: 0, bboxOffsetY: 0,
           paths: [{ type: 'cut', d: rectPath(0, 0, postW, H) }], rects: [], lines: [],
         });
         if (!touchR) parts.push({
-          id: id + '_post_r', name: `${grp} â€” ${s()}Right corner post`,
-          assemblyNote: `Outer-right vertical post. Two identical pieces â€” glue face-to-face into a ${postW}Ã—${postW} mm square column. Front and side railings butt against it.`,
+          id: id + '_post_r', name: `${grp} — ${s()}Right corner post`,
+          assemblyNote: `Outer-right vertical post. Two identical pieces — glue face-to-face into a ${postW}×${postW} mm square column. Front and side railings butt against it.`,
           material: 'core', bboxW: postW, bboxH: H, bboxOffsetX: 0, bboxOffsetY: 0,
           paths: [{ type: 'cut', d: rectPath(0, 0, postW, H) }], rects: [], lines: [],
         });
@@ -15002,9 +15002,9 @@ function generateBillboardParts(cfg) {
   const mW   = Math.max(1.4, matT * 1.05);  // structural member width
   const parts = [];
 
-  // â”€â”€ Lattice panel helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Lattice panel helper ────────────────────────────────────────────────────
   // Generates triangular void cut-paths that leave diagonal brace strips as solid
-  // material â€” matching real laser-cut N-scale billboard kits.
+  // material — matching real laser-cut N-scale billboard kits.
   // useXBrace: true = X pattern (4 triangles per bay), false = alternating single diagonal
   function latticePaths(panW, panH, nHRails, nVDivs, useXBrace) {
     const f = v => +v.toFixed(4);
@@ -15041,13 +15041,13 @@ function generateBillboardParts(cfg) {
           cutPaths.push(tri([x1,y1+m],[x1,y2-m],[cx,cy]));        // left void
           cutPaths.push(tri([x2,y1+m],[x2,y2-m],[cx,cy]));        // right void
         } else {
-          // Alternating single diagonal â€” Pratt truss pattern
+          // Alternating single diagonal — Pratt truss pattern
           if (bayN % 2 === 0) {
-            // Brace TLâ†’BR: cut upper-right and lower-left voids
+            // Brace TL→BR: cut upper-right and lower-left voids
             cutPaths.push(tri([x1+m,y1],[x2,y1],[x2,y2-m]));
             cutPaths.push(tri([x1,y1+m],[x1,y2],[x2-m,y2]));
           } else {
-            // Brace TRâ†’BL: cut upper-left and lower-right voids
+            // Brace TR→BL: cut upper-left and lower-right voids
             cutPaths.push(tri([x1,y1],[x2-m,y1],[x1,y2-m]));
             cutPaths.push(tri([x2,y1+m],[x2,y2],[x1+m,y2]));
           }
@@ -15090,11 +15090,11 @@ function generateBillboardParts(cfg) {
       for (let s = 0; s < 4; s++) {
         parts.push({
           id:`${id}_tower_face_${s}`,
-          name:`${pfx} â€” tower face (Ã—4 identical)`,
+          name:`${pfx} — tower face (×4 identical)`,
           material:'core',
           bboxW:tW, bboxH:postH,
           bboxOffsetX:0, bboxOffsetY:0,
-          assemblyNote:`4 identical panels cross-lapped at corners to form square tower. Cut Ã—4.`,
+          assemblyNote:`4 identical panels cross-lapped at corners to form square tower. Cut ×4.`,
           paths:lp, rects:faceRects, lines:ll,
         });
       }
@@ -15102,11 +15102,11 @@ function generateBillboardParts(cfg) {
       for (let s = 0; s < 4; s++) {
         parts.push({
           id:`${id}_sign_face_${s}`,
-          name:`${pfx} â€” sign face (Ã—4 identical)`,
+          name:`${pfx} — sign face (×4 identical)`,
           material:'cladding',
           bboxW:bbW, bboxH:bbH,
           bboxOffsetX:0, bboxOffsetY:0,
-          assemblyNote:`Glue to each face of the assembled tower. Cut Ã—4.`,
+          assemblyNote:`Glue to each face of the assembled tower. Cut ×4.`,
           paths:[{ type:'cut', d:`M0,0 H${bbW} V${bbH} H0 Z` }],
           rects:[], lines:[],
         });
@@ -15116,11 +15116,11 @@ function generateBillboardParts(cfg) {
       // Sign face
       parts.push({
         id:`${id}_face`,
-        name:`${pfx} â€” sign face`,
+        name:`${pfx} — sign face`,
         material:'cladding',
         bboxW:bbW, bboxH:bbH,
         bboxOffsetX:0, bboxOffsetY:0,
-        assemblyNote:'Front sign panel â€” print/paint ad then glue to frame.',
+        assemblyNote:'Front sign panel — print/paint ad then glue to frame.',
         paths:[{ type:'cut', d:`M0,0 H${bbW} V${bbH} H0 Z` }],
         rects:[], lines:[],
       });
@@ -15142,11 +15142,11 @@ function generateBillboardParts(cfg) {
       for (let p = 0; p < 2; p++) {
         parts.push({
           id:`${id}_support_${p}`,
-          name:`${pfx} â€” A-frame support (Ã—2 identical)`,
+          name:`${pfx} — A-frame support (×2 identical)`,
           material:'core',
           bboxW:baseW, bboxH:postH,
           bboxOffsetX:0, bboxOffsetY:0,
-          assemblyNote:`Front and back support frames â€” stand parallel, sign panel glues between. Cut Ã—2.`,
+          assemblyNote:`Front and back support frames — stand parallel, sign panel glues between. Cut ×2.`,
           paths:supportPaths,
           rects:[], lines:al,
         });
@@ -15159,7 +15159,7 @@ function generateBillboardParts(cfg) {
 
 /* Normalize an edge's state into one or more (start, end) segments. The
  * edge state can be `false`/missing (no shield), `true` (full length, no
- * opening â€” legacy form, kept for backward compat), or an object
+ * opening — legacy form, kept for backward compat), or an object
  * `{ start, end, opening }` where start/end define the shield's extent
  * along the edge (0..edgeLen) and opening is null or
  * `{ start, end }` carving a gap. Returns an array of segments. Each
@@ -15170,7 +15170,7 @@ function generateBillboardParts(cfg) {
  * micro-parts into the laser sheet.
  */
 function shieldEdgeSegments(edgeState, edgeLen) {
-  const EPS = 0.5;  // mm â€” anything smaller than this is treated as zero-length
+  const EPS = 0.5;  // mm — anything smaller than this is treated as zero-length
   if (edgeState === false || edgeState == null) return [];
   if (edgeState === true) {
     return [{ start: 0, end: edgeLen, leftAtCorner: true, rightAtCorner: true }];
@@ -15189,7 +15189,7 @@ function shieldEdgeSegments(edgeState, edgeLen) {
     return [{ start: segStart, end: segEnd, leftAtCorner, rightAtCorner }];
   }
   // Split into two segments around the opening. Internal endpoints
-  // (adjacent to the opening) are NEVER at a corner â€” only the two
+  // (adjacent to the opening) are NEVER at a corner — only the two
   // outermost endpoints can be.
   const segs = [];
   if (oStart - segStart > EPS) {
@@ -15209,7 +15209,7 @@ function shieldEdgeSegments(edgeState, edgeLen) {
  * If `cfg.rooftopShield.bounds` is set (user dragged the outline), it's
  * used directly (with clamping to stay on the roof). Otherwise the
  * bounds default to a uniform inset by `cfg.rooftopShield.offset` from
- * all four roof edges â€” preserving the original "always anchored to
+ * all four roof edges — preserving the original "always anchored to
  * the perimeter" behaviour for any preset saved before bounds existed.
  *
  * Returns an object `{ x, y, w, h }` in iw-coords. The four shield
@@ -15246,7 +15246,7 @@ function getShieldBounds(cfg, plan) {
 'use strict';
 
 /* =====================================================================
-   ROOFTOP SHIELD WALL  (Japanese å›²ã„ / kakoui / parapet screen)
+   ROOFTOP SHIELD WALL  (Japanese 囲い / kakoui / parapet screen)
    A low wall around the rooftop perimeter that hides equipment.
    Styles: 'solid' (plain panels), 'louvered' (horizontal slat cuts), 'lattice'.
    Generates 4 wall panels (front/back/east/west) sized to the roof perimeter.
@@ -15263,7 +15263,7 @@ function generateRooftopShieldParts(cfg, plan, parts) {
   const shW = bounds.w;   // F/B wall length
   const shD = bounds.h;   // E/W wall length
 
-  // Always X-braced structural cores + louvered cladding now â€” the old
+  // Always X-braced structural cores + louvered cladding now — the old
   // solid/louvered/lattice styles were removed since the X-brace design
   // is the only one that produces a real structural part with corner
   // joinery and matching roof slots.
@@ -15285,13 +15285,13 @@ function generateBracedShieldParts(cfg, plan, parts, ctx) {
   // a wall of length wLen lays out as (N+1) columns + N bay interiors:
   //   wLen = (N+1)*matT + N*interior
   // We pick N so `interior` lands near this target, keeping the bays
-  // roughly square (~10 mm wide Ã— ~5 mm tall on an 8 mm wall).
+  // roughly square (~10 mm wide × ~5 mm tall on an 8 mm wall).
   const bayTargetInterior = 10;
 
   function computeBays(len) {
-    // Solve N from wLen = (N+1)*matT + N*interior â‰ˆ (N+1)*matT + N*target
-    //   wLen - matT â‰ˆ N * (matT + target)
-    //   N â‰ˆ (wLen - matT) / (matT + target)
+    // Solve N from wLen = (N+1)*matT + N*interior ≈ (N+1)*matT + N*target
+    //   wLen - matT ≈ N * (matT + target)
+    //   N ≈ (wLen - matT) / (matT + target)
     const N = Math.max(1, Math.round((len - matT) / (matT + bayTargetInterior)));
     const interior = (len - (N + 1) * matT) / N;
     // stride = column-left-edge to next column-left-edge (matT + interior).
@@ -15304,7 +15304,7 @@ function generateBracedShieldParts(cfg, plan, parts, ctx) {
   // frame + the two shared columns flanking this bay) and the diagonal
   // cross-brace. Geometry is derived by offsetting each diagonal's
   // centreline by braceT/2 perpendicular to its direction. braceT is
-  // independent of matT â€” the diagonals are usually thinner than the
+  // independent of matT — the diagonals are usually thinner than the
   // outer frame so the X-brace reads as a delicate structural element.
   const braceT = (typeof cfg.rooftopShield.braceThickness === 'number')
                  ? cfg.rooftopShield.braceThickness
@@ -15345,7 +15345,7 @@ function generateBracedShieldParts(cfg, plan, parts, ctx) {
     ];
   }
 
-  // Compute tongue positions along the bottom edge â€” one at each shared
+  // Compute tongue positions along the bottom edge — one at each shared
   // vertical column (N+1 tongues for N bays). Each is matT wide and sits
   // exactly under its column, so the column transmits load straight down
   // into the roof slot.
@@ -15360,11 +15360,11 @@ function generateBracedShieldParts(cfg, plan, parts, ctx) {
 
   // Build the structural core panel for one shield wall segment. The
   // leftAtCorner / rightAtCorner flags say whether each end touches a
-  // building corner â€” only those ends get a corner-joinery tongue (for
+  // building corner — only those ends get a corner-joinery tongue (for
   // F/B walls) or matching opening (for E/W walls). Internal ends
   // (terminating at an opening, or where the wall has been resized
   // shorter than the corner-to-corner distance) terminate cleanly.
-  // Vertical corner-joint position: centred on the wall height â€”
+  // Vertical corner-joint position: centred on the wall height —
   // keeps it clear of the bottom-tab row and the top decorative edge.
   function buildShieldWallPart(id, name, wLen, info, isFB, leftAtCorner, rightAtCorner) {
     const { N, interior, stride } = info;
@@ -15390,7 +15390,7 @@ function generateBracedShieldParts(cfg, plan, parts, ctx) {
     };
     const outline = buildWallPath(spec);
 
-    // X-brace cutouts (one set per bay) â€” generated in panel-local coords
+    // X-brace cutouts (one set per bay) — generated in panel-local coords
     // (x=0 at the wall's left main-panel edge, y=0 at top). Each bay's
     // interior left edge is at i*stride + matT (right after column i),
     // and the interior is `interior` wide. The outline path's tongues
@@ -15417,7 +15417,7 @@ function generateBracedShieldParts(cfg, plan, parts, ctx) {
     };
   }
 
-  // Louvered cladding panel â€” separate 0.28 mm part that glues to the
+  // Louvered cladding panel — separate 0.28 mm part that glues to the
   // outside face of the core. Louver count scales with the wall height
   // (mirroring vent_louvered's algorithm exactly: 0.6 mm target pitch,
   // 0.5 mm top/bottom margin). Width follows the wall length, so wider
@@ -15448,7 +15448,7 @@ function generateBracedShieldParts(cfg, plan, parts, ctx) {
   // are placed in build-frame coords (matching where each shield wall
   // sits on the roof), then translated into the roof part's local frame
   // by subtracting the roof's bbox origin. The roof part is generated
-  // earlier by generateRoof and lives in `parts` â€” we mutate its `rects`
+  // earlier by generateRoof and lives in `parts` — we mutate its `rects`
   // array to add the slot cuts in-place.
   const edges = (cfg.rooftopShield.edges) || { front: true, back: true, east: true, west: true };
   if (parts) {
@@ -15468,11 +15468,11 @@ function generateBracedShieldParts(cfg, plan, parts, ctx) {
       const segLen = s.end - s.start;
       const info = computeBays(segLen);
       const baseId = 'shield_' + side + (segs.length > 1 ? suffix[i] : '');
-      const baseName = 'Shield wall â€” ' + side
+      const baseName = 'Shield wall — ' + side
         + (segs.length > 1 ? ' (' + suffix[i].slice(1) + ' segment)' : '');
       out.push(buildShieldWallPart(baseId, baseName, segLen, info, isFB, s.leftAtCorner, s.rightAtCorner));
       const cladId = 'shield_cladding_' + side + (segs.length > 1 ? suffix[i] : '');
-      const cladName = 'Shield cladding â€” ' + side
+      const cladName = 'Shield cladding — ' + side
         + (segs.length > 1 ? ' (' + suffix[i].slice(1) + ' segment)' : '');
       out.push(makeLouverCladding(cladId, cladName, segLen));
     });
@@ -15485,10 +15485,10 @@ function generateBracedShieldParts(cfg, plan, parts, ctx) {
 }
 
 /* Add slot cuts to the roof core panel for the braced shield wall's
- * bottom tongues. Looks up the roof part by id (parapet/flat â†’ 'roof',
- * slanted â†’ 'roof', gabled â†’ 'roof_slope0'/'roof_slope1'; for slanted
+ * bottom tongues. Looks up the roof part by id (parapet/flat → 'roof',
+ * slanted → 'roof', gabled → 'roof_slope0'/'roof_slope1'; for slanted
  * and gabled the shield wall doesn't really make sense, so we just
- * skip in those cases â€” leaving the tongues unmated, which is fine as
+ * skip in those cases — leaving the tongues unmated, which is fine as
  * they can be trimmed or glued flat).
  *
  * Slot positions in build frame:
@@ -15502,10 +15502,10 @@ function generateBracedShieldParts(cfg, plan, parts, ctx) {
  */
 function addShieldRoofSlots(cfg, plan, parts, edges, ctx) {
   const { height, bounds, matT, cT, shW, shD } = ctx;
-  // Find the roof core â€” parapet/flat have a single 'roof' part with
+  // Find the roof core — parapet/flat have a single 'roof' part with
   // local coords starting at (0,0) at the front-west corner. Slanted
   // and gabled are uncommon use-cases for shield walls and we leave
-  // those alone (no slots cut â€” the tongues can be trimmed off).
+  // those alone (no slots cut — the tongues can be trimmed off).
   const roofPart = parts.find(p => p.id === 'roof');
   if (!roofPart) return;
   if (cfg.roofStyle !== 'parapet' && cfg.roofStyle !== 'flat' && cfg.roofStyle !== 'flat_overhang') return;
@@ -15525,7 +15525,7 @@ function addShieldRoofSlots(cfg, plan, parts, edges, ctx) {
 
   // Wall-local bottom tongue positions for a single segment of length
   // wLen. Mirrors bottomTonguesFor / computeBays from the braced
-  // generator â€” duplicated here for locality, so the slot positions
+  // generator — duplicated here for locality, so the slot positions
   // are obvious from this function alone. KEEP IN SYNC with those.
   function bottomTongues(wLen) {
     const bayTargetInterior = 10;
@@ -15595,7 +15595,7 @@ function generateTrimStrips(cfg, plan, parts) {
   const fbWidth = plan.fbWidth;
   const sideLen = plan.sideLen;
   const H = plan.H;
-  // Floor boundary (wall-Y) â€” used to position the belt course centred on
+  // Floor boundary (wall-Y) — used to position the belt course centred on
   // the join between ground and upper floors.
   const boundaryY = (plan.firstFloorHeight && plan.firstFloorHeight > 0)
     ? (H - plan.firstFloorHeight)
@@ -15611,13 +15611,13 @@ function generateTrimStrips(cfg, plan, parts) {
   if (botBandY)  bandsToEmit.push({ name: 'bottom', yRange: botBandY  });
 
   // Strip widths per wall family.
-  // The side cladding is `sideLen + 2Â·matT` wide (the side wall body PLUS
-  // the front and back wall thicknesses on each end â€” see generateCladdingPanel
+  // The side cladding is `sideLen + 2·matT` wide (the side wall body PLUS
+  // the front and back wall thicknesses on each end — see generateCladdingPanel
   // for side walls, which extends the cladding past the wall body by matT on
   // each side to wrap the corner cleanly). The side trim has to match this so
   // it spans the full visible side face; otherwise the strip cuts come out
-  // short and a 2Â·matT + 2Â·cT strip of bare wall is left exposed at each
-  // corner. (Earlier this used `sideLen âˆ’ 2Â·cT`, which was an outdated
+  // short and a 2·matT + 2·cT strip of bare wall is left exposed at each
+  // corner. (Earlier this used `sideLen − 2·cT`, which was an outdated
   // assumption based on the side cladding being inset by cT rather than
   // extended by matT.)
   const matT = cfg.coreThickness;
@@ -15628,10 +15628,10 @@ function generateTrimStrips(cfg, plan, parts) {
 
   // For F/B strips: trim-X = wall-X + cT + overhang (trim's x=0 is
   //   `overhang` past the cladding wrap, which itself is cT past the wall).
-  // For SIDE strips: side cladding spans wall-X = [âˆ’matT, sideLen + matT],
-  //   matching the trim's [0, sideLen + 2Â·matT].
-  //     West  â†’ trim-X = wall-X + matT     (direct shift)
-  //     East  â†’ trim-X = (sideLen + matT) âˆ’ wall-X     (mirrored, like the
+  // For SIDE strips: side cladding spans wall-X = [−matT, sideLen + matT],
+  //   matching the trim's [0, sideLen + 2·matT].
+  //     West  → trim-X = wall-X + matT     (direct shift)
+  //     East  → trim-X = (sideLen + matT) − wall-X     (mirrored, like the
   //                                                     east cladding panel)
   function notchesForWall(wallKey, yRange) {
     // Gather all opening rects from this wall's cladding panel(s)
@@ -15646,7 +15646,7 @@ function generateTrimStrips(cfg, plan, parts) {
         ops.push(o);
       }
     }
-    // Manual cladding-overrides cut the cladding too â€” treat them as notches.
+    // Manual cladding-overrides cut the cladding too — treat them as notches.
     const ovs = surfaceWallFeaturesForFace(cfg, wallKey, 'cladding_override');
     for (const ov of ovs) {
       if (ov.y + ov.h <= yRange[0]) continue;
@@ -15654,7 +15654,7 @@ function generateTrimStrips(cfg, plan, parts) {
       ops.push({ x: ov.x, y: ov.y, w: ov.w, h: ov.h, kind: 'override' });
     }
     // Filled-blanked windows in manual (no cladding panel may cover their band
-    // if the panel is the wrong band â€” wallOpenings above already catches the
+    // if the panel is the wrong band — wallOpenings above already catches the
     // panel where they appear, so nothing extra needed for them here).
     // Convert each opening's wall-X to trim-strip-X and clamp to strip bounds.
     const isFB = (wallKey === 'front' || wallKey === 'back');
@@ -15668,11 +15668,11 @@ function generateTrimStrips(cfg, plan, parts) {
       } else if (wallKey === 'west') {
         trimX    = o.x + matT;
         trimXEnd = o.x + o.w + matT;
-      } else { // east â€” mirror around (sideLen + matT) to match east cladding
+      } else { // east — mirror around (sideLen + matT) to match east cladding
         trimX    = (sideLen + matT) - (o.x + o.w);
         trimXEnd = (sideLen + matT) - o.x;
       }
-      // Clamp to strip bounds â€” openings beyond strip extent are ignored
+      // Clamp to strip bounds — openings beyond strip extent are ignored
       const x0 = Math.max(0, trimX);
       const x1 = Math.min(stripW, trimXEnd);
       if (x1 > x0) notches.push({ x0, x1 });
@@ -15691,7 +15691,7 @@ function generateTrimStrips(cfg, plan, parts) {
     return merged;
   }
 
-  // For each wall Ã— band, build a list of strip segments (trim rect cuts
+  // For each wall × band, build a list of strip segments (trim rect cuts
   // separated by notches). If a single opening would split the strip in
   // two, that produces two segments.
   function segmentsForStrip(wallKey, bandYRange) {
@@ -15738,7 +15738,7 @@ function generateTrimStrips(cfg, plan, parts) {
   // For each segment, find which cladding panel(s) it touches and add
   // dashed etched lines on those panels showing the segment's footprint.
   // Trim-strip coords -> cladding-frame coords:
-  //   F/B: cladding-X = trim-X âˆ’ overhang     (F/B trim has overhang past
+  //   F/B: cladding-X = trim-X − overhang     (F/B trim has overhang past
   //                                            the F/B cladding's wrap)
   //   Side: cladding-X = trim-X                (side trim and side cladding
   //                                            are exactly the same width and
@@ -15768,17 +15768,17 @@ function generateTrimStrips(cfg, plan, parts) {
         cx0 = seg.x0 - overhang;
         cx1 = seg.x1 - overhang;
       } else {
-        // West and east â€” direct copy. Trim-X already shares the panel's
+        // West and east — direct copy. Trim-X already shares the panel's
         // local-X origin (panel.x=0 is the front edge of the side cladding;
         // trim.x=0 is the same physical point). For east the mirror is
-        // already applied during notch generation (`(sideLen + matT) âˆ’ â€¦`),
+        // already applied during notch generation (`(sideLen + matT) − …`),
         // so the segments produced here are already in the panel's mirrored
         // frame and don't need another mirror.
         cx0 = seg.x0;
         cx1 = seg.x1;
       }
       // Clamp to panel X bounds (segments at the strip ends with overhang
-      // would extend past the cladding edges â€” those parts have nothing to
+      // would extend past the cladding edges — those parts have nothing to
       // glue to, so we just don't etch them).
       const pcx0 = Math.max(0, cx0);
       const pcx1 = Math.min(panel.bboxW, cx1);
@@ -15800,7 +15800,7 @@ function generateTrimStrips(cfg, plan, parts) {
 
   return [{
     id: 'trim_strips',
-    name: `Trim strips â€” ${bandsDesc}: ${sheetSegments.length} pieces${notchNote}`,
+    name: `Trim strips — ${bandsDesc}: ${sheetSegments.length} pieces${notchNote}`,
     material: 'cladding',
     bboxW: sheetW, bboxH: sheetY,
     bboxOffsetX: 0, bboxOffsetY: 0,
@@ -15809,12 +15809,12 @@ function generateTrimStrips(cfg, plan, parts) {
   }];
 }
 
-/* Corner trim â€” four narrow vertical strips that wrap each building corner.
+/* Corner trim — four narrow vertical strips that wrap each building corner.
  *
  * Each strip is 3 mm wide with an etched fold line down the centre at
  * x = 1.5 mm, so the user can score-and-fold along the centre and glue
  * 1.5 mm of cladding-thickness material to each adjacent face. Strips
- * are sized to match each corner's own height â€” for parapet, flat, and
+ * are sized to match each corner's own height — for parapet, flat, and
  * gabled roofs that's `plan.H` on all four corners; for a slanted roof
  * the high-side corners pick up the pitch (+`cfg.roofPitch` mm) and the
  * low-side corners stay at `plan.H`. Wall corners on a gabled roof are
@@ -15822,7 +15822,7 @@ function generateTrimStrips(cfg, plan, parts) {
  * the middle of two walls rather than at a corner.
  *
  * The four strips are laid out horizontally on a single laser sheet
- * (left â†’ right = NE, NW, SE, SW) so the user can identify which strip
+ * (left → right = NE, NW, SE, SW) so the user can identify which strip
  * goes to which corner by position (and by height, for slanted roofs).
  */
 function generateCornerTrim(cfg, plan) {
@@ -15834,27 +15834,27 @@ function generateCornerTrim(cfg, plan) {
 
   function cornerHeight(corner /* 'ne' | 'nw' | 'se' | 'sw' */) {
     if (cfg.roofStyle !== 'slanted') return baseH;
-    // slanted roof â€” exactly two of the four corners are at the high end
+    // slanted roof — exactly two of the four corners are at the high end
     // (slopeDir names the high side). Other roof styles either have all
     // corners equal (parapet, flat, gabled with corners at eave) or the
     // pitch only affects the middle of the wall (gabled peak isn't at
     // a corner), so they all use baseH.
     const isHighCorner =
-      (slopeDir === 'back'  && corner.startsWith('n')) ||   // ne, nw  â†  back-high
-      (slopeDir === 'front' && corner.startsWith('s')) ||   // se, sw  â†  front-high
-      (slopeDir === 'east'  && corner.endsWith('e'))   ||   // ne, se  â†  east-high
-      (slopeDir === 'west'  && corner.endsWith('w'));       // nw, sw  â†  west-high
+      (slopeDir === 'back'  && corner.startsWith('n')) ||   // ne, nw  ←  back-high
+      (slopeDir === 'front' && corner.startsWith('s')) ||   // se, sw  ←  front-high
+      (slopeDir === 'east'  && corner.endsWith('e'))   ||   // ne, se  ←  east-high
+      (slopeDir === 'west'  && corner.endsWith('w'));       // nw, sw  ←  west-high
     return baseH + (isHighCorner ? pitch : 0);
   }
 
   const corners = ['ne', 'nw', 'se', 'sw'];
   const heights = corners.map(cornerHeight);
 
-  // Sheet layout â€” horizontal stack with 5 mm gutters. Strips are 3 mm wide
-  // (1.5 mm + 1.5 mm) so a row of 4 strips is only 4Ã—3 + 5Ã—5 = 37 mm wide
+  // Sheet layout — horizontal stack with 5 mm gutters. Strips are 3 mm wide
+  // (1.5 mm + 1.5 mm) so a row of 4 strips is only 4×3 + 5×5 = 37 mm wide
   // even on a tall building, which fits any reasonable laser sheet.
   const stripW = 3.0;     // 1.5 mm each side of the fold
-  const foldX  = 1.5;     // centre of the strip â€” fold line position
+  const foldX  = 1.5;     // centre of the strip — fold line position
   const gutter = 5;
   const maxH   = Math.max(...heights);
 
@@ -15865,7 +15865,7 @@ function generateCornerTrim(cfg, plan) {
     const h = heights[i];
     // Cut rectangle for the strip
     rects.push({ type: 'cut', x, y: gutter, w: stripW, h, compensateKerf: false });
-    // Etched fold line â€” full height of the strip
+    // Etched fold line — full height of the strip
     lines.push({ type: 'etch', x1: x + foldX, y1: gutter, x2: x + foldX, y2: gutter + h });
     x += stripW + gutter;
   });
@@ -15873,16 +15873,16 @@ function generateCornerTrim(cfg, plan) {
   // Per-corner height summary in the part name so the user can spot at a
   // glance which strip is which (especially handy for slanted roofs where
   // adjacent strips have different heights).
-  const heightsLbl = corners.map((c, i) => `${c.toUpperCase()} ${heights[i].toFixed(1)}`).join(' Â· ');
+  const heightsLbl = corners.map((c, i) => `${c.toUpperCase()} ${heights[i].toFixed(1)}`).join(' · ');
 
   return [{
     id: 'corner_trim',
-    name: `Corner trim â€” 4 strips, 3 mm wide (${heightsLbl} mm)`,
+    name: `Corner trim — 4 strips, 3 mm wide (${heightsLbl} mm)`,
     material: 'cladding',
     bboxW: x, bboxH: maxH + 2 * gutter,
     bboxOffsetX: 0, bboxOffsetY: 0,
     paths: [], rects, lines,
-    assemblyNote: 'Score along the etched centre line of each strip, fold 90Â°, and glue 1.5 mm to each cladding face that meets at the corner. Strips are laid out left â†’ right as NE Â· NW Â· SE Â· SW (back-east, back-west, front-east, front-west).',
+    assemblyNote: 'Score along the etched centre line of each strip, fold 90°, and glue 1.5 mm to each cladding face that meets at the corner. Strips are laid out left → right as NE · NW · SE · SW (back-east, back-west, front-east, front-west).',
   }];
 }
 
@@ -15893,20 +15893,20 @@ function generateCornerTrim(cfg, plan) {
    RIDGE CAP
    =====================================================================
    A single narrow strip with an etched centre fold line, sized to cap
-   the ROOF'S RIDGE â€” the line where the two slope panels meet at the
+   the ROOF'S RIDGE — the line where the two slope panels meet at the
    apex of the roof's cross-section triangle. User folds along the
    etched centre line to match the dihedral angle of the roof (typically
-   ~140Â° from flat for default pitch â€” i.e. open to the angle that
+   ~140° from flat for default pitch — i.e. open to the angle that
    leaves matT on each slope), then glues each half to the respective
    slope along the ridge seam.
 
    Length tracks the panel's `perpLen` (the along-ridge dimension):
-     - parapet_gable: perpLen = building dim âˆ’ 2Â·matT  (panel recessed
+     - parapet_gable: perpLen = building dim − 2·matT  (panel recessed
        inside the gable walls)
-     - plain gabled:  perpLen = building dim + 2Â·ohVerge (panel extends
+     - plain gabled:  perpLen = building dim + 2·ohVerge (panel extends
        past the gable walls by the verge overhang)
-   Width is `2Â·matT` (1.5 mm + 1.5 mm at default thickness) so when
-   folded each half lies matT-deep along its slope â€” matching the
+   Width is `2·matT` (1.5 mm + 1.5 mm at default thickness) so when
+   folded each half lies matT-deep along its slope — matching the
    thickness of the slope panel's exposed edge it's hiding.
 */
 function generateParapetCap(cfg, plan) {
@@ -15924,7 +15924,7 @@ function generateParapetCap(cfg, plan) {
     ridgeLen = ewRidge ? (cfg.width - 2 * matT) : (cfg.depth - 2 * matT);
   } else {
     // Plain gabled: ridge extends with verge overhang. ohVerge depends
-    // on ridge direction â€” overhangFB applies when slopes face F/B
+    // on ridge direction — overhangFB applies when slopes face F/B
     // (ridge ew), overhangEW when slopes face E/W (ridge ns).
     const ohVerge = ewRidge ? (cfg.roofOverhangEW || 0) : (cfg.roofOverhangFB || 0);
     ridgeLen = (ewRidge ? cfg.width : cfg.depth) + 2 * ohVerge;
@@ -15948,14 +15948,14 @@ function generateParapetCap(cfg, plan) {
 
   return [createPart({
     id: 'ridge_cap',
-    name: `Ridge cap â€” ${stripW.toFixed(1)} mm wide Ã— ${ridgeLen.toFixed(1)} mm long`,
+    name: `Ridge cap — ${stripW.toFixed(1)} mm wide × ${ridgeLen.toFixed(1)} mm long`,
     material: 'cladding',
     bboxW: 2 * gutter + stripW,
     bboxH: 2 * gutter + ridgeLen,
     bboxOffsetX: 0, bboxOffsetY: 0,
     paths: [], rects, lines,
     meta: { area: 'roof', role: 'ridge_cap' },
-    assemblyNote: `Score along the etched centre line and fold to match the roof's ridge angle (open to the dihedral of the two slopes â€” ~140Â° from flat for default pitch). Glue ${matT.toFixed(1)} mm of each half to the corresponding roof slope along the ridge seam, hiding the joint between the two panels.`
+    assemblyNote: `Score along the etched centre line and fold to match the roof's ridge angle (open to the dihedral of the two slopes — ~140° from flat for default pitch). Glue ${matT.toFixed(1)} mm of each half to the corresponding roof slope along the ridge seam, hiding the joint between the two panels.`
   })];
 }
 
@@ -15971,25 +15971,25 @@ function generateParapetCap(cfg, plan) {
    produces a cladding strip per eave side to cover it.
 
    Roof-style coverage:
-     â€¢ flat_overhang: roof projects on all 4 sides. The soffit on each
-       side is a horizontal strip â€” width = overhang amount on that
+     • flat_overhang: roof projects on all 4 sides. The soffit on each
+       side is a horizontal strip — width = overhang amount on that
        side, length = wall dimension along that side. Up to 4 pieces.
-     â€¢ gabled: roof projects on the EAVE sides only (FB sides under
+     • gabled: roof projects on the EAVE sides only (FB sides under
        ridge-ew, EW sides under ridge-ns); the verge sides project
        too, but their "soffit" is just the underside of the tilted
-       panel at the gable end â€” different geometry, deferred. The
+       panel at the gable end — different geometry, deferred. The
        eave soffit is a strip in the PANEL plane, so its width is the
-       overhang's SLOPE distance (ohEave / cos Î¸), not the horizontal
+       overhang's SLOPE distance (ohEave / cos θ), not the horizontal
        projection. Length includes any verge extension so the soffit
        runs the full eave length.
-     â€¢ flat / parapet / parapet_gable / slanted: no soffit (roof
+     • flat / parapet / parapet_gable / slanted: no soffit (roof
        doesn't project past walls, or the slanted case isn't handled
        yet).
 
    The cladding pattern is etched on each strip using the same
    generator + line-mapping as the wall cladding so the soffit shows
    the same visible texture (panel seams, board lines, etc.) as the
-   walls â€” the soffit reads as cladding, not as bare board.
+   walls — the soffit reads as cladding, not as bare board.
 */
 function generateSoffitCladding(cfg, plan) {
   if (!cfg.soffitCladding) return [];
@@ -16020,8 +16020,8 @@ function generateSoffitCladding(cfg, plan) {
 
   if (cfg.roofStyle === 'flat_overhang') {
     // Both ohFB and ohEW are independent in flat_overhang. Each side
-    // gets a strip of (wall_dim Ã— overhang_amount). The corners
-    // technically have two soffits overlapping â€” keep both strips at
+    // gets a strip of (wall_dim × overhang_amount). The corners
+    // technically have two soffits overlapping — keep both strips at
     // wall_dim only (no corner extension) so the user can trim the
     // overlap themselves rather than the generator pre-deciding.
     const ohFB = cfg.roofOverhangFB || 0;
@@ -16048,10 +16048,10 @@ function generateSoffitCladding(cfg, plan) {
     const ohEave   = ewRidge ? (cfg.roofOverhangFB || 0) : (cfg.roofOverhangEW || 0);
     const ohVerge  = ewRidge ? (cfg.roofOverhangEW || 0) : (cfg.roofOverhangFB || 0);
 
-    // halfSpan along the slope direction; slopeAngle Î¸ is the panel's
+    // halfSpan along the slope direction; slopeAngle θ is the panel's
     // tilt from horizontal. The eave overhang continues the panel
-    // plane past the eave wall, so its underside is tilted too â€” the
-    // soffit's actual extent along the panel is ohEave / cos Î¸.
+    // plane past the eave wall, so its underside is tilted too — the
+    // soffit's actual extent along the panel is ohEave / cos θ.
     const halfSpan   = (ewRidge ? cfg.depth : cfg.width) / 2;
     const slopeAngle = Math.atan2(pitch, halfSpan);
     const ohEaveS    = ohEave / Math.cos(slopeAngle);
@@ -16060,7 +16060,7 @@ function generateSoffitCladding(cfg, plan) {
     // Eave soffits: 2 pieces (one per eave wall). Length includes
     // verge extensions on each end so the corner regions (where the
     // eave overhang meets the verge overhang) are covered by the
-    // eave strip â€” the verge strip stays clear of those corners to
+    // eave strip — the verge strip stays clear of those corners to
     // avoid overlap.
     if (ohEave > 0) {
       const eaveLen   = (ewRidge ? cfg.width : cfg.depth) + 2 * ohVerge;
@@ -16072,17 +16072,17 @@ function generateSoffitCladding(cfg, plan) {
       }
     }
 
-    // Verge soffits: 4 pieces â€” one per (gable wall Ã— slope panel)
+    // Verge soffits: 4 pieces — one per (gable wall × slope panel)
     // combination, since each gable wall has the verge overhangs of
     // BOTH slope panels (the north and south panels for ridge ew),
     // and those two overhangs meet at the ridge with opposite tilts.
     // Each piece is a rectangle in its panel's plane: slantLen0 long
-    // (ridge to eave wall, NOT including the eave-overhang extension â€”
+    // (ridge to eave wall, NOT including the eave-overhang extension —
     // that part is covered by the eave soffit's corner extension) by
     // ohVerge wide (horizontal projection past the gable wall, which
     // is parallel to the ridge so no slope conversion needed).
     // All four pieces are congruent rectangles, so they dedupe to a
-    // single card Ã— 4 in the parts panel.
+    // single card × 4 in the parts panel.
     if (ohVerge > 0) {
       const vergeFaces = ewRidge ? ['east', 'west'] : ['front', 'back'];
       // Slope labels reflect which slope panel each piece glues to,
@@ -16102,7 +16102,7 @@ function generateSoffitCladding(cfg, plan) {
   if (cfg.roofStyle === 'slanted') {
     // Slanted (mono-pitch / shed) roof: one panel tilting from a HIGH
     // edge to a LOW edge. roofSlopeDirection picks which wall the
-    // LOW edge sits over â€” 'front'/'back' for an N-S slope (slope
+    // LOW edge sits over — 'front'/'back' for an N-S slope (slope
     // direction along depth), 'east'/'west' for an E-W slope (along
     // width).
     //
@@ -16111,7 +16111,7 @@ function generateSoffitCladding(cfg, plan) {
     // depending on slopeDirection one pair becomes the EAVE pair
     // (high+low along the slope) and the other becomes the SIDE pair
     // (perpendicular to the slope). The "side" walls have slanted
-    // tops in 3D â€” overhangs there project horizontally past the
+    // tops in 3D — overhangs there project horizontally past the
     // slanted wall edge.
     //
     // For slanted, BOTH the high and low ends of the slope direction
@@ -16120,7 +16120,7 @@ function generateSoffitCladding(cfg, plan) {
     // the low-side soffit is identical in laser-flat form (same
     // dimensions); the difference is only in 3D orientation, which
     // doesn't matter for the cut piece. The two pieces dedupe to
-    // one card Ã— 2.
+    // one card × 2.
     const slopeDir   = cfg.roofSlopeDirection || 'back';
     const isFBSlope  = (slopeDir === 'front' || slopeDir === 'back');
     const ohEave     = isFBSlope ? (cfg.roofOverhangFB || 0) : (cfg.roofOverhangEW || 0);
@@ -16174,23 +16174,23 @@ function generateSoffitCladding(cfg, plan) {
    exposed core material at the panel edges (the rake, eave, and
    slanted-top edges). Each style of roof gets a different trim shape:
 
-     â€¢ gabled â€” per gable wall, a CHEVRON-shaped polygon that outlines
+     • gabled — per gable wall, a CHEVRON-shaped polygon that outlines
        the V of the gable peak (the "triangle on each gable"). The
        chevron is a constant-width strip running along both rake
        slopes, with the inner edges truncated at the eave line so it
        doesn't extend below the wall body. Plus, per eave, a STRAIGHT
-       strip that runs along the full eave (the "end cap" â€” caps the
+       strip that runs along the full eave (the "end cap" — caps the
        open bottom of the chevron and the panel's exposed eave edge).
-     â€¢ slanted â€” per slanted-top wall, a PARALLELOGRAM polygon that
+     • slanted — per slanted-top wall, a PARALLELOGRAM polygon that
        follows the slanted top edge. The long sides are parallel and
        slanted at the slope angle; the short ends are VERTICAL ("flat
        end"), not perpendicular to the slope. This keeps the trim
        from tapering to a point at the wall corners, so the slant
        reads as a finished cap rather than a tapered cut.
 
-   Trim width is hardcoded at 3 mm regardless of matT â€” the user
+   Trim width is hardcoded at 3 mm regardless of matT — the user
    asked for this dimension specifically. (The parapet cap, by
-   contrast, uses 2Â·matT to fold over the wall thickness; fascia trim
+   contrast, uses 2·matT to fold over the wall thickness; fascia trim
    is a flat overlay, not a folded cap, so its width is independent.)
 */
 function generateRoofFasciaTrim(cfg, plan) {
@@ -16223,7 +16223,7 @@ function generateRoofFasciaTrim(cfg, plan) {
     // One connected V-shaped gable fascia per gable end. The previous fix
     // used two separate rake-strip paths, which avoided self-intersection but
     // left a visible split at the peak. This builds a single non-crossing
-    // polygon around the roof-edge polyline: left eave â†’ ridge â†’ right eave,
+    // polygon around the roof-edge polyline: left eave → ridge → right eave,
     // then back along the underside offset. The underside offset has a
     // deliberate bevel/miter at the ridge so the V remains one piece without
     // producing the old bowtie geometry.
@@ -16285,7 +16285,7 @@ function generateRoofFasciaTrim(cfg, plan) {
     const gableFaces = ewRidge ? ['east', 'west'] : ['front', 'back'];
     for (const face of gableFaces) parts.push(makeConnectedGableFasciaPart(face));
 
-    // Mitered eave-cap strips â€” one per eave, running the full eave
+    // Mitered eave-cap strips — one per eave, running the full eave
     // length including verge overhangs. Both ends are cut on a miter so they
     // visually meet the connected V gable fascia at the lower corners rather
     // than reading as plain straight-ended strips.
@@ -16311,23 +16311,23 @@ function generateRoofFasciaTrim(cfg, plan) {
     const pitch     = cfg.roofPitch || 10;
     const slopeDir  = cfg.roofSlopeDirection || 'back';
     const isFBSlope = (slopeDir === 'front' || slopeDir === 'back');
-    // dimAlong is the building dimension in the slope direction â€”
+    // dimAlong is the building dimension in the slope direction —
     // the wall's slanted top runs across this distance, with one
     // corner at y = pitch (high) and the other at y = 0 (low).
     const dimAlong  = isFBSlope ? cfg.depth : cfg.width;
 
-    // Parallelogram polygon â€” 4 vertices.
-    //   â€¢ Top edge: from (0, pitch + trimW) down to (dimAlong, trimW)
-    //     â€” this is the wall's slanted top edge, shifted up by trimW
+    // Parallelogram polygon — 4 vertices.
+    //   • Top edge: from (0, pitch + trimW) down to (dimAlong, trimW)
+    //     — this is the wall's slanted top edge, shifted up by trimW
     //     in our normalized layout where y >= 0.
-    //   â€¢ Bottom edge: parallel slanted, from (0, pitch) down to
-    //     (dimAlong, 0) â€” offset by trimW vertically downward.
-    //   â€¢ Left/right short ends: VERTICAL (constant x). Length trimW.
+    //   • Bottom edge: parallel slanted, from (0, pitch) down to
+    //     (dimAlong, 0) — offset by trimW vertically downward.
+    //   • Left/right short ends: VERTICAL (constant x). Length trimW.
     //
     // The short ends are vertical (not perpendicular to the slope) so
-    // the trim's ends look "flat" â€” they match the wall's vertical
+    // the trim's ends look "flat" — they match the wall's vertical
     // edges at each corner instead of tapering to a point. The
-    // perpendicular-to-slope thickness is trimW Â· cos Î¸ (slightly
+    // perpendicular-to-slope thickness is trimW · cos θ (slightly
     // less than trimW for shallow slopes), but the vertical height
     // is exactly trimW so the trim reads as a clean horizontal band
     // when viewed from a distance.
@@ -16353,10 +16353,10 @@ function generateRoofFasciaTrim(cfg, plan) {
 }
 
 /* Reverse the cladding-frame x transform back to wall-frame coords.
- *   - front/back: cladding-X = wall-X + cT â†’ wall-X = cladding-X - cT
- *   - west:       cladding-X = wall-X + matT â†’ wall-X = cladding-X - matT
+ *   - front/back: cladding-X = wall-X + cT → wall-X = cladding-X - cT
+ *   - west:       cladding-X = wall-X + matT → wall-X = cladding-X - matT
  *   - east:       cladding-X = sideLen - wall-X - w + matT (mirrored)
- *                 â†’ wall-X = sideLen - (cladding-X - matT) - w
+ *                 → wall-X = sideLen - (cladding-X - matT) - w
  *
  * The trim generator uses this to know where openings ACTUALLY sit on the
  * wall (so notches on the trim strip line up with the door / window cuts
@@ -16371,7 +16371,7 @@ function wallXFromCladdingX(cladX, cladW, which, plan, cfg) {
   if (which === 'west') {
     return cladX - matT;
   }
-  // east â€” mirrored
+  // east — mirrored
   return plan.sideLen - (cladX - matT) - cladW;
 }
 
@@ -16395,7 +16395,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
   // Choose cladding style: ground band uses override style if enabled, otherwise default.
   const styleKey = (band === 'ground') ? getGroundFloorCladdingStyle(cfg) : cfg.claddingStyle;
   const claddingStyleSpec = CLADDING_STYLES[styleKey] || CLADDING_STYLES[cfg.claddingStyle];
-  // Boundary in WALL frame (y=0 at top, y=H at bottom): the line where upper band 
+  // Boundary in WALL frame (y=0 at top, y=H at bottom): the line where upper band
   // meets ground band. = H - firstFloorHeight
   const firstFloorHeight = plan.firstFloorHeight;
   const boundaryWall = H - firstFloorHeight;
@@ -16406,12 +16406,12 @@ function generateCladdingPanel(cfg, plan, which, band) {
   // Different walls have different cladding dimensions:
   //   front/back: full outer width + 2*cT overhang on left+right + cT overhang on top
   //               (the overhang wraps around to cover the side wall outer edges in X)
-  //   sides: full sideLen â€” covers the entire visible side wall body.
+  //   sides: full sideLen — covers the entire visible side wall body.
   //          The front/back cladding overhangs cover the corner in X (perpendicular);
   //          there is NO reason to inset the side cladding in Z.
   if (which === 'front' || which === 'back') {
     // For a slanted NS-axis roof the HIGH-side wall extends UP by the slope
-    // pitch so its top sits at the roof's high edge. The cladding follows â€”
+    // pitch so its top sits at the roof's high edge. The cladding follows —
     // adding the same sPitch of height keeps the visible exterior flush with
     // the wall and the roof angle. The LOW-side wall's cladding stays at H
     // exactly (matches its wall, no extension).
@@ -16425,7 +16425,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
     // Parapet-hidden gable: when this FB wall is a parapeted wall, the
     // wall extends up by (pitch + parapetH). The cladding wraps the
     // full visible face, so its height grows by the same amount. Same
-    // mechanism as the slanted high-side wall above â€” different reason
+    // mechanism as the slanted high-side wall above — different reason
     // (this is a flat extension above the eave, not a slope rise to
     // meet a tilted roof).
     const cladFBParapetUp = wallHasParapet(cfg, which)
@@ -16450,18 +16450,18 @@ function generateCladdingPanel(cfg, plan, which, band) {
   } else {
     // Side cladding spans exactly the building's external depth: matT corner
     // + sideLen wall body + matT corner = mainD. NO overhang past the corners
-    // â€” the front/back cladding's cT overhang on each end is what covers the
+    // — the front/back cladding's cT overhang on each end is what covers the
     // corner seam (it overlaps the outer face of this side cladding at the
     // corner). Wall body's x=0 sits at cladding-frame x = matT, so openings
     // shift by matT on x.
     // For a slanted NS-axis roof the side wall is trapezoidal: tall on the
     // high-eave end, short on the low-eave end. The cladding follows that
-    // trapezoid â€” its panel height grows by sPitch and its TOP edge slants
+    // trapezoid — its panel height grows by sPitch and its TOP edge slants
     // between the two corners so the cladding wraps the wall outline exactly.
     const sideClSlantedNS = cfg.roofStyle === 'slanted'
                           && ((cfg.roofSlopeDirection || 'back') === 'front'
                            || (cfg.roofSlopeDirection || 'back') === 'back');
-    // Same parapet-extension logic as the FB branch above â€” when this
+    // Same parapet-extension logic as the FB branch above — when this
     // side wall is parapeted under parapet_gable, the cladding grows
     // up by (pitch + parapetH) to wrap the extended wall.
     const cladSideParapetUp = wallHasParapet(cfg, which)
@@ -16527,7 +16527,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
     }
   }
 
-  // After translation: this panel's local frame is [0, cWidth] Ã— [0, panelHeight].
+  // After translation: this panel's local frame is [0, cWidth] × [0, panelHeight].
   // From here on, all coordinates are in this panel-local frame.
   const localCWidth = cWidth;
   const localCHeight = panelHeight;
@@ -16537,8 +16537,8 @@ function generateCladdingPanel(cfg, plan, which, band) {
   // SIDE cladding for slanted NS-axis: trapezoidal panel matching the
   // trapezoidal side wall. The top edge slants between the low corner
   // (y=cladTopOverhang in the panel frame) and the high corner (y=0).
-  // slopeDir='back' â†’ high on the north (right of panel, x=cWidth).
-  // slopeDir='front' â†’ high on the south (left of panel, x=0).
+  // slopeDir='back' → high on the north (right of panel, x=cWidth).
+  // slopeDir='front' → high on the south (left of panel, x=0).
   const isSideSlantedClad = (which === 'east' || which === 'west')
                             && cfg.roofStyle === 'slanted'
                             && ((cfg.roofSlopeDirection || 'back') === 'front'
@@ -16546,20 +16546,20 @@ function generateCladdingPanel(cfg, plan, which, band) {
   const clPitch = cfg.roofPitch || 10;
   // Trapezoidal side cladding's slanted top edge corner Y values. Hoisted
   // so the pattern generator can clip engrave lines against this same edge.
-  // slopeDir='back'  â†’ high on the north (right, x=localCWidth, y=0); low on the south.
-  // slopeDir='front' â†’ high on the south (left, x=0, y=0); low on the north.
+  // slopeDir='back'  → high on the north (right, x=localCWidth, y=0); low on the south.
+  // slopeDir='front' → high on the south (left, x=0, y=0); low on the north.
   const _slopeDirLocal = cfg.roofSlopeDirection || 'back';
   const sideClTopLeftY  = isSideSlantedClad ? (_slopeDirLocal === 'front' ? 0 : clPitch) : 0;
   const sideClTopRightY = isSideSlantedClad ? (_slopeDirLocal === 'front' ? clPitch : 0) : 0;
-  // A wall is a "cladding gable end" â€” meaning the cladding panel gets
-  // a triangular apex above the rectangle â€” only when the underlying
+  // A wall is a "cladding gable end" — meaning the cladding panel gets
+  // a triangular apex above the rectangle — only when the underlying
   // wall actually has a triangular peak. Plain `gabled` walls do; the
   // parapet_gable variant's gable-end walls instead carry a FLAT
   // parapet that hides the would-be peak (we already extended cHeight
   // up by pitch + parapetH above), so the cladding stays rectangular.
   // Treating those as gable-end here would double-stack: cHeight grew
   // by pitch+parapetH AND a clPitch triangle would be added on top of
-  // that, giving a sloped-top panel sitting above the parapet â€” both
+  // that, giving a sloped-top panel sitting above the parapet — both
   // wrong visually and structurally.
   const isCladdingGableEnd = isGableEndWall(cfg, which)
                               && panelYStart === 0
@@ -16569,12 +16569,12 @@ function generateCladdingPanel(cfg, plan, which, band) {
     // Apex is above the rectangle by clPitch (in the panel's local coordinate frame).
     // Eaves at the panel top (y=0); apex at y=-clPitch (above panel top).
     const eaveY  = 0;
-    const apexY  = -clPitch;       // negative â€” above the panel top
+    const apexY  = -clPitch;       // negative — above the panel top
     perimPath = `M 0,${eaveY} L ${(localCWidth / 2).toFixed(3)},${apexY.toFixed(3)} L ${localCWidth},${eaveY} L ${localCWidth},${localCHeight} L 0,${localCHeight} Z`;
   } else if (isSideSlantedClad && !splitMode) {
     // Trapezoidal side cladding. We only emit the slanted top in the full-panel
     // (un-split) case so the band-split logic stays a clean rectangle for each
-    // band â€” the apex of the slope is always in the topmost band, which the
+    // band — the apex of the slope is always in the topmost band, which the
     // splitMode renderer handles separately below if ever needed.
     perimPath = `M 0,${sideClTopLeftY} L ${localCWidth.toFixed(3)},${sideClTopRightY} `
               + `L ${localCWidth.toFixed(3)},${localCHeight.toFixed(3)} `
@@ -16748,7 +16748,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
   // Window cutouts (cladding has visible window openings; core has 1mm-bigger holes)
   const cladWindows = [];
   const cladDoors = [];
-  // Surface fixtures (don't cut through â€” get a faint etched footprint outline
+  // Surface fixtures (don't cut through — get a faint etched footprint outline
   // on the cladding so the model-maker knows where to glue each one).
   const cladFixtures = [];
   const cladOverrides = [];
@@ -16769,7 +16769,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
 
     const _fbManualOps = manualStructuralOps(cfg, which);
     if (_fbManualOps) {
-      // Manual mode â€” cladding frame y now matches wall frame y (no top overhang)
+      // Manual mode — cladding frame y now matches wall frame y (no top overhang)
       for (const op of _fbManualOps) {
         if (op.type === 'window') {
           cladWindows.push({ x: op.x + cT, y: op.y, w: op.w, h: op.h, isGround: false, style: op.style });
@@ -16795,7 +16795,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
       });
       for (const w of wallWindows) {
         // Auto-mode windows on the ground floor pick up the first-floor
-        // style override when enabled â€” matches the legacy two-set generator
+        // style override when enabled — matches the legacy two-set generator
         // which fed groundDims (carrying firstFloorWindowStyle) into the
         // ground-floor parts. Without this, ground windows would carry the
         // upper style downstream and the spec-grouping would put them in a
@@ -16826,7 +16826,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
         style: fx.style,
       });
     }
-    // Pull user-placed cladding overrides â€” secondary-cladding patches that
+    // Pull user-placed cladding overrides — secondary-cladding patches that
     // replace the main cladding in a rectangular region. Same x shift as
     // windows/fixtures so the cut bbox lands where the editor showed it.
     //
@@ -16834,7 +16834,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
     // (cT overhang on each side covers the corner where the perpendicular
     // wall's cladding ends), but the wall body itself is just `fbWidth`.
     // A patch placed at wall x=0 with width=fbWidth lands at cladding
-    // x=[cT, cT+fbWidth] â€” leaving a cT-wide strip of base cladding
+    // x=[cT, cT+fbWidth] — leaving a cT-wide strip of base cladding
     // visible at each corner. For FB this is only ~0.3 mm and barely
     // perceptible, but the same logic on side walls (matT=1.5 mm) is
     // clearly visible. We extend the cut out to the cladding panel edge
@@ -16856,7 +16856,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
         layered: !!ov.layered,
         // Per-override style params (e.g. corrugated sheet dimensions);
         // forwarded so generateCladdingOverrideParts can group/render
-        // each variant on its own sheet. Undefined when unset â†’ the
+        // each variant on its own sheet. Undefined when unset → the
         // override generator uses the style's defaults.
         styleParams: ov.styleParams ? { ...ov.styleParams } : undefined,
       });
@@ -16878,7 +16878,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
       ? ((sideLen - rawX - w) + sideXShift)
       : (rawX + sideXShift);
     if (_sideManualOps) {
-      // Manual mode â€” shift openings into the cladding frame
+      // Manual mode — shift openings into the cladding frame
       for (const op of _sideManualOps) {
         if (op.type === 'window') {
           cladWindows.push({ x: _sideMirroredX(op.x, op.w), y: op.y, w: op.w, h: op.h, isGround: false, style: op.style });
@@ -16930,7 +16930,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
     // works the same way as on FB walls (see comment in the FB branch),
     // but the shift here is matT (the side cladding wraps the matT
     // corner extension on each end). Detect flush in CLADDING-FRAME
-    // coords (after mirroring for the east wall) â€” that way the "left
+    // coords (after mirroring for the east wall) — that way the "left
     // end" and "right end" of the cladding panel are unambiguous, and
     // we don't have to reason about which stored x corresponds to which
     // physical end for east-vs-west.
@@ -16952,7 +16952,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
     }
   }
 
-  // â”€â”€â”€ Convert wall-frame y to cladding-frame y â”€â”€â”€
+  // ─── Convert wall-frame y to cladding-frame y ───
   // The push loops above pushed window/door/fixture/override y values in the
   // WALL frame (where y=0 is the wall's TOP edge). The cladding frame's y=0
   // is the cladding panel's TOP edge, which sits cladTopOverhang ABOVE the
@@ -17027,7 +17027,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
     const placement = (winStyle && winStyle.placement) || 'opening';
 
     if (placement === 'etched') {
-      // Blanked window â€” no cut at all. Etch a rectangle outline plus a
+      // Blanked window — no cut at all. Etch a rectangle outline plus a
       // simple sash cross on the cladding to suggest a faux/painted window.
       // Pattern lines still cross the area (no cutOpenings entry).
       const inset = 0.25;
@@ -17038,7 +17038,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
       lines.push({ type: 'etch', x1: x2, y1, x2, y2 });
       lines.push({ type: 'etch', x1: x2, y1: y2, x2: x1, y2 });
       lines.push({ type: 'etch', x1, y1: y2, x2: x1, y2: y1 });
-      // Sash cross (vertical + horizontal midlines) â€” only if window is big
+      // Sash cross (vertical + horizontal midlines) — only if window is big
       // enough to read as panes; small etched windows get a plain outline.
       if (w.w > 4 && w.h > 4) {
         const cx = w.x + w.w / 2, cy = w.y + w.h / 2;
@@ -17046,7 +17046,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
         lines.push({ type: 'etch', x1: x1, y1: cy, x2: x2, y2: cy });
       }
     } else {
-      // Standard opening (default) and blanked filled â€” both cut the hole.
+      // Standard opening (default) and blanked filled — both cut the hole.
       // For 'blanked', the difference is downstream: no glass/frame parts,
       // just a single opaque blanking panel cut on a separate sheet.
       addOpeningCut(w.x, w.y, w.w, w.h);
@@ -17058,19 +17058,19 @@ function generateCladdingPanel(cfg, plan, which, band) {
     cutOpenings.push({ x: d.x, y: d.y, w: d.w, h: extendBottomTouchingOpening(d.y, d.h) });
   }
   // Cladding overrides come in two mount modes:
-  //   â€¢ Flush (`layered === false`, the default): cut a rectangular hole
-  //     through the base cladding. The override piece â€” produced by
-  //     generateCladdingOverrideParts â€” slots into this hole and ends up
+  //   • Flush (`layered === false`, the default): cut a rectangular hole
+  //     through the base cladding. The override piece — produced by
+  //     generateCladdingOverrideParts — slots into this hole and ends up
   //     coplanar with the base cladding (sandwiched between the core and
   //     the surrounding cladding, no thickness step).
-  //   â€¢ Layered (`layered === true`): no hole cut. Instead etch L-bracket
-  //     corner ticks at the four corners of the override's bbox â€” the
-  //     same alignment-mark idiom used for layered fixtures â€” so the user
+  //   • Layered (`layered === true`): no hole cut. Instead etch L-bracket
+  //     corner ticks at the four corners of the override's bbox — the
+  //     same alignment-mark idiom used for layered fixtures — so the user
   //     can position the override piece accurately during assembly. The
   //     override sits ON TOP of the base cladding (raised by one material
   //     thickness in that patch). Either way we add the bbox to
   //     `cutOpenings` so the base cladding's etched pattern is clipped
-  //     out of the override's footprint â€” in layered mode we don't want
+  //     out of the override's footprint — in layered mode we don't want
   //     the base pattern showing through under the override piece, and
   //     in flush mode we don't want pattern lines inside the cut hole.
   function addEdgeTouchingOverrideExclusion(o) {
@@ -17116,16 +17116,16 @@ function generateCladdingPanel(cfg, plan, which, band) {
       cutOpenings.push({ x: o.x, y: o.y, w: o.w, h: o.h });
     }
   }
-  // Fixture markers on cladding â€” three branches by placement:
-  //   â€¢ placement: 'cutout' â†’ cut a hole right through the cladding at the
+  // Fixture markers on cladding — three branches by placement:
+  //   • placement: 'cutout' → cut a hole right through the cladding at the
   //     fixture's bbox (rect cut or circle path). The matching hole through
   //     the core panel is emitted by the wall generator (generateFront/Back/
   //     SideWall). The cladding pattern is clipped around the cut via
   //     cutOpenings, just like a window.
-  //   â€¢ placement: 'etched' â†’ engrave the full feature set (beacon, triangle,
+  //   • placement: 'etched' → engrave the full feature set (beacon, triangle,
   //     hatch outline, etc.) directly onto the cladding panel at the fixture's
   //     position. No separate piece is cut. The cladding etch IS the fixture.
-  //   â€¢ placement: 'layered' (default) â†’ emit corner-tick "L" brackets at the
+  //   • placement: 'layered' (default) → emit corner-tick "L" brackets at the
   //     fixture's bbox to mark where to glue the cut-out piece on top. The
   //     fixture piece itself comes from generateFixtureParts on its own sheet.
   for (const f of cladFixturesBand) {
@@ -17143,7 +17143,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
     }
 
     if (style.placement === 'cutout') {
-      // â”€â”€ Cutout â€” clean hole through the cladding panel â”€â”€
+      // ── Cutout — clean hole through the cladding panel ──
       // shape:'circle' (from the piece) becomes an SVG arc path; rect becomes
       // a plain rect cut. The bbox is added to cutOpenings either way so the
       // cladding pattern is clipped around it.
@@ -17152,7 +17152,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
       if (isCircle) {
         const cx = f.x + f.w / 2, cy = f.y + f.h / 2;
         const rx = f.w / 2,       ry = f.h / 2;
-        // Single-radius arc when wâ‰ˆh, fall back to two-arc ellipse otherwise.
+        // Single-radius arc when w≈h, fall back to two-arc ellipse otherwise.
         // SVG arc-path A command takes both radii so it handles either case.
         const r = (Math.abs(rx - ry) < 0.05) ? rx : null;
         let d;
@@ -17171,11 +17171,11 @@ function generateCladdingPanel(cfg, plan, which, band) {
       }
       // Always clip pattern around the bbox (paths-cutOpenings clipping
       // operates on rects only; circles slightly over-clip the corners,
-      // which is fine â€” the cut hides the over-clipped pattern lines).
+      // which is fine — the cut hides the over-clipped pattern lines).
       cutOpenings.push({ x: f.x, y: f.y, w: f.w, h: f.h });
 
     } else if (style.placement === 'etched') {
-      // â”€â”€ Etched fixture â€” walk pieces and emit features as cladding etches â”€â”€
+      // ── Etched fixture — walk pieces and emit features as cladding etches ──
       // Block the underlying cladding pattern from running THROUGH the
       // fixture's footprint by adding the bbox to cutOpenings. The fixture
       // itself isn't cut; the bbox here only suppresses pattern lines so
@@ -17226,7 +17226,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
         }
       }
     } else {
-      // â”€â”€ Layered fixture â€” emit corner-tick brackets at the bbox â”€â”€
+      // ── Layered fixture — emit corner-tick brackets at the bbox ──
       const tickLen = Math.max(0.6, Math.min(1.5, Math.min(f.w, f.h) * 0.25));
       const x1 = f.x, y1 = f.y, x2 = f.x + f.w, y2 = f.y + f.h;
       lines.push({ type: 'etch', x1: x1, y1: y1, x2: x1 + tickLen, y2: y1 });
@@ -17495,7 +17495,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
     }
   }
 
-  // Etched cladding pattern â€” dispatch by pattern type. All etches are clipped 
+  // Etched cladding pattern — dispatch by pattern type. All etches are clipped
   // to avoid passing through any cut openings (where they'd be lost as scrap).
   // Cladding y now matches wall y exactly (no top overhang), so the pattern
   // starts at y=0. The x-axis cT inset matches the front/back left/right
@@ -17578,9 +17578,9 @@ function generateCladdingPanel(cfg, plan, which, band) {
   // outline above.
 
   // Count windows by placement category on this PANEL.
-  //   â€¢ opening  â†’ standard cut-through, needs glass + frames
-  //   â€¢ blanked  â†’ cut-through but no glass; gets a single blanking panel
-  //   â€¢ etched   â†’ no cut at all, no parts (etched outline on cladding only)
+  //   • opening  → standard cut-through, needs glass + frames
+  //   • blanked  → cut-through but no glass; gets a single blanking panel
+  //   • etched   → no cut at all, no parts (etched outline on cladding only)
   const placementOf = (w) => {
     const s = w.style ? WINDOW_STYLES[w.style] : null;
     return (s && s.placement) || 'opening';
@@ -17597,9 +17597,9 @@ function generateCladdingPanel(cfg, plan, which, band) {
 
   // Per-window dimension records. The building-level glass/frame/backing
   // generator groups these by (w, h, style) and emits one set of parts per
-  // distinct group, so a wall mixing 8Ã—5 default-style windows, 12Ã—9
-  // industrial_small windows, and 12Ã—3 slit windows gets three sets of
-  // correctly-sized glass â€” not one set sized to the global windowStyle.
+  // distinct group, so a wall mixing 8×5 default-style windows, 12×9
+  // industrial_small windows, and 12×3 slit windows gets three sets of
+  // correctly-sized glass — not one set sized to the global windowStyle.
   // The earlier code used only upper/ground counts plus cfg.windowStyle,
   // which produced wrong-sized glass for any manually-placed window whose
   // dimensions didn't match getWindowDims(cfg). Style falls back to
@@ -17646,14 +17646,14 @@ function generateCladdingPanel(cfg, plan, which, band) {
     rects: rects,
     lines: lines,
     // For slanted roofs the trapezoidal wall pair (FB on EW-axis, sides on
-    // NS-axis) has the "non-canonical" wall â€” back for EW, west for NS â€”
+    // NS-axis) has the "non-canonical" wall — back for EW, west for NS —
     // rendered as the horizontal mirror of its sibling. The CLADDING that
     // glues onto that wall has to mirror in lockstep: its panel pattern,
     // opening cuts, trim notches, fixture etches all need to land at the
     // mirrored physical positions to align with the mirrored core. Without
     // this, two walls' cladding panels can hash identical (centered doors
     // and symmetric cladding patterns mirror to themselves), and the
-    // dedup collapses them under a misleading "Cut Ã—2 identical copies"
+    // dedup collapses them under a misleading "Cut ×2 identical copies"
     // hint while the cores sit in their own separate cards.
     mirrorX: cfg.roofStyle === 'slanted' && (
       (which === 'back' && (cfg.roofSlopeDirection === 'east' || cfg.roofSlopeDirection === 'west')) ||
@@ -17694,7 +17694,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
       // Bay opening: a structural hole at the bottom of the front (and, for
       // through-bays, back) wall. Living in the plan rather than per-panel
       // means we add it here explicitly. Only the panel whose Y range
-      // contains the bay's range emits the entry â€” for non-split cladding
+      // contains the bay's range emits the entry — for non-split cladding
       // the whole wall is one panel and the bay always lands; for split
       // cladding the bay sits in the ground panel.
       const wallHasBay = ((which === 'front' && plan.hasFrontBay) ||
@@ -17730,12 +17730,12 @@ function generateCladdingPanel(cfg, plan, which, band) {
    WINDOW PARTS GENERATORS
    ===================================================================== */
 
-/* Returns a list of window parts: glass panes, black backing, frames, and (for 
+/* Returns a list of window parts: glass panes, black backing, frames, and (for
    styles with mullions) a divider frame whose multiple pane apertures leave the
    mullion as retained material. */
 /* Single opaque blanking panel sized to fill the core hole for windows
  * with placement: 'blanked'. Sized = visible opening + 1mm each side
- * (= the core hole) âˆ’ 0.2mm clearance for fit, same as glass. Cut from
+ * (= the core hole) − 0.2mm clearance for fit, same as glass. Cut from
  * cladding material so it reads as solid wall from outside. No glass,
  * no frame layers.
  */
@@ -17753,7 +17753,7 @@ function generateBlankedWindowPanels(cfg, upperCount, groundCount) {
     const w = dims.w + 2 - 0.2;
     const h = dims.h + 2 - 0.2;
     parts.push(layoutPanes('blanking_panel' + suffixId(suffix), count, w, h, 'cladding',
-      'Blanking panel' + suffix + ' (fills core hole behind cladding â€” solid, no glass)'));
+      'Blanking panel' + suffix + ' (fills core hole behind cladding — solid, no glass)'));
   };
   if (!overrideOn || dimsEqual || groundCount === 0) {
     emit(upperDims, total, '');
@@ -17816,7 +17816,7 @@ function winDimsFromSpec(spec) {
  * set, named so the model-maker can tell them apart on the laser sheet.
  *
  * Replaces the old path of "count upper, count ground, emit one or two sets
- * at the globally-configured window size" â€” which produced wrong-sized
+ * at the globally-configured window size" — which produced wrong-sized
  * glass for any custom-sized manual window. Falls back to the
  * legacy upper/ground count path when no specs are available, so any
  * caller still sending counts (legacy presets, edge-case wall types)
@@ -17825,7 +17825,7 @@ function generateWindowPartsFromSpecs(cfg, openingSpecs) {
   if (!openingSpecs || openingSpecs.length === 0) return [];
   const groups = groupWindowSpecsBySize(openingSpecs);
   // Sort groups by descending count so the dominant size gets the simplest
-  // suffix and shows up first in the part list â€” easier to scan.
+  // suffix and shows up first in the part list — easier to scan.
   groups.sort((a, b) => b.count - a.count || (b.w * b.h) - (a.w * a.h));
   // Pick a human-readable suffix. If there's only one group, no suffix at
   // all (matches the legacy single-set layout). For multiple groups,
@@ -17835,7 +17835,7 @@ function generateWindowPartsFromSpecs(cfg, openingSpecs) {
   for (const g of groups) {
     const suffix = (groups.length === 1)
       ? ''
-      : ` (${g.w.toFixed(g.w % 1 === 0 ? 0 : 1)}Ã—${g.h.toFixed(g.h % 1 === 0 ? 0 : 1)}${g.style ? ' ' + g.style : ''})`;
+      : ` (${g.w.toFixed(g.w % 1 === 0 ? 0 : 1)}×${g.h.toFixed(g.h % 1 === 0 ? 0 : 1)}${g.style ? ' ' + g.style : ''})`;
     out.push(...generateWindowPartsForDims(cfg, winDimsFromSpec(g), g.count, suffix));
   }
   return out;
@@ -17852,11 +17852,11 @@ function generateBlankedWindowPanelsFromSpecs(cfg, blankedSpecs) {
   for (const g of groups) {
     const suffix = (groups.length === 1)
       ? ''
-      : ` (${g.w.toFixed(g.w % 1 === 0 ? 0 : 1)}Ã—${g.h.toFixed(g.h % 1 === 0 ? 0 : 1)})`;
+      : ` (${g.w.toFixed(g.w % 1 === 0 ? 0 : 1)}×${g.h.toFixed(g.h % 1 === 0 ? 0 : 1)})`;
     const w = g.w + 2 - 0.2;
     const h = g.h + 2 - 0.2;
     out.push(layoutPanes('blanking_panel' + suffixId(suffix), g.count, w, h, 'cladding',
-      'Blanking panel' + suffix + ' (fills core hole behind cladding â€” solid, no glass)'));
+      'Blanking panel' + suffix + ' (fills core hole behind cladding — solid, no glass)'));
   }
   return out;
 }
@@ -17872,7 +17872,7 @@ function generateWindowParts(cfg, totalWindows, groundFloorWindowCount) {
   //   - "upper" sized for the upper-floor count
   //   - "ground" sized for the ground-floor count
   // Otherwise, one set sized to total.
-  const dimsEqual = upperDims.styleKey === groundDims.styleKey 
+  const dimsEqual = upperDims.styleKey === groundDims.styleKey
                  && upperDims.scaleKey === groundDims.scaleKey;
   if (!overrideOn || dimsEqual || groundFloorWindowCount === 0) {
     // One set covering all windows
@@ -17886,19 +17886,19 @@ function generateWindowParts(cfg, totalWindows, groundFloorWindowCount) {
   return out;
 }
 
-/* Inner helper: produce a complete window stack (glass / black backing / inner / 
-   divider / external frames) for ONE window dim. Names get the suffix appended 
+/* Inner helper: produce a complete window stack (glass / black backing / inner /
+   divider / external frames) for ONE window dim. Names get the suffix appended
    so dual-stack outputs are distinguishable. */
 function generateWindowPartsForDims(cfg, winDims, count, suffix) {
   if (count <= 0) return [];
   const cT = cfg.claddingThickness;
-  // Exact count â€” no spares. Re-cutting a few extras later if needed is
+  // Exact count — no spares. Re-cutting a few extras later if needed is
   // cheaper than wasting laser time and material on unused pieces every build.
   const total = count;
 
   // Look up the style spec (for frameMaterial, frameColor, paneFill, etc.).
   // winDims may be a synthetic dim (e.g. cladding-style override) so styleKey
-  // can be missing â€” fall back to plain cladding/no extras in that case.
+  // can be missing — fall back to plain cladding/no extras in that case.
   const styleSpec = (winDims.styleKey && WINDOW_STYLES[winDims.styleKey]) || null;
   const frameMaterial = (styleSpec && styleSpec.frameMaterial) || 'cladding';
   // Lattice / kumiko etched on the external frame piece (renji, shoji, ranma, yukimi).
@@ -17916,7 +17916,7 @@ function generateWindowPartsForDims(cfg, winDims, count, suffix) {
     'Glass panes' + suffix + ' (slot into core hole, 0.2mm clearance)'));
 
   parts.push(layoutPanes('black_backing' + suffixId(suffix), total, glassW, glassH, 'backing',
-    'Black backing' + suffix + ' (optional layer 1 â€” blackout)'));
+    'Black backing' + suffix + ' (optional layer 1 — blackout)'));
 
   // Inner frame (sits inside the core hole, behind cladding)
   const innerFrameOuterW = glassW;
@@ -17927,11 +17927,11 @@ function generateWindowPartsForDims(cfg, winDims, count, suffix) {
   parts.push(layoutSingleApFrames('frame_inner' + suffixId(suffix), total,
     innerFrameOuterW, innerFrameOuterH, innerApW, innerApH,
     'cladding',
-    'Inner frame' + suffix + ' â€” single aperture (use 1-2 per window for depth)'));
+    'Inner frame' + suffix + ' — single aperture (use 1-2 per window for depth)'));
 
   if (winDims.mullion && winDims.mullion !== 'none') {
     // For Japanese lattice/kumiko styles, the visible "panes" come from
-    // etching on the external frame (handled below) â€” no divider frame piece.
+    // etching on the external frame (handled below) — no divider frame piece.
     // mushiko_slits is the exception: real cut-through slits in a separate
     // plaster-material piece that replaces the divider role.
     const etchedLatticeStyles = new Set(['renji_vertical', 'ranma_lattice', 'shoji_grid', 'yukimi_split']);
@@ -17944,15 +17944,15 @@ function generateWindowPartsForDims(cfg, winDims, count, suffix) {
       parts.push(layoutDividerFrame('frame_divider' + suffixId(suffix), total,
         innerFrameOuterW, innerFrameOuterH, innerApW, innerApH, winDims.mullion,
         dividerMat,
-        dividerLabel + suffix + ' â€” multi-pane (max 1 per window; retained material = mullion / plaster between slits)'));
+        dividerLabel + suffix + ' — multi-pane (max 1 per window; retained material = mullion / plaster between slits)'));
     }
   }
 
   // External frame = visible trim ring glued to the FRONT of the cladding
   // around the window. It's a donut piece:
-  //   â€¢ Inner aperture = exactly the window opening (light passes through
+  //   • Inner aperture = exactly the window opening (light passes through
   //     unobstructed, lines up with the cladding hole below it).
-  //   â€¢ Outer extends WINDOW_TRIM_MARGIN beyond the opening on each side,
+  //   • Outer extends WINDOW_TRIM_MARGIN beyond the opening on each side,
   //     creating a visible trim ring of that width on the cladding surface.
   // Any kumiko / lattice etching is drawn inside the aperture, so it falls
   // exactly within the visible window area.
@@ -17965,7 +17965,7 @@ function generateWindowPartsForDims(cfg, winDims, count, suffix) {
   parts.push(layoutSingleApFrames('frame_external' + suffixId(suffix), total,
     extOuterW, extOuterH, extInnerW, extInnerH,
     frameMaterial,
-    'External frame' + suffix + ' â€” trim ring (1mm wider than opening on each side, glues to cladding around window)',
+    'External frame' + suffix + ' — trim ring (1mm wider than opening on each side, glues to cladding around window)',
     etchShapes));
 
   return parts;
@@ -17980,7 +17980,7 @@ function suffixId(suffix) {
 }
 
 /* Generates door insert pieces. Each door insert is the door visible on the
-   building face â€” panel/glass apertures CUT (not etched in scrap), with panel
+   building face — panel/glass apertures CUT (not etched in scrap), with panel
    ridges and slat detail etched on the retained body of the piece. */
 function generateDoorInserts(cfg, doorTallies) {
   // doorTallies: { styleKey: count }
@@ -17990,14 +17990,14 @@ function generateDoorInserts(cfg, doorTallies) {
   // cladding-hole (it doesn't cut through the wall core; it glues into the
   // hole flush with the cladding face), so trimming during fitting is
   // common: nudge the corners with a hobby knife so the piece settles flat
-  // without binding. The actual fit dimensions are `insetW Ã— insetH`
+  // without binding. The actual fit dimensions are `insetW × insetH`
   // (already 0.2 mm smaller than the cladding hole on each side for slip-
   // fit clearance). Cutting at exactly those dims leaves no material to
   // remove if the laser singes the edge or the user wants to chamfer the
-  // back â€” once you've trimmed, the piece is undersized. So we cut at
-  // `insetW + 2Â·trim Ã— insetH + 2Â·trim` and engrave the true fit outline
+  // back — once you've trimmed, the piece is undersized. So we cut at
+  // `insetW + 2·trim × insetH + 2·trim` and engrave the true fit outline
   // at the inset dimensions so the user knows where to trim back to.
-  // Default is 0.75 mm per side â€” enough to recover from one or two
+  // Default is 0.75 mm per side — enough to recover from one or two
   // knife passes, not so much that the piece is wildly oversized on the
   // sheet. User-adjustable under Laser Settings.
   const trim = Math.max(0, Math.min(5, Number(cfg.surfaceFeatureTrimOffset ?? 0.75)));
@@ -18006,7 +18006,7 @@ function generateDoorInserts(cfg, doorTallies) {
     const door = DOOR_STYLES[styleKey];
     if (!door) continue;
 
-    const total = count;  // exact count â€” no spares
+    const total = count;  // exact count — no spares
     // Insert is 0.2mm smaller than the cladding door hole on each side, for fit
     const insetW = door.width - 0.4;
     const insetH = door.height - 0.4;
@@ -18022,14 +18022,14 @@ function generateDoorInserts(cfg, doorTallies) {
 
     // Push the geometry for one door insert (outer cut + glass apertures +
     // etched features + engraved trim-guide outline) at a tile's local
-    // top-left coords. The OUTER cut starts at (ox, oy) and is cutW Ã— cutH;
+    // top-left coords. The OUTER cut starts at (ox, oy) and is cutW × cutH;
     // the inner door content (engraving outline, glass apertures, etched
-    // features) starts at (ox + trim, oy + trim) and is insetW Ã— insetH.
+    // features) starts at (ox + trim, oy + trim) and is insetW × insetH.
     // Used to build BOTH the tiled sheet AND the single-tile preview so
     // the download keeps the tiled layout while the UI shows one card
-    // with a "Cut Ã—N" badge.
+    // with a "Cut ×N" badge.
     function pushDoorTile(ox, oy, outRects, outLines) {
-      // Outer perimeter â€” oversized by `trim` on every side
+      // Outer perimeter — oversized by `trim` on every side
       outRects.push({ type: 'cut', x: ox, y: oy, w: cutW, h: cutH, compensateKerf: false });
       // Engraved trim-guide outline at the actual fit dimensions. The model-
       // maker trims the outer cut back to this rectangle to seat the piece
@@ -18039,7 +18039,7 @@ function generateDoorInserts(cfg, doorTallies) {
       outLines.push({ type: 'etch', x1: dx + insetW,  y1: dy,           x2: dx + insetW, y2: dy + insetH });
       outLines.push({ type: 'etch', x1: dx + insetW,  y1: dy + insetH,  x2: dx,          y2: dy + insetH });
       outLines.push({ type: 'etch', x1: dx,           y1: dy + insetH,  x2: dx,          y2: dy });
-      // Glass apertures (positioned within the inner door content â€” NOT
+      // Glass apertures (positioned within the inner door content — NOT
       // expanded by the trim margin, since they have to line up with the
       // glass cuts in the wall core; the trim is only for the outer edge).
       const sx = insetW / door.width;
@@ -18103,7 +18103,7 @@ function generateDoorInserts(cfg, doorTallies) {
 
     parts.push({
       id: 'door_insert_' + styleKey,
-      name: `Door insert â€” ${door.label} (${count}Ã—, ${trim.toFixed(2)}mm trim offset)`,
+      name: `Door insert — ${door.label} (${count}×, ${trim.toFixed(2)}mm trim offset)`,
       material: door.frameMaterial || 'cladding',
       assemblyNote: `Surface-fit insert is cut ${trim.toFixed(2)}mm oversized per side and etched with the true fit outline.`,
       bboxW: sheetW, bboxH: sheetH,
@@ -18152,7 +18152,7 @@ function generateDoorInserts(cfg, doorTallies) {
         }
         parts.push({
           id: 'door_glass_' + styleKey,
-          name: `Door glass â€” ${door.label} (slots into core holes, 0.2 mm clearance)`,
+          name: `Door glass — ${door.label} (slots into core holes, 0.2 mm clearance)`,
           material: 'window',
           bboxW: gSheetW, bboxH: gSheetH,
           bboxOffsetX: 0, bboxOffsetY: 0,
@@ -18181,7 +18181,7 @@ function cropDoorStyleForSpec(baseDoor, spec) {
   // Scale the authored feature geometry into the resized door's full local
   // coordinate system FIRST, then apply any layout-cut clipping. The old code
   // clipped unscaled base coordinates directly, so details like the rolling
-  // shutter lock/handle stayed at the original 14Ã—22mm position when the door
+  // shutter lock/handle stayed at the original 14×22mm position when the door
   // was resized, making the SVG handle float too high/left on larger doors.
   const sx = (v) => Number(v || 0) * sxFull;
   const sy = (v) => Number(v || 0) * syFull;
@@ -18404,7 +18404,7 @@ function generateDoorInsertsFromSpecs(cfg, doorSpecs) {
     const idSuffix = suffixId(`${g.style}_${g.w.toFixed(1)}x${g.h.toFixed(1)}_${g.clipLeft.toFixed(1)}of${g.originalW.toFixed(1)}`);
     parts.push({
       id: 'door_insert' + idSuffix,
-      name: `Door insert â€” ${baseDoor.label}${partialLabel} (${total}Ã—, ${trim.toFixed(2)}mm trim offset)`,
+      name: `Door insert — ${baseDoor.label}${partialLabel} (${total}×, ${trim.toFixed(2)}mm trim offset)`,
       material: baseDoor.frameMaterial || 'cladding',
       assemblyNote: `Layout-cut-aware insert. ${g.partial ? `This is a partial door piece beginning ${g.clipLeft.toFixed(1)}mm from the original door's left edge. ` : ''}Surface-fit insert is cut ${trim.toFixed(2)}mm oversized per side and etched with the true fit outline.`,
       bboxW: sheetW, bboxH: sheetH,
@@ -18444,7 +18444,7 @@ function generateDoorInsertsFromSpecs(cfg, doorSpecs) {
         }
         parts.push({
           id: 'door_glass' + idSuffix,
-          name: `Door glass â€” ${baseDoor.label}${partialLabel} (slots into core holes, 0.2 mm clearance)`,
+          name: `Door glass — ${baseDoor.label}${partialLabel} (slots into core holes, 0.2 mm clearance)`,
           material: 'window',
           bboxW: gSheetW, bboxH: gSheetH,
           bboxOffsetX: 0, bboxOffsetY: 0,
@@ -18464,9 +18464,9 @@ function generateDoorInsertsFromSpecs(cfg, doorSpecs) {
    ===================================================================== */
 /* Produce laser-cut sheets for fixtures placed on the building, using a
  * HYBRID grouping strategy:
- *   â€¢ Default-sized instances of a style share ONE sheet per material
- *     (the common case â€” most users keep style defaults).
- *   â€¢ Any instance the user has resized splits off into its OWN sheet
+ *   • Default-sized instances of a style share ONE sheet per material
+ *     (the common case — most users keep style defaults).
+ *   • Any instance the user has resized splits off into its OWN sheet
  *     matching that exact size. Three custom-sized instances of the same
  *     style at the same size still share a sheet; they only split when
  *     their dimensions differ.
@@ -18474,9 +18474,9 @@ function generateDoorInsertsFromSpecs(cfg, doorSpecs) {
  * The grouping happens in `tallyFixtures`, which produces an array of
  * { style, w, h, count, isDefault } groups. This generator iterates that
  * list, scales each piece's natural-coordinate dimensions to the group's
- * w/h, and emits one part per (group Ã— material) combination.
+ * w/h, and emits one part per (group × material) combination.
  *
- * No spares â€” exact count only. Re-cutting later is easy if needed.
+ * No spares — exact count only. Re-cutting later is easy if needed.
  *
  * Piece dimensions scale proportionally: the meter dial, the AC vent
  * strip, the chochin cap all grow with the parent fixture. Etched
@@ -18500,7 +18500,7 @@ function downspoutScupperLocalSpec(totalW, totalH) {
 
   // Physical model dimensions for the roof-line rainwater collector box.
   // Keep these in actual mm and mark the generated pieces absoluteSize so
-  // a full-height downspout (for example 0.8Ã—46mm) does not stretch the box
+  // a full-height downspout (for example 0.8×46mm) does not stretch the box
   // parts vertically into meaningless strips.
   const boxW  = Math.max(3.8, Math.min(7.0, spW * 4.8 + 1.6));
   const boxH  = Math.max(3.6, Math.min(5.2, spH * 0.085 + 1.0));
@@ -18649,8 +18649,8 @@ function generateFixtureParts(cfg, fixtureGroups) {
     if (!style) continue;
     const fixturePieces = effectiveFixturePieces(cfg, null, group.style, group.w, group.h, group.scupper);
     // Etched and cutout placements don't produce separate cut pieces:
-    //   â€¢ etched  â†’ features land on the cladding panel
-    //   â€¢ cutout  â†’ hole cut through both cladding and core, no insert
+    //   • etched  → features land on the cladding panel
+    //   • cutout  → hole cut through both cladding and core, no insert
     if (style.placement === 'etched' || style.placement === 'cutout') continue;
 
     const totalInstances = group.count;  // no spares
@@ -18668,13 +18668,13 @@ function generateFixtureParts(cfg, fixtureGroups) {
     }
 
     for (const [material, pieceList] of Object.entries(piecesByMaterial)) {
-      // Replicate this material's pieces Ã— instance count for layout
+      // Replicate this material's pieces × instance count for layout
       const all = [];
       for (let n = 0; n < totalInstances; n++) {
         for (const piece of pieceList) all.push(piece);
       }
 
-      // Each piece's cut dimensions = its natural width/height Ã— scale.
+      // Each piece's cut dimensions = its natural width/height × scale.
       // Pieces without explicit dimensions take the full fixture footprint.
       const allDims = all.map(piece => ({
         w: ((piece.width  != null) ? piece.width  : style.width)  * (piece.absoluteSize ? 1 : scaleX),
@@ -18691,7 +18691,7 @@ function generateFixtureParts(cfg, fixtureGroups) {
       const rects = [];
       const lines = [];
       const paths = [];
-      // Tile geometry â€” ONE instance's pieces laid out in a single row at
+      // Tile geometry — ONE instance's pieces laid out in a single row at
       // (0,0). The parts panel uses this as a thumbnail so the user sees
       // a single fixture instead of the whole tiled cut sheet.
       const tileRects = [];
@@ -18792,21 +18792,21 @@ function generateFixtureParts(cfg, fixtureGroups) {
       }
 
       const pcCount = pieceList.length;
-      const scupperLabel = group.scupper ? ' Â· scupper box' : '';
-      const matLabel = material === 'cladding' ? '' : ` Â· ${material}`;
+      const scupperLabel = group.scupper ? ' · scupper box' : '';
+      const matLabel = material === 'cladding' ? '' : ` · ${material}`;
       let breakdown;
       if (group.isDefault) {
         breakdown = (pcCount > 1)
-          ? `${pcCount} pieces Ã— ${group.count}`
+          ? `${pcCount} pieces × ${group.count}`
           : `${group.count}`;
       } else {
-        // Custom-sized â€” make this clear in the sheet header so the laser
+        // Custom-sized — make this clear in the sheet header so the laser
         // operator knows it isn't the same size as the default-sized sheet
         // of the same style.
-        const dimsStr = `${group.w.toFixed(1)}Ã—${group.h.toFixed(1)}`;
+        const dimsStr = `${group.w.toFixed(1)}×${group.h.toFixed(1)}`;
         breakdown = (pcCount > 1)
-          ? `${pcCount} pieces Ã— ${group.count} Â· custom ${dimsStr}mm`
-          : `${group.count} Â· custom ${dimsStr}mm`;
+          ? `${pcCount} pieces × ${group.count} · custom ${dimsStr}mm`
+          : `${group.count} · custom ${dimsStr}mm`;
       }
       // Sanitize dims into the id so part records stay unique-keyable
       const dimSuffix = group.isDefault ? '' : `_${group.w.toFixed(1)}x${group.h.toFixed(1)}`.replace(/\./g, '_');
@@ -18816,7 +18816,7 @@ function generateFixtureParts(cfg, fixtureGroups) {
       const tileH = tileMaxH;
       parts.push({
         id: 'fixture_' + group.style + '_' + material + idSuffix,
-        name: `Fixture â€” ${style.label}${scupperLabel} (${breakdown}${matLabel})`,
+        name: `Fixture — ${style.label}${scupperLabel} (${breakdown}${matLabel})`,
         material: material,
         bboxW: sheetW, bboxH: sheetH,
         bboxOffsetX: 0, bboxOffsetY: 0,
@@ -18835,15 +18835,15 @@ function generateFixtureParts(cfg, fixtureGroups) {
 
 /* Cut pass-through holes through the core panel for any cutout-placement
  * fixtures on the given face. Square pass-throughs add rect cuts; round
- * ones add SVG arc paths. The hole is cut at the EXACT fixture size â€” no
+ * ones add SVG arc paths. The hole is cut at the EXACT fixture size — no
  * +1mm tolerance like a window, because pass-throughs don't have a frame
  * insert to slide through; wires go through the bare opening.
  *
  * @param rects     core panel rect array (mutated)
- * @param paths     core panel path array (mutated â€” for circular cuts)
+ * @param paths     core panel path array (mutated — for circular cuts)
  * @param cfg       full config
  * @param face      'front' | 'back' | 'east' | 'west'
- * @param xMirror   optional fn(x, w) â†’ mirroredX for the east-side wall
+ * @param xMirror   optional fn(x, w) → mirroredX for the east-side wall
  */
 
 function fixtureThroughHoleSpec(style, fW, fH) {
@@ -18989,27 +18989,27 @@ function addDownspoutScupperMarksToCladding(lines, cfg, face, xMirror, shiftX = 
  * INTERIOR WALL CLADDING
  *
  * A second cladding panel per wall, glued to the INSIDE face. Independent
- * style â€” the exterior can be ribbed metal while the interior is smooth
- * gypsum/cement â€” but the cutouts are constrained: windows + doors must
+ * style — the exterior can be ribbed metal while the interior is smooth
+ * gypsum/cement — but the cutouts are constrained: windows + doors must
  * be at the same wall_x as the wall core's holes so the openings align in
  * 3D space. The interior panel sits between the perpendicular walls (no
  * corner overhang), so its width is the interior face length of the wall
  * (fbWidth - 2*matT for front/back, sideLen for east/west).
  *
  * Mirror conventions match the wall core's laser layout exactly:
- *   â€¢ Front + back: no mirror; panel_x = wall_x - matT (panel inset by matT
+ *   • Front + back: no mirror; panel_x = wall_x - matT (panel inset by matT
  *                   on the corner side so it doesn't extend into the
  *                   perpendicular wall material).
- *   â€¢ West: no mirror (core stores op.x with x=0 = south, same as panel layout).
- *   â€¢ East: mirrored (core stores op.x with x=0 = NORTH, exterior cladding
- *           also mirrors via _sideMirrorX â€” interior follows the same rule
- *           so all three layers â€” core, exterior, interior â€” line up).
+ *   • West: no mirror (core stores op.x with x=0 = south, same as panel layout).
+ *   • East: mirrored (core stores op.x with x=0 = NORTH, exterior cladding
+ *           also mirrors via _sideMirrorX — interior follows the same rule
+ *           so all three layers — core, exterior, interior — line up).
  *
  * Bays, awnings, balconies, fixtures, and cladding overrides do not apply
- * to the interior â€” those are external building features. The interior
+ * to the interior — those are external building features. The interior
  * panel is a simple rectangle with window+door cutouts and the chosen
  * cladding-pattern etch on the interior style. No parapet extension and no
- * slope rise â€” the interior face stops at the wall's eave height H, even
+ * slope rise — the interior face stops at the wall's eave height H, even
  * on a gabled or parapeted building (where the exterior cladding extends
  * up into the gable peak or parapet band).
  * =========================================================================== */
@@ -19086,7 +19086,7 @@ function splitInteriorCladdingPartByFloors(part, plan, interiorTopWallY, interio
     out.push({
       ...part,
       id: `${part.id}_floor_${floorFromGround}`,
-      name: `${part.name} â€” floor ${floorFromGround} interior piece`,
+      name: `${part.name} — floor ${floorFromGround} interior piece`,
       bboxH: h,
       bboxOffsetX: 0,
       bboxOffsetY: 0,
@@ -19170,7 +19170,7 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
     return wallX - cornerInset;
   }
 
-  // â”€â”€ Collect openings (windows + doors) in WALL FRAME â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Collect openings (windows + doors) in WALL FRAME ──────────────────
   // Manual mode wins when present; otherwise we run the same auto-compute
   // helpers that the wall core + exterior cladding use, so the three layers
   // are guaranteed to produce holes at the same wall_x. This avoids the
@@ -19273,7 +19273,7 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
     });
   }
 
-  // â”€â”€ Apply mirror/inset to opening positions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Apply mirror/inset to opening positions ────────────────────────────
   // Each opening becomes a cut rect on the panel + a cutOpenings entry so
   // the cladding pattern stops at the hole boundary.
   const rects = [];
@@ -19297,7 +19297,7 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
     cutOpenings.push({ x: x0, y: y0, w: cw, h: ch });
   }
 
-  // â”€â”€ Cladding pattern etch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Cladding pattern etch ──────────────────────────────────────────────
   // Same generator the exterior uses, fed the interior style. cutOpenings
   // clip the pattern lines so etches don't run through holes.
   const lines = [];
@@ -19306,19 +19306,19 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
     lines.push({ type: 'etch', x1: ln.x1, y1: ln.y1, x2: ln.x2, y2: ln.y2 });
   }
 
-  // â”€â”€ Column position indicators â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Column position indicators ─────────────────────────────────────────
   // When column supports are enabled and THIS wall is a bearing wall, etch
   // an outline of each column's back-flange footprint so the assembler
   // knows where to glue each column on the room side. The indicators line
-  // up with the floor etchings the column generator already emits â€” same
-  // along-wall positions, same flangeW â€” so the column sits at the
+  // up with the floor etchings the column generator already emits — same
+  // along-wall positions, same flangeW — so the column sits at the
   // intersection of "floor mark" and "wall mark", a self-fixturing guide.
   //
   // The indicator is a hollow rectangle (4 etched edges) rather than a
   // filled region so the cladding pattern still shows through. Width =
   // flangeW (the column's along-wall dimension); height = colH (floor to
   // eave). For roofs with a parapet the parapet band sits above the
-  // indicator â€” the column doesn't extend into the parapet.
+  // indicator — the column doesn't extend into the parapet.
   const t = cfg.trusses;
   if (t && t.enabled && t.supports) {
     // Resolve axis the same way the truss generator does so the indicator
@@ -19364,7 +19364,7 @@ function generateInteriorCladdingPanel(cfg, plan, which) {
     }
   }
 
-  // Resolve the material â€” the cladding style may pin itself to a heavier
+  // Resolve the material — the cladding style may pin itself to a heavier
   // stock (some traditional surfaces use a thicker board than alc_panel
   // and live on the 0.8mm sheet); the exterior cladding picker already
   // honours this and the interior shares the same logic so the parts
@@ -19456,11 +19456,11 @@ function generateInnerParapetCladding(cfg, plan) {
   const material  = (styleSpec && cfg.claddingMaterials && cfg.claddingMaterials[styleKey])
                   || 'cladding';
 
-  // â”€â”€â”€ Flat parapet roof â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Flat parapet roof ─────────────────────────────────────────────
   // Four foldable top-wrap strips, one per wall. Each strip is no longer
   // just the visible INSIDE face of the parapet. It now includes:
-  //   â€¢ a top cap band = matT, which folds over the exposed core top edge;
-  //   â€¢ an inside drop = parapetH, which continues down the inner face to
+  //   • a top cap band = matT, which folds over the exposed core top edge;
+  //   • an inside drop = parapetH, which continues down the inner face to
   //     the recessed roof deck.
   // In flat layout the cap sits above the fold line and the patterned
   // inner face sits below it:
@@ -19520,35 +19520,35 @@ function generateInnerParapetCladding(cfg, plan) {
     return parts;
   }
 
-  // â”€â”€â”€ Parapet-hidden gable â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Parapet-hidden gable ──────────────────────────────────────────
   // Mixed geometry: gable walls hide a triangular peak, eave walls in
   // 'all' mode hide the slope's rise. From INSIDE the building looking
   // up at each wall above the eave height:
   //
-  //   â€¢ Gable wall: the roof slopes cut diagonally across the wall
+  //   • Gable wall: the roof slopes cut diagonally across the wall
   //     from each base corner up to the apex at (gableWidth/2, pitch).
   //     The roof material occupies the area ABOVE these slope lines,
   //     so only the area BELOW (the triangular peak shape) is visible
   //     from inside. We split that triangle along its vertical axis
-  //     of symmetry into two right triangles per wall â€” legs are
-  //     (gableWidth/2) and pitch â€” so each piece naturally covers ONE
-  //     slope side. Four right triangles total (2 per gable Ã— 2 walls).
+  //     of symmetry into two right triangles per wall — legs are
+  //     (gableWidth/2) and pitch — so each piece naturally covers ONE
+  //     slope side. Four right triangles total (2 per gable × 2 walls).
   //
-  //   â€¢ Eave wall (parapeted only in 'all' mode): roof slopes UP and
+  //   • Eave wall (parapeted only in 'all' mode): roof slopes UP and
   //     AWAY from this wall toward the ridge, so it doesn't obstruct
   //     the eave wall's interior face. The full parapet extension is
-  //     visible from inside â€” a rectangle of (eaveWidth) Ã— (pitch +
+  //     visible from inside — a rectangle of (eaveWidth) × (pitch +
   //     parapetH). One rectangle per parapeted eave wall.
   //
   // Total piece count by parapetSides mode:
-  //   all  â†’ 4 triangles + 2 rectangles = 6
-  //   fb   â†’ 4 triangles only           = 4   (FB walls are gable)
-  //   ew   â†’ 4 triangles only           = 4   (EW walls are gable)
+  //   all  → 4 triangles + 2 rectangles = 6
+  //   fb   → 4 triangles only           = 4   (FB walls are gable)
+  //   ew   → 4 triangles only           = 4   (EW walls are gable)
   //
   // Cladding pattern is etched on the rectangles (matching the flat
   // parapet behaviour above) but NOT on the triangles, because clipping
   // line segments to a triangle would need new intersection plumbing
-  // and the pattern adds little inside a 28Ã—10 mm shape anyway. Deferred.
+  // and the pattern adds little inside a 28×10 mm shape anyway. Deferred.
   if (cfg.roofStyle === 'parapet_gable') {
     const pitch    = cfg.roofPitch || 10;
     const parH     = parapetH || 0;
@@ -19556,7 +19556,7 @@ function generateInnerParapetCladding(cfg, plan) {
     const ewRidge  = (ridgeDir === 'ew');
     const parts    = [];
 
-    // Gable-end walls â€” always parapeted under parapet_gable. Each
+    // Gable-end walls — always parapeted under parapet_gable. Each
     // contributes two right triangles, mirror-image halves of the
     // hidden peak.
     const gableFaces  = ewRidge ? ['east', 'west'] : ['front', 'back'];
@@ -19572,7 +19572,7 @@ function generateInnerParapetCladding(cfg, plan) {
       // band, with a V-shaped lower edge following the two roof slopes down
       // to the eave corners. This is cleaner and avoids the four undersized
       // little triangles that were generated for low-pitch / tall-parapet
-      // buildings such as 149Ã—112Ã—40 with pitch 4 and parapet 5.
+      // buildings such as 149×112×40 with pitch 4 and parapet 5.
       const capAbovePeak = Math.max(0, parH - matT);
       const canUseConnectedCrown = capAbovePeak > 0.35 && gableWidth > 1 && pitch > 0.35;
       if (canUseConnectedCrown) {
@@ -19659,7 +19659,7 @@ function generateInnerParapetCladding(cfg, plan) {
       }
     }
 
-    // Eave walls â€” parapeted only in 'all' mode. Full rectangle, height
+    // Eave walls — parapeted only in 'all' mode. Full rectangle, height
     // = pitch + parapetH (the parapet extension above the eave).
     const eaveFaces  = ewRidge ? ['front', 'back'] : ['east', 'west'];
     const eaveWidth  = ewRidge ? (fbWidth - 2 * matT) : sideLen;
@@ -19703,25 +19703,25 @@ function generateInnerParapetCladding(cfg, plan) {
  * with style-specific etching, sized to the visible / closed portion of
  * the bay door. The piece glues to the INSIDE face of the core panel
  * behind the bay opening, sitting one matT recessed from the cladding
- * face â€” this small offset gives the bay visible depth so it reads as a
+ * face — this small offset gives the bay visible depth so it reads as a
  * real recessed door rather than a sticker on the wall.
  *
  * Returns one part per bay face. A through-bay produces two pieces (one
  * for each visible face). Bays with doorStyle === 'none' or 100% open
- * are skipped â€” no panel needed.
+ * are skipped — no panel needed.
  *
  * Percent-open behaviour depends on the door style's `direction`:
- *   â€¢ 'overhead' (roller/sectional/paneled/tilt_up): the door retracts
+ *   • 'overhead' (roller/sectional/paneled/tilt_up): the door retracts
  *     UPWARD into a ceiling track. The visible piece is the LOWER
  *     portion of the original opening (the part still hanging in front
  *     of the bay as the door is partially rolled up). Cut piece height
  *     shrinks; width stays at full opening width.
- *   â€¢ 'side' (slatted): the door slides sideways. Visible piece is the
+ *   • 'side' (slatted): the door slides sideways. Visible piece is the
  *     LEFT portion; cut piece width shrinks, height stays full.
  *
  * The etch features come from each style's `etchFn(w, h)` callback,
  * which returns objects in the same { type: 'line' | 'rect' | 'circle' }
- * shape used by doorFeatureShapes â€” coords local to the panel (0..w,
+ * shape used by doorFeatureShapes — coords local to the panel (0..w,
  * 0..h, y growing downward). */
 function generateBayDoorParts(cfg, plan) {
   const parts = [];
@@ -19735,7 +19735,7 @@ function generateBayDoorParts(cfg, plan) {
 
     const pct = Math.max(0, Math.min(100, Number(bay.doorPercentOpen) || 0));
     const ratioClosed = 1 - pct / 100;
-    if (ratioClosed <= 0.01) continue;  // fully open â†’ no panel needed
+    if (ratioClosed <= 0.01) continue;  // fully open → no panel needed
 
     // Compute the visible piece size. Overhead doors keep full width and
     // shrink in height; side-sliding doors do the opposite.
@@ -19750,15 +19750,15 @@ function generateBayDoorParts(cfg, plan) {
     // then map them into the cut piece's frame.
     //
     // For OVERHEAD doors (roller/paneled/sectional/tilt-up), the door
-    // retracts UPWARD as it opens â€” the top of the door slides into the
+    // retracts UPWARD as it opens — the top of the door slides into the
     // housing and the BOTTOM stays in the opening. So the visible portion
     // of the door fabric is its BOTTOM `panelH` worth; features above
-    // `bay.h âˆ’ panelH` in the full-door frame remain visible, everything
-    // above that is hidden. We shift y by `âˆ’(bay.h âˆ’ panelH)` so the
+    // `bay.h − panelH` in the full-door frame remain visible, everything
+    // above that is hidden. We shift y by `−(bay.h − panelH)` so the
     // door's bottom edge lands at the cut piece's bottom edge, then drop
     // anything outside the panel's local rectangle.
     //
-    // For SIDE-sliding doors (slatted), the door retracts to the right â€”
+    // For SIDE-sliding doors (slatted), the door retracts to the right —
     // the right of the door fabric slides out of the opening and the
     // LEFT `panelW` worth stays visible. The cut piece's local origin
     // already lines up with the door's left edge, so no shift is needed.
@@ -19767,7 +19767,7 @@ function generateBayDoorParts(cfg, plan) {
     // and let the etcher build a SHORTER complete door for the visible
     // size. That treated each partial-open state as its own self-similar
     // mini-door, which put the paneled style's window row (always in the
-    // TOP panel) at the TOP of whatever portion remained visible â€” i.e.
+    // TOP panel) at the TOP of whatever portion remained visible — i.e.
     // showing windows even at 80% open when, physically, the windowed
     // top of the door has long since retracted out of sight.
     const yShift = isSide ? 0 : -(bay.h - panelH);
@@ -19778,7 +19778,7 @@ function generateBayDoorParts(cfg, plan) {
         let x1 = f.x1, x2 = f.x2;
         let y1 = f.y1 + yShift, y2 = f.y2 + yShift;
         // Skip lines entirely outside the visible rect. We don't do
-        // segment-against-rect clipping for partial overlaps â€” etchFn
+        // segment-against-rect clipping for partial overlaps — etchFn
         // outputs are typically axis-aligned or fully inside one of
         // the panels, so a bbox-style drop is correct for them; a few
         // diagonals (tilt_up bracing) might stick into the hidden
@@ -19803,7 +19803,7 @@ function generateBayDoorParts(cfg, plan) {
         }
       } else if (f.type === 'circle') {
         const cx = f.cx, cy = f.cy + yShift, r = f.r;
-        // Circle bbox check â€” if any of the circle would intrude, keep
+        // Circle bbox check — if any of the circle would intrude, keep
         // it whole. Partial-circle clipping isn't worth the geometry
         // here because the only style using circles (none currently;
         // future-proofing) would be small handles or pulls that don't
@@ -19820,7 +19820,7 @@ function generateBayDoorParts(cfg, plan) {
       if (f.type === 'line') {
         lines.push({ type: 'etch', x1: f.x1, y1: f.y1, x2: f.x2, y2: f.y2 });
       } else if (f.type === 'rect') {
-        // Render rect outlines as four etched edges (no fill â€” laser etch
+        // Render rect outlines as four etched edges (no fill — laser etch
         // just scores the outline).
         const x2 = f.x + f.w, y2 = f.y + f.h;
         lines.push({ type: 'etch', x1: f.x, y1: f.y,  x2: x2,  y2: f.y });
@@ -19843,8 +19843,8 @@ function generateBayDoorParts(cfg, plan) {
 
     const align = isSide
       ? `LEFT edge of the opening (door slides right when retracted)`
-      : `BOTTOM edge of the opening (door retracts upward â€” the bottom of the door is what stays in the opening)`;
-    // The "far" edge is the one that moves as the door opens â€” that's
+      : `BOTTOM edge of the opening (door retracts upward — the bottom of the door is what stays in the opening)`;
+    // The "far" edge is the one that moves as the door opens — that's
     // where the wall etches its alignment tick marks. For side doors
     // the door slides right, so the tick marks the panel's RIGHT edge.
     // For overhead doors the door retracts UP, so the tick marks the
@@ -19852,14 +19852,14 @@ function generateBayDoorParts(cfg, plan) {
     const farEdge = isSide ? 'right' : 'top';
     parts.push({
       id: `bay_door_${face}`,
-      name: `Bay door panel â€” ${face} (${style.label}${pct > 0 ? `, ${pct}% open` : ''})`,
+      name: `Bay door panel — ${face} (${style.label}${pct > 0 ? `, ${pct}% open` : ''})`,
       material: 'cladding',
       bboxW: panelW, bboxH: panelH,
       bboxOffsetX: 0, bboxOffsetY: 0,
       paths: [], rects, lines,
       assemblyNote:
         `Glue to the INSIDE face of the ${face} wall core, aligned to the ${align}. ` +
-        `Sits one core-panel thickness behind the cladding face â€” the recess is what gives the bay visible depth. ` +
+        `Sits one core-panel thickness behind the cladding face — the recess is what gives the bay visible depth. ` +
         `The wall has small etched tick marks next to the bay opening showing where the panel's ${farEdge} edge should land.`,
     });
   }
@@ -19867,7 +19867,7 @@ function generateBayDoorParts(cfg, plan) {
 }
 
 /* Produce laser-cut sheets for cladding overrides. One sheet per
- * (claddingStyle Ã— dimensions). Each entry contributes one cut piece sized
+ * (claddingStyle × dimensions). Each entry contributes one cut piece sized
  * to its bbox, with the secondary cladding pattern etched on it. Cut from
  * cladding material (0.28mm basswood, same as the main cladding). */
 function generateCladdingOverrideParts(cfg, overrideGroups) {
@@ -19885,7 +19885,7 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
 
     const pw = group.w, ph = group.h;
     const gutter = 3;
-    // For larger override pieces, fewer per row; aim to keep sheet â‰¤ 250mm wide.
+    // For larger override pieces, fewer per row; aim to keep sheet ≤ 250mm wide.
     const cols = Math.max(1, Math.floor((250 - gutter) / (pw + gutter)));
     const rows = Math.ceil(group.count / cols);
     const sheetW = Math.min(250, cols * (pw + gutter) + gutter);
@@ -19921,7 +19921,7 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
       // Etch the secondary cladding pattern. generateCladdingPattern returns
       // line segments in local (0..pw, 0..ph) coords for the given style.
       // Pass the piece's cutouts as cutOpenings so the etched pattern is
-      // clipped around them â€” without this, the pattern lines would run
+      // clipped around them — without this, the pattern lines would run
       // through the window/door cutouts and waste laser time on lines
       // that are about to be cut away anyway.
       const patLines = generateCladdingPattern(style, 0, 0, pw, ph, cutouts);
@@ -19935,10 +19935,10 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
       for (const m of fixtureMarks) emitFixtureMarkerEtchesOnOverride(lines, m, ox, oy);
     }
 
-    const dimsTag = `${pw.toFixed(1)}Ã—${ph.toFixed(1)}mm`;
+    const dimsTag = `${pw.toFixed(1)}×${ph.toFixed(1)}mm`;
     const idSuffix = `_${pw.toFixed(1)}x${ph.toFixed(1)}`.replace(/\./g, '_');
     // Single-tile preview: one override piece with its etched cladding
-    // pattern. Same geometry as one of the tiled cells above â€” including
+    // pattern. Same geometry as one of the tiled cells above — including
     // the cutouts so the preview matches what gets laser-cut.
     const tileRects = [{ type: 'cut', x: 0, y: 0, w: pw, h: ph, compensateKerf: false }];
     for (const co of cutouts) {
@@ -19955,7 +19955,7 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
     for (const m of fixtureMarks) emitFixtureMarkerEtchesOnOverride(tileLines, m, 0, 0);
     parts.push({
       id: 'cladding_override_' + group.claddingStyle + idSuffix,
-      name: `Cladding override â€” ${style.label} (${group.count}Ã— Â· ${dimsTag})`,
+      name: `Cladding override — ${style.label} (${group.count}× · ${dimsTag})`,
       material: 'cladding',
       bboxW: sheetW, bboxH: sheetH,
       bboxOffsetX: 0, bboxOffsetY: 0,
@@ -19980,9 +19980,9 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
    Each skylight produces FOUR physical layers / operations:
      1. A rectangular hole cut through the roof core/cladding at the exact
         user-selected skylight opening size (handled at the roof panel level
-        via skylightHolePaths â€” not part of this function).
+        via skylightHolePaths — not part of this function).
      2. A clear plexi pane that overlaps the roof hole by 1.5 mm on every
-        side: (hole + 3) Ã— (hole + 3). This gives a glue lip and prevents the
+        side: (hole + 3) × (hole + 3). This gives a glue lip and prevents the
         pane from falling through the roof opening.
      3. A 1.5 mm core-material curb/surround frame that fits AROUND the plexi:
         inner opening = plexi size, outer size = plexi + 1.5 mm on every side.
@@ -19992,10 +19992,10 @@ function generateCladdingOverrideParts(cfg, overrideGroups) {
         That leaves a 1.5 mm donut/rim on all sides, trapping the plexi below.
    ===================================================================== */
 
-const SKYLIGHT_FRAME_MARGIN = 1.5;  // mm â€” overlap / rim / curb width on each side
+const SKYLIGHT_FRAME_MARGIN = 1.5;  // mm — overlap / rim / curb width on each side
 
 /* Bucket skylights by (w, h) so identical sizes share laser sheets. Returns
- * groups of { w, h, count } â€” same hybrid pattern as fixtures and shutters. */
+ * groups of { w, h, count } — same hybrid pattern as fixtures and shutters. */
 function tallySkylights(cfg) {
   const groups = new Map();
   for (const sky of (cfg.skylights || [])) {
@@ -20011,9 +20011,9 @@ function tallySkylights(cfg) {
 }
 
 /* Generate cut sheets for each skylight bucket. Per skylight we emit:
- *   - 1 Ã— core curb/surround frame: outer = hole + 6, inner = hole + 3
- *   - 1 Ã— plexi pane:              outer = hole + 3, no inner cut
- *   - 1 Ã— core top retaining cap:  outer = hole + 3, inner = hole
+ *   - 1 × core curb/surround frame: outer = hole + 6, inner = hole + 3
+ *   - 1 × plexi pane:              outer = hole + 3, no inner cut
+ *   - 1 × core top retaining cap:  outer = hole + 3, inner = hole
  * Multiple skylights of the same size collapse into one sheet per part type.
  */
 function generateSkylightParts(cfg, skylightGroups) {
@@ -20039,11 +20039,11 @@ function generateSkylightParts(cfg, skylightGroups) {
     const paneH = holeH + SKYLIGHT_FRAME_MARGIN * 2;
     const curbOuterW = paneW + SKYLIGHT_FRAME_MARGIN * 2;
     const curbOuterH = paneH + SKYLIGHT_FRAME_MARGIN * 2;
-    const dimsTag = `${holeW.toFixed(1)}Ã—${holeH.toFixed(1)}mm hole`;
+    const dimsTag = `${holeW.toFixed(1)}×${holeH.toFixed(1)}mm hole`;
     const idSuffix = `_${holeW.toFixed(1)}x${holeH.toFixed(1)}`.replace(/\./g, '_');
     const gutter = 3;
 
-    // === Core curb/surround frame â€” fits AROUND the plexi pane ===
+    // === Core curb/surround frame — fits AROUND the plexi pane ===
     // Outer: hole + 6 mm. Inner: pane size (hole + 3 mm), offset 1.5 mm.
     {
       const layout = layoutRectTiles(group.count, curbOuterW, curbOuterH, gutter);
@@ -20061,7 +20061,7 @@ function generateSkylightParts(cfg, skylightGroups) {
       }
       parts.push({
         id: 'skylight_curb_frame' + idSuffix,
-        name: `Skylight curb frame â€” ${group.count}Ã— core (outer ${curbOuterW.toFixed(1)}Ã—${curbOuterH.toFixed(1)}mm Â· inner plexi ${paneW.toFixed(1)}Ã—${paneH.toFixed(1)}mm Â· ${dimsTag})`,
+        name: `Skylight curb frame — ${group.count}× core (outer ${curbOuterW.toFixed(1)}×${curbOuterH.toFixed(1)}mm · inner plexi ${paneW.toFixed(1)}×${paneH.toFixed(1)}mm · ${dimsTag})`,
         material: 'core',
         bboxW: layout.sheetW, bboxH: layout.sheetH,
         bboxOffsetX: 0, bboxOffsetY: 0,
@@ -20082,7 +20082,7 @@ function generateSkylightParts(cfg, skylightGroups) {
       });
     }
 
-    // === Plexi sheet (window material) â€” 1 piece per skylight ===
+    // === Plexi sheet (window material) — 1 piece per skylight ===
     // Pane overlaps the roof hole by 1.5 mm in every direction.
     {
       const layout = layoutRectTiles(group.count, paneW, paneH, gutter);
@@ -20096,12 +20096,12 @@ function generateSkylightParts(cfg, skylightGroups) {
       }
       parts.push({
         id: 'skylight_plexi' + idSuffix,
-        name: `Skylight pane â€” ${group.count}Ã— plexi (${paneW.toFixed(1)}Ã—${paneH.toFixed(1)}mm Â· ${dimsTag})`,
+        name: `Skylight pane — ${group.count}× plexi (${paneW.toFixed(1)}×${paneH.toFixed(1)}mm · ${dimsTag})`,
         material: 'window',
         bboxW: layout.sheetW, bboxH: layout.sheetH,
         bboxOffsetX: 0, bboxOffsetY: 0,
         paths: [], rects, lines: [],
-        assemblyNote: 'Clear acrylic pane â€” 1.5 mm larger than the roof hole on every side.',
+        assemblyNote: 'Clear acrylic pane — 1.5 mm larger than the roof hole on every side.',
         tileCount: group.count,
         tileGeom: {
           bboxW: paneW, bboxH: paneH,
@@ -20113,8 +20113,8 @@ function generateSkylightParts(cfg, skylightGroups) {
       });
     }
 
-    // === Core top retaining cap â€” same outer size as plexi, with a hole ===
-    // Outer: pane size. Inner: roof hole size, offset 1.5 mm â€” this creates
+    // === Core top retaining cap — same outer size as plexi, with a hole ===
+    // Outer: pane size. Inner: roof hole size, offset 1.5 mm — this creates
     // the top donut/rim that traps the plexi and leaves the visible opening.
     {
       const layout = layoutRectTiles(group.count, paneW, paneH, gutter);
@@ -20132,7 +20132,7 @@ function generateSkylightParts(cfg, skylightGroups) {
       }
       parts.push({
         id: 'skylight_top_cap' + idSuffix,
-        name: `Skylight top cap â€” ${group.count}Ã— core donut (${paneW.toFixed(1)}Ã—${paneH.toFixed(1)}mm outer Â· ${dimsTag})`,
+        name: `Skylight top cap — ${group.count}× core donut (${paneW.toFixed(1)}×${paneH.toFixed(1)}mm outer · ${dimsTag})`,
         material: 'core',
         bboxW: layout.sheetW, bboxH: layout.sheetH,
         bboxOffsetX: 0, bboxOffsetY: 0,
@@ -20238,7 +20238,7 @@ function layoutDividerFrame(id, count, outerW, outerH, innerApW, innerApH, mulli
     }
     if (mullion === 'renji_vertical' || mullion === 'ranma_lattice' ||
         mullion === 'shoji_grid'     || mullion === 'yukimi_split') {
-      // Single big aperture â€” the lattice / kumiko / bars are etched on the
+      // Single big aperture — the lattice / kumiko / bars are etched on the
       // external frame piece, not made of retained mullion material.
       return [{ x: apOffX, y: apOffY, w: innerApW, h: innerApH }];
     }
@@ -20253,7 +20253,7 @@ function layoutDividerFrame(id, count, outerW, outerH, innerApW, innerApH, mulli
   if (validPanes.length === 0) {
     // Fall back to single aperture if mullion would make panes unreadable
     return layoutSingleApFrames(id, count, outerW, outerH, innerApW, innerApH, material,
-      description + ' (mullion suppressed â€” panes too small)');
+      description + ' (mullion suppressed — panes too small)');
   }
 
   // Lay out 'count' divider frames in a grid
@@ -20298,9 +20298,9 @@ function layoutDividerFrame(id, count, outerW, outerH, innerApW, innerApH, mulli
   };
 }
 
-/* Layout for simple frames: each frame is an outer rectangle with ONE rectangular 
+/* Layout for simple frames: each frame is an outer rectangle with ONE rectangular
    aperture in the middle. Optionally adds etched shapes (e.g. wooden lattice) to
-   each frame piece â€” passed as window-local shapes that get scaled to the
+   each frame piece — passed as window-local shapes that get scaled to the
    visible aperture and offset to each piece's position on the sheet. */
 function layoutSingleApFrames(id, count, outerW, outerH, innerW, innerH, material, description, etchShapes) {
   const gutter = 5;
@@ -20313,7 +20313,7 @@ function layoutSingleApFrames(id, count, outerW, outerH, innerW, innerH, materia
   // Helper to push one tile's content (outer + inner rects, plus optional
   // etched lattice shapes) at the given top-left coords. Returning both the
   // tiled sheet and a single-tile preview geometry means the UI can show
-  // one copy + "Cut Ã—N" while the downloaded SVG keeps every tile inline.
+  // one copy + "Cut ×N" while the downloaded SVG keeps every tile inline.
   function pushTile(ox, oy, outRects, outLines) {
     outRects.push({ type: 'cut', x: ox, y: oy, w: outerW, h: outerH, compensateKerf: false });
     const ix = ox + (outerW - innerW) / 2;
@@ -20386,7 +20386,7 @@ function layoutPanes(id, count, w, h, material, description) {
   }
   // Single-tile preview geometry: the UI shows just one copy + a count
   // badge so identical multi-pane sheets read the same as wall panels that
-  // already have a "Cut Ã—N" note. The downloaded SVG keeps the tiled
+  // already have a "Cut ×N" note. The downloaded SVG keeps the tiled
   // layout above for one-pass laser cutting.
   const tileGeom = {
     bboxW: w, bboxH: h,
@@ -21040,7 +21040,7 @@ function makeSheetSplitSegmentPart(part, col, row, x0Local, x1Local, y0Local, y1
       sheetRows: totalRows,
       sourcePartId: part.id,
       // Used by display dedupe: sheet-split pieces from different walls or
-      // different source parts must not collapse into "Ã—2 identical copies"
+      // different source parts must not collapse into "×2 identical copies"
       // merely because a clipped SVG wrapper has the same outer size.
       dedupeSourceKey: String(part.id || part.name || 'part'),
     },
@@ -21054,9 +21054,9 @@ function makeSheetSplitSplicePlate(part, splitAtLocal, index, cfg, maxAlong = nu
   const spliceW = Math.max(6, Math.min(40, Number(cfg.sheetSplitSpliceWidthMm) || 16));
 
   // axis='x': a vertical joint between left/right panel segments. Plate is
-  // narrow Ã— tall and may be segmented along Y.
+  // narrow × tall and may be segmented along Y.
   // axis='y': a horizontal joint between top/bottom panel segments. Plate is
-  // wide Ã— narrow and may be segmented along X.
+  // wide × narrow and may be segmented along X.
   const sourceW = Math.max(4, Number(part.bboxW) || 0);
   const sourceH = Math.max(4, Number(part.bboxH) || 0);
   const alongLen = axis === 'y' ? sourceW : sourceH;
@@ -21129,7 +21129,7 @@ function splitPartForSheet(part, cfg) {
   const w = Number(part.bboxW) || 0;
   const h = Number(part.bboxH) || 0;
   if (w <= max.w + 0.01 && h <= max.h + 0.01) return [part];
-  // If rotating the whole part would fit, leave it as one piece â€” the user can
+  // If rotating the whole part would fit, leave it as one piece — the user can
   // rotate it in the laser layout/import step.
   if (h <= max.w + 0.01 && w <= max.h + 0.01) return [part];
 
@@ -21405,7 +21405,7 @@ function generateBuilding(cfg) {
   parts.push(...interFloorParts);
   parts.push(...generateEmbeddedRailParts(cfg, plan));
 
-  // Cladding â€” when first-floor cladding override is enabled, produce two panels per wall (upper + ground).
+  // Cladding — when first-floor cladding override is enabled, produce two panels per wall (upper + ground).
   // Otherwise produce one full panel per wall.
   if (hasSplitCladding(cfg)) {
     for (const which of ['front', 'back', 'east', 'west']) {
@@ -21419,14 +21419,14 @@ function generateBuilding(cfg) {
     parts.push(generateCladdingPanel(cfg, plan, 'west'));
   }
 
-  // Interior cladding panels â€” one per perimeter wall when the toggle is on.
+  // Interior cladding panels — one per perimeter wall when the toggle is on.
   for (const which of ['front', 'back', 'east', 'west']) {
     const ips = generateInteriorCladdingPanel(cfg, plan, which);
     if (Array.isArray(ips)) parts.push(...ips);
     else if (ips) parts.push(ips);
   }
 
-  // Inner parapet cladding (parapet roofs only â€” opt-out via setting).
+  // Inner parapet cladding (parapet roofs only — opt-out via setting).
   parts.push(...generateInnerParapetCladding(cfg, plan));
 
   // Shared block-level optional/detail parts.
@@ -21458,7 +21458,7 @@ function generateBuilding(cfg) {
     roofFasciaTrim: false,
   }));
 
-  // Cladding roof (parapet/flat only â€” slanted and gabled emit their own textured cladding panels via generateRoof).
+  // Cladding roof (parapet/flat only — slanted and gabled emit their own textured cladding panels via generateRoof).
   if (cfg.roofStyle === 'parapet' || cfg.roofStyle === 'flat' || cfg.roofStyle === 'flat_overhang') {
     const cT = cfg.claddingThickness;
     let rW, rH;
@@ -21601,18 +21601,18 @@ function partToSvg(part, options) {
 }
 
 /* Render a small preview SVG (with thicker strokes for visibility).
- * When a part carries a single-tile preview geometry (via `tileGeom`) â€” as
+ * When a part carries a single-tile preview geometry (via `tileGeom`) — as
  * laid out by layoutPanes / layoutSingleApFrames / layoutDividerFrame /
  * generateDoorInserts / generateShutterParts / generateCladdingOverrideParts /
  * generateSkylightParts / generatePrintedSheets / generateFixtureParts for
- * multi-copy sheets â€” render just that one tile so the UI shows one copy +
- * a "Cut Ã—N" badge instead of a tiled grid. The downloadable SVG still
+ * multi-copy sheets — render just that one tile so the UI shows one copy +
+ * a "Cut ×N" badge instead of a tiled grid. The downloadable SVG still
  * uses the full tiled layout via partToSvg directly. */
 function partToPreviewSvg(part) {
   if (part && part.tileGeom) {
     // Build a transient "single-tile" part inheriting id/name/material but
     // with the preview geometry. mirrorX (used for the west side wall) is
-    // intentionally NOT carried â€” tiled sheets don't use it. svgContent on
+    // intentionally NOT carried — tiled sheets don't use it. svgContent on
     // printed sheets carries the full-colour artwork; pass through a
     // single-tile variant from the tileGeom so the preview still shows
     // the design (just one copy of it) instead of cropping a corner of
@@ -21664,7 +21664,7 @@ function initDropdowns() {
     opt.value = k; opt.textContent = v.label;
     groundCladSel.appendChild(opt);
   }
-  // Roof cladding â€” same list as wall cladding so the user can mix and
+  // Roof cladding — same list as wall cladding so the user can mix and
   // match any style (kawara roof on yakisugi walls, ribbed metal on a
   // brick warehouse, etc.). All styles are offered; the user picks what
   // makes architectural sense.
@@ -21676,9 +21676,9 @@ function initDropdowns() {
       roofCladSel.appendChild(opt);
     }
   }
-  // Interior cladding style picker â€” same option list as exterior so any
+  // Interior cladding style picker — same option list as exterior so any
   // style can be paired with any other (an inside-out building of all
-  // styles). The placeholder "â€” same as exterior â€”" option (value="")
+  // styles). The placeholder "— same as exterior —" option (value="")
   // is pre-baked in HTML; we just append the named styles after it.
   const intCladSel = document.getElementById('interiorCladdingStyle');
   if (intCladSel) {
@@ -21722,7 +21722,7 @@ function initDropdowns() {
       label.style.gap = '8px';
       const span = document.createElement('span');
       span.style.flex = '1';
-      span.textContent = v.label + ' (' + v.w + 'Ã—' + v.d + 'Ã—' + v.h + 'mm)';
+      span.textContent = v.label + ' (' + v.w + '×' + v.d + '×' + v.h + 'mm)';
       const inp = document.createElement('input');
       inp.type = 'number';
       inp.id = 'rooftopEq_' + k;
@@ -21830,8 +21830,8 @@ function syncHeightFloorModeFields({ writeComputed = true } = {}) {
     if (heightHelp) heightHelp.textContent = 'Edit total building height. This includes the parapet where present.';
     if (floorHelp) {
       floorHelp.textContent = gfOverride != null
-        ? 'Read-only: (height âˆ’ parapet âˆ’ ground floor) Ã· upper-floor count.'
-        : 'Read-only: (height âˆ’ parapet) Ã· floor count.';
+        ? 'Read-only: (height − parapet − ground floor) ÷ upper-floor count.'
+        : 'Read-only: (height − parapet) ÷ floor count.';
     }
   } else {
     heightEl.readOnly = true;
@@ -21842,8 +21842,8 @@ function syncHeightFloorModeFields({ writeComputed = true } = {}) {
     if (writeComputed) heightEl.value = total.toFixed(2);
     if (heightHelp) {
       heightHelp.textContent = gfOverride != null
-        ? 'Read-only: ground floor + upper floor height Ã— (floors âˆ’ 1) + parapet.'
-        : 'Read-only: floor height Ã— floors + parapet.';
+        ? 'Read-only: ground floor + upper floor height × (floors − 1) + parapet.'
+        : 'Read-only: floor height × floors + parapet.';
     }
     if (floorHelp) floorHelp.textContent = 'Edit the repeated upper-floor height.';
   }
@@ -21896,7 +21896,7 @@ function readForm() {
   CONFIG.roofCladdingStyle = val('roofCladdingStyle') || CONFIG.claddingStyle;
   CONFIG.claddingExtendsToFloorBottom = !!document.getElementById('claddingExtendsToFloorBottom')?.checked;
   CONFIG.interiorCladding = !!document.getElementById('interiorCladding')?.checked;
-  // Empty-string option = "same as exterior" â†’ store null so the
+  // Empty-string option = "same as exterior" → store null so the
   // generator's fall-back to claddingStyle kicks in.
   const _intStyleVal = val('interiorCladdingStyle');
   CONFIG.interiorCladdingStyle = _intStyleVal ? _intStyleVal : null;
@@ -21945,7 +21945,7 @@ function readForm() {
   CONFIG.rooftopMechRoomYOffset = num('rooftopMechRoomYOffset');
   // Rooftop equipment counts. The count UI was removed (placement is now done
   // via the Floor Editor's roof view), but we still honour preset-provided
-  // counts as a legacy fallback at build time â€” and the migration step in
+  // counts as a legacy fallback at build time — and the migration step in
   // iwSetFloor moves those counts into CONFIG.rooftopItems the first time
   // the user opens the roof tab. So: only update the count from the DOM if
   // the input field still exists; otherwise leave whatever's already in
@@ -21995,7 +21995,7 @@ function readForm() {
   // Triggered by anything that shrinks the wall (most commonly: reducing
   // floor count, or shortening floor height). Without this, a bay that
   // was at y=96 on a 120 mm wall sticks around when the wall drops to
-  // 60 mm â€” the item still exists in CONFIG, the wall editor renders
+  // 60 mm — the item still exists in CONFIG, the wall editor renders
   // it below the visible canvas, and the user sees nothing where their
   // bay used to be. Removing rather than clamping matches what the user
   // expects: "if I delete the floor, delete the things on it too."
@@ -22006,7 +22006,7 @@ function readForm() {
  * below the new wall bottom. Operates in-place on each manual* array so
  * downstream code (regenerate, openOpeningEditor, the IW editor) all
  * see the cleaned-up data. Items whose body extends slightly past the
- * wall bottom but whose top is still inside are KEPT â€” the wall outline
+ * wall bottom but whose top is still inside are KEPT — the wall outline
  * clips them visually and the user can adjust them; only fully-orphaned
  * items get culled. wallH is CONFIG.height, the base wall height
  * (excluding any gable peak above), which is the same threshold the
@@ -22065,7 +22065,7 @@ function writeForm() {
   set('windowStyle', CONFIG.windowStyle);
   set('windowScale', CONFIG.windowScale);
   set('windowDensity', CONFIG.windowDensity);
-  // Ground-floor overrides â€” all in one block
+  // Ground-floor overrides — all in one block
   document.getElementById('firstFloorHeightEnabled').checked = !!CONFIG.firstFloorHeightEnabled;
   set('firstFloorHeight', CONFIG.firstFloorHeight);
   document.getElementById('firstFloorWindowStyleEnabled').checked = !!CONFIG.firstFloorWindowStyleEnabled;
@@ -22116,7 +22116,7 @@ function writeForm() {
       if (el) el.value = CONFIG.rooftopEquipment[k] || 0;
     }
   }
-  // Rooftop shield (always X-braced now â€” no style dropdown)
+  // Rooftop shield (always X-braced now — no style dropdown)
   const shield = CONFIG.rooftopShield || {};
   const shieldEn = document.getElementById('rooftopShieldEnabled');
   if (shieldEn) shieldEn.checked = !!shield.enabled;
@@ -22133,8 +22133,8 @@ function writeForm() {
   updateConditionalFields();
 }
 
-/* Toggle visibility of conditional fields based on current FORM values 
-   (does NOT overwrite any user input â€” reads directly from the DOM) */
+/* Toggle visibility of conditional fields based on current FORM values
+   (does NOT overwrite any user input — reads directly from the DOM) */
 function updateConditionalFields() {
   const heightMode = val('heightMode');
   const roofStyle = val('roofStyle');
@@ -22178,7 +22178,7 @@ function updateConditionalFields() {
   // Soffit cladding applies to any roof style that creates an overhang:
   // flat_overhang (all 4 sides overhang) and gabled (eave sides
   // overhang per ohFB/ohEW). For roofs without overhangs (flat,
-  // parapet, parapet_gable, slanted) we hide it â€” generateSoffit
+  // parapet, parapet_gable, slanted) we hide it — generateSoffit
   // would return [] anyway, but hiding keeps the UI tidy.
   document.getElementById('soffitCladdingField').style.display = (roofStyle === 'flat_overhang' || roofStyle === 'gabled' || roofStyle === 'slanted') ? '' : 'none';
   // Fascia trim: 3 mm trim strips along the roof perimeter. Applies
@@ -22189,7 +22189,7 @@ function updateConditionalFields() {
   document.getElementById('parapetSidesField').style.display = (roofStyle === 'parapet_gable') ? '' : 'none';
   document.getElementById('roofPitchField').style.display = (roofStyle === 'slanted' || roofStyle === 'gabled' || roofStyle === 'parapet_gable') ? '' : 'none';
   document.getElementById('roofOverhangAllField').style.display = (roofStyle === 'flat_overhang') ? '' : 'none';
-  // Roof cladding style only matters for slanted / gabled roofs â€” parapet
+  // Roof cladding style only matters for slanted / gabled roofs — parapet
   // and flat roofs don't emit a cladding panel and reuse the wall texture
   // via 3D wrapping. Mirror the same visibility test the cladding panel
   // generator uses so the UI never offers a setting that has no effect.
@@ -22224,13 +22224,13 @@ function updateConditionalFields() {
   }
   if (WINDOW_STYLES[windowStyle]) {
     const ws = WINDOW_STYLES[windowStyle];
-    document.getElementById('windowDescription').textContent = 
-      ws.description + ' (intrinsic: ' + ws.baseW + 'Ã—' + ws.baseH + 'mm)';
+    document.getElementById('windowDescription').textContent =
+      ws.description + ' (intrinsic: ' + ws.baseW + '×' + ws.baseH + 'mm)';
   }
   if (DOOR_STYLES[doorStyle]) {
     const ds = DOOR_STYLES[doorStyle];
-    document.getElementById('doorDescription').textContent = 
-      ds.description + ' (' + ds.width + 'Ã—' + ds.height + 'mm)';
+    document.getElementById('doorDescription').textContent =
+      ds.description + ' (' + ds.width + '×' + ds.height + 'mm)';
   }
 }
 
@@ -22292,7 +22292,7 @@ function isKnownMat(matId) {
 }
 
 /* ---- Part deduplication for display ----
-   Identical geometry â†’ one card with Ã—N badge.
+   Identical geometry → one card with ×N badge.
    The full parts array (lastParts) is unchanged so export still includes all copies. */
 function partSignature(p) {
   const isSplit = !!(p && p.meta && p.meta.sheetSplit);
@@ -22306,23 +22306,23 @@ function partSignature(p) {
     // Sheet-split cards often have the same outer boundary but different
     // clipped SVG content inside. Include source/segment identity and the
     // clipped content so front/back or floor panels do not collapse into a
-    // misleading "Cut Ã—2 identical copies" card unless they are truly the
+    // misleading "Cut ×2 identical copies" card unless they are truly the
     // same generated split segment.
     isSplit ? (p.meta.dedupeSourceKey || p.meta.sourcePartId || p.id || '') : '',
     isSplit ? (p.meta.sheetSegment || '') : '',
     isSplit ? (p.svgContent || '') : '',
     // mirrorX is a render-time horizontal flip used on slanted-wall pairs
-    // (west side wall on NS-axis, back wall on EW-axis) â€” the laser sheet
+    // (west side wall on NS-axis, back wall on EW-axis) — the laser sheet
     // gets a `scale(-1,1)` wrapper around the part contents. Two parts
     // with the same paths/rects/lines but OPPOSITE mirrorX produce
     // PHYSICALLY MIRRORED cut pieces, so they cannot be deduplicated into
-    // "Cut Ã—2 identical copies" â€” they're mirrors, not duplicates.
+    // "Cut ×2 identical copies" — they're mirrors, not duplicates.
     p.mirrorX ? 'M' : '.',
   ].join('|||');
 }
 
 function deduplicatePartsForDisplay(parts) {
-  const sigMap = new Map(); // signature â†’ { part, count, ids[] }
+  const sigMap = new Map(); // signature → { part, count, ids[] }
   const order  = [];
   for (const p of parts) {
     const sig = partSignature(p);
@@ -22374,13 +22374,13 @@ function renderPartsOutput(parts) {
     // Luminance check so text is legible on any background
     const r = parseInt(col.slice(1,3),16)||170, g = parseInt(col.slice(3,5),16)||170, b = parseInt(col.slice(5,7),16)||170;
     const tc = (0.299*r + 0.587*g + 0.114*b)/255 > 0.52 ? '#333' : '#fff';
-    return `<button class="part-mat-badge" data-part-id="${partId}" style="background:${col};color:${tc}" title="Material: ${matLabel(matId)} â€” click to reassign">${lbl}</button>`;
+    return `<button class="part-mat-badge" data-part-id="${partId}" style="background:${col};color:${tc}" title="Material: ${matLabel(matId)} — click to reassign">${lbl}</button>`;
   }
 
   let html = '<div class="output-groups">';
   for (const mat of matOrder) {
     const grpParts = byMat[mat] || [];
-    // Empty materials are skipped entirely â€” no placeholder header, no empty
+    // Empty materials are skipped entirely — no placeholder header, no empty
     // body. A category appears only once something has been assigned to it,
     // which keeps the parts panel focused on what's actually being cut and
     // avoids drawing the user's eye to material slots they don't need yet.
@@ -22407,22 +22407,22 @@ function renderPartsOutput(parts) {
       // Tiled sheets (window glass, frames, dividers, door inserts, etc.)
       // carry the "I need N copies" count in part.tileCount alongside a
       // single-tile preview geometry. Multiply by the dedup count so two
-      // identical tiled sheets show Ã—(2N) â€” the user only needs to keep
+      // identical tiled sheets show ×(2N) — the user only needs to keep
       // track of one number per card. The displayed dimensions also flip
-      // to the single-tile size so the WÃ—H label matches the preview.
+      // to the single-tile size so the W×H label matches the preview.
       const tileMult  = (part.tileCount && part.tileCount > 0) ? part.tileCount : 1;
       const totalQty  = count * tileMult;
       const dimW = (part.tileGeom ? part.tileGeom.bboxW : part.bboxW);
       const dimH = (part.tileGeom ? part.tileGeom.bboxH : part.bboxH);
-      html += `<div class="part-name"><span>${part.name}</span><span class="part-dims">${dimW.toFixed(1)} Ã— ${dimH.toFixed(1)} mm</span></div>`;
-      if (totalQty > 1) html += `<span class="part-qty-badge">Ã—${totalQty}</span>`;
+      html += `<div class="part-name"><span>${part.name}</span><span class="part-dims">${dimW.toFixed(1)} × ${dimH.toFixed(1)} mm</span></div>`;
+      if (totalQty > 1) html += `<span class="part-qty-badge">×${totalQty}</span>`;
       if (part.assemblyNote) {
         const note = totalQty > 1
-          ? part.assemblyNote + ` Cut Ã—${totalQty} identical copies.`
+          ? part.assemblyNote + ` Cut ×${totalQty} identical copies.`
           : part.assemblyNote;
         html += `<div class="part-note">${note}</div>`;
       } else if (totalQty > 1) {
-        html += `<div class="part-note">Cut Ã—${totalQty} identical copies.</div>`;
+        html += `<div class="part-note">Cut ×${totalQty} identical copies.</div>`;
       }
       if (iwf !== null) {/* hover badge via CSS ::after */}
       html += matBadgeHtml(part.id, mat);
@@ -22432,7 +22432,7 @@ function renderPartsOutput(parts) {
     html += `</div>`;
     html += `</div>`;
   }
-  // Unassigned group â€” parts whose material was deleted or is otherwise unknown
+  // Unassigned group — parts whose material was deleted or is otherwise unknown
   if (unassignedParts.length > 0) {
     html += `<div class="mat-group">`;
     html += `<div class="mat-group-hdr"><span class="mat-hdr-swatch" style="background:#999"></span>Unassigned<span class="mat-count">${unassignedParts.length} part${unassignedParts.length!==1?'s':''}</span></div>`;
@@ -22453,11 +22453,11 @@ function renderPartsOutput(parts) {
       const dimW = (part.tileGeom ? part.tileGeom.bboxW : part.bboxW);
       const dimH = (part.tileGeom ? part.tileGeom.bboxH : part.bboxH);
       html += `<div class="part${ec}${iwCls}"${ea}${iwAttr} data-part-id="${part.id}">`;
-      html += `<div class="part-name"><span>${part.name}</span><span class="part-dims">${dimW.toFixed(1)} Ã— ${dimH.toFixed(1)} mm</span></div>`;
-      if (totalQty > 1) html += `<span class="part-qty-badge">Ã—${totalQty}</span>`;
-      if (part.assemblyNote) html += `<div class="part-note">${part.assemblyNote}${totalQty > 1 ? ` Cut Ã—${totalQty} identical copies.` : ''}</div>`;
-      else if (totalQty > 1) html += `<div class="part-note">Cut Ã—${totalQty} identical copies.</div>`;
-      html += `<button class="part-mat-badge" data-part-id="${part.id}" style="background:#999;color:#fff" title="Unassigned â€” click to assign to a material">â€”</button>`;
+      html += `<div class="part-name"><span>${part.name}</span><span class="part-dims">${dimW.toFixed(1)} × ${dimH.toFixed(1)} mm</span></div>`;
+      if (totalQty > 1) html += `<span class="part-qty-badge">×${totalQty}</span>`;
+      if (part.assemblyNote) html += `<div class="part-note">${part.assemblyNote}${totalQty > 1 ? ` Cut ×${totalQty} identical copies.` : ''}</div>`;
+      else if (totalQty > 1) html += `<div class="part-note">Cut ×${totalQty} identical copies.</div>`;
+      html += `<button class="part-mat-badge" data-part-id="${part.id}" style="background:#999;color:#fff" title="Unassigned — click to assign to a material">—</button>`;
       html += partToPreviewSvg(part);
       html += `</div>`;
     }
@@ -22481,7 +22481,7 @@ function renderPartsOutput(parts) {
       // data-iw-floor can be a numeric floor index (0 = ground floor, 1 =
       // first inter-floor, etc.) or the sentinel string 'roof' (= IW_ROOF)
       // for the roof tab. parseInt('roof') is NaN, which the original
-      // fallback turned into 0 (ground floor) â€” that's why clicking the
+      // fallback turned into 0 (ground floor) — that's why clicking the
       // roof's edit button used to drop the user onto the ground floor.
       // Check for the roof sentinel before parsing as an integer.
       // data-iw-wing is the wing index for per-wing roof editing; absent
@@ -22560,29 +22560,29 @@ function showMaterialPicker(partId, anchor) {
 /* =====================================================================
    INTERNAL WALL EDITOR
    Coordinate system: interior mm from building NW corner.
-   x = 0..bcW (westâ†’east), y = 0..bcH (frontâ†’back)
+   x = 0..bcW (west→east), y = 0..bcH (front→back)
    where bcW = fbWidth - 2*matT, bcH = sideLen
    ===================================================================== */
 let iwFloor  = 0;           // floor index (0-based) or IW_ROOF
 // When non-null, the IW editor is scoped to a wing's per-wing rooftop /
 // floor-hole / skylight / roof-hole collections (the wing at
-// CONFIG.wings[iwWingIndex]) â€” the editor canvas is that wing's
+// CONFIG.wings[iwWingIndex]) — the editor canvas is that wing's
 // footprint, and all reads/writes go through iwTarget() instead of
 // CONFIG directly. null = main-building editing (the default mode).
 let iwWingIndex = null;
 let iwWingCfg   = null;     // cached buildWingCfg result for the active wing
 let iwWingPlan  = null;     // cached buildEdgePlans result for the active wing
 let iwTool   = 'draw';      // 'draw' | 'erase'
-let iwShowCladding = false; // roof tab only â€” overlay roof cladding pattern
+let iwShowCladding = false; // roof tab only — overlay roof cladding pattern
 let iwGridValue = 5;         // shared floor/roof editor grid spacing in mm
 let iwScale  = 4;
 let iwOffX   = 20, iwOffY = 20;
 let iwDrag   = false;
-let iwDragPt = null;        // {x,y} mm â€” wall drag start
-let iwCurMM  = null;        // {x,y} mm â€” mouse position
+let iwDragPt = null;        // {x,y} mm — wall drag start
+let iwCurMM  = null;        // {x,y} mm — mouse position
 let iwDragItem = null;      // roof item being dragged from toolbox
 let iwCustomSizes = {};
-// Pan state â€” independent of the wall-draw / item-move gestures so a pan
+// Pan state — independent of the wall-draw / item-move gestures so a pan
 // in progress doesn't accidentally place walls or grab items. Triggered
 // by middle-mouse-drag or space-held + left-drag, both well-known
 // conventions from desktop graphics apps.
@@ -22593,11 +22593,11 @@ let iwSpaceDown    = false;
 // Shield Wall tool drag state. Non-null while a handle is being dragged.
 // `kind` is one of 'segStart' | 'segEnd' | 'openStart' | 'openEnd' and
 // `side` identifies which edge owns the handle. The actual drag math
-// runs in iwHandleMouseMove â€” it converts the cursor position into an
+// runs in iwHandleMouseMove — it converts the cursor position into an
 // edge-position (0..edgeLen) and writes it back into the relevant
 // field of CONFIG.rooftopShield.edges[side].
 let iwShieldDrag   = null;
-// Outline drag state â€” for the four corner-resize handles and the
+// Outline drag state — for the four corner-resize handles and the
 // body-move handle on the shield's bounding rectangle. `kind` is one
 // of 'tl' | 'tr' | 'bl' | 'br' | 'move'. iwShieldBoundsStart captures
 // the initial mouse position and the bounds rect at mousedown so the
@@ -22618,7 +22618,7 @@ let iwRailTrackDrag = null;
 // floor tab supports selecting any number of floor holes. Each selection
 // entry is a { type, idx } reference pointing into the relevant target
 // array; multi-selection is built up via shift-click. The most-recently-
-// added entry is the "primary" â€” used by single-item operations like
+// added entry is the "primary" — used by single-item operations like
 // the topbar property editor.
 //
 // Drag state (`iwDragMoving`) tracks the per-item original positions of
@@ -22695,7 +22695,7 @@ function iwMakeRef(type, idx) {
     bw = item.w || 30; bh = item.h || 60;
     bx = item.x || 0; by = item.y || 0;
     centerBased = false;
-  } else { // roofHole / floorHole â€” circle or square
+  } else { // roofHole / floorHole — circle or square
     if (item.shape === 'circle') { bw = item.d; bh = item.d; }
     else                          { bw = item.w; bh = item.h; }
     bx = item.x - bw / 2; by = item.y - bh / 2;
@@ -23162,7 +23162,7 @@ function iwApply() { iwClose(); regenerate(); }
 
 /**
  * Keyboard handler scoped to the floor editor modal. Currently handles
- * Delete/Backspace to remove the selected rooftop item â€” the listener is
+ * Delete/Backspace to remove the selected rooftop item — the listener is
  * installed once at startup and gates itself on (a) the modal being open
  * and (b) focus not being inside an input field, so it never interferes
  * with typing in the toolbox/topbar number inputs.
@@ -23206,8 +23206,8 @@ function iwWalls() { return iwIsRoof() ? [] : ((CONFIG.internalWalls || {})[0] |
 function iwIsFloor() { return !iwIsRoof(); }
 
 /* Ensure CONFIG.rooftopShield.bounds is set explicitly (not null).
- * On first call this seeds it with the current default â€” the offset-
- * based inset rectangle â€” so subsequent drags can mutate the bounds
+ * On first call this seeds it with the current default — the offset-
+ * based inset rectangle — so subsequent drags can mutate the bounds
  * directly. Idempotent: if bounds is already set, this is a no-op.
  */
 function iwShieldEnsureBounds() {
@@ -23230,7 +23230,7 @@ function iwShieldEnsureBounds() {
 /* Clamp the shield bounds to the inside of the roof and ensure a
  * minimum size. Called after any bounds mutation to keep the values
  * sensible. Also clamps any per-edge segment start/end and openings
- * that fall outside the new bounds â€” wall lengths track bounds.w/h
+ * that fall outside the new bounds — wall lengths track bounds.w/h
  * so a shrunk bounds shouldn't leave segments protruding past their
  * own edge.
  */
@@ -23266,7 +23266,7 @@ function iwShieldClampBounds() {
  * given side. The side's edge runs along the bounds rectangle's
  * perimeter; for front/back the edge axis is x and the origin is at
  * the bounds' west corner. For east/west it's y, origin at the
- * bounds' south corner. Returns a raw (unclamped) value â€” the caller
+ * bounds' south corner. Returns a raw (unclamped) value — the caller
  * clamps as appropriate.
  */
 function iwShieldEdgePos(side, pt) {
@@ -23285,7 +23285,7 @@ function iwShieldEdgePos(side, pt) {
 }
 
 /* Convert the legacy `true` edge state into the object form so we can
- * mutate individual fields (start, end, opening). Idempotent â€” already-
+ * mutate individual fields (start, end, opening). Idempotent — already-
  * object values pass through unchanged.
  */
 function iwShieldNormalizeEdge(side) {
@@ -23303,7 +23303,7 @@ function iwShieldNormalizeEdge(side) {
 }
 
 /* Add an opening at the centre of the given side's segment. Default
- * width: 8 mm â€” slightly wider than a typical N-scale door so the gap
+ * width: 8 mm — slightly wider than a typical N-scale door so the gap
  * reads as "walk-through" on the model. The opening is clamped to fit
  * inside the segment with at least 4 mm of wall on each side.
  */
@@ -23318,7 +23318,7 @@ function iwShieldAddOpening(side) {
   if (w <= 0) return; // segment too small
   e.opening = { start: segMid - w / 2, end: segMid + w / 2 };
   // If the shield was disabled before, the click would have hit the
-  // dashed ghost first and gone through iwShieldwallEdgeClick â€” so by
+  // dashed ghost first and gone through iwShieldwallEdgeClick — so by
   // the time we get here the shield is definitely enabled.
   iwRender();
 }
@@ -23340,7 +23340,7 @@ function iwShieldwallEdgeClick(e) {
   if (!lastPlan) return false;
   const { bW, bD } = iwBounds();
   const p = iwSvgPt(e);
-  // Proximity threshold scales with bay size â€” clicks anywhere within
+  // Proximity threshold scales with bay size — clicks anywhere within
   // ~15% of the shorter roof dimension toward an edge register, capped
   // to a reasonable range so big buildings don't make the dead zone
   // unreasonably small.
@@ -23375,7 +23375,7 @@ function iwShieldwallEdgeClick(e) {
   }
 
   // If the shield was disabled (no edges enabled yet), this is a fresh
-  // turn-on for just the clicked edge â€” start with all OFF then enable
+  // turn-on for just the clicked edge — start with all OFF then enable
   // the clicked one so the user doesn't suddenly see all four sides.
   if (!CONFIG.rooftopShield.enabled) {
     CONFIG.rooftopShield.enabled = true;
@@ -23400,18 +23400,18 @@ function iwShieldwallEdgeClick(e) {
     CONFIG.rooftopShield.edges[hit.key] = true;
   } else if (typeof cur === 'object' && cur.opening
              && edgePos >= cur.opening.start && edgePos <= cur.opening.end) {
-    // Clicked inside the opening â€” remove it. Keeps the resize but
+    // Clicked inside the opening — remove it. Keeps the resize but
     // closes the gap.
     cur.opening = null;
   } else {
-    // Click on enabled body but not in an opening â€” disable the edge.
+    // Click on enabled body but not in an opening — disable the edge.
     // The user can re-enable with another click, and resize/openings
     // are reached via the white handles + "+" badge.
     CONFIG.rooftopShield.edges[hit.key] = false;
   }
 
   // If the user has just turned off the last remaining edge, also flip
-  // the enabled flag back off â€” otherwise the left-panel checkbox would
+  // the enabled flag back off — otherwise the left-panel checkbox would
   // stay ticked but generate nothing.
   const anyOn = ['front', 'back', 'east', 'west'].some(k =>
     CONFIG.rooftopShield.edges[k] !== false && CONFIG.rooftopShield.edges[k] != null
@@ -23464,7 +23464,7 @@ function iwFloorIdxForPart(partId) {
     return { floor: 0, wingIndex };
   }
 
-  // There is one shared â€œInter Floorsâ€ tab in the editor. Do not return a
+  // There is one shared “Inter Floors” tab in the editor. Do not return a
   // numeric index here; openInternalWallEditor treats numeric floors as the
   // ground floor for backwards compatibility.
   const m = baseId.match(/^inter_floor_panel_(\d+)$/);
@@ -23478,7 +23478,7 @@ function iwFloorIdxForPart(partId) {
  * the roof tab (managed by iwRender's display:none/'' toggling of #iwCladBtn
  * and #iwCladSep), but we leave the function callable at all times so a
  * stale keyboard shortcut or programmatic call from elsewhere can't error
- * out the editor â€” the next iwRender just won't show the overlay since
+ * out the editor — the next iwRender just won't show the overlay since
  * the roof-rendering branch is the only consumer of iwShowCladding. */
 function iwToggleCladding() {
   iwShowCladding = !iwShowCladding;
@@ -23496,7 +23496,7 @@ function iwSetFloor(f) {
     // First time the user lands on the Roof tab after loading a preset, the
     // preset's rooftopEquipment count map may still hold the equipment but
     // CONFIG.rooftopItems may not yet contain any equipment entries. Migrate
-    // counts â†’ items so the editor shows the preset's equipment and the
+    // counts → items so the editor shows the preset's equipment and the
     // user can drag/edit/remove them. Once migrated, we zero the counts so
     // they don't double-populate on the next open.
     migrateEquipCountsToItems();
@@ -23513,7 +23513,7 @@ function iwSetFloor(f) {
   const status = document.getElementById('iwStatus');
   if (status) {
     status.textContent = iwIsRoof()
-      ? 'Drag items from the library to place. Click a placed item to select it â€” drag to move, Delete/Backspace to remove.'
+      ? 'Drag items from the library to place. Click a placed item to select it — drag to move, Delete/Backspace to remove.'
       : 'Select a tool from the library, then interact with the floor plan.';
   }
 }
@@ -23593,7 +23593,7 @@ function migrateEquipCountsToItems() {
  *
  *   - Water tanks live in the BACK CORNERS (round tank NE first, square tank
  *     in the opposite back corner). Gravity-fed plumbing + iconic skyline
- *     feature â€” almost universal on Japanese rooftops.
+ *     feature — almost universal on Japanese rooftops.
  *   - The cooling tower goes back-center in the equipment yard, where it
  *     can be near the chillers below without blocking sightlines.
  *   - Large AC condensers sit in a back-edge row, often behind the shield
@@ -23603,11 +23603,11 @@ function migrateEquipCountsToItems() {
  *   - The electrical / control cabinet stays near the mech room on the
  *     west side, mid-roof, for short power runs.
  *   - Mushroom vents (passive stack vents for kitchens & restrooms) are
- *     DISTRIBUTED across the roof â€” never clustered.
+ *     DISTRIBUTED across the roof — never clustered.
  *   - The antenna mast claims a prominent location near the back-center
  *     (often atop the mech room when one's present).
  *
- * Placement is fully deterministic â€” same building â†’ same layout â€” so
+ * Placement is fully deterministic — same building → same layout — so
  * running this twice in a row produces the identical result. The mech room
  * (if any) and any non-equipment rooftopItems (mechroom, billboard, etc.)
  * are honoured as obstacles; existing equipment items are replaced.
@@ -23619,7 +23619,7 @@ function iwAutoSeedRoofEquipment() {
   if (!plan) return 0;
   const tgt = iwTarget();
   if (!tgt.rooftopItems) tgt.rooftopItems = [];
-  // Drop only existing equipment items on the CURRENTLY EDITED roof â€” keep
+  // Drop only existing equipment items on the CURRENTLY EDITED roof — keep
   // mechroom/billboard/skylight/cutout placements on that same roof. In wing
   // mode this must mutate CONFIG.wings[iwWingIndex], not CONFIG.rooftopItems,
   // otherwise clicking Auto-seed on a wing roof populates the main roof.
@@ -23673,7 +23673,7 @@ function iwAutoSeedRoofEquipment() {
   }
 
   // Spiral outward from (tx, ty) in concentric square rings, looking for a
-  // valid cell. Deterministic search order â€” always tries E, S, W, N
+  // valid cell. Deterministic search order — always tries E, S, W, N
   // neighbours in the same sequence so re-running gives identical results.
   function placeNear(key, tx, ty, maxRadius) {
     if (maxRadius == null) maxRadius = 15;
@@ -23690,26 +23690,26 @@ function iwAutoSeedRoofEquipment() {
 
   // ===== Placement script =====
   // Roof coords: y=0 is FRONT (south), y=roofD is BACK (north).
-  // The roof is generally too small to fit every item type â€” we attempt them
+  // The roof is generally too small to fit every item type — we attempt them
   // in priority order and rely on placeNear's spiral to find legal positions.
 
-  // 1. WATER TANK (round) â€” back-east corner, anchored with a small inset.
+  // 1. WATER TANK (round) — back-east corner, anchored with a small inset.
   const tankR = ROOFTOP_EQUIPMENT.water_tank_round;
   placeNear('water_tank_round', roofW - tankR.w - edge - 2, roofD - tankR.d - edge - 2, 10);
 
-  // 2. WATER TANK (square FRP) â€” opposite back-west corner if the roof is
+  // 2. WATER TANK (square FRP) — opposite back-west corner if the roof is
   //    wide enough to comfortably fit both tanks without crowding.
   if (roofW >= 35) {
     placeNear('water_tank_square', edge + 2, roofD - ROOFTOP_EQUIPMENT.water_tank_square.d - edge - 2, 10);
   }
 
-  // 3. COOLING TOWER â€” back-center, in the equipment yard.
+  // 3. COOLING TOWER — back-center, in the equipment yard.
   const cool = ROOFTOP_EQUIPMENT.cooling_tower;
   if (roofW >= 25) {
     placeNear('cooling_tower', (roofW - cool.w) / 2, roofD - cool.d - edge - 4, 14);
   }
 
-  // 4. AC CONDENSERS (large) â€” back row, between/beside the tanks. Quantity
+  // 4. AC CONDENSERS (large) — back row, between/beside the tanks. Quantity
   //    scales with roof width: nothing on tiny roofs, 1 on medium, 2 on wide.
   const acL = ROOFTOP_EQUIPMENT.ac_large;
   const acLCount = roofW >= 65 ? 2 : (roofW >= 40 ? 1 : 0);
@@ -23720,7 +23720,7 @@ function iwAutoSeedRoofEquipment() {
     placeNear('ac_large', xT, roofD - acL.d - edge - 16, 10);
   }
 
-  // 5. AC CONDENSERS (small) â€” row along the east (right) edge, one per
+  // 5. AC CONDENSERS (small) — row along the east (right) edge, one per
   //    tenant unit. Quantity scales with available depth.
   const acS = ROOFTOP_EQUIPMENT.ac_small;
   const acSMax = Math.min(5, Math.max(1, Math.floor((roofD - 2 * edge - 25) / (acS.d + 2))));
@@ -23730,13 +23730,13 @@ function iwAutoSeedRoofEquipment() {
     if (!placeNear('ac_small', roofW - acS.w - edge - 1, yT, 5)) break;
   }
 
-  // 6. ELECTRICAL CABINET â€” west side, mid-roof, near where a mech room
+  // 6. ELECTRICAL CABINET — west side, mid-roof, near where a mech room
   //    typically sits. Tall narrow footprint.
   if (roofW >= 22) {
     placeNear('elec_cabinet', edge + 2, roofD * 0.45, 10);
   }
 
-  // 7. MUSHROOM VENTS â€” distributed across the roof. Quantity scales with
+  // 7. MUSHROOM VENTS — distributed across the roof. Quantity scales with
   //    area but is capped to keep the layout believable.
   const ventCount = Math.max(2, Math.min(5, Math.floor((roofW * roofD) / 350)));
   for (let i = 0; i < ventCount; i++) {
@@ -23746,8 +23746,8 @@ function iwAutoSeedRoofEquipment() {
     placeNear('mushroom_vent', roofW * fx, roofD * (0.25 + 0.5 * fy), 10);
   }
 
-  // 8. ANTENNA MAST â€” prominent, traditionally atop the mech room or
-  //    centred back. Tiny base (2.7Ã—2.7) so it slots into small gaps easily.
+  // 8. ANTENNA MAST — prominent, traditionally atop the mech room or
+  //    centred back. Tiny base (2.7×2.7) so it slots into small gaps easily.
   placeNear('antenna_mast', roofW / 2, roofD * 0.55, 20);
 
   return placed.length;
@@ -23773,7 +23773,7 @@ function iwBuildTabs() {
   }
 }
 
-/* ---- Toolbox â€” matches opening-editor item style ---- */
+/* ---- Toolbox — matches opening-editor item style ---- */
 /* ---- Left toolbox: item library (mirrors opening editor oe-toolbox) ---- */
 function iwPopulateToolbox() {
   const box = document.getElementById('iwToolbox');
@@ -23786,12 +23786,16 @@ function iwPopulateToolbox() {
     s.textContent = lbl;
     box.appendChild(s);
   }
+  function toolIcon(icon) {
+    if (typeof icon === 'string' && icon.includes('<svg')) return icon;
+    return window.HakoMachiIcons ? window.HakoMachiIcons.icon(icon) : icon;
+  }
   function actionCard(icon, lbl, active, eraseStyle, onClick) {
     const c = document.createElement('div');
     c.className = 'oe-toolbox-item oe-action'
       + (active && !eraseStyle ? ' oe-tool-active'  : '')
       + (active &&  eraseStyle ? ' oe-erase-active' : '');
-    c.innerHTML = '<span class="oe-toolbox-item-icon">' + icon + '</span>'
+    c.innerHTML = '<span class="oe-toolbox-item-icon">' + toolIcon(icon) + '</span>'
                 + '<span class="oe-toolbox-item-label">' + lbl + '</span>';
     c.addEventListener('mousedown', e => { e.preventDefault(); onClick(c); });
     box.appendChild(c);
@@ -23799,7 +23803,7 @@ function iwPopulateToolbox() {
   function dragCard(icon, lbl, sublbl, item, sizeInputs) {
     const c = document.createElement('div');
     c.className = 'oe-toolbox-item oe-draggable';
-    c.title = lbl + ' â€” drag onto plan';
+    c.title = lbl + ' — drag onto plan';
     let sHtml = '';
     if (sizeInputs && sizeInputs.length) {
       sHtml = '<div class="oe-size-row">'
@@ -23811,7 +23815,7 @@ function iwPopulateToolbox() {
           ).join('')
         + '</div>';
     }
-    c.innerHTML = '<span class="oe-toolbox-item-icon">' + icon + '</span>'
+    c.innerHTML = '<span class="oe-toolbox-item-icon">' + toolIcon(icon) + '</span>'
                 + '<span class="oe-toolbox-item-label">' + lbl + '</span>'
                 + '<span class="oe-toolbox-item-dim">'  + sublbl + '</span>'
                 + sHtml;
@@ -23845,47 +23849,47 @@ function iwPopulateToolbox() {
 
   if (!iwIsRoof()) {
     sec('Walls');
-    actionCard('âœ', 'Draw wall',  iwTool === 'draw',  false, c => {
+    actionCard('pencil', 'Draw wall',  iwTool === 'draw',  false, c => {
       setTool('draw', c);
-      document.getElementById('iwStatus').textContent = 'Drag to draw a wall â€” snaps to horizontal or vertical.';
+      document.getElementById('iwStatus').textContent = 'Drag to draw a wall — snaps to horizontal or vertical.';
     });
-    actionCard('âœ•', 'Erase',      iwTool === 'erase', true,  c => {
+    actionCard('erase', 'Erase',      iwTool === 'erase', true,  c => {
       setTool('erase', c);
       document.getElementById('iwStatus').textContent = 'Click a wall or cutout to delete it.';
     });
     sec('Cutouts');
-    dragCard('â—‹', 'Circle', 'cable pass-through', { type: 'hole', shape: 'circle' },
-      [{ label: 'âŒ€', key: 'd', val: 3, min: 0.5, max: 30, step: 0.5 }]);
-    dragCard('â–¡', 'Square', 'cable pass-through', { type: 'hole', shape: 'square' },
+    dragCard('circle', 'Circle', 'cable pass-through', { type: 'hole', shape: 'circle' },
+      [{ label: '⌀', key: 'd', val: 3, min: 0.5, max: 30, step: 0.5 }]);
+    dragCard('square', 'Square', 'cable pass-through', { type: 'hole', shape: 'square' },
       [{ label: 'W', key: 'w', val: 5, min: 0.5, max: 50, step: 0.5 },
        { label: 'H', key: 'h', val: 5, min: 0.5, max: 50, step: 0.5 }]);
     sec('Embedded rail');
-    dragCard('â–­', 'Embedded rail', 'long axis = track direction', { type: 'embeddedRail', orientation: 'auto' },
+    dragCard('rail', 'Embedded rail', 'long axis = track direction', { type: 'embeddedRail', orientation: 'auto' },
       [{ label: 'W', key: 'w', val: 60, min: 18, max: 250, step: 1 },
        { label: 'H', key: 'h', val: 27, min: 18, max: 250, step: 1 }]);
   } else {
     sec('Roof items');
-    dragCard('ðŸ­', 'Mech. Room', 'enclosed structure', { type: 'mechroom', label: 'Mech. Room' },
+    dragCard('factory', 'Mech. Room', 'enclosed structure', { type: 'mechroom', label: 'Mech. Room' },
       [{ label:'W', key:'w', val:20, min:4, max:200 },
        { label:'D', key:'d', val:15, min:4, max:200 },
        { label:'H', key:'h', val:12, min:2, max:60  }]);
-    dragCard('ðŸ“‹', 'Billboard',  'wall sign',          { type: 'billboard', label: 'Billboard' },
+    dragCard('billboard', 'Billboard',  'wall sign',          { type: 'billboard', label: 'Billboard' },
       [{ label:'W', key:'w', val:20, min:4, max:200 },
        { label:'H', key:'h', val:12, min:2, max:60  }]);
-    dragCard('ðŸ“¦', 'STL Zone',   'placement area',     { type: 'stlzone', label: 'STL Object' },
+    dragCard('box', 'STL Zone',   'placement area',     { type: 'stlzone', label: 'STL Object' },
       [{ label:'W', key:'w', val:20, min:4, max:200 },
        { label:'D', key:'d', val:15, min:4, max:200 }]);
-    dragCard('ðŸ”†', 'Skylight',   'roof hole + plexi pane', { type: 'skylight', label: 'Skylight' },
+    dragCard('skylight', 'Skylight',   'roof hole + plexi pane', { type: 'skylight', label: 'Skylight' },
       [{ label:'W', key:'w', val:10, min:3, max:80 },
        { label:'H', key:'h', val:10, min:3, max:80 }]);
     sec('Cutouts');
-    dragCard('â—‹', 'Circle', 'cable pass-through', { type: 'hole', shape: 'circle' },
-      [{ label: 'âŒ€', key: 'd', val: 3, min: 0.5, max: 30, step: 0.5 }]);
-    dragCard('â–¡', 'Square', 'cable pass-through', { type: 'hole', shape: 'square' },
+    dragCard('circle', 'Circle', 'cable pass-through', { type: 'hole', shape: 'circle' },
+      [{ label: '⌀', key: 'd', val: 3, min: 0.5, max: 30, step: 0.5 }]);
+    dragCard('square', 'Square', 'cable pass-through', { type: 'hole', shape: 'square' },
       [{ label: 'W', key: 'w', val: 5, min: 0.5, max: 50, step: 0.5 },
        { label: 'H', key: 'h', val: 5, min: 0.5, max: 50, step: 0.5 }]);
     sec('3D-printed equipment');
-    actionCard('ðŸª„', tx('ed_autoSeedLayout','Auto-seed layout'), false, false, c => {
+    actionCard('magic', tx('ed_autoSeedLayout','Auto-seed layout'), false, false, c => {
       const target = iwTarget();
       const existing = (target.rooftopItems || []).filter(it => it.type === 'equipment').length;
       if (existing > 0) {
@@ -23898,9 +23902,9 @@ function iwPopulateToolbox() {
       iwDragMoving = null;
       iwRender();
       const status = document.getElementById('iwStatus');
-      if (status) status.textContent = tx('ed_autoSeedStatus','Auto-seeded {n} equipment item{s} using traditional rooftop layout â€” drag any item to adjust.').replace('{n}', n).replace('{s}', n === 1 ? '' : 's');
+      if (status) status.textContent = tx('ed_autoSeedStatus','Auto-seeded {n} equipment item{s} using traditional rooftop layout — drag any item to adjust.').replace('{n}', n).replace('{s}', n === 1 ? '' : 's');
     });
-    actionCard('ðŸ—‘', tx('ed_clearAllEquipment','Clear all equipment'), false, true, c => {
+    actionCard('trash', tx('ed_clearAllEquipment','Clear all equipment'), false, true, c => {
       const target = iwTarget();
       const existing = (target.rooftopItems || []).filter(it => it.type === 'equipment').length;
       if (existing === 0) return;
@@ -23914,17 +23918,17 @@ function iwPopulateToolbox() {
       dragCard(
         equipmentIcon(k),
         eq.label,
-        eq.w + 'Ã—' + eq.d + 'Ã—' + eq.h + ' mm',
+        eq.w + '×' + eq.d + '×' + eq.h + ' mm',
         { type: 'equipment', equipKey: k, w: eq.w, d: eq.d, h: eq.h, label: eq.label },
         null
       );
     }
     sec('Tools');
-    actionCard('ðŸ—', tx('ed_shieldWall','Shield Wall'), iwTool === 'shieldwall', false, c => {
+    actionCard('shieldWall', tx('ed_shieldWall','Shield Wall'), iwTool === 'shieldwall', false, c => {
       setTool('shieldwall', c);
       document.getElementById('iwStatus').textContent = tx('ed_shieldWallToolHint','Click a roof edge to toggle a parapet.');
     });
-    actionCard('âœ•', tx('ed_eraseItem','Erase item'),  iwTool === 'erase',      true,  c => {
+    actionCard('erase', tx('ed_eraseItem','Erase item'),  iwTool === 'erase',      true,  c => {
       setTool('erase', c);
       document.getElementById('iwStatus').textContent = tx('ed_eraseItemHint','Click a roof item or cutout to remove it.');
     });
@@ -23932,7 +23936,7 @@ function iwPopulateToolbox() {
 }
 
 /**
- * Top-down SVG icon for each rooftop equipment type, sized to a 28Ã—28 box.
+ * Top-down SVG icon for each rooftop equipment type, sized to a 28×28 box.
  * Shape-specific decoration (louvers, fan rings, FRP panel grid, etc.) matches
  * the 3D STL so the toolbox card reads as a recognizable footprint at a glance.
  * Aspect ratio is preserved against the largest item in ROOFTOP_EQUIPMENT so
@@ -23940,7 +23944,7 @@ function iwPopulateToolbox() {
  */
 function equipmentIcon(key) {
   const eq = ROOFTOP_EQUIPMENT[key];
-  if (!eq) return 'â¬œ';
+  if (!eq) return '⬜';
   const SZ = 28;
   // Scale all items against the same max dimension so icons stay comparable.
   let maxDim = 0;
@@ -24019,7 +24023,7 @@ function iwPopulateTopbar() {
   const addLbl = text => tb.label(text);
   const addSep = () => tb.sep();
 
-  // Roof cladding style picker â€” always visible at the start of the
+  // Roof cladding style picker — always visible at the start of the
   // roof-tab topbar so the user can swap roof textures (kawara, ribbed
   // metal, etc.) without leaving the editor. Same CLADDING_STYLES list
   // as the wall cladding selector; defaults to the existing
@@ -24107,7 +24111,7 @@ function iwPopulateTopbar() {
     addLbl(tx('ed_placing','PLACING'));
     const hint = document.createElement('span');
     hint.style.cssText = 'font-size:11px;color:var(--muted);padding:0 8px;';
-    hint.textContent = (iwDragItem.label || iwDragItem.type) + ' â€” ' + tx('ed_placeRelease','release over the plan to place.');
+    hint.textContent = (iwDragItem.label || iwDragItem.type) + ' — ' + tx('ed_placeRelease','release over the plan to place.');
     bar.appendChild(hint);
 
   } else if (!iwIsRoof() && iwSelection.length === 1 && iwSelection[0].type === 'railZone') {
@@ -24140,7 +24144,7 @@ function iwPopulateTopbar() {
       const hint = document.createElement('span');
       hint.style.cssText = 'font-size:11px;color:var(--muted);padding:0 8px;';
       const info = iwRailTrackAcrossInfo(z);
-      hint.textContent = `Effective direction: ${embeddedRailOrientation(z).toUpperCase()} Â· rail offset ${((z.trackOffset || 0)).toFixed(1)}mm (drag the dark rail line to move it inside the zone)`;
+      hint.textContent = `Effective direction: ${embeddedRailOrientation(z).toUpperCase()} · rail offset ${((z.trackOffset || 0)).toFixed(1)}mm (drag the dark rail line to move it inside the zone)`;
       bar.appendChild(hint);
     }
 
@@ -24182,9 +24186,9 @@ function iwPopulateTopbar() {
     canCopy: selCount >= 1,
     canPaste: iwClipboard.length > 0,
     canDelete: selCount >= 1,
-    copyTitle: selCount >= 1 ? tx('ed_copyTitle','Copy (Ctrl/Cmd+C)') : tx('ed_copySelectTitle','Copy (select â‰¥ 1)'),
+    copyTitle: selCount >= 1 ? tx('ed_copyTitle','Copy (Ctrl/Cmd+C)') : tx('ed_copySelectTitle','Copy (select ≥ 1)'),
     pasteTitle: iwClipboard.length > 0 ? tx('ed_pasteTitle','Paste (Ctrl/Cmd+V)') : tx('ed_pasteEmptyTitle','Paste (clipboard empty)'),
-    deleteTitle: selCount >= 1 ? tx('ed_deleteSelectedTitle','Delete selected (Delete)') : tx('ed_deleteSelectTitle','Delete (select â‰¥ 1)'),
+    deleteTitle: selCount >= 1 ? tx('ed_deleteSelectedTitle','Delete selected (Delete)') : tx('ed_deleteSelectTitle','Delete (select ≥ 1)'),
     onCopy: () => { iwCopySelected(); iwPopulateTopbar(); },
     onPaste: () => { iwPasteClipboard(); iwRender(); },
     onDelete: () => { iwDeleteSelected(); iwRender(); },
@@ -24218,7 +24222,7 @@ function iwSnapPt(x, y) {
 }
 function iwBounds() {
   // Wing mode: editor canvas is the wing's interior footprint, not main's.
-  // Same fbWidth/sideLen convention as main â€” both apply the matT inset
+  // Same fbWidth/sideLen convention as main — both apply the matT inset
   // along the front-back direction so the canvas matches the actual
   // roof / floor cut area rather than the outer wall envelope.
   if (iwWingIndex != null && iwWingPlan) {
@@ -24368,7 +24372,7 @@ function iwRender() {
   const erasing = iwTool === 'erase';
   const isRoof  = iwIsRoof();
 
-  // Cladding FAB â€” visible only on the roof tab. Hide both the separator
+  // Cladding FAB — visible only on the roof tab. Hide both the separator
   // before it and the button itself when we're on a floor view. Updating
   // the button's active state here so a tab switch with cladding-on
   // immediately re-syncs the visual.
@@ -24434,7 +24438,7 @@ function iwRender() {
     }
   }
 
-  // Truss column footprint placement guides â€” preview the same etched outlines
+  // Truss column footprint placement guides — preview the same etched outlines
   // that appear on the generated floor SVG. These are non-interactive guides;
   // supports/trusses still do not cut or slot through the floor.
   if (!isRoof) {
@@ -24451,7 +24455,7 @@ function iwRender() {
     }
   }
 
-  // Roof cladding overlay â€” drawn UNDER any placed items (mech rooms,
+  // Roof cladding overlay — drawn UNDER any placed items (mech rooms,
   // billboards, equipment) so users can still see and interact with them,
   // and OVER the green roof-fill so the colour reads as the panel base
   // colour beneath the pattern. Same generateCladdingPattern helper as the
@@ -24506,16 +24510,16 @@ function iwRender() {
       + `font-weight="600" fill="#9a4b00" text-anchor="middle" pointer-events="none"${labelTransform}>gable ridge / ${ridgeGap.toFixed(1)}mm bridge</text>`;
   }
 
-  // Shield wall visualization â€” draw segments along each edge of the
+  // Shield wall visualization — draw segments along each edge of the
   // shield's bounding rectangle, with gaps where openings are configured.
   // When the Shield Wall tool is active, additionally show:
-  //   â€¢ the dashed bounding rect outline (so the user sees what to drag)
-  //   â€¢ 4 square corner handles to resize the entire outline
-  //   â€¢ a "move" handle inside the bounds to drag the whole thing around
-  //   â€¢ dashed ghost strips along disabled edges
-  //   â€¢ round drag handles at each wall segment's outer endpoints (resize)
-  //   â€¢ a "+" badge at gap-less segment centres (click to add an opening)
-  //   â€¢ round handles at the opening's endpoints (resize opening)
+  //   • the dashed bounding rect outline (so the user sees what to drag)
+  //   • 4 square corner handles to resize the entire outline
+  //   • a "move" handle inside the bounds to drag the whole thing around
+  //   • dashed ghost strips along disabled edges
+  //   • round drag handles at each wall segment's outer endpoints (resize)
+  //   • a "+" badge at gap-less segment centres (click to add an opening)
+  //   • round handles at the opening's endpoints (resize opening)
   // Handles use pointer-events: all so the mousedown handler can hit-test
   // them by reading e.target.dataset; everything else is pointer-events:
   // none so it doesn't swallow clicks on the body.
@@ -24526,7 +24530,7 @@ function iwRender() {
     const stripPx = Math.max(2, matT * iwScale);
     const toolActive = (iwTool === 'shieldwall');
     // Resolve the shield bounds in iw-coords (same fallback logic as
-    // getShieldBounds in the generator â€” uses explicit `bounds` if set,
+    // getShieldBounds in the generator — uses explicit `bounds` if set,
     // else an inset by `offset` from all four roof edges).
     const sOffset = (typeof shield.offset === 'number') ? shield.offset : 3;
     const bExplicit = shield.bounds && Number.isFinite(shield.bounds.x);
@@ -24544,7 +24548,7 @@ function iwRender() {
     const shD = sb.h;
 
     // Map an edge-position (0..edgeLen) on a given side to a canvas
-    // px point on the outer surface of the shield strip â€” the wall's
+    // px point on the outer surface of the shield strip — the wall's
     // outward-facing edge sits ON the bounds rectangle's perimeter.
     function edgePointPx(side, edgePos) {
       if (side === 'front') return iwPX(sb.x + edgePos, sb.y);
@@ -24552,7 +24556,7 @@ function iwRender() {
       if (side === 'west')  return iwPX(sb.x, sb.y + edgePos);
       /* east */            return iwPX(sb.x + sb.w, sb.y + edgePos);
     }
-    // Returns {x, y, w, h} canvas-px for a strip running from edgePos aâ†’b
+    // Returns {x, y, w, h} canvas-px for a strip running from edgePos a→b
     // on the given side. Strip extends INWARD from the bounds perimeter
     // so it visually represents the wall material thickness.
     function stripRectPx(side, a, b) {
@@ -24593,7 +24597,7 @@ function iwRender() {
            + `</g>`;
     }
 
-    // Bounds outline + move/resize affordances â€” visible only when the
+    // Bounds outline + move/resize affordances — visible only when the
     // Shield Wall tool is active, since they'd clutter the view in
     // normal use. The body-move rect covers the interior of the bounds
     // (minus a small margin) so clicks/drags there translate the
@@ -24683,7 +24687,7 @@ function iwRender() {
   h += `<text x="${((fp.x+fpR.x)/2).toFixed(1)}" y="${(fp.y-8).toFixed(1)}" font-size="10" font-family="system-ui" fill="#888" text-anchor="middle">${bW.toFixed(1)} mm</text>`;
   h += `<text x="${(fp.x-8).toFixed(1)}" y="${((fp.y+fpR.y)/2).toFixed(1)}" font-size="10" font-family="system-ui" fill="#888" text-anchor="middle" transform="rotate(-90,${(fp.x-8).toFixed(1)},${((fp.y+fpR.y)/2).toFixed(1)})">${bD.toFixed(1)} mm</text>`;
 
-  // Cardinal direction labels â€” N top, S bottom, E right, W left. Matches
+  // Cardinal direction labels — N top, S bottom, E right, W left. Matches
   // the orientation used by the wall editor's footprint minimap and the
   // 3D preview so the user keeps the same mental model across editors.
   // Placed slightly outside the rect; dimension labels live above (top)
@@ -24737,7 +24741,7 @@ function iwRender() {
       h += `<circle cx="${sp.x.toFixed(1)}" cy="${sp.y.toFixed(1)}" r="3" fill="${erasing?'#c44':'#2a5a9a'}" stroke="white" stroke-width="1.5" pointer-events="none"/>`;
     }
 
-    // Floor holes (circles & squares) â€” selectable like roof holes.
+    // Floor holes (circles & squares) — selectable like roof holes.
     // Selection flips stroke to the unified bright blue.
     const railZones = iwTarget().embeddedRails || [];
     railZones.forEach((z, i) => {
@@ -24795,12 +24799,12 @@ function iwRender() {
         h += `<circle class="iw-hole" data-i="${i}" cx="${cp.x.toFixed(1)}" cy="${cp.y.toFixed(1)}" r="${r.toFixed(1)}" fill="${erasing?'rgba(200,68,68,0.12)':'rgba(136,64,160,0.12)'}" stroke="${col}" stroke-width="${strokeW}" style="cursor:${cursorVal}"/>`;
         h += `<line x1="${(cp.x-r*.4).toFixed(1)}" y1="${cp.y.toFixed(1)}" x2="${(cp.x+r*.4).toFixed(1)}" y2="${cp.y.toFixed(1)}" stroke="${col}" stroke-width="0.7" pointer-events="none"/>`;
         h += `<line x1="${cp.x.toFixed(1)}" y1="${(cp.y-r*.4).toFixed(1)}" x2="${cp.x.toFixed(1)}" y2="${(cp.y+r*.4).toFixed(1)}" stroke="${col}" stroke-width="0.7" pointer-events="none"/>`;
-        if (iwScale > 2) h += `<text x="${cp.x.toFixed(1)}" y="${(cp.y+r+9).toFixed(1)}" font-size="8" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">âŒ€${hole.d}mm</text>`;
+        if (iwScale > 2) h += `<text x="${cp.x.toFixed(1)}" y="${(cp.y+r+9).toFixed(1)}" font-size="8" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">⌀${hole.d}mm</text>`;
       } else {
         const hp = iwPX(hole.x - hole.w/2, hole.y - hole.h/2);
         const pw = hole.w * iwScale, ph = hole.h * iwScale;
         h += `<rect class="iw-hole" data-i="${i}" x="${hp.x.toFixed(1)}" y="${hp.y.toFixed(1)}" width="${pw.toFixed(1)}" height="${ph.toFixed(1)}" fill="${erasing?'rgba(200,68,68,0.12)':'rgba(136,64,160,0.12)'}" stroke="${col}" stroke-width="${strokeW}" style="cursor:${cursorVal}"/>`;
-        if (iwScale > 2) h += `<text x="${(hp.x+pw/2).toFixed(1)}" y="${(hp.y+ph+9).toFixed(1)}" font-size="8" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">${hole.w}Ã—${hole.h}mm</text>`;
+        if (iwScale > 2) h += `<text x="${(hp.x+pw/2).toFixed(1)}" y="${(hp.y+ph+9).toFixed(1)}" font-size="8" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">${hole.w}×${hole.h}mm</text>`;
       }
     });
     // Hole drag ghost (floor tab)
@@ -24890,7 +24894,7 @@ function iwRender() {
 
     items.forEach((item, i) => {
       const p = iwPX(item.x, item.y);
-      // Equipment items store their footprint as w (width = east-west) Ã— d (depth = north-south).
+      // Equipment items store their footprint as w (width = east-west) × d (depth = north-south).
       // Other item types historically used `h` as the depth field; keep that fallback.
       const itemDepth = (item.type === 'equipment') ? (item.d || 15) : (item.h || item.d || 15);
       const pw = (item.w || 20) * iwScale, pd = itemDepth * iwScale;
@@ -24940,7 +24944,7 @@ function iwRender() {
         const lbl = item.label || item.type;
         h += `<text x="${(p.x + pw/2).toFixed(1)}" y="${(p.y + pd/2 + 4).toFixed(1)}" font-size="9" font-family="system-ui" fill="${stroke}" text-anchor="middle" pointer-events="none">${lbl}</text>`;
         const dim2 = (item.type === 'equipment') ? item.d : (item.h || item.d);
-        if (item.w && dim2) h += `<text x="${(p.x + pw/2).toFixed(1)}" y="${(p.y + pd/2 - 4).toFixed(1)}" font-size="8" font-family="system-ui" fill="${stroke}" text-anchor="middle" opacity="0.7" pointer-events="none">${item.w}Ã—${dim2}</text>`;
+        if (item.w && dim2) h += `<text x="${(p.x + pw/2).toFixed(1)}" y="${(p.y + pd/2 - 4).toFixed(1)}" font-size="8" font-family="system-ui" fill="${stroke}" text-anchor="middle" opacity="0.7" pointer-events="none">${item.w}×${dim2}</text>`;
       }
     });
 
@@ -24957,7 +24961,7 @@ function iwRender() {
       h += `<rect x="${px.x.toFixed(1)}" y="${px.y.toFixed(1)}" width="${pw.toFixed(1)}" height="${pd.toFixed(1)}" fill="rgba(100,100,200,0.25)" stroke="#448" stroke-width="1.5" stroke-dasharray="5,3" rx="2" pointer-events="none"/>`;
     }
 
-    // Roof holes â€” selectable like rooftop items. When part of the
+    // Roof holes — selectable like rooftop items. When part of the
     // current selection the stroke flips to the bright blue used by
     // selected items, with a beefier outline so the hole reads as
     // "active" against the muted purple of unselected holes.
@@ -24973,12 +24977,12 @@ function iwRender() {
         h += `<circle class="iw-roof-hole" data-i="${i}" cx="${cp.x.toFixed(1)}" cy="${cp.y.toFixed(1)}" r="${r.toFixed(1)}" fill="${erasing?'rgba(200,68,68,0.12)':'rgba(136,64,160,0.12)'}" stroke="${col}" stroke-width="${strokeW}" style="cursor:${cursorVal}"/>`;
         h += `<line x1="${(cp.x-r*.4).toFixed(1)}" y1="${cp.y.toFixed(1)}" x2="${(cp.x+r*.4).toFixed(1)}" y2="${cp.y.toFixed(1)}" stroke="${col}" stroke-width="0.7" pointer-events="none"/>`;
         h += `<line x1="${cp.x.toFixed(1)}" y1="${(cp.y-r*.4).toFixed(1)}" x2="${cp.x.toFixed(1)}" y2="${(cp.y+r*.4).toFixed(1)}" stroke="${col}" stroke-width="0.7" pointer-events="none"/>`;
-        if (iwScale > 2) h += `<text x="${cp.x.toFixed(1)}" y="${(cp.y+r+9).toFixed(1)}" font-size="8" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">âŒ€${hole.d}mm</text>`;
+        if (iwScale > 2) h += `<text x="${cp.x.toFixed(1)}" y="${(cp.y+r+9).toFixed(1)}" font-size="8" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">⌀${hole.d}mm</text>`;
       } else {
         const hp = iwPX(hole.x - hole.w/2, hole.y - hole.h/2);
         const pw = hole.w * iwScale, ph = hole.h * iwScale;
         h += `<rect class="iw-roof-hole" data-i="${i}" x="${hp.x.toFixed(1)}" y="${hp.y.toFixed(1)}" width="${pw.toFixed(1)}" height="${ph.toFixed(1)}" fill="${erasing?'rgba(200,68,68,0.12)':'rgba(136,64,160,0.12)'}" stroke="${col}" stroke-width="${strokeW}" style="cursor:${cursorVal}"/>`;
-        if (iwScale > 2) h += `<text x="${(hp.x+pw/2).toFixed(1)}" y="${(hp.y+ph+9).toFixed(1)}" font-size="8" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">${hole.w}Ã—${hole.h}mm</text>`;
+        if (iwScale > 2) h += `<text x="${(hp.x+pw/2).toFixed(1)}" y="${(hp.y+ph+9).toFixed(1)}" font-size="8" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">${hole.w}×${hole.h}mm</text>`;
       }
     });
     // Hole drag ghost (roof tab)
@@ -24994,7 +24998,7 @@ function iwRender() {
       }
     }
 
-    // Skylights â€” render as a translucent blue pane with a darker frame
+    // Skylights — render as a translucent blue pane with a darker frame
     // outline (frame = hole + 1.5mm margin all sides). Distinct from roof
     // holes (purple) so the two are easy to tell apart in the editor.
     // When part of the selection, the frame and stroke flip to the
@@ -25013,7 +25017,7 @@ function iwRender() {
       const fpw = fw * iwScale, fph = fh * iwScale;
       // Frame outline (the outer frame piece extent)
       h += `<rect x="${fp.x.toFixed(1)}" y="${fp.y.toFixed(1)}" width="${fpw.toFixed(1)}" height="${fph.toFixed(1)}" fill="none" stroke="${frameStroke}" stroke-width="${sel ? '1.5' : '1.0'}" stroke-dasharray="2,2" pointer-events="none"/>`;
-      // Hole (and plexi pane) â€” clickable for select/erase
+      // Hole (and plexi pane) — clickable for select/erase
       const hp = iwPX(sky.x - sky.w / 2, sky.y - sky.h / 2);
       const pw = sky.w * iwScale, ph = sky.h * iwScale;
       h += `<rect class="iw-skylight" data-i="${i}" x="${hp.x.toFixed(1)}" y="${hp.y.toFixed(1)}" width="${pw.toFixed(1)}" height="${ph.toFixed(1)}" fill="${paneFill}" stroke="${col}" stroke-width="${strokeW}" style="cursor:${cursorVal}"/>`;
@@ -25022,7 +25026,7 @@ function iwRender() {
         h += `<line x1="${hp.x.toFixed(1)}" y1="${hp.y.toFixed(1)}" x2="${(hp.x+pw).toFixed(1)}" y2="${(hp.y+ph).toFixed(1)}" stroke="rgba(255,255,255,0.55)" stroke-width="0.6" pointer-events="none"/>`;
       }
       if (iwScale > 2) {
-        h += `<text x="${(hp.x+pw/2).toFixed(1)}" y="${(hp.y+ph+10).toFixed(1)}" font-size="8" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">ðŸ”† ${sky.w}Ã—${sky.h}mm</text>`;
+        h += `<text x="${(hp.x+pw/2).toFixed(1)}" y="${(hp.y+ph+10).toFixed(1)}" font-size="8" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">Skylight ${sky.w}×${sky.h}mm</text>`;
       }
     });
     // Skylight drag ghost
@@ -25071,7 +25075,7 @@ function iwRender() {
       });
     } else {
       // Click-to-select + drag-to-move for placed items, skylights, and
-      // both kinds of holes. Same mousedown logic for all four â€” the
+      // both kinds of holes. Same mousedown logic for all four — the
       // handler reads the item type from data-iw-kind and the index
       // from data-i, captures the original positions of every selected
       // ref (including the just-clicked one if not already selected),
@@ -25086,7 +25090,7 @@ function iwRender() {
           iwBindPointerAndMouse(el, e => {
             if (!iwPrimaryPointer(e)) return;
             // Let pan gesture through even when the cursor is over a
-            // placed item â€” without this, space-held drag on an item
+            // placed item — without this, space-held drag on an item
             // would select it instead of scrolling the view.
             if (iwSpaceDown) return;
             e.stopPropagation();
@@ -25232,7 +25236,7 @@ function iwSvgPt(e) {
 }
 
 function iwHandleMouseMove(e) {
-  // Pan gesture takes priority over normal hover / drag handling â€” once
+  // Pan gesture takes priority over normal hover / drag handling — once
   // the user is mid-pan we just translate the offset and re-render, no
   // wall snap-points or item-hover highlights to track.
   if (iwPanning) {
@@ -25257,7 +25261,7 @@ function iwHandleMouseMove(e) {
     iwRender();
     return;
   }
-  // Shield-wall drag â€” translate cursor into edge-pos, write back the
+  // Shield-wall drag — translate cursor into edge-pos, write back the
   // appropriate field of the edge state, re-render. The state object
   // is normalized to the explicit form on first drag of an edge, so
   // subsequent drags can read/write directly.
@@ -25291,7 +25295,7 @@ function iwHandleMouseMove(e) {
     iwRender();
     return;
   }
-  // Shield bounds drag â€” move or resize the entire shield enclosure
+  // Shield bounds drag — move or resize the entire shield enclosure
   // rectangle. Apply a delta from the drag-start position, clamp to
   // the roof footprint, and clamp any segments/openings that fall
   // outside the new bounds.
@@ -25352,7 +25356,7 @@ function iwHandleMouseMove(e) {
 }
 
 function iwHandleMouseDown(e) {
-  // Pan triggers â€” middle mouse OR space-held left mouse. Started here
+  // Pan triggers — middle mouse OR space-held left mouse. Started here
   // before any normal interaction so it can short-circuit wall-draw and
   // item-select. preventDefault stops middle-click from triggering the
   // OS autoscroll affordance on Windows / Linux.
@@ -25395,7 +25399,7 @@ function iwHandleMouseDown(e) {
 }
 
 function iwHandleMouseUp(e) {
-  // End pan first if one's in progress â€” must come before any
+  // End pan first if one's in progress — must come before any
   // wall-draw / item-move completion so a panning mouseup doesn't
   // accidentally drop a wall at the cursor's release position.
   if (iwPanning) {
@@ -25417,7 +25421,7 @@ function iwHandleMouseUp(e) {
     iwRender();
     return;
   }
-  // Finish a shield-wall handle drag â€” clear the drag state and let
+  // Finish a shield-wall handle drag — clear the drag state and let
   // iwRender redraw with the new positions. No persistence here; the
   // state lives directly in CONFIG.rooftopShield.edges so it'll be
   // saved with the preset like everything else.
@@ -25468,7 +25472,7 @@ function iwHandleMouseUp(e) {
       tgt.embeddedRails.push({ x: ix, y: iy, w: rw, h: rh, orientation: iwDragItem.orientation || 'auto', trackOffset: 0 });
     } else if (iwDragItem.type === 'skylight' && iwIsRoof()) {
       // Skylights live in target.skylights. The stored x/y is the centre of
-      // the hole (consistent with roofHoles), and w/h is the hole size â€” the
+      // the hole (consistent with roofHoles), and w/h is the hole size — the
       // frame and plexi are derived geometrically from these at build time.
       const w = iwDragItem.w || 10;
       const h = iwDragItem.h || 10;
@@ -25546,7 +25550,7 @@ function iwComputeTabs(wi, walls, matT) {
     && (isH ? ww.y1 : ww.x1) < myRef - matT / 2).length;
   const phase = (rank % 2) * (IW_TAB_SPACING / 2);
 
-  // Place tabs, avoiding crossing Â± 2*matT
+  // Place tabs, avoiding crossing ± 2*matT
   const n = Math.max(2, Math.round(len / IW_TAB_SPACING));
   const spacing = len / (n + 1);
   const tabPositions = [];
@@ -25556,7 +25560,7 @@ function iwComputeTabs(wi, walls, matT) {
     if (crossings.some(c => Math.abs(c.pos - pos) < matT * 2.5)) continue;
     tabPositions.push(pos);
   }
-  // Fallback: ensure â‰¥ 2 tabs
+  // Fallback: ensure ≥ 2 tabs
   if (tabPositions.length < 2) {
     tabPositions.length = 0;
     for (let ti = 1; ti <= Math.max(2, n); ti++) {
@@ -25571,7 +25575,7 @@ function iwComputeTabs(wi, walls, matT) {
 /* ---- Build wall panel SVG path with tabs and half-lap notches ---- */
 // panelL = length, panelH = floor height
 // tabs protrude above (y<0) and below (y>panelH)
-// halfLaps: [{pos, edge:'top'|'bottom'}] â€” rectangular notches INTO the panel
+// halfLaps: [{pos, edge:'top'|'bottom'}] — rectangular notches INTO the panel
 function iwBuildPanelPath(panelL, panelH, matT, tabPos, halfLaps) {
   const tt = [...tabPos].sort((a, b) => a - b);
 
@@ -25588,7 +25592,7 @@ function iwBuildPanelPath(panelL, panelH, matT, tabPos, halfLaps) {
   // Outer perimeter clockwise, starting at top-left of the clear wall body.
   const pts = [[0, yTopBody]];
 
-  // Top edge leftâ†’right with upward tab protrusions into the upper panel.
+  // Top edge left→right with upward tab protrusions into the upper panel.
   for (const p of tt) {
     const l = p - matT / 2, r = p + matT / 2;
     pts.push([l, yTopBody], [l, 0], [r, 0], [r, yTopBody]);
@@ -25596,7 +25600,7 @@ function iwBuildPanelPath(panelL, panelH, matT, tabPos, halfLaps) {
 
   pts.push([panelL, yTopBody], [panelL, yBotBody]);
 
-  // Bottom edge rightâ†’left with downward tab protrusions into the lower panel.
+  // Bottom edge right→left with downward tab protrusions into the lower panel.
   for (const p of [...tt].reverse()) {
     const l = p - matT / 2, r = p + matT / 2;
     pts.push([r, yBotBody], [r, yBotBody + matT], [l, yBotBody + matT], [l, yBotBody]);
@@ -25727,7 +25731,7 @@ function generateInternalWallParts(cfg, plan) {
       const crossNote = halfLaps.length ? ` ${halfLaps.length} half-lap notch${halfLaps.length > 1 ? 'es' : ''}.` : '';
       parts.push({
         id: `iwall_f${lvl}_${wi}`, material: 'core',
-        name: `Internal wall â€” ${lvlLabel}, ${dir}, ${len.toFixed(0)} mm Ã— ${panelH.toFixed(1)} mm clear (${posLbl})`,
+        name: `Internal wall — ${lvlLabel}, ${dir}, ${len.toFixed(0)} mm × ${panelH.toFixed(1)} mm clear (${posLbl})`,
         assemblyNote: `Clear wall body is ${panelH.toFixed(1)}mm between floor/ceiling plates; tabs add ${matT.toFixed(1)}mm into each horizontal panel (${tabPositions.length} tabs, staggered).${crossNote}`,
         bboxW: len, bboxH: panelH + 2 * matT,
         bboxOffsetX: 0, bboxOffsetY: 0,
@@ -25808,9 +25812,9 @@ function generatedBuildingName(cfg) {
   const typeLabel = typeSpec.label || 'Building';
   const floors = Math.max(1, Number(cfg.floorCount || 1));
   const wings = (cfg.wings || []).length;
-  const dims = `${Number(cfg.width || 0).toFixed(0)}Ã—${Number(cfg.depth || 0).toFixed(0)}Ã—${Number(cfg.height || 0).toFixed(0)}mm`;
+  const dims = `${Number(cfg.width || 0).toFixed(0)}×${Number(cfg.depth || 0).toFixed(0)}×${Number(cfg.height || 0).toFixed(0)}mm`;
   const wingText = wings ? ` + ${wings} wing${wings !== 1 ? 's' : ''}` : '';
-  return `${typeLabel} â€” ${floors}F${wingText} (${dims})`;
+  return `${typeLabel} — ${floors}F${wingText} (${dims})`;
 }
 
 function currentBuildingName(cfg) {
@@ -25823,7 +25827,7 @@ function renderBuildingNameHtml() {
     + `<div class="building-title-label">Building name</div>`
     + `<div class="building-title-row">`
     + `<div class="building-title-text" id="buildingTitleText">${escapeHtml(currentBuildingName(CONFIG))}</div>`
-    + `<button class="building-title-edit" id="buildingTitleEdit" type="button" title="Edit building name" aria-label="Edit building name">âœŽ</button>`
+    + `<button class="building-title-edit" id="buildingTitleEdit" type="button" title="Edit building name" aria-label="Edit building name">✎</button>`
     + `</div></div>`;
 }
 
@@ -25875,7 +25879,7 @@ function regenerate() {
     if (layoutReferencePart) result.parts.push(layoutReferencePart);
     lastPlan = result.plan;
     lastResult = result;
-    renderMaterialsForm();   // keep cladding-style â†’ material list current
+    renderMaterialsForm();   // keep cladding-style → material list current
   } catch (e) {
     document.getElementById('output').innerHTML = '<div class="warn">Error generating building: ' + e.message + '</div>';
     console.error(e);
@@ -25884,7 +25888,7 @@ function regenerate() {
   result.parts = applySheetSplittingToParts(result.parts, CONFIG);
   const { parts, plan, totalWindows, totalDoors } = result;
 
-  // Render preview â€” grouped by material then sheet
+  // Render preview — grouped by material then sheet
   renderPartsOutput(parts);
 
   // Stats
@@ -25892,8 +25896,8 @@ function regenerate() {
   const totalCladdingParts = parts.filter(p => p.material === 'cladding').length;
   let statsHtml = renderBuildingNameHtml();
   statsHtml += '<div class="preview-section"><h2>Stats</h2>';
-  statsHtml += `<div class="stat-row"><span>Building footprint</span><span>${CONFIG.width} Ã— ${CONFIG.depth} Ã— ${CONFIG.height} mm</span></div>`;
-  statsHtml += `<div class="stat-row"><span>Real-world (1:150)</span><span>${(CONFIG.width * 0.15).toFixed(1)} Ã— ${(CONFIG.depth * 0.15).toFixed(1)} Ã— ${(CONFIG.height * 0.15).toFixed(1)} m</span></div>`;
+  statsHtml += `<div class="stat-row"><span>Building footprint</span><span>${CONFIG.width} × ${CONFIG.depth} × ${CONFIG.height} mm</span></div>`;
+  statsHtml += `<div class="stat-row"><span>Real-world (1:150)</span><span>${(CONFIG.width * 0.15).toFixed(1)} × ${(CONFIG.depth * 0.15).toFixed(1)} × ${(CONFIG.height * 0.15).toFixed(1)} m</span></div>`;
   statsHtml += `<div class="stat-row"><span>Core parts</span><span>${totalCoreParts}</span></div>`;
   statsHtml += `<div class="stat-row"><span>Cladding parts</span><span>${totalCladdingParts}</span></div>`;
   statsHtml += `<div class="stat-row"><span>Total windows</span><span>${totalWindows}</span></div>`;
@@ -25917,7 +25921,7 @@ function regenerate() {
   }
 
   // Bay opening height constraint.
-  // plan.H = cfg.height (parapet lives in plan.parapetH â€” already excluded âœ“).
+  // plan.H = cfg.height (parapet lives in plan.parapetH — already excluded ✓).
   // When first-floor height is overridden, the upper floors use the remaining height;
   // the bay (which spans the first floor) should not exceed one upper-floor height
   // minus matT, so the bay-ceiling panel always has a ledge to seat its tongue joints.
@@ -25934,7 +25938,7 @@ function regenerate() {
     if (bayH > maxBayH) {
       warnings += `<div class="warn">Bay opening height (${bayH.toFixed(1)} mm) exceeds the safe maximum of ${maxBayH.toFixed(1)} mm`
         + ` (${floors > 1 ? `upper-floor height ${refFloorH.toFixed(1)}` : `wall height ${H.toFixed(1)}`} mm`
-        + ` âˆ’ material thickness ${matT} mm).`
+        + ` − material thickness ${matT} mm).`
         + ` The bay-ceiling panel needs at least ${matT} mm of wall material above the opening for its tongue joints.</div>`;
     }
   }
@@ -25949,23 +25953,23 @@ function regenerate() {
 
    Each tongue (a 4-point outward bump on a part's perimeter, matT deep) must
    plug into exactly one slot. Slots come in two flavours:
-     1. Interior rect cuts with one dimension â‰ˆ matT (e.g. roof slots at
+     1. Interior rect cuts with one dimension ≈ matT (e.g. roof slots at
         parapetH, dividing-wall connection slots).
-     2. Inward perimeter bumps â€” "openings" produced by buildWallPath when a
+     2. Inward perimeter bumps — "openings" produced by buildWallPath when a
         front/back wall has slots on its left/right edges for side-wall
         tongues.
    Counts are split by orientation:
-     â€¢ Horizontal-edge tongues (vertical protrusions) â†” slots with h â‰ˆ matT
+     • Horizontal-edge tongues (vertical protrusions) ↔ slots with h ≈ matT
        AND horizontal-edge openings (inward vertical bumps).
-     â€¢ Vertical-edge tongues (horizontal protrusions) â†” slots with w â‰ˆ matT
+     • Vertical-edge tongues (horizontal protrusions) ↔ slots with w ≈ matT
        AND vertical-edge openings (inward horizontal bumps).
    When the counts disagree there's a tab somewhere with no matching slot,
    or a slot that won't receive any tab.
 
    The detector ignores:
-     â€¢ Non-core parts (cladding, trim, windows) â€” they don't participate in
+     • Non-core parts (cladding, trim, windows) — they don't participate in
        the structural tongue-and-slot system.
-     â€¢ Large rectangular bay carves â€” their bump depth â‰  matT so the strict
+     • Large rectangular bay carves — their bump depth ≠ matT so the strict
        length check skips them.
 */
 function classifyBumpsInPath(d, matT, tolerance) {
@@ -26051,8 +26055,8 @@ function verifyTongueSlotMatch(parts, matT) {
       const wIsThin = Math.abs(r.w - matT) < SLOT_DIM_TOL;
       const hIsLong = r.h > matT + SLOT_DIM_TOL;
       const wIsLong = r.w > matT + SLOT_DIM_TOL;
-      if (hIsThin && wIsLong) horizSlots++;        // wide slot, thin in Y â†’ horizontal slot
-      else if (wIsThin && hIsLong) vertSlots++;    // tall slot, thin in X â†’ vertical slot
+      if (hIsThin && wIsLong) horizSlots++;        // wide slot, thin in Y → horizontal slot
+      else if (wIsThin && hIsLong) vertSlots++;    // tall slot, thin in X → vertical slot
     }
   }
 
@@ -26062,14 +26066,14 @@ function verifyTongueSlotMatch(parts, matT) {
   if (horizTongues !== horizMatched) {
     issues.push(
       `Horizontal-edge tongues: ${horizTongues}; matching features ` +
-      `(rect slots hâ‰ˆ${matT}: ${horizSlots}, perimeter openings: ${horizOpenings}, total ${horizMatched})` +
+      `(rect slots h≈${matT}: ${horizSlots}, perimeter openings: ${horizOpenings}, total ${horizMatched})` +
       ` (diff ${horizTongues - horizMatched}).`
     );
   }
   if (vertTongues !== vertMatched) {
     issues.push(
       `Vertical-edge tongues: ${vertTongues}; matching features ` +
-      `(rect slots wâ‰ˆ${matT}: ${vertSlots}, perimeter openings: ${vertOpenings}, total ${vertMatched})` +
+      `(rect slots w≈${matT}: ${vertSlots}, perimeter openings: ${vertOpenings}, total ${vertMatched})` +
       ` (diff ${vertTongues - vertMatched}).`
     );
   }
@@ -26374,8 +26378,8 @@ function sanitiseFileName(str) {
 function exportCleanPartName(str) {
   return (str || 'Part')
     // Remove common UI-only suffixes/notes so export names stay stable.
-    .replace(/\s+â€”\s+layout cut\b/ig, '')
-    .replace(/\s+\(\d+Ã—.*?\)$/g, '')
+    .replace(/\s+—\s+layout cut\b/ig, '')
+    .replace(/\s+\(\d+×.*?\)$/g, '')
     .replace(/\s+\(\d+\s*x.*?\)$/ig, '')
     .replace(/\s+\([^)]*trim offset[^)]*\)$/ig, '')
     .replace(/\s+\([^)]*slots into[^)]*\)$/ig, '')
@@ -26450,11 +26454,11 @@ async function exportZip() {
   if (verify.issues.length > 0) {
     const msg =
       'Tongue/slot consistency check found issues:\n\n' +
-      verify.issues.map(s => '  â€¢ ' + s).join('\n') +
+      verify.issues.map(s => '  • ' + s).join('\n') +
       '\n\nThis usually means a part has tongues that won\'t plug into anything,' +
       ' or slots that nothing will plug into.\n\nProceed with download anyway?';
     if (!confirm(msg)) {
-      if (typeof flashMessage === 'function') flashMessage('Download cancelled â€” fix tongue/slot mismatches first.', 'warn');
+      if (typeof flashMessage === 'function') flashMessage('Download cancelled — fix tongue/slot mismatches first.', 'warn');
       return;
     }
   }
@@ -26468,7 +26472,7 @@ async function exportZip() {
   const hakoName = `building_${CONFIG.buildingType}_${CONFIG.width}x${CONFIG.depth}x${CONFIG.height}.hako`;
   const matLibName = `material_library_${CONFIG.buildingType}_${CONFIG.width}x${CONFIG.depth}x${CONFIG.height}.hakomaterial`;
 
-  // Build a lookup: material id â†’ sanitised top-level folder name.
+  // Build a lookup: material id → sanitised top-level folder name.
   const matFolders = {};
   for (const mat of MaterialRegistry.list(CONFIG)) {
     matFolders[mat.id] = MaterialRegistry.folderName(mat.id, CONFIG);
@@ -26482,7 +26486,7 @@ async function exportZip() {
 
   const folderForMat = (matId) => matFolders[matId] || sanitiseFolderName(matId || 'misc');
 
-  // SVG parts â†’ one top-level folder per material:
+  // SVG parts → one top-level folder per material:
   //   <MaterialFolder>/Main_Front_Core_Wall.svg
   //   <MaterialFolder>/Wing_01_Back_Exterior_Cladding.svg
   // If two files would collide, a numeric suffix is appended.
@@ -26497,10 +26501,10 @@ async function exportZip() {
   }
 
   // --- README manifest ---
-  let manifest = `# HakoMachi â€” Output Manifest\n\n`;
+  let manifest = `# HakoMachi — Output Manifest\n\n`;
   manifest += `Building type: ${BUILDING_TYPES[CONFIG.buildingType].label}\n`;
-  manifest += `Outer dimensions: ${CONFIG.width} Ã— ${CONFIG.depth} Ã— ${CONFIG.height} mm\n`;
-  manifest += `Real-world (1:150): ${(CONFIG.width*0.15).toFixed(1)} Ã— ${(CONFIG.depth*0.15).toFixed(1)} Ã— ${(CONFIG.height*0.15).toFixed(1)} m\n`;
+  manifest += `Outer dimensions: ${CONFIG.width} × ${CONFIG.depth} × ${CONFIG.height} mm\n`;
+  manifest += `Real-world (1:150): ${(CONFIG.width*0.15).toFixed(1)} × ${(CONFIG.depth*0.15).toFixed(1)} × ${(CONFIG.height*0.15).toFixed(1)} m\n`;
   const splitCount = result.parts.filter(p => p && p.meta && p.meta.sheetSplit).length;
   if (splitCount) manifest += `Sheet-split wall segments: ${splitCount} (core-wall splits include interior splice plates where needed)\n`;
   manifest += `\n`;
@@ -26513,13 +26517,13 @@ async function exportZip() {
     byFolder[folder].push(row);
   }
   manifest += `## Parts by material folder\n\n`;
-  manifest += `SVG files are exported as \`Material folder â†’ Main/Wing_Wall_PartName.svg\`.\n\n`;
+  manifest += `SVG files are exported as \`Material folder → Main/Wing_Wall_PartName.svg\`.\n\n`;
   for (const [folder, rows] of Object.entries(byFolder).sort()) {
     manifest += `### ${folder}/\n`;
     for (const row of rows.sort((a, b) => a.exportPath.localeCompare(b.exportPath))) {
       const p = row.part;
       const file = row.exportPath.split('/').pop();
-      manifest += `- ${file} â€” ${p.name} (${p.bboxW.toFixed(1)} Ã— ${p.bboxH.toFixed(1)} mm)\n`;
+      manifest += `- ${file} — ${p.name} (${p.bboxW.toFixed(1)} × ${p.bboxH.toFixed(1)} mm)\n`;
     }
     manifest += '\n';
   }
@@ -26540,9 +26544,9 @@ async function exportZip() {
       const eq = ROOFTOP_EQUIPMENT[k];
       const requested = equipReq[k];
       const placedN = placedByKey[k] || 0;
-      const note = (placedN < requested) ? ` âš  Only ${placedN} fit on the roof.` : '';
-      manifest += `- **${eq.label}** â€” ${requested} requested${note}\n`;
-      manifest += `  - File: \`equipment_${k}.stl\` (${eq.w}Ã—${eq.d}Ã—${eq.h}mm)\n`;
+      const note = (placedN < requested) ? ` ⚠ Only ${placedN} fit on the roof.` : '';
+      manifest += `- **${eq.label}** — ${requested} requested${note}\n`;
+      manifest += `  - File: \`equipment_${k}.stl\` (${eq.w}×${eq.d}×${eq.h}mm)\n`;
       manifest += `  - ${eq.description}\n`;
       const eqTris = generateEquipmentStl(k);
       if (eqTris) zip.folder('equipment').file('equipment_' + k + '.stl', eqTris.toBinaryStl());
@@ -26587,16 +26591,16 @@ async function exportZip() {
 'use strict';
 
 /* =====================================================================
-   STL EXPORT â€” 3D MASSING PREVIEW
-   
+   STL EXPORT — 3D MASSING PREVIEW
+
    Generates an ASCII STL of the assembled building. Uses simple axis-aligned
-   box decomposition: each wall with rectangular openings is decomposed into 
-   solid rectangles via a sweep-line, then each rectangle is extruded to its 
-   thickness. Cladding and trim are added as thinner layers glued to the 
+   box decomposition: each wall with rectangular openings is decomposed into
+   solid rectangles via a sweep-line, then each rectangle is extruded to its
+   thickness. Cladding and trim are added as thinner layers glued to the
    outer face.
-   
+
    Coordinate system (right-handed):
-     +X = building width direction (left â†’ right when viewing from front)
+     +X = building width direction (left → right when viewing from front)
      +Y = building depth direction (-Y is FRONT face, +Y is BACK)
      +Z = up (ground = z=0)
    ===================================================================== */
@@ -26604,8 +26608,8 @@ async function exportZip() {
 /* Build a triangle list. Each triangle is [v1, v2, v3] where each v is [x,y,z]. */
 class TriList {
   constructor() { this.tris = []; }
-  
-  /* Push an axis-aligned box: x âˆˆ [x0, x1], y âˆˆ [y0, y1], z âˆˆ [z0, z1].
+
+  /* Push an axis-aligned box: x ∈ [x0, x1], y ∈ [y0, y1], z ∈ [z0, z1].
      Skips degenerate boxes. */
   box(x0, x1, y0, y1, z0, z1) {
     if (x1 - x0 < 0.001 || y1 - y0 < 0.001 || z1 - z0 < 0.001) return;
@@ -26613,39 +26617,39 @@ class TriList {
       [x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0],
       [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1],
     ];
-    // 6 faces Ã— 2 triangles each, all CCW when viewed from outside
-    // -Z (bottom): 0,1,2,3 â†’ CCW from below means CW from above: (0,3,2)(0,2,1)
+    // 6 faces × 2 triangles each, all CCW when viewed from outside
+    // -Z (bottom): 0,1,2,3 → CCW from below means CW from above: (0,3,2)(0,2,1)
     this.tris.push([v[0], v[3], v[2]], [v[0], v[2], v[1]]);
-    // +Z (top): 4,5,6,7 â†’ CCW from above: (4,5,6)(4,6,7)
+    // +Z (top): 4,5,6,7 → CCW from above: (4,5,6)(4,6,7)
     this.tris.push([v[4], v[5], v[6]], [v[4], v[6], v[7]]);
     // -Y (front, normal -Y): vertices 0,4,5,1 (CCW from -Y looking +Y): 0,1,5; 0,5,4
     this.tris.push([v[0], v[1], v[5]], [v[0], v[5], v[4]]);
     // +Y (back, normal +Y): vertices at y=y1, CCW from outside (+Y view)
     // Correct winding: [v2, v3, v7] then [v2, v7, v6]
     this.tris.push([v[2], v[3], v[7]], [v[2], v[7], v[6]]);
-    // -X (left, normal -X): 0,4,7,3 â†’ CCW: 0,4,7; 0,7,3
+    // -X (left, normal -X): 0,4,7,3 → CCW: 0,4,7; 0,7,3
     this.tris.push([v[0], v[4], v[7]], [v[0], v[7], v[3]]);
-    // +X (right, normal +X): 1,2,6,5 â†’ CCW: 1,2,6; 1,6,5
+    // +X (right, normal +X): 1,2,6,5 → CCW: 1,2,6; 1,6,5
     this.tris.push([v[1], v[2], v[6]], [v[1], v[6], v[5]]);
   }
-  
-  /* Convenience: a rectangular wall slab spanning some range, with a list 
-     of rectangular HOLES cut into it (windows, bay, doors). The wall plane is 
-     axis-aligned (specified by the orientation: 'X', 'Y', or 'Z' for which axis 
+
+  /* Convenience: a rectangular wall slab spanning some range, with a list
+     of rectangular HOLES cut into it (windows, bay, doors). The wall plane is
+     axis-aligned (specified by the orientation: 'X', 'Y', or 'Z' for which axis
      is the wall normal). The wall has thickness `thick` along the normal axis.
-     
+
      Decomposes the wall into rectangles via sweep-line and pushes each as a box.
-     
+
      Args for orientation 'Y' (wall normal is along Y, wall sits in X-Z plane):
        u0, u1: X range of wall outer face
        v0, v1: Z range of wall outer face
        n0, n1: Y range (thickness) of wall body (n0 < n1)
        holes: array of {u0, u1, v0, v1} in same coordinate frame
      For orientation 'X' (wall normal along X, wall sits in Y-Z plane):
-       u â†’ Y, v â†’ Z, n â†’ X
-     For orientation 'Z' (wall normal along Z, wall sits in X-Y plane â€” used for 
+       u → Y, v → Z, n → X
+     For orientation 'Z' (wall normal along Z, wall sits in X-Y plane — used for
      floor/roof/ceiling):
-       u â†’ X, v â†’ Y, n â†’ Z
+       u → X, v → Y, n → Z
   */
   wallWithHoles(orient, u0, u1, v0, v1, n0, n1, holes) {
     const rects = decomposeWallRectangles(u0, u1, v0, v1, holes || []);
@@ -26659,7 +26663,7 @@ class TriList {
       }
     }
   }
-  
+
   toAsciiStl(name) {
     const lines = ['solid ' + (name || 'building')];
     for (const t of this.tris) {
@@ -26677,7 +26681,7 @@ class TriList {
     lines.push('endsolid ' + (name || 'building'));
     return lines.join('\n');
   }
-  
+
   /* Binary STL is much smaller. Returns ArrayBuffer. */
   toBinaryStl() {
     const triCount = this.tris.length;
@@ -26705,8 +26709,8 @@ class TriList {
   }
 }
 
-/* Decompose an axis-aligned rectangle [u0..u1, v0..v1] minus some axis-aligned 
-   rectangular holes into a list of solid rectangles via horizontal-band 
+/* Decompose an axis-aligned rectangle [u0..u1, v0..v1] minus some axis-aligned
+   rectangular holes into a list of solid rectangles via horizontal-band
    sweep-line. Each band is a horizontal strip with consistent set of holes.
    Within each band, vertical holes split the strip into solid sub-rectangles. */
 function decomposeWallRectangles(u0, u1, v0, v1, holes) {
@@ -26726,7 +26730,7 @@ function decomposeWallRectangles(u0, u1, v0, v1, holes) {
   const vEdgeSet = new Set([v0, v1]);
   for (const h of valid) { vEdgeSet.add(h.v0); vEdgeSet.add(h.v1); }
   const vEdges = [...vEdgeSet].sort((a, b) => a - b);
-  
+
   const result = [];
   for (let i = 0; i < vEdges.length - 1; i++) {
     const bv0 = vEdges[i], bv1 = vEdges[i + 1];
@@ -26760,22 +26764,22 @@ function decomposeWallRectangles(u0, u1, v0, v1, holes) {
   return result;
 }
 
-/* Generate STL for a single piece of rooftop equipment. The geometry is built 
-   centered horizontally on (0,0) with its base resting on z=0, so the user can 
+/* Generate STL for a single piece of rooftop equipment. The geometry is built
+   centered horizontally on (0,0) with its base resting on z=0, so the user can
    place it on their roof at the etched footprint outline.
-   
+
    Returns a TriList. The caller can call .toBinaryStl() or .toAsciiStl() on it. */
 function generateEquipmentStl(eqKey) {
   const eq = ROOFTOP_EQUIPMENT[eqKey];
   if (!eq) return null;
   const tris = new TriList();
   const w = eq.w, d = eq.d, h = eq.h;
-  // Center horizontally: geometry spans x âˆˆ [-w/2, w/2], y âˆˆ [-d/2, d/2], z âˆˆ [0, h]
+  // Center horizontally: geometry spans x ∈ [-w/2, w/2], y ∈ [-d/2, d/2], z ∈ [0, h]
   const x0 = -w / 2, x1 = w / 2;
   const y0 = -d / 2, y1 = d / 2;
-  
-  /* Helper: a triangulated cylinder along the Z axis, between z=zBot and z=zTop, 
-     centered at (cx, cy), of radius r, with `sides` flat faces. Caps are added 
+
+  /* Helper: a triangulated cylinder along the Z axis, between z=zBot and z=zTop,
+     centered at (cx, cy), of radius r, with `sides` flat faces. Caps are added
      at top and bottom. */
   function addCylinder(cx, cy, r, zBot, zTop, sides) {
     sides = sides || 16;
@@ -26791,18 +26795,18 @@ function generateEquipmentStl(eqKey) {
       tris.tris.push([[a[0], a[1], zBot], [b[0], b[1], zBot], [b[0], b[1], zTop]]);
       tris.tris.push([[a[0], a[1], zBot], [b[0], b[1], zTop], [a[0], a[1], zTop]]);
     }
-    // Top cap (fan) â€” CCW viewed from above (+Z)
+    // Top cap (fan) — CCW viewed from above (+Z)
     for (let i = 0; i < sides; i++) {
       const a = pts[i], b = pts[(i + 1) % sides];
       tris.tris.push([[cx, cy, zTop], [a[0], a[1], zTop], [b[0], b[1], zTop]]);
     }
-    // Bottom cap (fan) â€” CCW viewed from below (-Z), so wind opposite
+    // Bottom cap (fan) — CCW viewed from below (-Z), so wind opposite
     for (let i = 0; i < sides; i++) {
       const a = pts[i], b = pts[(i + 1) % sides];
       tris.tris.push([[cx, cy, zBot], [b[0], b[1], zBot], [a[0], a[1], zBot]]);
     }
   }
-  
+
   /* Helper: a frustum (truncated cone) along Z. */
   function addFrustum(cx, cy, rBot, rTop, zBot, zTop, sides) {
     sides = sides || 16;
@@ -26831,7 +26835,7 @@ function generateEquipmentStl(eqKey) {
       }
     }
   }
-  
+
   if (eq.shape === 'box_louvered') {
     // Main box body
     tris.box(x0, x1, y0, y1, 0, h);
@@ -26852,12 +26856,12 @@ function generateEquipmentStl(eqKey) {
     // Small fan circle on top
     addCylinder(0, 0, Math.min(w, d) * 0.3, h, h + 0.4, 12);
   }
-  
+
   else if (eq.shape === 'cooling_tower') {
     const det = eq.details || {};
     const fanR = det.fanRadius || Math.min(w, d) * 0.3;
     const fanH = det.fanHeight || 1.5;
-    // Main body â€” slightly tapered for visual interest
+    // Main body — slightly tapered for visual interest
     tris.box(x0, x1, y0, y1, 0, h - fanH);
     // Vertical louver ridges on all 4 sides
     const louverCount = det.louverCount || 8;
@@ -26875,7 +26879,7 @@ function generateEquipmentStl(eqKey) {
     // Fan hub
     addCylinder(0, 0, fanR * 0.25, h, h + 0.3, 8);
   }
-  
+
   else if (eq.shape === 'tank_round_legged') {
     const det = eq.details || {};
     const tankR = det.tankRadius || Math.min(w, d) / 2;
@@ -26891,14 +26895,14 @@ function generateEquipmentStl(eqKey) {
       const cy = legR * Math.sin(ang);
       tris.box(cx - legSize / 2, cx + legSize / 2, cy - legSize / 2, cy + legSize / 2, 0, legH);
     }
-    // Tank body â€” main cylinder
+    // Tank body — main cylinder
     addCylinder(0, 0, tankR, legH, legH + tankH * 0.85, 16);
-    // Top dome â€” frustum tapering toward narrower top
+    // Top dome — frustum tapering toward narrower top
     addFrustum(0, 0, tankR, tankR * 0.7, legH + tankH * 0.85, legH + tankH, 16);
     // Small vent stack on top
     addCylinder(0, 0, tankR * 0.15, legH + tankH, legH + tankH + 0.6, 8);
   }
-  
+
   else if (eq.shape === 'tank_square_legged') {
     const det = eq.details || {};
     const tankH = det.tankH || h * 0.75;
@@ -26911,7 +26915,7 @@ function generateEquipmentStl(eqKey) {
     }
     // Tank body
     tris.box(x0, x1, y0, y1, legH, legH + tankH);
-    // Panel seams etched as small ridges on each face: divide each face into a 2Ã—2 panel grid
+    // Panel seams etched as small ridges on each face: divide each face into a 2×2 panel grid
     const ridgeH = 0.1;
     // Front face (-Y): 1 horizontal + 1 vertical ridge
     tris.box(x0, x1, y0 - ridgeH, y0, legH + tankH * 0.5 - 0.05, legH + tankH * 0.5 + 0.05);
@@ -26922,7 +26926,7 @@ function generateEquipmentStl(eqKey) {
     // Small vent on top
     addCylinder(0, 0, 0.4, legH + tankH, legH + tankH + 0.5, 8);
   }
-  
+
   else if (eq.shape === 'mushroom') {
     const det = eq.details || {};
     const stackR = det.stackRadius || 1.0;
@@ -26935,7 +26939,7 @@ function generateEquipmentStl(eqKey) {
     addCylinder(0, 0, capR, stackH, stackH + capH * 0.3, 12);
     addFrustum(0, 0, capR, capR * 0.6, stackH + capH * 0.3, stackH + capH, 12);
   }
-  
+
   else if (eq.shape === 'cabinet_tall') {
     // Tall narrow box body
     tris.box(x0, x1, y0, y1, 0, h);
@@ -26949,7 +26953,7 @@ function generateEquipmentStl(eqKey) {
     // Top cap that slightly overhangs
     tris.box(x0 - 0.15, x1 + 0.15, y0 - 0.15, y1 + 0.15, h - 0.2, h);
   }
-  
+
   else if (eq.shape === 'antenna') {
     const det = eq.details || {};
     const baseW = det.baseW || 2.7;
@@ -26963,21 +26967,21 @@ function generateEquipmentStl(eqKey) {
     // Tip cap
     addCylinder(0, 0, mastR * 1.3, baseH + mastH - 0.3, baseH + mastH, 6);
   }
-  
+
   else {
     // Fallback: plain box
     tris.box(x0, x1, y0, y1, 0, h);
   }
-  
+
   return tris;
 }
 
 
-/* Generate the 3D STL of the assembled building from the same plan/parts data 
+/* Generate the 3D STL of the assembled building from the same plan/parts data
    that drives the 2D SVGs. Returns a TriList. */
 /**
  * Push a parallelogram prism (tilted slab) into a raw tris array.
- * p0â€“p3: outer-face corners, CCW from outside.  Inner face offset by thick.
+ * p0–p3: outer-face corners, CCW from outside.  Inner face offset by thick.
  */
 function addSlantedSlab(triArr, p0, p1, p2, p3, thick) {
   const e1 = [p1[0]-p0[0], p1[1]-p0[1], p1[2]-p0[2]];
@@ -27096,20 +27100,20 @@ function generateBuildingStl(cfg) {
   // ---- Floor (core) ----
   // Sits below the walls' bottom edges
   tris.box(0, W, 0, D, -matT, 0);
-  
+
   // ---- Side walls (east and west) ----
-  // West wall: X âˆˆ [0, matT], Y âˆˆ [matT, D - matT], Z âˆˆ [0, H]
-  // East wall: X âˆˆ [W - matT, W], Y âˆˆ [matT, D - matT], Z âˆˆ [0, H]
-  // Side walls have window cutouts (using slotYs for inter-floor exclusion is 
+  // West wall: X ∈ [0, matT], Y ∈ [matT, D - matT], Z ∈ [0, H]
+  // East wall: X ∈ [W - matT, W], Y ∈ [matT, D - matT], Z ∈ [0, H]
+  // Side walls have window cutouts (using slotYs for inter-floor exclusion is
   // already done in computeWindows). We compute the same windows as the 2D code.
   const winDims = getWindowDims(cfg);
   const groundWinDims = getGroundFloorWindowDims(cfg);
-  
-  // West wall windows: in WALL-LOCAL frame the wall has x running 0..sideLen 
+
+  // West wall windows: in WALL-LOCAL frame the wall has x running 0..sideLen
   // (Y in 3D), y running 0..H (Z in 3D, with y=0 = top so Z = H - y).
   function computeSideWallHoles(sideHasBay, sideLen, which) {
     // CRITICAL: when manual openings are present on this face, the 3D must
-    // use them â€” not the auto layout. Otherwise the preview shows windows
+    // use them — not the auto layout. Otherwise the preview shows windows
     // and doors at positions that don't match what's actually been cut.
     const manual = manualStructuralOps(cfg, which);
     let wins = [];
@@ -27152,7 +27156,7 @@ function generateBuildingStl(cfg) {
     // Convert to {u0, u1, v0, v1} where u=Y in 3D, v=Z in 3D
     const holes = [];
     for (const w of wins) {
-      // wall y=0 is top â†’ Z = H - y. wall x=0 is the wall start (which corresponds 
+      // wall y=0 is top → Z = H - y. wall x=0 is the wall start (which corresponds
       // to Y=matT in 3D for the west wall, growing toward Y=D-matT)
       holes.push({
         u0: matT + w.x, u1: matT + w.x + w.width,
@@ -27160,7 +27164,7 @@ function generateBuildingStl(cfg) {
       });
     }
     for (const d of doors) {
-      // Both solid and glass doors cut through the wall in 3D â€” the
+      // Both solid and glass doors cut through the wall in 3D — the
       // difference (glass slot vs cladding-only insert) is a fabrication
       // detail, not a 3D-render distinction.
       holes.push({
@@ -27170,7 +27174,7 @@ function generateBuildingStl(cfg) {
     }
     return holes;
   }
-  
+
   const sideHasBay = plan.hasFrontBay || plan.hasBackBay;
 
   // Pre-compute wing connection slots so the main-block walls get the matching
@@ -27201,10 +27205,10 @@ function generateBuildingStl(cfg) {
   tris.wallWithHoles('X', matT, D - matT, 0, H, 0, matT, [...westHoles, ...wingSlots.west]);
   // East wall: same Y/Z range, X range = [W-matT, W]
   tris.wallWithHoles('X', matT, D - matT, 0, H, W - matT, W, [...eastHoles, ...wingSlots.east]);
-  
+
   // ---- Front and back walls ----
-  // Front wall: Y âˆˆ [0, matT], X âˆˆ [0, W], Z âˆˆ [0, H]
-  // Back wall: Y âˆˆ [D - matT, D], X âˆˆ [0, W], Z âˆˆ [0, H]
+  // Front wall: Y ∈ [0, matT], X ∈ [0, W], Z ∈ [0, H]
+  // Back wall: Y ∈ [D - matT, D], X ∈ [0, W], Z ∈ [0, H]
   function computeFbWallHoles(which) {
     const hasBay = (which === 'front' && plan.hasFrontBay) || (which === 'back' && plan.hasBackBay);
     // CRITICAL: manual openings take precedence over the auto layout. If
@@ -27217,7 +27221,7 @@ function generateBuildingStl(cfg) {
         if (op.type === 'window') {
           const style = op.style ? WINDOW_STYLES[op.style] : null;
           const placement = (style && style.placement) || 'opening';
-          if (placement === 'etched') continue;  // no hole â€” etched outline only
+          if (placement === 'etched') continue;  // no hole — etched outline only
           holes.push({
             u0: op.x, u1: op.x + op.w,
             v0: H - (op.y + op.h), v1: H - op.y,
@@ -27291,42 +27295,42 @@ function generateBuildingStl(cfg) {
     }
     return holes;
   }
-  
+
   const frontHoles = computeFbWallHoles('front');
   const backHoles = computeFbWallHoles('back');
   // Front wall: orientation 'Y', n = Y range, u = X, v = Z
   tris.wallWithHoles('Y', 0, W, 0, H, 0, matT, [...frontHoles, ...wingSlots.front]);
   tris.wallWithHoles('Y', 0, W, 0, H, D - matT, D, [...backHoles, ...wingSlots.back]);
-  
+
   // ---- Cladding (each wall has a 0.28mm layer on the outer face) ----
   // Cladding extends past the wall by cT on the side edges, and by cT at top/bottom.
-  // Front cladding: Y âˆˆ [-cT, 0], X âˆˆ [-cT, W + cT], Z âˆˆ [-cT, H + cT]
+  // Front cladding: Y ∈ [-cT, 0], X ∈ [-cT, W + cT], Z ∈ [-cT, H + cT]
   // For visualization, we don't need to model the cladding-stops-at-parapet detail.
   // Use the same hole list as the wall, shifted to cladding coords.
-  // Front cladding: Z âˆˆ [-cT, H + cT]   (extends cT below floor and cT above wall top)
+  // Front cladding: Z ∈ [-cT, H + cT]   (extends cT below floor and cT above wall top)
   //   But for parapet roof, cladding should also stop at the wall top to expose the parapet.
-  // Simplification: cladding spans Z âˆˆ [0, H] (matches wall body), no cT extra at top/bottom.
+  // Simplification: cladding spans Z ∈ [0, H] (matches wall body), no cT extra at top/bottom.
   //   This is "good enough" for visualization. Real builds vary.
   tris.wallWithHoles('Y', -cT, W + cT, 0, H, -cT, 0, frontHoles);
   tris.wallWithHoles('Y', -cT, W + cT, 0, H, D, D + cT, backHoles);
-  // Side cladding: X âˆˆ [-cT, 0] (west) and [W, W + cT] (east). Y âˆˆ [0, D] (extends cT past front+back ends? no, sits between them)
+  // Side cladding: X ∈ [-cT, 0] (west) and [W, W + cT] (east). Y ∈ [0, D] (extends cT past front+back ends? no, sits between them)
   // Following the 2D convention: side cladding sits BETWEEN front+back cladding overhangs (Y range [matT, D-matT]).
   // But for visualization we want continuous coverage at corners. The front/back cladding extends past, so we want the side cladding to fill the gap.
-  // Side cladding actually sits at Y âˆˆ [0, D] with X âˆˆ [-cT, 0] but inset cT from the front/back cladding: so Y âˆˆ [cT, D - cT]? No wait.
-  // 2D: front cladding is W + 2cT wide, side cladding is depth - 2cT wide. So side cladding spans Y âˆˆ [cT, D - cT] in 3D.
+  // Side cladding actually sits at Y ∈ [0, D] with X ∈ [-cT, 0] but inset cT from the front/back cladding: so Y ∈ [cT, D - cT]? No wait.
+  // 2D: front cladding is W + 2cT wide, side cladding is depth - 2cT wide. So side cladding spans Y ∈ [cT, D - cT] in 3D.
   tris.wallWithHoles('X', cT, D - cT, 0, H, -cT, 0, westHoles);
   tris.wallWithHoles('X', cT, D - cT, 0, H, W, W + cT, eastHoles);
 
   // Add BAY_DOOR_STYLES panels/slats to the generated STL preview/export so
   // rolling shutters do not appear as huge stretched regular doors.
   addMainBayDoorPanelsToStl();
-  
+
   // ---- Roof ----
   if (cfg.roofStyle === 'parapet') {
     // Recessed roof, sits at Z = H - parapetH - matT to H - parapetH
     tris.box(matT, W - matT, matT, D - matT, H - parapetH - matT, H - parapetH);
   } else if (cfg.roofStyle === 'flat') {
-    // Sits on top of walls, Z âˆˆ [H, H + matT]
+    // Sits on top of walls, Z ∈ [H, H + matT]
     tris.box(0, W, 0, D, H, H + matT);
   } else if (cfg.roofStyle === 'flat_overhang') {
     // Same as flat but extends past each wall by `O` mm on all sides
@@ -27388,7 +27392,7 @@ function generateBuildingStl(cfg) {
         [W+ohEW, D+ohFB, H - ohEW*slopeRateNS], [W+ohEW, -ohFB, H - ohEW*slopeRateNS], matT);
     }
   } else {
-    tris.box(0, W, 0, D, H, H + matT);   // unknown style â€” flat cap
+    tris.box(0, W, 0, D, H, H + matT);   // unknown style — flat cap
   }
 
   // Cladding roof (if present)
@@ -27399,27 +27403,27 @@ function generateBuildingStl(cfg) {
       tris.box(-cT, W + cT, -cT, D + cT, H + matT, H + matT + cT);
     }
   }
-  
+
   // ---- Bay ceiling ----
   if (plan.hasFrontBay || plan.hasBackBay) {
     const bcZ = H - (plan.bayHeight || 0);
     tris.box(matT, W - matT, matT, D - matT, bcZ, bcZ + matT);
   }
-  
+
   // ---- Inter-floor panels ----
   // Each panel sits at Z = H - interFloorY (interFloorY measured from top in wall coords)
   for (const fy of plan.interFloorYs) {
     const z = H - fy;  // since fy is Y from wall TOP, the panel Z = H - fy
     tris.box(matT, W - matT, matT, D - matT, z - matT/2, z + matT/2);
   }
-  
+
   // ---- Trim strips (top/bottom horizontal bands) ----
   if (cfg.trimTop || cfg.trimBottom || cfg.trimBelt) {
     const trimH = cfg.trimHeight || 2;
     const overhang = (cfg.trimOverhang != null) ? cfg.trimOverhang : cT;
     // Trim sits one cT IN FRONT of the cladding (further out)
-    // Front trim: at Y âˆˆ [-cT - cT, -cT] (one trim-thickness in front of the front cladding)
-    // X range: front cladding is X âˆˆ [-cT, W + cT], trim adds overhang on each side: [-cT - overhang, W + cT + overhang]
+    // Front trim: at Y ∈ [-cT - cT, -cT] (one trim-thickness in front of the front cladding)
+    // X range: front cladding is X ∈ [-cT, W + cT], trim adds overhang on each side: [-cT - overhang, W + cT + overhang]
     const trimTopZRange = cfg.trimTop ? [H - trimH, H] : null;
     const trimBotZRange = cfg.trimBottom ? [0, trimH] : null;
     // Belt course: centred on the floor boundary. plan.firstFloorHeight gives
@@ -27440,7 +27444,7 @@ function generateBuildingStl(cfg) {
       tris.box(W + cT, W + cT + cT, cT, D - cT, z0, z1);
     }
   }
-  
+
   // ---- Ground-floor depth offset sub-assembly ----
   if (cfg.groundFloorOffsetEnabled && Math.abs(plan.groundFloorOffset || 0) >= 0.5) {
     const offset = plan.groundFloorOffset;
@@ -27448,8 +27452,8 @@ function generateBuildingStl(cfg) {
     if (offset > 0) {
       // EXTENSION: small box projecting forward of the building's front face.
       // Front of main building is at Y=0. Extension extends from Y = -offset to Y = 0.
-      // Box dimensions: width Ã— offset Ã— firstH. Walls are matT thick.
-      // 
+      // Box dimensions: width × offset × firstH. Walls are matT thick.
+      //
       // Outer (front) wall: at Y = -offset to Y = -offset + matT, full width, full height
       tris.box(0, W, -offset, -offset + matT, 0, firstH);
       // East side wall: X = W-matT to W, Y = -offset+matT to 0, height 0 to firstH
@@ -27467,33 +27471,33 @@ function generateBuildingStl(cfg) {
       // Top cladding (sits on top of the shelf)
       tris.box(-cT, W + cT, -offset - cT, 0, firstH + matT, firstH + matT + cT);
     } else {
-      // RECESS: the upper floors overhang past the first floor's front face. 
+      // RECESS: the upper floors overhang past the first floor's front face.
       // The first-floor front wall is set BACK (recessed) by |offset|.
-      // The user is expected to cut a hole in the main building's front wall to 
+      // The user is expected to cut a hole in the main building's front wall to
       // expose this recess. The recess "sub-assembly" lives INSIDE the building.
       //
-      // For STL preview: model the recess as a void at the front-bottom of the 
+      // For STL preview: model the recess as a void at the front-bottom of the
       // building. We represent this by adding an "alcove" of geometry inside.
       const off = -offset;  // |offset|
       // Recessed inner wall: at Y = off to Y = off + matT, full width, height 0 to firstH
       tris.box(0, W, off, off + matT, 0, firstH);
-      // Two recess side walls: short walls running from the main front (Y=0) 
+      // Two recess side walls: short walls running from the main front (Y=0)
       // back to the recessed wall (Y=off). They're MAIN-WALL thickness.
       tris.box(W - matT, W, 0, off, 0, firstH);
       tris.box(0, matT, 0, off, 0, firstH);
       // Recess ceiling: Z = firstH to firstH + matT, X = 0 to W, Y = 0 to off
       tris.box(0, W, 0, off, firstH, firstH + matT);
-      // Note: the main front wall of the building should have a HOLE here. We can 
-      // represent this in the visual by NOT drawing the front wall in this region, 
-      // but the wall is computed independently. This means the STL preview will 
-      // show both the main front wall AND the recessed wall â€” overlapping. The 
-      // user should cut the hole physically. 
-      // To make the preview look right, we'd ideally subtract a hole from the 
-      // main front wall. For now: leave it. The recess geometry exists but the 
+      // Note: the main front wall of the building should have a HOLE here. We can
+      // represent this in the visual by NOT drawing the front wall in this region,
+      // but the wall is computed independently. This means the STL preview will
+      // show both the main front wall AND the recessed wall — overlapping. The
+      // user should cut the hole physically.
+      // To make the preview look right, we'd ideally subtract a hole from the
+      // main front wall. For now: leave it. The recess geometry exists but the
       // main front wall obscures it from view.
     }
   }
-  
+
   // ---- Rooftop mechanical room ----
   // The mech room sits on top of the building's roof. Its base z = main roof's top.
   // For parapet roof: roof top at z = H - parapetH (recessed below the wall top).
@@ -27508,8 +27512,8 @@ function generateBuildingStl(cfg) {
     } else {
       baseZ = H + matT;  // top of flat roof
     }
-    // mr.x, mr.y are in roof-local coords. For parapet roof, that's already inset 
-    // by matT from the building edge (roof body sits inset by matT). For flat roof, 
+    // mr.x, mr.y are in roof-local coords. For parapet roof, that's already inset
+    // by matT from the building edge (roof body sits inset by matT). For flat roof,
     // roof is at full footprint (no inset). Convert to absolute building coords:
     let absX, absY;
     if (cfg.roofStyle === 'parapet') {
@@ -27532,7 +27536,7 @@ function generateBuildingStl(cfg) {
     tris.box(absX, absX + mr.w, absY - cT, absY, baseZ, baseZ + mr.h);  // front clad
     tris.box(absX, absX + mr.w, absY + mr.d, absY + mr.d + cT, baseZ, baseZ + mr.h);  // back clad
   }
-  
+
   // ---- Rooftop equipment outlines visualized ----
   // For each placed equipment item, add a simple box at its footprint sitting on the roof.
   // Use the equipment's actual height for visual fidelity.
@@ -27556,7 +27560,7 @@ function generateBuildingStl(cfg) {
       tris.box(absX, absX + p.w, absY, absY + p.d, baseZ, baseZ + p.eq.h);
     }
   }
-  
+
   // ---- Wings ----
   for (const wing of (cfg.wings || [])) {
     const wH   = wingHeight(cfg, wing);
@@ -27631,7 +27635,7 @@ function generateBuildingStl(cfg) {
         const oh = oWithDoors(y0, outerWins, outerDoors);
         tris.wallWithHoles('X', y0, y1, 0, wH, x1-matT, x1, oh);
         tris.wallWithHoles('X', y0-cT, y1+cT, 0, wH, x1, x1+cT, oh);
-        // Parallel faces â€” skip when coplanar with main block walls (would create z-fighting)
+        // Parallel faces — skip when coplanar with main block walls (would create z-fighting)
         if (!cop.westCoplanar) {
           const h = sW(x0); tris.wallWithHoles('Y', x0, x1, 0, wH, y0, y0+matT, h); tris.wallWithHoles('Y', x0, x1, 0, wH, y0-cT, y0, h);
         }
@@ -27715,7 +27719,7 @@ async function exportStl() {
   flashMessage(`STL exported (${tris.tris.length} triangles)`, 'ok');
 }
 
-/* Persistent storage â€” uses browser localStorage so it works in any browser, 
+/* Persistent storage — uses browser localStorage so it works in any browser,
    not just the artifact sandbox. */
 const STORAGE_KEY = 'n_scale_building_generator_config';
 
@@ -27778,7 +27782,7 @@ function exportConfigFile() {
 }
 
 /* Import a .hako (or legacy .json) settings file picked by the user.
-   Both are JSON internally â€” same payload, different extension. */
+   Both are JSON internally — same payload, different extension. */
 function importConfigFile(file) {
   if (!file) return;
   const name = (file.name || '').toLowerCase();
@@ -28047,7 +28051,7 @@ function tryAutoLoadPreset() {
       return true;
     }
   } catch (e) {
-    // Ignore â€” fall back to defaults
+    // Ignore — fall back to defaults
   }
   return false;
 }
@@ -28285,8 +28289,8 @@ function normalizeHakoMachiSitePlanSeedToConfig(input, warnings) {
   return out;
 }
 
-/* Validate and merge a loaded config object onto CONFIG, falling back to 
-   building-type defaults for any field that's missing or references a key that no 
+/* Validate and merge a loaded config object onto CONFIG, falling back to
+   building-type defaults for any field that's missing or references a key that no
    longer exists in our enums. Returns a list of warnings about anything that was reset. */
 function applyLoadedConfig(data) {
   const warnings = [];
@@ -28319,11 +28323,11 @@ function applyLoadedConfig(data) {
     windowStyle:    validEnum('windowStyle',    WINDOW_STYLES,    base.windowStyle),
     doorStyle:      validEnum('doorStyle',      DOOR_STYLES,      base.doorStyle),
     windowScale:    (data.windowScale && WINDOW_SCALES[data.windowScale]) ? data.windowScale : (base.windowScale || 'default'),
-    firstFloorWindowStyle: (data.firstFloorWindowStyle && WINDOW_STYLES[data.firstFloorWindowStyle]) 
-      ? data.firstFloorWindowStyle 
+    firstFloorWindowStyle: (data.firstFloorWindowStyle && WINDOW_STYLES[data.firstFloorWindowStyle])
+      ? data.firstFloorWindowStyle
       : (base.firstFloorWindowStyle || 'storefront'),
-    firstFloorWindowScale: (data.firstFloorWindowScale && WINDOW_SCALES[data.firstFloorWindowScale]) 
-      ? data.firstFloorWindowScale 
+    firstFloorWindowScale: (data.firstFloorWindowScale && WINDOW_SCALES[data.firstFloorWindowScale])
+      ? data.firstFloorWindowScale
       : (base.firstFloorWindowScale || 'default'),
   };
 
@@ -28495,7 +28499,7 @@ function init() {
   // (final animate ends at begin 1.85s + dur 0.38s); we add a small buffer
   // so a hover landing on the very tail of the animation doesn't chain
   // into an immediate restart. The initial page-load animation counts as
-  // the first cycle â€” we seed lastTriggerTime to "now" so a hover within
+  // the first cycle — we seed lastTriggerTime to "now" so a hover within
   // the first 2.3s post-load is also suppressed. The listener lives here
   // (not inline in the SVG) so the offline test sandbox doesn't try to
   // run document.currentScript.closest.
@@ -28534,7 +28538,7 @@ function init() {
   // Regeneration is triggered manually by the "Generate Preview" button.
   const conditionalFieldUpdaters = ['heightMode', 'roofStyle', 'claddingStyle', 'roofCladdingStyle',
                                     'windowStyle', 'doorStyle',
-                                    'firstFloorHeightEnabled', 'firstFloorWindowStyleEnabled', 
+                                    'firstFloorHeightEnabled', 'firstFloorWindowStyleEnabled',
                                     'firstFloorCladdingStyleEnabled', 'groundFloorOffsetEnabled',
                                     'claddingExtendsToFloorBottom', 'floorOutlineOpening', 'rooftopMechRoom', 'interiorCladding'];
   for (const id of conditionalFieldUpdaters) {
@@ -28551,7 +28555,7 @@ function init() {
 
   // Auto-suggest the standing-seam metal cladding style when the user
   // first picks 'flat_overhang' for the roof. The metal-clad look is
-  // the whole point of this roof type â€” a freshly-selected flat-overhang
+  // the whole point of this roof type — a freshly-selected flat-overhang
   // roof with the global default cladding (concrete_panel_small) would
   // give the wrong first impression of what the style is for. Only the
   // initial pick gets this treatment; once the user has explicitly chosen
@@ -28739,9 +28743,9 @@ function init() {
     const frontBackW = w.toFixed(1);
     const sideLen    = (d - 2 * ct).toFixed(1);
     note.innerHTML =
-      `Front/back walls: <strong>${frontBackW} mm</strong> wide &nbsp;Â·&nbsp; ` +
+      `Front/back walls: <strong>${frontBackW} mm</strong> wide &nbsp;·&nbsp; ` +
       `Side walls: <strong>${sideLen} mm</strong> long ` +
-      `<span style="color:#a06000">(= depth&nbsp;âˆ’&nbsp;2Ã—core = ${d}âˆ’${(2*ct).toFixed(1)})</span>`;
+      `<span style="color:#a06000">(= depth&nbsp;−&nbsp;2×core = ${d}−${(2*ct).toFixed(1)})</span>`;
   }
   updatePanelDimsNote();
   ['width','depth'].forEach(id => {
@@ -28914,19 +28918,20 @@ function renderMaterialsForm() {
   container.innerHTML = '';
 
   const PALETTE = ['#c8b89a','#8ec2a0','#9abcda','#e0a870','#c09ac0','#a8c880','#d09090','#90b8d0'];
+  const icon = name => window.HakoMachiIcons ? window.HakoMachiIcons.icon(name) : '';
 
   // ---- Material library import/export ----
   const libraryRow = document.createElement('div');
   libraryRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 8px 0;';
   const exportLibBtn = document.createElement('button');
   exportLibBtn.type = 'button';
-  exportLibBtn.textContent = 'â¬‡ Download material library';
+  exportLibBtn.innerHTML = `${icon('download')}<span>Download material library</span>`;
   exportLibBtn.title = 'Download material names, colors, thicknesses, sheet sizes, and cladding-style material assignments.';
   exportLibBtn.style.cssText = 'font-size:11px;padding:5px 6px;cursor:pointer;border:1px solid var(--border);border-radius:3px;background:#fff;';
   exportLibBtn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); exportMaterialLibrary(); });
   const importLibBtn = document.createElement('button');
   importLibBtn.type = 'button';
-  importLibBtn.textContent = 'â¬† Import material library';
+  importLibBtn.innerHTML = `${icon('upload')}<span>Import material library</span>`;
   importLibBtn.title = 'Replace the current material library from a .hakomaterial or JSON file.';
   importLibBtn.style.cssText = 'font-size:11px;padding:5px 6px;cursor:pointer;border:1px solid var(--border);border-radius:3px;background:#fff;';
   importLibBtn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openMaterialLibraryImportPicker(); });
@@ -29050,7 +29055,7 @@ function renderMaterialsForm() {
     thick.value = mat.thickness != null ? mat.thickness : '';
     thick.placeholder = 'mm';
     thick.min = '0.01'; thick.max = '20'; thick.step = '0.01';
-    thick.title = 'Sheet thickness in mm â€” used for joint depth and part grouping';
+    thick.title = 'Sheet thickness in mm — used for joint depth and part grouping';
     thick.style.cssText = 'padding:4px 4px;font-size:11px;border:1px solid var(--border);border-radius:3px;text-align:right;min-width:0;';
     thick.addEventListener('input', e => e.stopPropagation());
     thick.addEventListener('change', e => {
@@ -29066,7 +29071,7 @@ function renderMaterialsForm() {
 
     const delCell = document.createElement('div');
     const del = document.createElement('button');
-    del.textContent = 'âœ•';
+    del.innerHTML = icon('close');
     del.title = t('mat_delTitle');
     del.style.cssText = 'padding:3px 6px;font-size:10px;cursor:pointer;border:1px solid #ccc;border-radius:3px;background:#fff;';
     del.addEventListener('click', () => {
@@ -29169,7 +29174,7 @@ function renderMaterialsForm() {
 
   // Add-material button
   const addBtn = document.createElement('button');
-  addBtn.textContent = t('mat_addBtn');
+  addBtn.innerHTML = `${icon('plus')}<span>${t('mat_addBtn')}</span>`;
   addBtn.style.cssText = 'font-size:11px;padding:4px 8px;cursor:pointer;border:1px dashed #aaa;border-radius:3px;background:#f5f5f0;width:100%;margin-top:2px;';
   addBtn.addEventListener('click', () => {
     CONFIG.materials.push({
@@ -29185,7 +29190,7 @@ function renderMaterialsForm() {
   });
   container.appendChild(addBtn);
 
-  // ---- Cladding style â†’ material assignment ----
+  // ---- Cladding style → material assignment ----
   const claddingStylesInUse = new Set([
     CONFIG.claddingStyle,
     CONFIG.firstFloorCladdingStyleEnabled && CONFIG.firstFloorCladdingStyle,
@@ -29343,7 +29348,7 @@ function newWing(face, mainW, mainD) {
     connection: 'wall',
     windowDensity: null,
     claddingStyle: null,
-    // Roof overrides â€” null means "inherit from main building"
+    // Roof overrides — null means "inherit from main building"
     roofStyle: null,
     parapetHeight: null,
     roofPitch: null,
@@ -29360,14 +29365,14 @@ function newWing(face, mainW, mainD) {
 /* ---- Wing height (with optional explicit override) ----
    By default a wing inherits the main building's first-floor and standard
    floor heights, and its total height is computed from its floor count.
-   This keeps the floors aligned with the main block â€” essential for the
+   This keeps the floors aligned with the main block — essential for the
    'open' connection mode where the wing and main interiors share floor
    bands.
 
    If wing.height is set to a positive number, that value is used directly
    as the wing's total height instead. This breaks floor alignment with
    the main building, so it's intended for 'wall' connections (where the
-   wing is sealed off from the main interior) â€” used for things like a
+   wing is sealed off from the main interior) — used for things like a
    shorter mechanical penthouse, a taller atrium wing, or any wing where
    the main building's floor rhythm doesn't fit visually. buildWingCfg
    scales the wing's per-floor heights proportionally so its own floor
@@ -29395,11 +29400,11 @@ function buildWingCfg(cfg, wing) {
   // first-floor heights so its floor bands align with the main's (open
   // connections rely on this). When wing.height is set as an explicit
   // override, the wing's TOTAL height no longer matches what the main's
-  // floor heights would produce â€” so we scale the wing's own floor heights
+  // floor heights would produce — so we scale the wing's own floor heights
   // proportionally to keep its band-count = floor-count math consistent.
   // The first-floor-taller proportion (if main has it enabled) is preserved
   // through the scale. Open connections to a height-overridden wing will
-  // look misaligned at floor levels â€” by design; the wall-connection mode
+  // look misaligned at floor levels — by design; the wall-connection mode
   // is the intended use for overrides.
   const mainFloorH = (cfg.floorHeight && cfg.floorHeight > 0) ? cfg.floorHeight : 30;
   const mainFirstH = (cfg.firstFloorHeightEnabled && cfg.firstFloorHeight && cfg.firstFloorHeight > 0)
@@ -29444,7 +29449,7 @@ function buildWingCfg(cfg, wing) {
     roofCladdingStyle: wing.roofCladdingStyle || cfg.roofCladdingStyle,
     // Wing-specific interior cladding: enable/disable per-wing, and an
     // optional style override (null = follow main's interiorCladdingStyle
-    // â†’ which itself falls back to claddingStyle in the generator). Both
+    // → which itself falls back to claddingStyle in the generator). Both
     // values fall back to main when the wing hasn't set them, mirroring
     // the roof-cladding-style pattern above.
     interiorCladding:      (wing.interiorCladding      != null) ? wing.interiorCladding      : cfg.interiorCladding,
@@ -29492,7 +29497,7 @@ function buildWingCfg(cfg, wing) {
     // bug class as the wall manualOpenings leakage: without these
     // overrides, Object.assign carries the MAIN's skylights/rooftopItems
     // at MAIN-frame coordinates into the wing's cfg, where the wing's
-    // roof generator interprets them at wing-local coords â€” landing
+    // roof generator interprets them at wing-local coords — landing
     // nonsensically or extending past the wing footprint. The wing now
     // carries its own arrays (populated via the IW editor in wing mode),
     // and main's placements stay on main.
@@ -29758,17 +29763,17 @@ function wingCoplanarCheck(wing, mainW, mainD) {
      { front: { left, right }, back: { left, right },
        east:  { left, right }, west:  { left, right } }
    Each slot is either null or { wing, wingFace, extRight, flipWX }, where:
-     wing      â€” the wing object
-     wingFace  â€” which of the wing's parallel faces ('west' | 'east') is
+     wing      — the wing object
+     wingFace  — which of the wing's parallel faces ('west' | 'east') is
                  coplanar with this main face (= the panel that extends main)
-     extRight  â€” true if the wing extension lies on the RIGHT side of main in
+     extRight  — true if the wing extension lies on the RIGHT side of main in
                  the merged panel's frame; false if on the LEFT
-     flipWX    â€” whether to mirror the wing panel's x before translating, so
+     flipWX    — whether to mirror the wing panel's x before translating, so
                  the wing's connection-adjacent end stays adjacent to main in
                  the merged frame regardless of which face/side it's on
    Front-merge uses internal-view convention (east on LEFT) per the openings
    editor. Back/east/west merges keep their natural conventions. When two
-   wings target the same (face, side) â€” rare â€” the first one in `cfg.wings`
+   wings target the same (face, side) — rare — the first one in `cfg.wings`
    wins. Layouts with wings stacked on the same side of the same face are
    not currently representable in the merged outline.
 */
@@ -29977,7 +29982,7 @@ function generateBuildingWithWings(cfg) {
       const wPlan = buildEdgePlans(wCfg);
       const wH    = wingHeight(cfg, wing);
 
-      // Wing roof's W-axis tongues â€” use the SAME placeTongues call as
+      // Wing roof's W-axis tongues — use the SAME placeTongues call as
       // generateRoof so positions line up exactly.
       const wingRoofW = wPlan.fbWidth - 2 * matT;
       const wingRoofTongueCountW = Math.max(2, Math.min(4, Math.floor(wingRoofW / 30)));
@@ -29991,14 +29996,14 @@ function generateBuildingWithWings(cfg) {
       const faceIsEW = (wing.face === 'east' || wing.face === 'west');
       const wallLen  = faceIsEW ? plan.sideLen : plan.fbWidth;
       // East-wall laser panel uses the internal-view convention (north on
-      // right), so storage-frame X values must be mirrored â€” same treatment
+      // right), so storage-frame X values must be mirrored — same treatment
       // as the parallel-face attachment slots above.
       const mirrorX = (wing.face === 'east');
 
       // Vertical position in main's wall: where the wing's roof sits.
       //   wing's parapet is at `wPlan.parapetH` from top of wing wall
       //   wing wall top in main's wall frame is at (mainH - wH)
-      //   â†’ slot top-y = (mainH - wH) + wPlan.parapetH
+      //   → slot top-y = (mainH - wH) + wPlan.parapetH
       const slotY = (mainH - wH) + wPlan.parapetH;
 
       for (const t of wingRoofWTongues) {
@@ -30030,7 +30035,7 @@ function generateBuildingWithWings(cfg) {
   parts.push(...generateXBracesForBlock(cfg, plan, '', ''));
 
   /* Main block's column supports + their floor etchings. The etchings
-     get applied to the (already-merged) floor part directly â€” the
+     get applied to the (already-merged) floor part directly — the
      wing extensions don't overlap main's footprint area, so writing
      main's etchings in the floor's main-coord region is safe with or
      without wings present. */
@@ -30061,9 +30066,9 @@ function generateBuildingWithWings(cfg) {
       const faceIsEW2 = (face === 'east' || face === 'west');
       const faceMainW = faceIsEW2 ? plan.sideLen : plan.fbWidth;
 
-      // â”€â”€ Recompute main wall's tongue positions so they fold into the merged
+      // ── Recompute main wall's tongue positions so they fold into the merged
       // outline. These mirror what generateFrontBackWall / generateSideWall
-      // produced. (Cheap to redo; avoids fragile path parsing.) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // produced. (Cheap to redo; avoids fragile path parsing.) ──────────────
       let mainTopT = [];
       let mainBotT = [];
       let leftT    = [];
@@ -30096,7 +30101,7 @@ function generateBuildingWithWings(cfg) {
         mainTopT = ssRoofTop ? placeTongues(plan.sideLen, tw, margin, [], 3, tw / 2) : [];
       }
 
-      // Vertical (left/right) edge tongues â€” between this wall and the
+      // Vertical (left/right) edge tongues — between this wall and the
       // perpendicular walls. Same algorithm as generateSideWall.
       {
         const sideHasBay = plan.hasFrontBay || plan.hasBackBay;
@@ -30148,8 +30153,8 @@ function generateBuildingWithWings(cfg) {
             height: plan.bayHeight }
         : null;
 
-      // Build the outline path. 1 wing â†’ L-shape (existing behaviour);
-      // 2 wings â†’ T-shape (new).
+      // Build the outline path. 1 wing → L-shape (existing behaviour);
+      // 2 wings → T-shape (new).
       let lPath;
       if (leftExt && rightExt) {
         lPath = buildTShapePathWithFeatures(
@@ -30223,13 +30228,13 @@ function generateBuildingWithWings(cfg) {
       // doors, slots for inter-floor panels, slots for the wing's
       // perpendicular walls, etc.) into wallPart.rects.
       //
-      // The +2Â·matT offset is: one matT bridge of wall material between main
+      // The +2·matT offset is: one matT bridge of wall material between main
       // wall end and the wing wall, plus one matT for the wing's front matT
       // corner (where the wing's connecting wall thickness sits).
       //
       // The flipWX flag (from computeFaceMerges) handles the case where the
       // wing's natural x=0 end is on the FAR side of the wing portion in the
-      // merged panel instead of adjacent to main â€” true for (west, !extRight)
+      // merged panel instead of adjacent to main — true for (west, !extRight)
       // and (east, extRight) after the front-merge extRight flip.
       for (const side of ['left', 'right']) {
         const ext = (side === 'left') ? leftExt : rightExt;
@@ -30278,7 +30283,7 @@ function generateBuildingWithWings(cfg) {
      For 'open' wings the main wall has an opening already, so no extra exclusion needed. */
   pushCladding(cfg, plan, '', new Set());
 
-  /* â”€â”€ Coplanar cladding merge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /* ── Coplanar cladding merge ─────────────────────────────────────────────
      Special-case post-process only: when a wing face is flush with a main
      face, replace the rectangular main-face cladding panel with one L/T-shaped
      shared cladding panel. Kept isolated from ordinary cladding generation so
@@ -30377,7 +30382,7 @@ function generateBuildingWithWings(cfg) {
         const xMain  = leftCW;
         const xRight = leftCW + mainCW;
 
-        // Build outer perimeter â€” T-shape for two wings, L-shape for one.
+        // Build outer perimeter — T-shape for two wings, L-shape for one.
         let lPath;
         if (wingData.left && wingData.right) {
           lPath = `M 0,${fx(stepYL)} L ${fx(xMain)},${fx(stepYL)} L ${fx(xMain)},0 L ${fx(xRight)},0 L ${fx(xRight)},${fx(stepYR)} L ${fx(totalW)},${fx(stepYR)} L ${fx(totalW)},${fx(mainCH)} L 0,${fx(mainCH)} Z`;
@@ -30449,7 +30454,7 @@ function generateBuildingWithWings(cfg) {
           );
           mainPart.lines = lines.map(ln => ({ type: 'etch', x1: ln.x1, y1: ln.y1, x2: ln.x2, y2: ln.y2 }));
         } else {
-          // Style mismatch â€” keep main's regenerated pattern (if any) and add
+          // Style mismatch — keep main's regenerated pattern (if any) and add
           // each wing's etched lines verbatim, translated.
           mainPart.lines = (mainPart.lines || []).concat(collectedWingLines);
         }
@@ -30514,7 +30519,7 @@ function generateBuildingWithWings(cfg) {
     };
     const connWall = wingConnectionWallKey(wing); // wing-local connection face
 
-    // Walls â€” shared block wrapper handles side/front-back dispatch, suffixes,
+    // Walls — shared block wrapper handles side/front-back dispatch, suffixes,
     // Wing N naming, and coplanar-face suppression.
     //
     // The wing-local connection face is omitted for both "Open" and "Wall"
@@ -30527,7 +30532,7 @@ function generateBuildingWithWings(cfg) {
       skipCoplanar: true,
     }));
 
-    /* Wing floor â€” merged into main building floor via generateMergedFloor,
+    /* Wing floor — merged into main building floor via generateMergedFloor,
        so we DON'T push a separate wing floor part here. */
 
     /* Wing inter-floor panels */
@@ -30557,7 +30562,7 @@ function generateBuildingWithWings(cfg) {
     }
 
     /* Wing cladding:
-       - Always exclude the connection face ('front') from EXTERIOR cladding â€” it is
+       - Always exclude the connection face ('front') from EXTERIOR cladding — it is
          interior even when the solid core connection wall is generated above.
        - Also exclude coplanar parallel faces ('west'/'east') when they are flush with
          a main-block outer face; those positions are already covered by the main block's
@@ -30584,7 +30589,7 @@ function generateBuildingWithWings(cfg) {
           ? `shared_wall_interior_cladding${sfx}_floor_${sharedIdx}`
           : 'shared_wall_interior_cladding' + sfx;
         sharedIp.name = sharedList.length > 1
-          ? `Wing ${wi + 1} Shared Wall Interior Cladding (wing side) â€” piece ${sharedIdx}`
+          ? `Wing ${wi + 1} Shared Wall Interior Cladding (wing side) — piece ${sharedIdx}`
           : `Wing ${wi + 1} Shared Wall Interior Cladding (wing side)`;
         sharedIp._sharedWallInteriorCladding = true;
         applyBlockIdentity(sharedIp, wingBlockCtx, {
@@ -30599,7 +30604,7 @@ function generateBuildingWithWings(cfg) {
       const cT = wCfg.claddingThickness;
       let wRW, wRH;
       if (wCfg.roofStyle === 'parapet') {
-        // Parapet â€” cladding fits over the recessed wing roof. With an
+        // Parapet — cladding fits over the recessed wing roof. With an
         // omitted connection wall, the roof/cladding run starts at the main
         // wall seam and only loses the far wall thickness along depth.
         wRW = wPlan.fbWidth - 2 * wPlan.matT;
@@ -30610,7 +30615,7 @@ function generateBuildingWithWings(cfg) {
         // thickness short even though the slotted core roof has its tab.
         wRH = wCfg._omitConnectionWall ? wCfg.depth : (wCfg.depth - 2 * wPlan.matT);
       } else {
-        // Flat â€” cladding spans the wing's outer footprint + cT overhang.
+        // Flat — cladding spans the wing's outer footprint + cT overhang.
         wRW = wPlan.fbWidth + 2 * cT;
         wRH = wCfg.depth    + 2 * cT;
       }
@@ -30619,7 +30624,7 @@ function generateBuildingWithWings(cfg) {
       // handling (see line ~13544): falls back to wall cladding when no
       // roof-specific style is set. Without this, wing roofs shipped as
       // blank sheets even when the main building emitted a tiled pattern
-      // â€” and there was no way to override roof cladding per-wing
+      // — and there was no way to override roof cladding per-wing
       // separately from wall cladding.
       const wRoofStyleKey  = wCfg.roofCladdingStyle || wCfg.claddingStyle;
       const wRoofStyleSpec = CLADDING_STYLES[wRoofStyleKey];
@@ -30650,7 +30655,7 @@ function generateBuildingWithWings(cfg) {
     /* ---- 3. Dividing wall (for 'wall' connections) ----
        Historically a separate part was generated here, but it had the wrong
        dimensions (width = wing.depth instead of wing.span) and wasn't placed
-       anywhere in the assembly â€” so the wing roof's TOP tongue had no slot.
+       anywhere in the assembly — so the wing roof's TOP tongue had no slot.
        The slot is now cut directly into main's wall at the connection face
        (see "Wing roof TOP-tongue slots in main walls" above), and this piece
        is no longer produced. The generator is kept in the file in case any
@@ -30660,10 +30665,10 @@ function generateBuildingWithWings(cfg) {
     //   parts.push(dw);
     // }
 
-    /* Wing trusses + X-bracing â€” same rules as main, but operating on
+    /* Wing trusses + X-bracing — same rules as main, but operating on
        the wing's own trusses object (carried on the wing). The sfx
        discriminator keeps part ids unique across wings, and the name
-       prefix surfaces "Wing 1/2/â€¦" in the parts panel so the user can
+       prefix surfaces "Wing 1/2/…" in the parts panel so the user can
        tell which truss belongs to which block at glue time. Layout cuts
        are authored in main/world coordinates, so trusses are cropped by
        converting each wing-local truss station into that shared footprint
@@ -30698,7 +30703,7 @@ function generateBuildingWithWings(cfg) {
     // Same rule as the main-building path: collect window/door metadata from
     // any material. This is especially important for wings, where users often
     // route cladding styles to custom material folders; otherwise multi-pane
-    // grid frames such as Office 3Ã—2 and style-specific door inserts vanish
+    // grid frames such as Office 3×2 and style-specific door inserts vanish
     // from the cut sheets.
     if (p.windows)       totalWindows += p.windows;
     if (p.upperWindows)  upperWindows += p.upperWindows;
@@ -30772,7 +30777,7 @@ function generateDividingWall(cfg, mainPlan, wCfg, wPlan, wing, wingIdx) {
     rects.push({ type: 'cut', x: 0, y: slotY - matT / 2, w: divW, h: matT, compensateKerf: true });
   }
 
-  // Build perimeter using buildWallPath â€” left edge has tongues into the main block wall
+  // Build perimeter using buildWallPath — left edge has tongues into the main block wall
   const spec = {
     width: divW, height: divH, matT, kerf: cfg.kerfComp,
     edges: {
@@ -30826,9 +30831,9 @@ function weWingBounds(cfg, wing) {
 
 /**
  * Which of the wing's four faces is which role:
- *   connection â€“ the face touching the main block (no external wall here)
- *   outer      â€“ the face farthest from main
- *   left/right â€“ the two parallel faces (may be coplanar with main faces)
+ *   connection – the face touching the main block (no external wall here)
+ *   outer      – the face farthest from main
+ *   left/right – the two parallel faces (may be coplanar with main faces)
  * Returned names are in the WING's local frame ('front'|'back'|'east'|'west').
  */
 function weWingFaceRoles(wing) {
@@ -30916,7 +30921,7 @@ function weInjectWingConnections(part, cfg, plan, mainFace, wings) {
 
     // Convert floor-plan position of the wing overlap to wall-local x coords:
     // Front/back wall local x = floor-plan x  (spans 0..fbWidth)
-    // Side wall local x       = floor-plan y âˆ’ matT  (spans 0..sideLen)
+    // Side wall local x       = floor-plan y − matT  (spans 0..sideLen)
     let wallLocalStart, wallLocalEnd;
     if (mainFace === 'front' || mainFace === 'back') {
       wallLocalStart = wing.offset;
@@ -30931,7 +30936,7 @@ function weInjectWingConnections(part, cfg, plan, mainFace, wings) {
     if (wallLocalEnd <= wallLocalStart) continue;
 
     if (wing.connection === 'open') {
-      // Large rectangular opening â€” the two interiors become one space
+      // Large rectangular opening — the two interiors become one space
       const openingY = H - wingH;                          // wall y = 0 at top
       part.rects.push({
         type: 'cut',
@@ -30978,12 +30983,12 @@ function weGenerateDividingWall(cfg, plan, wing) {
 
   const rects = [];
 
-  // Top tongues (roof connection) â€” flat and flat_overhang both use the
+  // Top tongues (roof connection) — flat and flat_overhang both use the
   // wall-top-tongue + roof-slot mechanism, just with different roof footprints.
   const topTongues = (cfg.roofStyle === 'flat' || cfg.roofStyle === 'flat_overhang')
     ? placeTongues(wallW, tw, margin, [], 3, tw / 2)
     : [];
-  // Bottom tongues (floor connection) â€” these will slot into the shared floor panel
+  // Bottom tongues (floor connection) — these will slot into the shared floor panel
   const bottomTongues = placeTongues(wallW, tw, margin, [], 3, tw / 2);
 
   // Inter-floor slots on the dividing wall
@@ -31144,7 +31149,7 @@ function weEnsureMeasuredArcDefaults(cut) {
 function weRenderSelectedCutControls(sidebar, cut) {
   if (!cut) return;
   const dirBtn = document.createElement('button');
-  dirBtn.textContent = 'â†” Toggle kept side';
+  dirBtn.textContent = '↔ Toggle kept side';
   dirBtn.style.cssText = 'width:100%;font-size:11px;margin-bottom:5px;';
   dirBtn.onclick = () => weToggleCutDirection(cut.id);
   sidebar.appendChild(dirBtn);
@@ -31228,7 +31233,7 @@ function weRenderSelectedCutControls(sidebar, cut) {
   arcNum('Arc bulge (mm)',                   'bulge',       -500, 500, 0.5);
 
   const flip = document.createElement('button');
-  flip.textContent = 'â†• Flip arc bow direction';
+  flip.textContent = '↕ Flip arc bow direction';
   flip.style.cssText = 'width:100%;font-size:11px;margin-bottom:6px;';
   flip.onclick = () => { cut.bulgeSide = Number(cut.bulgeSide) < 0 ? 1 : -1; updateMeasuredArcCutGeometry(cut, CONFIG); weRender(); weRenderSidebar(); regenerate(); };
   sidebar.appendChild(flip);
@@ -31270,7 +31275,7 @@ function weRenderLayoutCuts(ox, oy, s, minX, minY, maxX, maxY) {
       html += `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-dasharray="7 4" data-cutline="${cut.id}" pointer-events="stroke" style="cursor:pointer"/>`;
       if (selected && !measuredArc) html += `<circle cx="${f(cx)}" cy="${f(cy)}" r="5" fill="#d22" stroke="#fff" stroke-width="1" data-cutid="${cut.id}" data-cuthandle="ctrl" style="cursor:move"/>`;
       // label near the control point
-      html += `<text x="${f(cx)}" y="${f(cy - 10)}" font-size="9" fill="#a22" text-anchor="middle" font-family="system-ui" pointer-events="none">keep ${cut.keepSide}${measuredArc ? ' Â· measured' : ''}</text>`;
+      html += `<text x="${f(cx)}" y="${f(cy - 10)}" font-size="9" fill="#a22" text-anchor="middle" font-family="system-ui" pointer-events="none">keep ${cut.keepSide}${measuredArc ? ' · measured' : ''}</text>`;
     } else {
       html += `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" stroke="transparent" stroke-width="${hitSw}" data-cutline="${cut.id}" pointer-events="stroke" style="cursor:pointer"/>`;
       html += `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" stroke="${stroke}" stroke-width="${sw}" stroke-dasharray="7 4" data-cutline="${cut.id}" pointer-events="stroke" style="cursor:pointer"/>`;
@@ -31308,15 +31313,16 @@ function bbRenderBillboards() {
   const container = document.getElementById('billboardFields');
   if (!container) return;
   const bbs = CONFIG.billboards || [];
+  const closeIcon = window.HakoMachiIcons ? window.HakoMachiIcons.icon('close') : 'Remove';
   if (bbs.length === 0) {
-    container.innerHTML = '<div class="small" style="color:var(--muted);">No billboards yet â€” click Add to place one.</div>';
+    container.innerHTML = '<div class="small" style="color:var(--muted);">No billboards yet — click Add to place one.</div>';
     return;
   }
   container.innerHTML = bbs.map((bb, i) => `
     <div style="border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:6px;">
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
         <b style="font-size:12px;">Billboard ${i+1}</b>
-        <button data-bb-action="remove" data-bb-index="${i}" style="margin-left:auto;padding:1px 8px;font-size:11px;">âœ•</button>
+        <button data-bb-action="remove" data-bb-index="${i}" style="margin-left:auto;padding:1px 8px;font-size:11px;">${closeIcon}</button>
       </div>
       <div class="row" style="gap:6px;flex-wrap:wrap;font-size:11px;">
         <label>Type
@@ -31463,10 +31469,10 @@ function weRender() {
     html += `<text x="${cx}" y="${cy - 4}" font-size="9" fill="${col}" font-weight="600"
       text-anchor="middle" font-family="system-ui" pointer-events="none">Wing ${CONFIG.wings.indexOf(wing) + 1}</text>`;
     html += `<text x="${cx}" y="${cy + 7}" font-size="8" fill="${col}"
-      text-anchor="middle" font-family="system-ui" pointer-events="none">${wing.connection === 'open' ? 'â¬œ open' : 'â¬› wall'}</text>`;
+      text-anchor="middle" font-family="system-ui" pointer-events="none">${wing.connection === 'open' ? '⬜ open' : '⬛ wall'}</text>`;
     const hw = (wing.height || CONFIG.height).toFixed(0);
     html += `<text x="${cx}" y="${cy + 17}" font-size="7" fill="${col}"
-      text-anchor="middle" font-family="system-ui" pointer-events="none">${b.w.toFixed(0)}Ã—${b.d.toFixed(0)}Ã—${hw}mm</text>`;
+      text-anchor="middle" font-family="system-ui" pointer-events="none">${b.w.toFixed(0)}×${b.d.toFixed(0)}×${hw}mm</text>`;
 
     // Resize handles on outer/parallel edges
     if (isSel) {
@@ -31480,7 +31486,7 @@ function weRender() {
     }
   }
 
-  // Main block â€” clickable as sentinel 'main' so the sidebar can show
+  // Main block — clickable as sentinel 'main' so the sidebar can show
   // main-only options (currently the truss block; in future other
   // per-block features can hang off the same selector). Highlighted
   // when selected just like wings.
@@ -31491,7 +31497,7 @@ function weRender() {
   html += `<text x="${ox+W*s/2}" y="${oy+D*s/2+4}" font-size="11" fill="#555"
     text-anchor="middle" font-family="system-ui" pointer-events="none">Main</text>`;
   html += `<text x="${ox+W*s/2}" y="${oy+D*s/2+16}" font-size="8" fill="#777"
-    text-anchor="middle" font-family="system-ui" pointer-events="none">${W}Ã—${D}Ã—${CONFIG.height}mm</text>`;
+    text-anchor="middle" font-family="system-ui" pointer-events="none">${W}×${D}×${CONFIG.height}mm</text>`;
 
   // "Add wing" arrows on each face
   const arrowDefs = [
@@ -31515,7 +31521,7 @@ function weRender() {
 
   svg.innerHTML = html;
 
-  // Event handling â€” assign rather than stacking listeners each render.
+  // Event handling — assign rather than stacking listeners each render.
   // weRender() rebuilds the SVG often while dragging/toggling, and using
   // addEventListener here caused each click to fire multiple old handlers.
   svg.onclick = weOnClick;
@@ -31567,7 +31573,7 @@ function weOnClick(e) {
   const addFace = e.target.dataset.addface;
   if (addFace) { weSelectedCutId = null; weAddWing(addFace); return; }
   if (wingId) { weSelectedCutId = null; weSelectedWingId = wingId; weRender(); weRenderSidebar(); return; }
-  // Click on empty canvas â†’ deselect
+  // Click on empty canvas → deselect
   if (!e.target.dataset.handle && !e.target.dataset.cuthandle) { weSelectedWingId = null; weSelectedCutId = null; weRender(); weRenderSidebar(); }
 }
 
@@ -31716,7 +31722,8 @@ function weRenderSidebar() {
   sidebar.appendChild(cutNote);
   const cutBtns = document.createElement('div');
   cutBtns.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px;';
-  cutBtns.innerHTML = '<button type="button">ï¼‹ Straight</button><button type="button">ï¼‹ Arc</button>';
+  const plusIcon = window.HakoMachiIcons ? window.HakoMachiIcons.icon('plus') : '+';
+  cutBtns.innerHTML = `<button type="button">${plusIcon} Straight</button><button type="button">${plusIcon} Arc</button>`;
   cutBtns.children[0].onclick = () => weAddLayoutCut('line');
   cutBtns.children[1].onclick = () => weAddLayoutCut('arc');
   sidebar.appendChild(cutBtns);
@@ -31725,11 +31732,11 @@ function weRenderSidebar() {
     if (cut) {
       const cutInfo = document.createElement('div');
       cutInfo.style.cssText = 'font-size:10px;color:#a22;background:#fff0f0;border:1px solid #e0b0b0;border-radius:4px;padding:5px;margin-bottom:5px;';
-      cutInfo.textContent = `${cut.type === 'arc' ? 'Arc' : 'Straight'} cut selected â€” keeping ${cut.keepSide} side.`;
+      cutInfo.textContent = `${cut.type === 'arc' ? 'Arc' : 'Straight'} cut selected — keeping ${cut.keepSide} side.`;
       sidebar.appendChild(cutInfo);
       weRenderSelectedCutControls(sidebar, cut);
       const del = document.createElement('button');
-      del.textContent = 'ðŸ—‘ Remove selected cut';
+      del.innerHTML = `${window.HakoMachiIcons ? window.HakoMachiIcons.icon('trash') : ''}<span>Remove selected cut</span>`;
       del.style.cssText = 'width:100%;font-size:11px;margin-bottom:6px;border-color:#d22;color:#a22;background:#fff5f5;';
       del.onclick = weDeleteSelectedCut;
       sidebar.appendChild(del);
@@ -31748,7 +31755,7 @@ function weRenderSidebar() {
     sidebar.appendChild(clear);
   }
 
-  // Block list â€” Main first, then wings. Selecting "Main" puts the
+  // Block list — Main first, then wings. Selecting "Main" puts the
   // sidebar into main-block mode where only main-applicable controls
   // (currently the truss block) are shown; selecting a wing shows the
   // full per-wing property panel as before. The same `weSelectedWingId`
@@ -31832,14 +31839,14 @@ function weRenderSidebar() {
   numField('Offset (mm)',  'offset', 0,   500, 1);
   twoNumFields('Span (mm)', 'span', 'Depth (mm)', 'depth', 5, 500, 1);
   numField('Floors',       'floors',  1,   10, 1);
-  // Optional height override â€” leave blank to derive from Floors Ã— main
+  // Optional height override — leave blank to derive from Floors × main
   // building floor heights. Set to a positive value to lock the wing's
   // total height regardless of floor count. The wing's per-floor heights
   // scale to fit, so the floor band positions still divide the override
   // evenly. Best used with 'wall' connections; 'open' connections rely on
   // floor heights matching the main building's, which a height override
   // breaks by design.
-  numField('Height override (mm) â€” blank inherits', 'height', 10, 500, 1);
+  numField('Height override (mm) — blank inherits', 'height', 10, 500, 1);
 
   // Show the derived total height as a read-only hint so users know what
   // floor count / override maps to. The hint adapts to which mode is active.
@@ -31859,10 +31866,10 @@ function weRenderSidebar() {
       const scale = h / inheritedTotal;
       const scaledFirst = (firstH * scale).toFixed(1);
       const scaledStd   = (floorH * scale).toFixed(1);
-      hint.textContent = `Height: ${h} mm (OVERRIDE â€” wing floors scaled to 1st ${scaledFirst} mm + ${(wing.floors||1)-1} Ã— ${scaledStd} mm)`;
+      hint.textContent = `Height: ${h} mm (OVERRIDE — wing floors scaled to 1st ${scaledFirst} mm + ${(wing.floors||1)-1} × ${scaledStd} mm)`;
       hint.style.color = '#a05000';
     } else {
-      hint.textContent = `Height: ${h} mm (1st floor ${firstH} mm + ${(wing.floors||1)-1} Ã— ${floorH} mm â€” inherited from main)`;
+      hint.textContent = `Height: ${h} mm (1st floor ${firstH} mm + ${(wing.floors||1)-1} × ${floorH} mm — inherited from main)`;
     }
     sidebar.appendChild(hint);
   })();
@@ -31875,12 +31882,12 @@ function weRenderSidebar() {
     const b = document.createElement('button');
     b.textContent = label;
     b.className = wing.connection === val ? 'active' : '';
-    b.title = val === 'wall' ? 'A solid dividing wall separates the two blocks' : 'Open plan â€” interiors are connected (floor heights must match)';
+    b.title = val === 'wall' ? 'A solid dividing wall separates the two blocks' : 'Open plan — interiors are connected (floor heights must match)';
     b.onclick = () => { wing.connection = val; weRender(); weRenderSidebar(); regenerate(); };
     connRow.appendChild(b);
   }
-  connBtn('â¬› Wall', 'wall');
-  connBtn('â¬œ Open', 'open');
+  connBtn('⬛ Wall', 'wall');
+  connBtn('⬜ Open', 'open');
   sidebar.appendChild(connRow);
 
   if (wing.connection === 'open') {
@@ -31896,7 +31903,7 @@ function weRenderSidebar() {
 
   function selectField(label, key, options) {
     const d = document.createElement('div'); d.className = 'field';
-    const opts = [['', 'â€” Inherit â€”'], ...options];
+    const opts = [['', '— Inherit —'], ...options];
     d.innerHTML = `<label>${label}</label><select>${opts.map(([v,t]) => `<option value="${v}" ${wing[key] === v || (v === '' && wing[key] == null) ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
     d.querySelector('select').addEventListener('change', ev => { wing[key] = ev.target.value || null; regenerate(); });
     sidebar.appendChild(d);
@@ -31908,10 +31915,10 @@ function weRenderSidebar() {
   // main has both metal. Falls back to wing.claddingStyle (and then main's
   // roofCladdingStyle, then main's claddingStyle) via buildWingCfg's
   // `roofCladdingStyle: wing.roofCladdingStyle || cfg.roofCladdingStyle`
-  // â€” which inherits down the same precedence chain as wing.claddingStyle.
+  // — which inherits down the same precedence chain as wing.claddingStyle.
   selectField('Roof cladding', 'roofCladdingStyle', Object.entries(CLADDING_STYLES).map(([k, v]) => [k, v.label || k]));
 
-  // Interior cladding controls â€” per-wing override. The toggle is a
+  // Interior cladding controls — per-wing override. The toggle is a
   // tri-state: 'inherit' (null) follows main's setting, true/false force
   // it on or off for this wing alone. Style picker only shown when the
   // resolved effective state is "on" so the field doesn't claim screen
@@ -31923,7 +31930,7 @@ function weRenderSidebar() {
     const inheritLabel = `inherit (${inheritedFromMain ? 'on' : 'off'})`;
     d.innerHTML = `<label>Interior cladding</label>
       <select>
-        <option value=""    ${cur == null  ? 'selected' : ''}>â€” ${inheritLabel} â€”</option>
+        <option value=""    ${cur == null  ? 'selected' : ''}>— ${inheritLabel} —</option>
         <option value="on"  ${cur === true ? 'selected' : ''}>On</option>
         <option value="off" ${cur === false? 'selected' : ''}>Off</option>
       </select>`;
@@ -31949,7 +31956,7 @@ function weRenderSidebar() {
     ['gabled',  'Gabled'],
   ]);
 
-  // â”€â”€ Roof-specific overrides. The effective roof style is the wing's override
+  // ── Roof-specific overrides. The effective roof style is the wing's override
   // (when set) or main cfg's value (when wing.roofStyle is null/Inherit). Each
   // sub-field can independently be left empty to inherit main's value.
   const effectiveRoof = wing.roofStyle || CONFIG.roofStyle;
@@ -31969,7 +31976,7 @@ function weRenderSidebar() {
   function inheritedSelectField(label, key, options, mainValue) {
     const d = document.createElement('div'); d.className = 'field';
     const mainLabel = options.find(([v]) => v === mainValue);
-    const inheritLabel = mainLabel ? `â€” Inherit (${mainLabel[1]}) â€”` : 'â€” Inherit â€”';
+    const inheritLabel = mainLabel ? `— Inherit (${mainLabel[1]}) —` : '— Inherit —';
     const opts = [['', inheritLabel], ...options];
     d.innerHTML = `<label>${label}</label><select>${opts.map(([v,t]) =>
       `<option value="${v}" ${wing[key] === v || (v === '' && wing[key] == null) ? 'selected' : ''}>${t}</option>`
@@ -31994,12 +32001,12 @@ function weRenderSidebar() {
   } else if (effectiveRoof === 'gabled') {
     inheritedNumField('Roof pitch (mm rise)', 'roofPitch', 3, 40, 1, CONFIG.roofPitch);
     inheritedSelectField('Ridge direction', 'roofRidgeDirection', [
-      ['ew', 'Eastâ€“West (slopes face span ends)'],
-      ['ns', 'Northâ€“South (slopes face depth ends)'],
+      ['ew', 'East–West (slopes face span ends)'],
+      ['ns', 'North–South (slopes face depth ends)'],
     ], CONFIG.roofRidgeDirection);
   }
 
-  // Truss section â€” same renderer as main, but bound to the wing's own
+  // Truss section — same renderer as main, but bound to the wing's own
   // trusses object. Auto-initialised when missing so the user's first
   // toggle creates the field rather than throwing.
   if (!wing.trusses) {
@@ -32011,7 +32018,7 @@ function weRenderSidebar() {
 
   // Delete button
   const delBtn = document.createElement('button');
-  delBtn.textContent = 'ðŸ—‘ Remove Wing';
+  delBtn.innerHTML = `${window.HakoMachiIcons ? window.HakoMachiIcons.icon('trash') : ''}<span>Remove Wing</span>`;
   delBtn.style.cssText = 'margin-top:12px;width:100%;padding:6px;font-size:12px;cursor:pointer;border:1px solid var(--accent);color:var(--accent);border-radius:3px;background:#fff3ee;';
   delBtn.onclick = () => {
     weDeleteSelectedWingWithConfirm();
@@ -32020,7 +32027,7 @@ function weRenderSidebar() {
 }
 
 /* Renders the Trusses controls block into the given sidebar element.
- * `blockObj` is either CONFIG (for main) or a wing object â€” both carry
+ * `blockObj` is either CONFIG (for main) or a wing object — both carry
  * a `trusses` field with the same shape. `onChange` is fired after every
  * edit; callers pass a closure that rerenders the canvas + regenerates
  * the build. Initialises blockObj.trusses lazily so older saves that
@@ -32079,13 +32086,13 @@ function weRenderTrussSection(sidebar, blockObj, onChange) {
   const dirField = document.createElement('div'); dirField.className = 'field';
   const ridgeForLabel = effectiveRidgeDir(blockObj);
   const autoLabel = (blockObj.roofStyle === 'gabled' || blockObj.roofStyle === 'parapet_gable')
-    ? (ridgeForLabel === 'ew' ? 'Auto (NS â€” perpendicular to ridge)' : 'Auto (EW â€” perpendicular to ridge)')
+    ? (ridgeForLabel === 'ew' ? 'Auto (NS — perpendicular to ridge)' : 'Auto (EW — perpendicular to ridge)')
     : `Auto (perpendicular to longer side)`;
   dirField.innerHTML = `<label>Direction</label>
     <select>
       <option value="" ${t.axis == null ? 'selected' : ''}>${autoLabel}</option>
-      <option value="ns" ${t.axis === 'ns' ? 'selected' : ''}>Nâ€“S (trusses run north-south)</option>
-      <option value="ew" ${t.axis === 'ew' ? 'selected' : ''}>Eâ€“W (trusses run east-west)</option>
+      <option value="ns" ${t.axis === 'ns' ? 'selected' : ''}>N–S (trusses run north-south)</option>
+      <option value="ew" ${t.axis === 'ew' ? 'selected' : ''}>E–W (trusses run east-west)</option>
     </select>`;
   const dirInput = dirField.querySelector('select');
   dirInput.addEventListener('change', () => {
@@ -32105,7 +32112,7 @@ function weRenderTrussSection(sidebar, blockObj, onChange) {
   });
   sidebar.appendChild(chordField);
 
-  // Wall X-bracing â€” simplified to a single toggle. The generator automatically
+  // Wall X-bracing — simplified to a single toggle. The generator automatically
   // adds braces on the truss-bearing walls for the selected truss direction:
   // N-S trusses = front/back walls; E-W trusses = east/west walls.
   const xbField = document.createElement('div'); xbField.className = 'field';
@@ -32134,11 +32141,11 @@ function weRenderTrussSection(sidebar, blockObj, onChange) {
   });
   sidebar.appendChild(xbWidthField);
 
-  // Vertical column supports â€” the 3-piece I-beam system that holds
+  // Vertical column supports — the 3-piece I-beam system that holds
   // each truss up against the wall. Default off so existing users
   // don't get surprise column parts on regenerate; once enabled, the
   // depth+flangeW inputs let the user dial in the visual proportions
-  // (defaults at 4Ã—4 mm read well at N-scale).
+  // (defaults at 4×4 mm read well at N-scale).
   const supHdr = document.createElement('div');
   supHdr.style.cssText = 'font-size:11px;color:#555;margin-top:10px;';
   supHdr.textContent = 'Vertical wall supports';
@@ -32163,8 +32170,8 @@ function weRenderTrussSection(sidebar, blockObj, onChange) {
     const supportType = t.supportColumnType === 't' ? 't' : 'i';
     typeField.innerHTML = `<label>Column cross-section</label>
       <select>
-        <option value="i" ${supportType === 'i' ? 'selected' : ''}>I-beam â€” back + web + end cap</option>
-        <option value="t" ${supportType === 't' ? 'selected' : ''}>T-beam â€” back + web only</option>
+        <option value="i" ${supportType === 'i' ? 'selected' : ''}>I-beam — back + web + end cap</option>
+        <option value="t" ${supportType === 't' ? 'selected' : ''}>T-beam — back + web only</option>
       </select>`;
     const typeInput = typeField.querySelector('select');
     typeInput.addEventListener('change', () => {
@@ -32215,7 +32222,7 @@ function weRenderTrussSection(sidebar, blockObj, onChange) {
 
 let oeWall = 'front';
 // When non-null, the editor is scoped to a wing's manualOpenings (the wing
-// at CONFIG.wings[oeWingIndex]) â€” its wall is the canvas, and oeApply
+// at CONFIG.wings[oeWingIndex]) — its wall is the canvas, and oeApply
 // writes back to that wing's own manual* fields rather than the main
 // building's. null = main-building editing (the default mode).
 let oeWingIndex = null;
@@ -32240,14 +32247,14 @@ let oeGrid = {
 };
 let oeShowExposureZones = true;   // visibility toggle for segmented exposure overlays
 let oeZoom = 1.0;               // zoom multiplier for the opening editor canvas
-// Pan state â€” space-held + left drag, or middle-mouse drag, scrolls the
+// Pan state — space-held + left drag, or middle-mouse drag, scrolls the
 // canvas container. Document-level mousemove/mouseup listeners are
 // attached during a pan and removed when it ends.
 let oePanning     = false;
 let oePanStartPx  = null;       // {x, y} = client coords at mousedown
 let oePanStartScroll = null;    // {l, t} = container.scrollLeft / scrollTop at mousedown
 let oeSpaceDown   = false;
-let oeCustomSizes = {};         // { styleKey: { w, h } } â€” per-style size overrides
+let oeCustomSizes = {};         // { styleKey: { w, h } } — per-style size overrides
 let oeToolboxSearch = '';       // live filter for the opening-editor object toolbox
 let oeMobilePanMode = false;      // iPad/touch fallback for canvas panning without a keyboard
 let oeLastPointerType = 'mouse';    // last pointer kind: mouse | pen | touch
@@ -32347,7 +32354,9 @@ function oeUpdateFloatingActionBarState() {
     const n = oeSelectedSet ? oeSelectedSet.size : 0;
     delBtn.classList.toggle('oe-visible', n > 0);
     delBtn.disabled = n <= 0;
-    delBtn.textContent = n > 1 ? `ðŸ—‘ ${tx('ed_deleteN','Delete {n}').replace('{n}', n)}` : `ðŸ—‘ ${tx('ed_delete','Delete')}`;
+    const label = n > 1 ? tx('ed_deleteN','Delete {n}').replace('{n}', n) : tx('ed_delete','Delete');
+    const icon = window.HakoMachiIcons ? window.HakoMachiIcons.icon('trash') : '';
+    delBtn.innerHTML = `${icon}<span>${label}</span>`;
     delBtn.title = n > 0
       ? tx('ed_deleteWallItemTitle','Delete {n} selected wall item{s}').replace('{n}', n).replace('{s}', n > 1 ? 's' : '')
       : tx('ed_selectWallItemDelete','Select a wall item to delete it');
@@ -32509,18 +32518,18 @@ function wallFromPartId(id) {
   else if (baseId === 'back_wall'      || baseId.startsWith('back_wall_'))      wall = 'back';
   else if (baseId === 'side_wall_east' || baseId.startsWith('side_wall_east_')) wall = 'east';
   else if (baseId === 'side_wall_west' || baseId.startsWith('side_wall_west_')) wall = 'west';
-  // Cladding panels (also clickable â€” same openings). Front/back use
+  // Cladding panels (also clickable — same openings). Front/back use
   // `cladding_front` / `cladding_back`; sides use `cladding_side_east` /
   // `cladding_side_west` (per generateCladdingPanel's id-building logic at
   // the `cId = 'cladding_side_' + which` line). The longer side prefix has
-  // to be checked first â€” `cladding_side_east`.startsWith('cladding_east')
+  // to be checked first — `cladding_side_east`.startsWith('cladding_east')
   // is false anyway, but listing the side variants explicitly keeps the
   // intent clear.
   else if (baseId.startsWith('cladding_front'))     wall = 'front';
   else if (baseId.startsWith('cladding_back'))      wall = 'back';
   else if (baseId.startsWith('cladding_side_east')) wall = 'east';
   else if (baseId.startsWith('cladding_side_west')) wall = 'west';
-  // Inner parapet cladding â€” small strips that glue inside the parapet,
+  // Inner parapet cladding — small strips that glue inside the parapet,
   // but they're per-face and a user clicking one is reasonable to take
   // them to the opening editor for that face.
   else if (baseId === 'cladding_parapet_inner_front') wall = 'front';
@@ -32591,7 +32600,7 @@ function oeStateOpenImpl(wall, wingIndex) {
   OpeningEditorTopbar.populate();
   // For wing mode, the connection face ('front' in wing-local coords) is
   // an interior wall with no laser part. If the caller didn't pin a wall,
-  // default to 'back' (the wing's outermost face â€” always editable).
+  // default to 'back' (the wing's outermost face — always editable).
   let initialWall = wall;
   if (oeWingIndex != null && !initialWall) initialWall = 'back';
   oeSetWall(initialWall || oeWall);
@@ -32705,7 +32714,7 @@ function oeStateUpdateModeBadgeImpl() {
   const badge = document.getElementById('oeModeBadge');
   const target = oeEditTarget();
   const isManual = wallHasManualFeatures(target, oeWall);
-  badge.textContent = isManual ? 'âœŽ Manual' : 'âš™ Auto (live)';
+  badge.textContent = isManual ? '✎ Manual' : '⚙ Auto (live)';
   badge.className = 'oe-mode-badge ' + (isManual ? 'oe-mode-manual' : 'oe-mode-auto');
 }
 
@@ -32729,7 +32738,7 @@ function oeGetWallDims(wall) {
   return { W: sideLen, H };
 }
 
-/* Edge buffer (in mm) along the X axis of a wall â€” the strip near each
+/* Edge buffer (in mm) along the X axis of a wall — the strip near each
  * end where the core material from the perpendicular wall sits behind the
  * inside face, making it impossible to cut a real through-opening
  * (window/door/bay) there.
@@ -32737,14 +32746,14 @@ function oeGetWallDims(wall) {
  * The building assembles with front/back panels spanning the full width
  * and side panels fitting BETWEEN them (sideLen = depth - 2*matT). That
  * geometry means the front and back walls' leftmost and rightmost matT
- * mm are backed by the side wall material â€” anything cut there would be
+ * mm are backed by the side wall material — anything cut there would be
  * blocked by the perpendicular wall.
  *
  * Side walls have no such buffer on their X axis: their full sideLen
  * spans the gap between the front and back walls exactly.
  *
  * Returns { left, right } in mm. Use Math.max(left, 2) etc. if you also
- * want a minimum aesthetic margin â€” but the geometric truth is just matT.
+ * want a minimum aesthetic margin — but the geometric truth is just matT.
  */
 function oeEdgeBuffer(wall) {
   const matT = (CONFIG.coreThickness && CONFIG.coreThickness > 0) ? CONFIG.coreThickness : 1.5;
@@ -32773,7 +32782,7 @@ function oeMirrorX(x, w) {
 
 /* ===== js/03-02-toolbox-dynamic-left-panel-one-draggable-card-per-openi.js ===== */
 /* =====================================================================
-   TOOLBOX â€” dynamic left panel; one draggable card per opening style
+   TOOLBOX — dynamic left panel; one draggable card per opening style
    ===================================================================== */
 
 /* ---- OpeningEditorToolbox implementation ---- */
@@ -32781,6 +32790,7 @@ function oeToolboxPopulateImpl() {
   const box = document.getElementById('oeToolbox');
   if (!box) return;
   box.innerHTML = '';
+  const resetIcon = () => window.HakoMachiIcons ? window.HakoMachiIcons.icon('reset') : 'Reset';
 
   // ---- Window scale selector ----
   const scaleRow = document.createElement('div');
@@ -32827,7 +32837,7 @@ function oeToolboxPopulateImpl() {
   searchRow.className = 'oe-toolbox-scale-row';
   searchRow.innerHTML = `
     <label>Search</label>
-    <input id="oeToolboxSearch" type="search" placeholder="window, bay, pipeâ€¦" autocomplete="off">`;
+    <input id="oeToolboxSearch" type="search" placeholder="window, bay, pipe…" autocomplete="off">`;
   box.appendChild(searchRow);
   const searchEl = searchRow.querySelector('#oeToolboxSearch');
   searchEl.value = oeToolboxSearch || '';
@@ -32847,7 +32857,7 @@ function oeToolboxPopulateImpl() {
 
   // ---- Toolbox section / type decoupling ----
   // A style's TYPE (the dict it lives in: WINDOW/DOOR/FIXTURE/AWNING/
-  // BALCONY_STYLES) drives its actual behavior throughout the editor â€”
+  // BALCONY_STYLES) drives its actual behavior throughout the editor —
   // drag, drop, save, render, laser output. Its TOOLBOX SECTION (where
   // its card appears in this panel) is independent: a style can override
   // via `toolboxSection: 'doors'` etc. So a fixture-typed style with
@@ -32881,7 +32891,7 @@ function oeToolboxPopulateImpl() {
     visit(AWNING_STYLES,  'awning');
     visit(BALCONY_STYLES, 'balcony');
     visit(PRINTED_STYLES, 'printed_item');
-    // Cladding override is a single virtual toolbox item â€” not bound to any
+    // Cladding override is a single virtual toolbox item — not bound to any
     // *_STYLES dict. It drops with a default size + secondary-cladding style,
     // then the user picks the desired style via the object-properties bar.
     if (sectionId === 'cladding_overrides') {
@@ -32932,7 +32942,7 @@ function oeToolboxPopulateImpl() {
   // ---- Card builders, one per underlying TYPE (not per section) ----
   // Each returns a fully-assembled DOM node ready for box.appendChild,
   // or null if the style isn't placeable. Builders close over the
-  // surrounding oePopulateToolbox scope (oeCustomSizes, scaleEl, boxâ€¦).
+  // surrounding oePopulateToolbox scope (oeCustomSizes, scaleEl, box…).
 
   function buildWindowCard(key, style) {
     const scale = WINDOW_SCALES[scaleEl.value] || 1;
@@ -32958,7 +32968,7 @@ function oeToolboxPopulateImpl() {
       <input type="number" min="1" max="100" step="0.5" value="${w}" class="${custom ? 'oe-custom' : ''}">
       <label>H</label>
       <input type="number" min="1" max="100" step="0.5" value="${h}" class="${custom ? 'oe-custom' : ''}">
-      <button class="oe-size-reset" title="Reset to style default" style="${custom ? '' : 'visibility:hidden'}">\u21ba</button>`;
+      <button class="oe-size-reset" title="Reset to style default" style="${custom ? '' : 'visibility:hidden'}">${resetIcon()}</button>`;
     card.appendChild(sizeRow);
     const [wInp, hInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');
@@ -33015,7 +33025,7 @@ function oeToolboxPopulateImpl() {
       <input type="number" min="1" max="100" step="0.5" value="${w}" class="${custom ? 'oe-custom' : ''}">
       <label>H</label>
       <input type="number" min="1" max="100" step="0.5" value="${h}" class="${custom ? 'oe-custom' : ''}">
-      <button class="oe-size-reset" title="Reset to style default" style="${custom ? '' : 'visibility:hidden'}">\u21ba</button>`;
+      <button class="oe-size-reset" title="Reset to style default" style="${custom ? '' : 'visibility:hidden'}">${resetIcon()}</button>`;
     card.appendChild(sizeRow);
     const [wInp, hInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');
@@ -33058,7 +33068,7 @@ function oeToolboxPopulateImpl() {
     const svgW = Math.max(16, Math.round(w * PREVIEW_S));
     const svgH = Math.max(20, Math.round(h * PREVIEW_S));
     // A fullHeight fixture (e.g. downspout) auto-sizes to the wall's baseH
-    // at drop time, so the toolbox H input has no effect â€” lock it and show
+    // at drop time, so the toolbox H input has no effect — lock it and show
     // an explanatory placeholder so the user understands the value isn't
     // editable. Width still applies normally.
     const isFullHeight = !!style.fullHeight;
@@ -33085,7 +33095,7 @@ function oeToolboxPopulateImpl() {
       <input type="number" min="0.5" max="100" step="0.5" value="${w}" class="${custom ? 'oe-custom' : ''}">
       <label>H</label>
       <input type="${isFullHeight ? 'text' : 'number'}" ${isFullHeight ? '' : 'min="0.5" max="100" step="0.5"'} value="${hValAttr}" class="${custom && !isFullHeight ? 'oe-custom' : ''}" ${hExtra}>
-      <button class="oe-size-reset" title="Reset to style default" style="${custom && !isFullHeight ? '' : 'visibility:hidden'}">\u21ba</button>`;
+      <button class="oe-size-reset" title="Reset to style default" style="${custom && !isFullHeight ? '' : 'visibility:hidden'}">${resetIcon()}</button>`;
     card.appendChild(sizeRow);
     const [wInp, hInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');
@@ -33151,7 +33161,7 @@ function oeToolboxPopulateImpl() {
       <input type="number" min="5" max="100" step="1" value="${w}" class="${custom ? 'oe-custom' : ''}">
       <label>D</label>
       <input type="number" min="3" max="40"  step="1" value="${d}" class="${custom ? 'oe-custom' : ''}">
-      <button class="oe-size-reset" title="Reset to default" style="${custom ? '' : 'visibility:hidden'}">\u21ba</button>`;
+      <button class="oe-size-reset" title="Reset to default" style="${custom ? '' : 'visibility:hidden'}">${resetIcon()}</button>`;
     card.appendChild(sizeRow);
     const [wInp, dInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');
@@ -33226,7 +33236,7 @@ function oeToolboxPopulateImpl() {
       <label>W</label><input type="number" min="5" max="200" step="1" value="${w}" class="${custom?'oe-custom':''}">
       <label>D</label><input type="number" min="3" max="60"  step="1" value="${d}" class="${custom?'oe-custom':''}">
       <label>H</label><input type="number" min="3" max="40"  step="1" value="${h}" class="${custom?'oe-custom':''}">
-      <button class="oe-size-reset" style="${custom?'':'visibility:hidden'}" title="Reset">\u21ba</button>`;
+      <button class="oe-size-reset" style="${custom?'':'visibility:hidden'}" title="Reset">${resetIcon()}</button>`;
     card.appendChild(sizeRow);
     const [wInp, dInp, hInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');
@@ -33261,7 +33271,7 @@ function oeToolboxPopulateImpl() {
   }
 
   // ---- Cladding override card ----
-  // Single virtual item â€” drops a cladding-override region at default size
+  // Single virtual item — drops a cladding-override region at default size
   // with a default secondary style. Selection picker swaps the style afterward.
   function buildCladdingOverrideCard(key, style) {
     const defW = 30, defH = 20;
@@ -33296,7 +33306,7 @@ function oeToolboxPopulateImpl() {
       <input type="number" min="2" max="500" step="1" value="${w}" class="${custom ? 'oe-custom' : ''}">
       <label>H</label>
       <input type="number" min="2" max="500" step="1" value="${h}" class="${custom ? 'oe-custom' : ''}">
-      <button class="oe-size-reset" title="Reset to default" style="${custom ? '' : 'visibility:hidden'}">\u21ba</button>`;
+      <button class="oe-size-reset" title="Reset to default" style="${custom ? '' : 'visibility:hidden'}">${resetIcon()}</button>`;
     card.appendChild(sizeRow);
     const [wInp, hInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');
@@ -33356,7 +33366,7 @@ function oeToolboxPopulateImpl() {
       <input type="number" min="1" max="120" step="0.5" value="${w}" class="${custom ? 'oe-custom' : ''}">
       <label>H</label>
       <input type="number" min="1" max="120" step="0.5" value="${h}" class="${custom ? 'oe-custom' : ''}">
-      <button class="oe-size-reset" title="Reset to style default" style="${custom ? '' : 'visibility:hidden'}">\u21ba</button>`;
+      <button class="oe-size-reset" title="Reset to style default" style="${custom ? '' : 'visibility:hidden'}">${resetIcon()}</button>`;
     card.appendChild(sizeRow);
     const [wInp, hInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');
@@ -33435,7 +33445,7 @@ function oeToolboxPopulateImpl() {
       <input type="number" min="15" max="300" step="1" value="${w}" class="${custom ? 'oe-custom' : ''}">
       <label>H</label>
       <input type="number" min="10" max="80"  step="1" value="${h}" class="${custom ? 'oe-custom' : ''}">
-      <button class="oe-size-reset" title="Reset to default" style="${custom ? '' : 'visibility:hidden'}">\u21ba</button>`;
+      <button class="oe-size-reset" title="Reset to default" style="${custom ? '' : 'visibility:hidden'}">${resetIcon()}</button>`;
     card.appendChild(sizeRow);
     const [wInp, hInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');
@@ -33514,7 +33524,7 @@ function oeToolboxPopulateImpl() {
     const empty = document.createElement('div');
     empty.className = 'oe-toolbox-empty';
     empty.textContent = oeToolboxSearch
-      ? `No objects match â€œ${oeToolboxSearch}â€.`
+      ? `No objects match “${oeToolboxSearch}”.`
       : 'No toolbox objects available.';
     box.appendChild(empty);
   }
@@ -33587,9 +33597,9 @@ function oeToolboxDragStartImpl(e, type, styleKey) {
                : isBalcony  ? Math.max(10, (dims.h || 8) * 5)
                : isOverride ? Math.max(30, dims.h * 4)
                :              Math.max(15, dims.h * 5);
-  const ghostLbl = isAwning  ? `${dims.w.toFixed(1)}W Ã— ${dims.d.toFixed(1)}D`
-                 : isBalcony ? `${dims.w.toFixed(1)}W Ã— ${dims.d.toFixed(1)}D Ã— ${dims.h.toFixed(1)}H`
-                 :             `${dims.w.toFixed(1)}Ã—${dims.h.toFixed(1)}`;
+  const ghostLbl = isAwning  ? `${dims.w.toFixed(1)}W × ${dims.d.toFixed(1)}D`
+                 : isBalcony ? `${dims.w.toFixed(1)}W × ${dims.d.toFixed(1)}D × ${dims.h.toFixed(1)}H`
+                 :             `${dims.w.toFixed(1)}×${dims.h.toFixed(1)}`;
 
   // Ghost element follows cursor
   const ghost = document.createElement('div');
@@ -33634,12 +33644,12 @@ function oeToolboxDragStartImpl(e, type, styleKey) {
 }
 
 /* Snap a door to the bottom of whichever floor band the probe Y falls in.
-   Doors always rest with their bottom on a floor surface â€” but can sit on
+   Doors always rest with their bottom on a floor surface — but can sit on
    ANY floor's surface, not just the ground floor. Used by both door
    placement (drag-and-drop) and door drag-to-reposition. */
 /* Bands suitable for *door* placement on a wall.
  *
- * Returns the same bands as oeGetFloorBands, plus â€” on a bay-bearing wall â€”
+ * Returns the same bands as oeGetFloorBands, plus — on a bay-bearing wall —
  * a synthetic ground-floor band spanning from the bay ceiling down to the
  * floor (y=H). Doors can sit on this floor alongside the bay opening; the
  * regular bands list omits it because windows would visually collide with
@@ -33655,7 +33665,7 @@ function oeGetDoorBands(wall) {
   const wallH = oeGetWallDims(wall).H;
   const bayCeilingY = plan.bayCeilingY;
   if (bayCeilingY == null || bayCeilingY >= wallH - 0.5) return bands;
-  // Append the ground-floor band. Order doesn't matter â€” oeDoorSnappedY
+  // Append the ground-floor band. Order doesn't matter — oeDoorSnappedY
   // searches by containment then by closest centre.
   return [
     ...bands,
@@ -33672,7 +33682,7 @@ function oeDoorSnappedY(wall, doorH, probeY) {
     if (probeY >= b.yTop && probeY <= b.yBottom) { band = b; break; }
   }
   if (!band) {
-    // Probe is outside every band â€” clamp to the closest one by center.
+    // Probe is outside every band — clamp to the closest one by center.
     let bestDist = Infinity;
     for (const b of bands) {
       const bc = (b.yTop + b.yBottom) / 2;
@@ -33686,13 +33696,13 @@ function oeDoorSnappedY(wall, doorH, probeY) {
 /* Show a modal asking the user how to handle an opening that's too large
  * for the ground-floor band. Three resolution paths:
  *
- *  - "Make ground floor taller" â€” enables the firstFloorHeight override
+ *  - "Make ground floor taller" — enables the firstFloorHeight override
  *    and grows it just enough to fit, then re-attempts the drop. Only
  *    offered when the height is the problem (the bay/wall width is a
  *    bigger commitment to change so we don't surface it here).
- *  - "Shrink to fit" â€” clamps the opening dimensions to the band, then
+ *  - "Shrink to fit" — clamps the opening dimensions to the band, then
  *    drops at the reduced size.
- *  - "Cancel" â€” abandon the drop entirely.
+ *  - "Cancel" — abandon the drop entirely.
  *
  * `opts` shape:
  *   { type, dims, bandH, wallW, tooTall, tooWide,
@@ -33704,7 +33714,7 @@ function oeDoorSnappedY(wall, doorH, probeY) {
 function oeShowOversizeModal(opts) {
   const { type, dims, bandH, wallW, tooTall, tooWide,
           onMakeTaller, onShrink, onCancel } = opts;
-  // Remove any prior instance (defensive â€” modal is meant to be modal).
+  // Remove any prior instance (defensive — modal is meant to be modal).
   const existing = document.getElementById('oeOversizeModal');
   if (existing) existing.remove();
 
@@ -33729,9 +33739,9 @@ function oeShowOversizeModal(opts) {
 
   const msg = document.createElement('p');
   msg.style.cssText = 'margin:0 0 18px;font-size:13px;color:var(--muted);line-height:1.5;';
-  let msgText = `The ${typeLabel.toLowerCase()} you're placing (${dims.w.toFixed(1)} Ã— ${dims.h.toFixed(1)} mm) `;
+  let msgText = `The ${typeLabel.toLowerCase()} you're placing (${dims.w.toFixed(1)} × ${dims.h.toFixed(1)} mm) `;
   if (tooTall && tooWide) {
-    msgText += `is larger than the ground floor (available ${wallW.toFixed(1)} Ã— ${bandH.toFixed(1)} mm).`;
+    msgText += `is larger than the ground floor (available ${wallW.toFixed(1)} × ${bandH.toFixed(1)} mm).`;
   } else if (tooTall) {
     msgText += `is taller than the ground floor (${bandH.toFixed(1)} mm available).`;
   } else {
@@ -33745,7 +33755,7 @@ function oeShowOversizeModal(opts) {
 
   const close = () => overlay.remove();
 
-  // "Make taller" is only meaningful if height is the problem â€” there's no
+  // "Make taller" is only meaningful if height is the problem — there's no
   // analogous knob for widening the wall on a per-floor basis.
   if (tooTall) {
     const btnTaller = document.createElement('button');
@@ -33802,23 +33812,23 @@ function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
 
   // Pre-flight size check for openings that live in floor bands. Windows
   // and doors that exceed the target band's height (or the wall's width)
-  // would otherwise be silently clipped â€” confusing for the user who just
+  // would otherwise be silently clipped — confusing for the user who just
   // dragged a specific-sized item from the toolbox. Behaviour:
   //
   //  - Ground floor + height exceeds band: prompt the user via modal,
   //    offering either "make the floor taller" (we have a per-floor knob
-  //    for that â€” firstFloorHeight) or "shrink the object to fit".
+  //    for that — firstFloorHeight) or "shrink the object to fit".
   //  - Upper floor OR width-only excess: silently clamp and flash a
   //    message. Widening the wall affects the whole building and growing
   //    floorHeight affects every upper floor at once, so neither is a
-  //    sensible single-opening response â€” clamping is the right default.
+  //    sensible single-opening response — clamping is the right default.
   if (type === 'window' || type === 'door') {
     const bands = oeGetFloorBands(oeWall);
     const bi = oeYToBand(bands, y);
     const band = (bi >= 0) ? bands[bi] : null;
     const bandH = band ? (band.yBottom - band.yTop) : H;
     // The last band in the list is the ground floor (bands are ordered
-    // topâ†’bottom). If the click missed every band, treat it as ground â€”
+    // top→bottom). If the click missed every band, treat it as ground —
     // doors always snap to a floor surface anyway, and the ground band
     // is where windows-with-no-band land via the existing fallback.
     const isGroundFloor = (bi === bands.length - 1) || (bi < 0);
@@ -33849,7 +33859,7 @@ function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
             targetCfg.firstFloorHeight = Math.max(targetCfg.firstFloorHeight || 30, clampedFFH);
             if (targetCfg === CONFIG) writeForm();
             regenerate();
-            // Width is still subject to the wall clamp â€” there's no
+            // Width is still subject to the wall clamp — there's no
             // building-wide widening option in this modal, so apply it
             // up front before re-attempting the drop.
             const wClamped = Math.min(dims.w, maxW);
@@ -33869,8 +33879,8 @@ function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
       const newW = Math.min(dims.w, maxW);
       const label = (type === 'window') ? 'Window' : 'Door';
       flashMessage(
-        `${label} resized from ${dims.w.toFixed(1)}Ã—${dims.h.toFixed(1)} mm `
-        + `to ${newW.toFixed(1)}Ã—${newH.toFixed(1)} mm to fit the floor.`,
+        `${label} resized from ${dims.w.toFixed(1)}×${dims.h.toFixed(1)} mm `
+        + `to ${newW.toFixed(1)}×${newH.toFixed(1)} mm to fit the floor.`,
         'warn'
       );
       dims = { ...dims, h: newH, w: newW };
@@ -33908,12 +33918,12 @@ function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
       w: dims.w, h: dims.h, d: dims.d,
       balconyType: dims.balconyType });
   } else if (type === 'fixture') {
-    // Fixtures float freely on the wall surface â€” no band snapping; the
+    // Fixtures float freely on the wall surface — no band snapping; the
     // user places them wherever they look right. Clamp to wall bounds.
     // A `fullHeight: true` style (the downspout, currently) auto-sizes to
     // span from the gutter line down to ground. For a parapet roof the
-    // gutter sits at the roof DECK level â€” the top of the roof core panel
-    // â€” which is recessed below the parapet's top edge by `parapetH` mm
+    // gutter sits at the roof DECK level — the top of the roof core panel
+    // — which is recessed below the parapet's top edge by `parapetH` mm
     // (since the wall material extends `parapetH` mm above the deck as
     // the parapet itself). For other roof styles (slanted, gabled, flat
     // without parapet) the deck sits at the wall top, so the downspout
@@ -33946,7 +33956,7 @@ function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
       claddingStyle: oeDefaultOverrideCladdingStyle(),
     });
   } else if (type === 'printed_item') {
-    // Free-placed printed item â€” prints on a separate sheet (not laser-cut)
+    // Free-placed printed item — prints on a separate sheet (not laser-cut)
     // and gets glued to the wall by the user.
     oeOpenings[oeWall].push({ type: 'printed_item',
       x: oeSnapPlacementX(Math.max(0, Math.min(W - dims.w, x - dims.w / 2)), dims.w),
@@ -33958,7 +33968,7 @@ function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
     // Bays are restricted: front/back walls only, single instance per
     // building, bottom-anchored to the ground (y = H - h). 'through' style
     // creates LINKED twin entries on both walls so the user can see, drag,
-    // resize, or delete the bay from either side of the building â€” the two
+    // resize, or delete the bay from either side of the building — the two
     // entries stay in sync via the standard drag/resize/delete commit path.
     if (oeWall !== 'front' && oeWall !== 'back') {
       flashMessage('Bays can only be placed on the front or back wall.', 'warn');
@@ -34035,7 +34045,7 @@ function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
 
 /* ===== js/03-03-canvas-top-toolbar-tools-align-distribute.js ===== */
 /* =====================================================================
-   CANVAS TOP TOOLBAR  â€“  tools, align, distribute
+   CANVAS TOP TOOLBAR  –  tools, align, distribute
    ===================================================================== */
 
 /* ---- OpeningEditorTopbar implementation ---- */
@@ -34047,7 +34057,7 @@ function oeTopbarPopulateImpl() {
   const OPP = { front: 'back', back: 'front', east: 'west', west: 'east' };
   const hasSelection = oeSelectedSet.size > 0;
   const hasMulti     = oeSelectedSet.size >= 2;
-  const hasFour      = oeSelectedSet.size >= 3;  // need â‰¥3 to distribute meaningfully
+  const hasFour      = oeSelectedSet.size >= 3;  // need ≥3 to distribute meaningfully
 
   const tb = editorTopbarKit(bar);
   const sep = () => tb.sep();
@@ -34055,6 +34065,10 @@ function oeTopbarPopulateImpl() {
 
   function btn(id, html, title, onClick, disabledWhen, activeWhen) {
     return tb.button({ id, html, title, onClick, disabled: !!disabledWhen, active: !!activeWhen });
+  }
+  function iconLabel(icon, label) {
+    const iconHtml = window.HakoMachiIcons ? window.HakoMachiIcons.icon(icon) : '';
+    return iconHtml + (label ? ' ' + label : '');
   }
 
   btn(
@@ -34091,8 +34105,8 @@ function oeTopbarPopulateImpl() {
 
   // ---- Wall ops ----
   label('Wall');
-  const oppLabel = OPP[oeWall] || 'â€”';
-  btn('oeMirrorBtn', `ðŸªž â†’${oppLabel}`, `Mirror this wall's openings to the ${oppLabel} wall (reflected)`,
+  const oppLabel = OPP[oeWall] || '—';
+  btn('oeMirrorBtn', iconLabel('mirror', `→${oppLabel}`), `Mirror this wall's openings to the ${oppLabel} wall (reflected)`,
     oeMirrorToOpposite);
 
   sep();
@@ -34102,15 +34116,15 @@ function oeTopbarPopulateImpl() {
   const copyDisabled = oeSelectedSet.size === 0;
   const pasteDisabled = oeClipboard.length === 0;
   btn('oeCopyBtn',
-      `ðŸ“‹ Copy`,
+      iconLabel('copy', 'Copy'),
       copyDisabled ? 'Copy selected items (select something first)' : `Copy ${oeSelectedSet.size} selected item${oeSelectedSet.size > 1 ? 's' : ''} (Ctrl+C / Cmd+C)`,
       oeCopy, copyDisabled);
   btn('oePasteBtn',
-      `ðŸ“¥ Paste`,
+      iconLabel('paste', 'Paste'),
       pasteDisabled ? 'Paste from clipboard (copy something first)' : `Paste ${oeClipboard.length} item${oeClipboard.length > 1 ? 's' : ''}${oeClipboardSourceWall && oeClipboardSourceWall !== oeWall ? ' from ' + oeClipboardSourceWall : ''} (Ctrl+V / Cmd+V)`,
       oePaste, pasteDisabled);
   btn('oeDeleteTopbarBtn',
-      hasSelection ? `ðŸ—‘ Delete${oeSelectedSet.size > 1 ? ' ' + oeSelectedSet.size : ''}` : 'ðŸ—‘ Delete',
+      iconLabel('trash', hasSelection ? `Delete${oeSelectedSet.size > 1 ? ' ' + oeSelectedSet.size : ''}` : 'Delete'),
       hasSelection ? `Delete ${oeSelectedSet.size} selected item${oeSelectedSet.size > 1 ? 's' : ''}` : 'Delete selected item',
       oeDeleteSelectedItems, !hasSelection);
 
@@ -34174,7 +34188,7 @@ function oeTopbarPopulateImpl() {
 
   // ---- Legacy space-row ----
   label('Row');
-  btn('oeDistBtn', 'â‡” Space', 'Evenly space all windows on the same floor band as the selected window',
+  btn('oeDistBtn', '⇔ Space', 'Evenly space all windows on the same floor band as the selected window',
     oeDistributeRow, !hasSelection);
 
   // ---- Selected opening anchor point + size ----
@@ -34247,7 +34261,7 @@ function oeTopbarPopulateImpl() {
       wInp.value = primaryOp.w.toFixed(1);
       wInp.className = 'oe-sel-size-input';
       wInp.title = primaryIsDoor
-        ? 'Doors keep their canonical size â€” replace with a different door style to change dimensions'
+        ? 'Doors keep their canonical size — replace with a different door style to change dimensions'
         : 'Width of selected opening(s) in mm';
       if (primaryIsDoor) { wInp.disabled = true; wInp.style.opacity = '0.55'; }
       wWrap.appendChild(wLbl); wWrap.appendChild(wInp);
@@ -34262,7 +34276,7 @@ function oeTopbarPopulateImpl() {
       hInp.value = primaryOp.h.toFixed(1);
       hInp.className = 'oe-sel-size-input';
       hInp.title = primaryIsDoor
-        ? 'Doors keep their canonical size â€” replace with a different door style to change dimensions'
+        ? 'Doors keep their canonical size — replace with a different door style to change dimensions'
         : (primaryOp.type === 'awning'
             ? 'Depth of awning (projection from wall) in mm'
             : 'Height of selected opening(s) in mm');
@@ -34280,7 +34294,7 @@ function oeTopbarPopulateImpl() {
         for (const i of oeSelectedSet) {
           const op = ops[i];
           if (!op) continue;
-          // Doors are immutable in size â€” skip them even in mixed-type
+          // Doors are immutable in size — skip them even in mixed-type
           // multi-selections so the user can still resize the windows in a
           // window+door multi-select without distorting the door.
           if (op.type === 'door') continue;
@@ -34333,7 +34347,7 @@ function oeTopbarPopulateImpl() {
         function syncToggleVisual() {
           const on = !!primaryOp.hasShutters;
           shutterToggle.classList.toggle('tb-active', on);
-          shutterToggle.textContent = on ? 'â˜‘ On' : 'â˜ Off';
+          shutterToggle.textContent = on ? '☑ On' : '☐ Off';
         }
         syncToggleVisual();
         shutterToggle.addEventListener('click', () => {
@@ -34350,7 +34364,7 @@ function oeTopbarPopulateImpl() {
         });
         bar.appendChild(shutterToggle);
 
-        // Style dropdown â€” only visible / enabled when shutters are on.
+        // Style dropdown — only visible / enabled when shutters are on.
         // Custom popover with SVG previews of each style (native <select>
         // can't show inline visuals).
         const styleWrap = document.createElement('span');
@@ -34369,13 +34383,13 @@ function oeTopbarPopulateImpl() {
           const previewW = 14, previewH = 22;
           styleBtn.innerHTML = `<svg width="${previewW}" height="${previewH}" viewBox="0 0 4 6" style="display:block">${buildShutterSvgBody(curStyle, 4, 6, { strokeWidth: 0.25 })}</svg>`
                             + `<span style="font-size:10px;">${curStyle.label}</span>`
-                            + `<span style="font-size:9px;color:var(--muted);">â–¼</span>`;
+                            + `<span style="font-size:9px;color:var(--muted);">▼</span>`;
         }
         refreshStyleBtn();
 
         const popover = document.createElement('div');
         popover.className = 'oe-shutter-popover';
-        // Same overflow-escape pattern as the cladding popover â€” see
+        // Same overflow-escape pattern as the cladding popover — see
         // the comment there for the full explanation. Short version:
         // .oe-topbar has overflow-x:auto, which the CSS spec promotes
         // to overflow-y:auto too, which clips absolute-positioned
@@ -34413,7 +34427,7 @@ function oeTopbarPopulateImpl() {
           e.stopPropagation();
           if (styleBtn.disabled) return;
           if (popover.style.display === 'none') {
-            // Pin the popover under the button â€” see cladding popover
+            // Pin the popover under the button — see cladding popover
             // open handler for the same logic. The shutter popover is
             // narrower (min-width 140px) and aligned to the button's
             // LEFT edge rather than its right.
@@ -34453,7 +34467,7 @@ function oeTopbarPopulateImpl() {
         function refreshCladBtn() {
           const curKey = primaryOp.claddingStyle || oeDefaultOverrideCladdingStyle();
           const curStyle = CLADDING_STYLES[curKey] || CLADDING_STYLES[Object.keys(CLADDING_STYLES)[0]];
-          // Small inline preview swatch â€” generate 4 etched pattern lines
+          // Small inline preview swatch — generate 4 etched pattern lines
           // from the style to suggest its character.
           const previewW = 18, previewH = 14;
           let swatch = `<rect x="0" y="0" width="20" height="16" fill="#d4c8ad"/>`;
@@ -34478,7 +34492,7 @@ function oeTopbarPopulateImpl() {
           const labelText = (curStyle ? curStyle.label : curKey).replace(/\(.*?\)/g, '').trim();
           cladBtn.innerHTML = `<svg width="${previewW}" height="${previewH}" viewBox="0 0 20 16" style="display:block;flex-shrink:0;">${swatch}</svg>`
                           + `<span style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${labelText}</span>`
-                          + `<span style="font-size:9px;color:var(--muted);">â–¼</span>`;
+                          + `<span style="font-size:9px;color:var(--muted);">▼</span>`;
         }
         refreshCladBtn();
 
@@ -34487,7 +34501,7 @@ function oeTopbarPopulateImpl() {
         // `position: fixed` rather than absolute is intentional. The
         // topbar (.oe-topbar) has `overflow-x: auto`, and per the CSS
         // spec when one axis is non-visible the other is computed to
-        // `auto` too â€” so the topbar effectively has `overflow-y: auto`
+        // `auto` too — so the topbar effectively has `overflow-y: auto`
         // as well. An absolute-positioned popover that extends below
         // the topbar would be clipped by that overflow, leaving the
         // popover invisible even though display:block was set. Fixed
@@ -34528,7 +34542,7 @@ function oeTopbarPopulateImpl() {
           opt.innerHTML = `<svg width="26" height="20" viewBox="0 0 24 18" style="display:block;flex-shrink:0;">${swatch}</svg>`
                        + `<span style="font-size:11px;">${st.label}</span>`;
           opt.addEventListener('click', () => {
-            // The new style â€” needed both for the loop body and for
+            // The new style — needed both for the loop body and for
             // deciding whether to keep / discard any per-override
             // styleParams the user dialled in for the previous style.
             const newStyle = CLADDING_STYLES[key];
@@ -34550,7 +34564,7 @@ function oeTopbarPopulateImpl() {
             }
             cladPop.style.display = 'none';
             refreshCladBtn();
-            // Repopulate the whole topbar â€” the corrugated params section
+            // Repopulate the whole topbar — the corrugated params section
             // appears only when the override's style has the
             // corrugated_overlap pattern, so a style change has to
             // re-evaluate that visibility. Without this refresh the
@@ -34568,11 +34582,11 @@ function oeTopbarPopulateImpl() {
           if (cladPop.style.display === 'none') {
             // Position the popover just below the button. Because the
             // popover is position:fixed (see comment on cladPop above),
-            // its coordinates are viewport-relative â€” read the button's
+            // its coordinates are viewport-relative — read the button's
             // bounding rect at click time and pin the popover's top to
             // (button bottom + 4px), its right edge to the button's
             // right edge so it grows leftward. Clamping the left to
-            // â‰¥ 8 prevents it from sliding off-screen when the button
+            // ≥ 8 prevents it from sliding off-screen when the button
             // sits near the left side of the viewport (narrow windows /
             // small popovers don't trigger this, but a 240-wide
             // popover near x=100 would).
@@ -34600,7 +34614,7 @@ function oeTopbarPopulateImpl() {
         // cutting the hole and instead etches L-bracket alignment marks
         // at the override's corners so the user can position the patch
         // accurately as a glue-on-top layer. The base cladding pattern is
-        // suppressed under the override in both modes â€” in flush mode
+        // suppressed under the override in both modes — in flush mode
         // because the hole removes it, in layered mode because the
         // override piece covers it.
         sep();
@@ -34614,7 +34628,7 @@ function oeTopbarPopulateImpl() {
         function syncMountVisual() {
           const on = !!primaryOp.layered;
           mountToggle.classList.toggle('tb-active', on);
-          mountToggle.textContent = on ? 'â–£ Layered' : 'â¬š Flush';
+          mountToggle.textContent = on ? '▣ Layered' : '⬚ Flush';
         }
         syncMountVisual();
         mountToggle.addEventListener('click', () => {
@@ -34633,14 +34647,14 @@ function oeTopbarPopulateImpl() {
         // ---- Corrugated metal style parameters (only when the override
         // uses the corrugated_metal_overlap style) ----
         // Lets the user tune the corrugated cladding per override right
-        // from the topbar â€” useful because the same building can have a
+        // from the topbar — useful because the same building can have a
         // tightly-corrugated wall patch AND a coarser corrugated roof
         // patch, and the user shouldn't have to commit either choice
         // globally to try them. Four params:
-        //   sheetW              mm â€” sheet width in the brick-stagger layout
-        //   sheetH              mm â€” sheet height (= row height)
-        //   corrugationSpacing  mm â€” vertical ridge pitch
-        //   offsetFraction      0..1 â€” how far adjacent rows stagger
+        //   sheetW              mm — sheet width in the brick-stagger layout
+        //   sheetH              mm — sheet height (= row height)
+        //   corrugationSpacing  mm — vertical ridge pitch
+        //   offsetFraction      0..1 — how far adjacent rows stagger
         // Values are stored on op.styleParams; absent values fall back
         // to the CLADDING_STYLES.corrugated_metal_overlap defaults via
         // effectiveCladdingStyle() at render time.
@@ -34670,7 +34684,7 @@ function oeTopbarPopulateImpl() {
             inp.value = current != null ? current.toString() : '';
             inp.className = 'oe-sel-size-input';
             inp.style.width = '46px';
-            inp.title = `Corrugated metal â€” ${displayLabel.toLowerCase()} (${min}â€“${max}${unit})`;
+            inp.title = `Corrugated metal — ${displayLabel.toLowerCase()} (${min}–${max}${unit})`;
             function applyParam() {
               const v = Math.max(min, Math.min(max, parseFloat(inp.value) || min));
               inp.value = v.toString();
@@ -34705,9 +34719,9 @@ function oeTopbarPopulateImpl() {
       }
 
       // ---- Bay door (only for bay ops) ----
-      // A bay can host a "door" overlay â€” a thin cut piece glued to the
+      // A bay can host a "door" overlay — a thin cut piece glued to the
       // INSIDE face of the core panel behind the bay opening, giving the
-      // illusion of depth (cladding hole â†’ empty matT â†’ recessed door
+      // illusion of depth (cladding hole → empty matT → recessed door
       // panel). Two controls: style (none / roller / paneled / etc.) and
       // percent open. When percent open > 0, the door is treated as
       // partially retracted and the cut piece shrinks accordingly.
@@ -34717,12 +34731,12 @@ function oeTopbarPopulateImpl() {
       // because native form controls don't get clipped by the topbar's
       // overflow-x:auto and don't fight with the editor's keyboard or
       // outside-click handlers. The trade-off is no inline SVG previews
-      // in the dropdown â€” descriptive labels do the work instead.
+      // in the dropdown — descriptive labels do the work instead.
       if (primaryOp.type === 'bay') {
         sep();
         label('Bay door');
 
-        // Helper â€” mirror a single field to the through-bay's partner
+        // Helper — mirror a single field to the through-bay's partner
         // entry on the opposite wall (no-op for side bays) so the front
         // and back panels of a drive-through stay consistent. Also
         // persists the partner change to CONFIG.manualOpenings since
@@ -34742,7 +34756,7 @@ function oeTopbarPopulateImpl() {
           CONFIG.manualOpenings[otherWall] = structural.length > 0 ? structural : null;
         }
 
-        // Style picker â€” native <select>.
+        // Style picker — native <select>.
         const styleSel = document.createElement('select');
         styleSel.className = 'oe-tb-btn';
         styleSel.style.cssText = 'padding:2px 4px;font-size:11px;height:24px;';
@@ -34771,7 +34785,7 @@ function oeTopbarPopulateImpl() {
         styleSel.addEventListener('keydown', e => e.stopPropagation(), true);
         bar.appendChild(styleSel);
 
-        // Percent-open input â€” number 0â€“100, disabled when style is 'none'.
+        // Percent-open input — number 0–100, disabled when style is 'none'.
         const openWrap = document.createElement('span');
         openWrap.style.cssText = 'display:inline-flex;align-items:center;gap:3px;margin-left:4px;';
         const openLbl = document.createElement('span');
@@ -34786,7 +34800,7 @@ function oeTopbarPopulateImpl() {
         openPct.className = 'oe-topbar-label';
         openPct.textContent = '%';
 
-        // Disable the number input when the door style is 'none' â€” no
+        // Disable the number input when the door style is 'none' — no
         // panel to open/close. Re-enabled the instant a real style is
         // chosen.
         const isNone = (primaryOp.doorStyle || 'none') === 'none';
@@ -34820,7 +34834,7 @@ function oeTopbarPopulateImpl() {
       }
     }
   } else {
-    // Nothing selected â€” show greyed placeholder
+    // Nothing selected — show greyed placeholder
     const ph = document.createElement('span');
     ph.style.cssText = 'font-size:10px;color:var(--muted);font-style:italic;white-space:nowrap;';
     ph.textContent = 'select an opening';
@@ -34836,8 +34850,8 @@ function oeTopbarPopulateImpl() {
    ---------------------------------------------------------------------
    Small, adapter-based utilities shared by the wall editor and the
    floor/roof editor. Each editor still owns its domain-specific data, but
-   common behaviours â€” topbar button creation, align, distribute, clipboard
-   affordances â€” now use the same framework so fixes land once.
+   common behaviours — topbar button creation, align, distribute, clipboard
+   affordances — now use the same framework so fixes land once.
    ===================================================================== */
 
 function editorTopbarKit(bar) {
@@ -34946,9 +34960,9 @@ function editorIcon(name) {
   if (alignMap[name]) return alignIconSvg(alignMap[name]);
   if (name === 'distH') return distributeIconSvg('h');
   if (name === 'distV') return distributeIconSvg('v');
-  if (name === 'copy') return '<span style="font-size:13px">ðŸ“‹</span>';
-  if (name === 'paste') return '<span style="font-size:13px">ðŸ“¥</span>';
-  if (name === 'delete') return '<span style="font-size:13px">âŒ«</span>';
+  if (['copy', 'paste', 'delete'].includes(name) && window.HakoMachiIcons) {
+    return window.HakoMachiIcons.icon(name === 'delete' ? 'trash' : name);
+  }
   return '';
 }
 
@@ -34971,14 +34985,14 @@ function editorAddAlignmentGroup(bar, opts) {
     ['alignCy', 'Align vertical centres',    () => opts.onAlign && opts.onAlign('centerY')],
     ['alignB',  'Align bottom edges',        () => opts.onAlign && opts.onAlign('bottom')],
   ].forEach(([icon, title, cb]) => {
-    kit.button({ html: editorIcon(icon), title: title + (canAlign ? '' : ' (select â‰¥ 2)'), onClick: cb, disabled: !canAlign, parent, compact: true });
+    kit.button({ html: editorIcon(icon), title: title + (canAlign ? '' : ' (select ≥ 2)'), onClick: cb, disabled: !canAlign, parent, compact: true });
   });
 
   if (opts.addSeparator !== false) kit.sep();
 
   maybeLabel('Distribute');
-  kit.button({ html: editorIcon('distH'), title: 'Distribute horizontally' + (canDistribute ? '' : ' (select â‰¥ 3)'), onClick: () => opts.onDistribute && opts.onDistribute('h'), disabled: !canDistribute, parent, compact: true });
-  kit.button({ html: editorIcon('distV'), title: 'Distribute vertically' + (canDistribute ? '' : ' (select â‰¥ 3)'), onClick: () => opts.onDistribute && opts.onDistribute('v'), disabled: !canDistribute, parent, compact: true });
+  kit.button({ html: editorIcon('distH'), title: 'Distribute horizontally' + (canDistribute ? '' : ' (select ≥ 3)'), onClick: () => opts.onDistribute && opts.onDistribute('h'), disabled: !canDistribute, parent, compact: true });
+  kit.button({ html: editorIcon('distV'), title: 'Distribute vertically' + (canDistribute ? '' : ' (select ≥ 3)'), onClick: () => opts.onDistribute && opts.onDistribute('v'), disabled: !canDistribute, parent, compact: true });
 
   return kit;
 }
@@ -34989,9 +35003,9 @@ function editorAddClipboardGroup(bar, opts) {
   const canCopy = !!opts.canCopy;
   const canPaste = !!opts.canPaste;
   const canDelete = !!opts.canDelete;
-  kit.button({ html: editorIcon('copy'),   title: opts.copyTitle   || (canCopy ? 'Copy' : 'Copy (select â‰¥ 1)'), onClick: opts.onCopy,   disabled: !canCopy,   parent, compact: true });
+  kit.button({ html: editorIcon('copy'),   title: opts.copyTitle   || (canCopy ? 'Copy' : 'Copy (select ≥ 1)'), onClick: opts.onCopy,   disabled: !canCopy,   parent, compact: true });
   kit.button({ html: editorIcon('paste'),  title: opts.pasteTitle  || (canPaste ? 'Paste' : 'Paste (clipboard empty)'), onClick: opts.onPaste, disabled: !canPaste, parent, compact: true });
-  kit.button({ html: editorIcon('delete'), title: opts.deleteTitle || (canDelete ? 'Delete selected' : 'Delete (select â‰¥ 1)'), onClick: opts.onDelete, disabled: !canDelete, parent, compact: true });
+  kit.button({ html: editorIcon('delete'), title: opts.deleteTitle || (canDelete ? 'Delete selected' : 'Delete (select ≥ 1)'), onClick: opts.onDelete, disabled: !canDelete, parent, compact: true });
   return kit;
 }
 
@@ -35333,7 +35347,7 @@ function oeMirrorToOpposite() {
   const ops = oeOpenings[oeWall] || [];
 
   // Reflect each opening's X across the wall centre.
-  // A window at x with width w becomes x' = wallW âˆ’ x âˆ’ w on the opposite wall.
+  // A window at x with width w becomes x' = wallW − x − w on the opposite wall.
   // The scale factor accounts for walls that have different widths
   // (front/back vs east/west may differ on asymmetric buildings).
   const widthRatio = dstW / (srcW || dstW);
@@ -35396,12 +35410,12 @@ function oeDistributeRow() {
 
 /* ---- Bay drag state ---- */
 // (Previously these tracked the special bay-drag handler that has now been
-// folded into the standard opening drag path â€” bays use the same selection
+// folded into the standard opening drag path — bays use the same selection
 // and drag flow as windows/doors, with a Y-lock constraint inside onMove.)
 
 let oeShowCladding = false;    // whether to overlay the cladding pattern in the editor
 
-// Alternating band fill colours â€” two subtle tints so bands are easy to distinguish
+// Alternating band fill colours — two subtle tints so bands are easy to distinguish
 const OE_BAND_FILLS = ['rgba(255,255,240,0.18)', 'rgba(200,230,255,0.18)'];
 
 function oeToggleCladding() {
@@ -35419,7 +35433,7 @@ function oeToggleCladding() {
  *
  * Each entry: { width (mm along face), height (mm), wing (ref), side: 'left'|'right' }
  *
- * Convention â€” "left" means the smaller-x end of the editor canvas for each face:
+ * Convention — "left" means the smaller-x end of the editor canvas for each face:
  *   front  : left=west,  right=east
  *   back   : left=east,  right=west   (back is viewed mirrored)
  *   east   : left=south, right=north  (x=0=south convention)
@@ -35428,7 +35442,7 @@ function oeToggleCladding() {
 function oeComputeWingExtensions() {
   // Wing edit mode: a wing has no sub-wings, so there are no coplanar
   // extensions to render. Returning [] keeps the editor's main wall as
-  // the only canvas drawn â€” the wing's wall stands alone.
+  // the only canvas drawn — the wing's wall stands alone.
   if (oeWingIndex != null) return [];
   const wings  = CONFIG.wings || [];
   const plan   = lastPlan;
@@ -35444,7 +35458,7 @@ function oeComputeWingExtensions() {
     switch (oeWall) {
       case 'front':
         // east/west wings whose "west" face is flush with the main front face.
-        // Editor's front-wall x runs westâ†’east in the unmirrored laser-panel
+        // Editor's front-wall x runs west→east in the unmirrored laser-panel
         // convention. For the user's "+N up" plan-view mental model, an east
         // wing extending FRONT renders on the LEFT of the editor.
         if (wing.face === 'east' && cp.westCoplanar) result.push({ side:'left',  width:extW, height:wingH, wing });
@@ -35476,10 +35490,10 @@ function oeComputeWingExtensions() {
 }
 
 /**
- *   pitchL  â€“ extra height (mm) at x=0 (left when viewed from outside)
- *   pitchR  â€“ extra height at x=W
- *   gable   â€“ triangle height for gable-end walls (pentagon)
- *   wallH   â€“ effective base wall height (may exceed plan.H for high-eave rectangular walls)
+ *   pitchL  – extra height (mm) at x=0 (left when viewed from outside)
+ *   pitchR  – extra height at x=W
+ *   gable   – triangle height for gable-end walls (pentagon)
+ *   wallH   – effective base wall height (may exceed plan.H for high-eave rectangular walls)
  * For a plain rectangular wall all values are 0 / plan.H.
  */
 function oeWallShapeInfo() {
@@ -35530,7 +35544,7 @@ function oeWallShapeInfo() {
     }
     if (!isSide && nsAxis) {
       // Front/back walls rectangular at different heights. The high-side
-      // wall extends UP by `pitch` past the building's top â€” that's an
+      // wall extends UP by `pitch` past the building's top — that's an
       // "attic" sliver above the wall's normal H, not part of the
       // habitable wall itself. We render it the same way a gabled apex
       // gets rendered: the extension sits ABOVE the wall's coord y=0,
@@ -35540,7 +35554,7 @@ function oeWallShapeInfo() {
       // Without this, the editor's coord system would stretch building-
       // relative window Ys across the larger wallH+pitch range, pushing
       // the ground floor visually toward the wall's middle instead of
-      // its bottom â€” even though the laser-cut wall puts the windows
+      // its bottom — even though the laser-cut wall puts the windows
       // correctly at the bottom of the building portion.
       //
       // The extension is encoded as equal pitchL===pitchR so the wallPts
@@ -35630,7 +35644,7 @@ function oeExposureZoneOverlaySvg(cfg, plan, wall, ox, oy, s, wallW, wallH) {
       if (!z.allowDoors) flags.push('no doors');
       out += `<text x="${(x + w/2).toFixed(1)}" y="${(y + 11).toFixed(1)}" text-anchor="middle" fill="${vis.stroke}" font-size="11" font-weight="700" font-family="system-ui">${label}</text>`;
       if (flags.length && h >= 28) {
-        out += `<text x="${(x + w/2).toFixed(1)}" y="${(y + 23).toFixed(1)}" text-anchor="middle" fill="${vis.stroke}" font-size="9" font-family="system-ui">${flags.join(' â€¢ ')}</text>`;
+        out += `<text x="${(x + w/2).toFixed(1)}" y="${(y + 23).toFixed(1)}" text-anchor="middle" fill="${vis.stroke}" font-size="9" font-family="system-ui">${flags.join(' • ')}</text>`;
       }
     }
   }
@@ -35668,9 +35682,9 @@ function oeCanvasRenderImpl() {
   // oeOpenings[oeWall]) so the mousedown handler can dispatch to a resize
   // drag. Cursor hints match the diagonal of each corner; for bay-typed
   // openings the bottom is anchored, so SW/SE corners get an ew-resize
-  // cursor (they only resize width, not height) â€” the resize handler will
+  // cursor (they only resize width, not height) — the resize handler will
   // also enforce that constraint mathematically.
-  // Doors are intentionally NOT resizable after placement â€” their dimensions
+  // Doors are intentionally NOT resizable after placement — their dimensions
   // come from the door style's canonical w/h, and resizing produces visually
   // jarring proportions (e.g. a tall narrow door stretched into a square).
   // The size can still be set BEFORE drop via the toolbox card's W/H inputs.
@@ -35745,7 +35759,7 @@ function oeCanvasRenderImpl() {
   svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
 
   // Build polygon points for the wall outline. Includes coplanar wing
-  // extensions as L (or U) steps so the merged wall looks continuous â€” and
+  // extensions as L (or U) steps so the merged wall looks continuous — and
   // so cladding, floor bands and parapet (all drawn inside the clip path)
   // naturally extend across the wing portion too.
   function wallPts() {
@@ -35802,7 +35816,7 @@ function oeCanvasRenderImpl() {
   // ---- All interior content clipped to the wall polygon ----
   html += `<g clip-path="url(#oe-wall-clip)">`;
 
-  // Edge buffer overlay â€” the strips along each end of front/back walls
+  // Edge buffer overlay — the strips along each end of front/back walls
   // where the perpendicular wall's core material sits behind the inside
   // face, making it impossible to cut a real through-opening. Rendered
   // first (under everything else) as a hatched zone with a hairline divider
@@ -35810,7 +35824,7 @@ function oeCanvasRenderImpl() {
   // try to drag a window into it.
   //
   // Cladding patches (op.type === 'cladding_override') deliberately
-  // ignore this buffer â€” they don't cut through the wall, they paint over
+  // ignore this buffer — they don't cut through the wall, they paint over
   // its outer face. The perpendicular wall's core sitting behind doesn't
   // block a surface patch the way it would block a through-cut. To make
   // that visible at a glance, mask the hatched overlay out of any region
@@ -35895,14 +35909,14 @@ function oeCanvasRenderImpl() {
     html += `<text x="${(ox+W*s-3).toFixed(1)}" y="${by+bh-4}" font-size="8" fill="rgba(60,60,60,0.35)" text-anchor="end" font-family="system-ui" pointer-events="none">floor ${bands.length - i}</text>`;
   }
 
-  // Parapet zone (extends across L-shape â€” clip path crops to wing's parapet height too)
+  // Parapet zone (extends across L-shape — clip path crops to wing's parapet height too)
   if (activePlan && activePlan.parapetH > 0) {
     const ph = activePlan.parapetH * s;
     html += `<rect x="${wxStart.toFixed(1)}" y="${oy}" width="${wxW.toFixed(1)}" height="${ph}" fill="url(#oe-hatch)" opacity="0.55" pointer-events="none"/>`;
     html += `<text x="${ox+4}" y="${oy+ph-3}" font-size="9" fill="#666" font-family="system-ui" pointer-events="none">parapet</text>`;
   }
 
-  // Bay opening â€” drawn as part of the editor's interactive layer so it
+  // Bay opening — drawn as part of the editor's interactive layer so it
   // selects, drags, resizes, and deletes through the SAME code paths as
   // every other opening. Sourced from the bay entry in oeOpenings (where
   // the user's drag-in-progress mutations live).
@@ -35925,7 +35939,7 @@ function oeCanvasRenderImpl() {
       const stroke = isSel ? '#f70' : '#555';
       const sw     = isSel ? 2.5   : 1.0;
       const idxAttr = (bayIdx >= 0) ? ` data-oe-idx="${bayIdx}"` : '';
-      const linkLabel = (bayStyle === 'through') ? ' (â‡” linked)' : '';
+      const linkLabel = (bayStyle === 'through') ? ' (⇔ linked)' : '';
       html += `<rect x="${rx.toFixed(1)}" y="${ry.toFixed(1)}" width="${rw.toFixed(1)}" height="${rh.toFixed(1)}"`
             + ` fill="#9a9088" stroke="${stroke}" stroke-width="${sw}"`
             + ` data-oe-bay="1"${idxAttr} style="cursor:move"/>`;
@@ -35934,7 +35948,7 @@ function oeCanvasRenderImpl() {
       if (isPrimary) {
         const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
         const styleLbl = (bayStyle === 'through') ? 'through' : 'side';
-        html += `<text x="${(rx + rw / 2).toFixed(1)}" y="${(ry - 4).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${styleLbl} bay ${bayW.toFixed(1)}Ã—${bayH.toFixed(1)}${cntLabel}</text>`;
+        html += `<text x="${(rx + rw / 2).toFixed(1)}" y="${(ry - 4).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${styleLbl} bay ${bayW.toFixed(1)}×${bayH.toFixed(1)}${cntLabel}</text>`;
         html += oeResizeHandles(rx, ry, rw, rh, bayIdx, 'bay');
       }
     }
@@ -35948,7 +35962,7 @@ function oeCanvasRenderImpl() {
 
   html += oeExposureZoneOverlaySvg(activeCfg, activePlan, oeWall, ox, oy, s, W, wallH);
 
-  // Cladding overlay (extends across full L-shape â€” clip path crops naturally)
+  // Cladding overlay (extends across full L-shape — clip path crops naturally)
   if (oeShowCladding && activePlan) {
     const cT = activeCfg.claddingThickness || CONFIG.claddingThickness || 0.28;
 
@@ -35994,7 +36008,7 @@ function oeCanvasRenderImpl() {
         const cy0=Math.max(op.y,bandTop), cy1=Math.min(op.y+op.h,bandBottom);
         if (cy1<=cy0) continue;
         if (op.type === 'cladding_override') {
-          // Override region â€” main cladding pattern is suppressed here (via
+          // Override region — main cladding pattern is suppressed here (via
           // cutOpenings), and a secondary-cladding piece fills the area.
           // Render its own etched pattern so the user sees the replacement.
           // Merge in any per-override styleParams (e.g. corrugated metal
@@ -36044,13 +36058,13 @@ function oeCanvasRenderImpl() {
     }
   }
 
-  // Wing footprint overlay â€” shows where wings attach to this wall, so the
+  // Wing footprint overlay — shows where wings attach to this wall, so the
   // user can avoid placing openings in zones occupied by wing interiors /
   // wing connection walls. A wing's FRONT face attaches to main.<wing.face>,
-  // so its footprint sits on that wall at xâˆˆ[wing.offset, wing.offset+wing.span]
-  // and yâˆˆ[wallH-wingH, wallH]. For east/west walls the editor view is
+  // so its footprint sits on that wall at x∈[wing.offset, wing.offset+wing.span]
+  // and y∈[wallH-wingH, wallH]. For east/west walls the editor view is
   // mirrored relative to laser-panel x (so +N/FRONT appears on observer's
-  // right for east, left for west â€” matching standard external view); we
+  // right for east, left for west — matching standard external view); we
   // route the x through `oeMirrorX` so the rendered position lines up with
   // the footprint mini-map and the +N/+S labels.
   for (const wi in (CONFIG.wings || [])) {
@@ -36065,10 +36079,10 @@ function oeCanvasRenderImpl() {
     // Hatched fill (re-uses the same pattern as the parapet zone)
     html += `<rect x="${fx0.toFixed(1)}" y="${fy0.toFixed(1)}" width="${fxW.toFixed(1)}" height="${fyH.toFixed(1)}" fill="rgba(180,140,90,0.18)" stroke="rgba(160,110,60,0.7)" stroke-width="1.5" stroke-dasharray="6 3" pointer-events="none"/>`;
     html += `<rect x="${fx0.toFixed(1)}" y="${fy0.toFixed(1)}" width="${fxW.toFixed(1)}" height="${fyH.toFixed(1)}" fill="url(#oe-hatch)" opacity="0.25" pointer-events="none"/>`;
-    // Label "Wing N" â€” centred, with the wing's connection type
+    // Label "Wing N" — centred, with the wing's connection type
     const connLabel = (wing.connection === 'open') ? 'open' : 'wall';
     html += `<text x="${(fx0 + fxW/2).toFixed(1)}" y="${(fy0 + fyH/2).toFixed(1)}" font-size="11" fill="rgba(110,70,30,0.85)" text-anchor="middle" font-family="system-ui" font-weight="600" pointer-events="none">Wing ${+wi + 1}</text>`;
-    html += `<text x="${(fx0 + fxW/2).toFixed(1)}" y="${(fy0 + fyH/2 + 13).toFixed(1)}" font-size="9" fill="rgba(110,70,30,0.6)" text-anchor="middle" font-family="system-ui" pointer-events="none">(${connLabel} Â· ${wing.span}Ã—${wH2.toFixed(0)}mm)</text>`;
+    html += `<text x="${(fx0 + fxW/2).toFixed(1)}" y="${(fy0 + fyH/2 + 13).toFixed(1)}" font-size="9" fill="rgba(110,70,30,0.6)" text-anchor="middle" font-family="system-ui" pointer-events="none">(${connLabel} · ${wing.span}×${wH2.toFixed(0)}mm)</text>`;
   }
 
   html += `</g>`; // end clip group
@@ -36087,7 +36101,7 @@ function oeCanvasRenderImpl() {
       // Dashed boundary on the side that touches main, and along the step
       const stepX = isLeft ? (panX + extPx) : panX;
       html += `<line x1="${stepX.toFixed(1)}" y1="${oy.toFixed(1)}" x2="${stepX.toFixed(1)}" y2="${panY.toFixed(1)}" stroke="rgba(110,80,50,0.5)" stroke-width="1.2" stroke-dasharray="3 3" pointer-events="none"/>`;
-      // Label "Wing N" â€” find wing index from CONFIG.wings
+      // Label "Wing N" — find wing index from CONFIG.wings
       const wi = (CONFIG.wings || []).indexOf(ext.wing);
       const lx = panX + extPx / 2, ly = panY + extHPx / 2;
       html += `<text x="${lx.toFixed(1)}" y="${(ly-5).toFixed(1)}" font-size="11" fill="rgba(110,70,30,0.85)" text-anchor="middle" font-family="system-ui" font-weight="600" pointer-events="none">Wing ${wi >= 0 ? wi + 1 : '?'}</text>`;
@@ -36124,14 +36138,14 @@ function oeCanvasRenderImpl() {
   if (pitchR > 0)
     html += `<text x="${(ox+W*s-4).toFixed(1)}" y="${(oy-pitchR*s-4).toFixed(1)}" font-size="9" fill="#888" text-anchor="end" font-family="system-ui">+${pitchR.toFixed(0)}</text>`;
   if (gable > 0)
-    html += `<text x="${(ox+W*s/2).toFixed(1)}" y="${(oy-gable*s-6).toFixed(1)}" font-size="9" fill="#888" text-anchor="middle" font-family="system-ui">â–² ${gable.toFixed(0)} mm</text>`;
+    html += `<text x="${(ox+W*s/2).toFixed(1)}" y="${(oy-gable*s-6).toFixed(1)}" font-size="9" fill="#888" text-anchor="middle" font-family="system-ui">▲ ${gable.toFixed(0)} mm</text>`;
 
   // Openings (outside clip so selection handles are always visible)
   const ops = oeOpenings[oeWall] || [];
 
   // ---- Pass 1: cladding overrides (rendered FIRST so they sit beneath
   // windows, doors, fixtures, awnings, balconies). The data array order
-  // doesn't determine z-order â€” render-order does. We iterate twice to
+  // doesn't determine z-order — render-order does. We iterate twice to
   // keep both passes correct regardless of insertion order.
   for (let i = 0; i < ops.length; i++) {
     const op = ops[i];
@@ -36141,7 +36155,7 @@ function oeCanvasRenderImpl() {
     const rx = ox + oeMirrorX(op.x, op.w)*s, ry = oy + op.y*s, rw = op.w*s, rh = op.h*s;
     const styleSpec = CLADDING_STYLES[op.claddingStyle];
     const styleLabel = styleSpec ? styleSpec.label : op.claddingStyle;
-    // Tint patch â€” soft beige/tan with diagonal hatching to clearly read
+    // Tint patch — soft beige/tan with diagonal hatching to clearly read
     // as "alternate cladding" without preselecting a colour that conflicts
     // with the user's intended secondary style.
     const stroke = isSel ? '#f70' : '#5a4a32';
@@ -36160,7 +36174,7 @@ function oeCanvasRenderImpl() {
     }
     if (isPrimary) {
       const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
-      html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.w.toFixed(0)}Ã—${op.h.toFixed(0)}${cntLabel}</text>`;
+      html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.w.toFixed(0)}×${op.h.toFixed(0)}${cntLabel}</text>`;
       html += oeResizeHandles(rx, ry, rw, rh, i, 'cladding_override');
     }
   }
@@ -36189,11 +36203,11 @@ function oeCanvasRenderImpl() {
       }
       // Depth label inside the bar
       if (rw > 16) {
-        html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry+dispH*0.72).toFixed(1)}" font-size="7" fill="rgba(50,20,0,0.75)" text-anchor="middle" font-family="system-ui" font-weight="600" pointer-events="none">â†™${op.h.toFixed(0)}mm</text>`;
+        html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry+dispH*0.72).toFixed(1)}" font-size="7" fill="rgba(50,20,0,0.75)" text-anchor="middle" font-family="system-ui" font-weight="600" pointer-events="none">↙${op.h.toFixed(0)}mm</text>`;
       }
       if (isPrimary) {
         const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
-        html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.w.toFixed(1)}W Ã— ${op.h.toFixed(1)}D${cntLabel}</text>`;
+        html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.w.toFixed(1)}W × ${op.h.toFixed(1)}D${cntLabel}</text>`;
         html += oeResizeHandles(rx, ry, rw, dispH, i, 'awning');
       }
 
@@ -36209,7 +36223,7 @@ function oeCanvasRenderImpl() {
       const stroke = isSel ? '#f70' : (isInt ? '#3a5a6e' : '#b08830');
       const sw = isSel ? 2.5 : 1.5;
       html += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" data-oe-idx="${i}"/>`;
-      // Pattern â€” diagonal hatch for internal, grid for external
+      // Pattern — diagonal hatch for internal, grid for external
       if (isInt) {
         const sp = 5 * s;
         for (let lx = rx - rh; lx < rx + rw + sp; lx += sp) {
@@ -36230,12 +36244,12 @@ function oeCanvasRenderImpl() {
       // Centre labels
       if (rw > 18 && rh > 8) {
         const lc = isInt ? '#fff' : '#6a4800';
-        html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry+rh*0.55).toFixed(1)}" font-size="7" fill="${lc}" text-anchor="middle" font-family="system-ui" font-weight="600" pointer-events="none">${isInt?'â†“':'â†—'}${op.d.toFixed(0)}mm</text>`;
+        html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry+rh*0.55).toFixed(1)}" font-size="7" fill="${lc}" text-anchor="middle" font-family="system-ui" font-weight="600" pointer-events="none">${isInt?'↓':'↗'}${op.d.toFixed(0)}mm</text>`;
         if (isLSh) html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry+rh*0.78).toFixed(1)}" font-size="6" fill="${lc}" text-anchor="middle" font-family="system-ui" opacity="0.8" pointer-events="none">L-shape</text>`;
       }
       if (isPrimary) {
         const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
-        html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.balconyType} ${op.w.toFixed(0)}Ã—${op.d.toFixed(0)}Ã—${op.h.toFixed(0)}${cntLabel}</text>`;
+        html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.balconyType} ${op.w.toFixed(0)}×${op.d.toFixed(0)}×${op.h.toFixed(0)}${cntLabel}</text>`;
         html += oeResizeHandles(rx, ry, rw, rh, i, 'balcony');
       }
 
@@ -36249,10 +36263,10 @@ function oeCanvasRenderImpl() {
       const rh = op.h * s;
       const stroke = isSel ? '#f70' : styleFrame;
       const sw = isSel ? 2.5 : 1.0;
-      // Click target â€” transparent fill; visual fill comes from the body SVG.
+      // Click target — transparent fill; visual fill comes from the body SVG.
       // Pass-through/cutout holes can be extremely small, so give them a
       // larger invisible editor-only hit box. The actual visible/cut geometry
-      // remains op.w Ã— op.h.
+      // remains op.w × op.h.
       if (oeIsCutoutFixture(op)) {
         const hb = oeFixtureHitBounds(op);
         const hx = ox + oeMirrorX(hb.x0, hb.x1 - hb.x0) * s;
@@ -36270,7 +36284,7 @@ function oeCanvasRenderImpl() {
         });
         // Visually indicate "this projects from the wall" for layered tiers
         // by a subtle drop-shadow filter using SVG's built-in feDropShadow.
-        // Flush placements (etched or cutout) skip the filter entirely â€”
+        // Flush placements (etched or cutout) skip the filter entirely —
         // etched markings are flat, and cutouts are holes (no projection).
         const tier = styleSpec.depthTier;
         const isFlat = (tier === 'flush') ||
@@ -36287,12 +36301,12 @@ function oeCanvasRenderImpl() {
       }
       if (isPrimary) {
         const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
-        const tierTag  = styleSpec && styleSpec.depthTier ? ` Â· ${styleSpec.depthTier}` : '';
-        html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.w.toFixed(1)}Ã—${op.h.toFixed(1)}${tierTag}${cntLabel}</text>`;
+        const tierTag  = styleSpec && styleSpec.depthTier ? ` · ${styleSpec.depthTier}` : '';
+        html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.w.toFixed(1)}×${op.h.toFixed(1)}${tierTag}${cntLabel}</text>`;
         // Full-height fixtures (e.g. downspout) auto-size to the wall and
         // have a very thin footprint, so corner resize handles would cover
         // the entire click area and prevent the user from grabbing the body
-        // to drag the fixture left/right. Skip the handles in that case â€”
+        // to drag the fixture left/right. Skip the handles in that case —
         // width is set via the toolbox card and height is determined by
         // the wall, leaving nothing useful to resize after placement.
         if (!(styleSpec && (styleSpec.fullHeight || styleSpec.placement === 'cutout'))) {
@@ -36303,7 +36317,7 @@ function oeCanvasRenderImpl() {
     } else if (op.type === 'printed_item') {
       // ---- Printed item (printed sheet, not laser-cut) ----
       // Renders the full-colour artwork on the wall via buildPrintedSvgBody
-      // â€” same source of truth as the toolbox card and the printed sheet
+      // — same source of truth as the toolbox card and the printed sheet
       // output. Bordered with a thin purple stroke so it reads as "printed,
       // not cut" at a glance.
       const styleSpec = PRINTED_STYLES[op.style];
@@ -36319,7 +36333,7 @@ function oeCanvasRenderImpl() {
       if (isPrimary) {
         const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
         const styleLbl = styleSpec ? styleSpec.label : op.style;
-        html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${styleLbl} ${op.w.toFixed(1)}Ã—${op.h.toFixed(1)} Â· printed${cntLabel}</text>`;
+        html += `<text x="${(rx+rw/2).toFixed(1)}" y="${(ry-3).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${styleLbl} ${op.w.toFixed(1)}×${op.h.toFixed(1)} · printed${cntLabel}</text>`;
         html += oeResizeHandles(rx, ry, rw, rh, i, 'printed_item');
       }
 
@@ -36328,7 +36342,7 @@ function oeCanvasRenderImpl() {
       const isWin = op.type === 'window';
       const rh = op.h*s;
       if (isWin) {
-        // Window â€” render style-specific pane background + lattice / mullion
+        // Window — render style-specific pane background + lattice / mullion
         // pattern using the same data the toolbox card uses. Falls back to
         // the global CONFIG.windowStyle when an older op didn't store its
         // own style (e.g. windows placed before per-op style support).
@@ -36336,7 +36350,7 @@ function oeCanvasRenderImpl() {
         const styleSpec = WINDOW_STYLES[styleKey] || null;
         const stroke = isSel ? '#f70' : ((styleSpec && styleSpec.frameColor) || '#2a64aa');
         const sw = isSel ? 2.5 : 1.2;
-        // Selection rectangle (transparent fill â€” actual fill comes from the
+        // Selection rectangle (transparent fill — actual fill comes from the
         // SVG body that follows). Kept as the click target.
         html += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="rgba(255,255,255,0.001)" stroke="${stroke}" stroke-width="${sw}" data-oe-idx="${i}" pointer-events="all" style="cursor:move"/>`;
         if (styleSpec && rw > 4 && rh > 3) {
@@ -36352,7 +36366,7 @@ function oeCanvasRenderImpl() {
             html += `<line x1="${rx+rw/2}" y1="${ry+1}" x2="${rx+rw/2}" y2="${ry+rh-1}" stroke="${stroke}" stroke-width="0.5" opacity="0.4" pointer-events="none"/>`;
           }
         }
-        // Shutters â€” pair of decorative panels flanking the window. Sized
+        // Shutters — pair of decorative panels flanking the window. Sized
         // by SHUTTER_W_RATIO of the window width; full window height.
         // Rendered with a subtle drop-shadow to hint they project slightly.
         if (op.hasShutters) {
@@ -36373,14 +36387,14 @@ function oeCanvasRenderImpl() {
           }
         }
       } else {
-        // Door â€” render style-specific glass apertures and engraved features
+        // Door — render style-specific glass apertures and engraved features
         // via the shared `buildDoorSvgBody` helper so the toolbox icon and
         // on-wall preview stay in lock-step.
         const styleSpec = DOOR_STYLES[op.style || CONFIG.doorStyle];
         const styleFrame = (styleSpec && styleSpec.frameColor) || '#c84a3a';
         const stroke = isSel ? '#f70' : styleFrame;
         const sw = isSel ? 2.5 : 1.2;
-        // Click target â€” transparent fill since the visual fill comes from
+        // Click target — transparent fill since the visual fill comes from
         // the SVG body that follows. The selection-ring stroke stays here.
         html += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="transparent" stroke="${stroke}" stroke-width="${sw}" data-oe-idx="${i}"/>`;
         if (styleSpec && rw > 4 && rh > 6) {
@@ -36400,9 +36414,9 @@ function oeCanvasRenderImpl() {
       }
       if (isPrimary) {
         const bandIdx  = oeYToBand(bands, op.y + op.h / 2);
-        const bandLabel = bandIdx >= 0 ? ` Â· floor ${bands.length - bandIdx}` : '';
+        const bandLabel = bandIdx >= 0 ? ` · floor ${bands.length - bandIdx}` : '';
         const cntLabel  = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size} sel]` : '';
-        html += `<text x="${rx+rw/2}" y="${ry-3}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.w.toFixed(1)}Ã—${op.h.toFixed(1)}${bandLabel}${cntLabel}</text>`;
+        html += `<text x="${rx+rw/2}" y="${ry-3}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${op.w.toFixed(1)}×${op.h.toFixed(1)}${bandLabel}${cntLabel}</text>`;
         html += oeResizeHandles(rx, ry, rw, rh, i, op.type);
         if (bandIdx >= 0) {
           const b = bands[bandIdx];
@@ -36478,7 +36492,7 @@ function oeKeyUp(e) {
  * own independent maps without sharing DOM.
  *
  * Cardinal labels (N/S/E/W) are placed outside the rectangle on each
- * side. Top = N, bottom = S â€” matching the wall editor's existing
+ * side. Top = N, bottom = S — matching the wall editor's existing
  * convention so the orientation reads the same everywhere.
  *
  * @param svgEl         the target <svg> element
@@ -36563,7 +36577,7 @@ function layoutReferencePhysicalOffset(face, edgeLen, pos, span) {
   // Top-down layout reference uses screen/site coordinates:
   //   north/back = top, south/front = bottom, east = right, west = left.
   // The back wall must be mirrored because its wall-local left-to-right axis is
-  // opposite the front wall. Side-wall local positions already run northâ†’south
+  // opposite the front wall. Side-wall local positions already run north→south
   // for the reference map, so mirroring east here made east-wall objects appear
   // backwards along the side of the building.
   if (face === 'back') return Math.max(0, Math.min(maxStart, len - p - s));
@@ -36915,7 +36929,7 @@ function oeFixtureHitBounds(op) {
   let x1 = x0 + w;
   let y1 = y0 + h;
 
-  // Tiny wall pass-throughs are often 1â€“3 mm wide, which makes them hard to
+  // Tiny wall pass-throughs are often 1–3 mm wide, which makes them hard to
   // grab in the wall editor. This is only an editor hit target; it does not
   // change the actual SVG/cut geometry.
   const minHit = oeIsCutoutFixture(op) ? 7 : 2;
@@ -36944,7 +36958,7 @@ function oeEventTargetOpeningIndex(e) {
 
 function oeCanvasHitTestImpl(mx, my) {
   const ops = oeOpenings[oeWall] || [];
-  // First pass â€” non-override ops (windows/doors/fixtures/awnings/balconies)
+  // First pass — non-override ops (windows/doors/fixtures/awnings/balconies)
   // hit first since they visually sit on top of cladding overrides.
   // For very thin fixtures (notably downspouts, where w can be < 1 mm) the
   // exact rect would be near-impossible to click on at typical zoom; pad
@@ -36970,7 +36984,7 @@ function oeCanvasHitTestImpl(mx, my) {
     }
     if (mx >= hx0 && mx <= hx1 && my >= hy0 && my <= hy1) return i;
   }
-  // Second pass â€” cladding overrides (only hit when no feature is at this point)
+  // Second pass — cladding overrides (only hit when no feature is at this point)
   for (let i = ops.length - 1; i >= 0; i--) {
     const op = ops[i];
     if (op.type !== 'cladding_override') continue;
@@ -36987,15 +37001,15 @@ function oeCanvasToMMImpl(e) {
   const y    = (e.clientY - r.top   - PAD - oeExtraTop)   / oeEditorScale;
   // East wall view is mirrored on screen vs storage convention (so the
   // observer-from-outside layout matches the footprint +N/+S labels). Apply
-  // the inverse mirror here so the rest of the editor â€” hit-tests, drag
-  // math, opening placement â€” keeps operating on stored (laser-panel) x.
+  // the inverse mirror here so the rest of the editor — hit-tests, drag
+  // math, opening placement — keeps operating on stored (laser-panel) x.
   const x = (oeWall === 'east')
               ? oeGetWallDims(oeWall).W - rawX
               : rawX;
   return { x, y };
 }
 
-/* ---- Click (select / erase only â€” placement is drag-from-toolbox) ---- */
+/* ---- Click (select / erase only — placement is drag-from-toolbox) ---- */
 
 let _oeDragMoved = false;
 
@@ -37040,7 +37054,7 @@ function oeCanvasClickImpl(e) {
  * be mirrored to the partner so the two stay in lock-step. These helpers
  * centralise that mirroring; the drag, resize, drop, and delete paths all
  * call them after a structural change. Side bays carry style='side' and
- * have no partner â€” the helpers short-circuit.
+ * have no partner — the helpers short-circuit.
  */
 
 /* Sync the through-bay partner on the opposing wall to match `op`'s
@@ -37230,7 +37244,7 @@ function oeCanvasMouseDownImpl(e) {
       const isAwning = op.type === 'awning';
       // Awnings store DEPTH in op.h (it's the projection from the wall, not
       // a wall-Y dimension). Resize semantics for awnings: NW/NE/SW/SE
-      // change w and depth. We map hâ†”depth in math below.
+      // change w and depth. We map h↔depth in math below.
       const orig = { x: op.x, y: op.y, w: op.w, h: op.h };
       const opSnapX = (v) => oeSnapSizeX(v);
       const opSnapY = (v) => oeSnapSizeY(v);
@@ -37243,14 +37257,14 @@ function oeCanvasMouseDownImpl(e) {
 
         // For bays the bottom edge is anchored to y=wallH (the ground line):
         // any vertical drag adjusts the top edge instead. SW/SE corners
-        // therefore only affect width â€” the y/h math collapses to a no-op.
+        // therefore only affect width — the y/h math collapses to a no-op.
         const east  = (handle === 'ne' || handle === 'se');
         const west  = (handle === 'nw' || handle === 'sw');
         const north = (handle === 'nw' || handle === 'ne');
         const south = (handle === 'sw' || handle === 'se');
 
         // ---- X axis ----
-        // Through-cuts (window/door/bay) must respect the edge buffer â€” the
+        // Through-cuts (window/door/bay) must respect the edge buffer — the
         // strip of wall at each end where the perpendicular wall's core
         // material sits behind the inside face. Surface items don't.
         const isThroughCut = (op.type === 'window' || op.type === 'door' || op.type === 'bay');
@@ -37336,7 +37350,7 @@ function oeCanvasMouseDownImpl(e) {
   const directIdx = oeEventTargetOpeningIndex(e);
   const hitIdx = directIdx >= 0 ? directIdx : oeHitTest(x, y);
   if (hitIdx < 0) {
-    // Miss on empty canvas â€” start rubber-band selection
+    // Miss on empty canvas — start rubber-band selection
     _oeDragMoved = false;
     _oeRubberBand = { x0: x, y0: y, x1: x, y1: y };
 
@@ -37403,17 +37417,17 @@ function oeCanvasMouseDownImpl(e) {
       const maxX = isThroughCut ? (W - op.w - buf.right) : (W - op.w);
       op.x = oeSnapPlacementX(Math.max(minX, Math.min(maxX, orig.x + dx)), op.w);
       if (op.type === 'bay') {
-        // Bays stay bottom-anchored â€” Y never changes regardless of cursor.
+        // Bays stay bottom-anchored — Y never changes regardless of cursor.
         op.y = H - op.h;
       } else if (op.type === 'door') {
         // Doors snap so their bottom rests on a floor surface (each floor
         // band's bottom edge). Pick the band using the door's vertical
-        // center after applying the drag delta â€” letting the user move
+        // center after applying the drag delta — letting the user move
         // doors freely between floors as they drag.
         const centerY = (orig.y + dy) + op.h / 2;
         op.y = oeDoorSnappedY(oeWall, op.h, centerY);
       } else {
-        // All other types â€” including windows â€” move freely within the
+        // All other types — including windows — move freely within the
         // wall bounds. Previously windows were locked to whichever floor
         // band they started in, which made it impossible to drag a window
         // up or down a floor (and surprised users who tried). The auto-
@@ -37531,7 +37545,7 @@ function oeKeyDown(e) {
           }
         }
       } else {
-        // Vertical arrow keys nudge by `step` mm. No band clamping â€” the
+        // Vertical arrow keys nudge by `step` mm. No band clamping — the
         // user can walk an item up or down past floor boundaries the same
         // way drag now allows. Wall bounds still apply.
         const opH = oeOpH(op);
@@ -37607,7 +37621,7 @@ function oeCopy() {
 }
 
 /* Paste the clipboard's items onto the current wall. Each paste offsets
- * the items by an incrementing delta (3mm Ã— oePasteCount) so successive
+ * the items by an incrementing delta (3mm × oePasteCount) so successive
  * pastes don't overlap perfectly. Items are clamped to wall bounds and
  * selected after paste so the user can immediately move/delete them. */
 function oePaste() {
@@ -37629,7 +37643,7 @@ function oePaste() {
   const newIndices = [];
   for (const src of oeClipboard) {
     const newOp = JSON.parse(JSON.stringify(src));
-    // Apply offset and clamp to wall bounds (only x/y â€” width/height stay)
+    // Apply offset and clamp to wall bounds (only x/y — width/height stay)
     const opH = (newOp.type === 'awning') ? (newOp.h || 5)  // awning h field stores depth; visual height is AWNING_DISP_H
                                           : (newOp.h || 0);
     newOp.x = oeSnapPlacementX(Math.max(0, Math.min(Math.max(0, W - (newOp.w || 0)), (newOp.x || 0) + dx)), newOp.w || 0);
@@ -37720,8 +37734,8 @@ function oeGetFixtureDims(styleKey) {
 }
 
 function oeGetCladdingOverrideDims(styleKey) {
-  // Cladding override is a virtual toolbox item â€” there's no STYLES dict
-  // entry for it. Default size is a sensible cladding patch (30Ã—20mm); the
+  // Cladding override is a virtual toolbox item — there's no STYLES dict
+  // entry for it. Default size is a sensible cladding patch (30×20mm); the
   // user can resize in the editor or via the toolbox card W/H inputs.
   const ck = 'cladding_override_' + (styleKey || 'override');
   if (oeCustomSizes[ck]) return { ...oeCustomSizes[ck] };
@@ -37745,7 +37759,7 @@ function oeGetBayDims(styleKey) {
   return { w: style.baseW, h: style.baseH };
 }
 
-// Pick a sensible default cladding style for overrides â€” one that's likely
+// Pick a sensible default cladding style for overrides — one that's likely
 // to contrast with the building's main wall cladding. We prefer cement lap
 // siding (horizontal courses) which contrasts nicely with the common
 // vertical-line defaults (alc_panel, ribbed_metal). Falls back to the first

@@ -1227,12 +1227,16 @@ export function iwPopulateToolbox() {
     s.textContent = lbl;
     box.appendChild(s);
   }
+  function toolIcon(icon) {
+    if (typeof icon === 'string' && icon.includes('<svg')) return icon;
+    return window.HakoMachiIcons ? window.HakoMachiIcons.icon(icon) : icon;
+  }
   function actionCard(icon, lbl, active, eraseStyle, onClick) {
     const c = document.createElement('div');
     c.className = 'oe-toolbox-item oe-action'
       + (active && !eraseStyle ? ' oe-tool-active'  : '')
       + (active &&  eraseStyle ? ' oe-erase-active' : '');
-    c.innerHTML = '<span class="oe-toolbox-item-icon">' + icon + '</span>'
+    c.innerHTML = '<span class="oe-toolbox-item-icon">' + toolIcon(icon) + '</span>'
                 + '<span class="oe-toolbox-item-label">' + lbl + '</span>';
     c.addEventListener('mousedown', e => { e.preventDefault(); onClick(c); });
     box.appendChild(c);
@@ -1252,7 +1256,7 @@ export function iwPopulateToolbox() {
           ).join('')
         + '</div>';
     }
-    c.innerHTML = '<span class="oe-toolbox-item-icon">' + icon + '</span>'
+    c.innerHTML = '<span class="oe-toolbox-item-icon">' + toolIcon(icon) + '</span>'
                 + '<span class="oe-toolbox-item-label">' + lbl + '</span>'
                 + '<span class="oe-toolbox-item-dim">'  + sublbl + '</span>'
                 + sHtml;
@@ -1286,47 +1290,47 @@ export function iwPopulateToolbox() {
 
   if (!iwIsRoof()) {
     sec('Walls');
-    actionCard('✏', 'Draw wall',  iwTool === 'draw',  false, c => {
+    actionCard('pencil', 'Draw wall',  iwTool === 'draw',  false, c => {
       setTool('draw', c);
       document.getElementById('iwStatus').textContent = 'Drag to draw a wall — snaps to horizontal or vertical.';
     });
-    actionCard('✕', 'Erase',      iwTool === 'erase', true,  c => {
+    actionCard('erase', 'Erase',      iwTool === 'erase', true,  c => {
       setTool('erase', c);
       document.getElementById('iwStatus').textContent = 'Click a wall or cutout to delete it.';
     });
     sec('Cutouts');
-    dragCard('○', 'Circle', 'cable pass-through', { type: 'hole', shape: 'circle' },
+    dragCard('circle', 'Circle', 'cable pass-through', { type: 'hole', shape: 'circle' },
       [{ label: '⌀', key: 'd', val: 3, min: 0.5, max: 30, step: 0.5 }]);
-    dragCard('□', 'Square', 'cable pass-through', { type: 'hole', shape: 'square' },
+    dragCard('square', 'Square', 'cable pass-through', { type: 'hole', shape: 'square' },
       [{ label: 'W', key: 'w', val: 5, min: 0.5, max: 50, step: 0.5 },
        { label: 'H', key: 'h', val: 5, min: 0.5, max: 50, step: 0.5 }]);
     sec('Embedded rail');
-    dragCard('▭', 'Embedded rail', 'long axis = track direction', { type: 'embeddedRail', orientation: 'auto' },
+    dragCard('rail', 'Embedded rail', 'long axis = track direction', { type: 'embeddedRail', orientation: 'auto' },
       [{ label: 'W', key: 'w', val: 60, min: 18, max: 250, step: 1 },
        { label: 'H', key: 'h', val: 27, min: 18, max: 250, step: 1 }]);
   } else {
     sec('Roof items');
-    dragCard('🏭', 'Mech. Room', 'enclosed structure', { type: 'mechroom', label: 'Mech. Room' },
+    dragCard('factory', 'Mech. Room', 'enclosed structure', { type: 'mechroom', label: 'Mech. Room' },
       [{ label:'W', key:'w', val:20, min:4, max:200 },
        { label:'D', key:'d', val:15, min:4, max:200 },
        { label:'H', key:'h', val:12, min:2, max:60  }]);
-    dragCard('📋', 'Billboard',  'wall sign',          { type: 'billboard', label: 'Billboard' },
+    dragCard('billboard', 'Billboard',  'wall sign',          { type: 'billboard', label: 'Billboard' },
       [{ label:'W', key:'w', val:20, min:4, max:200 },
        { label:'H', key:'h', val:12, min:2, max:60  }]);
-    dragCard('📦', 'STL Zone',   'placement area',     { type: 'stlzone', label: 'STL Object' },
+    dragCard('box', 'STL Zone',   'placement area',     { type: 'stlzone', label: 'STL Object' },
       [{ label:'W', key:'w', val:20, min:4, max:200 },
        { label:'D', key:'d', val:15, min:4, max:200 }]);
-    dragCard('🔆', 'Skylight',   'roof hole + plexi pane', { type: 'skylight', label: 'Skylight' },
+    dragCard('skylight', 'Skylight',   'roof hole + plexi pane', { type: 'skylight', label: 'Skylight' },
       [{ label:'W', key:'w', val:10, min:3, max:80 },
        { label:'H', key:'h', val:10, min:3, max:80 }]);
     sec('Cutouts');
-    dragCard('○', 'Circle', 'cable pass-through', { type: 'hole', shape: 'circle' },
+    dragCard('circle', 'Circle', 'cable pass-through', { type: 'hole', shape: 'circle' },
       [{ label: '⌀', key: 'd', val: 3, min: 0.5, max: 30, step: 0.5 }]);
-    dragCard('□', 'Square', 'cable pass-through', { type: 'hole', shape: 'square' },
+    dragCard('square', 'Square', 'cable pass-through', { type: 'hole', shape: 'square' },
       [{ label: 'W', key: 'w', val: 5, min: 0.5, max: 50, step: 0.5 },
        { label: 'H', key: 'h', val: 5, min: 0.5, max: 50, step: 0.5 }]);
     sec('3D-printed equipment');
-    actionCard('🪄', tx('ed_autoSeedLayout','Auto-seed layout'), false, false, c => {
+    actionCard('magic', tx('ed_autoSeedLayout','Auto-seed layout'), false, false, c => {
       const target = iwTarget();
       const existing = (target.rooftopItems || []).filter(it => it.type === 'equipment').length;
       if (existing > 0) {
@@ -1341,7 +1345,7 @@ export function iwPopulateToolbox() {
       const status = document.getElementById('iwStatus');
       if (status) status.textContent = tx('ed_autoSeedStatus','Auto-seeded {n} equipment item{s} using traditional rooftop layout — drag any item to adjust.').replace('{n}', n).replace('{s}', n === 1 ? '' : 's');
     });
-    actionCard('🗑', tx('ed_clearAllEquipment','Clear all equipment'), false, true, c => {
+    actionCard('trash', tx('ed_clearAllEquipment','Clear all equipment'), false, true, c => {
       const target = iwTarget();
       const existing = (target.rooftopItems || []).filter(it => it.type === 'equipment').length;
       if (existing === 0) return;
@@ -1361,11 +1365,11 @@ export function iwPopulateToolbox() {
       );
     }
     sec('Tools');
-    actionCard('🏗', tx('ed_shieldWall','Shield Wall'), iwTool === 'shieldwall', false, c => {
+    actionCard('shieldWall', tx('ed_shieldWall','Shield Wall'), iwTool === 'shieldwall', false, c => {
       setTool('shieldwall', c);
       document.getElementById('iwStatus').textContent = tx('ed_shieldWallToolHint','Click a roof edge to toggle a parapet.');
     });
-    actionCard('✕', tx('ed_eraseItem','Erase item'),  iwTool === 'erase',      true,  c => {
+    actionCard('erase', tx('ed_eraseItem','Erase item'),  iwTool === 'erase',      true,  c => {
       setTool('erase', c);
       document.getElementById('iwStatus').textContent = tx('ed_eraseItemHint','Click a roof item or cutout to remove it.');
     });
@@ -2463,7 +2467,7 @@ export function iwRender() {
         h += `<line x1="${hp.x.toFixed(1)}" y1="${hp.y.toFixed(1)}" x2="${(hp.x+pw).toFixed(1)}" y2="${(hp.y+ph).toFixed(1)}" stroke="rgba(255,255,255,0.55)" stroke-width="0.6" pointer-events="none"/>`;
       }
       if (iwScale > 2) {
-        h += `<text x="${(hp.x+pw/2).toFixed(1)}" y="${(hp.y+ph+10).toFixed(1)}" font-size="8" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">🔆 ${sky.w}×${sky.h}mm</text>`;
+        h += `<text x="${(hp.x+pw/2).toFixed(1)}" y="${(hp.y+ph+10).toFixed(1)}" font-size="8" font-family="system-ui" fill="${col}" text-anchor="middle" pointer-events="none">Skylight ${sky.w}×${sky.h}mm</text>`;
       }
     });
     // Skylight drag ghost

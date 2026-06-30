@@ -7,6 +7,7 @@ export function oeToolboxPopulateImpl() {
   const box = document.getElementById('oeToolbox');
   if (!box) return;
   box.innerHTML = '';
+  const resetIcon = () => window.HakoMachiIcons ? window.HakoMachiIcons.icon('reset') : 'Reset';
 
   // ---- Window scale selector ----
   const scaleRow = document.createElement('div');
@@ -184,7 +185,7 @@ export function oeToolboxPopulateImpl() {
       <input type="number" min="1" max="100" step="0.5" value="${w}" class="${custom ? 'oe-custom' : ''}">
       <label>H</label>
       <input type="number" min="1" max="100" step="0.5" value="${h}" class="${custom ? 'oe-custom' : ''}">
-      <button class="oe-size-reset" title="Reset to style default" style="${custom ? '' : 'visibility:hidden'}">\u21ba</button>`;
+      <button class="oe-size-reset" title="Reset to style default" style="${custom ? '' : 'visibility:hidden'}">${resetIcon()}</button>`;
     card.appendChild(sizeRow);
     const [wInp, hInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');
@@ -241,7 +242,7 @@ export function oeToolboxPopulateImpl() {
       <input type="number" min="1" max="100" step="0.5" value="${w}" class="${custom ? 'oe-custom' : ''}">
       <label>H</label>
       <input type="number" min="1" max="100" step="0.5" value="${h}" class="${custom ? 'oe-custom' : ''}">
-      <button class="oe-size-reset" title="Reset to style default" style="${custom ? '' : 'visibility:hidden'}">\u21ba</button>`;
+      <button class="oe-size-reset" title="Reset to style default" style="${custom ? '' : 'visibility:hidden'}">${resetIcon()}</button>`;
     card.appendChild(sizeRow);
     const [wInp, hInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');
@@ -311,7 +312,7 @@ export function oeToolboxPopulateImpl() {
       <input type="number" min="0.5" max="100" step="0.5" value="${w}" class="${custom ? 'oe-custom' : ''}">
       <label>H</label>
       <input type="${isFullHeight ? 'text' : 'number'}" ${isFullHeight ? '' : 'min="0.5" max="100" step="0.5"'} value="${hValAttr}" class="${custom && !isFullHeight ? 'oe-custom' : ''}" ${hExtra}>
-      <button class="oe-size-reset" title="Reset to style default" style="${custom && !isFullHeight ? '' : 'visibility:hidden'}">\u21ba</button>`;
+      <button class="oe-size-reset" title="Reset to style default" style="${custom && !isFullHeight ? '' : 'visibility:hidden'}">${resetIcon()}</button>`;
     card.appendChild(sizeRow);
     const [wInp, hInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');
@@ -377,7 +378,7 @@ export function oeToolboxPopulateImpl() {
       <input type="number" min="5" max="100" step="1" value="${w}" class="${custom ? 'oe-custom' : ''}">
       <label>D</label>
       <input type="number" min="3" max="40"  step="1" value="${d}" class="${custom ? 'oe-custom' : ''}">
-      <button class="oe-size-reset" title="Reset to default" style="${custom ? '' : 'visibility:hidden'}">\u21ba</button>`;
+      <button class="oe-size-reset" title="Reset to default" style="${custom ? '' : 'visibility:hidden'}">${resetIcon()}</button>`;
     card.appendChild(sizeRow);
     const [wInp, dInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');
@@ -452,7 +453,7 @@ export function oeToolboxPopulateImpl() {
       <label>W</label><input type="number" min="5" max="200" step="1" value="${w}" class="${custom?'oe-custom':''}">
       <label>D</label><input type="number" min="3" max="60"  step="1" value="${d}" class="${custom?'oe-custom':''}">
       <label>H</label><input type="number" min="3" max="40"  step="1" value="${h}" class="${custom?'oe-custom':''}">
-      <button class="oe-size-reset" style="${custom?'':'visibility:hidden'}" title="Reset">\u21ba</button>`;
+      <button class="oe-size-reset" style="${custom?'':'visibility:hidden'}" title="Reset">${resetIcon()}</button>`;
     card.appendChild(sizeRow);
     const [wInp, dInp, hInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');
@@ -522,7 +523,7 @@ export function oeToolboxPopulateImpl() {
       <input type="number" min="2" max="500" step="1" value="${w}" class="${custom ? 'oe-custom' : ''}">
       <label>H</label>
       <input type="number" min="2" max="500" step="1" value="${h}" class="${custom ? 'oe-custom' : ''}">
-      <button class="oe-size-reset" title="Reset to default" style="${custom ? '' : 'visibility:hidden'}">\u21ba</button>`;
+      <button class="oe-size-reset" title="Reset to default" style="${custom ? '' : 'visibility:hidden'}">${resetIcon()}</button>`;
     card.appendChild(sizeRow);
     const [wInp, hInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');
@@ -582,7 +583,7 @@ export function oeToolboxPopulateImpl() {
       <input type="number" min="1" max="120" step="0.5" value="${w}" class="${custom ? 'oe-custom' : ''}">
       <label>H</label>
       <input type="number" min="1" max="120" step="0.5" value="${h}" class="${custom ? 'oe-custom' : ''}">
-      <button class="oe-size-reset" title="Reset to style default" style="${custom ? '' : 'visibility:hidden'}">\u21ba</button>`;
+      <button class="oe-size-reset" title="Reset to style default" style="${custom ? '' : 'visibility:hidden'}">${resetIcon()}</button>`;
     card.appendChild(sizeRow);
     const [wInp, hInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');
@@ -661,7 +662,7 @@ export function oeToolboxPopulateImpl() {
       <input type="number" min="15" max="300" step="1" value="${w}" class="${custom ? 'oe-custom' : ''}">
       <label>H</label>
       <input type="number" min="10" max="80"  step="1" value="${h}" class="${custom ? 'oe-custom' : ''}">
-      <button class="oe-size-reset" title="Reset to default" style="${custom ? '' : 'visibility:hidden'}">\u21ba</button>`;
+      <button class="oe-size-reset" title="Reset to default" style="${custom ? '' : 'visibility:hidden'}">${resetIcon()}</button>`;
     card.appendChild(sizeRow);
     const [wInp, hInp] = sizeRow.querySelectorAll('input');
     const resetBtn = sizeRow.querySelector('.oe-size-reset');

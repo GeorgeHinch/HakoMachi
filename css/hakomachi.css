@@ -69,6 +69,56 @@
   }
   .overflow-dropdown.open { display: block; }
   .overflow-dropdown button { white-space: nowrap; }
+  button .hakoIconSvg,
+  .overflow-menu-label .hakoIconSvg,
+  .oe-toolbox-item-icon .hakoIconSvg,
+  .oe-tb-btn .hakoIconSvg,
+  .building-title-edit .hakoIconSvg,
+  h2 .hakoIconSvg {
+    width: 16px; height: 16px;
+    display: inline-block;
+    flex: 0 0 16px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vertical-align: -2px;
+  }
+  button:has(.hakoIconSvg),
+  button:has([data-icon]) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .icon-inline-btn {
+    width: 30px; min-width: 30px; height: 28px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg);
+    color: var(--muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background .15s, color .15s;
+  }
+  .icon-inline-btn:hover { background: #f0f0ec; color: var(--text); }
+  .icon-inline-btn .hakoIconSvg,
+  .overflow-trigger .hakoIconSvg,
+  .oe-fab-zoom-btn .hakoIconSvg,
+  .oe-size-reset .hakoIconSvg {
+    width: 15px; height: 15px; flex-basis: 15px;
+  }
+  .overflow-menu-label {
+    padding: 4px 12px 2px;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
 
   @media (max-width: 900px), (pointer: coarse) {
     body {
@@ -228,7 +278,7 @@
   .part.iw-editable { cursor: pointer; position: relative; }
   .part.iw-editable:hover { border-color: #2a5a9a; box-shadow: 0 0 0 2px rgba(42,90,154,0.15); }
   .part.iw-editable:hover::after {
-    content: '✏ Edit surface';
+    content: 'Edit surface';
     position: absolute; top: 6px; right: 6px;
     font-size: 10px; font-weight: 600;
     background: #2a5a9a; color: #fff;
@@ -241,7 +291,7 @@
   .part.wall-editable { cursor: pointer; position: relative; }
   .part.wall-editable:hover { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(200,70,50,0.15); }
   .part.wall-editable:hover::after {
-    content: '✏️ Edit wall';
+    content: 'Edit wall';
     position: absolute; top: 6px; right: 6px;
     font-size: 10px; font-weight: 600;
     background: var(--accent); color: #fff;
@@ -291,7 +341,7 @@
     padding: 10px 14px; border-bottom: 1px solid var(--border);
     display: flex; align-items: center; gap: 10px; flex-shrink: 0;
   }
-  .oe-header h2 { margin: 0; font-size: 14px; font-weight: 600; }
+  .oe-header h2 { margin: 0; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
   .oe-wall-tabs { display: flex; gap: 3px; }
   .oe-wall-tab {
     padding: 4px 10px; border: 1px solid var(--border); border-radius: 3px;
@@ -427,7 +477,12 @@
   .oe-toolbox-item.oe-action:hover { border-color: #888; background: #f0ede8; }
   .oe-toolbox-item.oe-tool-active { border-color: var(--accent); background: #fff3ee !important; }
   .oe-toolbox-item.oe-erase-active { border-color: var(--accent-dark); background: #ffeee8 !important; }
-  .oe-toolbox-item-icon { font-size: 16px; line-height: 1; }
+  .oe-toolbox-item-icon {
+    width: 22px; height: 22px;
+    font-size: 16px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .oe-toolbox-item-icon .hakoIconSvg { width: 21px; height: 21px; flex-basis: 21px; }
   .oe-toolbox-item-label { font-size: 9px; text-align: center; line-height: 1.3; color: #555; }
   .oe-toolbox-item-dim { font-size: 8px; color: #999; text-align: center; }
   .oe-size-row {

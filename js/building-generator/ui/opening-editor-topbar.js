@@ -20,6 +20,10 @@ export function oeTopbarPopulateImpl() {
   function btn(id, html, title, onClick, disabledWhen, activeWhen) {
     return tb.button({ id, html, title, onClick, disabled: !!disabledWhen, active: !!activeWhen });
   }
+  function iconLabel(icon, label) {
+    const iconHtml = window.HakoMachiIcons ? window.HakoMachiIcons.icon(icon) : '';
+    return iconHtml + (label ? ' ' + label : '');
+  }
 
   btn(
     'oeToggleExposureZones',
@@ -56,7 +60,7 @@ export function oeTopbarPopulateImpl() {
   // ---- Wall ops ----
   label('Wall');
   const oppLabel = OPP[oeWall] || '—';
-  btn('oeMirrorBtn', `🪞 →${oppLabel}`, `Mirror this wall's openings to the ${oppLabel} wall (reflected)`,
+  btn('oeMirrorBtn', iconLabel('mirror', `→${oppLabel}`), `Mirror this wall's openings to the ${oppLabel} wall (reflected)`,
     oeMirrorToOpposite);
 
   sep();
@@ -66,15 +70,15 @@ export function oeTopbarPopulateImpl() {
   const copyDisabled = oeSelectedSet.size === 0;
   const pasteDisabled = oeClipboard.length === 0;
   btn('oeCopyBtn',
-      `📋 Copy`,
+      iconLabel('copy', 'Copy'),
       copyDisabled ? 'Copy selected items (select something first)' : `Copy ${oeSelectedSet.size} selected item${oeSelectedSet.size > 1 ? 's' : ''} (Ctrl+C / Cmd+C)`,
       oeCopy, copyDisabled);
   btn('oePasteBtn',
-      `📥 Paste`,
+      iconLabel('paste', 'Paste'),
       pasteDisabled ? 'Paste from clipboard (copy something first)' : `Paste ${oeClipboard.length} item${oeClipboard.length > 1 ? 's' : ''}${oeClipboardSourceWall && oeClipboardSourceWall !== oeWall ? ' from ' + oeClipboardSourceWall : ''} (Ctrl+V / Cmd+V)`,
       oePaste, pasteDisabled);
   btn('oeDeleteTopbarBtn',
-      hasSelection ? `🗑 Delete${oeSelectedSet.size > 1 ? ' ' + oeSelectedSet.size : ''}` : '🗑 Delete',
+      iconLabel('trash', hasSelection ? `Delete${oeSelectedSet.size > 1 ? ' ' + oeSelectedSet.size : ''}` : 'Delete'),
       hasSelection ? `Delete ${oeSelectedSet.size} selected item${oeSelectedSet.size > 1 ? 's' : ''}` : 'Delete selected item',
       oeDeleteSelectedItems, !hasSelection);
 

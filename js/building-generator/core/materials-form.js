@@ -160,19 +160,20 @@ export function renderMaterialsForm() {
   container.innerHTML = '';
 
   const PALETTE = ['#c8b89a','#8ec2a0','#9abcda','#e0a870','#c09ac0','#a8c880','#d09090','#90b8d0'];
+  const icon = name => window.HakoMachiIcons ? window.HakoMachiIcons.icon(name) : '';
 
   // ---- Material library import/export ----
   const libraryRow = document.createElement('div');
   libraryRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 8px 0;';
   const exportLibBtn = document.createElement('button');
   exportLibBtn.type = 'button';
-  exportLibBtn.textContent = '⬇ Download material library';
+  exportLibBtn.innerHTML = `${icon('download')}<span>Download material library</span>`;
   exportLibBtn.title = 'Download material names, colors, thicknesses, sheet sizes, and cladding-style material assignments.';
   exportLibBtn.style.cssText = 'font-size:11px;padding:5px 6px;cursor:pointer;border:1px solid var(--border);border-radius:3px;background:#fff;';
   exportLibBtn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); exportMaterialLibrary(); });
   const importLibBtn = document.createElement('button');
   importLibBtn.type = 'button';
-  importLibBtn.textContent = '⬆ Import material library';
+  importLibBtn.innerHTML = `${icon('upload')}<span>Import material library</span>`;
   importLibBtn.title = 'Replace the current material library from a .hakomaterial or JSON file.';
   importLibBtn.style.cssText = 'font-size:11px;padding:5px 6px;cursor:pointer;border:1px solid var(--border);border-radius:3px;background:#fff;';
   importLibBtn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openMaterialLibraryImportPicker(); });
@@ -312,7 +313,7 @@ export function renderMaterialsForm() {
 
     const delCell = document.createElement('div');
     const del = document.createElement('button');
-    del.textContent = '✕';
+    del.innerHTML = icon('close');
     del.title = t('mat_delTitle');
     del.style.cssText = 'padding:3px 6px;font-size:10px;cursor:pointer;border:1px solid #ccc;border-radius:3px;background:#fff;';
     del.addEventListener('click', () => {
@@ -415,7 +416,7 @@ export function renderMaterialsForm() {
 
   // Add-material button
   const addBtn = document.createElement('button');
-  addBtn.textContent = t('mat_addBtn');
+  addBtn.innerHTML = `${icon('plus')}<span>${t('mat_addBtn')}</span>`;
   addBtn.style.cssText = 'font-size:11px;padding:4px 8px;cursor:pointer;border:1px dashed #aaa;border-radius:3px;background:#f5f5f0;width:100%;margin-top:2px;';
   addBtn.addEventListener('click', () => {
     CONFIG.materials.push({

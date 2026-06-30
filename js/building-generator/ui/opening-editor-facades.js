@@ -92,7 +92,9 @@ export function oeUpdateFloatingActionBarState() {
     const n = oeSelectedSet ? oeSelectedSet.size : 0;
     delBtn.classList.toggle('oe-visible', n > 0);
     delBtn.disabled = n <= 0;
-    delBtn.textContent = n > 1 ? `🗑 ${tx('ed_deleteN','Delete {n}').replace('{n}', n)}` : `🗑 ${tx('ed_delete','Delete')}`;
+    const label = n > 1 ? tx('ed_deleteN','Delete {n}').replace('{n}', n) : tx('ed_delete','Delete');
+    const icon = window.HakoMachiIcons ? window.HakoMachiIcons.icon('trash') : '';
+    delBtn.innerHTML = `${icon}<span>${label}</span>`;
     delBtn.title = n > 0
       ? tx('ed_deleteWallItemTitle','Delete {n} selected wall item{s}').replace('{n}', n).replace('{s}', n > 1 ? 's' : '')
       : tx('ed_selectWallItemDelete','Select a wall item to delete it');

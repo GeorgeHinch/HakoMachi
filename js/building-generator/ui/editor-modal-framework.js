@@ -113,9 +113,9 @@ export function editorIcon(name) {
   if (alignMap[name]) return alignIconSvg(alignMap[name]);
   if (name === 'distH') return distributeIconSvg('h');
   if (name === 'distV') return distributeIconSvg('v');
-  if (name === 'copy') return '<span style="font-size:13px">📋</span>';
-  if (name === 'paste') return '<span style="font-size:13px">📥</span>';
-  if (name === 'delete') return '<span style="font-size:13px">⌫</span>';
+  if (['copy', 'paste', 'delete'].includes(name) && window.HakoMachiIcons) {
+    return window.HakoMachiIcons.icon(name === 'delete' ? 'trash' : name);
+  }
   return '';
 }
 

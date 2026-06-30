@@ -462,12 +462,14 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-036: Standardize SVG generation colors across all pages
 
-- Status: Proposed
+- Status: Blocked
 - Group: Export and fabrication
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/40
 - Goal: Make every SVG-generating page use the same three-color fabrication convention: blue for engraves, red for tabbed retained cuts, and green for untabbed discard/scrap cuts.
-- Notes: User requested that all pages support three color themes for SVG generation. Blue is for engraves: features engraved onto an object but not cut through. Red is for cuts with tabs: objects fully cut out but held in place on the final sheet, basically all pieces that will be kept. Green is for cuts without tabs: scrap pieces, internal cutouts, or pieces that do not serve a purpose and can safely be thrown away. Local inspection shows existing SVG generators use mixed color conventions. Some utilities already use red/blue, the wooden crate generator uses black/blue/brown, and the Building Generator has many part/path type producers that likely need a shared operation taxonomy before colors can be made reliable.
+- Notes: User requested that all pages support three color themes for SVG generation. Blue is for engraves: features engraved onto an object but not cut through. Red is for cuts with tabs: objects fully cut out but held in place on the final sheet, basically all pieces that will be kept. Green is for cuts without tabs: scrap pieces, internal cutouts, or pieces that do not serve a purpose and can safely be thrown away. Local inspection shows existing SVG generators use mixed color conventions. Some utilities already use red/blue, the wooden crate generator uses black/blue/brown, and the Building Generator has many part/path type producers that need a shared operation taxonomy before colors can be made reliable.
+  - Blocked in `codex/backlog-overnight`: this parent is too broad to complete safely as one change because Building Generator parts currently use generic `type: 'cut'` geometry for both retained outlines and internal waste/slot/opening/truss void cuts. Recoloring by the current type alone would mislabel fabrication operations.
+  - Split into child backlog items HM-BACKLOG-038, HM-BACKLOG-039, and HM-BACKLOG-040 so agents can establish the shared taxonomy first, then update smaller export surfaces, then classify Building Generator cuts.
 - Acceptance Criteria:
   - A single documented SVG operation color convention exists and is referenced by all SVG-producing pages.
   - Blue is used only for engrave/score geometry that marks a surface but does not cut through.
@@ -497,7 +499,84 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 - Dependencies:
   - Coordinate with `HM-BACKLOG-034` because the wooden crate generator already needs SVG preview and laser color cleanup.
   - Coordinate with `HM-BACKLOG-006` so engraved core labels continue to use the blue engrave convention.
-  - This may benefit from a small shared SVG color/operation helper before updating every generator.
+  - HM-BACKLOG-038: Define shared SVG fabrication color taxonomy.
+  - HM-BACKLOG-039: Apply SVG fabrication colors to Site Planner and utility exports.
+  - HM-BACKLOG-040: Classify Building Generator SVG cuts as retained or scrap.
+
+### HM-BACKLOG-038: Define shared SVG fabrication color taxonomy
+
+- Status: Ready
+- Group: Export and fabrication
+- Priority: Untriaged
+- GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/42
+- Goal: Create one documented source of truth for SVG fabrication operation colors so every generator can refer to the same meanings before export paths are recolored.
+- Notes: Child of HM-BACKLOG-036. The convention should be blue for engraves/scores, red for retained through-cuts, and green for scrap/waste through-cuts.
+- Acceptance Criteria:
+  - A docs page or shared module documents the three operations and exact colors.
+  - Names clearly distinguish retained cut geometry from scrap/waste cut geometry.
+  - Existing pages can import or reference the constants without changing geometry.
+  - The parent HM-BACKLOG-036 links to this item as a prerequisite.
+- Agent Starting Points:
+  - `docs/`
+  - `js/`
+  - `js/building-generator/core/part-metadata.js`
+  - `js/site-planner.js`
+  - `js/utilities/*-generator.js`
+- Dependencies:
+  - None known.
+
+### HM-BACKLOG-039: Apply SVG fabrication colors to Site Planner and utility exports
+
+- Status: Ready
+- Group: Export and fabrication
+- Priority: Untriaged
+- GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/43
+- Goal: Update Site Planner and utility SVG previews/downloads to use the shared blue/red/green fabrication operation convention once the taxonomy/constants exist.
+- Notes: Child of HM-BACKLOG-036. This is the safer first implementation surface because the utility generators are smaller than the Building Generator. Keep geometry unchanged; only operation classification, colors, class names, data attributes, and legend language should change.
+- Acceptance Criteria:
+  - Site Planner SVG export uses blue engraves/scores, red retained cuts, and green scrap/waste cutouts where applicable.
+  - Wooden crate, safety railing, and industrial shelf utility previews and downloaded SVGs use the shared operation colors and legend language.
+  - Preview SVG colors match downloaded SVG colors, with preview stroke width allowed to differ for visibility.
+  - Existing dimensions, tabs, slots, kerf behavior, and generated paths are unchanged except for color/class/data-operation metadata.
+  - Representative exports from each page are manually checked.
+- Agent Starting Points:
+  - `js/site-planner.js`
+  - `utils/wooden-crate-generator.html`
+  - `js/utilities/wooden-crate-generator.js`
+  - `utils/safety-railing-generator.html`
+  - `js/utilities/safety-railing-generator.js`
+  - `utils/industrial-shelf-generator.html`
+  - `js/utilities/industrial-shelf-generator.js`
+- Dependencies:
+  - HM-BACKLOG-038
+
+### HM-BACKLOG-040: Classify Building Generator SVG cuts as retained or scrap
+
+- Status: Ready
+- Group: Export and fabrication
+- Priority: Untriaged
+- GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/44
+- Goal: Add explicit retained-cut versus scrap/waste-cut operation classification throughout Building Generator SVG part generation so the shared red/green/blue color convention can be applied safely.
+- Notes: Child of HM-BACKLOG-036. Current Building Generator part data uses many generic `type: 'cut'` paths/rects for both retained outer outlines and internal waste cuts. Examples include wall/roof/floor outer parts, slots, window/door holes, truss voids, shield-wall/lattice cutouts, and layout-cut-trimmed geometry.
+- Acceptance Criteria:
+  - Building Generator part geometry can distinguish retained cut outlines from scrap/waste internal cutouts.
+  - Blue engraves/scores remain blue and are not treated as through-cuts.
+  - Red is used for retained part outlines and keepable through-cut pieces.
+  - Green is used for internal voids, slots, window/door holes, truss/lattice waste, and other discard cutouts once verified.
+  - Existing dimensions, tabs, slots, kerf behavior, layout-cut clipping, and part counts are unchanged except for operation metadata/color.
+  - Representative Building Generator exports are manually checked, including walls, roofs, floors, trusses, openings, and a layout-cut case.
+- Agent Starting Points:
+  - `js/building-generator/core/full-building-generation.js`
+  - `js/building-generator/core/part-generators.js`
+  - `js/building-generator/core/part-metadata.js`
+  - `js/building-generator/core/roof-generator.js`
+  - `js/building-generator/core/truss-system.js`
+  - `js/building-generator/core/segmented-wall-exposure.js`
+  - `js/building-generator/core/rooftop-shield-wall.js`
+  - `js/building-generator/ui/internal-wall-editor.js`
+  - `js/building-generator-runtime.js`
+- Dependencies:
+  - HM-BACKLOG-038
 
 ## UI and Workflow
 

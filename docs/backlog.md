@@ -145,7 +145,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-003: Render road outlines in the Site Planner 3D view
 
-- Status: Proposed
+- Status: Done
 - Group: Site planner
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/7

@@ -2193,6 +2193,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(Number.isFinite(w)&&Number.isFinite(h)&&w>0&&h>0){ xs.push(0,site3DScale(w)); ys.push(0,site3DScale(h)); }
     }
     site3DBenchworkFootprintsMm().forEach(pts=>pts.forEach(p=>{ xs.push(p.x); ys.push(p.y); }));
+    state.roads.forEach(raw=>{
+      const r=normalizeRoad(raw);
+      syncRoadMetrics(r);
+      const add=pt=>{ xs.push(site3DScale(pt.x)); ys.push(site3DScale(pt.y)); };
+      (r.roadPolygonPx||[]).forEach(add);
+      (r.sidewalkPolygonsPx||[]).forEach(sw=>(sw.polygon||[]).forEach(add));
+    });
     state.buildings.forEach(raw=>{
       const b=normalizeBuilding(raw);
       if(b.hidden) return;
@@ -2367,6 +2374,55 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       group.add(mesh);
     });
     return group;
+  }
+  function site3DAddFlatPolygon(group, pts, mat, outlineMat, name, y=.07){
+    if(!pts || pts.length<3) return;
+    const ordered=signedArea2D(pts)<0 ? pts.slice().reverse() : pts.slice();
+    const shape=new THREE.Shape();
+    ordered.forEach((p,i)=>{
+      const x=site3DScale(p.x)-site3d.bounds.cx;
+      const z=site3DScale(p.y)-site3d.bounds.cy;
+      if(i===0) shape.moveTo(x,z);
+      else shape.lineTo(x,z);
+    });
+    shape.closePath();
+    const geo=new THREE.ShapeGeometry(shape);
+    geo.rotateX(Math.PI/2);
+    const mesh=new THREE.Mesh(geo,mat);
+    mesh.name=name;
+    mesh.position.y=y;
+    group.add(mesh);
+
+    const verts=[];
+    ordered.forEach((p,i)=>{
+      const q=ordered[(i+1)%ordered.length];
+      verts.push(
+        site3DScale(p.x)-site3d.bounds.cx, y+.025, site3DScale(p.y)-site3d.bounds.cy,
+        site3DScale(q.x)-site3d.bounds.cx, y+.025, site3DScale(q.y)-site3d.bounds.cy
+      );
+    });
+    const edgeGeo=new THREE.BufferGeometry();
+    edgeGeo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+    const edge=new THREE.LineSegments(edgeGeo,outlineMat);
+    edge.name=`${name} outline`;
+    group.add(edge);
+  }
+  function buildSite3DRoadGroup(bounds){
+    const group=new THREE.Group();
+    group.name='Site Planner roads';
+    const roadMat=new THREE.MeshStandardMaterial({color:0x6f6a5e,roughness:.92,metalness:0,transparent:true,opacity:.34,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
+    const sidewalkMat=new THREE.MeshStandardMaterial({color:0xd9ceb4,roughness:.9,metalness:0,transparent:true,opacity:.42,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
+    const roadLineMat=new THREE.LineBasicMaterial({color:0x4d4a42,transparent:true,opacity:.72});
+    const sidewalkLineMat=new THREE.LineBasicMaterial({color:0x9d8d6a,transparent:true,opacity:.62});
+    state.roads.forEach(raw=>{
+      const r=normalizeRoad(raw);
+      syncRoadMetrics(r);
+      site3DAddFlatPolygon(group,r.roadPolygonPx||[],roadMat,roadLineMat,r.name||'Road surface',.08);
+      (r.sidewalkPolygonsPx||[]).forEach((sw,idx)=>{
+        site3DAddFlatPolygon(group,sw.polygon||[],sidewalkMat,sidewalkLineMat,`${r.name||'Road'} sidewalk ${idx+1}`,.09);
+      });
+    });
+    return group.children.length ? group : null;
   }
   function site3DAddEdges(mesh,color=0x4b3828,opacity=.45){
     mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry,30),new THREE.LineBasicMaterial({color,transparent:true,opacity})));
@@ -2816,6 +2872,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const benchworkBaseCount=site3DBenchworkFootprintsMm().length;
     const base=buildSite3DBase(bounds,baseT);
     site3d.root.add(base);
+    const roads=buildSite3DRoadGroup(bounds);
+    if(roads) site3d.root.add(roads);
     if(!benchworkBaseCount){
       const grid=new THREE.GridHelper(Math.max(bounds.width,bounds.depth),20,0x8a7f66,0xcfc5aa);
       grid.position.y=.015;

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>HakoMachi Material Manager</title>
+<link rel="stylesheet" href="../css/hakomachi-shared.css" />
+<link rel="stylesheet" href="../css/utilities.css" />
+<style>
+.material-manager button { background:#fff; color:var(--text); border-color:var(--border); }
+.material-manager button.primary { background:var(--accent); color:#fff; border-color:var(--accent-dark); }
+.material-manager button.danger { color:var(--accent); }
+.material-manager .toolbar { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
+.material-manager .profile-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:end; }
+.material-manager .manager-main { grid-template-columns:minmax(300px,380px) minmax(0,1fr); }
+.material-manager .material-list { display:grid; gap:10px; }
+.material-manager .material-card { background:#fff; border:1px solid var(--border); border-radius:6px; padding:10px; }
+.material-manager .material-head { display:grid; grid-template-columns:34px minmax(120px,1fr) minmax(90px,.65fr) auto; gap:8px; align-items:end; }
+.material-manager .material-grid { display:grid; grid-template-columns:repeat(5,minmax(90px,1fr)); gap:8px; margin-top:8px; align-items:end; }
+.material-manager .material-notes { grid-column:1 / -1; }
+.material-manager .swatch-block { width:30px; height:30px; padding:2px; }
+.material-manager .cladding-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px; }
+.material-manager .cladding-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(120px,.75fr); gap:8px; align-items:center; background:#fff; border:1px solid var(--border); border-radius:4px; padding:8px; }
+.material-manager .cladding-row b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+.material-manager .status { min-height:22px; margin-top:8px; }
+.material-manager .summary-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:8px; }
+.material-manager .summary-card { background:#fff; border:1px solid var(--border); border-radius:4px; padding:8px; }
+.material-manager .summary-card b { display:block; margin-bottom:3px; }
+.material-manager .github-record { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center; border:1px solid var(--border); border-radius:4px; padding:8px; margin-top:8px; background:#fff; }
+@media(max-width:760px){
+  .material-manager .profile-row,
+  .material-manager .material-head,
+  .material-manager .material-grid,
+  .material-manager .cladding-row,
+  .material-manager .github-record { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body class="utility-page material-manager">
+<header>
+  <div class="utility-topline">
+    <div class="utility-title-block">
+      <h1>Material Manager</h1>
+      <div class="sub">Create reusable material profiles for stock sheets, thicknesses, sheet sizes, colors, and cladding-style routing used by the building generator.</div>
+    </div>
+    <a class="utility-home" href="../index.html">HakoMachi</a>
+  </div>
+</header>
+<main class="manager-main">
+  <section class="panel controls">
+    <div class="field">
+      <label for="profileSelect">Browser material profiles</label>
+      <div class="profile-row">
+        <select id="profileSelect"></select>
+        <button id="loadProfileBtn" class="secondary" type="button">Load</button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="profileName">Profile name</label>
+      <input id="profileName" type="text" />
+    </div>
+    <div class="toolbar">
+      <button id="newProfileBtn" class="secondary" type="button">New</button>
+      <button id="saveProfileBtn" class="primary" type="button">Save browser profile</button>
+      <button id="deleteProfileBtn" class="danger secondary" type="button">Delete</button>
+    </div>
+    <div class="toolbar">
+      <button id="useInGeneratorBtn" class="secondary" type="button">Use in building generator</button>
+      <button id="exportBtn" class="secondary" type="button">Export .hakomaterial</button>
+      <button id="importBtn" class="secondary" type="button">Import</button>
+      <input id="importFile" class="hiddenFile" type="file" accept=".hakomaterial,.json,application/json" />
+    </div>
+    <div class="section">
+      <h3>GitHub Data</h3>
+      <div class="row">
+        <div class="field"><label for="githubRepo">Private data repo</label><input id="githubRepo" placeholder="owner/repo" /></div>
+        <div class="field"><label for="githubBranch">Branch</label><input id="githubBranch" placeholder="main" /></div>
+      </div>
+      <div class="field"><label for="githubToken">Fine-grained token</label><input id="githubToken" type="password" autocomplete="off" /></div>
+      <div class="row">
+        <div class="field"><label for="githubLibraryPath">Library path</label><input id="githubLibraryPath" /></div>
+        <div class="field"><label for="githubMaterialsDir">Materials dir</label><input id="githubMaterialsDir" /></div>
+      </div>
+      <div class="toolbar">
+        <button id="saveGithubSettingsBtn" class="secondary" type="button">Save settings</button>
+        <button id="saveGithubBtn" class="secondary" type="button">Save profile to GitHub</button>
+        <button id="loadGithubBtn" class="secondary" type="button">Load GitHub profiles</button>
+      </div>
+      <div id="githubRecords"></div>
+    </div>
+    <div id="status" class="status small"></div>
+  </section>
+  <section class="panel">
+    <div class="section">
+      <h3>Profile Summary</h3>
+      <div id="summary" class="summary-grid"></div>
+    </div>
+    <div class="section">
+      <div class="actions" style="align-items:center;justify-content:space-between;margin-top:0;">
+        <h3 style="margin:0;">Stock Materials</h3>
+        <button id="addMaterialBtn" class="secondary" type="button">Add material</button>
+      </div>
+      <div id="materialsList" class="material-list"></div>
+    </div>
+    <div class="section">
+      <h3>Cladding Style Routing</h3>
+      <p class="small">Assign generated cladding panels to the material stock they should be cut from. Unassigned styles use the material with ID <code>cladding</code>.</p>
+      <div id="claddingRoutes" class="cladding-grid"></div>
+    </div>
+  </section>
+</main>
+<script src="../js/hakomachi-github-data.js"></script>
+<script src="../js/00-03-cladding-styles.js"></script>
+<script src="../js/00-25-material-registry.js"></script>
+<script src="../js/utils/material-manager.js"></script>
+</body>
+</html>

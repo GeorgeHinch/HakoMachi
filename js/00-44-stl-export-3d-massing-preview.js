@@ -1619,6 +1619,7 @@ function init() {
 
   // Try loading a saved preset from browser cache (silent if none)
   tryAutoLoadPreset();
+  if (typeof applyPendingMaterialProfileHandoff === 'function') applyPendingMaterialProfileHandoff();
 
   writeForm();
   regenerate();

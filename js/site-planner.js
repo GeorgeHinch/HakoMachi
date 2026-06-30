@@ -3704,16 +3704,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function applySidebarDrillIn(){
     const sidebar=document.querySelector('.sidebar');
     if(!sidebar) return;
-    const sections=[...sidebar.querySelectorAll(':scope > .section')];
-    let detailSection=sections.find(sec=>sec.dataset.detailPanel==='true');
+    const sections=[...sidebar.children].filter(el=>el.classList&&el.classList.contains('section'));
+    let detailSection=$('selectedPanel')?.closest('.section') || sections.find(sec=>sec.dataset.detailPanel==='true');
     if(!detailSection){
       detailSection=sections.find(sec=>{
         const h=sec.querySelector('h3');
         return h && h.textContent.trim()==='Selected Building';
       });
-      if(detailSection) detailSection.dataset.detailPanel='true';
     }
     if(!detailSection) return;
+    detailSection.dataset.detailPanel='true';
     const kind=activeSidebarDetailKind();
     const detailKey=kind ? `${kind}:${state.selectedId||state.selectedRoadId||state.selectedRoadFeatureId||state.selectedBenchworkId||state.selectedStreetlightId||state.selectedAnnotationId||currentSelectedBuildingIds().join(',')}` : null;
     const h3=detailSection.querySelector('h3');
@@ -3746,8 +3746,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         </div>`:''}`;
       const back=$('sidebarBackBtn');
       back.onclick=clearSidebarDetailSelection;
-      if(toolbar.parentElement!==sidebar || toolbar.nextElementSibling!==detailSection){
-        sidebar.insertBefore(toolbar, detailSection);
+      if(toolbar.parentElement!==detailSection || toolbar.nextElementSibling!==h3){
+        detailSection.insertBefore(toolbar, h3 || detailSection.firstChild);
       }
       if(detailKey && detailKey!==activeSidebarDetailKey){
         sidebar.scrollTop=0;

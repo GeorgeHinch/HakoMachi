@@ -1953,12 +1953,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(state.selectedId && !ids.includes(state.selectedId)) return [state.selectedId];
     return [...new Set(ids)].filter(id=>state.buildings.some(b=>b.id===id));
   }
-  function clearBuildingSelection(){state.selectedId=null; state.selectedIds=[];}
+  function clearBuildingSelection(){state.selectedId=null; state.selectedIds=[]; state.selectedFabricId=null;}
   function setBuildingSelection(ids, primaryId=null){
     const valid=[...new Set((ids||[]).filter(id=>state.buildings.some(b=>b.id===id)))];
     state.selectedIds=valid;
     state.selectedId=primaryId || (valid.length===1 ? valid[0] : null);
-    state.selectedRoadId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null;
+    state.selectedRoadId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null; state.selectedFabricId=null;
   }
   function isBuildingSelected(id){return currentSelectedBuildingIds().includes(id);}
   function toggleBuildingSelection(id){
@@ -2743,6 +2743,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(!b) return;
     state.selectedRoadId=null;
     state.selectedBenchworkId=null;
+    state.selectedFabricId=null;
     state.selectedStreetlightId=null;
     state.selectedAnnotationId=null;
     setBuildingSelection([id],id);
@@ -2845,6 +2846,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       selectedIds: state.selectedIds,
       selectedRoadId: state.selectedRoadId,
       selectedBenchworkId: state.selectedBenchworkId,
+      selectedFabricId: state.selectedFabricId,
       selectedStreetlightId: state.selectedStreetlightId,
       selectedAnnotationId: state.selectedAnnotationId,
       measureLine: state.measureLine
@@ -2898,6 +2900,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedIds=Array.isArray(data.selectedIds)?data.selectedIds.slice():[];
     state.selectedRoadId=data.selectedRoadId||null;
     state.selectedBenchworkId=data.selectedBenchworkId||null;
+    state.selectedFabricId=data.selectedFabricId||null;
     state.selectedStreetlightId=data.selectedStreetlightId||null;
     state.selectedAnnotationId=data.selectedAnnotationId||null;
     state.measureLine=data.measureLine||null;
@@ -3378,10 +3381,43 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function fabricPreset(){return FABRIC_PRESETS[state.fabricPreset]||FABRIC_PRESETS.localMixedUseFabric;}
   function fabricValue(id, fallback){const el=$(id); const v=el?parseFloat(el.value):NaN; return Number.isFinite(v)?v:fallback;}
   function fabricRegionCenter(region){return polygonCenter(region.polygon||[]);}
-  function normalizeFabricRegion(r){r.id=r.id||uid('fabric'); r.name=r.name||`Fabric Region ${state.fabricRegions.length+1}`; r.fabricType=r.fabricType||state.fabricPreset||'localMixedUseFabric'; r.polygon=r.polygon||r.pointsPx||[]; r.color=r.color||'#7c5f3f'; r.seed=Number.isFinite(Number(r.seed))?Number(r.seed):101; r.generatedPadIds=Array.isArray(r.generatedPadIds)?r.generatedPadIds:[]; return r;}
+  function normalizeFabricRegion(r){r.id=r.id||uid('fabric'); r.name=r.name||`Fabric Region ${state.fabricRegions.length+1}`; r.fabricType=r.fabricType||state.fabricPreset||'localMixedUseFabric'; r.polygon=r.polygon||r.pointsPx||[]; r.color=r.color||'#7c5f3f'; r.seed=Number.isFinite(Number(r.seed))?Number(r.seed):101; r.density=Number.isFinite(Number(r.density))?Number(r.density):1; r.randomness=Number.isFinite(Number(r.randomness))?Number(r.randomness):.45; r.averageFloorCount=Number.isFinite(Number(r.averageFloorCount))?Number(r.averageFloorCount):3; r.maxFloorCount=Number.isFinite(Number(r.maxFloorCount))?Number(r.maxFloorCount):6; r.generatedPadIds=Array.isArray(r.generatedPadIds)?r.generatedPadIds:[]; return r;}
+  function selectedFabric(){return state.fabricRegions.find(r=>r.id===state.selectedFabricId)||null;}
+  function hitFabricRegion(p){
+    for(let i=state.fabricRegions.length-1;i>=0;i--){
+      const region=normalizeFabricRegion(state.fabricRegions[i]);
+      if((region.polygon||[]).length>=3 && pointInPoly(p,region.polygon)) return region;
+    }
+    return null;
+  }
+  function selectFabricRegion(region){
+    if(!region) return false;
+    clearBuildingSelection();
+    state.selectedRoadId=null;
+    state.selectedRoadFeatureId=null;
+    state.selectedBenchworkId=null;
+    state.selectedStreetlightId=null;
+    state.selectedAnnotationId=null;
+    state.selectedFabricId=region.id;
+    renderList(); renderRoads(); renderStreetlights(); renderSelected(); updateHandoff(); draw();
+    return true;
+  }
+  function deleteSelectedFabricRegion(){
+    const id=state.selectedFabricId;
+    if(!id) return false;
+    state.fabricRegions=state.fabricRegions.filter(r=>r.id!==id);
+    state.buildings.forEach(b=>{
+      if(b.fabricRegionId!==id) return;
+      delete b.fabricRegionId;
+      if(b.hakoSeed?.styleHints?.fabricRegionId===id) delete b.hakoSeed.styleHints.fabricRegionId;
+    });
+    state.selectedFabricId=null;
+    syncAll();
+    return true;
+  }
   function drawFabricRegion(region){region=normalizeFabricRegion(region); if(!region.polygon.length) return; ctx.save(); const selected=region.id===state.selectedFabricId; ctx.lineWidth=(selected?3:2)/state.view.scale; ctx.strokeStyle=selected?'#0f766e':'#7c5f3f'; ctx.fillStyle='rgba(124,95,63,.08)'; ctx.setLineDash([7/state.view.scale,5/state.view.scale]); ctx.beginPath(); region.polygon.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.setLineDash([]); if(selected){drawLabel(`${FABRIC_PRESETS[region.fabricType]?.label||region.fabricType} · ${region.generatedPadIds?.length||0} pads`, fabricRegionCenter(region));} ctx.restore();}
   function drawFabricDraft(){if(!state.fabricDraft.length) return; ctx.save(); ctx.strokeStyle='#7c5f3f'; ctx.fillStyle='rgba(124,95,63,.12)'; ctx.lineWidth=3/state.view.scale; ctx.setLineDash([8/state.view.scale,6/state.view.scale]); ctx.beginPath(); state.fabricDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke(); if(state.fabricDraft.length>=3){ctx.closePath(); ctx.fill();} ctx.setLineDash([]); state.fabricDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill();}); ctx.restore();}
-  function finishFabricRegion(){if(state.fabricDraft.length<3) return null; const region=normalizeFabricRegion({id:uid('fabric'), name:`Fabric Region ${state.fabricRegions.length+1}`, fabricType:state.fabricPreset||'localMixedUseFabric', polygon:state.fabricDraft.slice(), density:fabricValue('fabricDensity',1), randomness:fabricValue('fabricRandomness',.45), averageFloorCount:fabricValue('fabricAvgFloors',3), maxFloorCount:fabricValue('fabricMaxFloors',6), seed:fabricValue('fabricSeed',101), generatedPadIds:[]}); state.fabricRegions.push(region); state.selectedFabricId=region.id; state.fabricDraft=[]; syncAll(); return region;}
+  function finishFabricRegion(){if(state.fabricDraft.length<3) return null; const region=normalizeFabricRegion({id:uid('fabric'), name:`Fabric Region ${state.fabricRegions.length+1}`, fabricType:state.fabricPreset||'localMixedUseFabric', polygon:state.fabricDraft.slice(), density:fabricValue('fabricDensity',1), randomness:fabricValue('fabricRandomness',.45), averageFloorCount:fabricValue('fabricAvgFloors',3), maxFloorCount:fabricValue('fabricMaxFloors',6), seed:fabricValue('fabricSeed',101), generatedPadIds:[]}); state.fabricRegions.push(region); clearBuildingSelection(); state.selectedRoadId=null; state.selectedRoadFeatureId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedFabricId=region.id; state.fabricDraft=[]; syncAll(); return region;}
   function rectInsidePoly(cx,cy,w,h,poly){const corners=[{x:cx-w/2,y:cy-h/2},{x:cx+w/2,y:cy-h/2},{x:cx+w/2,y:cy+h/2},{x:cx-w/2,y:cy+h/2}]; return corners.every(p=>pointInPoly(p,poly));}
   function fabricLotRole(cx,cy,bb,idx){const edge=Math.min(cx-bb.minX,bb.maxX-cx,cy-bb.minY,bb.maxY-cy); const corner=(cx-bb.minX<30||bb.maxX-cx<30)&&(cy-bb.minY<30||bb.maxY-cy<30); if(corner) return 'corner'; if(edge<35) return idx%3===0?'sideStreet':'mainStreet'; return idx%4===0?'alley':'interior';}
   function fabricFrontageType(role){return role==='alley'||role==='interior'?'alleyFrontage':(role==='corner'?'mainStreetFrontage':'mainStreetFrontage');}
@@ -3504,7 +3540,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       drop.addEventListener('drop', ev=>{const files=Array.from(ev.dataTransfer&&ev.dataTransfer.files||[]); const f=files.find(file=>/\.(hako|hakoseed|hakoplan|json)$/i.test(file.name||''))||files[0]; if(f){ if(selected() && currentSelectedBuildingIds().length===1) attachHakoFileToSelectedBuilding(f,{source:'selected-building-drop'}); else importHakoAsBuilding(f); }});
     }
   }
-  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const selIds=currentSelectedBuildingIds(); if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use keyboard shortcuts to copy/paste selected footprints.</span><div class="buttons" style="margin-top:8px"><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(roadFeature){normalizeRoadFeature(roadFeature); box.innerHTML=`
+  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const fabric=selectedFabric(); const selIds=currentSelectedBuildingIds(); if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use keyboard shortcuts to copy/paste selected footprints.</span><div class="buttons" style="margin-top:8px"><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(roadFeature){normalizeRoadFeature(roadFeature); box.innerHTML=`
       <b>${roadFeature.kind==='manhole'?'Manhole / Hatch':'Japanese road marking'} selected</b>
       <label>Name</label><input id="rfName" value="${escapeAttr(roadFeature.name||'Road item')}">
       ${roadFeature.kind==='manhole'?`<label>Hatch preset</label><select id="rfHatchPreset">${hatchOptionsHtml(roadFeature.hatchPreset)}</select>
@@ -3586,6 +3622,25 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const slSide=$('slSide'); if(slSide){slSide.value=light.anchor.sidewalkSide; slSide.onchange=e=>{light.anchor.sidewalkSide=e.target.value; syncAll();};}
       bind('slCutDia',v=>light.anchor.cutHoleDiameterMm=parseFloat(v)||0); bind('slBulbDia',v=>light.anchor.bulbMountDiameterMm=parseFloat(v)||0); bind('slEdgeOffset',v=>light.anchor.edgeOffsetMm=parseFloat(v)||0); bind('slLockEdge',v=>light.anchor.lockToRoadEdge=!!v);
       $('dupSl').onclick=()=>{duplicateStreetlight(light); syncAll();}; $('lockSl').onclick=()=>{light.locked=!light.locked; syncAll();}; $('delSl').onclick=deleteSelectedStreetlight;
+    } else if(fabric){normalizeFabricRegion(fabric); const presetOptions=Object.entries(FABRIC_PRESETS).map(([key,p])=>`<option value="${key}" ${key===fabric.fabricType?'selected':''}>${escapeHtml(p.label)}</option>`).join(''); const padCount=state.buildings.filter(x=>x.fabricRegionId===fabric.id).length; box.innerHTML=`
+      <b>${escapeHtml(fabric.name||'Fabric Region')} selected</b>
+      <label>Name</label><input id="fabricNameSel" value="${escapeAttr(fabric.name||'')}">
+      <label>Fabric preset</label><select id="fabricPresetSel">${presetOptions}</select>
+      <div class="row"><div><label>Density</label><input id="fabricDensitySel" type="number" min="0.4" max="1.6" step="0.1" value="${fmt(fabric.density)}"></div><div><label>Randomness</label><input id="fabricRandomnessSel" type="number" min="0" max="1" step="0.05" value="${fmt(fabric.randomness)}"></div></div>
+      <div class="row"><div><label>Seed</label><input id="fabricSeedSel" type="number" step="1" value="${fmt(fabric.seed)}"></div><div><label>Color</label><input id="fabricColorSel" type="color" value="${fabric.color||'#7c5f3f'}"></div></div>
+      <div class="row"><div><label>Average floors</label><input id="fabricAvgFloorsSel" type="number" min="1" max="12" step="1" value="${fmt(fabric.averageFloorCount)}"></div><div><label>Max floors</label><input id="fabricMaxFloorsSel" type="number" min="1" max="16" step="1" value="${fmt(fabric.maxFloorCount)}"></div></div>
+      <div class="small muted" style="margin-top:6px">${padCount} generated pad${padCount===1?'':'s'} currently reference this region. Deleting the region keeps those pads and detaches them.</div>
+      <div class="buttons" style="margin-top:8px"><button id="deleteFabricRegion" class="danger">Delete Fabric Region</button></div>`;
+      const bindFabric=(id,fn)=>{const el=$(id); if(el) el.oninput=()=>{fn(el.value); normalizeFabricRegion(fabric); syncAll();};};
+      bindFabric('fabricNameSel',v=>fabric.name=v);
+      bindFabric('fabricDensitySel',v=>fabric.density=Math.max(.4,Math.min(1.6,parseFloat(v)||1)));
+      bindFabric('fabricRandomnessSel',v=>fabric.randomness=Math.max(0,Math.min(1,parseFloat(v)||0)));
+      bindFabric('fabricSeedSel',v=>fabric.seed=parseInt(v)||101);
+      bindFabric('fabricColorSel',v=>fabric.color=v);
+      bindFabric('fabricAvgFloorsSel',v=>fabric.averageFloorCount=Math.max(1,parseInt(v)||1));
+      bindFabric('fabricMaxFloorsSel',v=>fabric.maxFloorCount=Math.max(1,parseInt(v)||1));
+      const fp=$('fabricPresetSel'); if(fp) fp.onchange=()=>{fabric.fabricType=fp.value; state.fabricPreset=fp.value; syncAll();};
+      $('deleteFabricRegion').onclick=deleteSelectedFabricRegion;
     } else if(note){const pts=note.points||[]; box.innerHTML=`<b>Annotation selected</b><br><span class="small muted">${pts.length} points</span><div class="buttons" style="margin-top:8px"><button id="delNoteB" class="danger">Delete Annotation</button></div>`; const del=$('delNoteB'); if(del) del.onclick=deleteSelectedAnnotation;} else box.innerHTML='No building selected.'; const btn=$('deleteAnnotationBtn'); if(btn) btn.disabled=!note; return;} if($('deleteAnnotationBtn')) $('deleteAnnotationBtn').disabled=true; syncBuildingMetrics(b); box.innerHTML=`
     <label>Name</label><input id="selName" value="${escapeAttr(b.name||'')}">
     <div class="row"><div><label>Status</label><select id="selState"><option value="notStarted">Not Started</option><option value="inProgress">In Progress</option><option value="awaitingConstruction">Awaiting Construction</option><option value="complete">Complete</option></select></div><div><label>Color</label><input id="selColor" type="color" value="${b.color||'#d79631'}"></div></div>
@@ -3623,6 +3678,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(state.selectedRoadId) return 'road';
     if(state.selectedRoadFeatureId) return 'roadFeature';
     if(state.selectedStreetlightId) return 'streetlight';
+    if(state.selectedFabricId) return 'fabric';
     if(state.selectedAnnotationId) return 'annotation';
     return null;
   }
@@ -3633,6 +3689,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(kind==='road') return 'Road';
     if(kind==='roadFeature') return 'Road Item';
     if(kind==='streetlight') return 'Streetlight';
+    if(kind==='fabric') return 'Fabric Region';
     if(kind==='annotation') return 'Annotation';
     return 'Selected';
   }
@@ -3643,6 +3700,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedRoadFeatureId=null;
     state.selectedBenchworkId=null;
     state.selectedStreetlightId=null;
+    state.selectedFabricId=null;
     state.selectedAnnotationId=null;
     hideContextMenu();
     renderList();
@@ -4077,7 +4135,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const note=hitAnnotation(p,e.pointerType);
     if(note){
       state.selectedAnnotationId=note.id;
-      state.selectedId=null; state.selectedStreetlightId=null; state.selectedRoadId=null; state.selectedBenchworkId=null;
+      state.selectedId=null; state.selectedStreetlightId=null; state.selectedRoadId=null; state.selectedBenchworkId=null; state.selectedFabricId=null;
       renderList(); renderSelected(); updateHandoff(); draw();
       return true;
     }
@@ -4106,6 +4164,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       draw();
       return true;
     }
+    const fabricHit=hitFabricRegion(p);
+    if(fabricHit) return selectFabricRegion(fabricHit);
     return false;
   }
 
@@ -4231,7 +4291,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const note=hitAnnotation(p,e.pointerType);
       if(note){
         state.selectedAnnotationId=note.id;
-        state.selectedId=null; state.selectedStreetlightId=null;
+        state.selectedId=null; state.selectedStreetlightId=null; state.selectedFabricId=null;
         renderList(); renderSelected(); updateHandoff(); draw();
         return;
       }
@@ -4251,11 +4311,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         if(e.shiftKey || e.metaKey || e.ctrlKey){ toggleBuildingSelection(hit.id); renderList(); renderSelected(); updateHandoff(); draw(); return; }
         const already=isBuildingSelected(hit.id);
         if(!already) setBuildingSelection([hit.id], hit.id);
-        else { state.selectedRoadId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null; }
+        else { state.selectedRoadId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null; state.selectedFabricId=null; }
         renderList(); renderSelected(); updateHandoff();
         const ids=currentSelectedBuildingIds();
         const origs=ids.map(id=>state.buildings.find(x=>x.id===id)).filter(Boolean).map(x=>structuredClone(x));
         state.drag={type:ids.length>1?'moveMany':'move',pointerId:e.pointerId,start:p,orig:structuredClone(hit),origs};
+      }
+      else if(selectFabricRegion(hitFabricRegion(p))){
+        return;
       }
       else {
         state.drag={type:'marquee',pointerId:e.pointerId,start:p,end:p,additive:!!(e.shiftKey||e.metaKey||e.ctrlKey),baseIds:currentSelectedBuildingIds()};
@@ -4372,7 +4435,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(state.drag.pointerId!==undefined && state.drag.pointerId!==e.pointerId) return;
     const d=state.drag;
     if(d.type==='rect'&&d.preview){state.buildings.push(d.preview); setBuildingSelection([d.preview.id], d.preview.id); renderList(); renderSelected(); updateHandoff();}
-    if(d.type==='marquee'){const r=selectionRectFromPoints(d.start,d.end||d.start); if(Math.max(r.w,r.h)>5/state.view.scale){const hits=buildingsInSelectionRect(r); setBuildingSelection(d.additive?[...new Set([...(d.baseIds||[]),...hits])]:hits, hits.length===1?hits[0]:null);} else if(!d.additive){clearBuildingSelection(); state.selectedAnnotationId=null; state.selectedStreetlightId=null; state.selectedRoadId=null; state.selectedBenchworkId=null;} renderList(); renderSelected(); updateHandoff();}
+    if(d.type==='marquee'){const r=selectionRectFromPoints(d.start,d.end||d.start); if(Math.max(r.w,r.h)>5/state.view.scale){const hits=buildingsInSelectionRect(r); setBuildingSelection(d.additive?[...new Set([...(d.baseIds||[]),...hits])]:hits, hits.length===1?hits[0]:null);} else if(!d.additive){clearBuildingSelection(); state.selectedAnnotationId=null; state.selectedStreetlightId=null; state.selectedRoadId=null; state.selectedBenchworkId=null; state.selectedFabricId=null;} renderList(); renderSelected(); updateHandoff();}
     if(d.type==='roadCenterline'&&d.preview&&dist(d.start,d.end)>4){state.roads.push(d.preview); state.selectedRoadId=d.preview.id; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null; renderRoads(); renderSelected();}
     if(d.type==='pan' && d.rightButtonPan && d.moved){state.suppressNextContextMenu=true;}
     canvas.classList.remove('panning');
@@ -4410,8 +4473,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       renderList(); renderStreetlights(); renderSelected(); draw();
       return;
     }
-    if(target?.annotation){state.selectedAnnotationId=target.annotation.id; state.selectedId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
-    else if(target?.building){state.selectedId=target.building.id; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
+    if(target?.annotation){state.selectedAnnotationId=target.annotation.id; state.selectedId=null; state.selectedFabricId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
+    else if(target?.building){state.selectedId=target.building.id; state.selectedFabricId=null; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
   });
   installCanvasGestureBoundary({
     surface:wrap,
@@ -4429,6 +4492,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(state.selectedStreetlightId){ deleteSelectedStreetlight(); return true; }
     if(state.selectedRoadId){ deleteSelectedRoad(); return true; }
     if(state.selectedBenchworkId){ deleteSelectedBenchwork(); return true; }
+    if(state.selectedFabricId){ deleteSelectedFabricRegion(); return true; }
     const ids=currentSelectedBuildingIds();
     if(ids.length){
       state.buildings=state.buildings.filter(b=>!ids.includes(b.id));
@@ -4469,6 +4533,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       hideContextMenu();
       state.hoverPreview=null;
       state.selectedAnnotationId=null;
+      state.selectedFabricId=null;
       if(state.roadOutlineEditId) state.roadOutlineEditId=null;
       renderSelected();
       draw();
@@ -4746,6 +4811,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.measureLine=null;
     state.annotations=[];
     state.selectedAnnotationId=null;
+    state.selectedFabricId=null;
     state.streetlights=[];
     state.selectedStreetlightId=null;
     state.hoverStreetlightId=null;

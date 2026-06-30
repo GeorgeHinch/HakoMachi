@@ -207,7 +207,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-009: Make fabric areas generate usable planned building pads
 
-- Status: Proposed
+- Status: Done
 - Group: Site planner
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/13

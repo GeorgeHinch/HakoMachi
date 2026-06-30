@@ -3422,19 +3422,30 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function fabricLotRole(cx,cy,bb,idx){const edge=Math.min(cx-bb.minX,bb.maxX-cx,cy-bb.minY,bb.maxY-cy); const corner=(cx-bb.minX<30||bb.maxX-cx<30)&&(cy-bb.minY<30||bb.maxY-cy<30); if(corner) return 'corner'; if(edge<35) return idx%3===0?'sideStreet':'mainStreet'; return idx%4===0?'alley':'interior';}
   function fabricFrontageType(role){return role==='alley'||role==='interior'?'alleyFrontage':(role==='corner'?'mainStreetFrontage':'mainStreetFrontage');}
   function makeFabricHakoSeed(building, region, preset, role, buildingType, floorCount){syncBuildingMetrics(building); return {schemaVersion:1, source:'HakoMachi Site Planner', kind:'HakoSeed', name:building.name, footprint:{type:'rect', widthMm:building.widthMm||0, depthMm:building.depthMm||0, rotationDeg:building.rotationDeg||0}, floorCount, materialProfileId:'defaultChipboard', buildingType, fabricHints:{fabricType:region.fabricType, lotRole:role, frontageType:fabricFrontageType(role), signageIntensity:preset.signage, commercialIntensity:preset.commercial, ageWeathering:0.45, detailIntensity:preset.detail}, styleHints:{generatedBy:'urbanFabricFill', fabricRegionId:region.id, density:region.density, randomness:region.randomness}};}
-  function generateFabricFromDraft(){
-    let region=state.selectedFabricId ? state.fabricRegions.find(r=>r.id===state.selectedFabricId) : null;
-    if(state.fabricDraft.length>=3) region=finishFabricRegion();
-    if(!region){ alert('Draw a Fabric Fill region first.'); return; }
+  function generatedPadsForRegion(region){
+    if(!region) return [];
+    const ids=new Set(region.generatedPadIds||[]);
+    return state.buildings.filter(b=>b.fabricRegionId===region.id || ids.has(b.id));
+  }
+  function removeGeneratedPadsForRegion(region){
+    if(!region) return;
+    const removeIds=new Set(generatedPadsForRegion(region).map(b=>b.id));
+    if(!removeIds.size) return;
+    state.buildings=state.buildings.filter(b=>!removeIds.has(b.id));
+    region.generatedPadIds=[];
+  }
+  function generateFabricForRegion(region, opts={}){
+    if(!region){ alert('Draw or select a Fabric Fill region first.'); return; }
     region=normalizeFabricRegion(region);
-    const preset=FABRIC_PRESETS[region.fabricType]||fabricPreset();
-    region.density=fabricValue('fabricDensity', region.density||1);
-    region.randomness=fabricValue('fabricRandomness', region.randomness||.45);
-    region.averageFloorCount=fabricValue('fabricAvgFloors', region.averageFloorCount||3);
-    region.maxFloorCount=fabricValue('fabricMaxFloors', region.maxFloorCount||6);
-    region.seed=fabricValue('fabricSeed', region.seed||101);
     const rng=lcg(region.seed);
     const poly=region.polygon;
+    if(!Array.isArray(poly) || poly.length<3){ alert('Fabric region needs at least three points.'); return; }
+    const existing=generatedPadsForRegion(region);
+    if(existing.length){
+      const ok=!opts.confirmReplace || confirm(`Replace ${existing.length} generated pad${existing.length===1?'':'s'} for this fabric region?`);
+      if(!ok) return;
+    }
+    const preset=FABRIC_PRESETS[region.fabricType]||fabricPreset();
     const xs=poly.map(p=>p.x), ys=poly.map(p=>p.y);
     const bb={minX:Math.min(...xs),maxX:Math.max(...xs),minY:Math.min(...ys),maxY:Math.max(...ys)};
     const scale=state.pxPerMm||1;
@@ -3463,10 +3474,23 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       y+=rowDepth;
     }
     if(!created.length){ alert('No pads fit inside this region. Try a larger region, higher density, or smaller scale.'); return; }
+    if(existing.length) removeGeneratedPadsForRegion(region);
     state.buildings.push(...created);
-    region.generatedPadIds=[...(region.generatedPadIds||[]), ...created.map(b=>b.id)];
+    region.generatedPadIds=created.map(b=>b.id);
     setBuildingSelection(created.map(b=>b.id), created.length===1?created[0].id:null);
     syncAll();
+  }
+  function generateFabricFromDraft(){
+    let region=state.selectedFabricId ? state.fabricRegions.find(r=>r.id===state.selectedFabricId) : null;
+    if(state.fabricDraft.length>=3) region=finishFabricRegion();
+    if(!region){ alert('Draw a Fabric Fill region first.'); return; }
+    region=normalizeFabricRegion(region);
+    region.density=fabricValue('fabricDensity', region.density);
+    region.randomness=fabricValue('fabricRandomness', region.randomness);
+    region.averageFloorCount=fabricValue('fabricAvgFloors', region.averageFloorCount);
+    region.maxFloorCount=fabricValue('fabricMaxFloors', region.maxFloorCount);
+    region.seed=fabricValue('fabricSeed', region.seed);
+    generateFabricForRegion(region,{confirmReplace:true});
   }
 
   function draw(){
@@ -3630,7 +3654,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       <div class="row"><div><label>Seed</label><input id="fabricSeedSel" type="number" step="1" value="${fmt(fabric.seed)}"></div><div><label>Color</label><input id="fabricColorSel" type="color" value="${fabric.color||'#7c5f3f'}"></div></div>
       <div class="row"><div><label>Average floors</label><input id="fabricAvgFloorsSel" type="number" min="1" max="12" step="1" value="${fmt(fabric.averageFloorCount)}"></div><div><label>Max floors</label><input id="fabricMaxFloorsSel" type="number" min="1" max="16" step="1" value="${fmt(fabric.maxFloorCount)}"></div></div>
       <div class="small muted" style="margin-top:6px">${padCount} generated pad${padCount===1?'':'s'} currently reference this region. Deleting the region keeps those pads and detaches them.</div>
-      <div class="buttons" style="margin-top:8px"><button id="deleteFabricRegion" class="danger">Delete Fabric Region</button></div>`;
+      <div class="buttons" style="margin-top:8px"><button id="generateFabricRegion" class="primary">${padCount?'Regenerate Pads':'Generate Pads'}</button><button id="deleteFabricRegion" class="danger">Delete Fabric Region</button></div>`;
       const bindFabric=(id,fn)=>{const el=$(id); if(el) el.oninput=()=>{fn(el.value); normalizeFabricRegion(fabric); syncAll();};};
       bindFabric('fabricNameSel',v=>fabric.name=v);
       bindFabric('fabricDensitySel',v=>fabric.density=Math.max(.4,Math.min(1.6,parseFloat(v)||1)));
@@ -3640,6 +3664,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       bindFabric('fabricAvgFloorsSel',v=>fabric.averageFloorCount=Math.max(1,parseInt(v)||1));
       bindFabric('fabricMaxFloorsSel',v=>fabric.maxFloorCount=Math.max(1,parseInt(v)||1));
       const fp=$('fabricPresetSel'); if(fp) fp.onchange=()=>{fabric.fabricType=fp.value; state.fabricPreset=fp.value; syncAll();};
+      $('generateFabricRegion').onclick=()=>generateFabricForRegion(fabric,{confirmReplace:true});
       $('deleteFabricRegion').onclick=deleteSelectedFabricRegion;
     } else if(note){const pts=note.points||[]; box.innerHTML=`<b>Annotation selected</b><br><span class="small muted">${pts.length} points</span><div class="buttons" style="margin-top:8px"><button id="delNoteB" class="danger">Delete Annotation</button></div>`; const del=$('delNoteB'); if(del) del.onclick=deleteSelectedAnnotation;} else box.innerHTML='No building selected.'; const btn=$('deleteAnnotationBtn'); if(btn) btn.disabled=!note; return;} if($('deleteAnnotationBtn')) $('deleteAnnotationBtn').disabled=true; syncBuildingMetrics(b); box.innerHTML=`
     <label>Name</label><input id="selName" value="${escapeAttr(b.name||'')}">

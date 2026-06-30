@@ -121,12 +121,12 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-013: Allow wings to extend past attachment face edges
 
-- Status: Proposed
+- Status: Blocked
 - Group: Building generation
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/17
 - Goal: Let building-generator wings attach to part of a main building side while extending beyond one or both ends of that side, instead of requiring the wing footprint to stay fully square/aligned within the attachment face.
-- Notes: User wants wings that do not have to be perfectly square to the existing edges. Example: a wing could start in the center of a side but extend further past the edge. This implies wing offset/span handling should allow partial overlap with the main face and overhang beyond the main footprint edge, while still generating valid walls, floors, roof, cladding, and connection geometry.
+- Notes: User wants wings that do not have to be perfectly square to the existing edges. Example: a wing could start in the center of a side but extend further past the edge. This implies wing offset/span handling should allow partial overlap with the main face and overhang beyond the main footprint edge, while still generating valid walls, floors, roof, cladding, and connection geometry. Local inspection found the current wing generator omits the entire wing connection-face wall and treats the full wing span as connected to the main face. Simply allowing negative/over-extended offsets would create missing exterior wall/cladding along the overhanging portion and can produce invalid merged-floor perimeter paths. Blocked until the intended behavior is confirmed for the non-overlapping part of the wing connection face: it likely needs generated exterior wall/cladding segments while only the overlapping span remains open/connected.
 - Acceptance Criteria:
   - Wing editor allows a wing's attachment span to extend past the start or end of the selected main face when intentionally configured.
   - Generated geometry supports negative or over-extended wing offsets without clipping, invalid slots, or missing walls.

@@ -1,11 +1,11 @@
-# HakoMachi Site Planner CSS split
+# Site Planner CSS Split
 
-This utility is still a monolithic HTML file, but the shared CSS split has started.
+The Site Planner is still a monolithic HTML file, but the shared CSS split has started.
 
 ## Shared files
 
-- `../css/hakomachi-shared.css` — HakoMachi-wide primitives: theme tokens, base typography, buttons, fields, rows, cards/sections, dropdowns, badges, hidden file inputs, and small status text.
-- `../css/site-planner.css` — Site Planner-specific adapter: grid shell, top bar, toolbar, canvas, sidebar, bottom status bar, map/card selection states, tool flyouts, empty image overlay, and responsive planner layout.
+- `../../css/hakomachi-shared.css` - HakoMachi-wide primitives: theme tokens, base typography, buttons, fields, rows, cards/sections, dropdowns, badges, hidden file inputs, and small status text.
+- `../../css/site-planner.css` - Site Planner-specific adapter: grid shell, top bar, toolbar, canvas, sidebar, bottom status bar, map/card selection states, tool flyouts, empty image overlay, and responsive planner layout.
 
 ## Target load order
 
@@ -40,7 +40,7 @@ Prefer shared classes for generic UI:
 - `.hiddenFile`
 - `.app-logo`
 
-Keep planner-only geometry/layout classes in `../css/site-planner.css`:
+Keep planner-only geometry/layout classes in `../../css/site-planner.css`:
 
 - `.sitePlannerApp` / planner `.app` grid sizing
 - `.top`, `.toolbar`, `.canvasWrap`, `.sidebar`, `.bottom`

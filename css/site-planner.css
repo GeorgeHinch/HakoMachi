@@ -415,29 +415,56 @@ canvas {
 }
 
 .site3dSegment {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 0;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #f5f5f0;
+  isolation: isolate;
+}
+
+.site3dSegment::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border-radius: 13px;
+  background: var(--accent);
+  transition: transform .16s ease;
+  z-index: 0;
+}
+
+.sitePlannerApp.view3d .site3dSegment::before {
+  transform: translateX(100%);
 }
 
 .site3dFabBtn {
+  position: relative;
+  z-index: 1;
   height: 26px;
   min-height: 26px;
+  min-width: 42px;
   padding: 3px 10px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: 13px;
-  background: #f5f5f0;
+  background: transparent;
   color: var(--text);
   font-size: 12px;
+  font-weight: 700;
   line-height: 1;
+  box-shadow: none;
 }
 
-.site3dFabBtn:hover { background: #e8e8e2; }
+.site3dFabBtn:hover { background: transparent; color: var(--accent); }
 
 .site3dFabBtn.active {
-  background: #0057ff;
+  background: transparent;
   color: #fff;
-  border-color: #1a4488;
 }
 
 .site3dFabSep {

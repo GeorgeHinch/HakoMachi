@@ -4476,9 +4476,30 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     seed.linkedHakoConfig=b.hakoConfig||b.hakoFile?.parsedConfig||null;
     return seed;
   }
+  function makeAttachedHakoSeed(b){
+    const storedConfig=b.hakoFile?.parsedConfig || b.hakoConfig || null;
+    if(!storedConfig || typeof storedConfig!=='object') return null;
+    const seed=structuredClone(storedConfig);
+    const handoff=plannerHandoffForBuilding(b);
+    seed.sitePlannerHandoff=handoff;
+    seed.hakomachiHandoff=handoff;
+    seed.sitePlanSeedSource={
+      generator:'HakoMachi Site Planner',
+      sourceId:b.id,
+      sourceMode:'attached-hako-file',
+      hakoFileId:b.hakoFileId||b.hakoFile?.fileName||null,
+      sourceFileName:b.hakoFile?.fileName||null,
+    };
+    seed.buildingId=b.id;
+    seed.hakoFileId=b.hakoFileId||b.hakoFile?.fileName||null;
+    if(b.name && !seed.buildingName) seed.buildingName=b.name;
+    return seed;
+  }
   function makeSeed(b){
     normalizeBuilding(b);
     syncBuildingMetrics(b);
+    const attachedSeed=makeAttachedHakoSeed(b);
+    if(attachedSeed) return attachedSeed;
     if(b.hakoSeed){
       const seed=structuredClone(b.hakoSeed);
       seed.buildingId=b.id;
@@ -4503,6 +4524,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       notes:b.notes||'',
       units:'mm',
       hakoUnits:'model_mm',
+      seedMode:'generated-from-footprint',
     };
     if(b.padType==='rect'){
       Object.assign(seed,{widthMm:b.widthMm,depthMm:b.depthMm,footprint:{type:'rect',widthMm:b.widthMm,depthMm:b.depthMm,rotationDeg:b.rotationDeg||0}});

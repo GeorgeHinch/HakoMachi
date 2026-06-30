@@ -33,6 +33,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let autosaveSuppressed = false;
   let renderQueued = false;
   let activeSidebarDetailKey = null;
+  let sidebarObjectType = null;
   let importProgressCloseTimer = null;
   let importProgressLastFocus = null;
   const colors = ['#d79631','#b8672d','#0f766e','#7c5f3f','#8b5a2b','#5f7f54','#9b6b44','#496a78'];
@@ -1182,6 +1183,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     ctx.restore();
   }
   function renderRoads(){
+    renderObjectBrowser();
     const box=$('roadList'); if(!box) return;
     if(!state.roads.length){box.innerHTML='<div class="small muted">No roads yet.</div>'; return;}
     box.innerHTML='';
@@ -2216,7 +2218,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const valid=[...new Set((ids||[]).filter(id=>state.buildings.some(b=>b.id===id)))];
     state.selectedIds=valid;
     state.selectedId=primaryId || (valid.length===1 ? valid[0] : null);
-    state.selectedRoadId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null; state.selectedFabricId=null;
+    state.selectedRoadId=null; state.selectedRoadFeatureId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedFabricId=null;
   }
   function isBuildingSelected(id){return currentSelectedBuildingIds().includes(id);}
   function toggleBuildingSelection(id){
@@ -3895,47 +3897,43 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function drawNow(){const r=canvas.getBoundingClientRect(); const dpr=devicePixelRatio||1; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.benchworkOutlines.forEach(drawBenchwork); state.roads.forEach(drawRoad); drawRoadJunctions(); (state.roadFeatures||[]).forEach(drawRoadFeature); drawRoadExportPreview(); (state.fabricRegions||[]).forEach(drawFabricRegion); state.buildings.forEach(drawBuilding); state.streetlights.forEach(drawStreetlight); if(state.roadDraft.length){ctx.save();ctx.strokeStyle='#6f6a5e';ctx.fillStyle='rgba(111,106,94,.18)';ctx.lineWidth=3/state.view.scale;if(state.roadMode==='centerline'&&state.roadDraft.length>=2){const temp=createRoadCenterlineFromPoints(state.roadDraft); temp.id='road_draft'; drawRoad(temp);} else {ctx.beginPath();state.roadDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();}state.roadDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.benchworkDraft.length){ctx.save();ctx.strokeStyle='#2f6f4e';ctx.fillStyle='rgba(47,111,78,.12)';ctx.lineWidth=3/state.view.scale;ctx.setLineDash([8/state.view.scale,6/state.view.scale]);ctx.beginPath();state.benchworkDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.setLineDash([]);state.benchworkDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} drawFabricDraft(); if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview){ if(state.drag.type==='roadCenterline') drawRoad(state.drag.preview); else drawBuilding(state.drag.preview); } drawSelectionMarquee(); drawHoverPreview(); ctx.restore(); updateEmptyImageOverlay(); updateStatus();}
   function fitImage(){const r=canvas.getBoundingClientRect(); if(!state.image){state.view={x:r.width/2,y:r.height/2,scale:1}; draw(); return;} const s=Math.min(r.width/state.image.width,r.height/state.image.height)*.9; state.view.scale=s; state.view.x=(r.width-state.image.width*s)/2; state.view.y=(r.height-state.image.height*s)/2; draw();}
 
-  function renderStreetlights(){
-    const box=$('streetlightList'); if(!box) return;
-    if(!state.streetlights.length){box.innerHTML='<div class="small muted">No streetlights yet.</div>'; return;}
-    box.innerHTML='';
-    state.streetlights.forEach(raw=>{const l=normalizeStreetlight(raw); const el=document.createElement('div'); el.className='buildingItem '+(l.id===state.selectedStreetlightId?'selected':''); el.innerHTML=`<span class="streetlight-swatch" style="background:${l.color||'#c84a3a'}"></span><div><b>${escapeHtml(l.name||'Streetlight')}</b><br><span class="small muted">${l.mode==='anchored'?'anchored · ':''}${l.type||'singleArm'}${l.locked?' · locked':''}</span></div><span class="pill">${fmt(l.heightMm||0)}mm</span>`; el.onclick=()=>{state.selectedStreetlightId=l.id; clearBuildingSelection(); state.selectedAnnotationId=null; renderList(); renderStreetlights(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});
+  function sidebarObjectTypes(){
+    return [
+      {key:'buildings',label:'Buildings',count:state.buildings.length,hint:'Footprints and attached .hako files',color:'#d79631'},
+      {key:'roads',label:'Roads',count:state.roads.length,hint:'Centerlines and outlines',color:'#6f6a5e'},
+      {key:'roadFeatures',label:'Road Items',count:(state.roadFeatures||[]).length,hint:'Hatches and markings',color:'#3a2b1e'},
+      {key:'fabric',label:'Fabric Areas',count:state.fabricRegions.length,hint:'Generated urban fabric regions',color:'#7c5f3f'},
+      {key:'benchwork',label:'Benchwork',count:state.benchworkOutlines.length,hint:'Layout boundaries',color:'#2f6f4e'},
+      {key:'streetlights',label:'Streetlights',count:state.streetlights.length,hint:'Streetlight objects and anchors',color:'#c84a3a'},
+      {key:'annotations',label:'Annotations',count:state.annotations.length,hint:'Freehand plan notes',color:'#6f4326'},
+      {key:'siteObjects',label:'Site Objects',count:0,hint:'Future STL and placed assets',color:'#496a78'}
+    ].filter(type=>type.count>0);
   }
-
-  function renderList(){
-    const box=$('buildingList');
-    box.innerHTML='';
-    if(!state.buildings.length){
-      const empty=document.createElement('div');
-      empty.className='small muted';
-      empty.textContent='No building pads yet.';
-      box.appendChild(empty);
-    } else {
-      state.buildings.forEach(raw=>{
-        const b=normalizeBuilding(raw);
-        const el=document.createElement('div');
-        el.className='buildingItem '+(isBuildingSelected(b.id)?'selected':'');
-        const hakoBadge=b.hakoFile?'<span class="pill buildingFileBadge">.hako</span>':'';
-        const metric=b.padType==='rect'?`${fmt(b.widthMm)}×${fmt(b.depthMm)}`:fmt(b.derived?.areaMm2||0)+' mm²';
-        el.innerHTML=`<span class="swatch" style="background:${b.color}"></span><div class="buildingInfo"><span class="buildingName" title="${escapeAttr(b.name||'Building')}">${escapeHtml(b.name||'Building')}</span><span class="small muted buildingMeta">${buildingStateLabel(b.state)} · ${b.padType}${b.hidden?' · hidden':''}${b.locked?' · locked':''}</span></div><span class="pill buildingMetric" title="${escapeAttr(metric)}">${metric}</span>${hakoBadge}`;
-        const setCardHover=on=>{
-          state.hoverBuildingId=on ? b.id : (state.hoverBuildingId===b.id ? null : state.hoverBuildingId);
-          el.classList.toggle('sidebarHover',on);
-          draw();
-          updateSite3DHoverIndicator();
-        };
-        el.onmouseenter=()=>setCardHover(true);
-        el.onmouseleave=()=>setCardHover(false);
-        el.onfocus=()=>setCardHover(true);
-        el.onblur=()=>setCardHover(false);
-        el.tabIndex=0;
-        el.onclick=(ev)=>{ if(ev.shiftKey || ev.metaKey || ev.ctrlKey) toggleBuildingSelection(b.id); else setBuildingSelection([b.id], b.id); renderList(); renderSelected(); updateHandoff(); draw();};
-        box.appendChild(el);
-      });
-    }
+  function sidebarObjectTypeMeta(type){
+    return sidebarObjectTypes().find(t=>t.key===type) || {
+      buildings:{key:'buildings',label:'Buildings',count:state.buildings.length,hint:'Footprints and attached .hako files',color:'#d79631'},
+      roads:{key:'roads',label:'Roads',count:state.roads.length,hint:'Centerlines and outlines',color:'#6f6a5e'},
+      roadFeatures:{key:'roadFeatures',label:'Road Items',count:(state.roadFeatures||[]).length,hint:'Hatches and markings',color:'#3a2b1e'},
+      fabric:{key:'fabric',label:'Fabric Areas',count:state.fabricRegions.length,hint:'Generated urban fabric regions',color:'#7c5f3f'},
+      benchwork:{key:'benchwork',label:'Benchwork',count:state.benchworkOutlines.length,hint:'Layout boundaries',color:'#2f6f4e'},
+      streetlights:{key:'streetlights',label:'Streetlights',count:state.streetlights.length,hint:'Streetlight objects and anchors',color:'#c84a3a'},
+      annotations:{key:'annotations',label:'Annotations',count:state.annotations.length,hint:'Freehand plan notes',color:'#6f4326'}
+    }[type] || null;
+  }
+  function sidebarTypeForDetailKind(kind){
+    if(kind==='building'||kind==='buildings') return 'buildings';
+    if(kind==='road') return 'roads';
+    if(kind==='roadFeature') return 'roadFeatures';
+    if(kind==='benchwork') return 'benchwork';
+    if(kind==='streetlight') return 'streetlights';
+    if(kind==='fabric') return 'fabric';
+    if(kind==='annotation') return 'annotations';
+    return null;
+  }
+  function installHakoImportDropzone(box){
+    if(!box) return;
     const actions=document.createElement('div');
-    actions.className='buttons buildingListActions';
-    actions.style.marginTop='10px';
+    actions.className='buildingListActions';
     actions.innerHTML=`
       <div id="importHakoAsBuildingDropzone" class="hakoImportDropzone" role="button" tabindex="0" title="Click to choose a .hako file, or drag one here to create a draggable footprint.">
         <b>Import existing .hako as footprint</b>
@@ -3954,6 +3952,179 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       ['dragleave','drop'].forEach(type=>drop.addEventListener(type, ev=>{ev.preventDefault(); ev.stopPropagation(); if(type==='dragleave' && drop.contains(ev.relatedTarget)) return; drop.classList.remove('dragover');}));
       drop.addEventListener('drop', ev=>{const files=Array.from(ev.dataTransfer&&ev.dataTransfer.files||[]); const f=files.find(file=>/\.(hako|hakoseed|hakoplan|json)$/i.test(file.name||''))||files[0]; if(f){ if(selected() && currentSelectedBuildingIds().length===1) attachHakoFileToSelectedBuilding(f,{source:'selected-building-drop'}); else importHakoAsBuilding(f); }});
     }
+  }
+  function clearPlanObjectSelection(){
+    clearBuildingSelection();
+    state.selectedRoadId=null;
+    state.selectedRoadFeatureId=null;
+    state.selectedBenchworkId=null;
+    state.selectedStreetlightId=null;
+    state.selectedFabricId=null;
+    state.selectedAnnotationId=null;
+  }
+  function selectSidebarObject(type,id,ev=null){
+    sidebarObjectType=type;
+    if(type==='buildings'){
+      if(ev && (ev.shiftKey || ev.metaKey || ev.ctrlKey)) toggleBuildingSelection(id);
+      else setBuildingSelection([id], id);
+    } else {
+      clearPlanObjectSelection();
+      if(type==='roads') state.selectedRoadId=id;
+      if(type==='roadFeatures') state.selectedRoadFeatureId=id;
+      if(type==='benchwork') state.selectedBenchworkId=id;
+      if(type==='streetlights') state.selectedStreetlightId=id;
+      if(type==='fabric') state.selectedFabricId=id;
+      if(type==='annotations') state.selectedAnnotationId=id;
+    }
+    renderObjectBrowser();
+    renderSelected();
+    updateHandoff();
+    draw();
+  }
+  function objectRowSelected(type,id){
+    if(type==='buildings') return isBuildingSelected(id);
+    if(type==='roads') return state.selectedRoadId===id;
+    if(type==='roadFeatures') return state.selectedRoadFeatureId===id;
+    if(type==='benchwork') return state.selectedBenchworkId===id;
+    if(type==='streetlights') return state.selectedStreetlightId===id;
+    if(type==='fabric') return state.selectedFabricId===id;
+    if(type==='annotations') return state.selectedAnnotationId===id;
+    return false;
+  }
+  function makeObjectListRow(type,raw){
+    const el=document.createElement('div');
+    const selectedClass=objectRowSelected(type,raw.id)?'selected':'';
+    el.className='buildingItem '+selectedClass;
+    el.tabIndex=0;
+    if(type==='buildings'){
+      const b=normalizeBuilding(raw);
+      const hakoBadge=b.hakoFile?'<span class="pill buildingFileBadge">.hako</span>':'';
+      const metric=b.padType==='rect'?`${fmt(b.widthMm)}×${fmt(b.depthMm)}`:fmt(b.derived?.areaMm2||0)+' mm²';
+      el.innerHTML=`<span class="swatch" style="background:${b.color}"></span><div class="buildingInfo"><span class="buildingName" title="${escapeAttr(b.name||'Building')}">${escapeHtml(b.name||'Building')}</span><span class="small muted buildingMeta">${buildingStateLabel(b.state)} · ${b.padType}${b.hidden?' · hidden':''}${b.locked?' · locked':''}</span></div><span class="pill buildingMetric" title="${escapeAttr(metric)}">${metric}</span>${hakoBadge}`;
+      const setCardHover=on=>{
+        state.hoverBuildingId=on ? b.id : (state.hoverBuildingId===b.id ? null : state.hoverBuildingId);
+        el.classList.toggle('sidebarHover',on);
+        draw();
+        updateSite3DHoverIndicator();
+      };
+      el.onmouseenter=()=>setCardHover(true);
+      el.onmouseleave=()=>setCardHover(false);
+      el.onfocus=()=>setCardHover(true);
+      el.onblur=()=>setCardHover(false);
+      el.onclick=ev=>selectSidebarObject('buildings',b.id,ev);
+      el.onkeydown=ev=>{ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); selectSidebarObject('buildings',b.id,ev); } };
+      return el;
+    }
+    if(type==='roads'){
+      const r=normalizeRoad(raw);
+      el.innerHTML=`<span class="swatch" style="background:${r.color||'#6f6a5e'}"></span><div><b>${escapeHtml(r.name||'Road')}</b><br><span class="small muted">${r.mode==='outline'?'outline':'centerline'}${r.sidewalkSide&&r.sidewalkSide!=='none'?' · sidewalk '+r.sidewalkSide:''}${r.locked?' · locked':''}</span></div><span class="pill">${r.mode==='centerline'?fmt(r.widthMm||0)+'mm':'poly'}</span>`;
+    } else if(type==='roadFeatures'){
+      const f=normalizeRoadFeature(raw);
+      const title=f.name || (f.kind==='manhole'?'Manhole / Hatch':'Road marking');
+      const metric=f.kind==='manhole'?(f.hatchShape==='circle'?fmt(f.diameterMm||0)+'mm':`${fmt(f.widthMm||0)}×${fmt(f.depthMm||0)}`):`${fmt(f.widthMm||0)}×${fmt(f.depthMm||0)}`;
+      el.innerHTML=`<span class="swatch" style="background:${f.color||'#3a2b1e'}"></span><div><b>${escapeHtml(title)}</b><br><span class="small muted">${f.kind==='manhole'?'hatch':'marking'}${f.locked?' · locked':''}</span></div><span class="pill">${metric}</span>`;
+    } else if(type==='benchwork'){
+      const bw=normalizeBenchworkOutline(raw);
+      el.innerHTML=`<span class="swatch" style="background:${bw.color||'#2f6f4e'}"></span><div><b>${escapeHtml(bw.name||'Benchwork Outline')}</b><br><span class="small muted">${(bw.pointsPx||[]).length} points${bw.locked?' · locked':''}</span></div><span class="pill">outline</span>`;
+    } else if(type==='streetlights'){
+      const l=normalizeStreetlight(raw);
+      el.innerHTML=`<span class="streetlight-swatch" style="background:${l.color||'#c84a3a'}"></span><div><b>${escapeHtml(l.name||'Streetlight')}</b><br><span class="small muted">${l.mode==='anchored'?'anchored · ':''}${l.type||'singleArm'}${l.locked?' · locked':''}</span></div><span class="pill">${fmt(l.heightMm||0)}mm</span>`;
+    } else if(type==='fabric'){
+      const f=normalizeFabricRegion(raw);
+      const generated=state.buildings.filter(b=>b.fabricRegionId===f.id).length;
+      el.innerHTML=`<span class="swatch" style="background:${f.color||'#7c5f3f'}"></span><div><b>${escapeHtml(f.name||'Fabric Region')}</b><br><span class="small muted">${escapeHtml(FABRIC_PRESETS[f.fabricType]?.label||f.fabricType||'fabric')} · ${generated} pad${generated===1?'':'s'}</span></div><span class="pill">${(f.polygon||[]).length} pts</span>`;
+    } else if(type==='annotations'){
+      const note=raw;
+      el.innerHTML=`<span class="swatch" style="background:${note.color||'#6f4326'}"></span><div><b>${escapeHtml(note.name||'Annotation')}</b><br><span class="small muted">${(note.points||[]).length} points</span></div><span class="pill">note</span>`;
+    }
+    el.onclick=ev=>selectSidebarObject(type,raw.id,ev);
+    el.onkeydown=ev=>{ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); selectSidebarObject(type,raw.id,ev); } };
+    return el;
+  }
+  function sidebarObjectsForType(type){
+    if(type==='buildings') return state.buildings;
+    if(type==='roads') return state.roads;
+    if(type==='roadFeatures') return state.roadFeatures||[];
+    if(type==='benchwork') return state.benchworkOutlines;
+    if(type==='streetlights') return state.streetlights;
+    if(type==='fabric') return state.fabricRegions;
+    if(type==='annotations') return state.annotations;
+    return [];
+  }
+  function renderObjectBrowser(){
+    const box=$('objectBrowser');
+    if(!box) return;
+    const title=$('objectBrowserTitle');
+    box.innerHTML='';
+    const activeTypes=sidebarObjectTypes();
+    if(sidebarObjectType && !sidebarObjectTypeMeta(sidebarObjectType)?.count) sidebarObjectType=null;
+    if(!sidebarObjectType){
+      if(title) title.textContent='Plan Objects';
+      if(!activeTypes.length){
+        const empty=document.createElement('div');
+        empty.className='objectBrowserEmpty small muted';
+        empty.textContent='No plan objects yet.';
+        box.appendChild(empty);
+        installHakoImportDropzone(box);
+        return;
+      }
+      const grid=document.createElement('div');
+      grid.className='objectTypeGrid';
+      activeTypes.forEach(type=>{
+        const card=document.createElement('button');
+        card.type='button';
+        card.className='objectTypeCard';
+        card.innerHTML=`<span class="objectTypeSwatch" style="background:${type.color}"></span><span class="objectTypeText"><b>${escapeHtml(type.label)}</b><span>${escapeHtml(type.hint)}</span></span><span class="pill">${type.count}</span>`;
+        card.onclick=()=>{sidebarObjectType=type.key; renderObjectBrowser();};
+        grid.appendChild(card);
+      });
+      box.appendChild(grid);
+      if(!state.buildings.length) installHakoImportDropzone(box);
+      return;
+    }
+    const meta=sidebarObjectTypeMeta(sidebarObjectType);
+    if(title) title.textContent=meta?.label || 'Plan Objects';
+    const toolbar=document.createElement('div');
+    toolbar.className='objectBrowserToolbar';
+    toolbar.innerHTML=`<button id="objectBrowserBackBtn" type="button" class="sidebarBackBtn"><span data-icon="arrowLeft"></span><span>Back</span></button><span class="small muted">${meta?.count||0} item${(meta?.count||0)===1?'':'s'}</span>`;
+    box.appendChild(toolbar);
+    const back=$('objectBrowserBackBtn');
+    if(back) back.onclick=()=>{sidebarObjectType=null; renderObjectBrowser();};
+    const objects=sidebarObjectsForType(sidebarObjectType);
+    if(!objects.length){
+      const empty=document.createElement('div');
+      empty.className='objectBrowserEmpty small muted';
+      empty.textContent='No items in this group.';
+      box.appendChild(empty);
+    } else {
+      objects.forEach(obj=>box.appendChild(makeObjectListRow(sidebarObjectType,obj)));
+    }
+    if(sidebarObjectType==='buildings') installHakoImportDropzone(box);
+    hydrateIcons(box);
+  }
+
+  function renderStreetlights(){
+    renderObjectBrowser();
+    const box=$('streetlightList'); if(!box) return;
+    if(!state.streetlights.length){box.innerHTML='<div class="small muted">No streetlights yet.</div>'; return;}
+    box.innerHTML='';
+    state.streetlights.forEach(raw=>{const l=normalizeStreetlight(raw); const el=document.createElement('div'); el.className='buildingItem '+(l.id===state.selectedStreetlightId?'selected':''); el.innerHTML=`<span class="streetlight-swatch" style="background:${l.color||'#c84a3a'}"></span><div><b>${escapeHtml(l.name||'Streetlight')}</b><br><span class="small muted">${l.mode==='anchored'?'anchored · ':''}${l.type||'singleArm'}${l.locked?' · locked':''}</span></div><span class="pill">${fmt(l.heightMm||0)}mm</span>`; el.onclick=()=>{state.selectedStreetlightId=l.id; clearBuildingSelection(); state.selectedAnnotationId=null; renderList(); renderStreetlights(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});
+  }
+
+  function renderList(){
+    renderObjectBrowser();
+    const box=$('buildingList');
+    if(!box) return;
+    box.innerHTML='';
+    if(!state.buildings.length){
+      const empty=document.createElement('div');
+      empty.className='small muted';
+      empty.textContent='No building pads yet.';
+      box.appendChild(empty);
+    } else {
+      state.buildings.forEach(raw=>box.appendChild(makeObjectListRow('buildings',raw)));
+    }
+    installHakoImportDropzone(box);
   }
   function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const fabric=selectedFabric(); const selIds=currentSelectedBuildingIds(); if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use keyboard shortcuts to copy/paste selected footprints.</span><div class="buttons" style="margin-top:8px"><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(roadFeature){normalizeRoadFeature(roadFeature); box.innerHTML=`
       <b>${roadFeature.kind==='manhole'?'Manhole / Hatch':'Japanese road marking'} selected</b>
@@ -4110,6 +4281,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return 'Selected';
   }
   function clearSidebarDetailSelection(){
+    const returnType=sidebarTypeForDetailKind(activeSidebarDetailKind());
+    if(returnType) sidebarObjectType=returnType;
     closeSidebarBuildingOverflow();
     clearBuildingSelection();
     state.selectedRoadId=null;
@@ -4209,11 +4382,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
             <button id="sidebarDeleteB" type="button" class="danger">Delete</button>
           </div>
         </div>`:''}`;
-      const back=$('sidebarBackBtn');
-      back.onclick=clearSidebarDetailSelection;
       if(toolbar.parentElement!==detailSection || toolbar.nextElementSibling!==h3){
         detailSection.insertBefore(toolbar, h3 || detailSection.firstChild);
       }
+      const back=$('sidebarBackBtn');
+      back.onclick=clearSidebarDetailSelection;
       if(detailKey && detailKey!==activeSidebarDetailKey){
         sidebar.scrollTop=0;
       }
@@ -4244,13 +4417,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       sections.forEach(sec=>{ sec.style.display=''; });
       detailSection.style.display='none';
       detailSection.classList.remove('detailMode');
-      if(h3) h3.textContent='Selected Building';
+      if(h3) h3.textContent='Selected Item';
       closeSidebarBuildingOverflow();
       if(toolbar) toolbar.remove();
       activeSidebarDetailKey=null;
     }
   }
   function renderSelected(){
+    renderObjectBrowser();
     renderSelectedCore();
     applySidebarDrillIn();
   }

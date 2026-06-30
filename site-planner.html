@@ -251,9 +251,9 @@
       <div class="small muted">All pad dimensions are physical output millimeters. Use the “source … ÷ scale” units only when calibrating from a full-size/reference plan.</div>
       <div class="buttons" style="margin-top:8px"><button id="applyScaleBtn" class="ok">Apply Last Line</button><button id="clearScaleBtn">Clear</button></div>
     </div>
-    <div class="section">
-      <h3>Buildings</h3>
-      <div id="buildingList"></div>
+    <div class="section" id="objectBrowserSection">
+      <h3 id="objectBrowserTitle">Plan Objects</h3>
+      <div id="objectBrowser"></div>
     </div>
     <div class="section" id="fabricSection" style="display:none">
       <h3>Urban Fabric Fill</h3>
@@ -272,16 +272,8 @@
       <div class="small muted" style="margin-top:8px">Draw a polygon around an area, then generate. The Site Planner creates editable BuildingPads with HakoSeed metadata; HakoMachi still generates the actual laser-cut building geometry.</div>
     </div>
     <div class="section">
-      <h3>Selected Building</h3>
+      <h3>Selected Item</h3>
       <div id="selectedPanel" class="small muted">No building selected.</div>
-    </div>
-    <div class="section">
-      <h3>Roads</h3>
-      <div id="roadList" class="small muted">No roads yet.</div>
-    </div>
-    <div class="section">
-      <h3>Streetlights</h3>
-      <div id="streetlightList" class="small muted">No streetlights yet.</div>
     </div>
   </aside>
   <div class="bottom"><span id="statusTool">Tool: Select</span><span id="statusScale">Calibration: unset</span><span id="statusZoom">Zoom: 100%</span><span id="statusMouse">Mouse: —</span><span id="statusHint">Tip: import an image, draw a calibration line, then trace pads.</span><span id="statusAutosave">Autosave: ready</span></div>

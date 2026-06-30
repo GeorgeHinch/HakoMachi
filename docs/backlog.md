@@ -545,12 +545,14 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-016: Add drill-down navigation for crowded Site Planner right pane
 
-- Status: Proposed
+- Status: Done
 - Group: UI and workflow
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/20
 - Goal: Reduce scrolling in the Site Planner right pane by replacing always-expanded object lists with a drill-down navigation flow organized by object type.
 - Notes: User noted that the right pane can quickly fill with content and require a lot of scrolling. Suggested a top-level card for each item type currently present on the plan. Clicking an item-type card drills into that type's list, and selecting a specific building/object continues one level deeper into its details. A back button at the top should show the current type/view label.
+  - Implemented in `codex/backlog-overnight`: Site Planner now uses a compact Plan Objects browser for existing object types, focused type lists, and item detail drill-in with Back returning first to the type list and then to the overview.
+  - Verified with `node --check js\site-planner.js`, `git diff --check`, `node tools\runtime_check.js`, and Playwright smoke checks for desktop and mobile-width sidebar navigation.
 - Acceptance Criteria:
   - The Site Planner right pane starts with a compact top-level overview of object types that exist on the current plan, such as buildings, roads, road features, fabric areas, benchwork, streetlights, annotations, and future STL/site objects where applicable.
   - Clicking an object-type card opens a focused list for that type using the same useful card information currently shown in the top-level lists.

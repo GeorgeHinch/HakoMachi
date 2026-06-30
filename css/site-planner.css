@@ -945,7 +945,23 @@ canvas {
 }
 
 .sidebar .section[data-detail-panel="true"].detailMode {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
   margin-bottom: 0;
+}
+
+.sidebar .section[data-detail-panel="true"].detailMode > h3 {
+  margin: 0 2px 8px;
+}
+
+.sidebar .section[data-detail-panel="true"].detailMode #selectedPanel {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 10px;
 }
 
 .sidebarDetailToolbar {

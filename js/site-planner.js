@@ -5367,7 +5367,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     });
   }
   updateEmptyImageOverlay();
-  $('opacity').oninput=e=>{state.imageOpacity=parseFloat(e.target.value); if(state.imageMeta)state.imageMeta.opacity=state.imageOpacity; draw();}; $('imageLockBtn').onclick=()=>{state.imageLocked=!state.imageLocked; $('imageLockBtn').textContent=state.imageLocked?'Locked':'Unlocked';};
+  if($('opacity')) $('opacity').oninput=e=>{state.imageOpacity=parseFloat(e.target.value); if(state.imageMeta)state.imageMeta.opacity=state.imageOpacity; draw();};
+  if($('imageLockBtn')) $('imageLockBtn').onclick=()=>{state.imageLocked=!state.imageLocked; $('imageLockBtn').textContent=state.imageLocked?'Locked':'Unlocked';};
   $('applyScaleBtn').onclick=()=>{
     const line=state.lastCalibrationLine||state.calibrationLine;
     if(!line) return alert('Draw a calibration line first.');
@@ -5448,8 +5449,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.snapOn=false;
     state.pointers=new Map();
     state.pinch=null;
-    $('opacity').value='0.75';
-    $('imageLockBtn').textContent='Locked';
+    if($('opacity')) $('opacity').value='0.75';
+    if($('imageLockBtn')) $('imageLockBtn').textContent='Locked';
     updateImagePortableStatus();
     $('imageFile').value='';
     $('loadFile').value='';

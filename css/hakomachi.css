@@ -298,8 +298,6 @@
     padding: 2px 6px; border-radius: 3px;
     pointer-events: none;
   }
-  .stat-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; }
-  .stat-row span:first-child { color: var(--muted); }
   .legend { display: flex; gap: 12px; font-size: 11px; margin-bottom: 12px; align-items: center; }
   .legend span { display: flex; align-items: center; gap: 4px; }
   .swatch { width: 14px; height: 2px; display: inline-block; }

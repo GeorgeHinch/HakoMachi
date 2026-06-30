@@ -3327,24 +3327,13 @@ export function regenerate() {
     return;
   }
   result.parts = applySheetSplittingToParts(result.parts, CONFIG);
-  const { parts, plan, totalWindows, totalDoors } = result;
+  const { parts, plan, totalWindows } = result;
 
   // Render preview — grouped by material then sheet
   renderPartsOutput(parts);
 
-  // Stats
-  const totalCoreParts = parts.filter(p => p.material === 'core').length;
-  const totalCladdingParts = parts.filter(p => p.material === 'cladding').length;
-  let statsHtml = renderBuildingNameHtml();
-  statsHtml += '<div class="preview-section"><h2>Stats</h2>';
-  statsHtml += `<div class="stat-row"><span>Building footprint</span><span>${CONFIG.width} × ${CONFIG.depth} × ${CONFIG.height} mm</span></div>`;
-  statsHtml += `<div class="stat-row"><span>Real-world (1:150)</span><span>${(CONFIG.width * 0.15).toFixed(1)} × ${(CONFIG.depth * 0.15).toFixed(1)} × ${(CONFIG.height * 0.15).toFixed(1)} m</span></div>`;
-  statsHtml += `<div class="stat-row"><span>Core parts</span><span>${totalCoreParts}</span></div>`;
-  statsHtml += `<div class="stat-row"><span>Cladding parts</span><span>${totalCladdingParts}</span></div>`;
-  statsHtml += `<div class="stat-row"><span>Total windows</span><span>${totalWindows}</span></div>`;
-  statsHtml += `<div class="stat-row"><span>Total doors</span><span>${totalDoors}</span></div>`;
-  statsHtml += '</div>';
-  document.getElementById('stats').innerHTML = statsHtml;
+  const titlePanel = document.getElementById('buildingTitlePanel');
+  if (titlePanel) titlePanel.innerHTML = renderBuildingNameHtml();
   bindBuildingNameEditor();
 
   // Warnings

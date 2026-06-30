@@ -690,7 +690,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-024: Remove stats block from Building Generator preview
 
-- Status: Proposed
+- Status: Done
 - Group: UI and workflow
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/28

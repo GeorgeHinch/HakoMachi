@@ -1,4 +1,4 @@
-import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-3';
+import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-4';
 import { installCanvasGestureBoundary, installThreeRenderCanvas } from './shared/browser-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
@@ -2033,6 +2033,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     return site3DPlannerRotationY(b);
   }
+  function site3DGeneratorModelOriginOffset(b,cfg){
+    const origin=b?.hakoGeometryOriginMm;
+    const w=positiveNumber(cfg?.width,cfg?.widthMm,cfg?.dimensions?.width,cfg?.dimensions?.widthMm);
+    const d=positiveNumber(cfg?.depth,cfg?.depthMm,cfg?.dimensions?.depth,cfg?.dimensions?.depthMm);
+    const ox=Number(origin?.x), oy=Number(origin?.y);
+    if(!w || !d || !Number.isFinite(ox) || !Number.isFinite(oy)) return null;
+    return {x:ox-w/2,z:oy-d/2};
+  }
   function site3DTypeDefaults(type,fabricType){
     const key=String(type||'').toLowerCase();
     const fabric=String(fabricType||'').toLowerCase();
@@ -2265,6 +2273,29 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     group.rotation.y=site3DPlannerRotationY(b,{geometryAlreadyInSiteCoordinates:b.padType==='polygon'});
     return group;
   }
+  function buildSite3DSelectionHelper(b,bounds){
+    const cfg=site3DGeneratorBuildingConfig(b) || site3DBuildingConfig(b) || {};
+    const y0=site3DBuildingElevationMm(b);
+    const y1=y0+site3DBuildingHeightMm(b,cfg);
+    const verts=[];
+    visibleBuildingPolygons(b).forEach(poly=>{
+      if(!Array.isArray(poly) || poly.length<3) return;
+      const pts=poly.map(p=>({x:site3DScale(p.x)-bounds.cx,z:site3DScale(p.y)-bounds.cy}));
+      for(let i=0;i<pts.length;i++){
+        const a=pts[i], z=pts[(i+1)%pts.length];
+        verts.push(a.x,y0,a.z,z.x,y0,z.z);
+        verts.push(a.x,y1,a.z,z.x,y1,z.z);
+        verts.push(a.x,y0,a.z,a.x,y1,a.z);
+      }
+    });
+    if(!verts.length) return null;
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+    const mat=new THREE.LineBasicMaterial({color:0x0f766e,transparent:true,opacity:.95});
+    const helper=new THREE.LineSegments(geo,mat);
+    helper.userData.sitePlannerSelectionHelper=true;
+    return helper;
+  }
   function buildSite3DBuildingGroup(b,bounds){
     const cfg=site3DGeneratorBuildingConfig(b);
     const center=site3DBuildingCenterMm(b);
@@ -2272,14 +2303,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(cfg && sharedRenderer?.buildBuildingPreviewGroup){
       try{
         const group=sharedRenderer.buildBuildingPreviewGroup(cfg,{includeStlOverlay:false});
-        group.name=b.name||'HakoMachi building';
-        group.userData.sitePlannerGeneratorPreview=true;
-        tagSite3DBuilding(group,b);
-        group.position.set(center.x-bounds.cx,site3DBuildingElevationMm(b),center.y-bounds.cy);
-        group.rotation.y=site3DGeneratorModelRotationY(b,cfg);
-        group.updateMatrixWorld(true);
+        const wrapper=new THREE.Group();
+        wrapper.name=b.name||'HakoMachi building';
+        wrapper.userData.sitePlannerGeneratorPreview=true;
+        group.name=`${wrapper.name} preview`;
+        const originOffset=site3DGeneratorModelOriginOffset(b,cfg);
+        if(originOffset) group.position.set(-originOffset.x,0,-originOffset.z);
+        wrapper.add(group);
+        tagSite3DBuilding(wrapper,b);
+        wrapper.position.set(center.x-bounds.cx,site3DBuildingElevationMm(b),center.y-bounds.cy);
+        wrapper.rotation.y=site3DGeneratorModelRotationY(b,cfg);
+        wrapper.updateMatrixWorld(true);
         sharedRenderer.applyLayoutCutClippingToGroup?.(group,cfg,group.matrixWorld);
-        return group;
+        return wrapper;
       }catch(err){ console.warn('[HakoMachi Site Planner] 3D generated building fallback:',err); }
     }
     return buildSite3DMassing(b,bounds);
@@ -2504,9 +2540,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         if(g.userData?.sitePlannerGeneratorPreview) generated++; else if(g.userData?.sitePlannerDetailedFallback) detailed++;
         site3d.root.add(g);
         if(isBuildingSelected(b.id)){
-          const helper=new THREE.BoxHelper(g,0x0f766e);
-          helper.userData.sitePlannerSelectionHelper=true;
-          site3d.root.add(helper);
+          const helper=buildSite3DSelectionHelper(b,bounds);
+          if(helper) site3d.root.add(helper);
         }
         rendered++;
       }

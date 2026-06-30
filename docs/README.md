@@ -5,6 +5,7 @@ This directory holds project documentation that is useful beyond a single commit
 ## Structure
 
 - `changelog.md` records notable user-facing fixes, compatibility changes, and release-level notes.
+- `backlog.md` captures agent-ready feature ideas grouped by related work.
 - `dev/` holds active implementation notes, migration plans, and contributor-facing technical notes.
 - `decisions/` is reserved for durable architecture or product decisions when the reasoning needs to be preserved.
 

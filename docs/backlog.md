@@ -768,7 +768,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-028: Remove repeated HakoMachi title from landing page card
 
-- Status: Proposed
+- Status: Done
 - Group: UI and workflow
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/32

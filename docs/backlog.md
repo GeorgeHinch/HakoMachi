@@ -303,12 +303,12 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-037: Split Site Planner background images into separate asset files
 
-- Status: Proposed
+- Status: Blocked
 - Group: Site planner
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/41
 - Goal: Move Site Planner reference/background images out of the main `.hako-site.json` save data and into separate asset files so GitHub saves are smaller and faster, while project downloads still include everything needed to restore the plan.
-- Notes: User requested splitting the background image out of the main Hako site save data and into its own asset folder. When downloading a site save file, it should be grouped in a zip with all other data files stored in the repo. When loading a page, the save file should reference the image location so the app can pull it the first time if it is not cached. This may break the current save structure, so existing saved data may need migration. Local inspection found the Site Planner currently stores image metadata and embedded `dataUrl` through `projectJson()` / `projectPayload()`, while GitHub save writes a single `.hako-site.json` path. Autosave already has fallback behavior for oversized embedded images, which is useful context. Do not store credentials, temporary keys, or tokens in repo data or backlog notes; any migration against user GitHub data should be a controlled one-time maintenance task with user approval.
+- Notes: User requested splitting the background image out of the main Hako site save data and into its own asset folder. When downloading a site save file, it should be grouped in a zip with all other data files stored in the repo. When loading a page, the save file should reference the image location so the app can pull it the first time if it is not cached. This may break the current save structure, so existing saved data may need migration. Local inspection found the Site Planner currently stores image metadata and embedded `dataUrl` through `projectJson()` / `projectPayload()`, while GitHub save writes a single `.hako-site.json` path. Autosave already has fallback behavior for oversized embedded images, which is useful context. Do not store credentials, temporary keys, or tokens in repo data or backlog notes; any migration against user GitHub data should be a controlled one-time maintenance task with user approval. Blocked until the desired asset path convention, zip bundle format, and one-time migration approach for existing saves are approved.
 - Acceptance Criteria:
   - The main `.hako-site.json` no longer embeds the full background/reference image data by default.
   - Imported reference images are written to a stable asset location, such as a project-specific folder under the Site Planner GitHub data directory.

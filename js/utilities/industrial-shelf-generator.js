@@ -1,4 +1,5 @@
 import * as HakoMachiUtils from './shared.js';
+import { createUtility3dPreview } from './utility-3d-preview.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const SVG_OP = HakoMachiUtils.SVG_FABRICATION_OPERATIONS;
@@ -7,6 +8,7 @@ const SCRAP = HakoMachiUtils.svgFabricationColor(SVG_OP.CUT_SCRAP);
 const ENG = HakoMachiUtils.svgFabricationColor(SVG_OP.ENGRAVE);
 const MARK = '#777';
 const PX = 3.7795275591;
+const shelf3d = createUtility3dPreview(document.getElementById('shelf3dPreview'), { readyText: '3D object preview ready.' });
 
 function val(id){ return parseFloat(document.getElementById(id).value); }
 function choice(id){ return document.getElementById(id).value; }
@@ -1398,6 +1400,58 @@ function applyComponentPreset(type){
   if(h) h.value=Number(p.h).toFixed(1);
 }
 
+function renderShelf3d(model){
+  shelf3d.setModel((THREE, helpers)=>{
+    const group=new THREE.Group();
+    const box=helpers.box;
+    const W=Math.max(1, model.W), D=Math.max(1, model.D), H=Math.max(1, model.H);
+    const mat=Math.max(0.08, model.opt.mat || 0.28);
+    const metal=0x53606d, shelf=0xb7a37c, panel=0xd5c29a, dark=0x2f3a44, glass=0x90a8b9;
+    function addRack(){
+      const postSize=Math.max(0.28, model.opt.receiverFeature*0.38);
+      const xPositions=(model.postXs||[0,W]).map(x=>x-W/2);
+      const zPositions=[-D/2+postSize/2,D/2-postSize/2];
+      xPositions.forEach(x=>zPositions.forEach(z=>{
+        group.add(box({w:postSize,h:H,d:postSize,x,y:H/2,z,color:metal}));
+      }));
+      const levels=[0].concat(model.shelfYs||[]).concat([H]).filter((value,index,arr)=>index===0 || Math.abs(value-arr[index-1])>0.01);
+      levels.forEach(y=>{
+        group.add(box({w:W,h:Math.max(mat,0.22),d:D,x:0,y:y+mat/2,z:0,color:shelf}));
+        group.add(box({w:W,h:postSize*0.55,d:postSize,x:0,y:y+postSize,z:-D/2+postSize/2,color:metal}));
+        group.add(box({w:W,h:postSize*0.55,d:postSize,x:0,y:y+postSize,z:D/2-postSize/2,color:metal}));
+      });
+      if(model.back==='cross'){
+        const radius=Math.max(0.04,postSize/4);
+        group.add(helpers.cylinderBetween({x:-W/2,y:0,z:-D/2},{x:W/2,y:H,z:-D/2},radius,metal));
+        group.add(helpers.cylinderBetween({x:W/2,y:0,z:-D/2},{x:-W/2,y:H,z:-D/2},radius,metal));
+      }
+    }
+    function addCabinet(){
+      group.add(box({w:W,h:H,d:D,x:0,y:H/2,z:0,color:panel,opacity:0.82}));
+      group.add(box({w:W*0.94,h:H*0.9,d:mat,x:0,y:H/2,z:D/2+mat*0.7,color:0xc49b63}));
+      const twoDoors=W>6.5 || model.componentType==='lockerBank' || model.componentType==='toolLocker';
+      if(twoDoors){
+        group.add(box({w:mat*0.55,h:H*0.82,d:mat*1.2,x:0,y:H/2,z:D/2+mat*1.4,color:dark}));
+        group.add(box({w:mat*0.75,h:H*0.16,d:mat*1.8,x:-W*0.11,y:H*0.52,z:D/2+mat*2,color:dark}));
+        group.add(box({w:mat*0.75,h:H*0.16,d:mat*1.8,x:W*0.11,y:H*0.52,z:D/2+mat*2,color:dark}));
+      } else {
+        group.add(box({w:mat*0.85,h:H*0.18,d:mat*1.8,x:W*0.28,y:H*0.52,z:D/2+mat*2,color:dark}));
+      }
+      if(/fire|hose/i.test(model.componentType)){
+        group.add(box({w:W*0.45,h:H*0.34,d:mat*1.6,x:0,y:H*0.58,z:D/2+mat*1.8,color:glass,opacity:0.72}));
+      } else if(/gasMeter|breakerBox|controlCabinet/i.test(model.componentType)){
+        group.add(box({w:W*0.5,h:H*0.18,d:mat*1.5,x:0,y:H*0.68,z:D/2+mat*1.8,color:glass,opacity:0.62}));
+        group.add(box({w:W*0.42,h:mat*0.5,d:mat*1.6,x:0,y:H*0.36,z:D/2+mat*1.8,color:dark}));
+      }
+      group.add(box({w:W,h:mat,d:D,x:0,y:H+mat/2,z:0,color:0xb28d5e}));
+      group.add(box({w:W,h:mat,d:D,x:0,y:mat/2,z:0,color:0xb28d5e}));
+    }
+    if(model.componentType==='rack')addRack(); else addCabinet();
+    group.userData.previewKind='industrial-shelf';
+    return group;
+  });
+}
+
 function render(){
   const W=val('w'), D=val('d'), H=val('h'), mat=val('mat'), kerf=val('kerf'), gap=val('gap');
   const componentType=choice('componentType');
@@ -1426,6 +1480,7 @@ function render(){
   // occupy that remaining depth, so the total support length never exceeds the requested D.
   const supportDepth=Math.max(receiverFeature*2 + tabW + 0.5, D - tabD);
   const opt={slotW,edgeSlotW,tabW,tabD,postXs,shelfYs,minFeature,receiverFeature,railDepth,gap,shelfStyle,supportDepth,externalDepth:D,mat,shelfTypes,shelfCount,cabinetDoorMode,cabinetDoorCount,doorBreakpointReal,scaleDenom};
+  renderShelf3d({W,D,H,opt,componentType,postXs,shelfYs,shelfCount,postCount,back});
 
   const pad=4;
   const titleSpace=3;

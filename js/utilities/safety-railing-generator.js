@@ -1,4 +1,5 @@
 import * as HakoMachiUtils from './shared.js';
+import { createUtility3dPreview } from './utility-3d-preview.js';
 
 window.addEventListener('DOMContentLoaded', function(){
 'use strict';
@@ -8,6 +9,7 @@ var pathPoints=null;
 var pathPointsRawSvgUnits=false;
 var segmentSettings=[];
 var U=HakoMachiUtils;
+var railing3d=createUtility3dPreview(document.getElementById('railing3dPreview'), { readyText: '3D railing preview ready.' });
 function el(id){return U.byId(id);}
 function val(id){return U.numberValue(id);}
 function fixed(n){return U.fixed(n);}
@@ -582,7 +584,45 @@ function buildFlat(){var o=options(), pts=sourcePoints(o), segs=segments(pts); i
     if(o.mode==='outline'){body+=closedPath([{x:x0-startExt,y:Math.min.apply(null,basePts.map(function(p){return p.y;}))-h},{x:x0+flatTotal+endExt,y:Math.min.apply(null,basePts.map(function(p){return p.y;}))-h},{x:x0+flatTotal+endExt,y:railBottom},{x:x0-startExt,y:railBottom}],'engrave','data-part="helper-outline"');}
   }
   var metaObj=currentSettingsObject(); metaObj.pathLengthMm=fixed(total); metaObj.startFlatHandrailExtensionMm=startExt; metaObj.endFlatHandrailExtensionMm=endExt; metaObj.narrowSolidEtchMode=narrow; metaObj.bendPointsMm=trueBends; metaObj.sectionBreaksMm=bends; metaObj.stairSections=segmentSettings; metaObj.cornerTabPositionsMm=cornerTabs; metaObj.normalTabPositionsMm=tabs; metaObj.allRailingTabPositionsMm=outlineTabs; var meta='<metadata>'+esc(JSON.stringify(metaObj,null,2))+'</metadata>'; var width=Math.max(flatTotal+startExt+endExt+o.margin*2+10,baseWidth+o.margin*2+10,80), height=narrow?baseHeight+o.margin*2+8:Math.max(railBottom+o.margin+4,baseYOffset+baseHeight+o.margin+4); return {svg:svgWrap(width,height,meta+body),segs:segs,total:total,flatTotal:flatTotal,bends:trueBends,sectionBreaks:bends,narrow:narrow,filled:filled,startExt:startExt,endExt:endExt};}
-function regenerate(updateEditor){if(updateEditor)updateSegmentEditor(); var flat=buildFlat(); el('pathMount').innerHTML=buildPathPreview(); el('svgMount').innerHTML=flat.svg; var o=options(); var stairs=[]; flat.segs.forEach(function(s,i){var st=segmentSettings[i]; if(isStairSection(st))stairs.push('Section '+(i+1)+': rise '+(+st.rise||0).toFixed(2)+' mm over '+s.len.toFixed(2)+' mm = '+(Math.atan2(+st.rise||0,Math.max(0.001,s.len-(parseFloat(st.flatStart)||0)))*180/Math.PI).toFixed(1)+'°');}); el('stats').textContent=['Preview status: rendered '+el('pathMount').querySelectorAll('svg').length+' path SVG and '+el('svgMount').querySelectorAll('svg').length+' flat SVG','Mode: separate railing strip plus slotted base','Path length: '+flat.total.toFixed(2)+' mm',
+function renderRailing3d(o, flat){
+  railing3d.setModel(function(THREE, helpers){
+    var group=new THREE.Group();
+    var railColor=0x465568, baseColor=0x7b6254, postColor=0x253447;
+    var segHeights=[], running=0;
+    flat.segs.forEach(function(seg,i){
+      segHeights[i]=running;
+      var st=segmentSettings[i]||{};
+      running += parseFloat(st.rise)||0;
+    });
+    function heightAt(segIndex, fraction){
+      var seg=flat.segs[segIndex], st=segmentSettings[segIndex]||{}, rise=parseFloat(st.rise)||0, flatStart=Math.max(0,Math.min(seg.len,parseFloat(st.flatStart)||0));
+      if(Math.abs(rise)<0.0001)return segHeights[segIndex]||0;
+      var run=Math.max(0.001,seg.len-flatStart);
+      var dist=fraction*seg.len;
+      var slopeF=dist<=flatStart?0:(dist-flatStart)/run;
+      return (segHeights[segIndex]||0)+rise*Math.max(0,Math.min(1,slopeF));
+    }
+    function pointOn(seg, f){return {x:seg.start.x+(seg.end.x-seg.start.x)*f,z:seg.start.y+(seg.end.y-seg.start.y)*f};}
+    function addPathCylinder(a,b,yOffset,radius,color){
+      group.add(helpers.cylinderBetween({x:a.x,y:a.y+yOffset,z:a.z},{x:b.x,y:b.y+yOffset,z:b.z},radius,color));
+    }
+    flat.segs.forEach(function(seg,i){
+      var a=pointOn(seg,0), b=pointOn(seg,1);
+      a.y=heightAt(i,0); b.y=heightAt(i,1);
+      addPathCylinder(a,b,0,Math.max(0.05,o.baseW/18),baseColor);
+      addPathCylinder(a,b,o.height,Math.max(0.04,o.railT/2),railColor);
+      addPathCylinder(a,b,o.height*0.55,Math.max(0.035,o.railT/2.4),railColor);
+      var count=Math.max(2,Math.ceil(seg.len/Math.max(3,o.maxPole))+1);
+      for(var p=0;p<count;p++){
+        var f=p/(count-1), pt=pointOn(seg,f), y=heightAt(i,f);
+        group.add(helpers.cylinderBetween({x:pt.x,y:y,z:pt.z},{x:pt.x,y:y+o.height,z:pt.z},Math.max(0.05,o.railT/2),postColor));
+      }
+    });
+    group.userData.previewKind='safety-railing';
+    return group;
+  });
+}
+function regenerate(updateEditor){if(updateEditor)updateSegmentEditor(); var flat=buildFlat(); el('pathMount').innerHTML=buildPathPreview(); el('svgMount').innerHTML=flat.svg; var o=options(); renderRailing3d(o,flat); var stairs=[]; flat.segs.forEach(function(s,i){var st=segmentSettings[i]; if(isStairSection(st))stairs.push('Section '+(i+1)+': rise '+(+st.rise||0).toFixed(2)+' mm over '+s.len.toFixed(2)+' mm = '+(Math.atan2(+st.rise||0,Math.max(0.001,s.len-(parseFloat(st.flatStart)||0)))*180/Math.PI).toFixed(1)+'°');}); el('stats').textContent=['Preview status: rendered '+el('pathMount').querySelectorAll('svg').length+' path SVG and '+el('svgMount').querySelectorAll('svg').length+' flat SVG','Mode: separate railing strip plus slotted base','Path length: '+flat.total.toFixed(2)+' mm',
     'Pasted SVG unit scale applied: '+o.svgScale+' mm/unit'+(pathPointsRawSvgUnits?' (raw SVG coordinates are being scaled live)':''),'Railing height: '+o.height+' mm','Bottom filled panel: '+flat.filled.toFixed(2)+' mm','Material thickness: '+o.t+' mm','Rail / pole visual thickness: '+o.railT+' mm','Tab depth: '+o.tabDepth+' mm'+(o.rawTabDepth>o.t?' (capped from '+o.rawTabDepth+' mm)':''),'Base width: '+o.baseW+' mm','Pole rule: target about 10 mm, never more than '+o.maxPole+' mm','Bend points: '+(flat.bends.length?flat.bends.map(function(v){return v.toFixed(2);}).join(', ')+' mm':'none'),'Illustrator import cleanup: thin closed/stroked outlines are collapsed to centerlines; open L-shaped polylines are preserved','Opening check: straight cutouts '+((flat.svg.match(/data-part=\"railing-open-cutout\"/g)||[]).length)+', flat section cutouts '+(((flat.svg.match(/data-part=\"short-flat-/g)||[]).length)+((flat.svg.match(/data-part=\"flat-section-/g)||[]).length))+', stair lead cutouts '+((flat.svg.match(/data-part=\"stair-lead-/g)||[]).length)+', slope cutouts '+((flat.svg.match(/data-part=\"stair-slope-/g)||[]).length)+', overhang cutouts '+((flat.svg.match(/data-part=\"(?:start|end)-overhang-/g)||[]).length),'Stair sections: '+stairs.length,'Flat handrail end extensions: start '+flat.startExt.toFixed(2)+' mm, end '+flat.endExt.toFixed(2)+' mm','Base stair fold scores: '+(stairs.length?'added at slope transitions':'none')].concat(stairs.length?stairs:['No stair sections; all rise values are 0.']).join('\n'); return flat.svg;}
 function currentSettingsObject(){
   var o=options();

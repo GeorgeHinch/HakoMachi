@@ -65,6 +65,48 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function mmToPx(mm){return state.pxPerMm? mm*state.pxPerMm : mm;}
   function pxToMm(px){return state.pxPerMm? px/state.pxPerMm : px;}
   function modelKnownMm(){let v=parseFloat($('knownValue').value)||0; const unit=$('knownUnit').value; const sc=parseFloat($('modelScale').value)||150; if(unit==='mm'||unit==='model_mm') return v; if(unit==='in'||unit==='model_in') return v*25.4; if(unit==='source_mm'||unit==='real_mm') return v/sc; if(unit==='source_m'||unit==='real_m') return v*1000/sc; if(unit==='source_ft'||unit==='real_ft') return v*304.8/sc; return v;}
+  function significantDecimalPlaces(text){
+    const raw=String(text ?? '').trim();
+    const match=raw.match(/^-?\d*\.([0-9]+)/);
+    return match ? match[1].replace(/0+$/,'').length : 0;
+  }
+  function formatAdaptiveStepValue(value, decimals){
+    const factor=10**Math.max(0,decimals);
+    const rounded=Math.round((Number(value)||0)*factor)/factor;
+    return decimals>0 ? rounded.toFixed(decimals) : String(Math.round(rounded));
+  }
+  function adaptiveSteppedNumber(rawValue,direction,largeStep=false){
+    const current=Number(rawValue);
+    const value=Number.isFinite(current) ? current : 0;
+    const decimals=significantDecimalPlaces(rawValue);
+    const baseStep=10**(-decimals);
+    if(!largeStep) return {value:value+direction*baseStep, decimals};
+    const coarseStep=baseStep*10;
+    const epsilon=coarseStep*1e-8;
+    const next=direction>0
+      ? (Math.floor((value+epsilon)/coarseStep)+1)*coarseStep
+      : (Math.ceil((value-epsilon)/coarseStep)-1)*coarseStep;
+    return {value:next, decimals:Math.max(0,decimals-1)};
+  }
+  function installAdaptiveDegreeStepping(input){
+    if(!input || input.dataset.adaptiveDegreeStepping) return;
+    input.dataset.adaptiveDegreeStepping='true';
+    const refreshNativeStep=()=>{
+      const decimals=significantDecimalPlaces(input.value);
+      input.step=String(10**(-decimals));
+    };
+    input.addEventListener('focus',refreshNativeStep);
+    input.addEventListener('input',refreshNativeStep);
+    input.addEventListener('keydown',ev=>{
+      if(ev.key!=='ArrowUp' && ev.key!=='ArrowDown') return;
+      ev.preventDefault();
+      const next=adaptiveSteppedNumber(input.value,ev.key==='ArrowUp'?1:-1,ev.shiftKey);
+      input.value=formatAdaptiveStepValue(next.value,next.decimals);
+      refreshNativeStep();
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+    });
+    refreshNativeStep();
+  }
 
   const JP_ROAD_MARKING_STANDARD_ID = 'JP_Order_on_Road_Signs_Road_Lines_and_Road_Surface_Markings_1960';
   const ROAD_MARKING_PRESETS = [
@@ -1128,6 +1170,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function hakoFootprintRotationDeg(b){
     if(!b || !b.hakoConfig || !state.pxPerMm) return Number(b?.rotationDeg)||0;
+    if(b.padType==='rect') return Number(b.rotationDeg)||0;
     const localPolys=hakoBlockPolygonsMm(b.hakoConfig).map(block=>block.poly);
     const localAngle=hakoLongestEdgeAngleDeg(localPolys);
     const siteAngle=hakoLongestEdgeAngleDeg([buildingPoints(b)]);
@@ -2182,21 +2225,25 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     return null;
   }
-  function site3DGeneratorModelRotationY(b,cfg){
+  function site3DGeneratorModelBaseRotationDeg(b,cfg){
     const explicit=site3DExplicitModelRotationDeg(b,cfg);
-    if(Number.isFinite(explicit)) return -explicit*Math.PI/180;
+    if(Number.isFinite(explicit)) return explicit;
     const hakoFootprintAngle=hakoFootprintRotationDeg(b);
-    if(b?.hakoConfig && Number.isFinite(hakoFootprintAngle)) return -hakoFootprintAngle*Math.PI/180;
+    if(b?.hakoConfig && b?.padType!=='rect' && Number.isFinite(hakoFootprintAngle)) return hakoFootprintAngle;
     if(b?.padType==='polygon'){
       const edgeAngle=site3DLongestFootprintEdgeAngleDeg(b);
       const modelW=positiveNumber(cfg?.width,cfg?.widthMm,cfg?.dimensions?.width,cfg?.dimensions?.widthMm);
       const modelD=positiveNumber(cfg?.depth,cfg?.depthMm,cfg?.dimensions?.depth,cfg?.dimensions?.depthMm);
       if(Number.isFinite(edgeAngle) && modelW && modelD){
-        const widthAxisAngle=site3DAlignAxisAngleDeg(modelD>modelW*1.05 ? edgeAngle+90 : edgeAngle, b?.rotationDeg);
-        return -widthAxisAngle*Math.PI/180;
+        return site3DAlignAxisAngleDeg(modelD>modelW*1.05 ? edgeAngle+90 : edgeAngle, 0);
       }
     }
-    return site3DPlannerRotationY(b);
+    return 0;
+  }
+  function site3DGeneratorModelRotationY(b,cfg){
+    const plannerDeg=Number(b?.rotationDeg)||0;
+    const baseDeg=site3DGeneratorModelBaseRotationDeg(b,cfg);
+    return -(plannerDeg+baseDeg)*Math.PI/180;
   }
   function site3DGeneratorModelOriginOffset(b,cfg){
     const origin=b?.hakoGeometryOriginMm;
@@ -3480,6 +3527,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       <div class="buttons" style="margin-top:8px"><button id="deleteRoadFeature" class="danger">Delete Item</button></div>`;
       const bindRF=(id,fn)=>{const el=$(id); if(el) el.oninput=()=>{fn(el.type==='checkbox'?el.checked:el.value); normalizeRoadFeature(roadFeature); syncAll();};};
       bindRF('rfName',v=>roadFeature.name=v); bindRF('rfRot',v=>roadFeature.rotationDeg=parseFloat(v)||0); bindRF('rfLocked',v=>roadFeature.locked=!!v); bindRF('rfColor',v=>roadFeature.color=v);
+      installAdaptiveDegreeStepping($('rfRot'));
       bindRF('rfDia',v=>{roadFeature.diameterMm=parseFloat(v)||0; roadFeature.diameterPx=state.pxPerMm?mmToPx(roadFeature.diameterMm):roadFeature.diameterPx;});
       bindRF('rfW',v=>{roadFeature.widthMm=parseFloat(v)||0; roadFeature.widthPx=state.pxPerMm?mmToPx(roadFeature.widthMm):roadFeature.widthPx;});
       bindRF('rfD',v=>{roadFeature.depthMm=parseFloat(v)||0; roadFeature.depthPx=state.pxPerMm?mmToPx(roadFeature.depthMm):roadFeature.depthPx;});
@@ -3539,6 +3587,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       <div class="buttons" style="margin-top:8px"><button id="dupSl">Duplicate</button><button id="lockSl">${light.locked?'Unlock':'Lock'}</button><button id="delSl" class="danger">Delete</button></div>`;
       const bind=(id,fn)=>{const e=$(id); if(e)e.oninput=()=>{fn(e.type==='checkbox'?e.checked:e.value); syncAll();};};
       bind('slName',v=>light.name=v); bind('slColor',v=>light.color=v); bind('slHeight',v=>light.heightMm=parseFloat(v)||0); bind('slArm',v=>light.armLengthMm=parseFloat(v)||0); bind('slRot',v=>light.rotationDeg=parseFloat(v)||0); bind('slRadius',v=>light.lightRadiusMm=parseFloat(v)||0); bind('slNotes',v=>light.notes=v);
+      installAdaptiveDegreeStepping($('slRot'));
       const slType=$('slType'); if(slType){slType.value=light.type; slType.onchange=e=>{light.type=e.target.value; syncAll();};}
       const slMount=$('slMount'); if(slMount){slMount.value=light.anchor.mountMode; slMount.onchange=e=>{light.anchor.mountMode=e.target.value; syncAll();};}
       const slSide=$('slSide'); if(slSide){slSide.value=light.anchor.sidewalkSide; slSide.onchange=e=>{light.anchor.sidewalkSide=e.target.value; syncAll();};}
@@ -3562,6 +3611,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     <div class="buttons" style="margin-top:8px"><button id="copyB">Copy</button><button id="pasteB" ${state.footprintClipboard?'':'disabled'}>Paste</button><button id="dupB">Duplicate</button><button id="hideB">${b.hidden?'Show':'Hide'}</button><button id="lockB">${b.locked?'Unlock':'Lock'}</button>${b.padType==='rect'?'<button id="polyB">Convert to Polygon</button>':''}<button id="delB" class="danger">Delete</button></div>`;
     const bind=(id,fn)=>{const e=$(id); if(e)e.oninput=()=>{fn(e.value); syncSelectedBuildingLive(b);};};
     bind('selName',v=>{b.name=v; renameAttachedHakoFileForBuilding(b);}); bind('selCat',v=>b.category=v); bind('selColor',v=>b.color=v); bind('selRot',v=>b.rotationDeg=parseFloat(v)||0); bind('sel3dHeight',v=>b.plannerHeightMm=Math.max(.1,parseFloat(v)||.1)); bind('sel3dElevation',v=>b.baseElevationMm=parseFloat(v)||0); bind('selNotes',v=>b.notes=v);
+    installAdaptiveDegreeStepping($('selRot'));
     const stateSel=$('selState'); if(stateSel){stateSel.value=b.state||'notStarted'; stateSel.onchange=e=>{b.state=e.target.value; syncAll();};}
     bind('selW',v=>{if(state.pxPerMm)b.widthPx=mmToPx(Math.max(.1,parseFloat(v)||1));}); bind('selD',v=>{if(state.pxPerMm)b.depthPx=mmToPx(Math.max(.1,parseFloat(v)||1));});
     const hakoInput=$('hakoFileInput');

@@ -1091,6 +1091,13 @@ canvas {
   align-self: center;
 }
 
+.githubBuildingActions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+
 .mobileOnly { display: none !important; }
 .overflowOnly { display: none; }
 .hint { display: none !important; }

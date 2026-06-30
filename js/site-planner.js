@@ -1897,6 +1897,116 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return b;
   }
 
+  function githubRecordConfigForPlacement(record){
+    const footprint=record?.footprint||{};
+    const cfg=structuredClone(record?.hakoConfig || record?.config || record?.hakoSeed || {});
+    if(footprint && typeof footprint==='object' && !cfg.footprint) cfg.footprint=structuredClone(footprint);
+    return cfg && typeof cfg==='object' ? cfg : {};
+  }
+
+  function githubRecordPlacementShape(record){
+    const footprint=record?.footprint||{};
+    const cfg=githubRecordConfigForPlacement(record);
+    let derived=deriveFootprintFromHakoConfig(cfg);
+    if(!derived){
+      const width=firstNum(footprint.widthMm,footprint.width,cfg.widthMm,cfg.width,cfg.dimensions?.widthMm,cfg.dimensions?.width);
+      const depth=firstNum(footprint.depthMm,footprint.depth,cfg.depthMm,cfg.depth,cfg.dimensions?.depthMm,cfg.dimensions?.depth);
+      if(width && depth) derived={padType:'rect',widthMm:width,depthMm:depth,source:'library footprint'};
+    }
+    if(!derived) return null;
+    const points=Array.isArray(derived.pointsMm) ? derived.pointsMm : null;
+    const origin=points?.length ? {
+      x:(Math.min(...points.map(p=>p.x))+Math.max(...points.map(p=>p.x)))/2,
+      y:(Math.min(...points.map(p=>p.y))+Math.max(...points.map(p=>p.y)))/2
+    } : {
+      x:(derived.widthMm||firstNum(footprint.widthMm,footprint.width,cfg.widthMm,cfg.width)||20)/2,
+      y:(derived.depthMm||firstNum(footprint.depthMm,footprint.depth,cfg.depthMm,cfg.depth)||20)/2
+    };
+    return {derived,cfg,origin};
+  }
+
+  function githubPlacementPreviewPolygon(placement, center){
+    if(!placement || !center) return [];
+    const d=placement.derived||{};
+    const origin=placement.origin||{x:0,y:0};
+    if(d.padType==='polygon' && Array.isArray(d.pointsMm) && d.pointsMm.length>=3){
+      return d.pointsMm.map(p=>({x:center.x+mmToPx(p.x-origin.x),y:center.y+mmToPx(p.y-origin.y)}));
+    }
+    const w=mmToPx(d.widthMm||20), h=mmToPx(d.depthMm||20);
+    return [{x:center.x-w/2,y:center.y-h/2},{x:center.x+w/2,y:center.y-h/2},{x:center.x+w/2,y:center.y+h/2},{x:center.x-w/2,y:center.y+h/2}];
+  }
+
+  function armGithubBuildingPlacement(record){
+    const shape=githubRecordPlacementShape(record);
+    if(!shape){ alert('This library record does not include enough footprint data to place it.'); return; }
+    state.githubBuildingPlacement={
+      record:structuredClone(record),
+      derived:shape.derived,
+      cfg:shape.cfg,
+      origin:shape.origin,
+      previewPoint:visibleWorldCenter()
+    };
+    state.tool='select';
+    closeGithubModal();
+    $('statusHint').textContent=`Click the site plan to place ${record?.name||record?.id||'building footprint'}. Press Escape to cancel.`;
+    draw();
+  }
+
+  function cancelGithubBuildingPlacement(){
+    if(!state.githubBuildingPlacement) return false;
+    state.githubBuildingPlacement=null;
+    $('statusHint').textContent='Building placement canceled.';
+    draw();
+    return true;
+  }
+
+  function placeGithubBuildingAt(center){
+    const placement=state.githubBuildingPlacement;
+    if(!placement) return false;
+    const record=placement.record||{};
+    const path=record.path||record.paths?.hako||'';
+    const d=placement.derived||{};
+    const cfg=placement.cfg && Object.keys(placement.cfg).length ? structuredClone(placement.cfg) : null;
+    const b={
+      id:uid('bldg'),
+      name:record.name||record.id||'Library Building',
+      category:(record.tags&&record.tags[0])||record.category||cfg?.buildingType||'library',
+      color:colors[state.buildings.length%colors.length],
+      hidden:false,
+      locked:false,
+      state:'notStarted',
+      notes:`Placed from GitHub building footprint library${path?`: ${path}`:''}.`,
+      hakoConfig:cfg,
+      hakoSeed:record.hakoSeed||cfg?.hakoSeed||null,
+      hakoFile:null,
+      hakoFileId:path||null,
+      githubLibraryRecord:{id:record.id||null,path:path||null,placedAt:new Date().toISOString()}
+    };
+    if(d.trimLinesMm?.length){ b.hakoTrimLinesMm=d.trimLinesMm; b.showHakoTrimLines=true; }
+    if(d.padType==='polygon' && Array.isArray(d.pointsMm) && d.pointsMm.length>=3){
+      b.padType='polygon';
+      b.pointsPx=githubPlacementPreviewPolygon(placement, center);
+      b.rotationDeg=0;
+      b.hakoGeometryOriginMm=placement.origin;
+    } else {
+      b.padType='rect';
+      b.x=center.x;
+      b.y=center.y;
+      b.widthPx=mmToPx(d.widthMm||20);
+      b.depthPx=mmToPx(d.depthMm||20);
+      b.rotationDeg=0;
+      b.hakoGeometryOriginMm={x:(d.widthMm||20)/2,y:(d.depthMm||20)/2};
+    }
+    normalizeBuilding(b);
+    syncBuildingMetrics(b);
+    state.buildings.push(b);
+    setBuildingSelection([b.id], b.id);
+    state.githubBuildingPlacement=null;
+    syncAll();
+    $('statusHint').textContent=`Placed ${b.name}.`;
+    return true;
+  }
+
   function importHakoAsBuilding(file){
     if(!file) return;
     const reader=new FileReader();
@@ -3373,6 +3483,25 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     ctx.restore();
   }
   function drawHoverPreview(){
+    const placement=state.githubBuildingPlacement;
+    if(placement?.previewPoint){
+      const poly=githubPlacementPreviewPolygon(placement, placement.previewPoint);
+      if(poly.length>=3){
+        ctx.save();
+        ctx.strokeStyle='rgba(15,118,110,.95)';
+        ctx.fillStyle='rgba(15,118,110,.14)';
+        ctx.lineWidth=2/state.view.scale;
+        ctx.setLineDash([7/state.view.scale,5/state.view.scale]);
+        ctx.beginPath();
+        poly.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.setLineDash([]);
+        drawLabel(`Place ${placement.record?.name||placement.record?.id||'building'}`,{x:placement.previewPoint.x+10/state.view.scale,y:placement.previewPoint.y-10/state.view.scale});
+        ctx.restore();
+      }
+    }
     const hp=state.hoverPreview; if(!hp) return;
     ctx.save();
     ctx.strokeStyle='rgba(15,118,110,.85)'; ctx.fillStyle='rgba(15,118,110,.16)'; ctx.lineWidth=1.5/state.view.scale;
@@ -4376,6 +4505,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     if(e.pointerType==='touch' && startPinchIfNeeded()) return;
     const p=screenToWorld(e); const b=selected();
+    if(state.githubBuildingPlacement && isGeometryPointer(e)){ placeGithubBuildingAt(p); return; }
     if(state.tool==='pan' || !isGeometryPointer(e)){startPanFromPointer(e); return;}
     if(state.tool==='road' && (state.roadMode==='manhole' || state.roadMode==='marking')){
       const featureHit=hitRoadFeature(p,e.pointerType);
@@ -4524,6 +4654,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const p=screenToWorld(e); $('statusMouse').textContent=state.pxPerMm?`Pointer: ${fmt(pxToMm(p.x))}, ${fmt(pxToMm(p.y))} mm (${e.pointerType})`:`Pointer: ${fmt(p.x)}, ${fmt(p.y)} px (${e.pointerType})`;
     if(state.drag?.type==='pinch'){e.preventDefault(); updatePinch(); draw(); return;}
     if(!state.drag){
+      if(state.githubBuildingPlacement){
+        state.githubBuildingPlacement.previewPoint=p;
+        state.hoverPreview=null;
+        draw();
+        return;
+      }
       const hoverL=hitStreetlight(p,e.pointerType);
       state.hoverStreetlightId=hoverL ? hoverL.id : null;
       const hoverSelectedRoad=(state.selectedRoadId && !hoverL) ? selectedRoad() : null;
@@ -4723,6 +4859,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(e.key==='Backspace'&&state.tool==='benchwork'&&state.benchworkDraft.length){state.benchworkDraft.pop(); draw(); return;}
     if(e.key==='Escape'){
       hideContextMenu();
+      if(cancelGithubBuildingPlacement()){ e.preventDefault(); return; }
       state.hoverPreview=null;
       state.selectedAnnotationId=null;
       state.selectedFabricId=null;
@@ -5335,13 +5472,21 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         const info=document.createElement('div');
         info.className='githubBuildingInfo';
         info.innerHTML=`<b>${escapeHtml(record.name||record.id)}</b><small>${escapeHtml(path)}</small><small>${Number(footprint.widthMm||0).toFixed(1)} x ${Number(footprint.depthMm||0).toFixed(1)} mm</small>`;
+        const actions=document.createElement('div');
+        actions.className='githubBuildingActions';
+        const placeButton=document.createElement('button');
+        placeButton.type='button';
+        placeButton.textContent='Place';
+        placeButton.onclick=()=>armGithubBuildingPlacement(record);
         const button=document.createElement('button');
         button.type='button';
         button.textContent='Copy path';
         button.onclick=()=>prompt('Building .hako path', path);
+        actions.appendChild(placeButton);
+        actions.appendChild(button);
         row.appendChild(preview);
         row.appendChild(info);
-        row.appendChild(button);
+        row.appendChild(actions);
         body.appendChild(row);
         renderGithubBuildingStill(preview, githubBuildingPreviewConfig(record), record.name||record.id||'3D building preview');
         upgradeGithubBuildingPreviewFromHako(settings, record, preview);

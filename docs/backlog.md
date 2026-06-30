@@ -165,7 +165,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-004: Place buildings from the GitHub footprint selector
 
-- Status: Proposed
+- Status: Done
 - Group: Site planner
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/8

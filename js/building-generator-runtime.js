@@ -28220,10 +28220,28 @@ function normalizeHakoMachiSitePlanSeedToConfig(input, warnings) {
              : (input.detail && typeof input.detail === 'object') ? input.detail
              : input;
   const b = findHakoSiteBuildingSeed(root) || root;
+  const sitePlanSeedSource = {
+    generator: input.generator || input.app || root.generator || root.app || 'HakoMachi Site Planner',
+    fabricType: b.fabricType || b.fabric || root.fabricType || root.fabric || input.fabricType || null,
+    sourceId: b.id || b.buildingId || b.lotId || root.buildingId || null,
+  };
+  const sitePlannerHandoff = b.sitePlannerHandoff || b.hakomachiHandoff || root.sitePlannerHandoff || root.hakomachiHandoff || {
+    schema: 'hakomachi.building-handoff',
+    schemaVersion: 1,
+    sitePlan: {
+      name: root.projectName || root.name || null,
+    },
+    building: {
+      plannerId: sitePlanSeedSource.sourceId,
+      name: b.name || b.buildingName || root.name || null,
+      rotationDeg: Number(b.rotationDeg) || 0,
+      hakoFileId: b.hakoFileId || null,
+    },
+  };
   const embeddedConfig = b.hakoConfig || b.config || b.buildingConfig || b.hako || b.generatorConfig || b.hakoMachiConfig || b.linkedHakoConfig;
   if (embeddedConfig && typeof embeddedConfig === 'object' && (embeddedConfig.buildingType || embeddedConfig.width || embeddedConfig.depth)) {
     warnings.push('Imported embedded building config from HakoMachi site-plan seed.');
-    const mergedEmbedded = { ...embeddedConfig, sitePlanSeedSource: root.fabricType || input.fabricType || true };
+    const mergedEmbedded = { ...embeddedConfig, sitePlanSeedSource, hakomachiHandoff: sitePlannerHandoff };
     if (b.name && !mergedEmbedded.buildingName) mergedEmbedded.buildingName = b.name;
     if (b.widthMm != null && !mergedEmbedded.width) mergedEmbedded.width = asNumOrNull(b.widthMm);
     if (b.depthMm != null && !mergedEmbedded.depth) mergedEmbedded.depth = asNumOrNull(b.depthMm);
@@ -28276,11 +28294,8 @@ function normalizeHakoMachiSitePlanSeedToConfig(input, warnings) {
     windowStyle: validKeyOrFallback(b.windowStyle || win.style || win.windowStyle, WINDOW_STYLES, defaults.windowStyle),
     windowDensity: ['none','sparse','normal','dense'].includes(b.windowDensity || win.density) ? (b.windowDensity || win.density) : defaults.windowDensity,
     doorStyle: validKeyOrFallback(b.doorStyle || doors.style || doors.doorStyle, DOOR_STYLES, defaults.doorStyle),
-    sitePlanSeedSource: {
-      generator: input.generator || input.app || 'HakoMachi Site Planner',
-      fabricType,
-      sourceId: b.id || b.buildingId || b.lotId || null,
-    },
+    sitePlanSeedSource: { ...sitePlanSeedSource, fabricType },
+    hakomachiHandoff: sitePlannerHandoff,
   };
 
   // Manual features can be passed through if a site planner already produced

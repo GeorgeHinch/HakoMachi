@@ -26,6 +26,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   const state = createInitialState();
   const GITHUB_DEFAULT_LIBRARY = githubData.DEFAULT_LIBRARY_PATH;
   const GITHUB_DEFAULT_SITE_DIR = githubData.DEFAULT_SITE_PLANS_DIR;
+  const SITE_PLANNER_SEED_KEY = 'hakomachiSitePlannerSeed';
+  const SITE_PLANNER_BUILDING_UPDATE_KEY = 'hakomachiSitePlannerBuildingUpdate_v1';
   let autosaveTimer = null;
   let autosaveSuppressed = false;
   let renderQueued = false;
@@ -3463,7 +3465,169 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
 
   function updateHandoff(){const b=selected(); $('handoffPreview').textContent=b? JSON.stringify(makeSeed(b),null,2):'';}
-  function makeSeed(b){normalizeBuilding(b); syncBuildingMetrics(b); if(b.hakoSeed){const seed=structuredClone(b.hakoSeed); seed.buildingId=b.id; seed.name=b.name; seed.state=b.state||'notStarted'; seed.hakoFileId=b.hakoFileId||null; seed.units='mm'; seed.hakoUnits='model_mm'; return seed;} const seed={source:'HakoMachi Site Planner',version:1,buildingId:b.id,name:b.name,padType:b.padType,category:b.category,state:b.state||'notStarted',hakoFileId:b.hakoFileId||null,rotationDeg:b.rotationDeg||0,notes:b.notes||'',units:'mm',hakoUnits:'model_mm'}; if(b.padType==='rect'){Object.assign(seed,{widthMm:b.widthMm,depthMm:b.depthMm,footprint:{type:'rect',widthMm:b.widthMm,depthMm:b.depthMm,rotationDeg:b.rotationDeg||0}});} else {const xs=b.pointsMm.map(p=>p.x),ys=b.pointsMm.map(p=>p.y); Object.assign(seed,{footprint:{type:'polygon',pointsMm:b.pointsMm},boundingRectMm:{widthMm:Math.max(...xs)-Math.min(...xs),depthMm:Math.max(...ys)-Math.min(...ys)},warning:'Polygon footprints should be refined with HakoMachi shape editor/cut lines if arbitrary polygon cores are not yet supported.'});} seed.fabricHints=b.fabricHints||undefined; seed.styleHints=b.styleHints||undefined; seed.linkedHakoConfig=b.hakoConfig||null; return seed;}
+  function plannerHandoffForBuilding(b){
+    return {
+      schema:'hakomachi.building-handoff',
+      schemaVersion:1,
+      mode:'planner-to-generator',
+      sitePlan:{
+        name:state.projectName || 'hakomachi-site',
+        autosaveKey:AUTOSAVE_KEY,
+      },
+      building:{
+        plannerId:b.id,
+        name:b.name || null,
+        rotationDeg:Number(b.rotationDeg)||0,
+        hakoFileId:b.hakoFileId||null,
+        placementLocked:true,
+      },
+      openedAt:new Date().toISOString(),
+    };
+  }
+  function attachPlannerHandoff(seed,b){
+    const handoff=plannerHandoffForBuilding(b);
+    seed.sitePlannerHandoff=handoff;
+    seed.hakomachiHandoff=handoff;
+    seed.linkedHakoConfig=b.hakoConfig||b.hakoFile?.parsedConfig||null;
+    return seed;
+  }
+  function makeSeed(b){
+    normalizeBuilding(b);
+    syncBuildingMetrics(b);
+    if(b.hakoSeed){
+      const seed=structuredClone(b.hakoSeed);
+      seed.buildingId=b.id;
+      seed.name=b.name;
+      seed.state=b.state||'notStarted';
+      seed.hakoFileId=b.hakoFileId||null;
+      seed.units='mm';
+      seed.hakoUnits='model_mm';
+      return attachPlannerHandoff(seed,b);
+    }
+    const seed={
+      source:'HakoMachi Site Planner',
+      version:1,
+      projectName:state.projectName || 'hakomachi-site',
+      buildingId:b.id,
+      name:b.name,
+      padType:b.padType,
+      category:b.category,
+      state:b.state||'notStarted',
+      hakoFileId:b.hakoFileId||null,
+      rotationDeg:b.rotationDeg||0,
+      notes:b.notes||'',
+      units:'mm',
+      hakoUnits:'model_mm',
+    };
+    if(b.padType==='rect'){
+      Object.assign(seed,{widthMm:b.widthMm,depthMm:b.depthMm,footprint:{type:'rect',widthMm:b.widthMm,depthMm:b.depthMm,rotationDeg:b.rotationDeg||0}});
+    } else {
+      const xs=b.pointsMm.map(p=>p.x),ys=b.pointsMm.map(p=>p.y);
+      Object.assign(seed,{footprint:{type:'polygon',pointsMm:b.pointsMm},boundingRectMm:{widthMm:Math.max(...xs)-Math.min(...xs),depthMm:Math.max(...ys)-Math.min(...ys)},warning:'Polygon footprints should be refined with HakoMachi shape editor/cut lines if arbitrary polygon cores are not yet supported.'});
+    }
+    seed.fabricHints=b.fabricHints||undefined;
+    seed.styleHints=b.styleHints||undefined;
+    return attachPlannerHandoff(seed,b);
+  }
+  function sitePlannerBuildingUpdatePayload(data){
+    if(!data || typeof data!=='object') return null;
+    const type=String(data.type||data.action||data.event||'').toLowerCase();
+    const schema=String(data.schema||'').toLowerCase();
+    if(type.includes('site-planner-building-update') || schema==='hakomachi.building-update') return data;
+    if(data.payload && typeof data.payload==='object') return sitePlannerBuildingUpdatePayload(data.payload);
+    if(data.data && typeof data.data==='object') return sitePlannerBuildingUpdatePayload(data.data);
+    return null;
+  }
+  function pointsMmToPlacedPx(pointsMm, center, rotationDeg){
+    if(!Array.isArray(pointsMm) || pointsMm.length<3) return null;
+    const xs=pointsMm.map(p=>Number(p.x)), ys=pointsMm.map(p=>Number(p.y));
+    if(xs.some(v=>!Number.isFinite(v)) || ys.some(v=>!Number.isFinite(v))) return null;
+    const cx=(Math.min(...xs)+Math.max(...xs))/2;
+    const cy=(Math.min(...ys)+Math.max(...ys))/2;
+    const a=rad(rotationDeg||0), ca=Math.cos(a), sa=Math.sin(a);
+    return pointsMm.map(p=>{
+      const x=mmToPx(Number(p.x)-cx), y=mmToPx(Number(p.y)-cy);
+      return {x:center.x+x*ca-y*sa,y:center.y+x*sa+y*ca};
+    });
+  }
+  function applyHakoConfigToPlannerFootprint(b,cfg){
+    const derived=deriveFootprintFromHakoConfig(cfg||{});
+    if(!derived) return;
+    const center=buildingCenter(b);
+    if(derived.trimLinesMm && derived.trimLinesMm.length){
+      b.hakoTrimLinesMm=derived.trimLinesMm;
+      b.showHakoTrimLines=true;
+    }
+    if(derived.padType==='rect' && derived.widthMm && derived.depthMm){
+      b.padType='rect';
+      b.x=center.x;
+      b.y=center.y;
+      b.widthPx=mmToPx(derived.widthMm);
+      b.depthPx=mmToPx(derived.depthMm);
+      b.hakoGeometryOriginMm={x:derived.widthMm/2,y:derived.depthMm/2};
+      delete b.pointsPx;
+      delete b.pointsMm;
+    } else if(derived.padType==='polygon' && derived.pointsMm){
+      const pointsPx=pointsMmToPlacedPx(derived.pointsMm,center,b.rotationDeg||0);
+      if(pointsPx){
+        b.padType='polygon';
+        b.pointsPx=pointsPx;
+        b.hakoGeometryOriginMm=null;
+        delete b.widthPx;
+        delete b.depthPx;
+      }
+    }
+  }
+  function applySitePlannerBuildingUpdate(raw, opts={}){
+    const payload=sitePlannerBuildingUpdatePayload(raw);
+    if(!payload) return false;
+    const cfg=payload.hakoConfig || payload.config || payload.buildingConfig || payload.hako;
+    if(!cfg || typeof cfg!=='object') return false;
+    const targetId=payload.targetPlannerBuildingId || payload.buildingId || payload.plannerBuildingId || cfg.hakomachiHandoff?.building?.plannerId || cfg.sitePlanSeedSource?.sourceId;
+    const b=state.buildings.find(item=>item.id===targetId) || (opts.allowSelectedFallback ? selected() : null);
+    if(!b) return false;
+    const updatedAt=payload.updatedAt || new Date().toISOString();
+    const name=payload.buildingName || cfg.buildingName || b.name || 'building';
+    const fileName=`${slug(name)}.hako`;
+    const dataText=JSON.stringify(cfg,null,2);
+    b.hakoConfig=structuredClone(cfg);
+    b.hakoFile={
+      fileName,
+      mimeType:'application/json',
+      sizeBytes:dataText.length,
+      importedAt:updatedAt,
+      dataText,
+      parsedConfig:structuredClone(cfg),
+      source:'building-generator-push',
+    };
+    b.hakoFileId=fileName;
+    b.hakomachiHandoff=payload.sitePlannerHandoff || payload.hakomachiHandoff || cfg.hakomachiHandoff || null;
+    if(b.state==='notStarted') b.state='inProgress';
+    applyHakoConfigToPlannerFootprint(b,cfg);
+    normalizeBuilding(b);
+    syncBuildingMetrics(b);
+    setBuildingSelection([b.id], b.id);
+    syncAll();
+    $('statusHint').textContent=`Updated ${b.name||'building'} from Building Generator.`;
+    return true;
+  }
+  function processQueuedSitePlannerBuildingUpdate(){
+    let raw=null;
+    try{ raw=localStorage.getItem(SITE_PLANNER_BUILDING_UPDATE_KEY) || sessionStorage.getItem(SITE_PLANNER_BUILDING_UPDATE_KEY); }catch(_err){}
+    if(!raw) return false;
+    try{
+      const payload=JSON.parse(raw);
+      const ok=applySitePlannerBuildingUpdate(payload);
+      if(ok){
+        localStorage.removeItem(SITE_PLANNER_BUILDING_UPDATE_KEY);
+        sessionStorage.removeItem(SITE_PLANNER_BUILDING_UPDATE_KEY);
+      }
+      return ok;
+    }catch(err){
+      console.warn('[HakoMachi Site Planner] Could not apply queued building update:', err);
+      return false;
+    }
+  }
   function isNearSquare(w,h){const m=Math.max(w,h); return m>0 && Math.abs(w-h)/m<0.06;}
   function signedSquareCorner(start,end){const dx=end.x-start.x, dy=end.y-start.y; const side=Math.max(Math.abs(dx),Math.abs(dy),4); return {x:start.x+(dx<0?-side:side), y:start.y+(dy<0?-side:side)};}
   function addRectFromDrag(start,end,shift){
@@ -4638,8 +4802,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const b=building || selected();
     if(!b) return alert('Select a building first.');
     const seed=makeSeed(b);
-    localStorage.setItem('hakomachiSitePlannerSeed',JSON.stringify(seed));
-    window.open('building-generator.html#sitePlannerSeed','_blank');
+    localStorage.setItem(SITE_PLANNER_SEED_KEY,JSON.stringify(seed));
+    sessionStorage.setItem(SITE_PLANNER_SEED_KEY,JSON.stringify(seed));
+    const child=window.open('building-generator.html#sitePlannerSeed','_blank');
+    const targetOrigin=window.location.origin && window.location.origin !== 'null' ? window.location.origin : '*';
+    setTimeout(()=>{ try{ child?.postMessage?.({type:'hakomachi:open-building-seed',buildingSeed:seed}, targetOrigin); }catch(_err){} }, 650);
   }
   async function copyHakoSeedForBuilding(building){
     const b=building || selected();
@@ -4878,6 +5045,28 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
   });
 
+  window.addEventListener('message', e=>{
+    if(e.origin && e.origin !== window.location.origin) return;
+    if(applySitePlannerBuildingUpdate(e.data)){
+      try{
+        localStorage.removeItem(SITE_PLANNER_BUILDING_UPDATE_KEY);
+        sessionStorage.removeItem(SITE_PLANNER_BUILDING_UPDATE_KEY);
+      }catch(_err){}
+    }
+  });
+  window.addEventListener('storage', e=>{
+    if(e.key===SITE_PLANNER_BUILDING_UPDATE_KEY && e.newValue){
+      try{
+        const payload=JSON.parse(e.newValue);
+        if(applySitePlannerBuildingUpdate(payload)){
+          localStorage.removeItem(SITE_PLANNER_BUILDING_UPDATE_KEY);
+        }
+      }catch(err){
+        console.warn('[HakoMachi Site Planner] Could not apply building update from storage:', err);
+      }
+    }
+  });
+
   // HakoMachi animated logo: replay the SMIL build-on animation on hover,
   // matching the main HakoMachi editor behavior.
   const logoSvg = document.querySelector('svg.app-logo');
@@ -4898,4 +5087,5 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   state.autosaveReady=true;
   if(!restored){syncAll({skipDirty:true}); fitImage(); resetHistory('initial'); writeAutosave();}
   else { updateHistoryButtons(); }
+  setTimeout(processQueuedSitePlannerBuildingUpdate, 0);
 })();

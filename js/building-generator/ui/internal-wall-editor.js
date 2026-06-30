@@ -3325,8 +3325,6 @@ export function regenerate() {
   let warning = '';
   try {
     result = generateBuilding(CONFIG);
-    const layoutReferencePart = generateBuildingLayoutReferencePart(CONFIG, result.plan);
-    if (layoutReferencePart) result.parts.push(layoutReferencePart);
     lastPlan = result.plan;
     lastResult = result;
     renderMaterialsForm();   // keep cladding-style → material list current

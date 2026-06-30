@@ -380,7 +380,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-025: Fix duplicate site/layout plans in Building Generator printed paper output
 
-- Status: Proposed
+- Status: Done
 - Group: Export and fabrication
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/29

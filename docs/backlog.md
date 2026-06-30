@@ -505,12 +505,14 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-038: Define shared SVG fabrication color taxonomy
 
-- Status: Ready
+- Status: Done
 - Group: Export and fabrication
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/42
 - Goal: Create one documented source of truth for SVG fabrication operation colors so every generator can refer to the same meanings before export paths are recolored.
 - Notes: Child of HM-BACKLOG-036. The convention should be blue for engraves/scores, red for retained through-cuts, and green for scrap/waste through-cuts.
+  - Implemented in `codex/backlog-overnight`: added `docs/svg-fabrication-colors.md` plus importable constants/helpers in `js/shared/svg-fabrication-colors.js`; utilities can reach the constants through `js/utilities/shared.js`.
+  - The taxonomy defines exact operation names, exact colors, class names, data-operation guidance, and migration rules for retained versus scrap cuts without changing generator geometry.
 - Acceptance Criteria:
   - A docs page or shared module documents the three operations and exact colors.
   - Names clearly distinguish retained cut geometry from scrap/waste cut geometry.

@@ -7,7 +7,7 @@ import { installThreeRenderCanvas } from '../../shared/browser-utils.js';
 import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=shared-building-preview-26';
 import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, layoutCutsActive, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=shared-building-preview-26';
 
-let threeScene, threeCamera, threeRenderer, threeControls, buildingMesh;
+let threeScene, threeCamera, threeRenderer, threeControls, buildingMesh, threePreviewGrid;
 export let threePreviewConfig = null;
 export let threePreviewUseStlGeometry = false;
 export let threePreviewRenderRequested = true;
@@ -119,8 +119,8 @@ export function initThreePreview() {
   dir.position.set(100, 200, 100);
   threeScene.add(dir);
 
-  const grid = new THREE.GridHelper(300, 30);
-  threeScene.add(grid);
+  threePreviewGrid = new THREE.GridHelper(300, 30);
+  threeScene.add(threePreviewGrid);
 
   publishThreePreviewGlobals();
   requestThreePreviewRender(2);
@@ -3347,6 +3347,7 @@ export function updateThreePreview(cfg) {
       ? 'Designed/material preview with translucent generated-STL overlay.'
       : 'Designed/material preview. Enable overlay to compare preview_3d.stl geometry.';
   }
+  if (threePreviewGrid) threePreviewGrid.visible = !layoutCutsActive(cfg);
 
   const group = buildHakoMachiBuildingPreviewGroup(cfg, {
     includeStlOverlay: threePreviewUseStlGeometry

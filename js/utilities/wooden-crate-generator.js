@@ -69,6 +69,10 @@ function operationForClass(cls) {
     return U.svgRect(x, y, w, h, { class: cls, 'data-operation': operationForClass(cls) }, extra);
   }
 
+  function polygon(points, cls = 'cut', extra = '') {
+    return `<polygon class="${cls}" data-operation="${operationForClass(cls)}" points="${points.map(p => `${p.x.toFixed(3)},${p.y.toFixed(3)}`).join(' ')}" ${extra}/>`;
+  }
+
   function text(x, y, value, cls = 'label', size = 1.8) {
     return U.svgText(x, y, value, {
       class: cls,
@@ -197,7 +201,7 @@ function operationForClass(cls) {
   function bracePanel() {
     return function(p, s) {
       let out = rect(p.x, p.y, p.w, p.h, 'score');
-      out += braceLines(p.x, p.y, p.w, p.h, s, 'cut');
+      out += braceShapes(p.x, p.y, p.w, p.h, s);
       if (s.nails) out += nails(p.x, p.y, p.w, p.h, s);
       return out;
     };
@@ -242,20 +246,37 @@ function operationForClass(cls) {
     return out;
   }
 
-  function braceLines(x, y, w, h, s, cls) {
+  function stripPolygon(x1, y1, x2, y2, width) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len * width / 2;
+    const ny = dx / len * width / 2;
+    return [
+      { x: x1 + nx, y: y1 + ny },
+      { x: x2 + nx, y: y2 + ny },
+      { x: x2 - nx, y: y2 - ny },
+      { x: x1 - nx, y: y1 - ny }
+    ];
+  }
+
+  function braceShapes(x, y, w, h, s) {
     const bw = Math.min(s.braceW, Math.min(w, h) / 3);
     let out = '';
-    const edge = (x1, y1, x2, y2) => {
-      out += line(x1, y1, x2, y2, cls, `stroke-width="${bw.toFixed(3)}" stroke-linecap="square"`);
+    const addRect = (rx, ry, rw, rh) => {
+      out += rect(rx, ry, rw, rh, 'cut');
     };
-    edge(x + bw / 2, y + bw / 2, x + w - bw / 2, y + bw / 2);
-    edge(x + bw / 2, y + h - bw / 2, x + w - bw / 2, y + h - bw / 2);
-    edge(x + bw / 2, y + bw / 2, x + bw / 2, y + h - bw / 2);
-    edge(x + w - bw / 2, y + bw / 2, x + w - bw / 2, y + h - bw / 2);
-    edge(x + w / 2, y + bw / 2, x + w / 2, y + h - bw / 2);
+    const addStrip = (x1, y1, x2, y2) => {
+      out += polygon(stripPolygon(x1, y1, x2, y2, bw), 'cut');
+    };
+    addRect(x, y, w, bw);
+    addRect(x, y + h - bw, w, bw);
+    addRect(x, y, bw, h);
+    addRect(x + w - bw, y, bw, h);
+    addRect(x + w / 2 - bw / 2, y, bw, h);
     if (s.diag !== 'none') {
-      edge(x + bw, y + bw, x + w - bw, y + h - bw);
-      if (s.diag === 'x') edge(x + w - bw, y + bw, x + bw, y + h - bw);
+      addStrip(x + bw, y + bw, x + w - bw, y + h - bw);
+      if (s.diag === 'x') addStrip(x + w - bw, y + bw, x + bw, y + h - bw);
     }
     return out;
   }

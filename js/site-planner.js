@@ -5337,6 +5337,31 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const el=$('githubDataStatus');
     if(el) el.textContent=message||'';
   }
+  function setGithubProgress(step,total,label,detail){
+    const progressEl=$('githubProgress');
+    const fillEl=$('githubProgressFill');
+    const percentEl=$('githubProgressPercent');
+    const labelEl=$('githubProgressLabel');
+    const detailEl=$('githubProgressDetail');
+    const safeTotal=Math.max(1,total||1);
+    const percent=Math.max(0,Math.min(100,Math.round((Math.max(0,step||0)/safeTotal)*100)));
+    if(progressEl) progressEl.setAttribute('aria-valuenow', String(percent));
+    if(fillEl) fillEl.style.width=percent+'%';
+    if(percentEl) percentEl.textContent=percent+'%';
+    if(labelEl) labelEl.textContent=label||'Working...';
+    if(detailEl) detailEl.textContent=detail||'';
+    setGithubStatus(label||'');
+  }
+  function openGithubSaveProgressModal(){
+    openGithubModal('Save site plan to GitHub', `
+      <div id="githubProgress" class="githubProgress" role="progressbar" aria-label="GitHub save progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="githubProgressTrack"><div id="githubProgressFill" class="githubProgressFill"></div></div>
+        <div class="githubProgressSummary"><b id="githubProgressLabel">Preparing save...</b><span id="githubProgressPercent">0%</span></div>
+        <div id="githubProgressDetail" class="githubProgressDetail">Building the site plan payload.</div>
+      </div>
+    `, [{label:'Close', onClick:closeGithubModal}]);
+    setGithubProgress(0,5,'Preparing save...','Building the site plan payload.');
+  }
   function openGithubSettings(){
     const settings=getGithubSettings();
     openGithubModal('GitHub data repository', `
@@ -5368,24 +5393,25 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const defaultName=current?.name || githubProjectName(project);
       const name=prompt('Site plan name for GitHub save', defaultName);
       if(!name) return;
+      openGithubSaveProgressModal();
+      setGithubProgress(1,5,'Preparing project...','Finalizing the site plan name and GitHub file path.');
       const id=(current && current.name===defaultName && current.id) ? current.id : slug(name);
       const path=(current && current.name===defaultName && current.path) ? current.path : githubData.cleanRepoPath(`${settings.sitePlansDir}/${id}.hako-site.json`);
       project.projectName=name;
       project.hakomachiCloud={schema:'hakomachi.cloud-ref', schemaVersion:1, kind:'sitePlan', id, name, path, savedAt:new Date().toISOString()};
-      openGithubModal('Save site plan to GitHub', '<div class="small">Preparing GitHub save...</div>', [{label:'Close', onClick:closeGithubModal}]);
-      setGithubStatus('Saving site plan...');
+      setGithubProgress(2,5,'Writing site plan file...','Saving the current plan JSON to the data repository.');
       await writeGithubFile(settings, path, JSON.stringify(project,null,2)+'\n', `Save HakoMachi site plan: ${name}`);
-      setGithubStatus('Updating library...');
+      setGithubProgress(3,5,'Updating library index...','Loading the shared index so this plan appears in GitHub lists.');
       const library=await loadGithubLibrary(settings);
       upsertGithubSitePlan(library, githubSiteRecord(id, name, path, project));
+      setGithubProgress(4,5,'Writing library index...','Saving the updated site plan list.');
       await writeGithubFile(settings, settings.libraryPath, JSON.stringify(library,null,2)+'\n', `Update HakoMachi site plan library: ${name}`);
       setCurrentGithubSite({id,name,path});
       markManualSaveComplete();
-      setGithubStatus(`Saved ${path}`);
-      $('githubDataBody').innerHTML=`<div class="okText">Saved site plan to GitHub.</div><div class="small">${escapeHtml(settings.repoFullName)}<br>${escapeHtml(path)}</div>`;
+      setGithubProgress(5,5,'Save complete.','Saved '+path);
+      setTimeout(()=>closeGithubModal(), 900);
     }catch(err){
-      setGithubStatus('GitHub save failed: '+(err.message||err));
-      alert('GitHub save failed:\n\n'+(err.message||err));
+      setGithubProgress(0,5,'GitHub save failed.', String(err.message||err));
     }
   }
   async function loadSitePlanFromGithub(record){

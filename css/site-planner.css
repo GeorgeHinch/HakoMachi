@@ -1037,6 +1037,48 @@ canvas {
   margin-top: 6px;
 }
 
+.githubProgress {
+  display: grid;
+  gap: 8px;
+}
+
+.githubProgressTrack {
+  height: 9px;
+  overflow: hidden;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.githubProgressFill {
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width .24s ease;
+}
+
+.githubProgressSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.githubProgressSummary b {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.githubProgressDetail {
+  min-height: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .githubDataRecord {
   border: 1px solid var(--border);
   border-radius: 4px;

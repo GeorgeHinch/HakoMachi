@@ -4,6 +4,7 @@ export const SETTINGS_KEY = 'hakomachi_github_data_settings_v1';
 export const DEFAULT_LIBRARY_PATH = 'footprints/library.json';
 export const DEFAULT_BUILDINGS_DIR = 'buildings';
 export const DEFAULT_SITE_PLANS_DIR = 'site-plans';
+export const DEFAULT_MATERIALS_DIR = 'materials';
 
 export function cleanRepoPath(path) {
   return String(path || '')
@@ -35,6 +36,7 @@ export function getSettings() {
     libraryPath: cleanRepoPath(raw.libraryPath || DEFAULT_LIBRARY_PATH),
     buildingsDir: cleanRepoPath(raw.buildingsDir || DEFAULT_BUILDINGS_DIR),
     sitePlansDir: cleanRepoPath(raw.sitePlansDir || DEFAULT_SITE_PLANS_DIR),
+    materialsDir: cleanRepoPath(raw.materialsDir || DEFAULT_MATERIALS_DIR),
   };
 }
 
@@ -47,6 +49,7 @@ export function saveSettings(next) {
     libraryPath: cleanRepoPath(next.libraryPath || DEFAULT_LIBRARY_PATH),
     buildingsDir: cleanRepoPath(next.buildingsDir || current.buildingsDir || DEFAULT_BUILDINGS_DIR),
     sitePlansDir: cleanRepoPath(next.sitePlansDir || current.sitePlansDir || DEFAULT_SITE_PLANS_DIR),
+    materialsDir: cleanRepoPath(next.materialsDir || current.materialsDir || DEFAULT_MATERIALS_DIR),
   }));
 }
 
@@ -176,6 +179,7 @@ export function defaultLibrary() {
     records: {
       buildings: [],
       sitePlans: [],
+      materialProfiles: [],
     },
   };
 }
@@ -187,6 +191,7 @@ export function normalizeLibrary(library) {
   if (!lib.records || typeof lib.records !== 'object') lib.records = {};
   if (!Array.isArray(lib.records.buildings)) lib.records.buildings = [];
   if (!Array.isArray(lib.records.sitePlans)) lib.records.sitePlans = [];
+  if (!Array.isArray(lib.records.materialProfiles)) lib.records.materialProfiles = [];
   return lib;
 }
 
@@ -221,6 +226,7 @@ const githubData = Object.freeze({
   DEFAULT_LIBRARY_PATH,
   DEFAULT_BUILDINGS_DIR,
   DEFAULT_SITE_PLANS_DIR,
+  DEFAULT_MATERIALS_DIR,
   cleanRepoPath,
   slugify,
   getSettings,

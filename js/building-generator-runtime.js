@@ -5,6 +5,9 @@
 /* ===== js/00-00-prelude.js ===== */
 import * as githubData from './shared/github-data.js';
 
+window.HakoMachiGithubDataShared = githubData;
+globalThis.HakoMachiGithubDataShared = githubData;
+
 /* =====================================================================
    HAKOMACHI PRIVATE GITHUB DATA SAVE
    ---------------------------------------------------------------------
@@ -12226,6 +12229,30 @@ const LASER_SAFETY_EDGE_BUFFER_MM = 6.35; // 1/4 in on every sheet edge
 /* ===== js/00-25-material-registry.js ===== */
 'use strict';
 
+const HAKOMACHI_MATERIAL_PROFILES_KEY = 'hakomachi_material_profiles_v1';
+
+function normaliseHexColour(raw, fallback = '#cccccc') {
+  let hex = String(raw || '').trim();
+  if (!hex) hex = fallback;
+  if (!hex.startsWith('#')) hex = `#${hex}`;
+  if (/^#[0-9a-fA-F]{3}$/.test(hex)) {
+    hex = `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
+  }
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return fallback;
+  return hex.toLowerCase();
+}
+
+function defaultMaterialDefinitions() {
+  return [
+    { id: 'core',     name: '1.5mm Plywood',      thickness: 1.5,  colour: '#c8b89a', maxWidthMm: 304.8, maxHeightMm: 304.8, sizeUnit: 'mm' },
+    { id: 'cladding', name: '0.28mm Basswood',    thickness: 0.28, colour: '#9abcda', maxWidthMm: 304.8, maxHeightMm: 304.8, sizeUnit: 'mm' },
+    { id: 'window',   name: '0.5mm Clear PVC',    thickness: 0.5,  colour: '#b8ddf0', maxWidthMm: 304.8, maxHeightMm: 304.8, sizeUnit: 'mm' },
+    { id: 'backing',  name: '0.28mm Black Card',  thickness: 0.28, colour: '#444444', maxWidthMm: 304.8, maxHeightMm: 304.8, sizeUnit: 'mm' },
+    { id: 'plaster',  name: '0.28mm Plaster Card', thickness: 0.28, colour: '#e8e0d0', maxWidthMm: 304.8, maxHeightMm: 304.8, sizeUnit: 'mm' },
+    { id: 'printed',  name: 'Printed Paper',      thickness: 0.20, colour: '#f1df72', maxWidthMm: 304.8, maxHeightMm: 304.8, sizeUnit: 'mm' },
+  ];
+}
+
 /* =====================================================================
    MATERIAL REGISTRY
    ---------------------------------------------------------------------
@@ -12349,6 +12376,239 @@ const MaterialRegistry = {
 
   threeCladdingMaterial(styleKey, cfg = CONFIG, opts = {}, fallback = 0xc9b89b) {
     return this.threeMaterial(this.claddingMaterialId(styleKey || (cfg && cfg.claddingStyle), cfg), cfg, opts, fallback);
+  },
+
+  profilePayload(cfg = (typeof CONFIG !== 'undefined' ? CONFIG : null), meta = {}) {
+    const source = cfg || {};
+    return {
+      type: 'hakomachi_material_library',
+      schema: 'hakomachi.material-profile',
+      version: 1,
+      schemaVersion: 1,
+      id: meta.id || source.materialProfileId || '',
+      name: meta.name || source.materialProfileName || 'Material profile',
+      exportedAt: new Date().toISOString(),
+      materials: JSON.parse(JSON.stringify(Array.isArray(source.materials) ? source.materials : defaultMaterialDefinitions())),
+      claddingMaterials: JSON.parse(JSON.stringify(source.claddingMaterials || {})),
+    };
+  },
+
+  normalizeProfilePayload(data) {
+    if (!data || typeof data !== 'object') {
+      throw new Error('File is not a material library JSON object.');
+    }
+
+    const materials = Array.isArray(data.materials) ? data.materials : null;
+    if (!materials || materials.length === 0) {
+      throw new Error('Material library has no materials array.');
+    }
+
+    const used = new Set();
+    const cleanMaterials = materials.map((m, idx) => {
+      if (!m || typeof m !== 'object') throw new Error('Material ' + (idx + 1) + ' is invalid.');
+      let id = String(m.id || '').trim();
+      if (!id) id = 'mat_' + Date.now() + '_' + idx;
+      id = id.replace(/[^a-zA-Z0-9_-]/g, '_');
+      if (used.has(id)) {
+        let n = 2;
+        const base = id;
+        while (used.has(base + '_' + n)) n++;
+        id = base + '_' + n;
+      }
+      used.add(id);
+
+      const out = {
+        id,
+        name: String(m.name || id).trim() || id,
+      };
+
+      const thickness = parseFloat(m.thickness);
+      if (isFinite(thickness) && thickness > 0) out.thickness = thickness;
+
+      const maxWidthMm = parseFloat(m.maxWidthMm != null ? m.maxWidthMm : m.maxW);
+      const maxHeightMm = parseFloat(m.maxHeightMm != null ? m.maxHeightMm : m.maxH);
+      out.maxWidthMm = isFinite(maxWidthMm) && maxWidthMm > 0 ? maxWidthMm : 304.8;
+      out.maxHeightMm = isFinite(maxHeightMm) && maxHeightMm > 0 ? maxHeightMm : 304.8;
+
+      out.sizeUnit = m.sizeUnit === 'in' ? 'in' : 'mm';
+      out.colour = normaliseHexColour(m.colour || m.color, '#aaaaaa');
+
+      const stockQty = parseFloat(m.stockQty);
+      if (isFinite(stockQty) && stockQty >= 0) out.stockQty = stockQty;
+      if (m.stockUnit != null) out.stockUnit = String(m.stockUnit).trim().slice(0, 24);
+      if (m.notes != null) out.notes = String(m.notes).trim().slice(0, 500);
+
+      return out;
+    });
+
+    const validIds = new Set(cleanMaterials.map(m => m.id));
+    const cleanCladdingMaterials = {};
+    const incomingCladding = (data.claddingMaterials && typeof data.claddingMaterials === 'object')
+      ? data.claddingMaterials
+      : {};
+    for (const [styleKey, matId] of Object.entries(incomingCladding)) {
+      const styleOk = typeof CLADDING_STYLES === 'undefined' || !!CLADDING_STYLES[styleKey];
+      if (styleOk && validIds.has(matId)) cleanCladdingMaterials[styleKey] = matId;
+    }
+
+    return {
+      type: 'hakomachi_material_library',
+      schema: 'hakomachi.material-profile',
+      version: 1,
+      schemaVersion: 1,
+      id: String(data.id || '').trim(),
+      name: String(data.name || 'Material profile').trim() || 'Material profile',
+      exportedAt: data.exportedAt || new Date().toISOString(),
+      materials: cleanMaterials,
+      claddingMaterials: cleanCladdingMaterials,
+    };
+  },
+
+  applyProfileToConfig(profile, cfg = CONFIG) {
+    const library = this.normalizeProfilePayload(profile);
+    cfg.materials = library.materials;
+    cfg.claddingMaterials = library.claddingMaterials || {};
+    cfg.materialProfileId = library.id || cfg.materialProfileId || '';
+    cfg.materialProfileName = library.name || cfg.materialProfileName || '';
+
+    cfg.coreThickness = (cfg.materials.find(m => m.id === 'core')?.thickness) || cfg.coreThickness || 1.5;
+    cfg.claddingThickness = (cfg.materials.find(m => m.id === 'cladding')?.thickness) || cfg.claddingThickness || 0.28;
+
+    const validIds = new Set(cfg.materials.map(m => m.id));
+    if (cfg.partMaterials) {
+      for (const [partId, matId] of Object.entries(cfg.partMaterials)) {
+        if (matId !== '__unassigned__' && !validIds.has(matId)) cfg.partMaterials[partId] = '__unassigned__';
+      }
+    }
+    return library;
+  },
+
+  loadLocalProfiles() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(HAKOMACHI_MATERIAL_PROFILES_KEY) || '[]');
+      return Array.isArray(raw) ? raw.map(p => this.normalizeStoredProfile(p)).filter(Boolean) : [];
+    } catch (_) {
+      return [];
+    }
+  },
+
+  saveLocalProfiles(profiles) {
+    const clean = (Array.isArray(profiles) ? profiles : [])
+      .map(p => this.normalizeStoredProfile(p))
+      .filter(Boolean)
+      .sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
+    localStorage.setItem(HAKOMACHI_MATERIAL_PROFILES_KEY, JSON.stringify(clean));
+    return clean;
+  },
+
+  normalizeStoredProfile(profile) {
+    if (!profile || typeof profile !== 'object') return null;
+    const library = this.normalizeProfilePayload(profile.library || profile);
+    const id = String(profile.id || library.id || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_') || ('materials_' + Date.now());
+    const now = new Date().toISOString();
+    library.id = id;
+    library.name = String(profile.name || library.name || id).trim() || id;
+    return {
+      id,
+      name: library.name,
+      library,
+      updatedAt: profile.updatedAt || now,
+      createdAt: profile.createdAt || profile.updatedAt || now,
+      github: profile.github || null,
+    };
+  },
+
+  upsertLocalProfile(profile) {
+    const clean = this.normalizeStoredProfile(profile);
+    const profiles = this.loadLocalProfiles();
+    const index = profiles.findIndex(p => p.id === clean.id);
+    clean.updatedAt = new Date().toISOString();
+    if (index >= 0) {
+      clean.createdAt = profiles[index].createdAt || clean.createdAt;
+      profiles[index] = clean;
+    } else {
+      profiles.push(clean);
+    }
+    this.saveLocalProfiles(profiles);
+    return clean;
+  },
+
+  deleteLocalProfile(id) {
+    const next = this.loadLocalProfiles().filter(p => p.id !== id);
+    this.saveLocalProfiles(next);
+    return next;
+  },
+
+  profileRecord(profile, path) {
+    const p = this.normalizeStoredProfile(profile);
+    const now = new Date().toISOString();
+    const mats = p.library.materials || [];
+    return {
+      kind: 'materialProfile',
+      recordType: 'hakomachi-material-profile',
+      schemaVersion: 1,
+      id: p.id,
+      name: p.name,
+      path,
+      paths: { materialProfile: path },
+      app: 'hakomachi-material-manager',
+      materialCount: mats.length,
+      tags: mats.map(m => m.name).filter(Boolean).slice(0, 12),
+      updatedAt: now,
+      createdAt: p.createdAt || now,
+    };
+  },
+
+  githubProfilePath(settings, profileId) {
+    const dir = githubData.cleanRepoPath((settings && settings.materialsDir) || githubData.DEFAULT_MATERIALS_DIR || 'materials');
+    const slug = githubData.slugify(profileId || 'material-profile', 'material-profile');
+    return githubData.cleanRepoPath(dir + '/' + slug + '.hakomaterial');
+  },
+
+  async saveProfileToGithub(profile, settings = null) {
+    const s = settings || githubData.getSettings();
+    githubData.assertSettings(s);
+    const clean = this.normalizeStoredProfile(profile);
+    const path = this.githubProfilePath(s, clean.id);
+    clean.library.id = clean.id;
+    clean.library.name = clean.name;
+    await githubData.writeGithubFile(
+      s,
+      path,
+      JSON.stringify(clean.library, null, 2) + '\n',
+      'Save HakoMachi material profile: ' + clean.name,
+    );
+    const library = await githubData.loadLibrary(s);
+    githubData.upsertRecord(library, 'materialProfiles', this.profileRecord(clean, path));
+    await githubData.writeGithubFile(
+      s,
+      s.libraryPath || githubData.DEFAULT_LIBRARY_PATH,
+      JSON.stringify(library, null, 2) + '\n',
+      'Update HakoMachi material profile library: ' + clean.name,
+    );
+    clean.github = { repoFullName: s.repoFullName, branch: s.branch || 'main', path, libraryPath: s.libraryPath || githubData.DEFAULT_LIBRARY_PATH };
+    this.upsertLocalProfile(clean);
+    return clean;
+  },
+
+  async loadGithubProfileRecords(settings = null) {
+    const s = settings || githubData.getSettings();
+    githubData.assertSettings(s);
+    const library = await githubData.loadLibrary(s);
+    return ((library.records && library.records.materialProfiles) || []).slice()
+      .sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
+  },
+
+  async readGithubProfile(record, settings = null) {
+    const s = settings || githubData.getSettings();
+    githubData.assertSettings(s);
+    const path = record && (record.path || (record.paths && record.paths.materialProfile));
+    if (!path) throw new Error('Material profile record has no path.');
+    const file = await githubData.readGithubFile(s, path);
+    if (!file) throw new Error('Material profile file was not found: ' + path);
+    const profile = this.normalizeStoredProfile(JSON.parse(file.text));
+    profile.github = { repoFullName: s.repoFullName, branch: s.branch || 'main', path, libraryPath: s.libraryPath || githubData.DEFAULT_LIBRARY_PATH };
+    return profile;
   },
 };
 
@@ -28508,97 +28768,93 @@ function getMaterial(id) {
 }
 
 function materialLibraryPayload() {
-  return {
-    type: 'hakomachi_material_library',
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    materials: JSON.parse(JSON.stringify(CONFIG.materials || [])),
-    claddingMaterials: JSON.parse(JSON.stringify(CONFIG.claddingMaterials || {})),
-  };
+  return MaterialRegistry.profilePayload(CONFIG, {
+    id: CONFIG.materialProfileId || '',
+    name: CONFIG.materialProfileName || 'Building materials',
+  });
 }
 
 function normaliseImportedMaterialLibrary(data) {
-  if (!data || typeof data !== 'object') {
-    throw new Error('File is not a material library JSON object.');
-  }
-
-  // Accept either the explicit library wrapper or a raw object with the two
-  // relevant fields. This makes hand-edited libraries easy to recover.
-  const materials = Array.isArray(data.materials) ? data.materials : null;
-  if (!materials || materials.length === 0) {
-    throw new Error('Material library has no materials array.');
-  }
-
-  const used = new Set();
-  const cleanMaterials = materials.map((m, idx) => {
-    if (!m || typeof m !== 'object') throw new Error(`Material ${idx + 1} is invalid.`);
-    let id = String(m.id || '').trim();
-    if (!id) id = 'mat_' + Date.now() + '_' + idx;
-    id = id.replace(/[^a-zA-Z0-9_-]/g, '_');
-    if (used.has(id)) {
-      let n = 2;
-      const base = id;
-      while (used.has(`${base}_${n}`)) n++;
-      id = `${base}_${n}`;
-    }
-    used.add(id);
-
-    const out = {
-      id,
-      name: String(m.name || id).trim() || id,
-    };
-
-    const thickness = parseFloat(m.thickness);
-    if (isFinite(thickness) && thickness > 0) out.thickness = thickness;
-
-    const maxWidthMm = parseFloat(m.maxWidthMm != null ? m.maxWidthMm : m.maxW);
-    const maxHeightMm = parseFloat(m.maxHeightMm != null ? m.maxHeightMm : m.maxH);
-    out.maxWidthMm = isFinite(maxWidthMm) && maxWidthMm > 0 ? maxWidthMm : 304.8;
-    out.maxHeightMm = isFinite(maxHeightMm) && maxHeightMm > 0 ? maxHeightMm : 304.8;
-
-    out.sizeUnit = m.sizeUnit === 'in' ? 'in' : 'mm';
-    out.colour = normaliseHexColour(m.colour || m.color, '#aaaaaa');
-
-    return out;
-  });
-
-  const validIds = new Set(cleanMaterials.map(m => m.id));
-  const cleanCladdingMaterials = {};
-  const incomingCladding = (data.claddingMaterials && typeof data.claddingMaterials === 'object')
-    ? data.claddingMaterials
-    : {};
-  for (const [styleKey, matId] of Object.entries(incomingCladding)) {
-    if (CLADDING_STYLES[styleKey] && validIds.has(matId)) {
-      cleanCladdingMaterials[styleKey] = matId;
-    }
-  }
-
-  return { materials: cleanMaterials, claddingMaterials: cleanCladdingMaterials };
+  return MaterialRegistry.normalizeProfilePayload(data);
 }
 
 function applyMaterialLibrary(library) {
-  CONFIG.materials = library.materials;
-  CONFIG.claddingMaterials = library.claddingMaterials || {};
-
-  // Keep derived legacy thickness fields synchronized with the material
-  // registry so old generation paths and newer registry paths agree.
-  CONFIG.coreThickness     = (CONFIG.materials.find(m => m.id === 'core')    ?.thickness) || CONFIG.coreThickness || 1.5;
-  CONFIG.claddingThickness = (CONFIG.materials.find(m => m.id === 'cladding')?.thickness) || CONFIG.claddingThickness || 0.28;
-
-  // Remove per-part overrides that reference materials no longer present in
-  // the imported library. This avoids invisible "orphan" material folders.
-  const validIds = new Set(CONFIG.materials.map(m => m.id));
-  if (CONFIG.partMaterials) {
-    for (const [partId, matId] of Object.entries(CONFIG.partMaterials)) {
-      if (matId !== '__unassigned__' && !validIds.has(matId)) {
-        CONFIG.partMaterials[partId] = '__unassigned__';
-      }
-    }
-  }
+  MaterialRegistry.applyProfileToConfig(library, CONFIG);
 
   renderMaterialsForm();
   if (lastParts) renderPartsOutput(lastParts);
   regenerate();
+}
+
+function materialProfileIdFromName(name) {
+  if (githubData && typeof githubData.slugify === 'function') return githubData.slugify(name, 'material-profile');
+  return String(name || 'material-profile').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'material-profile';
+}
+
+function saveCurrentMaterialProfileToBrowser() {
+  const defaultName = CONFIG.materialProfileName || 'Building materials';
+  const name = window.prompt('Material profile name', defaultName);
+  if (!name) return null;
+  const id = CONFIG.materialProfileId || materialProfileIdFromName(name);
+  const profile = MaterialRegistry.upsertLocalProfile({ id, name, library: MaterialRegistry.profilePayload(CONFIG, { id, name }) });
+  CONFIG.materialProfileId = profile.id;
+  CONFIG.materialProfileName = profile.name;
+  renderMaterialsForm();
+  flashMessage('Material profile saved in this browser.', 'ok');
+  return profile;
+}
+
+async function saveCurrentMaterialProfileToGithub() {
+  const profile = saveCurrentMaterialProfileToBrowser();
+  if (!profile) return;
+  try {
+    flashMessage('Saving material profile to GitHub...', 'ok');
+    const saved = await MaterialRegistry.saveProfileToGithub(profile);
+    flashMessage('Material profile saved to GitHub: ' + saved.github.path, 'ok');
+  } catch (err) {
+    flashMessage('GitHub material profile save failed: ' + (err.message || err), 'err');
+  }
+}
+
+function applyBrowserMaterialProfile(profileId) {
+  const profile = MaterialRegistry.loadLocalProfiles().find(p => p.id === profileId);
+  if (!profile) {
+    flashMessage('Material profile was not found in this browser.', 'warn');
+    return;
+  }
+  applyMaterialLibrary(profile.library);
+  flashMessage('Applied material profile: ' + profile.name, 'ok');
+}
+
+function applyPendingMaterialProfileHandoff() {
+  const key = 'hakomachi_material_profile_handoff_v1';
+  try {
+    const hash = new URLSearchParams(String(location.hash || '').replace(/^#/, ''));
+    const requestedId = hash.get('materialProfile');
+    if (requestedId) {
+      const profile = MaterialRegistry.loadLocalProfiles().find(p => p.id === requestedId);
+      if (profile) {
+        MaterialRegistry.applyProfileToConfig(profile.library, CONFIG);
+        flashMessage('Applied material profile: ' + profile.name, 'ok');
+        return true;
+      }
+    }
+  } catch (_) {}
+
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return false;
+    const profile = MaterialRegistry.normalizeStoredProfile(JSON.parse(raw));
+    if (!profile) return false;
+    MaterialRegistry.applyProfileToConfig(profile.library, CONFIG);
+    localStorage.removeItem(key);
+    flashMessage('Applied material profile: ' + profile.name, 'ok');
+    return true;
+  } catch (err) {
+    localStorage.removeItem(key);
+    flashMessage('Material profile handoff failed: ' + (err.message || err), 'err');
+    return false;
+  }
 }
 
 function exportMaterialLibrary() {
@@ -28678,10 +28934,82 @@ function renderMaterialsForm() {
   libraryRow.appendChild(importLibBtn);
   container.appendChild(libraryRow);
 
+  const managerRow = document.createElement('div');
+  managerRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 8px 0;';
+  const managerBtn = document.createElement('button');
+  managerBtn.type = 'button';
+  managerBtn.textContent = 'Material manager';
+  managerBtn.title = 'Open the standalone material profile manager.';
+  managerBtn.style.cssText = 'font-size:11px;padding:5px 6px;cursor:pointer;border:1px solid var(--border);border-radius:3px;background:#fff;';
+  managerBtn.addEventListener('click', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.open('utils/material-manager.html', '_blank');
+  });
+  const saveProfileBtn = document.createElement('button');
+  saveProfileBtn.type = 'button';
+  saveProfileBtn.textContent = 'Save profile';
+  saveProfileBtn.title = 'Save the current materials as a reusable browser profile.';
+  saveProfileBtn.style.cssText = 'font-size:11px;padding:5px 6px;cursor:pointer;border:1px solid var(--border);border-radius:3px;background:#fff;';
+  saveProfileBtn.addEventListener('click', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    saveCurrentMaterialProfileToBrowser();
+  });
+  managerRow.appendChild(managerBtn);
+  managerRow.appendChild(saveProfileBtn);
+  container.appendChild(managerRow);
+
+  const githubRow = document.createElement('div');
+  githubRow.style.cssText = 'display:grid;grid-template-columns:1fr;gap:6px;margin:0 0 8px 0;';
+  const saveGithubBtn = document.createElement('button');
+  saveGithubBtn.type = 'button';
+  saveGithubBtn.textContent = 'Save profile to GitHub';
+  saveGithubBtn.title = 'Save the current material profile into the configured HakoMachi GitHub data repo.';
+  saveGithubBtn.style.cssText = 'font-size:11px;padding:5px 6px;cursor:pointer;border:1px solid var(--border);border-radius:3px;background:#fff;';
+  saveGithubBtn.addEventListener('click', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    saveCurrentMaterialProfileToGithub();
+  });
+  githubRow.appendChild(saveGithubBtn);
+  container.appendChild(githubRow);
+
+  const localProfiles = MaterialRegistry.loadLocalProfiles();
+  if (localProfiles.length) {
+    const profileRow = document.createElement('div');
+    profileRow.style.cssText = 'display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;margin:0 0 8px 0;';
+    const profileSel = document.createElement('select');
+    profileSel.style.cssText = 'font-size:11px;padding:5px 6px;border:1px solid var(--border);border-radius:3px;';
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = 'Browser material profiles';
+    profileSel.appendChild(emptyOpt);
+    for (const profile of localProfiles) {
+      const opt = document.createElement('option');
+      opt.value = profile.id;
+      opt.textContent = profile.name;
+      if (CONFIG.materialProfileId && CONFIG.materialProfileId === profile.id) opt.selected = true;
+      profileSel.appendChild(opt);
+    }
+    const applyProfileBtn = document.createElement('button');
+    applyProfileBtn.type = 'button';
+    applyProfileBtn.textContent = 'Apply';
+    applyProfileBtn.style.cssText = 'font-size:11px;padding:5px 8px;cursor:pointer;border:1px solid var(--border);border-radius:3px;background:#fff;';
+    applyProfileBtn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (profileSel.value) applyBrowserMaterialProfile(profileSel.value);
+    });
+    profileRow.appendChild(profileSel);
+    profileRow.appendChild(applyProfileBtn);
+    container.appendChild(profileRow);
+  }
+
   const libraryHint = document.createElement('div');
   libraryHint.className = 'small';
   libraryHint.style.cssText = 'margin:-3px 0 8px;color:var(--muted);';
-  libraryHint.textContent = 'Libraries include materials plus cladding-style material assignments. Per-part overrides stay with the building file.';
+  libraryHint.textContent = 'Profiles include materials plus cladding-style assignments. Per-part overrides stay with the building file.';
   container.appendChild(libraryHint);
 
   // ---- Material list ----

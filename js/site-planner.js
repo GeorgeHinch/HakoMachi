@@ -1961,6 +1961,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedId=primaryId || (valid.length===1 ? valid[0] : null);
     state.selectedRoadId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null;
   }
+  function reassertCanvasBuildingSelection(id){
+    const ids=currentSelectedBuildingIds();
+    setBuildingSelection(ids.includes(id) ? ids : [id], id);
+  }
   function isBuildingSelected(id){return currentSelectedBuildingIds().includes(id);}
   function toggleBuildingSelection(id){
     const ids=currentSelectedBuildingIds();
@@ -3512,7 +3516,27 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       drop.addEventListener('drop', ev=>{const files=Array.from(ev.dataTransfer&&ev.dataTransfer.files||[]); const f=files.find(file=>/\.(hako|hakoseed|hakoplan|json)$/i.test(file.name||''))||files[0]; if(f){ if(selected() && currentSelectedBuildingIds().length===1) attachHakoFileToSelectedBuilding(f,{source:'selected-building-drop'}); else importHakoAsBuilding(f); }});
     }
   }
-  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const selIds=currentSelectedBuildingIds(); if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use Copy/Paste or Delete to manage the selected set.</span><div class="buttons" style="margin-top:8px"><button id="copyMultiB">Copy</button><button id="pasteMultiB" ${state.footprintClipboard?'':'disabled'}>Paste</button><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('copyMultiB').onclick=()=>{copySelectedFootprint(); renderSelected();}; $('pasteMultiB').onclick=()=>pasteFootprintFromClipboard(); $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(roadFeature){normalizeRoadFeature(roadFeature); box.innerHTML=`
+  function sidebarDetailToolbarContents(kind){
+    return `
+        <button id="sidebarBackBtn" type="button" class="sidebarBackBtn" aria-label="Back to lists"><span data-icon="arrowLeft"></span><span>Back</span></button>
+        ${kind==='building'?`<div id="sidebarOverflowWrap" class="sidebarOverflowWrap">
+          <button id="sidebarOverflowBtn" type="button" class="sidebarOverflowBtn" aria-label="Building actions" title="Building actions" aria-haspopup="true" aria-expanded="false"><span data-icon="moreVertical"></span></button>
+          <div id="sidebarBuildingOverflowMenu" class="dropdownMenu right sidebarOverflowMenu" role="menu">
+            <button id="sidebarReplaceHakoB" type="button">Replace .hako file</button>
+            <button id="sidebarRemoveHakoB" type="button" class="danger" ${selected()?.hakoFile?'':'disabled'}>Remove .hako file</button>
+            <div class="overflow-sep"></div>
+            <button id="sidebarDuplicateB" type="button">Duplicate</button>
+            <button id="sidebarHideB" type="button">${selected()?.hidden?'Show':'Hide'}</button>
+            <button id="sidebarLockB" type="button">${selected()?.locked?'Unlock':'Lock'}</button>
+            <div class="overflow-sep"></div>
+            <button id="sidebarDeleteB" type="button" class="danger">Delete</button>
+          </div>
+        </div>`:''}`;
+  }
+  function sidebarDetailToolbarHtml(kind){
+    return `<div id="sidebarDetailToolbar" class="sidebarDetailToolbar">${sidebarDetailToolbarContents(kind)}</div>`;
+  }
+  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const selIds=currentSelectedBuildingIds(); if(!b && selIds.length>1){ box.innerHTML=`${sidebarDetailToolbarHtml('buildings')}<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use Copy/Paste or Delete to manage the selected set.</span><div class="buttons" style="margin-top:8px"><button id="copyMultiB">Copy</button><button id="pasteMultiB" ${state.footprintClipboard?'':'disabled'}>Paste</button><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; bindSidebarDetailToolbarControls('buildings'); $('copyMultiB').onclick=()=>{copySelectedFootprint(); renderSelected();}; $('pasteMultiB').onclick=()=>pasteFootprintFromClipboard(); $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(roadFeature){normalizeRoadFeature(roadFeature); box.innerHTML=`
       <b>${roadFeature.kind==='manhole'?'Manhole / Hatch':'Japanese road marking'} selected</b>
       <label>Name</label><input id="rfName" value="${escapeAttr(roadFeature.name||'Road item')}">
       ${roadFeature.kind==='manhole'?`<label>Hatch preset</label><select id="rfHatchPreset">${hatchOptionsHtml(roadFeature.hatchPreset)}</select>
@@ -3595,6 +3619,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       bind('slCutDia',v=>light.anchor.cutHoleDiameterMm=parseFloat(v)||0); bind('slBulbDia',v=>light.anchor.bulbMountDiameterMm=parseFloat(v)||0); bind('slEdgeOffset',v=>light.anchor.edgeOffsetMm=parseFloat(v)||0); bind('slLockEdge',v=>light.anchor.lockToRoadEdge=!!v);
       $('dupSl').onclick=()=>{duplicateStreetlight(light); syncAll();}; $('lockSl').onclick=()=>{light.locked=!light.locked; syncAll();}; $('delSl').onclick=deleteSelectedStreetlight;
     } else if(note){const pts=note.points||[]; box.innerHTML=`<b>Annotation selected</b><br><span class="small muted">${pts.length} points</span><div class="buttons" style="margin-top:8px"><button id="delNoteB" class="danger">Delete Annotation</button></div>`; const del=$('delNoteB'); if(del) del.onclick=deleteSelectedAnnotation;} else box.innerHTML='No building selected.'; const btn=$('deleteAnnotationBtn'); if(btn) btn.disabled=!note; return;} if($('deleteAnnotationBtn')) $('deleteAnnotationBtn').disabled=true; syncBuildingMetrics(b); box.innerHTML=`
+    ${sidebarDetailToolbarHtml('building')}
     <label>Name</label><input id="selName" value="${escapeAttr(b.name||'')}">
     <div class="row"><div><label>Status</label><select id="selState"><option value="notStarted">Not Started</option><option value="inProgress">In Progress</option><option value="awaitingConstruction">Awaiting Construction</option><option value="complete">Complete</option></select></div><div><label>Color</label><input id="selColor" type="color" value="${b.color||'#d79631'}"></div></div>
     <div class="row"><div><label>Category</label><input id="selCat" value="${escapeAttr(b.category||'industrial')}"></div><div><label>Type</label><input value="${b.padType}" disabled></div></div>
@@ -3610,6 +3635,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     <div class="small muted" style="margin:-4px 0 8px">Drop a .hako anywhere in this sidebar to attach it to this footprint.</div>
     <label>Notes</label><textarea id="selNotes" rows="3">${escapeHtml(b.notes||'')}</textarea>
     <div class="buttons" style="margin-top:8px"><button id="copyB">Copy</button><button id="pasteB" ${state.footprintClipboard?'':'disabled'}>Paste</button>${b.padType==='rect'?'<button id="polyB">Convert to Polygon</button>':''}</div>`;
+    bindSidebarDetailToolbarControls('building');
     const bind=(id,fn)=>{const e=$(id); if(e)e.oninput=()=>{fn(e.value); syncSelectedBuildingLive(b);};};
     bind('selName',v=>{b.name=v; renameAttachedHakoFileForBuilding(b);}); bind('selCat',v=>b.category=v); bind('selColor',v=>b.color=v); bind('selRot',v=>b.rotationDeg=parseFloat(v)||0); bind('sel3dHeight',v=>b.plannerHeightMm=Math.max(.1,parseFloat(v)||.1)); bind('sel3dElevation',v=>b.baseElevationMm=parseFloat(v)||0); bind('selNotes',v=>b.notes=v);
     installAdaptiveDegreeStepping($('selRot'));
@@ -3701,6 +3727,30 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       syncAll();
     };
   }
+  function bindSidebarDetailToolbarControls(kind){
+    const toolbar=$('sidebarDetailToolbar');
+    const back=$('sidebarBackBtn');
+    if(back) back.onclick=clearSidebarDetailSelection;
+    if(toolbar) hydrateIcons(toolbar);
+    if(kind==='building'){
+      const overflowBtn=$('sidebarOverflowBtn');
+      const overflowMenu=$('sidebarBuildingOverflowMenu');
+      const overflowWrap=$('sidebarOverflowWrap');
+      if(overflowBtn && overflowMenu && overflowWrap){
+        overflowBtn.onclick=e=>{
+          e.preventDefault();
+          e.stopPropagation();
+          const open=!overflowMenu.classList.contains('open');
+          closeSidebarBuildingOverflow();
+          overflowMenu.classList.toggle('open',open);
+          overflowWrap.classList.toggle('menuOpen',open);
+          overflowBtn.setAttribute('aria-expanded',String(open));
+        };
+        overflowMenu.onclick=e=>e.stopPropagation();
+        bindSidebarBuildingOverflowActions();
+      }
+    }
+  }
   function applySidebarDrillIn(){
     const sidebar=document.querySelector('.sidebar');
     if(!sidebar) return;
@@ -3729,23 +3779,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         toolbar.id='sidebarDetailToolbar';
         toolbar.className='sidebarDetailToolbar';
       }
-      toolbar.innerHTML=`
-        <button id="sidebarBackBtn" type="button" class="sidebarBackBtn" aria-label="Back to lists"><span data-icon="arrowLeft"></span><span>Back</span></button>
-        ${kind==='building'?`<div id="sidebarOverflowWrap" class="sidebarOverflowWrap">
-          <button id="sidebarOverflowBtn" type="button" class="sidebarOverflowBtn" aria-label="Building actions" title="Building actions" aria-haspopup="true" aria-expanded="false"><span data-icon="moreVertical"></span></button>
-          <div id="sidebarBuildingOverflowMenu" class="dropdownMenu right sidebarOverflowMenu" role="menu">
-            <button id="sidebarReplaceHakoB" type="button">Replace .hako file</button>
-            <button id="sidebarRemoveHakoB" type="button" class="danger" ${selected()?.hakoFile?'':'disabled'}>Remove .hako file</button>
-            <div class="overflow-sep"></div>
-            <button id="sidebarDuplicateB" type="button">Duplicate</button>
-            <button id="sidebarHideB" type="button">${selected()?.hidden?'Show':'Hide'}</button>
-            <button id="sidebarLockB" type="button">${selected()?.locked?'Unlock':'Lock'}</button>
-            <div class="overflow-sep"></div>
-            <button id="sidebarDeleteB" type="button" class="danger">Delete</button>
-          </div>
-        </div>`:''}`;
-      const back=$('sidebarBackBtn');
-      back.onclick=clearSidebarDetailSelection;
+      toolbar.innerHTML=sidebarDetailToolbarContents(kind);
       if(toolbar.parentElement!==detailSection || toolbar.nextElementSibling!==h3){
         detailSection.insertBefore(toolbar, h3 || detailSection.firstChild);
       }
@@ -3753,25 +3787,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         sidebar.scrollTop=0;
       }
       activeSidebarDetailKey=detailKey;
-      hydrateIcons(toolbar);
-      if(kind==='building'){
-        const overflowBtn=$('sidebarOverflowBtn');
-        const overflowMenu=$('sidebarBuildingOverflowMenu');
-        const overflowWrap=$('sidebarOverflowWrap');
-        if(overflowBtn && overflowMenu && overflowWrap){
-          overflowBtn.onclick=e=>{
-            e.preventDefault();
-            e.stopPropagation();
-            const open=!overflowMenu.classList.contains('open');
-            closeSidebarBuildingOverflow();
-            overflowMenu.classList.toggle('open',open);
-            overflowWrap.classList.toggle('menuOpen',open);
-            overflowBtn.setAttribute('aria-expanded',String(open));
-          };
-          overflowMenu.onclick=e=>e.stopPropagation();
-          bindSidebarBuildingOverflowActions();
-        }
-      }
+      bindSidebarDetailToolbarControls(kind);
       if(window.matchMedia && window.matchMedia('(max-width:900px)').matches && !state.sidebarOpen){
         setSidebarOpen(true);
       }
@@ -4108,6 +4124,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(e.shiftKey || e.metaKey || e.ctrlKey){ toggleBuildingSelection(hit.id); renderList(); renderSelected(); updateHandoff(); draw(); return true; }
       const already=isBuildingSelected(hit.id);
       if(!already) setBuildingSelection([hit.id], hit.id);
+      else reassertCanvasBuildingSelection(hit.id);
       renderList(); renderSelected(); updateHandoff();
       const ids=currentSelectedBuildingIds();
       const origs=ids.map(id=>state.buildings.find(x=>x.id===id)).filter(Boolean).map(x=>structuredClone(x));
@@ -4260,7 +4277,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         if(e.shiftKey || e.metaKey || e.ctrlKey){ toggleBuildingSelection(hit.id); renderList(); renderSelected(); updateHandoff(); draw(); return; }
         const already=isBuildingSelected(hit.id);
         if(!already) setBuildingSelection([hit.id], hit.id);
-        else { state.selectedRoadId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null; }
+        else reassertCanvasBuildingSelection(hit.id);
         renderList(); renderSelected(); updateHandoff();
         const ids=currentSelectedBuildingIds();
         const origs=ids.map(id=>state.buildings.find(x=>x.id===id)).filter(Boolean).map(x=>structuredClone(x));

@@ -1,3 +1,3 @@
 'use strict';
 
-import '../site-planner.js?v=selected-panel-toolbar-2';
+import '../site-planner.js?v=selected-panel-toolbar-3';

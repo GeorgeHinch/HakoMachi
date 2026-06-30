@@ -27101,6 +27101,18 @@ function generateBuildingStl(cfg) {
   const H = cfg.height;
   const parapetH = cfg.parapetHeight;
 
+  function stlOpeningAlongInterval(face, x, w, span) {
+    const a = Number(x || 0);
+    const width = Number(w || 0);
+    // The downloaded STL uses physical assembled coordinates. Front/back wall
+    // openings come from the flat wall editor/SVG convention, which the live
+    // Three.js preview mirrors when it places those panels into the assembled
+    // model. Mirror only this STL preview coordinate so the ZIP's preview_3d.stl
+    // matches the live assembled preview without changing laser-cut SVG output.
+    if (face === 'front' || face === 'back') return { u0: span - a - width, u1: span - a };
+    return { u0: a, u1: a + width };
+  }
+
   function visibleBayDoorPanelStl(op) {
     if (!op || op.type !== 'bay') return null;
     const styleKey = op.doorStyle || 'none';
@@ -27129,8 +27141,10 @@ function generateBuildingStl(cfg) {
     const reliefT = Math.max(0.08, doorT * 0.55);
     const zTop = H - Number(op.y || 0);
     const zBot = H - (Number(op.y || 0) + Number(op.h || 0));
-    const along0 = Number(op.x || 0);
-    const along1 = along0 + Number(op.w || 0);
+    const wallSpan = (face === 'front' || face === 'back') ? W : plan.sideLen;
+    const interval = stlOpeningAlongInterval(face, op.x, op.w, wallSpan);
+    const along0 = interval.u0;
+    const along1 = interval.u1;
 
     function faceBox(a0, a1, zz0, zz1, proud) {
       const p = proud || 0;
@@ -27315,14 +27329,16 @@ function generateBuildingStl(cfg) {
           const style = op.style ? WINDOW_STYLES[op.style] : null;
           const placement = (style && style.placement) || 'opening';
           if (placement === 'etched') continue;  // no hole — etched outline only
+          const interval = stlOpeningAlongInterval(which, op.x, op.w, plan.fbWidth);
           holes.push({
-            u0: op.x, u1: op.x + op.w,
+            u0: interval.u0, u1: interval.u1,
             v0: H - (op.y + op.h), v1: H - op.y,
           });
         } else if (op.type === 'door') {
           // All doors cut through in the 3D preview, regardless of glass.
+          const interval = stlOpeningAlongInterval(which, op.x, op.w, plan.fbWidth);
           holes.push({
-            u0: op.x, u1: op.x + op.w,
+            u0: interval.u0, u1: interval.u1,
             v0: H - (op.y + op.h), v1: H - op.y,
           });
         }
@@ -27350,8 +27366,9 @@ function generateBuildingStl(cfg) {
         cfg, plan, edgeId: which,
       });
       for (const w of allWins) {
+        const interval = stlOpeningAlongInterval(which, w.x, w.width, plan.fbWidth);
         holes.push({
-          u0: w.x, u1: w.x + w.width,
+          u0: interval.u0, u1: interval.u1,
           v0: H - (w.y + w.height), v1: H - w.y,
         });
       }
@@ -27362,8 +27379,9 @@ function generateBuildingStl(cfg) {
           cfg, plan, edgeId: which,
         });
         for (const d of doors) {
+          const interval = stlOpeningAlongInterval(which, d.x, d.width, plan.fbWidth);
           holes.push({
-            u0: d.x, u1: d.x + d.width,
+            u0: interval.u0, u1: interval.u1,
             v0: H - (d.y + d.height), v1: H - d.y,
           });
         }
@@ -27371,8 +27389,9 @@ function generateBuildingStl(cfg) {
     }
     // Bay opening always added (independent of manual/auto for non-bay openings)
     if (hasBay) {
+      const interval = stlOpeningAlongInterval(which, plan.bayXStart, plan.bayXEnd - plan.bayXStart, plan.fbWidth);
       holes.push({
-        u0: plan.bayXStart, u1: plan.bayXEnd,
+        u0: interval.u0, u1: interval.u1,
         v0: 0, v1: plan.bayHeight || 0,
       });
     }

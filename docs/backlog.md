@@ -359,7 +359,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-012: Fix reversed 3D preview files in downloads
 
-- Status: Proposed
+- Status: Done
 - Group: Export and fabrication
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/16

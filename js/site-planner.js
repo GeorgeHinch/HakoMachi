@@ -1696,6 +1696,110 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return trimLinesMm.length ? {padType:'polygon', pointsMm:null, source:'trim lines only', trimLinesMm} : null;
   }
 
+  function sizeFromDerivedHakoFootprint(derived){
+    if(!derived) return null;
+    if(derived.padType==='rect'){
+      const widthMm=positiveNumber(derived.widthMm);
+      const depthMm=positiveNumber(derived.depthMm);
+      return widthMm && depthMm ? {widthMm, depthMm, source:derived.source||'rectangle'} : null;
+    }
+    if(Array.isArray(derived.pointsMm) && derived.pointsMm.length>=3){
+      const xs=derived.pointsMm.map(p=>Number(p.x)).filter(Number.isFinite);
+      const ys=derived.pointsMm.map(p=>Number(p.y)).filter(Number.isFinite);
+      if(xs.length && ys.length) return {widthMm:Math.max(...xs)-Math.min(...xs), depthMm:Math.max(...ys)-Math.min(...ys), source:derived.source||'polygon bounds'};
+    }
+    return null;
+  }
+
+  function selectedFootprintSizeMm(b){
+    if(!b) return null;
+    syncBuildingMetrics(b);
+    if(b.padType==='rect'){
+      const widthMm=positiveNumber(b.widthMm, state.pxPerMm ? pxToMm(b.widthPx) : null);
+      const depthMm=positiveNumber(b.depthMm, state.pxPerMm ? pxToMm(b.depthPx) : null);
+      return widthMm && depthMm ? {widthMm, depthMm, source:'footprint'} : null;
+    }
+    const widthMm=positiveNumber(b.derived?.boundingWidthMm);
+    const depthMm=positiveNumber(b.derived?.boundingDepthMm);
+    return widthMm && depthMm ? {widthMm, depthMm, source:'footprint bounds'} : null;
+  }
+
+  function footprintSizesMatch(currentSize, incomingSize){
+    if(!currentSize || !incomingSize) return false;
+    const widthTol=Math.max(0.5, Math.max(currentSize.widthMm, incomingSize.widthMm)*0.01);
+    const depthTol=Math.max(0.5, Math.max(currentSize.depthMm, incomingSize.depthMm)*0.01);
+    return Math.abs(currentSize.widthMm-incomingSize.widthMm)<=widthTol && Math.abs(currentSize.depthMm-incomingSize.depthMm)<=depthTol;
+  }
+
+  function formatFootprintSize(size){
+    return size ? `${fmt(size.widthMm)} x ${fmt(size.depthMm)} mm` : 'unknown size';
+  }
+
+  function storeHakoFileOnBuilding(b, fileName, text, parsed, opts={}){
+    const derived=deriveFootprintFromHakoConfig(parsed||{});
+    b.hakoConfig=structuredClone(parsed);
+    b.hakoFile={
+      fileName:fileName||`${slug(b.name||'building')}.hako`,
+      mimeType:'application/json',
+      sizeBytes:text.length,
+      importedAt:new Date().toISOString(),
+      dataText:text,
+      parsedConfig:structuredClone(parsed),
+      source:opts.source||'selected-building-upload',
+    };
+    b.hakoFileId=b.hakoFile.fileName;
+    if(derived?.trimLinesMm?.length){
+      b.hakoTrimLinesMm=derived.trimLinesMm;
+      b.showHakoTrimLines=true;
+    } else {
+      delete b.hakoTrimLinesMm;
+    }
+    if(opts.resizeFootprint) applyHakoConfigToPlannerFootprint(b, parsed);
+    if(b.state==='notStarted') b.state='inProgress';
+    normalizeBuilding(b);
+    syncBuildingMetrics(b);
+    syncAll();
+    $('statusHint').textContent=`Attached ${b.hakoFile.fileName} to ${b.name||'building'}${opts.resizeFootprint?' and resized the footprint':''}.`;
+  }
+
+  function confirmSelectedHakoSizeMismatch(b, currentSize, incomingSize, fileName){
+    const currentText=formatFootprintSize(currentSize);
+    const incomingText=formatFootprintSize(incomingSize);
+    return confirm(`The dropped .hako file does not match the selected footprint size.\n\nSelected footprint: ${currentText}\nDropped building: ${incomingText}\n\nClick OK to upload "${fileName}" and resize the selected footprint to the .hako size.\nClick Cancel to discard the upload.`);
+  }
+
+  function attachHakoFileToSelectedBuilding(file, opts={}){
+    const b=selected();
+    if(!b) return alert('Select a building footprint before attaching a .hako file.');
+    if(!file) return;
+    if(!/\.(hako|hakoseed|hakoplan|json)$/i.test(file.name||'')){
+      alert('Drop a .hako or JSON building file to attach it to the selected footprint.');
+      return;
+    }
+    const reader=new FileReader();
+    reader.onerror=()=>alert('Could not read that .hako file.');
+    reader.onload=ev=>{
+      const text=String(ev.target.result||'');
+      let parsed=null;
+      try{ parsed=JSON.parse(text); }
+      catch(_err){ alert('That .hako file was not valid JSON, so I could not check its footprint size.'); return; }
+      const derived=deriveFootprintFromHakoConfig(parsed||{});
+      const incomingSize=sizeFromDerivedHakoFootprint(derived);
+      if(!incomingSize){
+        alert('Could not find a usable footprint, width/depth, or polygon size in that .hako file.');
+        return;
+      }
+      const currentSize=selectedFootprintSizeMm(b);
+      const resizeFootprint=!footprintSizesMatch(currentSize, incomingSize);
+      if(resizeFootprint && !confirmSelectedHakoSizeMismatch(b, currentSize, incomingSize, file.name||'building.hako')) return;
+      storeHakoFileOnBuilding(b, file.name||`${slug(b.name||'building')}.hako`, text, parsed, {
+        source:opts.source||'selected-building-upload',
+        resizeFootprint,
+      });
+    };
+    reader.readAsText(file);
+  }
+
   function createBuildingFromImportedHako(fileName, text, parsed){
     const derived=deriveFootprintFromHakoConfig(parsed||{});
     if(!derived){
@@ -1749,6 +1853,45 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       createBuildingFromImportedHako(file.name||'building.hako', text, parsed);
     };
     reader.readAsText(file);
+  }
+
+  function hakoFileFromDataTransfer(dataTransfer){
+    const files=Array.from(dataTransfer?.files||[]);
+    return files.find(file=>/\.(hako|hakoseed|hakoplan|json)$/i.test(file.name||'')) || null;
+  }
+
+  function dataTransferHasFile(dataTransfer){
+    const items=Array.from(dataTransfer?.items||[]);
+    return items.some(item=>item.kind==='file') || (dataTransfer?.files?.length||0)>0;
+  }
+
+  function installSelectedHakoSidebarDrop(){
+    const sidebar=document.querySelector('.sidebar');
+    if(!sidebar || sidebar.dataset.hakoAttachDropInstalled) return;
+    sidebar.dataset.hakoAttachDropInstalled='true';
+    const canAttach=()=>!!selected() && currentSelectedBuildingIds().length===1;
+    const clearDragState=()=>sidebar.classList.remove('hakoAttachDragover');
+    ['dragenter','dragover'].forEach(type=>sidebar.addEventListener(type, ev=>{
+      if(!canAttach() || !dataTransferHasFile(ev.dataTransfer)) return;
+      ev.preventDefault();
+      sidebar.classList.add('hakoAttachDragover');
+      if(ev.dataTransfer) ev.dataTransfer.dropEffect='copy';
+    }));
+    ['dragleave','dragend'].forEach(type=>sidebar.addEventListener(type, ev=>{
+      if(type==='dragleave' && sidebar.contains(ev.relatedTarget)) return;
+      clearDragState();
+    }));
+    sidebar.addEventListener('drop', ev=>{
+      if(!canAttach() || !dataTransferHasFile(ev.dataTransfer)) return;
+      ev.preventDefault();
+      clearDragState();
+      const file=hakoFileFromDataTransfer(ev.dataTransfer);
+      if(!file){
+        alert('Drop a .hako or JSON building file to attach it to the selected footprint.');
+        return;
+      }
+      attachHakoFileToSelectedBuilding(file,{source:'selected-building-drop'});
+    });
   }
   function selected(){return state.buildings.find(b=>b.id===state.selectedId)||null;}
   function currentSelectedBuildingIds(){
@@ -3261,7 +3404,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       input.onchange=e=>{const f=e.target.files&&e.target.files[0]; if(f) importHakoAsBuilding(f); e.target.value='';};
       ['dragenter','dragover'].forEach(type=>drop.addEventListener(type, ev=>{ev.preventDefault(); ev.stopPropagation(); drop.classList.add('dragover');}));
       ['dragleave','drop'].forEach(type=>drop.addEventListener(type, ev=>{ev.preventDefault(); ev.stopPropagation(); if(type==='dragleave' && drop.contains(ev.relatedTarget)) return; drop.classList.remove('dragover');}));
-      drop.addEventListener('drop', ev=>{const files=Array.from(ev.dataTransfer&&ev.dataTransfer.files||[]); const f=files.find(file=>/\.(hako|hakoseed|hakoplan|json)$/i.test(file.name||''))||files[0]; if(f) importHakoAsBuilding(f);});
+      drop.addEventListener('drop', ev=>{const files=Array.from(ev.dataTransfer&&ev.dataTransfer.files||[]); const f=files.find(file=>/\.(hako|hakoseed|hakoplan|json)$/i.test(file.name||''))||files[0]; if(f){ if(selected() && currentSelectedBuildingIds().length===1) attachHakoFileToSelectedBuilding(f,{source:'selected-building-drop'}); else importHakoAsBuilding(f); }});
     }
   }
   function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const selIds=currentSelectedBuildingIds(); if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use Copy/Paste or Delete to manage the selected set.</span><div class="buttons" style="margin-top:8px"><button id="copyMultiB">Copy</button><button id="pasteMultiB" ${state.footprintClipboard?'':'disabled'}>Paste</button><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('copyMultiB').onclick=()=>{copySelectedFootprint(); renderSelected();}; $('pasteMultiB').onclick=()=>pasteFootprintFromClipboard(); $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(roadFeature){normalizeRoadFeature(roadFeature); box.innerHTML=`
@@ -3357,6 +3500,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     <div class="codebox" style="margin:4px 0 6px;white-space:normal">${hakoFileSummary(b)}</div>
     <input id="hakoFileInput" type="file" accept=".hako,.json,application/json" style="display:none">
     <div class="buttons" style="margin-bottom:8px"><button id="uploadHakoB">${b.hakoFile?'Replace .hako':'Upload .hako'}</button><button id="downloadHakoB" ${b.hakoFile?'':'disabled'}>Download .hako</button><button id="removeHakoB" class="danger" ${b.hakoFile?'':'disabled'}>Remove .hako</button></div>
+    <div class="small muted" style="margin:-4px 0 8px">Drop a .hako anywhere in this sidebar to attach it to this footprint.</div>
     <label>Notes</label><textarea id="selNotes" rows="3">${escapeHtml(b.notes||'')}</textarea>
     <div class="buttons" style="margin-top:8px"><button id="copyB">Copy</button><button id="pasteB" ${state.footprintClipboard?'':'disabled'}>Paste</button><button id="dupB">Duplicate</button><button id="hideB">${b.hidden?'Show':'Hide'}</button><button id="lockB">${b.locked?'Unlock':'Lock'}</button>${b.padType==='rect'?'<button id="polyB">Convert to Polygon</button>':''}<button id="delB" class="danger">Delete</button></div>`;
     const bind=(id,fn)=>{const e=$(id); if(e)e.oninput=()=>{fn(e.value); syncAll();};};
@@ -3365,7 +3509,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     bind('selW',v=>{if(state.pxPerMm)b.widthPx=mmToPx(Math.max(.1,parseFloat(v)||1));}); bind('selD',v=>{if(state.pxPerMm)b.depthPx=mmToPx(Math.max(.1,parseFloat(v)||1));});
     const hakoInput=$('hakoFileInput');
     if($('uploadHakoB')) $('uploadHakoB').onclick=()=>hakoInput && hakoInput.click();
-    if(hakoInput) hakoInput.onchange=e=>{const f=e.target.files&&e.target.files[0]; if(!f)return; const reader=new FileReader(); reader.onerror=()=>alert('Could not read that .hako file.'); reader.onload=ev=>{const text=String(ev.target.result||''); let parsed=null; try{parsed=JSON.parse(text);}catch(_err){} b.hakoFile={fileName:f.name||`${slug(b.name)}.hako`,mimeType:f.type||'application/json',sizeBytes:f.size||text.length,importedAt:new Date().toISOString(),dataText:text,parsedConfig:parsed}; b.hakoFileId=b.hakoFile.fileName; if(parsed) b.hakoConfig=parsed; if(b.state==='notStarted') b.state='inProgress'; syncAll();}; reader.readAsText(f); e.target.value='';};
+    if(hakoInput) hakoInput.onchange=e=>{const f=e.target.files&&e.target.files[0]; if(f) attachHakoFileToSelectedBuilding(f,{source:'selected-building-picker'}); e.target.value='';};
     if($('downloadHakoB')) $('downloadHakoB').onclick=()=>{if(!b.hakoFile)return; download(b.hakoFile.dataText||JSON.stringify(b.hakoFile.parsedConfig||b.hakoConfig||{},null,2), b.hakoFile.fileName||`${slug(b.name)}.hako`, b.hakoFile.mimeType||'application/json');};
     if($('removeHakoB')) $('removeHakoB').onclick=()=>{if(!b.hakoFile)return; if(!confirm('Remove the stored .hako file from this building?')) return; b.hakoFile=null; b.hakoFileId=null; syncAll();};
     if($('openSelectedHakoB')) $('openSelectedHakoB').onclick=()=>openBuildingInHakoMachi(b);
@@ -5102,6 +5246,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
 
   bindSite3DButtons();
+  installSelectedHakoSidebarDrop();
   resize();
   const restored=restoreAutosaveIfAvailable();
   state.autosaveReady=true;

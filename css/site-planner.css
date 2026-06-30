@@ -533,6 +533,11 @@ canvas {
   box-shadow: none;
 }
 
+.sidebar.hakoAttachDragover {
+  background: #fff7f2;
+  box-shadow: inset 0 0 0 2px rgba(200,70,50,.32);
+}
+
 .bottom {
   grid-column: 1 / 4;
   grid-row: 3;

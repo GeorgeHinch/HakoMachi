@@ -99,7 +99,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-011: Add solid back cladding for straight or angled sliced buildings
 
-- Status: Proposed
+- Status: Blocked
 - Group: Building generation
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/15

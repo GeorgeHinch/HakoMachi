@@ -5,7 +5,7 @@
 
 import { installThreeRenderCanvas } from '../../shared/browser-utils.js';
 import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=shared-building-preview-26';
-import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=shared-building-preview-30';
+import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=shared-building-preview-31';
 
 let threeScene, threeCamera, threeRenderer, threeControls, buildingMesh, threePreviewGrid;
 export let threePreviewConfig = null;
@@ -395,6 +395,19 @@ export function buildWallTexture(cfg, wallW, wallH, baseH, openings, flipX, styl
 
 /* ---- helpers ---- */
 
+function isPreviewGabledRoofStyle(roofStyle) {
+  return roofStyle === 'gabled' || roofStyle === 'parapet_gable';
+}
+
+function getPreviewEffectiveRidgeDir(cfg) {
+  if ((cfg?.roofStyle || '') === 'parapet_gable') {
+    const sides = cfg.parapetSides || 'all';
+    if (sides === 'fb') return 'ns';
+    if (sides === 'ew') return 'ew';
+  }
+  return cfg?.roofRidgeDirection || 'ew';
+}
+
 /**
  * Collect window + door rects for one wall face in 2D wall-local coords
  * (x=0 left, y=0 top), pulling from manualOpenings or re-computing auto placement.
@@ -405,9 +418,9 @@ export function get3DWallProfileForFace(cfg, plan, face) {
   const isFrontBack = (face === 'front' || face === 'back');
   const isSide = (face === 'east' || face === 'west');
 
-  const isGabled  = roofStyle === 'gabled';
+  const isGabled  = isPreviewGabledRoofStyle(roofStyle);
   const isSlanted = roofStyle === 'slanted';
-  const ewRidge   = (cfg.roofRidgeDirection || 'ew') === 'ew';
+  const ewRidge   = getPreviewEffectiveRidgeDir(cfg) === 'ew';
   const pitch     = cfg.roofPitch || 10;
   const slopeDir  = cfg.roofSlopeDirection || 'back';
   const sltNsAxis = (slopeDir === 'back' || slopeDir === 'front');
@@ -1861,20 +1874,23 @@ export function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
   // Parapet roof preview:
   // show a recessed roof deck plus the parapet ring/top caps so it reads as a
   // true parapet well in 3D instead of a plain flat slab.
-  function addParapetRoofPreview(boxW, boxD, totalH, parapetH, cx = 0, cz = 0, topMatOverride = null) {
+  function addParapetRoofPreview(boxW, boxD, totalH, parapetH, cx = 0, cz = 0, topMatOverride = null, options = {}) {
     const pH = Math.max(0.5, Number(parapetH) || 0);
     const innerW = Math.max(t, boxW - 2 * t);
     const innerD = Math.max(t, boxD - 2 * t);
     const deckY = totalH - pH;
     const roofTopMat = topMatOverride || makeRoofTopMat(innerW, innerD);
+    const includeDeck = options.includeDeck !== false;
 
-    // Recessed roof deck.
-    const deck = new THREE.Mesh(
-      new THREE.BoxGeometry(innerW, t, innerD),
-      [roofMat, roofMat, roofTopMat, roofMat, roofMat, roofMat]
-    );
-    deck.position.set(cx, deckY + t / 2, cz);
-    group.add(deck);
+    if (includeDeck) {
+      // Recessed roof deck.
+      const deck = new THREE.Mesh(
+        new THREE.BoxGeometry(innerW, t, innerD),
+        [roofMat, roofMat, roofTopMat, roofMat, roofMat, roofMat]
+      );
+      deck.position.set(cx, deckY + t / 2, cz);
+      group.add(deck);
+    }
 
     // Simple top caps around the parapet.
     const capMat = roofMat;
@@ -1950,16 +1966,22 @@ export function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
     rm.rotation.z = nsAxis ? 0 : (slopeDir === 'east' ? angle : -angle);
     rm.position.set(0, h + pitch / 2, 0);   // centre of slope above wall top (both eave ends equal)
     group.add(rm);
-  } else if (roofStyle3d === 'gabled') {
+  } else if (isPreviewGabledRoofStyle(roofStyle3d)) {
     const pitch = cfg.roofPitch || 10;
-    const ridgeDir = cfg.roofRidgeDirection || 'ew';
+    const ridgeDir = getPreviewEffectiveRidgeDir(cfg);
     const ewRidge = (ridgeDir === 'ew');
-    const halfSpan = ewRidge ? d / 2 : w / 2;
+    const isParapetGable = roofStyle3d === 'parapet_gable';
+    const roofBaseY = isParapetGable ? h - pH3d : h;
+    const roofW = isParapetGable ? Math.max(t, w - 2 * t) : w;
+    const roofD = isParapetGable ? Math.max(t, d - 2 * t) : d;
+    const roofOverhangFB = isParapetGable ? 0 : ohFB3;
+    const roofOverhangEW = isParapetGable ? 0 : ohEW3;
+    const halfSpan = ewRidge ? roofD / 2 : roofW / 2;
     const slantAngle = Math.atan2(pitch, halfSpan);
     const slantLen0  = Math.hypot(halfSpan, pitch);
     // Eave = the outer edge of each panel that hangs beyond the building wall
-    const ohEave  = ewRidge ? ohFB3 : ohEW3;
-    const ohVerge = ewRidge ? ohEW3 : ohFB3;
+    const ohEave  = ewRidge ? roofOverhangFB : roofOverhangEW;
+    const ohVerge = ewRidge ? roofOverhangEW : roofOverhangFB;
     const ohEaveSlant = ohEave * (slantLen0 / halfSpan);
     const slantLen = slantLen0 + ohEaveSlant;   // each panel: only the eave end extends
     // Each panel's ridge end spans ±(t/2)·sin(angle) across z=0 due to material thickness.
@@ -1967,17 +1989,17 @@ export function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
     // with no penetration — outer faces diverge symmetrically above the peak.
     const ridgeShift    = (t / 2) * Math.sin(slantAngle);
     const panelCentreOffset = (halfSpan + ohEave) / 2 + ridgeShift;
-    const topW = ewRidge ? (w + 2 * ohVerge) : slantLen;
-    const topD = ewRidge ? slantLen           : (d + 2 * ohVerge);
+    const topW = ewRidge ? (roofW + 2 * ohVerge) : slantLen;
+    const topD = ewRidge ? slantLen               : (roofD + 2 * ohVerge);
     for (const sign of [-1, 1]) {
       const rm = new THREE.Mesh(
-        ewRidge ? new THREE.BoxGeometry(w + 2*ohVerge, t, slantLen)
-                : new THREE.BoxGeometry(slantLen, t, d + 2*ohVerge),
+        ewRidge ? new THREE.BoxGeometry(roofW + 2*ohVerge, t, slantLen)
+                : new THREE.BoxGeometry(slantLen, t, roofD + 2*ohVerge),
         makeRoofMats(topW, topD)
       );
       if (ewRidge) {
         rm.rotation.x = sign * slantAngle;
-        rm.position.set(0, h + pitch / 2, sign * panelCentreOffset);
+        rm.position.set(0, roofBaseY + pitch / 2, sign * panelCentreOffset);
       } else {
         // For an N/S ridge the slope runs along world X. Positive rotation
         // around Z raises +X, so the panel sitting on the +X/east side must
@@ -1985,9 +2007,12 @@ export function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
         // The previous sign made the ridge a low valley and the outside
         // eaves high, so the 3D gable preview looked upside down.
         rm.rotation.z = -sign * slantAngle;
-        rm.position.set(sign * panelCentreOffset, h + pitch / 2, 0);
+        rm.position.set(sign * panelCentreOffset, roofBaseY + pitch / 2, 0);
       }
       group.add(rm);
+    }
+    if (isParapetGable) {
+      addParapetRoofPreview(w, d, h, pH3d, 0, 0, null, { includeDeck: false });
     }
   } else if (roofStyle3d === 'flat_overhang') {
     // Flat slab oversized past the walls by `O` mm on every side, centred
@@ -3112,16 +3137,22 @@ export function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
         }
       }
 
-      if (roofStyle3d === 'gabled') {
+      if (isPreviewGabledRoofStyle(roofStyle3d)) {
         const pitch = cfg.roofPitch || 10;
-        const ridgeDir = cfg.roofRidgeDirection || 'ew';
+        const ridgeDir = getPreviewEffectiveRidgeDir(cfg);
         const ewRidge = (ridgeDir === 'ew');
-        const halfSpan = ewRidge ? d / 2 : w / 2;
+        const isParapetGable = roofStyle3d === 'parapet_gable';
+        const roofBaseY = isParapetGable ? h - pH3d : h;
+        const roofW = isParapetGable ? Math.max(t, w - 2 * t) : w;
+        const roofD = isParapetGable ? Math.max(t, d - 2 * t) : d;
+        const roofOverhangFB = isParapetGable ? 0 : ohFB3;
+        const roofOverhangEW = isParapetGable ? 0 : ohEW3;
+        const halfSpan = ewRidge ? roofD / 2 : roofW / 2;
         const slantAngle = Math.atan2(pitch, halfSpan);
-        const ohEave  = ewRidge ? ohFB3 : ohEW3;
+        const ohEave  = ewRidge ? roofOverhangFB : roofOverhangEW;
         const ridgeShift = (t / 2) * Math.sin(slantAngle);
         const panelCentreOffset = (halfSpan + ohEave) / 2 + ridgeShift;
-        const centerY = h + pitch / 2;
+        const centerY = roofBaseY + pitch / 2;
 
         if (ewRidge) {
           const sign = (worldZ < 0) ? -1 : 1;          // front half / back half

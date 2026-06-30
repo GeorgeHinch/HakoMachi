@@ -1645,6 +1645,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const date=b.hakoFile.importedAt ? new Date(b.hakoFile.importedAt).toLocaleString() : 'unknown date';
     return `${escapeHtml(b.hakoFile.fileName||'building.hako')} · ${sizeText} · ${date}`;
   }
+  function hasAttachedHakoFile(b){ return !!b?.hakoFile; }
 
   function renameAttachedHakoFileForBuilding(b){
     if(!b?.hakoFile) return false;
@@ -1889,6 +1890,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       delete b.hakoTrimLinesMm;
     }
     if(opts.resizeFootprint) applyHakoConfigToPlannerFootprint(b, parsed);
+    delete b.plannerHeightMm;
     if(b.state==='notStarted') b.state='inProgress';
     normalizeBuilding(b);
     syncBuildingMetrics(b);
@@ -2220,6 +2222,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedId=primaryId || (valid.length===1 ? valid[0] : null);
     state.selectedRoadId=null; state.selectedRoadFeatureId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedFabricId=null;
   }
+  function reassertCanvasBuildingSelection(id){
+    const ids=currentSelectedBuildingIds();
+    setBuildingSelection(ids.includes(id) ? ids : [id], id);
+  }
   function isBuildingSelected(id){return currentSelectedBuildingIds().includes(id);}
   function toggleBuildingSelection(id){
     const ids=currentSelectedBuildingIds();
@@ -2376,6 +2382,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function site3DBuildingHeightMm(b,cfg){
     const byFloors=site3DFloorCount(b,cfg)*site3DFloorHeightMm(b,cfg);
+    if(hasAttachedHakoFile(b)){
+      return positiveNumber(cfg?.height,cfg?.heightMm,cfg?.dimensions?.height,cfg?.dimensions?.heightMm,byFloors,b.heightMm,24) || 24;
+    }
     return positiveNumber(b.plannerHeightMm,b.heightMm,cfg?.height,cfg?.heightMm,cfg?.dimensions?.height,cfg?.dimensions?.heightMm,byFloors,24) || 24;
   }
   function site3DBuildingElevationMm(b){ return positiveNumber(b.baseElevationMm,b.elevationMm,b.siteElevationMm,0) || 0; }
@@ -4339,6 +4348,30 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       syncAll();
     };
   }
+  function bindSidebarDetailToolbarControls(kind){
+    const toolbar=$('sidebarDetailToolbar');
+    const back=$('sidebarBackBtn');
+    if(back) back.onclick=clearSidebarDetailSelection;
+    if(toolbar) hydrateIcons(toolbar);
+    if(kind==='building'){
+      const overflowBtn=$('sidebarOverflowBtn');
+      const overflowMenu=$('sidebarBuildingOverflowMenu');
+      const overflowWrap=$('sidebarOverflowWrap');
+      if(overflowBtn && overflowMenu && overflowWrap){
+        overflowBtn.onclick=e=>{
+          e.preventDefault();
+          e.stopPropagation();
+          const open=!overflowMenu.classList.contains('open');
+          closeSidebarBuildingOverflow();
+          overflowMenu.classList.toggle('open',open);
+          overflowWrap.classList.toggle('menuOpen',open);
+          overflowBtn.setAttribute('aria-expanded',String(open));
+        };
+        overflowMenu.onclick=e=>e.stopPropagation();
+        bindSidebarBuildingOverflowActions();
+      }
+    }
+  }
   function applySidebarDrillIn(){
     const sidebar=document.querySelector('.sidebar');
     if(!sidebar) return;
@@ -4391,25 +4424,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         sidebar.scrollTop=0;
       }
       activeSidebarDetailKey=detailKey;
-      hydrateIcons(toolbar);
-      if(kind==='building'){
-        const overflowBtn=$('sidebarOverflowBtn');
-        const overflowMenu=$('sidebarBuildingOverflowMenu');
-        const overflowWrap=$('sidebarOverflowWrap');
-        if(overflowBtn && overflowMenu && overflowWrap){
-          overflowBtn.onclick=e=>{
-            e.preventDefault();
-            e.stopPropagation();
-            const open=!overflowMenu.classList.contains('open');
-            closeSidebarBuildingOverflow();
-            overflowMenu.classList.toggle('open',open);
-            overflowWrap.classList.toggle('menuOpen',open);
-            overflowBtn.setAttribute('aria-expanded',String(open));
-          };
-          overflowMenu.onclick=e=>e.stopPropagation();
-          bindSidebarBuildingOverflowActions();
-        }
-      }
+      bindSidebarDetailToolbarControls(kind);
       if(window.matchMedia && window.matchMedia('(max-width:900px)').matches && !state.sidebarOpen){
         setSidebarOpen(true);
       }
@@ -4567,6 +4582,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     };
     b.hakoFileId=fileName;
     b.hakomachiHandoff=payload.sitePlannerHandoff || payload.hakomachiHandoff || cfg.hakomachiHandoff || null;
+    delete b.plannerHeightMm;
     if(b.state==='notStarted') b.state='inProgress';
     applyHakoConfigToPlannerFootprint(b,cfg);
     normalizeBuilding(b);
@@ -4747,6 +4763,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(e.shiftKey || e.metaKey || e.ctrlKey){ toggleBuildingSelection(hit.id); renderList(); renderSelected(); updateHandoff(); draw(); return true; }
       const already=isBuildingSelected(hit.id);
       if(!already) setBuildingSelection([hit.id], hit.id);
+      else reassertCanvasBuildingSelection(hit.id);
       renderList(); renderSelected(); updateHandoff();
       const ids=currentSelectedBuildingIds();
       const origs=ids.map(id=>state.buildings.find(x=>x.id===id)).filter(Boolean).map(x=>structuredClone(x));

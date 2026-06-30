@@ -126,6 +126,23 @@ function focusSitePlannerWindow(plannerWindow) {
   }
 }
 
+function closeGeneratorAfterPlannerUpdate(plannerWindow, buildingName) {
+  if (plannerWindow) focusSitePlannerWindow(plannerWindow);
+  window.setTimeout?.(() => {
+    try {
+      window.close();
+    } catch (_err) {
+      /* Some browsers keep manually opened tabs alive. */
+    }
+    window.setTimeout?.(() => {
+      if (!window.closed) {
+        if (plannerWindow) focusSitePlannerWindow(plannerWindow);
+        showBridgeStatus(`Site Planner updated ${buildingName || 'building'}. You can close this tab.`, 'ok');
+      }
+    }, 250);
+  }, 80);
+}
+
 function pushCurrentBuildingToSitePlanner() {
   try {
     const payload = makeSitePlannerBuildingUpdate();
@@ -140,7 +157,7 @@ function pushCurrentBuildingToSitePlanner() {
       opener.postMessage(payload, targetOrigin);
       focusSitePlannerWindow(opener);
       window.setTimeout?.(() => focusSitePlannerWindow(opener), 120);
-      showBridgeStatus('Sent update and returned to Site Planner.', 'ok');
+      showBridgeStatus('Sent update. Returning after Site Planner refreshes.', 'ok');
     } else {
       localStorage.setItem(SITE_PLANNER_BUILDING_UPDATE_KEY, JSON.stringify(payload));
       window.open('site-planner.html#buildingUpdate', '_blank');
@@ -157,8 +174,7 @@ window.addEventListener('message', event => {
   const data = event.data || {};
   if (data.type !== 'hakomachi:site-planner-building-update-applied') return;
   const opener = window.opener && !window.opener.closed ? window.opener : null;
-  if (opener) focusSitePlannerWindow(opener);
-  showBridgeStatus(`Site Planner updated ${data.buildingName || 'building'}.`, 'ok');
+  closeGeneratorAfterPlannerUpdate(opener, data.buildingName);
 });
 
 function installSitePlannerPushButton() {
@@ -170,8 +186,8 @@ function installSitePlannerPushButton() {
   const btn = document.createElement('button');
   btn.id = 'pushSitePlannerBtn';
   btn.type = 'button';
-  btn.title = 'Send the current building settings back to the Site Planner footprint and return to the planner tab.';
-  btn.innerHTML = '<span data-icon="upload"></span> Push & Return to Site Planner';
+  btn.title = 'Send the current building settings back to the Site Planner footprint, close this tab, and return to the planner.';
+  btn.innerHTML = '<span data-icon="upload"></span> Push, Close & Return';
   btn.addEventListener('click', pushCurrentBuildingToSitePlanner);
   menu.insertBefore(sep, resetBtn || null);
   menu.insertBefore(btn, resetBtn || null);

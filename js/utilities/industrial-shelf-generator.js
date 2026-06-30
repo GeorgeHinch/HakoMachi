@@ -1,15 +1,23 @@
-import * as HakoMachiUtils from '../shared/browser-utils.js';
+import * as HakoMachiUtils from './shared.js';
 
 const NS = 'http://www.w3.org/2000/svg';
-const CUT = '#d22';
-const ENG = '#1769aa';
+const SVG_OP = HakoMachiUtils.SVG_FABRICATION_OPERATIONS;
+const CUT = HakoMachiUtils.svgFabricationColor(SVG_OP.CUT_RETAINED);
+const SCRAP = HakoMachiUtils.svgFabricationColor(SVG_OP.CUT_SCRAP);
+const ENG = HakoMachiUtils.svgFabricationColor(SVG_OP.ENGRAVE);
 const MARK = '#777';
 const PX = 3.7795275591;
 
 function val(id){ return parseFloat(document.getElementById(id).value); }
 function choice(id){ return document.getElementById(id).value; }
 function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
-function el(name, attrs={}, parent=null){ const e=document.createElementNS(NS,name); for(const [k,v] of Object.entries(attrs)) e.setAttribute(k,v); if(parent) parent.appendChild(e); return e; }
+function operationForSvgAttrs(attrs={}){
+  if(attrs.stroke===CUT) return SVG_OP.CUT_RETAINED;
+  if(attrs.stroke===SCRAP) return SVG_OP.CUT_SCRAP;
+  if(attrs.stroke===ENG || attrs.fill===ENG) return SVG_OP.ENGRAVE;
+  return null;
+}
+function el(name, attrs={}, parent=null){ const e=document.createElementNS(NS,name); const op=attrs['data-operation'] || operationForSvgAttrs(attrs); if(op) attrs={...attrs,'data-operation':op}; for(const [k,v] of Object.entries(attrs)) e.setAttribute(k,v); if(parent) parent.appendChild(e); return e; }
 function pathD(points){ return points.map((p,i)=>(i?'L':'M')+p[0].toFixed(3)+' '+p[1].toFixed(3)).join(' ')+' Z'; }
 function line(parent,x1,y1,x2,y2,stroke=ENG,sw=.12,dash=''){ const a={x1,y1,x2,y2,stroke,'stroke-width':sw,'vector-effect':'non-scaling-stroke'}; if(dash)a['stroke-dasharray']=dash; return el('line',a,parent); }
 function rect(parent,x,y,w,h,stroke=CUT,fill='none',sw=.12){ return el('rect',{x,y,width:w,height:h,stroke,fill,'stroke-width':sw,'vector-effect':'non-scaling-stroke'},parent); }
@@ -285,7 +293,7 @@ function addShelfDeckPattern(g,x,y,W,D,opt,style,keep=[]){
     if(rw < minF || rh < minF) return;
     const cand={x:rx,y:ry,w:rw,h:rh};
     if(keep.some(k=>overlaps(cand,k))) return;
-    rect(g,rx,ry,rw,rh,CUT);
+    rect(g,rx,ry,rw,rh,SCRAP);
   };
   const safeDot=(cx,cy,r)=>{
     const cand={x:cx-r,y:cy-r,w:r*2,h:r*2};
@@ -491,7 +499,7 @@ function removeBandFromPolys(polys,x1,y1,x2,y2,width){
 }
 function cutPolygon(parent,poly){
   if(poly && poly.length>=3 && Math.abs(polygonArea(poly))>0.08){
-    el('path',{d:pathD(poly),fill:'none',stroke:CUT,'stroke-width':.12,'vector-effect':'non-scaling-stroke'},parent);
+    el('path',{d:pathD(poly),fill:'none',stroke:SCRAP,'stroke-width':.12,'vector-effect':'non-scaling-stroke'},parent);
   }
 }
 function addBracedOpenings(g,rx,ry,rw,rh,diagLines,braceW){
@@ -550,7 +558,7 @@ function addFrameOnlyOpenings(g,x,y,W,H,opt,verticalBands){
   const openYBands = railCentersToOpenBands(y,H,activeShelfYs(opt),railDepth).map(([a,b])=>[a-y,b-y]);
   for(const [xa,xb] of openXBands){
     for(const [ya,yb] of openYBands){
-      if(xb-xa >= 1.0 && yb-ya >= 1.0) rect(g,x+xa,y+ya,xb-xa,yb-ya,CUT);
+      if(xb-xa >= 1.0 && yb-ya >= 1.0) rect(g,x+xa,y+ya,xb-xa,yb-ya,SCRAP);
     }
   }
 }
@@ -584,7 +592,7 @@ function makeSideFrame(g,x,y,D,H,opt,label,includeOuter=false){
     if(!levelUsesCutShelf(opt,levelIdx)) return;
     const yy = y+H-sy;
     for(const p of shelfSlotsForSide(D,opt,levelIdx,isRightSide)){
-      rect(g,x+p,yy-slotW/2,tabW,slotW,CUT);
+      rect(g,x+p,yy-slotW/2,tabW,slotW,SCRAP);
     }
     line(g,x,yy,x+D,yy,ENG,.08,'0.8 0.5');
   });
@@ -614,7 +622,7 @@ function makeSideOuter(g,x,y,D,H,opt,label){
     if(!levelUsesCutShelf(opt,levelIdx)) return;
     const yy = y+H-sy;
     for(const p of shelfSlotsForSide(D,opt,levelIdx,isRightSide)){
-      rect(g,x+p,yy-slotW/2,tabW,slotW,CUT);
+      rect(g,x+p,yy-slotW/2,tabW,slotW,SCRAP);
     }
     line(g,x,yy,x+D,yy,ENG,.08,'0.8 0.5');
   });
@@ -640,7 +648,7 @@ function makeInteriorVerticalSupport(g,x,y,D,H,opt,postIndex){
     const yy = y+H-sy;
     const positions = shelfSlotDepthPositionsForPost(D,opt,levelIdx,postIndex);
     for(const p of positions){
-      rect(g,x+p,yy-slotW/2,tabW,slotW,CUT);
+      rect(g,x+p,yy-slotW/2,tabW,slotW,SCRAP);
     }
     line(g,x,yy,x+D,yy,ENG,.08,'0.8 0.5');
   });
@@ -689,7 +697,7 @@ function makeBack(g,x,y,W,H,opt,style,includeOuter=false){
     const sh=Math.max(1.0,(H-2*pad-rows*gapHole)/(rows));
     for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
       const sx=x+pad+c*(sw+gapHole), sy=y+pad+r*(sh+gapHole);
-      rect(g,sx,sy,Math.min(sw,4.5),Math.min(sh,3.2),CUT);
+      rect(g,sx,sy,Math.min(sw,4.5),Math.min(sh,3.2),SCRAP);
     }
   }
 
@@ -700,7 +708,7 @@ function makeBack(g,x,y,W,H,opt,style,includeOuter=false){
     const isEdge = idx===0 || idx===postXs.length-1;
     if(!isEdge){
       for(const py of rearSupportTabPositions(H,opt)){
-        rect(g,x+px-slotW/2,y+py,slotW,tabW,CUT);
+        rect(g,x+px-slotW/2,y+py,slotW,tabW,SCRAP);
       }
     }
   });
@@ -747,7 +755,7 @@ function makeBackOuter(g,x,y,W,H,opt){
     const isEdge = idx===0 || idx===postXs.length-1;
     if(!isEdge){
       for(const py of rearSupportTabPositions(H,opt)){
-        rect(g,x+px-slotW/2,y+py,slotW,tabW,CUT);
+        rect(g,x+px-slotW/2,y+py,slotW,tabW,SCRAP);
       }
     }
   });
@@ -781,7 +789,7 @@ function makeTopBottomFrame(g,x,y,W,D,opt,label,includeEngrave=true){
     const isEdge = idx===0 || idx===postXs.length-1;
     if(!isEdge){
       for(const p of depthTabPositions){
-        rect(g,x+px-slotW/2,y+p,slotW,tabW,CUT);
+        rect(g,x+px-slotW/2,y+p,slotW,tabW,SCRAP);
       }
     }
     line(g,x+px,y+0.8,x+px,y+D-0.8,ENG,.08,'0.7 0.5');
@@ -1312,7 +1320,7 @@ function makeStandaloneCoreFront(g,x,y,w,h,opt,type='generic'){
   const clearW = w - sideFrame*2;
   const clearH = h - topFrame - bottomFrame;
   if(clearW >= Math.max(1.2, minFrame) && clearH >= Math.max(1.4, minFrame)){
-    rect(g,x+sideFrame,y+topFrame,clearW,clearH,CUT);
+    rect(g,x+sideFrame,y+topFrame,clearW,clearH,SCRAP);
   } else {
     // Very small parts fall back to a solid front panel so the frame itself stays cuttable.
     line(g,x+0.8,y+h*0.55,x+w-0.8,y+h*0.55,ENG,.08,'0.6 0.5');
@@ -1563,7 +1571,7 @@ function render(){
     materialText.textContent=matHint.label;
     badge.appendChild(dot);
     badge.appendChild(materialText);
-    badge.title='Material sheet color. Red SVG lines cut; blue SVG lines engrave/score darker on this material.';
+    badge.title='Material sheet color. Red SVG lines are retained cuts, green SVG lines are scrap/internal cutouts, and blue SVG lines engrave/score darker on this material.';
     materialDiv.appendChild(badge);
     const box=document.createElement('div');
     box.className='svgBox';
@@ -1620,7 +1628,7 @@ function render(){
     : `Component: <b>${activePreset ? activePreset.label : componentType}</b>. Default standalone size loaded: <b>${activePreset ? `${activePreset.w.toFixed(1)}×${activePreset.d.toFixed(1)}×${activePreset.h.toFixed(1)}mm` : `${W.toFixed(1)}×${D.toFixed(1)}×${H.toFixed(1)}mm`}</b> (W×D×H). `;
   document.getElementById('stats').innerHTML = modeNote + `Auto supports: <b>${postCount}</b> vertical lines at about <b>${(W/(postCount-1 || 1)).toFixed(1)}mm</b> spacing.<br>`+
     `Shelf count includes the bottom/base shelf and top shelf. Interior shelf spacing: <b>${(H/(Math.max(1,shelfCount-1))).toFixed(1)}mm</b> between shelf levels; interior shelf inserts generated: <b>${interiorShelfCount}</b>. Internal slot width: <b>${slotW.toFixed(2)}mm</b>; open doubled edge slot width: <b>${edgeSlotW.toFixed(2)}mm</b>; min structural strip: <b>${minFeature.toFixed(1)}mm</b>; slot-receiving strips: <b>${receiverFeature.toFixed(1)}mm</b> minimum.<br>`+
-    `Only interior shelf levels that need physical shelf plates are split into bay sections between vertical support slot lines, because the bottom/base and top frame parts count as shelves; closed cabinet levels omit hidden shelf plates and their receiver slots. Cabinet front cladding auto-selects one door below the chosen real-width breakpoint and two doors at/above it. Fire and utility cabinet shelf types generate closed Japanese-style cabinets with name-style text removed unless that component intentionally uses an explicit engraved label; the fire cabinet types keep 消火器 / 消火栓 / ホース labels, while the other components use door, handle, vent, panel, meter, reel, and icon detailing without text labels. The shelf bay body spans from support slot line to support slot line, and the end tabs extend into the receivers. The exact shelf tab coordinates are reused to place matching receiver slots on the side frames and the separate interior vertical support parts. Top/bottom frames are doubled layers using open edge notches for the doubled side/back wall-plus-stiffener assemblies and matched enclosed slots for the interior vertical supports; only the main top/bottom layer carries blue engraving; center/side support bodies are shortened so the rear tabs fit within the requested depth D, and the back panel has matched vertical slots for those rear tabs. Each part is shown as its own preview card. Downloads can export either one combined SVG sheet or a ZIP bundle containing one SVG file for every generated part; ZIP filenames are prefixed with the material sheet group. Each file is still a single material color: red geometry is cut and blue geometry is engrave/score. Touching members on a part are represented as one perimeter outline with intentional internal cutout openings; thickener layers match the frame/rail/post outline below them, omit cross bracing, are not solid filled panels, and include matching clearance slots anywhere tabs pass through the lower layer.`;
+    `Only interior shelf levels that need physical shelf plates are split into bay sections between vertical support slot lines, because the bottom/base and top frame parts count as shelves; closed cabinet levels omit hidden shelf plates and their receiver slots. Cabinet front cladding auto-selects one door below the chosen real-width breakpoint and two doors at/above it. Fire and utility cabinet shelf types generate closed Japanese-style cabinets with name-style text removed unless that component intentionally uses an explicit engraved label; the fire cabinet types keep 消火器 / 消火栓 / ホース labels, while the other components use door, handle, vent, panel, meter, reel, and icon detailing without text labels. The shelf bay body spans from support slot line to support slot line, and the end tabs extend into the receivers. The exact shelf tab coordinates are reused to place matching receiver slots on the side frames and the separate interior vertical support parts. Top/bottom frames are doubled layers using open edge notches for the doubled side/back wall-plus-stiffener assemblies and matched enclosed slots for the interior vertical supports; only the main top/bottom layer carries blue engraving; center/side support bodies are shortened so the rear tabs fit within the requested depth D, and the back panel has matched vertical slots for those rear tabs. Each part is shown as its own preview card. Downloads can export either one combined SVG sheet or a ZIP bundle containing one SVG file for every generated part; ZIP filenames are prefixed with the material sheet group. Each file is still a single material color: red geometry is a retained cut, green geometry is scrap/internal cutout material, and blue geometry is engrave/score. Touching members on a part are represented as one perimeter outline with intentional internal cutout openings; thickener layers match the frame/rail/post outline below them, omit cross bracing, are not solid filled panels, and include matching clearance slots anywhere tabs pass through the lower layer.`;
 }
 
 function scheduleRender(){

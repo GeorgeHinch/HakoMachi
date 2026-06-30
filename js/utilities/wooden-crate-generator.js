@@ -1,8 +1,13 @@
-import * as U from '../shared/browser-utils.js';
+import * as U from './shared.js';
 
 const $ = id => U.byId(id);
-const COLOR_CUT = '#FF0000';
-const COLOR_ENGRAVE = '#0000FF';
+const SVG_OP = U.SVG_FABRICATION_OPERATIONS;
+const COLOR_CUT = U.svgFabricationColor(SVG_OP.CUT_RETAINED);
+const COLOR_ENGRAVE = U.svgFabricationColor(SVG_OP.ENGRAVE);
+
+function operationForClass(cls) {
+  return cls === 'cut' ? SVG_OP.CUT_RETAINED : SVG_OP.ENGRAVE;
+}
 
   const ids = [
     'outerW',
@@ -54,16 +59,17 @@ const COLOR_ENGRAVE = '#0000FF';
   }
 
   function line(x1, y1, x2, y2, cls = 'cut', extra = '') {
-    return U.svgLine(x1, y1, x2, y2, { class: cls }, extra);
+    return U.svgLine(x1, y1, x2, y2, { class: cls, 'data-operation': operationForClass(cls) }, extra);
   }
 
   function rect(x, y, w, h, cls = 'cut', extra = '') {
-    return U.svgRect(x, y, w, h, { class: cls }, extra);
+    return U.svgRect(x, y, w, h, { class: cls, 'data-operation': operationForClass(cls) }, extra);
   }
 
   function text(x, y, value, cls = 'label', size = 1.8) {
     return U.svgText(x, y, value, {
       class: cls,
+      'data-operation': SVG_OP.ENGRAVE,
       'font-size': size,
       'font-family': 'Arial',
       fill: COLOR_ENGRAVE
@@ -229,7 +235,7 @@ const COLOR_ENGRAVE = '#0000FF';
       const xx = lx + lw * 0.12 + lw * 0.42 * i / 8;
       out += line(xx, ly + lh * 0.70, xx, ly + lh * (i % 3 === 0 ? 0.88 : 0.82), 'etch');
     }
-    out += `<circle class="etch" cx="${(lx + lw * 0.80).toFixed(3)}" cy="${(ly + lh * 0.74).toFixed(3)}" r="${(Math.min(lw, lh) * 0.18).toFixed(3)}"/>`;
+      out += `<circle class="etch" data-operation="${SVG_OP.ENGRAVE}" cx="${(lx + lw * 0.80).toFixed(3)}" cy="${(ly + lh * 0.74).toFixed(3)}" r="${(Math.min(lw, lh) * 0.18).toFixed(3)}"/>`;
     return out;
   }
 
@@ -261,7 +267,7 @@ const COLOR_ENGRAVE = '#0000FF';
       [x + w / 2, y + s.braceW * 0.5],
       [x + w / 2, y + h - s.braceW * 0.5]
     ];
-    return pts.map(p => `<circle class="etch" cx="${p[0].toFixed(3)}" cy="${p[1].toFixed(3)}" r="${r}"/>`).join('');
+    return pts.map(p => `<circle class="etch" data-operation="${SVG_OP.ENGRAVE}" cx="${p[0].toFixed(3)}" cy="${p[1].toFixed(3)}" r="${r}"/>`).join('');
   }
 
   function makeSvg(s, preview = false) {
@@ -360,8 +366,8 @@ const COLOR_ENGRAVE = '#0000FF';
       body += thumbWood(pad + 0.25, pad + 0.25, w - 0.5, h - 0.5, s, w > h ? 'h' : 'v');
       if (s.crateLabels) {
         body += crateLabel(pad + 0.25, pad + 0.25, w - 0.5, h - 0.5, Number(part.mode) || 0)
-          .replaceAll('class="etch"', 'stroke="#80512b" fill="none" stroke-width=".05" vector-effect="non-scaling-stroke"')
-          .replaceAll('<line', '<line stroke="#80512b" stroke-width=".05" vector-effect="non-scaling-stroke"');
+          .replaceAll('class="etch"', `stroke="${COLOR_ENGRAVE}" fill="none" stroke-width=".05" vector-effect="non-scaling-stroke"`)
+          .replaceAll('<line', `<line stroke="${COLOR_ENGRAVE}" stroke-width=".05" vector-effect="non-scaling-stroke"`);
       }
     }
     if (part.kind === 'brace') {

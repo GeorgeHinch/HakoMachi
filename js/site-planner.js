@@ -2613,13 +2613,54 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     });
     return group;
   }
+  function site3DReferenceImageMaskPaths(){
+    return (state.benchworkOutlines||[]).map(raw=>{
+      const bw=normalizeBenchworkOutline(raw);
+      if(!bw || bw.hidden) return null;
+      const pts=benchworkSamples(bw,24);
+      return pts.length>=3 ? pts : null;
+    }).filter(Boolean);
+  }
+  function buildSite3DReferenceTexture(w,h){
+    const masks=site3DReferenceImageMaskPaths();
+    if(!masks.length){
+      const tex=new THREE.Texture(state.image);
+      tex.needsUpdate=true;
+      return tex;
+    }
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.max(1,Math.round(w));
+    canvas.height=Math.max(1,Math.round(h));
+    const ctx=canvas.getContext('2d');
+    if(!ctx){
+      const tex=new THREE.Texture(state.image);
+      tex.needsUpdate=true;
+      return tex;
+    }
+    masks.forEach(pts=>{
+      ctx.save();
+      ctx.beginPath();
+      pts.forEach((p,i)=>{
+        if(i===0) ctx.moveTo(p.x,p.y);
+        else ctx.lineTo(p.x,p.y);
+      });
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(state.image,0,0,w,h);
+      ctx.restore();
+    });
+    const tex=(typeof THREE.CanvasTexture==='function') ? new THREE.CanvasTexture(canvas) : new THREE.Texture(canvas);
+    tex.needsUpdate=true;
+    return tex;
+  }
   function buildSite3DReferenceImage(bounds){
     const settings=applySite3DSettings();
     if(!settings.imageVisible || !state.image) return null;
     const w=Number(state.image.naturalWidth||state.image.width||state.imageMeta?.naturalWidthPx);
     const h=Number(state.image.naturalHeight||state.image.height||state.imageMeta?.naturalHeightPx);
     if(!Number.isFinite(w)||!Number.isFinite(h)||w<=0||h<=0) return null;
-    const tex=new THREE.Texture(state.image);
+    const tex=buildSite3DReferenceTexture(w,h);
+    tex.flipY=false;
     tex.needsUpdate=true;
     tex.minFilter=THREE.LinearFilter;
     tex.magFilter=THREE.LinearFilter;

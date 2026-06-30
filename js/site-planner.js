@@ -31,6 +31,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let autosaveTimer = null;
   let autosaveSuppressed = false;
   let renderQueued = false;
+  let activeSidebarDetailKey = null;
   const colors = ['#d79631','#b8672d','#0f766e','#7c5f3f','#8b5a2b','#5f7f54','#9b6b44','#496a78'];
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
@@ -3714,6 +3715,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     if(!detailSection) return;
     const kind=activeSidebarDetailKind();
+    const detailKey=kind ? `${kind}:${state.selectedId||state.selectedRoadId||state.selectedRoadFeatureId||state.selectedBenchworkId||state.selectedStreetlightId||state.selectedAnnotationId||currentSelectedBuildingIds().join(',')}` : null;
     const h3=detailSection.querySelector('h3');
     const existingToolbars=[...sidebar.querySelectorAll('#sidebarDetailToolbar, .sidebarDetailToolbar')];
     let toolbar=existingToolbars[0] || null;
@@ -3747,6 +3749,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(toolbar.parentElement!==sidebar || toolbar.nextElementSibling!==detailSection){
         sidebar.insertBefore(toolbar, detailSection);
       }
+      if(detailKey && detailKey!==activeSidebarDetailKey){
+        sidebar.scrollTop=0;
+      }
+      activeSidebarDetailKey=detailKey;
       hydrateIcons(toolbar);
       if(kind==='building'){
         const overflowBtn=$('sidebarOverflowBtn');
@@ -3776,6 +3782,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(h3) h3.textContent='Selected Building';
       closeSidebarBuildingOverflow();
       if(toolbar) toolbar.remove();
+      activeSidebarDetailKey=null;
     }
   }
   function renderSelected(){

@@ -1,3 +1,3 @@
 'use strict';
 
-import '../site-planner.js?v=site2d-layout-cut-clipping-4';
+import '../site-planner.js?v=selected-panel-toolbar-1';

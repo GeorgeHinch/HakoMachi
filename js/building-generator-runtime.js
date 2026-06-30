@@ -26464,15 +26464,7 @@ async function exportZip() {
   // Pre-flight: verify each tongue has a matching slot.
   const verify = verifyTongueSlotMatch(result.parts, result.plan.matT);
   if (verify.issues.length > 0) {
-    const msg =
-      'Tongue/slot consistency check found issues:\n\n' +
-      verify.issues.map(s => '  • ' + s).join('\n') +
-      '\n\nThis usually means a part has tongues that won\'t plug into anything,' +
-      ' or slots that nothing will plug into.\n\nProceed with download anyway?';
-    if (!confirm(msg)) {
-      if (typeof flashMessage === 'function') flashMessage('Download cancelled — fix tongue/slot mismatches first.', 'warn');
-      return;
-    }
+    console.warn('[HakoMachi] Tongue/slot consistency check reported issues during export:', verify.issues);
   }
 
   result.parts = applySheetSplittingToParts(result.parts, CONFIG);

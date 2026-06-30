@@ -868,7 +868,7 @@ This backlog captures HakoMachi feature ideas as agent-ready work items. Add new
 
 ### HM-BACKLOG-033: Remove stale download alert from Building Generator exports
 
-- Status: Proposed
+- Status: Done
 - Group: UI and workflow
 - Priority: Untriaged
 - GitHub Issue: https://github.com/GeorgeHinch/HakoMachi/issues/37

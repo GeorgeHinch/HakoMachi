@@ -2020,7 +2020,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
 
   const site3d = {
     view:null, status:null, scene:null, camera:null, renderer:null, controls:null,
-    root:null, raycaster:null, pointer:null, pointerDown:null, initialized:false
+    root:null, raycaster:null, pointer:null, pointerDown:null, hoverHelper:null, bounds:null, initialized:false
   };
   function setSite3DStatus(message){ const el=site3d.status || $('site3dStatus'); if(el) el.textContent=message; }
   function site3DScale(v){ return state.pxPerMm ? pxToMm(v) : v; }
@@ -2418,9 +2418,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     group.rotation.y=site3DPlannerRotationY(b,{geometryAlreadyInSiteCoordinates:b.padType==='polygon'});
     return group;
   }
-  function buildSite3DSelectionHelper(b,bounds){
+  function buildSite3DSelectionHelper(b,bounds,opts={}){
     const cfg=site3DGeneratorBuildingConfig(b) || site3DBuildingConfig(b) || {};
-    const y0=site3DBuildingElevationMm(b);
+    const yOffset=Number(opts.yOffset)||0;
+    const y0=site3DBuildingElevationMm(b)+yOffset;
     const y1=y0+site3DBuildingHeightMm(b,cfg);
     const verts=[];
     visibleBuildingPolygons(b).forEach(poly=>{
@@ -2436,9 +2437,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(!verts.length) return null;
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
-    const mat=new THREE.LineBasicMaterial({color:0x0f766e,transparent:true,opacity:.95});
+    const mat=new THREE.LineBasicMaterial({color:opts.color ?? 0x0f766e,transparent:true,opacity:opts.opacity ?? .95});
     const helper=new THREE.LineSegments(geo,mat);
-    helper.userData.sitePlannerSelectionHelper=true;
+    helper.userData.sitePlannerSelectionHelper=!opts.hover;
+    helper.userData.sitePlannerHoverHelper=!!opts.hover;
     return helper;
   }
   function buildSite3DBuildingGroup(b,bounds){
@@ -2610,6 +2612,32 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     renderSite3D();
   }
   function renderSite3D(){ if(site3d.renderer && site3d.scene && site3d.camera) site3d.renderer.render(site3d.scene,site3d.camera); }
+  function clearSite3DHoverIndicator(){
+    if(!site3d.hoverHelper) return false;
+    site3d.root?.remove?.(site3d.hoverHelper);
+    disposeSite3DObject(site3d.hoverHelper);
+    site3d.hoverHelper=null;
+    return true;
+  }
+  function updateSite3DHoverIndicator(){
+    if(state.viewMode!=='3d' || !site3d.root || !site3d.bounds) return;
+    clearSite3DHoverIndicator();
+    const b=state.buildings.find(item=>item.id===state.hoverBuildingId && !item.hidden);
+    if(b){
+      const helper=buildSite3DSelectionHelper(normalizeBuilding(b),site3d.bounds,{
+        hover:true,
+        color:0xd79631,
+        opacity:.62,
+        yOffset:.08,
+      });
+      if(helper){
+        helper.name='Hovered building outline';
+        site3d.hoverHelper=helper;
+        site3d.root.add(helper);
+      }
+    }
+    renderSite3D();
+  }
   function site3DCameraSnapshot(){
     if(!site3d.camera) return null;
     return {
@@ -2663,8 +2691,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(state.viewMode!=='3d') return;
     if(!initSite3D()) return;
     const cameraSnapshot=options.preserveCamera ? site3DCameraSnapshot() : null;
+    clearSite3DHoverIndicator();
     while(site3d.root.children.length){ const child=site3d.root.children.pop(); disposeSite3DObject(child); }
     const bounds=site3DBounds();
+    site3d.bounds=bounds;
     const baseT=Math.max(.1,Number(state.site3d?.baseThicknessMm)||4);
     const benchworkBaseCount=site3DBenchworkFootprintsMm().length;
     const base=buildSite3DBase(bounds,baseT);
@@ -2702,6 +2732,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     const baseSource=benchworkBaseCount ? `Base follows ${benchworkBaseCount} benchwork outline${benchworkBaseCount===1?'':'s'}` : 'Rectangular base';
     setSite3DStatus(`3D view: ${rendered} buildings, ${generated} generator previews, ${detailed} detailed massing. ${baseSource} and extends ${fmt(baseT)} mm below zero.`);
+    updateSite3DHoverIndicator();
     renderSite3D();
   }
   function setSite3DMode(on){
@@ -3376,10 +3407,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         const hakoBadge=b.hakoFile?'<span class="pill buildingFileBadge">.hako</span>':'';
         const metric=b.padType==='rect'?`${fmt(b.widthMm)}×${fmt(b.depthMm)}`:fmt(b.derived?.areaMm2||0)+' mm²';
         el.innerHTML=`<span class="swatch" style="background:${b.color}"></span><div class="buildingInfo"><span class="buildingName" title="${escapeAttr(b.name||'Building')}">${escapeHtml(b.name||'Building')}</span><span class="small muted buildingMeta">${buildingStateLabel(b.state)} · ${b.padType}${b.hidden?' · hidden':''}${b.locked?' · locked':''}</span></div><span class="pill buildingMetric" title="${escapeAttr(metric)}">${metric}</span>${hakoBadge}`;
-        el.onmouseenter=()=>{state.hoverBuildingId=b.id; el.classList.add('sidebarHover'); draw();};
-        el.onmouseleave=()=>{if(state.hoverBuildingId===b.id) state.hoverBuildingId=null; el.classList.remove('sidebarHover'); draw();};
-        el.onfocus=()=>{state.hoverBuildingId=b.id; el.classList.add('sidebarHover'); draw();};
-        el.onblur=()=>{if(state.hoverBuildingId===b.id) state.hoverBuildingId=null; el.classList.remove('sidebarHover'); draw();};
+        const setCardHover=on=>{
+          state.hoverBuildingId=on ? b.id : (state.hoverBuildingId===b.id ? null : state.hoverBuildingId);
+          el.classList.toggle('sidebarHover',on);
+          draw();
+          updateSite3DHoverIndicator();
+        };
+        el.onmouseenter=()=>setCardHover(true);
+        el.onmouseleave=()=>setCardHover(false);
+        el.onfocus=()=>setCardHover(true);
+        el.onblur=()=>setCardHover(false);
         el.tabIndex=0;
         el.onclick=(ev)=>{ if(ev.shiftKey || ev.metaKey || ev.ctrlKey) toggleBuildingSelection(b.id); else setBuildingSelection([b.id], b.id); renderList(); renderSelected(); updateHandoff(); draw();};
         box.appendChild(el);

@@ -139,13 +139,17 @@ export const MaterialRegistry = {
   },
 
   threeMaterial(id, cfg = CONFIG, opts = {}, fallback = 0xcccccc) {
+    const opacity = opts.opacity != null ? opts.opacity : 1;
+    const transparent = opts.transparent != null ? !!opts.transparent : opacity < 1;
     const params = {
       color: opts.color != null ? opts.color : this.colorNumber(id, cfg, fallback),
       roughness: opts.roughness != null ? opts.roughness : 0.82,
       metalness: opts.metalness != null ? opts.metalness : 0.0,
+      transparent,
+      opacity,
+      depthTest: opts.depthTest != null ? !!opts.depthTest : true,
+      depthWrite: opts.depthWrite != null ? !!opts.depthWrite : !transparent,
     };
-    if (opts.transparent != null) params.transparent = opts.transparent;
-    if (opts.opacity != null) params.opacity = opts.opacity;
     if (opts.side != null) params.side = opts.side;
     if (opts.map != null) params.map = opts.map;
     return new THREE.MeshStandardMaterial(params);
@@ -479,8 +483,10 @@ export function addPartsToList(parts, maybePartOrList) {
         color: 0xc9b89b,
         roughness: 0.85,
         metalness: 0.0,
-        transparent: true,
-        opacity: 0.88,
+        transparent: false,
+        opacity: 1,
+        depthTest: true,
+        depthWrite: true,
       });
       const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
       box.position.set(0, h / 2, 0);

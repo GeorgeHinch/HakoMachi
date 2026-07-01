@@ -776,8 +776,8 @@ function frameThreePreviewObject(object) {
     center.y + verticalLift,
     center.z + distance * 0.72
   );
-  threeCamera.near = Math.max(0.1, maxDim / 800);
-  threeCamera.far = Math.max(2000, maxDim * 8);
+  threeCamera.near = Math.max(0.25, maxDim / 700);
+  threeCamera.far = Math.max(1000, maxDim * 7);
   threeCamera.updateProjectionMatrix();
 
   if (threeControls) {

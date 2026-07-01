@@ -1,0 +1,73 @@
+{
+  "app": "HakoMachi Site Planner",
+  "version": 79,
+  "fixture": "two track records sharing an endpoint to exercise joined segment loading",
+  "scale": {
+    "calibrated": true,
+    "pxPerMm": 2,
+    "units": "mm"
+  },
+  "buildings": [],
+  "roads": [],
+  "tracks": [
+    {
+      "id": "fixture_track_join_a",
+      "type": "track",
+      "name": "Joined track A",
+      "pointsPx": [
+        { "x": 120, "y": 240 },
+        { "x": 320, "y": 240 }
+      ],
+      "curvesPx": [null],
+      "endpointConnections": {
+        "end": {
+          "trackId": "fixture_track_join_b",
+          "kind": "endpointStart",
+          "pointIndex": 0
+        }
+      },
+      "gaugeMm": 9,
+      "railWidthMm": 0.55,
+      "railHeightMm": 0.8,
+      "tieSpacingMm": 4,
+      "tieLengthMm": 16,
+      "tieWidthMm": 1.3,
+      "roadbedWidthMm": 19,
+      "roadbedHeightMm": 2.5,
+      "roadbedShoulderMm": 3.5
+    },
+    {
+      "id": "fixture_track_join_b",
+      "type": "track",
+      "name": "Joined track B",
+      "pointsPx": [
+        { "x": 320, "y": 240 },
+        { "x": 560, "y": 320 }
+      ],
+      "curvesPx": [
+        { "x": 440, "y": 180 }
+      ],
+      "endpointConnections": {
+        "start": {
+          "trackId": "fixture_track_join_a",
+          "kind": "endpointEnd",
+          "pointIndex": 1
+        }
+      },
+      "gaugeMm": 9,
+      "railWidthMm": 0.55,
+      "railHeightMm": 0.8,
+      "tieSpacingMm": 4,
+      "tieLengthMm": 16,
+      "tieWidthMm": 1.3,
+      "roadbedWidthMm": 19,
+      "roadbedHeightMm": 2.5,
+      "roadbedShoulderMm": 3.5
+    }
+  ],
+  "roadFeatures": [],
+  "benchworkOutlines": [],
+  "fabricRegions": [],
+  "streetlights": [],
+  "annotations": []
+}

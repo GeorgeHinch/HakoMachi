@@ -3718,7 +3718,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         state.site3d=state.site3d||{};
         state.site3d.imageVisible=!!imageVisible.checked;
         updateSite3D();
-        markDirty('3d reference image visibility');
+        markDirty('3d reference image visibility', {history:false});
       };
     }
     if(imageOpacity && !imageOpacity.dataset.site3dBound){
@@ -3727,7 +3727,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         state.site3d=state.site3d||{};
         state.site3d.imageOpacity=clamp(parseFloat(imageOpacity.value)||0,0,1);
         updateSite3D();
-        markDirty('3d reference image opacity');
+        markDirty('3d reference image opacity', {history:false});
       };
     }
     syncSite3DControls();
@@ -3739,8 +3739,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       imageMeta: state.imageMeta,
       imageOpacity: state.imageOpacity,
       imageLocked: state.imageLocked,
-      view: state.view,
-      site3d: state.site3d,
       pxPerMm: state.pxPerMm,
       calibrationLine: state.calibrationLine,
       lastCalibrationLine: state.lastCalibrationLine,
@@ -3794,9 +3792,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.imageMeta=data.imageMeta||null;
     state.imageOpacity=Number.isFinite(Number(data.imageOpacity))?Number(data.imageOpacity):.75;
     state.imageLocked=data.imageLocked!==false;
-    state.view=data.view||{x:40,y:40,scale:1};
-    applySite3DSettings(data.site3d||{});
-    syncSite3DControls();
     state.pxPerMm=data.pxPerMm||null;
     state.calibrationLine=data.calibrationLine||null;
     state.lastCalibrationLine=data.lastCalibrationLine||state.calibrationLine||null;
@@ -3824,7 +3819,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       updateImagePortableStatus();
       updateHistoryButtons();
       state.historySuppressed=false;
-      markDirty('undo redo');
+      markDirty('undo redo', {history:false});
     };
     if(newDataUrl && newDataUrl!==oldDataUrl){
       const img=new Image();
@@ -4029,8 +4024,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       el.textContent='Portable save: image is not embedded yet. Re-import the image before saving for cross-browser portability.';
     }
   }
-  function markDirty(_reason=''){
-    if(!state.historySuppressed) pushHistorySnapshot(_reason);
+  function markDirty(_reason='', opts={}){
+    if(opts.history!==false && !state.historySuppressed) pushHistorySnapshot(_reason);
     if(!state.autosaveReady || autosaveSuppressed) return;
     state.dirty=true;
     state.dirtySinceManualSave=true;
@@ -6839,7 +6834,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   $('snapBtn').onclick=()=>{state.snapOn=!state.snapOn; $('snapBtn').classList.toggle('active', state.snapOn); $('snapBtn').textContent=state.snapOn?'Snap: On':'Snap: Off'; draw();};
   $('deleteAnnotationBtn').onclick=deleteSelectedAnnotation;
   $('clearAnnotationsBtn').onclick=()=>{if(state.annotations.length && !confirm('Clear all freehand annotation notes?')) return; state.annotations=[]; state.selectedAnnotationId=null; renderSelected(); draw(); markDirty('annotations cleared');};
-  $('fitBtn').onclick=()=>{fitImage(); markDirty('view changed');}; $('resetBtn').onclick=()=>{state.view={x:40,y:40,scale:1}; draw(); markDirty('view changed');}; $('clearCacheBtn').onclick=clearCacheAndReset; if($('clearCachePanelBtn')) $('clearCachePanelBtn').onclick=clearCacheAndReset;
+  $('fitBtn').onclick=()=>{fitImage(); markDirty('view changed', {history:false});}; $('resetBtn').onclick=()=>{state.view={x:40,y:40,scale:1}; draw(); markDirty('view changed', {history:false});}; $('clearCacheBtn').onclick=clearCacheAndReset; if($('clearCachePanelBtn')) $('clearCachePanelBtn').onclick=clearCacheAndReset;
   $('githubSettingsBtn').onclick=openGithubSettings;
   $('githubSaveBtn').onclick=saveSitePlanToGithub;
   $('githubLoadBtn').onclick=openGithubSitePlans;

@@ -390,6 +390,130 @@ export function pointInPolygon(pt, poly) {
   return inside;
 }
 
+function pointInPolygonWithNudge(pt, poly) {
+  if (!poly || poly.length < 3) return false;
+  if (pointInPolygon(pt, poly)) return true;
+  const eps = 0.05;
+  return pointInPolygon({ x: pt.x + eps, y: pt.y }, poly)
+      || pointInPolygon({ x: pt.x - eps, y: pt.y }, poly)
+      || pointInPolygon({ x: pt.x, y: pt.y + eps }, poly)
+      || pointInPolygon({ x: pt.x, y: pt.y - eps }, poly);
+}
+
+function polygonAbsArea(poly) {
+  if (!Array.isArray(poly) || poly.length < 3) return 0;
+  let sum = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length];
+    sum += a.x * b.y - b.x * a.y;
+  }
+  return Math.abs(sum) / 2;
+}
+
+function layoutCutSolidBackBlocks(cfg) {
+  const out = [{
+    id: 'main',
+    label: 'Main',
+    cfg,
+    poly: [
+      { x: 0, y: 0 },
+      { x: Number(cfg && cfg.width) || 0, y: 0 },
+      { x: Number(cfg && cfg.width) || 0, y: Number(cfg && cfg.depth) || 0 },
+      { x: 0, y: Number(cfg && cfg.depth) || 0 },
+    ],
+  }];
+  if (Array.isArray(cfg && cfg.wings) && typeof weWingBounds === 'function' && typeof buildWingCfg === 'function') {
+    for (let i = 0; i < cfg.wings.length; i++) {
+      const wing = cfg.wings[i];
+      let b = null, wCfg = null;
+      try { b = weWingBounds(cfg, wing); } catch (_) {}
+      try { wCfg = buildWingCfg(cfg, wing); } catch (_) {}
+      if (!b || !wCfg) continue;
+      out.push({
+        id: `wing_${i + 1}`,
+        label: `Wing ${i + 1}`,
+        cfg: wCfg,
+        poly: [
+          { x: Number(b.x) || 0, y: Number(b.y) || 0 },
+          { x: (Number(b.x) || 0) + (Number(b.w) || 0), y: Number(b.y) || 0 },
+          { x: (Number(b.x) || 0) + (Number(b.w) || 0), y: (Number(b.y) || 0) + (Number(b.d) || 0) },
+          { x: Number(b.x) || 0, y: (Number(b.y) || 0) + (Number(b.d) || 0) },
+        ],
+      });
+    }
+  }
+  return out.filter(b => polygonAbsArea(b.poly) > 0.01);
+}
+
+function wallBodyHeightForSolidBack(cfg) {
+  try {
+    if (typeof wallBodyHeightFromConfig === 'function') {
+      const h = Number(wallBodyHeightFromConfig(cfg));
+      if (h > 0) return h;
+    }
+  } catch (_) {}
+  const total = Number(cfg && cfg.height);
+  if (total > 0) return total;
+  return Math.max(1, (Number(cfg && cfg.floorCount) || 1) * (Number(cfg && cfg.floorHeight) || 30));
+}
+
+function pointOnSegment(a, b, t) {
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+}
+
+function cleanIdSegment(value) {
+  return String(value == null ? '' : value).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'cut';
+}
+
+export function generateLayoutCutSolidBackParts(cfg) {
+  if (!layoutCutsActive(cfg)) return [];
+  refreshMeasuredLayoutCuts(cfg || CONFIG);
+  const cuts = ((cfg || CONFIG).layoutCuts || []).filter(c => c && c.enabled !== false && c.type === 'line' && c.solidBack === true);
+  if (!cuts.length) return [];
+
+  const parts = [];
+  const blocks = layoutCutSolidBackBlocks(cfg || CONFIG);
+  cuts.forEach((rawCut, cutIndex) => {
+    const cut = resolveLayoutCutGeometry(rawCut, cfg || CONFIG);
+    const a = { x: Number(cut.x1) || 0, y: Number(cut.y1) || 0 };
+    const b = { x: Number(cut.x2) || 0, y: Number(cut.y2) || 0 };
+    if (Math.hypot(b.x - a.x, b.y - a.y) <= 0.01) return;
+
+    blocks.forEach(block => {
+      const originalArea = polygonAbsArea(block.poly);
+      const clipped = clipPolygonByLayoutCuts(block.poly, [cut], cfg || CONFIG);
+      const clippedArea = polygonAbsArea(clipped);
+      if (clipped.length < 3 || clippedArea >= originalArea - 0.05) return;
+
+      const intervals = keptIntervalsOnSegmentInsidePolygon(a, b, block.poly);
+      intervals.forEach((range, segmentIndex) => {
+        const p0 = pointOnSegment(a, b, range[0]);
+        const p1 = pointOnSegment(a, b, range[1]);
+        const panelW = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+        const panelH = wallBodyHeightForSolidBack(block.cfg);
+        if (panelW <= 1 || panelH <= 1) return;
+        const blockSuffix = block.id === 'main' ? '' : ` ${block.label}`;
+        const cutLabel = rawCut.name || `layout cut ${cutIndex + 1}`;
+        parts.push({
+          id: `solid_back_${cleanIdSegment(rawCut.id || cutIndex)}_${cleanIdSegment(block.id)}_${segmentIndex + 1}`,
+          name: `${block.label} Solid Back Cladding (${cutLabel})`,
+          material: 'backing',
+          bboxW: panelW,
+          bboxH: panelH,
+          bboxOffsetX: 0,
+          bboxOffsetY: 0,
+          paths: [{ type: 'cut', d: pointsToSvgPath([{ x: 0, y: 0 }, { x: panelW, y: 0 }, { x: panelW, y: panelH }, { x: 0, y: panelH }]) }],
+          rects: [],
+          lines: [],
+          assemblyNote: `Black-card solid back panel for${blockSuffix || ' the main block'} straight layout cut. Glue this behind the sliced opening so it covers the exposed cut edge from edge to edge; arc layout cuts do not generate solid backs.`,
+          meta: { area: 'layout_cut', role: 'solid_back', cutId: rawCut.id || null, block: block.id },
+        });
+      });
+    });
+  });
+  return parts;
+}
+
 export function pathCentroidApprox(d) {
   const pts = parseSvgPathToPoints(d);
   if (!pts.length) return null;

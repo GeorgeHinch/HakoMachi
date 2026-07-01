@@ -219,7 +219,7 @@ export let CONFIG = {
   // geometry is clipped to the kept side of each cut at export/preview time.
   // Cut coords are in global top-down plan mm, same as the shape editor:
   // main block occupies x=0..width, y=0..depth; wings extend outside that box.
-  // Line cut: {id,type:'line',x1,y1,x2,y2,keepSide:'left'|'right'}
+  // Line cut: {id,type:'line',x1,y1,x2,y2,keepSide:'left'|'right',solidBack?:boolean}
   // Arc cut:  {id,type:'arc', x1,y1,x2,y2,cx,cy,keepSide:'left'|'right'} where
   //           cx/cy is a quadratic Bezier control point.
   layoutCuts: [],

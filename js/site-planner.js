@@ -288,6 +288,46 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function transformedRect(b){const c={x:b.x,y:b.y}, w=b.widthPx, h=b.depthPx, a=rad(b.rotationDeg||0), ca=Math.cos(a), sa=Math.sin(a); const local=[{x:-w/2,y:-h/2},{x:w/2,y:-h/2},{x:w/2,y:h/2},{x:-w/2,y:h/2}]; return local.map(p=>({x:c.x+p.x*ca-p.y*sa,y:c.y+p.x*sa+p.y*ca}));}
   function rectLocal(b,p){const a=rad(-(b.rotationDeg||0)), ca=Math.cos(a), sa=Math.sin(a), dx=p.x-b.x, dy=p.y-b.y; return {x:dx*ca-dy*sa,y:dx*sa+dy*ca};}
+  function normalizeStlObject(obj){
+    if(!obj) return obj;
+    obj.id=obj.id||uid('stl');
+    obj.type='stl';
+    obj.name=obj.name||obj.fileName||`STL Object ${state.stlObjects.length+1}`;
+    obj.x=Number.isFinite(Number(obj.x))?Number(obj.x):visibleWorldCenter().x;
+    obj.y=Number.isFinite(Number(obj.y))?Number(obj.y):visibleWorldCenter().y;
+    obj.rotationDeg=Number.isFinite(Number(obj.rotationDeg))?Number(obj.rotationDeg):0;
+    obj.scale=Number.isFinite(Number(obj.scale))&&Number(obj.scale)>0?Number(obj.scale):1;
+    obj.widthMm=Number.isFinite(Number(obj.widthMm))&&Number(obj.widthMm)>0?Number(obj.widthMm):20;
+    obj.depthMm=Number.isFinite(Number(obj.depthMm))&&Number(obj.depthMm)>0?Number(obj.depthMm):20;
+    obj.heightMm=Number.isFinite(Number(obj.heightMm))&&Number(obj.heightMm)>0?Number(obj.heightMm):8;
+    obj.widthPx=state.pxPerMm?mmToPx(obj.widthMm*obj.scale):(Number(obj.widthPx)||obj.widthMm*obj.scale);
+    obj.depthPx=state.pxPerMm?mmToPx(obj.depthMm*obj.scale):(Number(obj.depthPx)||obj.depthMm*obj.scale);
+    obj.color=obj.color||'#496a78';
+    obj.locked=!!obj.locked;
+    obj.hidden=!!obj.hidden;
+    obj.notes=obj.notes||'';
+    obj.asset=obj.asset&&typeof obj.asset==='object'?obj.asset:{};
+    obj.asset.kind='stl';
+    obj.asset.fileName=obj.asset.fileName||obj.fileName||`${slug(obj.name)}.stl`;
+    obj.asset.mimeType=obj.asset.mimeType||'model/stl';
+    obj.bounds=obj.bounds&&typeof obj.bounds==='object'?obj.bounds:{};
+    return obj;
+  }
+  function stlObjectRect(obj){return transformedRect({x:obj.x,y:obj.y,widthPx:obj.widthPx,depthPx:obj.depthPx,rotationDeg:obj.rotationDeg});}
+  function pointInStlObject(p,obj,pointerType='mouse'){
+    obj=normalizeStlObject(obj);
+    if(!obj || obj.hidden) return false;
+    const pts=stlObjectRect(obj);
+    if(!obj.locked) return pointInPoly(p,pts);
+    return polyEdgeDistance(p,pts)<=lockedHitTolerance(pointerType);
+  }
+  function hitStlObject(p,pointerType='mouse'){
+    for(let i=(state.stlObjects||[]).length-1;i>=0;i--){
+      const obj=normalizeStlObject(state.stlObjects[i]);
+      if(pointInStlObject(p,obj,pointerType)) return obj;
+    }
+    return null;
+  }
   function polygonCenter(pts){const n=pts.length||1; return pts.reduce((s,p)=>({x:s.x+p.x/n,y:s.y+p.y/n}),{x:0,y:0});}
   function polygonArea(pts){let s=0; for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length]; s+=a.x*b.y-b.x*a.y;} return Math.abs(s)/2;}
   function pointInPoly(p, pts){let inside=false; for(let i=0,j=pts.length-1;i<pts.length;j=i++){const a=pts[i],b=pts[j]; if(((a.y>p.y)!=(b.y>p.y))&&(p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)) inside=!inside;} return inside;}
@@ -2243,6 +2283,116 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     reader.readAsText(file);
   }
 
+  function isLikelyStlFile(file){
+    const name=String(file?.name||'');
+    const type=String(file?.type||'').toLowerCase();
+    return /\.stl$/i.test(name) || type.includes('stl');
+  }
+  function stlFileFromDataTransfer(dataTransfer){
+    const files=Array.from(dataTransfer?.files||[]);
+    return files.find(isLikelyStlFile) || null;
+  }
+  function arrayBufferToBase64(buffer){
+    const bytes=new Uint8Array(buffer||new ArrayBuffer(0));
+    let out='';
+    const chunk=0x8000;
+    for(let i=0;i<bytes.length;i+=chunk) out+=String.fromCharCode(...bytes.subarray(i,i+chunk));
+    return btoa(out);
+  }
+  function emptyStlBounds(format='unknown'){
+    return {format,vertexCount:0,minX:0,minY:0,minZ:0,maxX:20,maxY:20,maxZ:8,width:20,depth:20,height:8};
+  }
+  function boundsFromVertices(vertices,format){
+    if(!vertices.length) return emptyStlBounds(format);
+    const xs=vertices.map(v=>v.x), ys=vertices.map(v=>v.y), zs=vertices.map(v=>v.z);
+    const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys), minZ=Math.min(...zs), maxZ=Math.max(...zs);
+    return {
+      format,
+      vertexCount:vertices.length,
+      minX,minY,minZ,maxX,maxY,maxZ,
+      width:Math.max(.1,maxX-minX),
+      depth:Math.max(.1,maxY-minY),
+      height:Math.max(.1,maxZ-minZ)
+    };
+  }
+  function parseBinaryStlBounds(buffer){
+    if(!buffer || buffer.byteLength<84) return null;
+    const view=new DataView(buffer);
+    const triangles=view.getUint32(80,true);
+    const expected=84+triangles*50;
+    if(expected!==buffer.byteLength) return null;
+    const vertices=[];
+    for(let i=0;i<triangles;i++){
+      const base=84+i*50+12;
+      for(let v=0;v<3;v++){
+        const o=base+v*12;
+        vertices.push({x:view.getFloat32(o,true),y:view.getFloat32(o+4,true),z:view.getFloat32(o+8,true)});
+      }
+    }
+    return boundsFromVertices(vertices,'binary');
+  }
+  function parseAsciiStlBounds(buffer){
+    let text='';
+    try{text=new TextDecoder('utf-8',{fatal:false}).decode(buffer);}catch(_err){return null;}
+    if(!/\bvertex\s+[-+0-9.eE]/i.test(text)) return null;
+    const vertices=[];
+    const re=/\bvertex\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)/gi;
+    let match;
+    while((match=re.exec(text))){
+      const x=Number(match[1]), y=Number(match[2]), z=Number(match[3]);
+      if(Number.isFinite(x)&&Number.isFinite(y)&&Number.isFinite(z)) vertices.push({x,y,z});
+    }
+    return vertices.length ? boundsFromVertices(vertices,'ascii') : null;
+  }
+  function parseStlBounds(buffer){
+    return parseBinaryStlBounds(buffer) || parseAsciiStlBounds(buffer) || emptyStlBounds('unknown');
+  }
+  async function importStlAsSiteObject(file){
+    if(!file) return;
+    if(!isLikelyStlFile(file)){ failImportProgress('Unsupported file type.','Drop or choose a .stl file to place it as a site object.'); return; }
+    openImportProgressModal('Import STL object','Reading STL...',`Reading ${file.name||'site object.stl'}.`);
+    try{
+      const buffer=await file.arrayBuffer();
+      setImportProgress(2,4,'Measuring STL bounds...','Finding the footprint size for placement.');
+      const bounds=parseStlBounds(buffer);
+      const center=visibleWorldCenter();
+      setImportProgress(3,4,'Placing site object...','Creating a selectable Site Planner object.');
+      const obj=normalizeStlObject({
+        id:uid('stl'),
+        name:String(file.name||'STL Object').replace(/\.stl$/i,'') || 'STL Object',
+        x:center.x,
+        y:center.y,
+        rotationDeg:0,
+        scale:1,
+        widthMm:bounds.width,
+        depthMm:bounds.depth,
+        heightMm:bounds.height,
+        color:'#496a78',
+        locked:false,
+        hidden:false,
+        notes:'Imported STL site object. The planner shows a footprint and 3D proxy until full STL geometry rendering is wired in.',
+        bounds,
+        asset:{
+          kind:'stl',
+          fileName:file.name||'site-object.stl',
+          mimeType:file.type||'model/stl',
+          sizeBytes:file.size||buffer.byteLength,
+          importedAt:new Date().toISOString(),
+          dataBase64:arrayBufferToBase64(buffer)
+        }
+      });
+      state.stlObjects=state.stlObjects||[];
+      state.stlObjects.push(obj);
+      clearPlanObjectSelection();
+      state.selectedStlObjectId=obj.id;
+      sidebarObjectType='siteObjects';
+      syncAll();
+      finishImportProgress('STL object imported.',`${obj.name} is selected on the plan.`);
+    }catch(err){
+      failImportProgress('Could not import STL.', err?.message||'The browser could not read that STL file.');
+    }
+  }
+
   function hakoFileFromDataTransfer(dataTransfer){
     const files=Array.from(dataTransfer?.files||[]);
     return files.find(file=>/\.(hako|hakoseed|hakoplan|json)$/i.test(file.name||'')) || null;
@@ -2267,7 +2417,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(document.body) document.body.dataset.hakoPageDropInstalled='true';
     const overlay=document.createElement('div');
     overlay.className='sitePlannerPageDropOverlay';
-    overlay.innerHTML='<div><strong>Import building footprint</strong><span>Drop .hako, .hakoseed, .hakoplan, or compatible JSON here</span></div>';
+    overlay.innerHTML='<div><strong>Import file</strong><span>Drop .hako, .hakoseed, .hakoplan, compatible JSON, or .stl here</span></div>';
     document.body.appendChild(overlay);
     let dragDepth=0;
     const clear=()=>{dragDepth=0; overlay.classList.remove('active');};
@@ -2294,9 +2444,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(!hasUnhandledFile(ev)) return;
       ev.preventDefault();
       clear();
+      const stl=stlFileFromDataTransfer(ev.dataTransfer);
+      if(stl){ importStlAsSiteObject(stl); return; }
       const file=pageHakoImportFileFromDataTransfer(ev.dataTransfer);
       if(!file){
-        failImportProgress('Unsupported file type.','Drop a .hako, .hakoseed, .hakoplan, or compatible JSON building file to import a building footprint.');
+        failImportProgress('Unsupported file type.','Drop a .hako, .hakoseed, .hakoplan, compatible JSON building file, or .stl site object.');
         return;
       }
       importHakoAsBuilding(file);
@@ -2333,17 +2485,18 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     });
   }
   function selected(){return state.buildings.find(b=>b.id===state.selectedId)||null;}
+  function selectedStlObject(){return (state.stlObjects||[]).find(obj=>obj.id===state.selectedStlObjectId)||null;}
   function currentSelectedBuildingIds(){
     const ids=Array.isArray(state.selectedIds)?state.selectedIds.filter(Boolean):[];
     if(state.selectedId && !ids.includes(state.selectedId)) return [state.selectedId];
     return [...new Set(ids)].filter(id=>state.buildings.some(b=>b.id===id));
   }
-  function clearBuildingSelection(){state.selectedId=null; state.selectedIds=[]; state.selectedFabricId=null; state.selectedTrackId=null;}
+  function clearBuildingSelection(){state.selectedId=null; state.selectedIds=[]; state.selectedFabricId=null; state.selectedTrackId=null; state.selectedStlObjectId=null;}
   function setBuildingSelection(ids, primaryId=null){
     const valid=[...new Set((ids||[]).filter(id=>state.buildings.some(b=>b.id===id)))];
     state.selectedIds=valid;
     state.selectedId=primaryId || (valid.length===1 ? valid[0] : null);
-    state.selectedRoadId=null; state.selectedRoadFeatureId=null; state.selectedTrackId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedFabricId=null;
+    state.selectedRoadId=null; state.selectedRoadFeatureId=null; state.selectedTrackId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedFabricId=null; state.selectedStlObjectId=null;
   }
   function reassertCanvasBuildingSelection(id){
     const ids=currentSelectedBuildingIds();
@@ -2448,6 +2601,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.roads.forEach(syncRoadMetrics);
     state.tracks=(state.tracks||[]).map(syncTrackMetrics);
     state.roadFeatures=(state.roadFeatures||[]).map(normalizeRoadFeature);
+    state.stlObjects=(state.stlObjects||[]).map(normalizeStlObject);
     state.benchworkOutlines.forEach(normalizeBenchworkOutline);
     state.fabricRegions.forEach(normalizeFabricRegion);
     state.streetlights.forEach(normalizeStreetlight);
@@ -2568,6 +2722,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const pts=site3DBuildingFootprintMm(b);
       if(pts) pts.forEach(p=>{ xs.push(p.x); ys.push(p.y); });
     });
+    (state.stlObjects||[]).forEach(raw=>{
+      const obj=normalizeStlObject(raw);
+      if(obj.hidden) return;
+      stlObjectRect(obj).forEach(p=>{ xs.push(site3DScale(p.x)); ys.push(site3DScale(p.y)); });
+    });
     if(!xs.length || !ys.length) return {minX:-60,maxX:60,minY:-40,maxY:40,width:120,depth:80,cx:0,cy:0};
     const width=Math.max(...xs)-Math.min(...xs), depth=Math.max(...ys)-Math.min(...ys);
     const pad=Math.max(8,Math.min(60,Math.max(width,depth)*.06));
@@ -2593,6 +2752,17 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       child.userData=child.userData||{};
       child.userData.sitePlannerBuildingId=b.id;
       child.userData.sitePlannerBuildingName=b.name||'Building';
+    });
+    return group;
+  }
+  function tagSite3DStlObject(group,obj){
+    if(!group || !obj) return group;
+    group.userData.sitePlannerStlObjectId=obj.id;
+    group.userData.sitePlannerStlObjectName=obj.name||'STL Object';
+    group.traverse?.(child=>{
+      child.userData=child.userData||{};
+      child.userData.sitePlannerStlObjectId=obj.id;
+      child.userData.sitePlannerStlObjectName=obj.name||'STL Object';
     });
     return group;
   }
@@ -3101,6 +3271,25 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     return buildSite3DMassing(b,bounds);
   }
+  function buildSite3DStlObjectGroup(raw,bounds){
+    const obj=normalizeStlObject(raw);
+    if(!obj || obj.hidden) return null;
+    const w=Math.max(.5,site3DScale(obj.widthPx||mmToPx(obj.widthMm*obj.scale||1)));
+    const d=Math.max(.5,site3DScale(obj.depthPx||mmToPx(obj.depthMm*obj.scale||1)));
+    const h=Math.max(.5,Number(obj.heightMm||8)*(Number(obj.scale)||1));
+    const group=new THREE.Group();
+    group.name=obj.name||'STL site object proxy';
+    const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),site3DMaterial(obj.color,0x496a78,{transparent:true,opacity:.72}));
+    mesh.position.y=h/2;
+    group.add(mesh);
+    const edgeGeo=new THREE.EdgesGeometry(mesh.geometry);
+    const edges=new THREE.LineSegments(edgeGeo,new THREE.LineBasicMaterial({color:0x24424d,transparent:true,opacity:.62}));
+    edges.position.copy(mesh.position);
+    group.add(edges);
+    group.position.set(site3DScale(obj.x)-bounds.cx,0,site3DScale(obj.y)-bounds.cy);
+    group.rotation.y=-(Number(obj.rotationDeg)||0)*Math.PI/180;
+    return tagSite3DStlObject(group,obj);
+  }
   function githubBuildingPreviewConfig(record, parsedConfig=null){
     const footprint=record?.footprint||{};
     const cfg=structuredClone(parsedConfig || record?.hakoConfig || record?.config || record?.hakoSeed || {});
@@ -3304,8 +3493,17 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     site3d.pointer.y=-(((e.clientY-rect.top)/rect.height)*2-1);
     site3d.raycaster.setFromCamera(site3d.pointer,site3d.camera);
     const hits=site3d.raycaster.intersectObjects(site3d.root?.children||[],true);
-    const hit=hits.find(item=>item.object?.userData?.sitePlannerBuildingId);
+    const hit=hits.find(item=>item.object?.userData?.sitePlannerBuildingId || item.object?.userData?.sitePlannerStlObjectId);
     if(!hit) return;
+    if(hit.object.userData.sitePlannerStlObjectId){
+      const id=hit.object.userData.sitePlannerStlObjectId;
+      const obj=(state.stlObjects||[]).find(item=>item.id===id);
+      if(!obj) return;
+      selectStlObject(obj);
+      updateSite3D({preserveCamera:true});
+      setSidebarOpen(true);
+      return;
+    }
     const id=hit.object.userData.sitePlannerBuildingId;
     const b=state.buildings.find(item=>item.id===id);
     if(!b) return;
@@ -3355,6 +3553,22 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         if(isBuildingSelected(b.id)){
           const helper=buildSite3DSelectionHelper(b,bounds);
           if(helper) site3d.root.add(helper);
+        }
+      }
+    });
+    (state.stlObjects||[]).forEach(raw=>{
+      const obj=normalizeStlObject(raw);
+      if(obj.hidden) return;
+      const g=buildSite3DStlObjectGroup(obj,bounds);
+      if(g){
+        site3d.root.add(g);
+        if(obj.id===state.selectedStlObjectId){
+          const helper=buildSite3DStlObjectGroup({...obj,color:'#0f766e'},bounds);
+          if(helper){
+            helper.name='Selected STL object outline';
+            helper.traverse?.(child=>{ if(child.material){ child.material.transparent=true; child.material.opacity=child.isMesh ? .12 : .95; } });
+            site3d.root.add(helper);
+          }
         }
       }
     });
@@ -3422,6 +3636,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       buildings: state.buildings,
       roads: state.roads,
       roadFeatures: state.roadFeatures,
+      stlObjects: state.stlObjects||[],
       benchworkOutlines: state.benchworkOutlines,
       fabricRegions: state.fabricRegions,
       streetlights: state.streetlights,
@@ -3429,6 +3644,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       selectedId: state.selectedId,
       selectedIds: state.selectedIds,
       selectedRoadId: state.selectedRoadId,
+      selectedStlObjectId: state.selectedStlObjectId,
       selectedBenchworkId: state.selectedBenchworkId,
       selectedFabricId: state.selectedFabricId,
       selectedStreetlightId: state.selectedStreetlightId,
@@ -3476,6 +3692,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.buildings=Array.isArray(data.buildings)?structuredClone(data.buildings):[];
     state.roads=Array.isArray(data.roads)?structuredClone(data.roads):[];
     state.roadFeatures=Array.isArray(data.roadFeatures)?structuredClone(data.roadFeatures):[];
+    state.stlObjects=Array.isArray(data.stlObjects)?structuredClone(data.stlObjects):[];
     state.benchworkOutlines=Array.isArray(data.benchworkOutlines)?structuredClone(data.benchworkOutlines):[];
     state.fabricRegions=Array.isArray(data.fabricRegions)?structuredClone(data.fabricRegions):[];
     state.streetlights=Array.isArray(data.streetlights)?structuredClone(data.streetlights):[];
@@ -3483,6 +3700,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedId=data.selectedId||null;
     state.selectedIds=Array.isArray(data.selectedIds)?data.selectedIds.slice():[];
     state.selectedRoadId=data.selectedRoadId||null;
+    state.selectedStlObjectId=data.selectedStlObjectId||null;
     state.selectedBenchworkId=data.selectedBenchworkId||null;
     state.selectedFabricId=data.selectedFabricId||null;
     state.selectedStreetlightId=data.selectedStreetlightId||null;
@@ -3655,10 +3873,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.benchworkOutlines.forEach(normalizeBenchworkOutline);
     state.fabricRegions.forEach(normalizeFabricRegion);
     state.streetlights.forEach(normalizeStreetlight);
+    state.stlObjects=(state.stlObjects||[]).map(normalizeStlObject);
     const includeImageDataUrl = opts.includeImageDataUrl !== false;
     return {
       app:'HakoMachi Site Planner',
-      version:78,
+      version:79,
       savedAt:new Date().toISOString(),
       portableProject:true,
       coordinateSystem:{type:'imagePixels', origin:'topLeft', imageWidthPx:state.image?.naturalWidth||state.image?.width||state.imageMeta?.naturalWidthPx||null, imageHeightPx:state.image?.naturalHeight||state.image?.height||state.imageMeta?.naturalHeightPx||null},
@@ -3673,9 +3892,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       roads:state.roads,
       tracks:state.tracks||[],
       roadFeatures:state.roadFeatures,
+      stlObjects:state.stlObjects||[],
       benchworkOutlines:state.benchworkOutlines,
       fabricRegions:state.fabricRegions,
-      siteConstraints:[...state.roads.map(r=>({...r,type:'road'})), ...state.benchworkOutlines.map(b=>({...b,type:'benchworkOutline'}))],
+      siteConstraints:[...state.roads.map(r=>({...r,type:'road'})), ...state.benchworkOutlines.map(b=>({...b,type:'benchworkOutline'})), ...(state.stlObjects||[]).map(o=>({...o,type:'stlObject'}))],
       streetlights:state.streetlights,
       annotations:state.annotations
     };
@@ -3754,6 +3974,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       m.style.top=clamp(screenY-wrapRect.top,8,wrapRect.height-mh-8)+'px';
       return;
     }
+    if(target?.stlObject){
+      clearBuildingSelection();
+      state.selectedRoadId=null; state.selectedRoadFeatureId=null; state.selectedTrackId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedFabricId=null; state.selectedAnnotationId=null;
+      state.selectedStlObjectId=target.stlObject.id;
+      m.innerHTML=`<button data-action="lockStlObject">${target.stlObject.locked?'Unlock':'Lock'} Site Object</button><button data-action="deleteStlObject" class="dangerItem">Delete Site Object</button>`;
+      m.querySelectorAll('button').forEach(btn=>btn.onclick=()=>handleContextAction(btn.dataset.action));
+      m.style.display='block';
+      const wrapRect=wrap.getBoundingClientRect(); const mw=m.offsetWidth||210, mh=m.offsetHeight||100;
+      m.style.left=clamp(screenX-wrapRect.left,8,wrapRect.width-mw-8)+'px';
+      m.style.top=clamp(screenY-wrapRect.top,8,wrapRect.height-mh-8)+'px';
+      renderList(); renderSelected(); draw();
+      return;
+    }
     const b=target?.building;
     const hasPolyPoint=target?.handle?.type==='polyPoint';
     m.innerHTML=`
@@ -3774,6 +4007,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(note) return {annotation:note,point:worldPoint};
     const sl=selectedStreetlight() || hitStreetlight(worldPoint,pointerType);
     if(sl) return {streetlight:sl,point:worldPoint};
+    const stl=selectedStlObject() || hitStlObject(worldPoint,pointerType);
+    if(stl) return {stlObject:stl,point:worldPoint};
     const b=selected() || hitTest(worldPoint);
     if(!b) return null;
     const h=handleAt(worldPoint,b,pointerType);
@@ -3792,6 +4027,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       state.annotations=state.annotations.filter(st=>st.id!==t.annotation.id);
       if(state.selectedAnnotationId===t.annotation.id) state.selectedAnnotationId=null;
       hideContextMenu(); renderSelected(); draw(); markDirty('annotation deleted'); return;
+    }
+    if(action==='lockStlObject' && t?.stlObject){t.stlObject.locked=!t.stlObject.locked; hideContextMenu(); syncAll(); return;}
+    if(action==='deleteStlObject' && t?.stlObject){
+      state.stlObjects=(state.stlObjects||[]).filter(obj=>obj.id!==t.stlObject.id);
+      if(state.selectedStlObjectId===t.stlObject.id) state.selectedStlObjectId=null;
+      hideContextMenu(); syncAll(); return;
     }
     if(!b) return hideContextMenu();
     if(action==='lock'){b.locked=!b.locked;}
@@ -3812,7 +4053,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.longPress={pointerId:e.pointerId,start:{x:e.clientX,y:e.clientY},world:worldPoint,timer:setTimeout(()=>{
       if(!state.drag || state.drag.pointerId===e.pointerId){
         state.drag=null;
-        state.selectedId=target.building.id;
+        if(target.stlObject) selectStlObject(target.stlObject);
+        else if(target.building) state.selectedId=target.building.id;
+        else if(target.annotation) state.selectedAnnotationId=target.annotation.id;
+        else if(target.streetlight) state.selectedStreetlightId=target.streetlight.id;
         renderList(); renderSelected(); updateHandoff();
         showContextMenu(e.clientX,e.clientY,target);
         draw();
@@ -3827,7 +4071,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const pressure=(e.pressure && e.pressure>0 ? e.pressure : .5);
     const stroke={id:uid('note'),points:[{x:p.x,y:p.y,pressure}],color:'#6f4326',baseWidth:2.2};
     state.annotations.push(stroke);
-    state.selectedAnnotationId=stroke.id; state.selectedId=null; renderList(); renderSelected();
+    state.selectedAnnotationId=stroke.id; state.selectedId=null; state.selectedStlObjectId=null; renderList(); renderSelected();
     state.drag={type:'annotate',pointerId:e.pointerId,strokeId:stroke.id};
   }
   function addAnnotationPoint(e,p){
@@ -3992,6 +4236,33 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(isSelected || isHovered){ const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(pts); const trimCount=hakoDisplayTrimPolylinesMm(b).length; const trimNote=trimCount?` · ${trimCount} trim line${trimCount===1?'':'s'}`:''; drawLabel(`${b.name||'Building'} ${b.padType==='rect'&&state.pxPerMm?`${fmt(b.widthMm)}×${fmt(b.depthMm)}mm`:''}${trimNote}`,{x:c.x+6/state.view.scale,y:c.y-6/state.view.scale}); }
     if(isSelected && currentSelectedBuildingIds().length===1 && !b.locked){ ctx.fillStyle='#0f766e'; pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,5/state.view.scale,0,Math.PI*2);ctx.fill()}); drawRotateAffordance(b,pts); }
     ctx.restore(); }
+  function drawStlObject(raw){
+    const obj=normalizeStlObject(raw);
+    if(!obj || obj.hidden) return;
+    const selected=obj.id===state.selectedStlObjectId, hovered=obj.id===state.hoverStlObjectId;
+    const pts=stlObjectRect(obj);
+    ctx.save();
+    ctx.lineWidth=(selected?3:(hovered?3:2))/state.view.scale;
+    ctx.strokeStyle=selected?'#0f766e':(hovered?'#2a64aa':obj.color||'#496a78');
+    ctx.fillStyle=hovered&&!selected?'rgba(42,100,170,.16)':((obj.color||'#496a78')+'2b');
+    ctx.setLineDash([8/state.view.scale,5/state.view.scale]);
+    ctx.beginPath();
+    pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.translate(obj.x,obj.y);
+    ctx.rotate(rad(obj.rotationDeg||0));
+    ctx.strokeStyle='rgba(73,106,120,.65)';
+    ctx.lineWidth=1.2/state.view.scale;
+    ctx.beginPath();
+    ctx.moveTo(-obj.widthPx*.35,0); ctx.lineTo(obj.widthPx*.35,0);
+    ctx.moveTo(0,-obj.depthPx*.35); ctx.lineTo(0,obj.depthPx*.35);
+    ctx.stroke();
+    ctx.restore();
+    if(selected||hovered) drawLabel(`${obj.name||'STL Object'} · ${fmt(obj.widthMm*obj.scale)}×${fmt(obj.depthMm*obj.scale)}mm`,{x:obj.x+8/state.view.scale,y:obj.y-8/state.view.scale});
+  }
   function drawLine(line,color,label){ if(!line) return; ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=3/state.view.scale; ctx.beginPath();ctx.moveTo(line.x1,line.y1);ctx.lineTo(line.x2,line.y2);ctx.stroke(); ctx.fillStyle=color; [{x:line.x1,y:line.y1},{x:line.x2,y:line.y2}].forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()}); if(label) drawLabel(label,{x:(line.x1+line.x2)/2,y:(line.y1+line.y2)/2}); ctx.restore();}
 
   function drawStreetlight(l){
@@ -4057,6 +4328,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function fabricRegionCenter(region){return polygonCenter(region.polygon||[]);}
   function normalizeFabricRegion(r){r.id=r.id||uid('fabric'); r.name=r.name||`Fabric Region ${state.fabricRegions.length+1}`; r.fabricType=r.fabricType||state.fabricPreset||'localMixedUseFabric'; r.polygon=r.polygon||r.pointsPx||[]; r.color=r.color||'#7c5f3f'; r.seed=Number.isFinite(Number(r.seed))?Number(r.seed):101; r.density=Number.isFinite(Number(r.density))?Number(r.density):1; r.randomness=Number.isFinite(Number(r.randomness))?Number(r.randomness):.45; r.averageFloorCount=Number.isFinite(Number(r.averageFloorCount))?Number(r.averageFloorCount):3; r.maxFloorCount=Number.isFinite(Number(r.maxFloorCount))?Number(r.maxFloorCount):6; r.generatedPadIds=Array.isArray(r.generatedPadIds)?r.generatedPadIds:[]; return r;}
   function selectedFabric(){return state.fabricRegions.find(r=>r.id===state.selectedFabricId)||null;}
+  function deleteSelectedStlObject(){
+    const id=state.selectedStlObjectId;
+    if(!id) return false;
+    state.stlObjects=(state.stlObjects||[]).filter(obj=>obj.id!==id);
+    state.selectedStlObjectId=null;
+    syncAll();
+    return true;
+  }
   function hitFabricRegion(p){
     for(let i=state.fabricRegions.length-1;i>=0;i--){
       const region=normalizeFabricRegion(state.fabricRegions[i]);
@@ -4074,6 +4353,20 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedStreetlightId=null;
     state.selectedAnnotationId=null;
     state.selectedFabricId=region.id;
+    renderList(); renderRoads(); renderStreetlights(); renderSelected(); updateHandoff(); draw();
+    return true;
+  }
+  function selectStlObject(obj){
+    if(!obj) return false;
+    clearBuildingSelection();
+    state.selectedRoadId=null;
+    state.selectedRoadFeatureId=null;
+    state.selectedTrackId=null;
+    state.selectedBenchworkId=null;
+    state.selectedStreetlightId=null;
+    state.selectedAnnotationId=null;
+    state.selectedFabricId=null;
+    state.selectedStlObjectId=obj.id;
     renderList(); renderRoads(); renderStreetlights(); renderSelected(); updateHandoff(); draw();
     return true;
   }
@@ -4176,7 +4469,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       drawNow();
     });
   }
-  function drawNow(){const r=canvas.getBoundingClientRect(); const dpr=devicePixelRatio||1; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.benchworkOutlines.forEach(drawBenchwork); state.roads.forEach(drawRoad); (state.tracks||[]).forEach(drawTrack); drawRoadJunctions(); (state.roadFeatures||[]).forEach(drawRoadFeature); drawRoadExportPreview(); (state.fabricRegions||[]).forEach(drawFabricRegion); state.buildings.forEach(drawBuilding); state.streetlights.forEach(drawStreetlight); if(state.roadDraft.length){ctx.save();ctx.strokeStyle='#6f6a5e';ctx.fillStyle='rgba(111,106,94,.18)';ctx.lineWidth=3/state.view.scale;if(state.roadMode==='centerline'&&state.roadDraft.length>=2){const temp=createRoadCenterlineFromPoints(state.roadDraft); temp.id='road_draft'; drawRoad(temp);} else {ctx.beginPath();state.roadDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();}state.roadDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.trackDraft&&state.trackDraft.length){ctx.save();const temp=normalizeTrack({id:'track_draft',name:'Track preview',pointsPx:state.trackDraft.slice(),gaugeMm:9,tieSpacingMm:4,color:'#4b4438',tieColor:'#8a6f43'}); drawTrack(temp); ctx.fillStyle='rgba(75,68,56,.20)'; state.trackDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.benchworkDraft.length){ctx.save();ctx.strokeStyle='#2f6f4e';ctx.fillStyle='rgba(47,111,78,.12)';ctx.lineWidth=3/state.view.scale;ctx.setLineDash([8/state.view.scale,6/state.view.scale]);ctx.beginPath();state.benchworkDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.setLineDash([]);state.benchworkDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} drawFabricDraft(); if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview){ if(state.drag.type==='roadCenterline') drawRoad(state.drag.preview); else drawBuilding(state.drag.preview); } drawSelectionMarquee(); drawHoverPreview(); ctx.restore(); updateEmptyImageOverlay(); updateStatus();}
+  function drawNow(){const r=canvas.getBoundingClientRect(); const dpr=devicePixelRatio||1; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.benchworkOutlines.forEach(drawBenchwork); state.roads.forEach(drawRoad); (state.tracks||[]).forEach(drawTrack); drawRoadJunctions(); (state.roadFeatures||[]).forEach(drawRoadFeature); drawRoadExportPreview(); (state.fabricRegions||[]).forEach(drawFabricRegion); state.buildings.forEach(drawBuilding); (state.stlObjects||[]).forEach(drawStlObject); state.streetlights.forEach(drawStreetlight); if(state.roadDraft.length){ctx.save();ctx.strokeStyle='#6f6a5e';ctx.fillStyle='rgba(111,106,94,.18)';ctx.lineWidth=3/state.view.scale;if(state.roadMode==='centerline'&&state.roadDraft.length>=2){const temp=createRoadCenterlineFromPoints(state.roadDraft); temp.id='road_draft'; drawRoad(temp);} else {ctx.beginPath();state.roadDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();}state.roadDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.trackDraft&&state.trackDraft.length){ctx.save();const temp=normalizeTrack({id:'track_draft',name:'Track preview',pointsPx:state.trackDraft.slice(),gaugeMm:9,tieSpacingMm:4,color:'#4b4438',tieColor:'#8a6f43'}); drawTrack(temp); ctx.fillStyle='rgba(75,68,56,.20)'; state.trackDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.benchworkDraft.length){ctx.save();ctx.strokeStyle='#2f6f4e';ctx.fillStyle='rgba(47,111,78,.12)';ctx.lineWidth=3/state.view.scale;ctx.setLineDash([8/state.view.scale,6/state.view.scale]);ctx.beginPath();state.benchworkDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.setLineDash([]);state.benchworkDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} drawFabricDraft(); if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview){ if(state.drag.type==='roadCenterline') drawRoad(state.drag.preview); else drawBuilding(state.drag.preview); } drawSelectionMarquee(); drawHoverPreview(); ctx.restore(); updateEmptyImageOverlay(); updateStatus();}
   function fitImage(){const r=canvas.getBoundingClientRect(); if(!state.image){state.view={x:r.width/2,y:r.height/2,scale:1}; draw(); return;} const s=Math.min(r.width/state.image.width,r.height/state.image.height)*.9; state.view.scale=s; state.view.x=(r.width-state.image.width*s)/2; state.view.y=(r.height-state.image.height*s)/2; draw();}
 
   function sidebarObjectTypes(){
@@ -4189,7 +4482,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       {key:'benchwork',label:'Benchwork',count:state.benchworkOutlines.length,hint:'Layout boundaries',color:'#2f6f4e'},
       {key:'streetlights',label:'Streetlights',count:state.streetlights.length,hint:'Streetlight objects and anchors',color:'#c84a3a'},
       {key:'annotations',label:'Annotations',count:state.annotations.length,hint:'Freehand plan notes',color:'#6f4326'},
-      {key:'siteObjects',label:'Site Objects',count:0,hint:'Future STL and placed assets',color:'#496a78'}
+      {key:'siteObjects',label:'Site Objects',count:(state.stlObjects||[]).length,hint:'Imported STL assets',color:'#496a78'}
     ].filter(type=>type.count>0);
   }
   function sidebarObjectTypeMeta(type){
@@ -4201,7 +4494,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       fabric:{key:'fabric',label:'Fabric Areas',count:state.fabricRegions.length,hint:'Generated urban fabric regions',color:'#7c5f3f'},
       benchwork:{key:'benchwork',label:'Benchwork',count:state.benchworkOutlines.length,hint:'Layout boundaries',color:'#2f6f4e'},
       streetlights:{key:'streetlights',label:'Streetlights',count:state.streetlights.length,hint:'Streetlight objects and anchors',color:'#c84a3a'},
-      annotations:{key:'annotations',label:'Annotations',count:state.annotations.length,hint:'Freehand plan notes',color:'#6f4326'}
+      annotations:{key:'annotations',label:'Annotations',count:state.annotations.length,hint:'Freehand plan notes',color:'#6f4326'},
+      siteObjects:{key:'siteObjects',label:'Site Objects',count:(state.stlObjects||[]).length,hint:'Imported STL assets',color:'#496a78'}
     }[type] || null;
   }
   function sidebarTypeForDetailKind(kind){
@@ -4213,6 +4507,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(kind==='streetlight') return 'streetlights';
     if(kind==='fabric') return 'fabric';
     if(kind==='annotation') return 'annotations';
+    if(kind==='stlObject'||kind==='siteObject') return 'siteObjects';
     return null;
   }
   function installHakoImportDropzone(box){
@@ -4246,6 +4541,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedStreetlightId=null;
     state.selectedFabricId=null;
     state.selectedAnnotationId=null;
+    state.selectedStlObjectId=null;
   }
   function selectSidebarObject(type,id,ev=null){
     sidebarObjectType=type;
@@ -4261,6 +4557,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(type==='streetlights') state.selectedStreetlightId=id;
       if(type==='fabric') state.selectedFabricId=id;
       if(type==='annotations') state.selectedAnnotationId=id;
+      if(type==='siteObjects') state.selectedStlObjectId=id;
     }
     renderObjectBrowser();
     renderSelected();
@@ -4276,6 +4573,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(type==='streetlights') return state.selectedStreetlightId===id;
     if(type==='fabric') return state.selectedFabricId===id;
     if(type==='annotations') return state.selectedAnnotationId===id;
+    if(type==='siteObjects') return state.selectedStlObjectId===id;
     return false;
   }
   function makeObjectListRow(type,raw){
@@ -4326,6 +4624,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     } else if(type==='annotations'){
       const note=raw;
       el.innerHTML=`<span class="swatch" style="background:${note.color||'#6f4326'}"></span><div><b>${escapeHtml(note.name||'Annotation')}</b><br><span class="small muted">${(note.points||[]).length} points</span></div><span class="pill">note</span>`;
+    } else if(type==='siteObjects'){
+      const obj=normalizeStlObject(raw);
+      el.innerHTML=`<span class="swatch" style="background:${obj.color||'#496a78'}"></span><div><b>${escapeHtml(obj.name||'STL Object')}</b><br><span class="small muted">${escapeHtml(obj.asset?.fileName||'STL asset')}${obj.locked?' · locked':''}${obj.hidden?' · hidden':''}</span></div><span class="pill">${fmt(obj.widthMm*obj.scale)}×${fmt(obj.depthMm*obj.scale)}mm</span>`;
     }
     el.onclick=ev=>selectSidebarObject(type,raw.id,ev);
     el.onkeydown=ev=>{ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); selectSidebarObject(type,raw.id,ev); } };
@@ -4340,6 +4641,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(type==='streetlights') return state.streetlights;
     if(type==='fabric') return state.fabricRegions;
     if(type==='annotations') return state.annotations;
+    if(type==='siteObjects') return state.stlObjects||[];
     return [];
   }
   function renderObjectBrowser(){
@@ -4417,7 +4719,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     installHakoImportDropzone(box);
   }
-  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const track=selectedTrack(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const fabric=selectedFabric(); const selIds=currentSelectedBuildingIds(); if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use keyboard shortcuts to copy/paste selected footprints.</span><div class="buttons" style="margin-top:8px"><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(roadFeature){normalizeRoadFeature(roadFeature); box.innerHTML=`
+  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const track=selectedTrack(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const fabric=selectedFabric(); const stl=selectedStlObject(); const selIds=currentSelectedBuildingIds(); if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use keyboard shortcuts to copy/paste selected footprints.</span><div class="buttons" style="margin-top:8px"><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(roadFeature){normalizeRoadFeature(roadFeature); box.innerHTML=`
       <b>${roadFeature.kind==='manhole'?'Manhole / Hatch':'Japanese road marking'} selected</b>
       <label>Name</label><input id="rfName" value="${escapeAttr(roadFeature.name||'Road item')}">
       ${roadFeature.kind==='manhole'?`<label>Hatch preset</label><select id="rfHatchPreset">${hatchOptionsHtml(roadFeature.hatchPreset)}</select>
@@ -4536,6 +4838,30 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const fp=$('fabricPresetSel'); if(fp) fp.onchange=()=>{fabric.fabricType=fp.value; state.fabricPreset=fp.value; syncAll();};
       $('generateFabricRegion').onclick=()=>generateFabricForRegion(fabric,{confirmReplace:true});
       $('deleteFabricRegion').onclick=deleteSelectedFabricRegion;
+    } else if(stl){normalizeStlObject(stl); box.innerHTML=`
+      <b>${escapeHtml(stl.name||'STL Object')} selected</b>
+      <label>Name</label><input id="stlName" value="${escapeAttr(stl.name||'')}">
+      <div class="row"><div><label>Rotation °</label><input id="stlRot" type="number" step="1" value="${fmt(stl.rotationDeg||0)}"></div><div><label>Scale</label><input id="stlScale" type="number" min="0.01" step="0.01" value="${fmt(stl.scale||1)}"></div></div>
+      <div class="row"><div><label>Width mm</label><input id="stlW" type="number" min="0.1" step="0.1" value="${fmt(stl.widthMm||0)}"></div><div><label>Depth mm</label><input id="stlD" type="number" min="0.1" step="0.1" value="${fmt(stl.depthMm||0)}"></div></div>
+      <div class="row"><div><label>Height mm</label><input id="stlH" type="number" min="0.1" step="0.1" value="${fmt(stl.heightMm||0)}"></div><div><label>Color</label><input id="stlColor" type="color" value="${stl.color||'#496a78'}"></div></div>
+      <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="stlLocked" type="checkbox" ${stl.locked?'checked':''}> <span>Lock object</span></label>
+      <label>Notes</label><textarea id="stlNotes" rows="3">${escapeHtml(stl.notes||'')}</textarea>
+      <div class="small muted" style="margin-top:6px">File: ${escapeHtml(stl.asset?.fileName||'STL asset')} · ${escapeHtml(stl.bounds?.format||'unknown')} bounds · shown as a footprint and 3D proxy.</div>
+      <div class="buttons" style="margin-top:8px"><button id="downloadStlObject" ${stl.asset?.dataBase64?'':'disabled'}>Download STL</button><button id="deleteStlObject" class="danger">Delete Object</button></div>`;
+      const updateDims=()=>{normalizeStlObject(stl); syncAll();};
+      const bindStl=(id,fn)=>{const el=$(id); if(el) el.oninput=()=>{fn(el.type==='checkbox'?el.checked:el.value); updateDims();};};
+      bindStl('stlName',v=>stl.name=v);
+      bindStl('stlRot',v=>stl.rotationDeg=parseFloat(v)||0);
+      bindStl('stlScale',v=>stl.scale=Math.max(.01,parseFloat(v)||1));
+      bindStl('stlW',v=>stl.widthMm=Math.max(.1,parseFloat(v)||.1));
+      bindStl('stlD',v=>stl.depthMm=Math.max(.1,parseFloat(v)||.1));
+      bindStl('stlH',v=>stl.heightMm=Math.max(.1,parseFloat(v)||.1));
+      bindStl('stlColor',v=>stl.color=v);
+      bindStl('stlLocked',v=>stl.locked=!!v);
+      bindStl('stlNotes',v=>stl.notes=v);
+      installAdaptiveDegreeStepping($('stlRot'));
+      $('downloadStlObject').onclick=()=>downloadBase64(stl.asset?.dataBase64, stl.asset?.fileName||`${slug(stl.name||'site-object')}.stl`, stl.asset?.mimeType||'model/stl');
+      $('deleteStlObject').onclick=deleteSelectedStlObject;
     } else if(note){const pts=note.points||[]; box.innerHTML=`<b>Annotation selected</b><br><span class="small muted">${pts.length} points</span><div class="buttons" style="margin-top:8px"><button id="delNoteB" class="danger">Delete Annotation</button></div>`; const del=$('delNoteB'); if(del) del.onclick=deleteSelectedAnnotation;} else box.innerHTML='No building selected.'; const btn=$('deleteAnnotationBtn'); if(btn) btn.disabled=!note; return;} if($('deleteAnnotationBtn')) $('deleteAnnotationBtn').disabled=true; syncBuildingMetrics(b); box.innerHTML=`
     <label>Name</label><input id="selName" value="${escapeAttr(b.name||'')}">
     <div class="row"><div><label>Status</label><select id="selState"><option value="notStarted">Not Started</option><option value="inProgress">In Progress</option><option value="awaitingConstruction">Awaiting Construction</option><option value="complete">Complete</option></select></div><div><label>Color</label><input id="selColor" type="color" value="${b.color||'#d79631'}"></div></div>
@@ -4575,6 +4901,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(state.selectedRoadFeatureId) return 'roadFeature';
     if(state.selectedStreetlightId) return 'streetlight';
     if(state.selectedFabricId) return 'fabric';
+    if(state.selectedStlObjectId) return 'stlObject';
     if(state.selectedAnnotationId) return 'annotation';
     return null;
   }
@@ -4587,6 +4914,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(kind==='roadFeature') return 'Road Item';
     if(kind==='streetlight') return 'Streetlight';
     if(kind==='fabric') return 'Fabric Region';
+    if(kind==='stlObject') return 'Site Object';
     if(kind==='annotation') return 'Annotation';
     return 'Selected';
   }
@@ -4600,6 +4928,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedBenchworkId=null;
     state.selectedStreetlightId=null;
     state.selectedFabricId=null;
+    state.selectedStlObjectId=null;
     state.selectedAnnotationId=null;
     hideContextMenu();
     renderList();
@@ -4687,7 +5016,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(!detailSection) return;
     detailSection.dataset.detailPanel='true';
     const kind=activeSidebarDetailKind();
-    const detailKey=kind ? `${kind}:${state.selectedId||state.selectedRoadId||state.selectedRoadFeatureId||state.selectedBenchworkId||state.selectedStreetlightId||state.selectedAnnotationId||currentSelectedBuildingIds().join(',')}` : null;
+    const detailKey=kind ? `${kind}:${state.selectedId||state.selectedRoadId||state.selectedRoadFeatureId||state.selectedBenchworkId||state.selectedStreetlightId||state.selectedStlObjectId||state.selectedAnnotationId||currentSelectedBuildingIds().join(',')}` : null;
     const h3=detailSection.querySelector('h3');
     const existingToolbars=[...sidebar.querySelectorAll('#sidebarDetailToolbar, .sidebarDetailToolbar')];
     let toolbar=existingToolbars[0] || null;
@@ -5060,6 +5389,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(!trackHit.locked) state.drag={type:'moveTrack',pointerId:e.pointerId,start:p,orig:structuredClone(trackHit)};
       return true;
     }
+    const stlHit=hitStlObject(p,e.pointerType);
+    if(stlHit){
+      selectStlObject(stlHit);
+      if(!stlHit.locked) state.drag={type:'moveStlObject',pointerId:e.pointerId,start:p,orig:structuredClone(stlHit)};
+      return true;
+    }
     const benchCurveHit=state.selectedBenchworkId ? hitBenchworkSegment(p, selectedBenchwork(), e.pointerType) : null;
     if(benchCurveHit){ const bw=selectedBenchwork(); if(bw&&!bw.locked){ state.drag={type:'benchworkCurve',pointerId:e.pointerId,start:p,orig:structuredClone(bw),segmentIndex:benchCurveHit.index}; } return true; }
     const benchHit=hitBenchwork(p,e.pointerType);
@@ -5072,7 +5407,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const note=hitAnnotation(p,e.pointerType);
     if(note){
       state.selectedAnnotationId=note.id;
-      state.selectedId=null; state.selectedStreetlightId=null; state.selectedRoadId=null; state.selectedBenchworkId=null; state.selectedFabricId=null;
+      state.selectedId=null; state.selectedStlObjectId=null; state.selectedStreetlightId=null; state.selectedRoadId=null; state.selectedBenchworkId=null; state.selectedFabricId=null;
       renderList(); renderSelected(); updateHandoff(); draw();
       return true;
     }
@@ -5234,10 +5569,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(roadHit){state.selectedRoadId=roadHit.id; if(roadHit.mode!=='outline') state.roadOutlineEditId=null; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null; renderRoads(); renderList(); renderStreetlights(); renderSelected(); draw(); if(!roadHit.locked) state.drag={type:'moveRoad',pointerId:e.pointerId,start:p,orig:structuredClone(roadHit)}; return;}
       const trackHit=hitTrack(p,e.pointerType);
       if(trackHit){clearBuildingSelection(); state.selectedRoadId=null; state.selectedRoadFeatureId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedFabricId=null; state.selectedTrackId=trackHit.id; renderList(); renderSelected(); draw(); if(!trackHit.locked) state.drag={type:'moveTrack',pointerId:e.pointerId,start:p,orig:structuredClone(trackHit)}; return;}
+      const stlHit=hitStlObject(p,e.pointerType);
+      if(stlHit){selectStlObject(stlHit); if(!stlHit.locked) state.drag={type:'moveStlObject',pointerId:e.pointerId,start:p,orig:structuredClone(stlHit)}; return;}
       const note=hitAnnotation(p,e.pointerType);
       if(note){
         state.selectedAnnotationId=note.id;
-        state.selectedId=null; state.selectedStreetlightId=null; state.selectedFabricId=null;
+        state.selectedId=null; state.selectedStlObjectId=null; state.selectedStreetlightId=null; state.selectedFabricId=null;
         renderList(); renderSelected(); updateHandoff(); draw();
         return;
       }
@@ -5297,7 +5634,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       state.hoverRoadId=hoverR ? hoverR.id : (hoverCurve?state.selectedRoadId:null);
       const hoverT=(hoverL||hoverBW||hoverR) ? null : hitTrack(p,e.pointerType);
       state.hoverTrackId=hoverT ? hoverT.id : null;
-      const hoverB=(hoverL||hoverBW||hoverR||hoverT) ? null : hitTest(p);
+      const hoverStl=(hoverL||hoverBW||hoverR||hoverT) ? null : hitStlObject(p,e.pointerType);
+      state.hoverStlObjectId=hoverStl ? hoverStl.id : null;
+      const hoverB=(hoverL||hoverBW||hoverR||hoverT||hoverStl) ? null : hitTest(p);
       state.hoverBuildingId=hoverB ? hoverB.id : null;
       if(e.pointerType==='pen' && e.buttons===0){
         const hb=selected()||hoverB, hh=hb?handleAt(p,hb,e.pointerType):null;
@@ -5322,6 +5661,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     else if(d.type==='roadCenterline'){d.end=p; d.preview=createRoadCenterline(d.start,p);}
     else if(d.type==='annotate'){addAnnotationPoint(e,p);}
     else if(d.type==='moveStreetlight'){const l=state.streetlights.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(l&&!l.locked){l.x=d.orig.x+dx; l.y=d.orig.y+dy;}}
+    else if(d.type==='moveStlObject'){const obj=(state.stlObjects||[]).find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(obj&&!obj.locked){obj.x=d.orig.x+dx; obj.y=d.orig.y+dy; normalizeStlObject(obj);}}
     else if(d.type==='moveBenchwork'){const bw=state.benchworkOutlines.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(bw&&!bw.locked){bw.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); bw.curvesPx=(d.orig.curvesPx||[]).map(c=>c?{x:c.x+dx,y:c.y+dy}:null); normalizeBenchworkOutline(bw);}}
     else if(d.type==='benchworkCurve'){const bw=state.benchworkOutlines.find(x=>x.id===d.orig.id); if(bw&&!bw.locked){normalizeBenchworkOutline(bw); const i=d.segmentIndex; const a=bw.pointsPx[i], b=bw.pointsPx[(i+1)%bw.pointsPx.length]; if(a&&b){bw.curvesPx[i]={x:2*p.x-(a.x+b.x)/2,y:2*p.y-(a.y+b.y)/2}; normalizeBenchworkOutline(bw);}}}
     else if(d.type==='moveRoad'){const r=state.roads.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(r&&!r.locked){r.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); r.curvesPx=(d.orig.curvesPx||[]).map(c=>c?{x:c.x+dx,y:c.y+dy}:null); syncRoadMetrics(r);}}
@@ -5390,7 +5730,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(state.drag.pointerId!==undefined && state.drag.pointerId!==e.pointerId) return;
     const d=state.drag;
     if(d.type==='rect'&&d.preview){state.buildings.push(d.preview); setBuildingSelection([d.preview.id], d.preview.id); renderList(); renderSelected(); updateHandoff();}
-    if(d.type==='marquee'){const r=selectionRectFromPoints(d.start,d.end||d.start); if(Math.max(r.w,r.h)>5/state.view.scale){const hits=buildingsInSelectionRect(r); setBuildingSelection(d.additive?[...new Set([...(d.baseIds||[]),...hits])]:hits, hits.length===1?hits[0]:null);} else if(!d.additive){clearBuildingSelection(); state.selectedAnnotationId=null; state.selectedStreetlightId=null; state.selectedRoadId=null; state.selectedBenchworkId=null; state.selectedFabricId=null;} renderList(); renderSelected(); updateHandoff();}
+    if(d.type==='marquee'){const r=selectionRectFromPoints(d.start,d.end||d.start); if(Math.max(r.w,r.h)>5/state.view.scale){const hits=buildingsInSelectionRect(r); setBuildingSelection(d.additive?[...new Set([...(d.baseIds||[]),...hits])]:hits, hits.length===1?hits[0]:null);} else if(!d.additive){clearBuildingSelection(); state.selectedAnnotationId=null; state.selectedStreetlightId=null; state.selectedRoadId=null; state.selectedBenchworkId=null; state.selectedFabricId=null; state.selectedStlObjectId=null;} renderList(); renderSelected(); updateHandoff();}
     if(d.type==='roadCenterline'&&d.preview&&dist(d.start,d.end)>4){state.roads.push(d.preview); state.selectedRoadId=d.preview.id; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null; renderRoads(); renderSelected();}
     if(d.type==='pan' && d.rightButtonPan && d.moved){state.suppressNextContextMenu=true;}
     canvas.classList.remove('panning');
@@ -5429,8 +5769,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       renderList(); renderStreetlights(); renderSelected(); draw();
       return;
     }
-    if(target?.annotation){state.selectedAnnotationId=target.annotation.id; state.selectedId=null; state.selectedFabricId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
-    else if(target?.building){state.selectedId=target.building.id; state.selectedFabricId=null; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
+    if(target?.annotation){state.selectedAnnotationId=target.annotation.id; state.selectedId=null; state.selectedStlObjectId=null; state.selectedFabricId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
+    else if(target?.building){state.selectedId=target.building.id; state.selectedStlObjectId=null; state.selectedFabricId=null; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
   });
   installCanvasGestureBoundary({
     surface:wrap,
@@ -5448,6 +5788,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(state.selectedStreetlightId){ deleteSelectedStreetlight(); return true; }
     if(state.selectedRoadId){ deleteSelectedRoad(); return true; }
     if(state.selectedTrackId){ deleteSelectedTrack(); return true; }
+    if(state.selectedStlObjectId){ deleteSelectedStlObject(); return true; }
     if(state.selectedBenchworkId){ deleteSelectedBenchwork(); return true; }
     if(state.selectedFabricId){ deleteSelectedFabricRegion(); return true; }
     const ids=currentSelectedBuildingIds();
@@ -5494,6 +5835,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       state.hoverPreview=null;
       state.selectedAnnotationId=null;
       state.selectedFabricId=null;
+      state.selectedStlObjectId=null;
       if(state.roadOutlineEditId) state.roadOutlineEditId=null;
       renderSelected();
       draw();
@@ -5593,7 +5935,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   window.addEventListener('scroll', hideToolFlyouts, true);
   updateStreetlightToolButton();
   function hasAnySiteGeometry(){
-    return !!(state.buildings?.length || state.roads?.length || state.tracks?.length || state.roadFeatures?.length || state.benchworkOutlines?.length || state.streetlights?.length || state.annotations?.length || state.fabricRegions?.length || state.siteConstraints?.length);
+    return !!(state.buildings?.length || state.roads?.length || state.tracks?.length || state.roadFeatures?.length || state.benchworkOutlines?.length || state.streetlights?.length || state.annotations?.length || state.fabricRegions?.length || state.stlObjects?.length || state.siteConstraints?.length);
   }
 
   function updateEmptyImageOverlay(){
@@ -6243,6 +6585,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   $('loadFile').addEventListener('change', async e=>{
     const f=e.target.files && e.target.files[0];
     if(!f) return;
+    if(isLikelyStlFile(f)){
+      await importStlAsSiteObject(f);
+      e.target.value='';
+      return;
+    }
     openImportProgressModal('Import site plan','Reading file...',`Reading ${f.name||'site plan file'}.`);
     try{
       const isZip=/\.zip$/i.test(f.name||'') || /zip/i.test(f.type||'');
@@ -6320,6 +6667,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     a.download=name;
     a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  }
+  function downloadBase64(base64,name,type){
+    if(!base64) return;
+    const dataUrl=dataUrlFromBase64(type||'application/octet-stream',base64);
+    const a=document.createElement('a');
+    a.href=dataUrl;
+    a.download=name||'asset.bin';
+    a.click();
   }
   function localImageBundleAsset(){
     const dataUrl=state.imageMeta?.dataUrl || cachedImageAsset(state.imageMeta?.asset);
@@ -6421,6 +6776,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(Number.isFinite(Number(r.sidewalkWidthPx))) r.sidewalkWidthPx=Number(r.sidewalkWidthPx)*avg;
     });
     state.benchworkOutlines.forEach(bw=>{scalePointArray(bw.pointsPx, sx, sy); scalePointArray(bw.curvesPx, sx, sy);});
+    (state.stlObjects||[]).forEach(obj=>{
+      if(Number.isFinite(Number(obj.x))) obj.x=Number(obj.x)*sx;
+      if(Number.isFinite(Number(obj.y))) obj.y=Number(obj.y)*sy;
+      if(Number.isFinite(Number(obj.widthPx))) obj.widthPx=Number(obj.widthPx)*sx;
+      if(Number.isFinite(Number(obj.depthPx))) obj.depthPx=Number(obj.depthPx)*sy;
+    });
     state.streetlights.forEach(l=>scalePointLike(l,sx,sy));
     state.annotations.forEach(st=>scalePointArray(st.points, sx, sy));
     if(state.calibrationLine) scalePointLike(state.calibrationLine, sx, sy);
@@ -6476,6 +6837,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.roads=loadedRoads.map(normalizeRoad);
     state.tracks=(Array.isArray(p.tracks)?p.tracks:[]).map(normalizeTrack);
     state.roadFeatures=(Array.isArray(p.roadFeatures)?p.roadFeatures:[]).map(normalizeRoadFeature);
+    const loadedStlObjects = Array.isArray(p.stlObjects) ? p.stlObjects : (Array.isArray(p.siteObjects) ? p.siteObjects.filter(o=>o&&(o.type==='stl'||o.type==='stlObject'||o.kind==='stl')) : (Array.isArray(p.siteConstraints) ? p.siteConstraints.filter(o=>o&&(o.type==='stlObject'||o.type==='stl'||o.kind==='stl')) : []));
+    state.stlObjects=loadedStlObjects.map(normalizeStlObject);
     const loadedBenchworks = Array.isArray(p.benchworkOutlines) ? p.benchworkOutlines : (Array.isArray(p.siteConstraints) ? p.siteConstraints.filter(c=>c&&(c.type==='benchworkOutline'||c.type==='benchwork'||c.constraintType==='benchworkOutline')) : []);
     state.benchworkOutlines=loadedBenchworks.map(normalizeBenchworkOutline);
     state.fabricRegions=(p.fabricRegions||[]).map(normalizeFabricRegion);
@@ -6484,6 +6847,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     clearBuildingSelection();
     state.selectedRoadId=null;
     state.selectedTrackId=null;
+    state.selectedStlObjectId=null;
     state.selectedBenchworkId=null;
     state.selectedStreetlightId=null;
     state.selectedAnnotationId=null;

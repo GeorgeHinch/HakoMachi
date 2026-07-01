@@ -25,6 +25,7 @@ import * as skylights from './skylights.js';
 import * as blockSupplementalParts from './block-supplemental-parts.js';
 import * as sheetSplitting from './sheet-splitting.js';
 import * as fullBuildingGeneration from './full-building-generation.js';
+import * as assemblyPlan from './assembly-plan.js';
 import * as partMetadata from './part-metadata.js';
 import * as configSerialization from './config-serialization.js';
 import * as presetStorage from './preset-storage.js';
@@ -58,6 +59,7 @@ export {
   blockSupplementalParts,
   sheetSplitting,
   fullBuildingGeneration,
+  assemblyPlan,
   partMetadata,
   configSerialization,
   presetStorage,
@@ -92,6 +94,7 @@ export const coreModules = Object.freeze({
   blockSupplementalParts,
   sheetSplitting,
   fullBuildingGeneration,
+  assemblyPlan,
   partMetadata,
   configSerialization,
   presetStorage,

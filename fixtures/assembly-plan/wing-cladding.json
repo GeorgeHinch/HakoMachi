@@ -1,0 +1,155 @@
+{
+  "schema": "hakomachi.assembly-plan",
+  "schemaVersion": 1,
+  "generator": "HakoMachi Building Generator",
+  "deterministicKey": "fixture-wing-cladding",
+  "source": {
+    "kind": "fixture",
+    "buildingType": "mixed_use",
+    "buildingName": "Wing and cladding fixture",
+    "dimensionsMm": {
+      "width": 72,
+      "depth": 48,
+      "height": 56
+    }
+  },
+  "parts": [
+    {
+      "id": "front_wall",
+      "sourcePartId": "front_wall",
+      "name": "Main Front Wall",
+      "role": "core_wall",
+      "area": "front",
+      "scope": "main",
+      "wingIndex": null,
+      "material": "core",
+      "dimensionsMm": { "width": 72, "height": 56, "offsetX": 0, "offsetY": 0 },
+      "exportRef": { "format": "svg", "material": "core", "fileName": "Main_Front_Core_Wall.svg", "path": "core/Main_Front_Core_Wall.svg" },
+      "operationCounts": { "paths": 1, "rects": 8, "lines": 5 },
+      "metadata": { "scope": "main", "wingIndex": null, "area": "front", "role": "core_wall" },
+      "assemblyNote": null
+    },
+    {
+      "id": "main_floor",
+      "sourcePartId": "main_floor",
+      "name": "Main Floor Panel",
+      "role": "floor_panel",
+      "area": "floor",
+      "scope": "main",
+      "wingIndex": null,
+      "material": "core",
+      "dimensionsMm": { "width": 72, "height": 48, "offsetX": 1.5, "offsetY": 1.5 },
+      "exportRef": { "format": "svg", "material": "core", "fileName": "Main_Floor_Floor_Panel.svg", "path": "core/Main_Floor_Floor_Panel.svg" },
+      "operationCounts": { "paths": 1, "rects": 18, "lines": 4 },
+      "metadata": { "scope": "main", "wingIndex": null, "area": "floor", "role": "floor_panel" },
+      "assemblyNote": null
+    },
+    {
+      "id": "front_cladding_upper",
+      "sourcePartId": "front_cladding_upper",
+      "name": "Main Front Upper Cladding",
+      "role": "exterior_cladding",
+      "area": "front",
+      "scope": "main",
+      "wingIndex": null,
+      "material": "cladding",
+      "dimensionsMm": { "width": 72, "height": 38, "offsetX": 0, "offsetY": 0 },
+      "exportRef": { "format": "svg", "material": "cladding", "fileName": "Main_Front_Exterior_Cladding.svg", "path": "cladding/Main_Front_Exterior_Cladding.svg" },
+      "operationCounts": { "paths": 1, "rects": 6, "lines": 46 },
+      "metadata": { "scope": "main", "wingIndex": null, "area": "front", "role": "exterior_cladding", "band": "upper" },
+      "assemblyNote": null
+    },
+    {
+      "id": "wing0_floor",
+      "sourcePartId": "wing0_floor",
+      "name": "Wing 1 Floor Panel",
+      "role": "floor_panel",
+      "area": "floor",
+      "scope": "wing",
+      "wingIndex": 0,
+      "material": "core",
+      "dimensionsMm": { "width": 32, "height": 38, "offsetX": 1.5, "offsetY": 1.5 },
+      "exportRef": { "format": "svg", "material": "core", "fileName": "Wing_01_Floor_Floor_Panel.svg", "path": "core/Wing_01_Floor_Floor_Panel.svg" },
+      "operationCounts": { "paths": 1, "rects": 10, "lines": 2 },
+      "metadata": { "scope": "wing", "wingIndex": 0, "area": "floor", "role": "floor_panel" },
+      "assemblyNote": null
+    },
+    {
+      "id": "wing0_front_wall",
+      "sourcePartId": "wing0_front_wall",
+      "name": "Wing 1 Front Wall",
+      "role": "core_wall",
+      "area": "front",
+      "scope": "wing",
+      "wingIndex": 0,
+      "material": "core",
+      "dimensionsMm": { "width": 32, "height": 42, "offsetX": 0, "offsetY": 0 },
+      "exportRef": { "format": "svg", "material": "core", "fileName": "Wing_01_Front_Core_Wall.svg", "path": "core/Wing_01_Front_Core_Wall.svg" },
+      "operationCounts": { "paths": 1, "rects": 5, "lines": 3 },
+      "metadata": { "scope": "wing", "wingIndex": 0, "area": "front", "role": "core_wall" },
+      "assemblyNote": null
+    },
+    {
+      "id": "wing0_front_cladding",
+      "sourcePartId": "wing0_front_cladding",
+      "name": "Wing 1 Front Cladding",
+      "role": "exterior_cladding",
+      "area": "front",
+      "scope": "wing",
+      "wingIndex": 0,
+      "material": "cladding",
+      "dimensionsMm": { "width": 32, "height": 42, "offsetX": 0, "offsetY": 0 },
+      "exportRef": { "format": "svg", "material": "cladding", "fileName": "Wing_01_Front_Exterior_Cladding.svg", "path": "cladding/Wing_01_Front_Exterior_Cladding.svg" },
+      "operationCounts": { "paths": 1, "rects": 3, "lines": 28 },
+      "metadata": { "scope": "wing", "wingIndex": 0, "area": "front", "role": "exterior_cladding" },
+      "assemblyNote": null
+    }
+  ],
+  "materialLayers": [
+    { "id": "cladding", "partIds": ["front_cladding_upper", "wing0_front_cladding"], "roles": ["exterior_cladding"] },
+    { "id": "core", "partIds": ["front_wall", "main_floor", "wing0_floor", "wing0_front_wall"], "roles": ["core_wall", "floor_panel"] }
+  ],
+  "relationships": [
+    {
+      "id": "cladding-to-core_front_cladding_upper_to_front_wall",
+      "type": "cladding-to-core",
+      "fromPartId": "front_cladding_upper",
+      "toPartId": "front_wall",
+      "confidence": "inferred",
+      "notes": "Cladding role and wall area map this panel back to a core wall."
+    },
+    {
+      "id": "cladding-to-core_wing0_front_cladding_to_wing0_front_wall",
+      "type": "cladding-to-core",
+      "fromPartId": "wing0_front_cladding",
+      "toPartId": "wing0_front_wall",
+      "confidence": "inferred",
+      "notes": "Cladding role and wall area map this panel back to a core wall."
+    },
+    {
+      "id": "floor-to-wall_main_floor_to_front_wall",
+      "type": "floor-to-wall",
+      "fromPartId": "main_floor",
+      "toPartId": "front_wall",
+      "confidence": "inferred",
+      "notes": "Floor/inter-floor tabs or slots relate this panel to the block core walls."
+    },
+    {
+      "id": "floor-to-wall_wing0_floor_to_wing0_front_wall",
+      "type": "floor-to-wall",
+      "fromPartId": "wing0_floor",
+      "toPartId": "wing0_front_wall",
+      "confidence": "inferred",
+      "notes": "Floor/inter-floor tabs or slots relate this panel to the block core walls."
+    },
+    {
+      "id": "wing-to-main_wing0_floor_to_main_floor",
+      "type": "wing-to-main",
+      "fromPartId": "wing0_floor",
+      "toPartId": "main_floor",
+      "confidence": "inferred",
+      "notes": "Wing 1 attaches to the main block."
+    }
+  ],
+  "warnings": []
+}

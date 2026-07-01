@@ -23437,7 +23437,7 @@ function renderPartsOutput(parts) {
 
     html += `<div class="part-grid">`;
     const dedupedParts = deduplicatePartsForDisplay(grpParts);
-    for (const { part, count } of dedupedParts) {
+    for (const { part, count, ids } of dedupedParts) {
       const wi = wallFromPartId(part.id);
       const ea = wi
         ? ` data-editwall="${wi.wall}"` + (wi.wingIndex != null ? ` data-editwing="${wi.wingIndex}"` : '')
@@ -23448,7 +23448,7 @@ function renderPartsOutput(parts) {
         ? ` data-iw-floor="${iwf.floor}"` + (iwf.wingIndex != null ? ` data-iw-wing="${iwf.wingIndex}"` : '')
         : '';
       const iwCls  = iwf !== null ? ' iw-editable' : '';
-      html += `<div class="part${ec}${iwCls}"${ea}${iwAttr} data-part-id="${part.id}">`;
+      html += `<div class="part${ec}${iwCls}"${ea}${iwAttr} data-part-id="${escapeHtml(part.id)}" data-part-ids="${escapeHtml((ids || [part.id]).join(' '))}">`;
       // Tiled sheets (window glass, frames, dividers, door inserts, etc.)
       // carry the "I need N copies" count in part.tileCount alongside a
       // single-tile preview geometry. Multiply by the dedup count so two
@@ -23482,7 +23482,7 @@ function renderPartsOutput(parts) {
     html += `<div class="mat-group">`;
     html += `<div class="mat-group-hdr"><span class="mat-hdr-swatch" style="background:#999"></span>Unassigned<span class="mat-count">${unassignedParts.length} part${unassignedParts.length!==1?'s':''}</span></div>`;
     html += `<div class="part-grid">`;
-    for (const { part, count } of deduplicatePartsForDisplay(unassignedParts)) {
+    for (const { part, count, ids } of deduplicatePartsForDisplay(unassignedParts)) {
       const wi = wallFromPartId(part.id);
       const ea = wi
         ? ` data-editwall="${wi.wall}"` + (wi.wingIndex != null ? ` data-editwing="${wi.wingIndex}"` : '')
@@ -23497,7 +23497,7 @@ function renderPartsOutput(parts) {
       const totalQty = count * tileMult;
       const dimW = (part.tileGeom ? part.tileGeom.bboxW : part.bboxW);
       const dimH = (part.tileGeom ? part.tileGeom.bboxH : part.bboxH);
-      html += `<div class="part${ec}${iwCls}"${ea}${iwAttr} data-part-id="${part.id}">`;
+      html += `<div class="part${ec}${iwCls}"${ea}${iwAttr} data-part-id="${escapeHtml(part.id)}" data-part-ids="${escapeHtml((ids || [part.id]).join(' '))}">`;
       html += `<div class="part-name"><span>${part.name}</span><span class="part-dims">${dimW.toFixed(1)} × ${dimH.toFixed(1)} mm</span></div>`;
       if (totalQty > 1) html += `<span class="part-qty-badge">×${totalQty}</span>`;
       if (part.assemblyNote) html += `<div class="part-note">${part.assemblyNote}${totalQty > 1 ? ` Cut ×${totalQty} identical copies.` : ''}</div>`;
@@ -23547,6 +23547,223 @@ function renderPartsOutput(parts) {
       e.stopPropagation();
       showMaterialPicker(badge.dataset.partId, badge);
     });
+  });
+  applyAssemblyGuidePartHighlight();
+}
+
+let assemblyGuideState = {
+  plan: null,
+  sequence: null,
+  index: 0,
+  activePartIds: new Set(),
+};
+
+function assemblyGuideIsOpen() {
+  const modal = document.getElementById('assemblyGuideModal');
+  return !!(modal && modal.style.display !== 'none');
+}
+
+function currentAssemblyGuidePlan() {
+  readForm();
+  if (!lastParts || !lastParts.length) {
+    regenerate();
+  }
+  const generation = Object.assign({}, lastResult || {});
+  generation.parts = lastParts || generation.parts || [];
+  return createAssemblyPlan({
+    config: serializableCurrentConfig(CONFIG),
+    generation,
+    sourceKind: 'current-design',
+  });
+}
+
+function assemblyGuideWarnings(plan, sequence) {
+  return []
+    .concat(Array.isArray(plan?.warnings) ? plan.warnings : [])
+    .concat(Array.isArray(sequence?.warnings) ? sequence.warnings : []);
+}
+
+function assemblyGuideMaterialLabel(part) {
+  const material = part?.exportRef?.material || part?.material || 'misc';
+  try {
+    return MaterialRegistry.label(material, CONFIG) || material;
+  } catch (_) {
+    return material;
+  }
+}
+
+function assemblyGuideStepParts(step) {
+  return Array.isArray(step?.parts) ? step.parts : [];
+}
+
+function assemblyGuideSetStep(index) {
+  const steps = assemblyGuideState.sequence?.steps || [];
+  if (!steps.length) {
+    assemblyGuideState.index = 0;
+    renderAssemblyGuide();
+    return;
+  }
+  assemblyGuideState.index = Math.max(0, Math.min(index, steps.length - 1));
+  renderAssemblyGuide();
+}
+
+function applyAssemblyGuidePartHighlight(opts = {}) {
+  const active = assemblyGuideState.activePartIds || new Set();
+  let firstMatch = null;
+  document.querySelectorAll('.part.assembly-current').forEach(card => {
+    card.classList.remove('assembly-current');
+    card.removeAttribute('aria-current');
+  });
+  if (!active.size || !assemblyGuideIsOpen()) return;
+  document.querySelectorAll('.part[data-part-id]').forEach(card => {
+    const ids = (card.dataset.partIds || card.dataset.partId || '').split(/\s+/).filter(Boolean);
+    if (ids.some(id => active.has(id))) {
+      card.classList.add('assembly-current');
+      card.setAttribute('aria-current', 'step');
+      if (!firstMatch) firstMatch = card;
+    }
+  });
+  if (opts.scroll && firstMatch) {
+    firstMatch.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }
+}
+
+function renderAssemblyGuideWarnings(plan, sequence) {
+  const box = document.getElementById('assemblyGuideWarnings');
+  if (!box) return;
+  const warnings = assemblyGuideWarnings(plan, sequence);
+  if (!warnings.length) {
+    box.classList.remove('has-warnings');
+    box.innerHTML = '';
+    return;
+  }
+  const shown = warnings.slice(0, 4).map(w => `<div>${escapeHtml(w.message || w.code || 'Assembly sequence warning')}</div>`).join('');
+  const remaining = warnings.length > 4 ? `<div>${warnings.length - 4} more warning${warnings.length - 4 === 1 ? '' : 's'} in assembly_plan.json.</div>` : '';
+  box.innerHTML = shown + remaining;
+  box.classList.add('has-warnings');
+}
+
+function renderAssemblyGuideStepList(steps) {
+  const list = document.getElementById('assemblyGuideSteps');
+  if (!list) return;
+  list.innerHTML = steps.map((step, idx) => {
+    const stateClass = idx < assemblyGuideState.index ? 'is-done' : (idx === assemblyGuideState.index ? 'is-current' : 'is-future');
+    const meta = `${escapeHtml(step.phase || 'step')} · ${assemblyGuideStepParts(step).length || step.partIds?.length || 0} part${(assemblyGuideStepParts(step).length || step.partIds?.length || 0) === 1 ? '' : 's'}`;
+    return `<button class="assembly-guide-step-btn ${stateClass}" data-assembly-step-index="${idx}" type="button">
+      <span class="assembly-guide-step-index">${idx < assemblyGuideState.index ? '✓' : idx + 1}</span>
+      <span>
+        <span class="assembly-guide-step-title">${escapeHtml(step.title || `Step ${idx + 1}`)}</span>
+        <span class="assembly-guide-step-meta">${meta}</span>
+      </span>
+    </button>`;
+  }).join('');
+  list.querySelectorAll('[data-assembly-step-index]').forEach(btn => {
+    btn.addEventListener('click', () => assemblyGuideSetStep(parseInt(btn.dataset.assemblyStepIndex, 10) || 0));
+  });
+}
+
+function renderAssemblyGuideCurrentStep(step, steps) {
+  const phase = document.getElementById('assemblyGuidePhase');
+  const title = document.getElementById('assemblyGuideTitle');
+  const summary = document.getElementById('assemblyGuideSummary');
+  const partsBox = document.getElementById('assemblyGuideParts');
+  const progress = document.getElementById('assemblyGuideProgress');
+  const prev = document.getElementById('assemblyGuidePrev');
+  const next = document.getElementById('assemblyGuideNext');
+
+  if (progress) progress.textContent = steps.length ? `Step ${assemblyGuideState.index + 1} of ${steps.length}` : 'Step 0 of 0';
+  if (phase) phase.textContent = step ? (step.phase || 'Assembly') : 'Assembly';
+  if (title) title.textContent = step ? (step.title || `Step ${assemblyGuideState.index + 1}`) : 'No assembly steps';
+  if (summary) summary.textContent = step ? (step.summary || '') : 'No generated parts were available for sequencing.';
+  if (prev) prev.disabled = !steps.length || assemblyGuideState.index <= 0;
+  if (next) {
+    next.disabled = !steps.length || assemblyGuideState.index >= steps.length - 1;
+    next.textContent = assemblyGuideState.index >= steps.length - 1 ? 'Done' : 'Next';
+  }
+
+  const parts = assemblyGuideStepParts(step);
+  assemblyGuideState.activePartIds = new Set((step?.partIds || parts.map(part => part.partId)).filter(Boolean));
+  if (partsBox) {
+    partsBox.innerHTML = parts.map(part => {
+      const path = part?.exportRef?.path || part?.exportRef?.fileName || 'Not exported';
+      const material = assemblyGuideMaterialLabel(part);
+      const role = String(part?.role || 'part').replace(/[_-]+/g, ' ');
+      const area = String(part?.area || 'general').replace(/[_-]+/g, ' ');
+      return `<div class="assembly-guide-part">
+        <div class="assembly-guide-part-name">${escapeHtml(part?.name || part?.partId || 'Part')}</div>
+        <div class="assembly-guide-part-meta">${escapeHtml(material)} · ${escapeHtml(role)} · ${escapeHtml(area)}</div>
+        <div class="assembly-guide-part-path">${escapeHtml(path)}</div>
+      </div>`;
+    }).join('') || '<div class="small">No parts are attached to this step.</div>';
+  }
+  applyAssemblyGuidePartHighlight({ scroll: true });
+}
+
+function renderAssemblyGuide() {
+  const plan = assemblyGuideState.plan;
+  const sequence = assemblyGuideState.sequence;
+  const steps = Array.isArray(sequence?.steps) ? sequence.steps : [];
+  renderAssemblyGuideWarnings(plan, sequence);
+  renderAssemblyGuideStepList(steps);
+  renderAssemblyGuideCurrentStep(steps[assemblyGuideState.index] || null, steps);
+}
+
+function openAssemblyGuide() {
+  try {
+    const plan = currentAssemblyGuidePlan();
+    const sequence = plan.sequence || createAssemblySequence(plan);
+    assemblyGuideState = {
+      plan,
+      sequence,
+      index: 0,
+      activePartIds: new Set(),
+    };
+    const modal = document.getElementById('assemblyGuideModal');
+    if (modal) modal.style.display = 'flex';
+    renderAssemblyGuide();
+    if (window.HakoMachiIcons) window.HakoMachiIcons.hydrate(document.getElementById('assemblyGuideModal'));
+  } catch (err) {
+    console.error(err);
+    assemblyGuideState = {
+      plan: { warnings: [{ message: 'The assembly guide could not be generated for the current building.' }] },
+      sequence: { steps: [], warnings: [] },
+      index: 0,
+      activePartIds: new Set(),
+    };
+    const modal = document.getElementById('assemblyGuideModal');
+    if (modal) modal.style.display = 'flex';
+    renderAssemblyGuide();
+  }
+}
+
+function closeAssemblyGuide() {
+  const modal = document.getElementById('assemblyGuideModal');
+  if (modal) modal.style.display = 'none';
+  assemblyGuideState.activePartIds = new Set();
+  applyAssemblyGuidePartHighlight();
+}
+
+function setupAssemblyGuideControls() {
+  const btn = document.getElementById('assemblyGuideBtn');
+  if (btn) btn.addEventListener('click', openAssemblyGuide);
+  const closeBtn = document.getElementById('assemblyGuideClose');
+  if (closeBtn) closeBtn.addEventListener('click', closeAssemblyGuide);
+  const prev = document.getElementById('assemblyGuidePrev');
+  if (prev) prev.addEventListener('click', () => assemblyGuideSetStep(assemblyGuideState.index - 1));
+  const next = document.getElementById('assemblyGuideNext');
+  if (next) next.addEventListener('click', () => assemblyGuideSetStep(assemblyGuideState.index + 1));
+  document.addEventListener('keydown', (ev) => {
+    if (!assemblyGuideIsOpen()) return;
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      closeAssemblyGuide();
+    } else if (ev.key === 'ArrowLeft') {
+      ev.preventDefault();
+      assemblyGuideSetStep(assemblyGuideState.index - 1);
+    } else if (ev.key === 'ArrowRight') {
+      ev.preventDefault();
+      assemblyGuideSetStep(assemblyGuideState.index + 1);
+    }
   });
 }
 
@@ -30339,6 +30556,7 @@ function init() {
   });
   bindClick('iwCladBtn', iwToggleCladding);
   document.getElementById('wingEditorBtn').addEventListener('click', openWingEditor);
+  setupAssemblyGuideControls();
   bindClick('weApplyBtn', weApply);
   bindClick('weCloseBtn', weClose);
   document.getElementById('exportBtn').addEventListener('click', exportZip);

@@ -27415,25 +27415,100 @@ function generateEquipmentStl(eqKey) {
     }
   }
 
+  function addFootRails() {
+    const railH = Math.max(0.18, Math.min(0.35, h * 0.08));
+    const railW = Math.max(0.18, Math.min(0.35, d * 0.08));
+    tris.box(x0 + w * 0.08, x1 - w * 0.08, y0 + d * 0.12, y0 + d * 0.12 + railW, 0, railH);
+    tris.box(x0 + w * 0.08, x1 - w * 0.08, y1 - d * 0.12 - railW, y1 - d * 0.12, 0, railH);
+  }
+
+  function addFaceLouverBars(face, count, zMin, zMax, inset = 0.12) {
+    count = Math.max(2, Math.floor(count || 4));
+    const pitch = (zMax - zMin) / count;
+    const barH = Math.max(0.08, Math.min(0.18, pitch * 0.35));
+    const depth = 0.16;
+    for (let i = 0; i < count; i++) {
+      const z = zMin + (i + 0.5) * pitch;
+      if (face === 'front') tris.box(x0 + inset, x1 - inset, y0 - depth, y0, z - barH / 2, z + barH / 2);
+      if (face === 'back') tris.box(x0 + inset, x1 - inset, y1, y1 + depth, z - barH / 2, z + barH / 2);
+      if (face === 'left') tris.box(x0 - depth, x0, y0 + inset, y1 - inset, z - barH / 2, z + barH / 2);
+      if (face === 'right') tris.box(x1, x1 + depth, y0 + inset, y1 - inset, z - barH / 2, z + barH / 2);
+    }
+  }
+
+  function addServicePanel(face, cx, zMid, panelW, panelH) {
+    const t = 0.12;
+    if (face === 'front') {
+      tris.box(cx - panelW / 2, cx + panelW / 2, y0 - t, y0, zMid - panelH / 2, zMid + panelH / 2);
+      tris.box(cx + panelW * 0.28, cx + panelW * 0.38, y0 - t * 1.8, y0, zMid - panelH * 0.1, zMid + panelH * 0.1);
+    } else if (face === 'right') {
+      tris.box(x1, x1 + t, cx - panelW / 2, cx + panelW / 2, zMid - panelH / 2, zMid + panelH / 2);
+      tris.box(x1, x1 + t * 1.8, cx + panelW * 0.28, cx + panelW * 0.38, zMid - panelH * 0.1, zMid + panelH * 0.1);
+    }
+  }
+
+  function addTopFan(cx, cy, r, z, opts = {}) {
+    const rimH = opts.rimH || 0.28;
+    const guardH = opts.guardH || 0.16;
+    const sides = opts.sides || 32;
+    addCylinder(cx, cy, r, z, z + rimH, sides);
+    addCylinder(cx, cy, r * 0.28, z + rimH, z + rimH + guardH, 16);
+    const bladeZ0 = z + rimH + guardH * 0.25;
+    const bladeZ1 = z + rimH + guardH;
+    const bladeW = Math.max(0.12, r * 0.16);
+    tris.box(cx - r * 0.8, cx + r * 0.8, cy - bladeW / 2, cy + bladeW / 2, bladeZ0, bladeZ1);
+    tris.box(cx - bladeW / 2, cx + bladeW / 2, cy - r * 0.8, cy + r * 0.8, bladeZ0, bladeZ1);
+    const grilleW = Math.max(0.06, bladeW * 0.45);
+    for (const off of [-0.55, 0, 0.55]) {
+      tris.box(cx - r * 0.85, cx + r * 0.85, cy + off * r - grilleW / 2, cy + off * r + grilleW / 2, z + rimH + guardH, z + rimH + guardH + 0.08);
+      tris.box(cx + off * r - grilleW / 2, cx + off * r + grilleW / 2, cy - r * 0.85, cy + r * 0.85, z + rimH + guardH, z + rimH + guardH + 0.08);
+    }
+  }
+
+  function addPanelGridOnFace(face, cols, rows, z0, z1) {
+    const ridge = 0.08;
+    cols = Math.max(1, Math.floor(cols || 1));
+    rows = Math.max(1, Math.floor(rows || 1));
+    if (face === 'front' || face === 'back') {
+      const yA = face === 'front' ? y0 - ridge : y1;
+      const yB = face === 'front' ? y0 : y1 + ridge;
+      for (let c = 1; c < cols; c++) {
+        const x = x0 + (w * c) / cols;
+        tris.box(x - ridge / 2, x + ridge / 2, yA, yB, z0, z1);
+      }
+      for (let r = 1; r < rows; r++) {
+        const z = z0 + ((z1 - z0) * r) / rows;
+        tris.box(x0, x1, yA, yB, z - ridge / 2, z + ridge / 2);
+      }
+    }
+  }
+
+  function addSideLadder(side, z0, z1) {
+    const t = 0.12;
+    const railGap = Math.min(1.0, d * 0.25);
+    const xA = side === 'right' ? x1 : x0 - t;
+    const xB = side === 'right' ? x1 + t : x0;
+    const yC = y1 - d * 0.28;
+    tris.box(xA, xB, yC - railGap / 2, yC - railGap / 2 + t, z0, z1);
+    tris.box(xA, xB, yC + railGap / 2 - t, yC + railGap / 2, z0, z1);
+    const rungCount = Math.max(3, Math.floor((z1 - z0) / 1.4));
+    for (let i = 1; i < rungCount; i++) {
+      const z = z0 + ((z1 - z0) * i) / rungCount;
+      tris.box(xA, xB, yC - railGap / 2, yC + railGap / 2, z - t / 2, z + t / 2);
+    }
+  }
+
   if (eq.shape === 'box_louvered') {
     // Main box body
     tris.box(x0, x1, y0, y1, 0, h);
+    addFootRails();
     // Louver bumps on the front face: small ridges. The "front" is the -Y face.
     const louverCount = (eq.details && eq.details.louverCount) || 5;
-    const louverBumpDepth = 0.15;  // ridge protrudes this much in -Y
     const louverGap = h * 0.15;  // gap from top and bottom
-    const louverStartZ = louverGap;
-    const louverEndZ = h - louverGap;
-    const louverHeight = (louverEndZ - louverStartZ) / louverCount;
-    const louverRidgeH = louverHeight * 0.5;
-    for (let i = 0; i < louverCount; i++) {
-      const zMid = louverStartZ + (i + 0.5) * louverHeight;
-      const zBot = zMid - louverRidgeH / 2, zTop = zMid + louverRidgeH / 2;
-      // Ridge: thin extrusion from front face
-      tris.box(x0 + w * 0.1, x1 - w * 0.1, y0 - louverBumpDepth, y0, zBot, zTop);
-    }
-    // Small fan circle on top
-    addCylinder(0, 0, Math.min(w, d) * 0.3, h, h + 0.4, 12);
+    addFaceLouverBars('front', louverCount, louverGap, h - louverGap, w * 0.12);
+    addFaceLouverBars('right', Math.max(3, louverCount - 2), h * 0.22, h * 0.78, d * 0.18);
+    addServicePanel('front', x1 - w * 0.23, h * 0.52, w * 0.22, h * 0.42);
+    addTopFan(0, 0, Math.min(w, d) * 0.3, h, { rimH: 0.28, guardH: 0.14, sides: 28 });
   }
 
   else if (eq.shape === 'cooling_tower') {
@@ -27453,10 +27528,14 @@ function generateEquipmentStl(eqKey) {
       tris.box(xMid - ridgeW / 2, xMid + ridgeW / 2, y0 - ridgeDepth, y0, louverGap, h - fanH - louverGap);
       tris.box(xMid - ridgeW / 2, xMid + ridgeW / 2, y1, y1 + ridgeDepth, louverGap, h - fanH - louverGap);
     }
-    // Fan housing (cylinder) on top
-    addCylinder(0, 0, fanR, h - fanH, h, 16);
-    // Fan hub
-    addCylinder(0, 0, fanR * 0.25, h, h + 0.3, 8);
+    addFaceLouverBars('left', louverCount, louverGap, h - fanH - louverGap, d * 0.1);
+    addFaceLouverBars('right', louverCount, louverGap, h - fanH - louverGap, d * 0.1);
+    const postW = 0.22;
+    for (const sx of [x0, x1 - postW]) {
+      for (const sy of [y0, y1 - postW]) tris.box(sx, sx + postW, sy, sy + postW, 0, h - fanH);
+    }
+    addServicePanel('front', x0 + w * 0.22, (h - fanH) * 0.5, w * 0.22, (h - fanH) * 0.35);
+    addTopFan(0, 0, fanR, h - fanH, { rimH: fanH, guardH: 0.24, sides: 36 });
   }
 
   else if (eq.shape === 'tank_round_legged') {
@@ -27475,11 +27554,14 @@ function generateEquipmentStl(eqKey) {
       tris.box(cx - legSize / 2, cx + legSize / 2, cy - legSize / 2, cy + legSize / 2, 0, legH);
     }
     // Tank body — main cylinder
-    addCylinder(0, 0, tankR, legH, legH + tankH * 0.85, 16);
+    addCylinder(0, 0, tankR, legH, legH + tankH * 0.85, 32);
+    addCylinder(0, 0, tankR + 0.08, legH + tankH * 0.28, legH + tankH * 0.28 + 0.12, 32);
+    addCylinder(0, 0, tankR + 0.08, legH + tankH * 0.58, legH + tankH * 0.58 + 0.12, 32);
     // Top dome — frustum tapering toward narrower top
-    addFrustum(0, 0, tankR, tankR * 0.7, legH + tankH * 0.85, legH + tankH, 16);
+    addFrustum(0, 0, tankR, tankR * 0.7, legH + tankH * 0.85, legH + tankH, 32);
     // Small vent stack on top
-    addCylinder(0, 0, tankR * 0.15, legH + tankH, legH + tankH + 0.6, 8);
+    addCylinder(0, 0, tankR * 0.15, legH + tankH, legH + tankH + 0.6, 16);
+    addSideLadder('right', legH + 0.4, legH + tankH * 0.82);
   }
 
   else if (eq.shape === 'tank_square_legged') {
@@ -27494,16 +27576,11 @@ function generateEquipmentStl(eqKey) {
     }
     // Tank body
     tris.box(x0, x1, y0, y1, legH, legH + tankH);
-    // Panel seams etched as small ridges on each face: divide each face into a 2×2 panel grid
-    const ridgeH = 0.1;
-    // Front face (-Y): 1 horizontal + 1 vertical ridge
-    tris.box(x0, x1, y0 - ridgeH, y0, legH + tankH * 0.5 - 0.05, legH + tankH * 0.5 + 0.05);
-    tris.box(-0.05, 0.05, y0 - ridgeH, y0, legH, legH + tankH);
-    // Back face (+Y)
-    tris.box(x0, x1, y1, y1 + ridgeH, legH + tankH * 0.5 - 0.05, legH + tankH * 0.5 + 0.05);
-    tris.box(-0.05, 0.05, y1, y1 + ridgeH, legH, legH + tankH);
+    addPanelGridOnFace('front', 3, 2, legH, legH + tankH);
+    addPanelGridOnFace('back', 3, 2, legH, legH + tankH);
+    addSideLadder('right', legH + 0.3, legH + tankH * 0.95);
     // Small vent on top
-    addCylinder(0, 0, 0.4, legH + tankH, legH + tankH + 0.5, 8);
+    addCylinder(0, 0, 0.4, legH + tankH, legH + tankH + 0.5, 16);
   }
 
   else if (eq.shape === 'mushroom') {
@@ -27513,19 +27590,23 @@ function generateEquipmentStl(eqKey) {
     const capR = det.capRadius || stackR * 1.6;
     const capH = det.capHeight || (h - stackH);
     // Stack (vertical pipe)
-    addCylinder(0, 0, stackR, 0, stackH, 12);
+    addCylinder(0, 0, stackR, 0, stackH, 24);
+    addCylinder(0, 0, stackR * 1.15, stackH * 0.18, stackH * 0.18 + 0.12, 24);
+    addCylinder(0, 0, stackR * 1.15, stackH * 0.72, stackH * 0.72 + 0.12, 24);
     // Cap (slightly conical, wider at the bottom rim)
-    addCylinder(0, 0, capR, stackH, stackH + capH * 0.3, 12);
-    addFrustum(0, 0, capR, capR * 0.6, stackH + capH * 0.3, stackH + capH, 12);
+    addCylinder(0, 0, capR, stackH, stackH + capH * 0.3, 24);
+    addFrustum(0, 0, capR, capR * 0.6, stackH + capH * 0.3, stackH + capH, 24);
   }
 
   else if (eq.shape === 'cabinet_tall') {
     // Tall narrow box body
     tris.box(x0, x1, y0, y1, 0, h);
     const det = eq.details || {};
-    // Door divider lines on the front face (-Y): horizontal ridge at half height
+    addFootRails();
+    // Door divider lines on the front face (-Y)
     const ridgeH = 0.1;
-    tris.box(x0, x1, y0 - ridgeH, y0, h * 0.5 - 0.04, h * 0.5 + 0.04);
+    addPanelGridOnFace('front', 2, det.doorLines ? 2 : 1, h * 0.08, h * 0.92);
+    addFaceLouverBars('front', 4, h * 0.12, h * 0.28, w * 0.18);
     // Door handle bumps
     tris.box(-0.2, 0.2, y0 - ridgeH * 1.5, y0, h * 0.4, h * 0.45);
     tris.box(-0.2, 0.2, y0 - ridgeH * 1.5, y0, h * 0.65, h * 0.7);
@@ -27542,9 +27623,14 @@ function generateEquipmentStl(eqKey) {
     // Base box
     tris.box(-baseW / 2, baseW / 2, -baseW / 2, baseW / 2, 0, baseH);
     // Mast
-    addCylinder(0, 0, mastR, baseH, baseH + mastH, 8);
+    addCylinder(0, 0, mastR, baseH, baseH + mastH, 16);
+    const crossZ1 = baseH + mastH * 0.45;
+    const crossZ2 = baseH + mastH * 0.68;
+    const armT = Math.max(0.12, mastR * 0.55);
+    tris.box(-baseW * 0.9, baseW * 0.9, -armT / 2, armT / 2, crossZ1 - armT / 2, crossZ1 + armT / 2);
+    tris.box(-armT / 2, armT / 2, -baseW * 0.75, baseW * 0.75, crossZ2 - armT / 2, crossZ2 + armT / 2);
     // Tip cap
-    addCylinder(0, 0, mastR * 1.3, baseH + mastH - 0.3, baseH + mastH, 6);
+    addCylinder(0, 0, mastR * 1.3, baseH + mastH - 0.3, baseH + mastH, 12);
   }
 
   else {

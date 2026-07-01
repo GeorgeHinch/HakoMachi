@@ -36,7 +36,8 @@
     skylight:'<svg viewBox="0 0 24 24"><path d="M4 17l4-10h8l4 10z"/><path d="M8 7l8 10"/><path d="M16 7L8 17"/><path d="M12 4v2"/><path d="M20 5l-2 2"/><path d="M4 5l2 2"/></svg>',
     shieldWall:'<svg viewBox="0 0 24 24"><path d="M5 19V7l7-3 7 3v12"/><path d="M5 10h14"/><path d="M8 19V9"/><path d="M16 19V9"/><path d="M8 14l8-4"/><path d="M8 10l8 4"/></svg>',
     building:'<svg viewBox="0 0 24 24"><path d="M5 20V5h10v15"/><path d="M15 9h4v11"/><path d="M8 8h2"/><path d="M8 12h2"/><path d="M8 16h2"/></svg>',
-    steps:'<svg viewBox="0 0 24 24"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="M4 6l1 1 2-2"/><path d="M4 12l1 1 2-2"/><path d="M4 18l1 1 2-2"/></svg>'
+    steps:'<svg viewBox="0 0 24 24"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="M4 6l1 1 2-2"/><path d="M4 12l1 1 2-2"/><path d="M4 18l1 1 2-2"/></svg>',
+    print:'<svg viewBox="0 0 24 24"><path d="M7 8V4h10v4"/><path d="M7 17H5a2 2 0 0 1-2-2v-4h18v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v6H7z"/><path d="M17 11h.01"/></svg>'
   };
 
   function icon(key, cls){

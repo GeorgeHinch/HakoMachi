@@ -28,6 +28,7 @@ import * as fullBuildingGeneration from './full-building-generation.js';
 import * as assemblyPlan from './assembly-plan.js';
 import * as assemblySequence from './assembly-sequence.js';
 import * as assemblyIllustrations from './assembly-illustrations.js';
+import * as assemblyManual from './assembly-manual.js';
 import * as partMetadata from './part-metadata.js';
 import * as configSerialization from './config-serialization.js';
 import * as presetStorage from './preset-storage.js';
@@ -64,6 +65,7 @@ export {
   assemblyPlan,
   assemblySequence,
   assemblyIllustrations,
+  assemblyManual,
   partMetadata,
   configSerialization,
   presetStorage,
@@ -101,6 +103,7 @@ export const coreModules = Object.freeze({
   assemblyPlan,
   assemblySequence,
   assemblyIllustrations,
+  assemblyManual,
   partMetadata,
   configSerialization,
   presetStorage,

@@ -23554,6 +23554,7 @@ function renderPartsOutput(parts) {
 let assemblyGuideState = {
   plan: null,
   sequence: null,
+  illustrations: null,
   index: 0,
   activePartIds: new Set(),
 };
@@ -23580,7 +23581,8 @@ function currentAssemblyGuidePlan() {
 function assemblyGuideWarnings(plan, sequence) {
   return []
     .concat(Array.isArray(plan?.warnings) ? plan.warnings : [])
-    .concat(Array.isArray(sequence?.warnings) ? sequence.warnings : []);
+    .concat(Array.isArray(sequence?.warnings) ? sequence.warnings : [])
+    .concat(Array.isArray(assemblyGuideState.illustrations?.warnings) ? assemblyGuideState.illustrations.warnings : []);
 }
 
 function assemblyGuideMaterialLabel(part) {
@@ -23667,6 +23669,7 @@ function renderAssemblyGuideCurrentStep(step, steps) {
   const title = document.getElementById('assemblyGuideTitle');
   const summary = document.getElementById('assemblyGuideSummary');
   const partsBox = document.getElementById('assemblyGuideParts');
+  const illustrationBox = document.getElementById('assemblyGuideIllustration');
   const progress = document.getElementById('assemblyGuideProgress');
   const prev = document.getElementById('assemblyGuidePrev');
   const next = document.getElementById('assemblyGuideNext');
@@ -23683,6 +23686,10 @@ function renderAssemblyGuideCurrentStep(step, steps) {
 
   const parts = assemblyGuideStepParts(step);
   assemblyGuideState.activePartIds = new Set((step?.partIds || parts.map(part => part.partId)).filter(Boolean));
+  if (illustrationBox) {
+    const illustration = (assemblyGuideState.illustrations?.steps || []).find(item => item.stepId === step?.id);
+    illustrationBox.innerHTML = illustration?.svg || '';
+  }
   if (partsBox) {
     partsBox.innerHTML = parts.map(part => {
       const path = part?.exportRef?.path || part?.exportRef?.fileName || 'Not exported';
@@ -23712,9 +23719,11 @@ function openAssemblyGuide() {
   try {
     const plan = currentAssemblyGuidePlan();
     const sequence = plan.sequence || createAssemblySequence(plan);
+    const illustrations = createAssemblyStepIllustrations(plan, sequence, { mode: 'interactive-guide' });
     assemblyGuideState = {
       plan,
       sequence,
+      illustrations,
       index: 0,
       activePartIds: new Set(),
     };
@@ -23727,6 +23736,7 @@ function openAssemblyGuide() {
     assemblyGuideState = {
       plan: { warnings: [{ message: 'The assembly guide could not be generated for the current building.' }] },
       sequence: { steps: [], warnings: [] },
+      illustrations: { steps: [], warnings: [] },
       index: 0,
       activePartIds: new Set(),
     };
@@ -28076,6 +28086,107 @@ function createAssemblySequence(plan = {}) {
   return { schema: ASSEMBLY_SEQUENCE_SCHEMA, schemaVersion: ASSEMBLY_SEQUENCE_SCHEMA_VERSION, deterministicKey: assemblySimpleHash(assemblyStableStringify({ planKey: plan.deterministicKey || null, parts: parts.map(part => [part.id, part.role, part.area, part.scope, part.wingIndex, part.exportRef?.path || null]), relationships: relationships.map(rel => [rel.id, rel.type, rel.fromPartId, rel.toPartId]).sort() })), strategy: 'phase-and-relationship-toposort-v1', steps, warnings: warnings.sort((a, b) => `${a.code}:${a.partId || a.relationshipId || ''}`.localeCompare(`${b.code}:${b.partId || b.relationshipId || ''}`)) };
 }
 
+const ASSEMBLY_ILLUSTRATIONS_SCHEMA = 'hakomachi.assembly-illustrations';
+const ASSEMBLY_ILLUSTRATIONS_SCHEMA_VERSION = 1;
+const ASSEMBLY_ILLUSTRATION_CAMERA = Object.freeze({ projection: 'orthographic-diagram', orientation: 'front-top-stable', viewBox: '0 0 720 420', scaleStrategy: 'role-area-layout-v1' });
+function assemblyIllustrationEscape(value) {
+  return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function assemblyIllustrationTitleCase(value) {
+  return String(value || 'part').replace(/[_-]+/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+}
+function assemblyIllustrationShort(value, limit = 24) {
+  const text = String(value || '').trim();
+  return text.length <= limit ? text : text.slice(0, limit - 1).trimEnd() + '...';
+}
+function assemblyIllustrationColor(phase) {
+  return ({ 'base-floors': '#5b8a72', 'exterior-core': '#2a64aa', 'interior-core': '#7c66a8', 'wing-connections': '#94633d', 'roof-trusses': '#8a5b4f', cladding: '#b85b3d', trim: '#4e7e91', details: '#7a6a2f', review: '#767676' })[phase] || '#2a64aa';
+}
+function assemblyIllustrationStepPartIds(step) {
+  if (!step) return [];
+  if (Array.isArray(step.partIds)) return step.partIds.slice();
+  return (Array.isArray(step.parts) ? step.parts : []).map(part => part.partId).filter(Boolean);
+}
+function assemblyIllustrationCompletedIds(steps, index) {
+  const ids = [];
+  for (let i = 0; i < index; i++) ids.push(...assemblyIllustrationStepPartIds(steps[i]));
+  return Array.from(new Set(ids));
+}
+function assemblyIllustrationVisualSize(part) {
+  const dims = part?.dimensionsMm || {};
+  const role = String(part?.role || '');
+  const baseW = Math.max(28, Math.min(170, (Number(dims.width) || 34) * 1.35));
+  const baseH = Math.max(14, Math.min(105, (Number(dims.height) || 22) * 1.15));
+  if (role.includes('wall') || role.includes('cladding')) return { w: Math.max(baseW, 80), h: Math.max(14, Math.min(76, baseH)) };
+  if (role.includes('floor') || role.includes('roof')) return { w: Math.max(baseW, 96), h: Math.max(34, Math.min(100, baseH * 0.72)) };
+  if (role.includes('window') || role.includes('door') || role.includes('detail') || role.includes('fixture')) return { w: Math.max(28, Math.min(64, baseW * 0.45)), h: Math.max(18, Math.min(48, baseH * 0.55)) };
+  return { w: baseW, h: baseH };
+}
+function assemblyIllustrationAnchor(part, index) {
+  const area = String(part?.area || 'general');
+  const role = String(part?.role || 'general');
+  let anchor = { x: 360, y: 210 };
+  if (area === 'floor' || role.includes('floor')) anchor = { x: 360, y: 245 };
+  else if (area === 'front') anchor = { x: 360, y: 318 };
+  else if (area === 'back') anchor = { x: 360, y: 112 };
+  else if (area === 'east' || area === 'right') anchor = { x: 525, y: 214 };
+  else if (area === 'west' || area === 'left') anchor = { x: 195, y: 214 };
+  else if (area === 'roof' || role.includes('roof') || role.includes('truss')) anchor = { x: 360, y: 82 };
+  else if (area === 'interior' || role.includes('interior')) anchor = { x: 360, y: 205 };
+  else if (role.includes('window') || role.includes('door') || role.includes('detail') || role.includes('fixture')) anchor = { x: 260 + (index % 5) * 50, y: 152 + Math.floor(index / 5) * 44 };
+  if (role.includes('cladding')) {
+    if (area === 'front') anchor.y += 30;
+    else if (area === 'back') anchor.y -= 30;
+    else if (area === 'east' || area === 'right') anchor.x += 38;
+    else if (area === 'west' || area === 'left') anchor.x -= 38;
+    else anchor.y += 26;
+  }
+  if (part?.scope === 'wing') {
+    const idx = Number.isFinite(Number(part.wingIndex)) ? Number(part.wingIndex) : 0;
+    const direction = idx % 2 === 0 ? 1 : -1;
+    anchor.x += direction * (120 + Math.floor(idx / 2) * 55);
+    anchor.y += 32 + Math.floor(idx / 2) * 28;
+  }
+  return { x: Math.max(72, Math.min(610, anchor.x)), y: Math.max(58, Math.min(350, anchor.y)) };
+}
+function assemblyIllustrationPartVisual(part, index, status) {
+  const size = assemblyIllustrationVisualSize(part);
+  const anchor = assemblyIllustrationAnchor(part, index);
+  return { partId: part.id, label: assemblyIllustrationShort(part.name || part.id), x: Math.round(anchor.x - size.w / 2), y: Math.round(anchor.y - size.h / 2 + (status === 'current' ? -10 : 0)), width: Math.round(size.w), height: Math.round(size.h), status, role: part.role || 'part', area: part.area || 'general', material: part.material || part.exportRef?.material || 'misc' };
+}
+function assemblyIllustrationRenderSvg({ step, order, completedIds, currentIds, visuals, plan }) {
+  const color = assemblyIllustrationColor(step?.phase);
+  const buildingName = plan?.source?.buildingName || plan?.source?.buildingType || 'HakoMachi building';
+  const rects = visuals.map(visual => visual.status === 'completed'
+    ? `<g opacity="0.34"><rect x="${visual.x}" y="${visual.y}" width="${visual.width}" height="${visual.height}" rx="4" fill="#d8d5ca" stroke="#817b6d" stroke-width="1.2"/><text x="${visual.x + visual.width / 2}" y="${visual.y + visual.height / 2 + 4}" text-anchor="middle" font-size="10" fill="#5e594f">${assemblyIllustrationEscape(visual.label)}</text></g>`
+    : `<g><rect x="${visual.x}" y="${visual.y}" width="${visual.width}" height="${visual.height}" rx="5" fill="${color}" stroke="#183552" stroke-width="2"/><rect x="${visual.x - 4}" y="${visual.y - 4}" width="${visual.width + 8}" height="${visual.height + 8}" rx="7" fill="none" stroke="${color}" stroke-width="1.5" stroke-dasharray="5 4"/><text x="${visual.x + visual.width / 2}" y="${visual.y + visual.height / 2 + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">${assemblyIllustrationEscape(visual.label)}</text></g>`).join('');
+  const current = visuals.filter(visual => visual.status === 'current');
+  const callouts = current.map((visual, index) => ({ partId: visual.partId, label: `${index + 1}. ${visual.label}`, x: 545, y: 88 + index * 34, targetX: visual.x + visual.width / 2, targetY: visual.y + visual.height / 2 }));
+  const calloutMarkup = callouts.map(callout => `<g><path d="M${callout.x - 12},${callout.y - 4} L${callout.targetX.toFixed(1)},${callout.targetY.toFixed(1)}" fill="none" stroke="${color}" stroke-width="1.2" stroke-dasharray="4 3"/><circle cx="${callout.targetX.toFixed(1)}" cy="${callout.targetY.toFixed(1)}" r="3" fill="${color}"/><text x="${callout.x}" y="${callout.y}" font-size="12" font-weight="700" fill="#222">${assemblyIllustrationEscape(callout.label)}</text></g>`).join('');
+  const note = currentIds.length > 1 ? `${currentIds.length} new parts highlighted` : '1 new part highlighted';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${ASSEMBLY_ILLUSTRATION_CAMERA.viewBox}" role="img" aria-label="${assemblyIllustrationEscape(step?.title || 'Assembly step illustration')}"><rect width="720" height="420" fill="#faf9f4"/><rect x="28" y="48" width="490" height="322" rx="8" fill="#f0eee7" stroke="#d5d0c2"/><path d="M195,318 L360,112 L525,318 Z" fill="none" stroke="#d0c9bb" stroke-width="1" stroke-dasharray="6 5"/><text x="42" y="28" font-size="14" font-weight="700" fill="#222">Step ${order}: ${assemblyIllustrationEscape(step?.title || 'Assembly step')}</text><text x="42" y="44" font-size="10" fill="#6e6a60">${assemblyIllustrationEscape(buildingName)} - ${assemblyIllustrationEscape(assemblyIllustrationTitleCase(step?.phase || 'assembly'))}</text><text x="54" y="345" font-size="10" fill="#777">front</text><text x="54" y="77" font-size="10" fill="#777">back</text><text x="498" y="214" font-size="10" fill="#777">right</text><text x="178" y="214" font-size="10" fill="#777">left</text>${rects}<rect x="532" y="56" width="158" height="302" rx="8" fill="#fff" stroke="#ddd7ca"/><text x="548" y="76" font-size="12" font-weight="700" fill="#222">Current parts</text>${calloutMarkup}<text x="548" y="344" font-size="10" fill="#6e6a60">${completedIds.length} completed - ${assemblyIllustrationEscape(note)}</text></svg>`;
+}
+function createAssemblyStepIllustrations(plan = {}, sequence = plan.sequence || {}, opts = {}) {
+  const steps = Array.isArray(sequence?.steps) ? sequence.steps : [];
+  const partMap = new Map((Array.isArray(plan?.parts) ? plan.parts : []).map(part => [part.id, part]));
+  const warnings = [];
+  if (!steps.length) warnings.push({ code: 'assembly.illustrationsNoSteps', severity: 'warning', message: 'No assembly sequence steps were available for illustration rendering.' });
+  if (!partMap.size) warnings.push({ code: 'assembly.illustrationsNoParts', severity: 'warning', message: 'No assembly parts were available for illustration rendering.' });
+  for (const step of steps) for (const partId of assemblyIllustrationStepPartIds(step)) if (!partMap.has(partId)) warnings.push({ code: 'assembly.illustrationsMissingPart', severity: 'warning', stepId: step.id, partId, message: `Step ${step.id || step.order || '?'} references missing part ${partId}.` });
+  const illustrations = steps.map((step, index) => {
+    const completedIds = assemblyIllustrationCompletedIds(steps, index);
+    const currentIds = assemblyIllustrationStepPartIds(step);
+    const visibleIds = Array.from(new Set(completedIds.concat(currentIds)));
+    const visuals = visibleIds.map((partId, visualIndex) => {
+      const part = partMap.get(partId);
+      return part ? assemblyIllustrationPartVisual(part, visualIndex, currentIds.includes(partId) ? 'current' : 'completed') : null;
+    }).filter(Boolean);
+    const callouts = visuals.filter(visual => visual.status === 'current').map((visual, i) => ({ partId: visual.partId, label: `${i + 1}. ${visual.label}`, x: 545, y: 88 + i * 34, targetX: visual.x + visual.width / 2, targetY: visual.y + visual.height / 2 }));
+    return { stepId: step.id, order: step.order || index + 1, phase: step.phase || 'assembly', camera: assemblyCloneJson(ASSEMBLY_ILLUSTRATION_CAMERA), completedPartIds: completedIds, currentPartIds: currentIds, futurePartIds: steps.slice(index + 1).flatMap(assemblyIllustrationStepPartIds), callouts, visualParts: visuals, svg: assemblyIllustrationRenderSvg({ step, order: step.order || index + 1, completedIds, currentIds, visuals, plan }) };
+  });
+  return { schema: ASSEMBLY_ILLUSTRATIONS_SCHEMA, schemaVersion: ASSEMBLY_ILLUSTRATIONS_SCHEMA_VERSION, deterministicKey: assemblySimpleHash(assemblyStableStringify({ planKey: plan.deterministicKey || null, sequenceKey: sequence.deterministicKey || null, steps: illustrations.map(item => [item.stepId, item.currentPartIds, item.completedPartIds]), mode: opts.mode || 'default' })), strategy: 'role-area-svg-panels-v1', camera: assemblyCloneJson(ASSEMBLY_ILLUSTRATION_CAMERA), steps: illustrations, warnings: warnings.sort((a, b) => `${a.code}:${a.stepId || ''}:${a.partId || ''}`.localeCompare(`${b.code}:${b.stepId || ''}:${b.partId || ''}`)) };
+}
+
 /* Export ZIP */
 async function exportZip() {
   readForm();
@@ -28127,6 +28238,8 @@ async function exportZip() {
 
   const assemblyPlan = createAssemblyPlan({ config: serializableCurrentConfig(CONFIG), generation: result, sourceKind: 'current-design' });
   zip.file('assembly_plan.json', JSON.stringify(assemblyPlan, null, 2) + '\n');
+  const assemblyIllustrations = createAssemblyStepIllustrations(assemblyPlan, assemblyPlan.sequence || createAssemblySequence(assemblyPlan), { mode: 'zip-export' });
+  zip.file('assembly_illustrations.json', JSON.stringify(assemblyIllustrations, null, 2) + '\n');
 
   // --- README manifest ---
   let manifest = `# HakoMachi — Output Manifest\n\n`;
@@ -28146,6 +28259,7 @@ async function exportZip() {
   }
   manifest += `## Parts by material folder\n\n`;
   manifest += `SVG files are exported as \`Material folder → Main/Wing_Wall_PartName.svg\`.\n\n`;
+  manifest += `Assembly guide data is included as \`assembly_plan.json\` and \`assembly_illustrations.json\`.\n\n`;
   for (const [folder, rows] of Object.entries(byFolder).sort()) {
     manifest += `### ${folder}/\n`;
     for (const row of rows.sort((a, b) => a.exportPath.localeCompare(b.exportPath))) {
@@ -39982,6 +40096,7 @@ const HakoMachiRuntimeGlobals = {
   createAssemblyPlan: typeof createAssemblyPlan !== 'undefined' ? createAssemblyPlan : undefined,
   createAssemblyPlanFromConfig: typeof createAssemblyPlanFromConfig !== 'undefined' ? createAssemblyPlanFromConfig : undefined,
   createAssemblySequence: typeof createAssemblySequence !== 'undefined' ? createAssemblySequence : undefined,
+  createAssemblyStepIllustrations: typeof createAssemblyStepIllustrations !== 'undefined' ? createAssemblyStepIllustrations : undefined,
   generateBuildingWithWings: typeof generateBuildingWithWings !== 'undefined' ? generateBuildingWithWings : undefined,
   generateBuildingStl: typeof generateBuildingStl !== 'undefined' ? generateBuildingStl : undefined,
   buildEdgePlans: typeof buildEdgePlans !== 'undefined' ? buildEdgePlans : undefined,
@@ -40033,7 +40148,7 @@ Object.defineProperties(globalThis, {
 });
 globalThis.HakoMachiBuildingGeneratorRuntime = Object.freeze({
   get CONFIG() { return CONFIG; },
-  init, regenerate, readForm, writeForm, generateBuilding, createAssemblyPlan, createAssemblyPlanFromConfig, createAssemblySequence, generateBuildingWithWings, generateBuildingStl,
+  init, regenerate, readForm, writeForm, generateBuilding, createAssemblyPlan, createAssemblyPlanFromConfig, createAssemblySequence, createAssemblyStepIllustrations, generateBuildingWithWings, generateBuildingStl,
   buildEdgePlans, upgradeConfigToCurrentStorage, serializableCurrentConfig,
   start: startHakoMachiBuildingGeneratorRuntime,
 });

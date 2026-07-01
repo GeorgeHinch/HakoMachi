@@ -425,6 +425,21 @@
     margin: 0 0 16px;
     color: var(--muted);
   }
+  .assembly-guide-illustration {
+    margin: 0 0 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #faf9f4;
+    overflow: hidden;
+  }
+  .assembly-guide-illustration:empty {
+    display: none;
+  }
+  .assembly-guide-illustration svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
   .assembly-guide-parts {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

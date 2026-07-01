@@ -6276,6 +6276,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function githubSiteRecord(id, name, path, project){
     const now=new Date().toISOString();
     const imageAsset=project.image?.asset||null;
+    const assets=Array.isArray(project.assetManifest?.assets) ? project.assetManifest.assets : (imageAsset?[imageAsset]:[]);
     return {
       kind:'sitePlan',
       recordType:'hakomachi-site-plan',
@@ -6283,7 +6284,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       id,
       name,
       path,
-      paths:{project:path, assets:imageAsset?[imageAsset.path]:[]},
+      paths:{project:path, assets:assets.map(asset=>asset.path).filter(Boolean)},
       app:'hakomachi-site-planner',
       source:{format:'hako-site-json', version:project.version||null},
       summary:{
@@ -6294,6 +6295,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         streetlights:project.streetlights?.length||0,
         imageEmbedded:!!project.image?.dataUrl,
         imageAssetPath:imageAsset?.path||null,
+        stlObjects:project.stlObjects?.length||0,
+        stlAssetCount:assets.filter(asset=>asset?.kind==='stl').length,
         calibrated:!!project.scale?.calibrated
       },
       updatedAt:now,
@@ -6389,7 +6392,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         <div id="githubProgressDetail" class="githubProgressDetail">Building the site plan payload.</div>
       </div>
     `, [{label:'Close', onClick:closeGithubModal}]);
-    setGithubProgress(0,6,'Preparing save...','Building the site plan payload.');
+    setGithubProgress(0,7,'Preparing save...','Building the site plan payload.');
   }
   function openGithubSettings(){
     const settings=getGithubSettings();
@@ -6417,6 +6420,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const root=githubData.cleanRepoPath(settings.sitePlansDir || GITHUB_DEFAULT_SITE_DIR);
     return githubData.cleanRepoPath(`${root}/${siteId}/assets/${imageAssetFileName(meta)}`);
   }
+  function githubStlAssetPath(settings, siteId, fileName){
+    const root=githubData.cleanRepoPath(settings.sitePlansDir || GITHUB_DEFAULT_SITE_DIR);
+    return githubData.cleanRepoPath(`${root}/${siteId}/assets/stl/${fileName}`);
+  }
   async function saveGithubImageAsset(settings, siteId, siteName){
     const dataUrl=state.imageMeta?.dataUrl;
     if(!dataUrl) return state.imageMeta?.asset || null;
@@ -6424,11 +6431,30 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(!info?.isBase64 || !info.data) return state.imageMeta?.asset || null;
     const path=githubImageAssetPath(settings, siteId, state.imageMeta);
     const asset=imageAssetReference(path, state.imageMeta, dataUrl);
-    setGithubProgress(2,6,'Writing reference image asset...',`Saving ${asset.name} outside the main site file.`);
+    setGithubProgress(2,7,'Writing reference image asset...',`Saving ${asset.name} outside the main site file.`);
     await writeGithubBase64File(settings, path, info.data, `Save HakoMachi site image asset: ${siteName}`);
     state.imageMeta.asset=asset;
     cacheImageAsset(asset, dataUrl);
     return asset;
+  }
+  async function saveGithubStlAssets(settings, siteId, siteName){
+    const usedNames=new Set();
+    const stlAssets=[];
+    const stlObjects=state.stlObjects||[];
+    for(let i=0;i<stlObjects.length;i++){
+      const obj=normalizeStlObject(stlObjects[i]);
+      const dataBase64=obj?.asset?.dataBase64;
+      if(!dataBase64) continue;
+      const fileName=uniqueStlAssetFileName(obj, usedNames);
+      const path=githubStlAssetPath(settings, siteId, fileName);
+      const asset=stlAssetReference(path, obj, dataBase64);
+      setGithubProgress(3,7,'Writing STL site objects...',`Saving ${asset.name} (${i+1} of ${stlObjects.length}) outside the main site file.`);
+      await writeGithubBase64File(settings, path, dataBase64, `Save HakoMachi site STL asset: ${siteName}`);
+      obj.asset={...(obj.asset||{}),...asset,dataBase64};
+      stlAssets.push({asset,dataBase64,objectId:obj.id});
+    }
+    if(!stlAssets.length) setGithubProgress(3,7,'No STL assets to write.','The site plan does not currently include embedded STL objects.');
+    return stlAssets;
   }
   async function resolveProjectImageFromGithub(project, settings){
     const asset=project?.image?.asset;
@@ -6446,6 +6472,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     return project;
   }
+  async function resolveProjectStlAssetsFromGithub(project, settings){
+    const stlObjects=Array.isArray(project?.stlObjects) ? project.stlObjects : [];
+    for(const obj of stlObjects){
+      const asset=obj?.asset;
+      if(!asset?.path || asset.dataBase64) continue;
+      setGithubStatus('Loading referenced STL asset...');
+      const file=await readGithubBase64File(settings, asset.path);
+      if(file?.contentBase64){
+        obj.asset={...asset,dataBase64:file.contentBase64};
+      }
+    }
+    return project;
+  }
   async function saveSitePlanToGithub(){
     try{
       const settings=getGithubSettings();
@@ -6456,12 +6495,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const name=prompt('Site plan name for GitHub save', defaultName);
       if(!name) return;
       openGithubSaveProgressModal();
-      setGithubProgress(1,6,'Preparing project...','Finalizing the site plan name and GitHub file path.');
+      setGithubProgress(1,7,'Preparing project...','Finalizing the site plan name and GitHub file path.');
       const id=(current && current.name===defaultName && current.id) ? current.id : slug(name);
       const path=(current && current.name===defaultName && current.path) ? current.path : githubData.cleanRepoPath(`${settings.sitePlansDir}/${id}.hako-site.json`);
       const imageAsset=await saveGithubImageAsset(settings, id, name);
-      if(!imageAsset) setGithubProgress(2,6,'No reference image asset to write.','The site plan does not currently use a background image.');
-      const project=projectJson({includeImageDataUrl:false, imageAsset});
+      if(!imageAsset) setGithubProgress(2,7,'No reference image asset to write.','The site plan does not currently use a background image.');
+      const stlAssets=await saveGithubStlAssets(settings, id, name);
+      const project=projectJson({includeImageDataUrl:false, imageAsset, stlAssets});
       project.projectName=name;
       project.hakomachiCloud={
         schema:'hakomachi.cloud-ref',
@@ -6473,19 +6513,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         assetFolder:githubData.cleanRepoPath(`${githubData.cleanRepoPath(settings.sitePlansDir || GITHUB_DEFAULT_SITE_DIR)}/${id}/assets`),
         savedAt:new Date().toISOString()
       };
-      setGithubProgress(3,6,'Writing site plan file...','Saving the current plan JSON to the data repository.');
+      setGithubProgress(4,7,'Writing site plan file...','Saving the current plan JSON to the data repository.');
       await writeGithubFile(settings, path, JSON.stringify(project,null,2)+'\n', `Save HakoMachi site plan: ${name}`);
-      setGithubProgress(4,6,'Updating library index...','Loading the shared index so this plan appears in GitHub lists.');
+      setGithubProgress(5,7,'Updating library index...','Loading the shared index so this plan appears in GitHub lists.');
       const library=await loadGithubLibrary(settings);
       upsertGithubSitePlan(library, githubSiteRecord(id, name, path, project));
-      setGithubProgress(5,6,'Writing library index...','Saving the updated site plan list.');
+      setGithubProgress(6,7,'Writing library index...','Saving the updated site plan list.');
       await writeGithubFile(settings, settings.libraryPath, JSON.stringify(library,null,2)+'\n', `Update HakoMachi site plan library: ${name}`);
       setCurrentGithubSite({id,name,path});
       markManualSaveComplete();
-      setGithubProgress(6,6,'Save complete.','Saved '+path);
+      setGithubProgress(7,7,'Save complete.','Saved '+path);
       setTimeout(()=>closeGithubModal(), 900);
     }catch(err){
-      setGithubProgress(0,6,'GitHub save failed.', String(err.message||err));
+      setGithubProgress(0,7,'GitHub save failed.', String(err.message||err));
     }
   }
   async function loadSitePlanFromGithub(record){
@@ -6512,6 +6552,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         setGithubStatus(`Loaded site-plan payload from ${normalized.source}.`);
       }
       await resolveProjectImageFromGithub(project, settings);
+      await resolveProjectStlAssetsFromGithub(project, settings);
       loadProject(project, {fromFile:true});
       setCurrentGithubSite({id:record.id, name:record.name, path:record.path});
       closeGithubModal();
@@ -6677,11 +6718,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const includeImageDataUrl=opts.includeImageDataUrl === true;
     const payload=makeProjectPayload({includeImageDataUrl});
     const manifestAssets=[];
+    const manifestAssetPaths=new Set();
+    function addManifestAsset(asset){
+      if(!asset?.path) return;
+      const key=String(asset.path);
+      if(manifestAssetPaths.has(key)) return;
+      manifestAssetPaths.add(key);
+      manifestAssets.push(asset);
+    }
     if(opts.imageAsset && payload.image){
       payload.image.asset=opts.imageAsset;
-      manifestAssets.push(opts.imageAsset);
+      addManifestAsset(opts.imageAsset);
     }
-    if(Array.isArray(opts.stlAssets) && opts.stlAssets.length){
+    if(Array.isArray(opts.stlAssets)){
       const byId=new Map(opts.stlAssets.map(entry=>[entry.objectId,entry.asset]));
       payload.stlObjects=(payload.stlObjects||[]).map(raw=>{
         const obj=structuredClone(raw);
@@ -6690,9 +6739,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
           obj.asset={...(obj.asset||{}),...asset};
           delete obj.asset.dataBase64;
         }
+        addManifestAsset(obj.asset);
         return obj;
       });
-      manifestAssets.push(...opts.stlAssets.map(entry=>entry.asset));
     }
     if(manifestAssets.length){
       payload.assetManifest={

@@ -1,5 +1,173 @@
 /* ========== generateBuilding routing is done in the we* script block below ========== */
 
+function wingAttachmentFaceLength(cfg, wing) {
+  return (wing.face === 'east' || wing.face === 'west') ? cfg.depth : cfg.width;
+}
+
+function wingConnectionOverlapInLocal(cfg, wing) {
+  const faceLen = wingAttachmentFaceLength(cfg, wing);
+  const x0 = Math.max(0, -Number(wing.offset || 0));
+  const x1 = Math.min(Number(wing.span || 0), faceLen - Number(wing.offset || 0));
+  return (x1 > x0 + 0.01) ? { x0, x1, length: x1 - x0 } : null;
+}
+
+function exposedWingConnectionSegments(cfg, wing) {
+  const overlap = wingConnectionOverlapInLocal(cfg, wing);
+  if (!overlap) return [];
+  const span = Number(wing.span || 0);
+  const out = [];
+  if (overlap.x0 > 0.01) {
+    out.push({ key: 'start', label: 'start overhang', x0: 0, x1: overlap.x0, length: overlap.x0 });
+  }
+  if (span - overlap.x1 > 0.01) {
+    out.push({ key: 'end', label: 'end overhang', x0: overlap.x1, x1: span, length: span - overlap.x1 });
+  }
+  return out;
+}
+
+function wingSegmentCfg(wCfg, segment) {
+  return Object.assign({}, wCfg, {
+    width: segment.length,
+    // Segment-local wall artwork cannot reuse full-wing front-face coordinates.
+    // Keep these strips structural and let users add detail to the ordinary
+    // exterior side panels until the editor has segment-aware front placement.
+    manualOpenings: Object.assign({}, wCfg.manualOpenings || {}, { front: null }),
+    wallFeatures: Object.assign({}, wCfg.wallFeatures || {}, { front: null }),
+    _omitConnectionWall: false,
+  });
+}
+
+function generateExposedConnectionCorePanel(rootCfg, wCfg, wPlan, wing, wingIndex, segment) {
+  const segCfg = wingSegmentCfg(wCfg, segment);
+  const segPlan = buildEdgePlans(segCfg);
+  const wallW = segment.length;
+  const { H, matT, tw, parapetH, roofStyle } = segPlan;
+  const margin = Math.max(matT * 2, 5);
+
+  const topTongues = (roofStyle === 'flat' || roofStyle === 'flat_overhang')
+    ? placeTongues(wallW, tw, margin, [], 3, tw / 2)
+    : [];
+  const bottomTongues = placeTongues(wallW, tw, margin, [], 3, tw / 2);
+
+  const verticalEdgeMinMargin = Math.max(parapetH + matT + 2, 8);
+  const verticalEdgeMaxY = H - margin;
+  const vAvail = Math.max(0, verticalEdgeMaxY - verticalEdgeMinMargin);
+  const vCount = vAvail > 0 ? Math.max(2, Math.min(4, Math.floor(vAvail / 40))) : 0;
+  const verticalForbidden = [[0, verticalEdgeMinMargin], [verticalEdgeMaxY, H]];
+  const sideSlots = vCount > 0
+    ? placeTongues(H, tw, 0.1, verticalForbidden, vCount, tw / 2)
+    : [];
+
+  const wallSpec = {
+    width: wallW,
+    height: H,
+    matT,
+    kerf: rootCfg.kerfComp,
+    edges: {
+      top: { tongues: topTongues, openings: [] },
+      bottom: { tongues: bottomTongues, openings: [] },
+      left: { tongues: [], openings: segment.key === 'start' ? sideSlots : [] },
+      right: { tongues: [], openings: segment.key === 'end' ? sideSlots : [] },
+    },
+  };
+  const rects = [];
+
+  if (roofStyle === 'parapet') {
+    const wingRoofW = wPlan.fbWidth - 2 * matT;
+    const count = Math.max(2, Math.min(4, Math.floor(wingRoofW / 30)));
+    const roofTongues = placeTongues(wingRoofW, tw, margin, [], count, tw / 2);
+    for (const t of roofTongues) {
+      const x0 = matT + t.start;
+      const x1 = matT + t.end;
+      const cx0 = Math.max(segment.x0, x0);
+      const cx1 = Math.min(segment.x1, x1);
+      if (cx1 <= cx0 + 0.01) continue;
+      rects.push({
+        type: 'cut',
+        x: cx0 - segment.x0,
+        y: parapetH,
+        w: cx1 - cx0,
+        h: matT,
+        compensateKerf: true,
+      });
+    }
+  }
+
+  if (segPlan.interFloorYs && segPlan.interFloorYs.length > 0) {
+    const ifTw = 6;
+    const ifMargin = 3;
+    const bcW = Math.max(0, wallW - 2 * matT);
+    if (bcW > ifTw + 0.01) {
+      const ifCount = Math.max(1, Math.min(4, Math.floor(bcW / 25)));
+      const ifPoss = placeTongues(bcW, ifTw, ifMargin, [], ifCount, ifTw);
+      for (const fy of segPlan.interFloorYs) {
+        for (const t of ifPoss) {
+          rects.push({
+            type: 'cut',
+            x: t.start + matT,
+            y: fy - matT / 2,
+            w: t.end - t.start,
+            h: matT,
+            compensateKerf: true,
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    id: `front_wall_connection_${segment.key}_wing${wingIndex}`,
+    name: `Wing ${wingIndex + 1} Exposed Connection Wall (${segment.label})`,
+    material: 'core',
+    bboxW: wallW,
+    bboxH: H + 2 * matT,
+    bboxOffsetX: 0,
+    bboxOffsetY: matT,
+    paths: [{ type: 'cut', d: buildWallPath(wallSpec) }],
+    rects,
+    lines: [],
+    windows: 0,
+    doors: 0,
+    _wingConnectionSegment: { x0: segment.x0, x1: segment.x1, key: segment.key },
+  };
+}
+
+function generateExposedConnectionCladdingPanels(wCfg, wingIndex, segment) {
+  const segCfg = wingSegmentCfg(wCfg, segment);
+  const segPlan = buildEdgePlans(segCfg);
+  const bands = hasSplitCladding(segCfg) ? ['upper', 'ground'] : [null];
+  const out = [];
+  for (const band of bands) {
+    const part = generateCladdingPanel(segCfg, segPlan, 'front', band);
+    if (!part) continue;
+    const bandSuffix = band ? `_${band}` : '';
+    part.id = `cladding_front_connection_${segment.key}${bandSuffix}_wing${wingIndex}`;
+    part.name = `Wing ${wingIndex + 1} Exposed Connection Cladding (${segment.label}${band ? `, ${band}` : ''})`;
+    part._wingConnectionSegment = { x0: segment.x0, x1: segment.x1, key: segment.key };
+    out.push(part);
+  }
+  return out;
+}
+
+function generateSharedConnectionInteriorCladding(wCfg, wingIndex, overlap) {
+  if (!overlap) return [];
+  const seg = { key: 'shared', label: 'shared overlap', x0: overlap.x0, x1: overlap.x1, length: overlap.length };
+  const segCfg = wingSegmentCfg(wCfg, seg);
+  const segPlan = buildEdgePlans(segCfg);
+  const sharedIps = generateInteriorCladdingPanel(segCfg, segPlan, 'front');
+  const sharedList = Array.isArray(sharedIps) ? sharedIps : (sharedIps ? [sharedIps] : []);
+  return sharedList.map((part, idx) => {
+    const pieceSuffix = sharedList.length > 1 ? `_floor_${idx + 1}` : '';
+    part.id = `shared_wall_interior_cladding${pieceSuffix}_wing${wingIndex}`;
+    part.name = sharedList.length > 1
+      ? `Wing ${wingIndex + 1} Shared Wall Interior Cladding (wing side, overlap) - piece ${idx + 1}`
+      : `Wing ${wingIndex + 1} Shared Wall Interior Cladding (wing side, overlap)`;
+    part._sharedWallInteriorCladding = true;
+    part._wingConnectionSegment = { x0: overlap.x0, x1: overlap.x1, key: 'shared' };
+    return part;
+  });
+}
+
 
 export function generateBuildingWithWings(cfg) {
   const parts = [];
@@ -154,9 +322,12 @@ export function generateBuildingWithWings(cfg) {
         // Wing-local x range of the tongue (matT corner + roof-local position)
         const wingLocalStart = wing.offset + matT + t.start;
         const wingLocalEnd   = wing.offset + matT + t.end;
-        const w = wingLocalEnd - wingLocalStart;
+        const clippedStart = Math.max(0, wingLocalStart);
+        const clippedEnd = Math.min(wallLen, wingLocalEnd);
+        if (clippedEnd <= clippedStart + 0.01) continue;
+        const w = clippedEnd - clippedStart;
         // Map to wall-panel x. East wall mirrors.
-        const xLeft = mirrorX ? (wallLen - wingLocalEnd) : wingLocalStart;
+        const xLeft = mirrorX ? (wallLen - clippedEnd) : clippedStart;
         wallPart.rects.push({
           type: 'cut',
           x: xLeft, y: slotY, w, h: matT,
@@ -662,6 +833,8 @@ export function generateBuildingWithWings(cfg) {
       return { x: -cT, y: -cT };
     };
     const connWall = wingConnectionWallKey(wing); // wing-local connection face
+    const exposedConnectionSegments = exposedWingConnectionSegments(cfg, wing);
+    const sharedConnectionOverlap = wingConnectionOverlapInLocal(cfg, wing);
 
     // Walls — shared block wrapper handles side/front-back dispatch, suffixes,
     // Wing N naming, and coplanar-face suppression.
@@ -675,6 +848,9 @@ export function generateBuildingWithWings(cfg) {
       excludeFaces: new Set([connWall]),
       skipCoplanar: true,
     }));
+    for (const segment of exposedConnectionSegments) {
+      parts.push(generateExposedConnectionCorePanel(cfg, wCfg, wPlan, wing, wi, segment));
+    }
 
     /* Wing floor — merged into main building floor via generateMergedFloor,
        so we DON'T push a separate wing floor part here. */
@@ -716,6 +892,9 @@ export function generateBuildingWithWings(cfg) {
     if (cp2.westCoplanar) wCladExclude.add('west');
     if (cp2.eastCoplanar) wCladExclude.add('east');
     pushCladding(wCfg, wPlan, sfx, wCladExclude);
+    for (const segment of exposedConnectionSegments) {
+      parts.push(...generateExposedConnectionCladdingPanels(wCfg, wi, segment));
+    }
 
     // Shared-wall interior cladding for solid wing connections.
     // The wing connection face is intentionally excluded from exterior
@@ -724,17 +903,10 @@ export function generateBuildingWithWings(cfg) {
     // still needs an interior cladding piece. The main-building side is
     // already handled by the main block's own interior cladding panel.
     if (wing.connection !== 'open') {
-      const sharedIps = generateInteriorCladdingPanel(wCfg, wPlan, connWall);
-      const sharedList = Array.isArray(sharedIps) ? sharedIps : (sharedIps ? [sharedIps] : []);
+      const sharedList = generateSharedConnectionInteriorCladding(wCfg, wi, sharedConnectionOverlap);
       let sharedIdx = 0;
       for (const sharedIp of sharedList) {
         sharedIdx++;
-        sharedIp.id = sharedList.length > 1
-          ? `shared_wall_interior_cladding${sfx}_floor_${sharedIdx}`
-          : 'shared_wall_interior_cladding' + sfx;
-        sharedIp.name = sharedList.length > 1
-          ? `Wing ${wi + 1} Shared Wall Interior Cladding (wing side) — piece ${sharedIdx}`
-          : `Wing ${wi + 1} Shared Wall Interior Cladding (wing side)`;
         sharedIp._sharedWallInteriorCladding = true;
         applyBlockIdentity(sharedIp, wingBlockCtx, {
           nameMode: 'suffix',

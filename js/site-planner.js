@@ -311,6 +311,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     obj.asset.fileName=obj.asset.fileName||obj.fileName||`${slug(obj.name)}.stl`;
     obj.asset.mimeType=obj.asset.mimeType||'model/stl';
     obj.bounds=obj.bounds&&typeof obj.bounds==='object'?obj.bounds:{};
+    obj.sourceAssets=Array.isArray(obj.sourceAssets)?obj.sourceAssets.map(source=>{
+      const src=source&&typeof source==='object'?source:{};
+      src.id=src.id||uid('src');
+      src.kind='stl-source';
+      src.fileName=src.fileName||src.name||'source-file';
+      src.name=src.name||src.fileName;
+      src.mimeType=src.mimeType||'application/octet-stream';
+      src.importedAt=src.importedAt||new Date().toISOString();
+      return src;
+    }):[];
     return obj;
   }
   function stlObjectRect(obj){return transformedRect({x:obj.x,y:obj.y,widthPx:obj.widthPx,depthPx:obj.depthPx,rotationDeg:obj.rotationDeg});}
@@ -2392,6 +2402,24 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       failImportProgress('Could not import STL.', err?.message||'The browser could not read that STL file.');
     }
   }
+  async function attachSourceFileToStlObject(obj, file){
+    if(!obj || !file) return;
+    normalizeStlObject(obj);
+    const buffer=await file.arrayBuffer();
+    const source={
+      id:uid('src'),
+      kind:'stl-source',
+      name:file.name||'source-file',
+      fileName:file.name||'source-file',
+      mimeType:file.type||'application/octet-stream',
+      sizeBytes:file.size||buffer.byteLength,
+      importedAt:new Date().toISOString(),
+      dataBase64:arrayBufferToBase64(buffer)
+    };
+    obj.sourceAssets=obj.sourceAssets||[];
+    obj.sourceAssets.push(source);
+    syncAll();
+  }
 
   function hakoFileFromDataTransfer(dataTransfer){
     const files=Array.from(dataTransfer?.files||[]);
@@ -3831,6 +3859,21 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     usedNames.add(fileName.toLowerCase());
     return fileName;
   }
+  function uniqueStlSourceAssetFileName(source, usedNames){
+    const rawName=String(source?.fileName || source?.name || 'source-file');
+    const match=rawName.match(/\.([a-z0-9]{1,12})$/i);
+    const ext=match ? `.${match[1].toLowerCase()}` : '.source';
+    const rawBase=match ? rawName.slice(0,-match[0].length) : rawName;
+    const base=slug(rawBase || 'source-file') || 'source-file';
+    let fileName=`${base}${ext}`;
+    let suffix=2;
+    while(usedNames.has(fileName.toLowerCase())){
+      fileName=`${base}-${suffix}${ext}`;
+      suffix++;
+    }
+    usedNames.add(fileName.toLowerCase());
+    return fileName;
+  }
   function stlAssetReference(path, obj, dataBase64){
     return {
       schema:'hakomachi.site-stl-asset',
@@ -3843,6 +3886,22 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       mimeType:obj?.asset?.mimeType || 'model/stl',
       byteLength:base64ByteLength(dataBase64),
       hash:dataBase64 ? simpleAssetHash(dataBase64) : (obj?.asset?.hash || null),
+    };
+  }
+  function stlSourceAssetReference(path, obj, source, dataBase64){
+    return {
+      schema:'hakomachi.site-stl-source-asset',
+      schemaVersion:1,
+      kind:'stl-source',
+      path,
+      sourceObjectId:obj?.id || null,
+      sourceAssetId:source?.id || null,
+      name:source?.name || source?.fileName || 'Source file',
+      fileName:source?.fileName || source?.name || 'source-file',
+      mimeType:source?.mimeType || 'application/octet-stream',
+      byteLength:base64ByteLength(dataBase64),
+      hash:dataBase64 ? simpleAssetHash(dataBase64) : (source?.hash || null),
+      importedAt:source?.importedAt || null,
     };
   }
   function imageAssetCacheKey(asset){
@@ -4870,7 +4929,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const fp=$('fabricPresetSel'); if(fp) fp.onchange=()=>{fabric.fabricType=fp.value; state.fabricPreset=fp.value; syncAll();};
       $('generateFabricRegion').onclick=()=>generateFabricForRegion(fabric,{confirmReplace:true});
       $('deleteFabricRegion').onclick=deleteSelectedFabricRegion;
-    } else if(stl){normalizeStlObject(stl); box.innerHTML=`
+    } else if(stl){normalizeStlObject(stl); const sourceList=(stl.sourceAssets||[]).map((source,idx)=>`
+      <div class="listItem compact">
+        <div><b>${escapeHtml(source.name||source.fileName||'Source file')}</b><br><span class="small muted">${escapeHtml(source.fileName||'source file')}</span></div>
+        <div class="buttons"><button data-stl-source-download="${idx}" ${source.dataBase64?'':'disabled'}>Download</button><button data-stl-source-delete="${idx}" class="danger">Remove</button></div>
+      </div>`).join('') || '<div class="small muted">No source file attached.</div>'; box.innerHTML=`
       <b>${escapeHtml(stl.name||'STL Object')} selected</b>
       <label>Name</label><input id="stlName" value="${escapeAttr(stl.name||'')}">
       <div class="row"><div><label>Rotation °</label><input id="stlRot" type="number" step="1" value="${fmt(stl.rotationDeg||0)}"></div><div><label>Scale</label><input id="stlScale" type="number" min="0.01" step="0.01" value="${fmt(stl.scale||1)}"></div></div>
@@ -4879,7 +4942,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="stlLocked" type="checkbox" ${stl.locked?'checked':''}> <span>Lock object</span></label>
       <label>Notes</label><textarea id="stlNotes" rows="3">${escapeHtml(stl.notes||'')}</textarea>
       <div class="small muted" style="margin-top:6px">File: ${escapeHtml(stl.asset?.fileName||'STL asset')} · ${escapeHtml(stl.bounds?.format||'unknown')} bounds · shown as a footprint and 3D proxy.</div>
-      <div class="buttons" style="margin-top:8px"><button id="downloadStlObject" ${stl.asset?.dataBase64?'':'disabled'}>Download STL</button><button id="deleteStlObject" class="danger">Delete Object</button></div>`;
+      <label>Source files</label>
+      <div>${sourceList}</div>
+      <input id="stlSourceFileInput" class="hiddenFile" type="file" accept=".scad,.blend,.py,.js,.json,.txt,.obj,.dae,.3mf">
+      <div class="buttons" style="margin-top:8px"><button id="attachStlSourceFile">Attach Source</button><button id="downloadStlObject" ${stl.asset?.dataBase64?'':'disabled'}>Download STL</button><button id="deleteStlObject" class="danger">Delete Object</button></div>`;
       const updateDims=()=>{normalizeStlObject(stl); syncAll();};
       const bindStl=(id,fn)=>{const el=$(id); if(el) el.oninput=()=>{fn(el.type==='checkbox'?el.checked:el.value); updateDims();};};
       bindStl('stlName',v=>stl.name=v);
@@ -4892,6 +4958,25 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       bindStl('stlLocked',v=>stl.locked=!!v);
       bindStl('stlNotes',v=>stl.notes=v);
       installAdaptiveDegreeStepping($('stlRot'));
+      $('attachStlSourceFile').onclick=()=>$('stlSourceFileInput')?.click();
+      $('stlSourceFileInput').onchange=async e=>{
+        const f=e.target.files&&e.target.files[0];
+        if(f) await attachSourceFileToStlObject(stl,f);
+        e.target.value='';
+      };
+      box.querySelectorAll('[data-stl-source-download]').forEach(btn=>{
+        btn.onclick=()=>{
+          const source=(stl.sourceAssets||[])[Number(btn.dataset.stlSourceDownload)];
+          if(source) downloadBase64(source.dataBase64, source.fileName||source.name||'source-file', source.mimeType||'application/octet-stream');
+        };
+      });
+      box.querySelectorAll('[data-stl-source-delete]').forEach(btn=>{
+        btn.onclick=()=>{
+          const idx=Number(btn.dataset.stlSourceDelete);
+          stl.sourceAssets=(stl.sourceAssets||[]).filter((_source,i)=>i!==idx);
+          syncAll();
+        };
+      });
       $('downloadStlObject').onclick=()=>downloadBase64(stl.asset?.dataBase64, stl.asset?.fileName||`${slug(stl.name||'site-object')}.stl`, stl.asset?.mimeType||'model/stl');
       $('deleteStlObject').onclick=deleteSelectedStlObject;
     } else if(note){const pts=note.points||[]; box.innerHTML=`<b>Annotation selected</b><br><span class="small muted">${pts.length} points</span><div class="buttons" style="margin-top:8px"><button id="delNoteB" class="danger">Delete Annotation</button></div>`; const del=$('delNoteB'); if(del) del.onclick=deleteSelectedAnnotation;} else box.innerHTML='No building selected.'; const btn=$('deleteAnnotationBtn'); if(btn) btn.disabled=!note; return;} if($('deleteAnnotationBtn')) $('deleteAnnotationBtn').disabled=true; syncBuildingMetrics(b); box.innerHTML=`
@@ -6297,6 +6382,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         imageAssetPath:imageAsset?.path||null,
         stlObjects:project.stlObjects?.length||0,
         stlAssetCount:assets.filter(asset=>asset?.kind==='stl').length,
+        stlSourceAssetCount:assets.filter(asset=>asset?.kind==='stl-source').length,
         calibrated:!!project.scale?.calibrated
       },
       updatedAt:now,
@@ -6424,6 +6510,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const root=githubData.cleanRepoPath(settings.sitePlansDir || GITHUB_DEFAULT_SITE_DIR);
     return githubData.cleanRepoPath(`${root}/${siteId}/assets/stl/${fileName}`);
   }
+  function githubStlSourceAssetPath(settings, siteId, fileName){
+    const root=githubData.cleanRepoPath(settings.sitePlansDir || GITHUB_DEFAULT_SITE_DIR);
+    return githubData.cleanRepoPath(`${root}/${siteId}/assets/stl/sources/${fileName}`);
+  }
   async function saveGithubImageAsset(settings, siteId, siteName){
     const dataUrl=state.imageMeta?.dataUrl;
     if(!dataUrl) return state.imageMeta?.asset || null;
@@ -6438,22 +6528,34 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return asset;
   }
   async function saveGithubStlAssets(settings, siteId, siteName){
-    const usedNames=new Set();
+    const usedModelNames=new Set();
+    const usedSourceNames=new Set();
     const stlAssets=[];
     const stlObjects=state.stlObjects||[];
     for(let i=0;i<stlObjects.length;i++){
       const obj=normalizeStlObject(stlObjects[i]);
       const dataBase64=obj?.asset?.dataBase64;
-      if(!dataBase64) continue;
-      const fileName=uniqueStlAssetFileName(obj, usedNames);
-      const path=githubStlAssetPath(settings, siteId, fileName);
-      const asset=stlAssetReference(path, obj, dataBase64);
-      setGithubProgress(3,7,'Writing STL site objects...',`Saving ${asset.name} (${i+1} of ${stlObjects.length}) outside the main site file.`);
-      await writeGithubBase64File(settings, path, dataBase64, `Save HakoMachi site STL asset: ${siteName}`);
-      obj.asset={...(obj.asset||{}),...asset,dataBase64};
-      stlAssets.push({asset,dataBase64,objectId:obj.id});
+      if(dataBase64){
+        const fileName=uniqueStlAssetFileName(obj, usedModelNames);
+        const path=githubStlAssetPath(settings, siteId, fileName);
+        const asset=stlAssetReference(path, obj, dataBase64);
+        setGithubProgress(3,7,'Writing STL site objects...',`Saving ${asset.name} (${i+1} of ${stlObjects.length}) outside the main site file.`);
+        await writeGithubBase64File(settings, path, dataBase64, `Save HakoMachi site STL asset: ${siteName}`);
+        obj.asset={...(obj.asset||{}),...asset,dataBase64};
+        stlAssets.push({role:'model',asset,dataBase64,objectId:obj.id});
+      }
+      for(const source of (obj.sourceAssets||[])){
+        if(!source?.dataBase64) continue;
+        const fileName=uniqueStlSourceAssetFileName(source, usedSourceNames);
+        const path=githubStlSourceAssetPath(settings, siteId, fileName);
+        const asset=stlSourceAssetReference(path, obj, source, source.dataBase64);
+        setGithubProgress(3,7,'Writing STL source files...',`Saving ${asset.name} (${i+1} of ${stlObjects.length}) outside the main site file.`);
+        await writeGithubBase64File(settings, path, source.dataBase64, `Save HakoMachi site STL source asset: ${siteName}`);
+        Object.assign(source, asset, {dataBase64:source.dataBase64});
+        stlAssets.push({role:'source',asset,dataBase64:source.dataBase64,objectId:obj.id,sourceAssetId:source.id});
+      }
     }
-    if(!stlAssets.length) setGithubProgress(3,7,'No STL assets to write.','The site plan does not currently include embedded STL objects.');
+    if(!stlAssets.length) setGithubProgress(3,7,'No STL assets to write.','The site plan does not currently include embedded STL or source files.');
     return stlAssets;
   }
   async function resolveProjectImageFromGithub(project, settings){
@@ -6476,11 +6578,20 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const stlObjects=Array.isArray(project?.stlObjects) ? project.stlObjects : [];
     for(const obj of stlObjects){
       const asset=obj?.asset;
-      if(!asset?.path || asset.dataBase64) continue;
-      setGithubStatus('Loading referenced STL asset...');
-      const file=await readGithubBase64File(settings, asset.path);
-      if(file?.contentBase64){
-        obj.asset={...asset,dataBase64:file.contentBase64};
+      if(asset?.path && !asset.dataBase64){
+        setGithubStatus('Loading referenced STL asset...');
+        const file=await readGithubBase64File(settings, asset.path);
+        if(file?.contentBase64){
+          obj.asset={...asset,dataBase64:file.contentBase64};
+        }
+      }
+      for(const source of (Array.isArray(obj.sourceAssets) ? obj.sourceAssets : [])){
+        if(!source?.path || source.dataBase64) continue;
+        setGithubStatus('Loading referenced STL source asset...');
+        const file=await readGithubBase64File(settings, source.path);
+        if(file?.contentBase64){
+          Object.assign(source,{dataBase64:file.contentBase64});
+        }
       }
     }
     return project;
@@ -6731,7 +6842,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       addManifestAsset(opts.imageAsset);
     }
     if(Array.isArray(opts.stlAssets)){
-      const byId=new Map(opts.stlAssets.map(entry=>[entry.objectId,entry.asset]));
+      const byId=new Map(opts.stlAssets.filter(entry=>entry.role!=='source').map(entry=>[entry.objectId,entry.asset]));
+      const sourceById=new Map(opts.stlAssets.filter(entry=>entry.role==='source').map(entry=>[`${entry.objectId}|${entry.sourceAssetId}`,entry.asset]));
       payload.stlObjects=(payload.stlObjects||[]).map(raw=>{
         const obj=structuredClone(raw);
         const asset=byId.get(obj.id);
@@ -6740,6 +6852,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
           delete obj.asset.dataBase64;
         }
         addManifestAsset(obj.asset);
+        obj.sourceAssets=Array.isArray(obj.sourceAssets)?obj.sourceAssets.map(rawSource=>{
+          const source=structuredClone(rawSource);
+          const sourceAsset=sourceById.get(`${obj.id}|${source.id}`);
+          if(sourceAsset){
+            Object.assign(source, sourceAsset);
+            delete source.dataBase64;
+          }
+          addManifestAsset(source);
+          return source;
+        }):[];
         return obj;
       });
     }
@@ -6781,14 +6903,24 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return {asset,dataUrl,info:dataUrlInfo(dataUrl)};
   }
   function localStlBundleAssets(){
-    const usedNames=new Set();
-    return (state.stlObjects||[]).map(raw=>{
+    const usedModelNames=new Set();
+    const usedSourceNames=new Set();
+    return (state.stlObjects||[]).flatMap(raw=>{
       const obj=normalizeStlObject(raw);
+      const entries=[];
       const dataBase64=obj?.asset?.dataBase64;
-      if(!dataBase64) return null;
-      const fileName=uniqueStlAssetFileName(obj, usedNames);
-      const asset=stlAssetReference(`assets/stl/${fileName}`, obj, dataBase64);
-      return {asset,dataBase64,objectId:obj.id};
+      if(dataBase64){
+        const fileName=uniqueStlAssetFileName(obj, usedModelNames);
+        const asset=stlAssetReference(`assets/stl/${fileName}`, obj, dataBase64);
+        entries.push({role:'model',asset,dataBase64,objectId:obj.id});
+      }
+      (obj.sourceAssets||[]).forEach(source=>{
+        if(!source?.dataBase64) return;
+        const fileName=uniqueStlSourceAssetFileName(source, usedSourceNames);
+        const asset=stlSourceAssetReference(`assets/stl/sources/${fileName}`, obj, source, source.dataBase64);
+        entries.push({role:'source',asset,dataBase64:source.dataBase64,objectId:obj.id,sourceAssetId:source.id});
+      });
+      return entries;
     }).filter(Boolean);
   }
   async function saveSitePlanBundle(){
@@ -6853,12 +6985,23 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const stlObjects=Array.isArray(payload.stlObjects) ? payload.stlObjects : [];
     for(const obj of stlObjects){
       const stlAsset=obj?.asset;
-      if(!stlAsset?.path || stlAsset.dataBase64) continue;
-      const assetName=stlAsset.path.replace(/^\/+/,'');
-      const assetFile=zip.file(assetName) || zip.file(assetName.split('/').pop());
-      if(assetFile){
-        const b64=await assetFile.async('base64');
-        obj.asset={...stlAsset,dataBase64:b64};
+      if(stlAsset?.path && !stlAsset.dataBase64){
+        const assetName=stlAsset.path.replace(/^\/+/,'');
+        const assetFile=zip.file(assetName) || zip.file(assetName.split('/').pop());
+        if(assetFile){
+          const b64=await assetFile.async('base64');
+          obj.asset={...stlAsset,dataBase64:b64};
+        }
+      }
+      const sources=Array.isArray(obj.sourceAssets) ? obj.sourceAssets : [];
+      for(const source of sources){
+        if(!source?.path || source.dataBase64) continue;
+        const sourceName=source.path.replace(/^\/+/,'');
+        const sourceFile=zip.file(sourceName) || zip.file(sourceName.split('/').pop());
+        if(sourceFile){
+          const b64=await sourceFile.async('base64');
+          Object.assign(source,{dataBase64:b64});
+        }
       }
     }
     loadProject(payload, {fromFile:true});

@@ -502,10 +502,14 @@ export function get3DWallOpenings(cfg, plan, face) {
   if (!plan) return [];
   const { H, matT, fbWidth, sideLen } = plan;
   const chamfer = plan.frontCornerChamfer || { enabled: false, westInset: 0, eastInset: 0, frontWidth: fbWidth, eastSideLen: sideLen, westSideLen: sideLen };
-  const wallW = face === 'front' && chamfer.enabled ? chamfer.frontWidth
-    : (face === 'east' && chamfer.enabled ? chamfer.eastSideLen
-    : (face === 'west' && chamfer.enabled ? chamfer.westSideLen
-    : ((face === 'front' || face === 'back') ? fbWidth : sideLen)));
+  const isChamferFace = face === 'front_chamfer_west' || face === 'front_chamfer_east';
+  let wallW = (face === 'front' || face === 'back') ? fbWidth : sideLen;
+  if (chamfer.enabled && face === 'front') wallW = chamfer.frontWidth;
+  if (chamfer.enabled && face === 'east') wallW = chamfer.eastSideLen;
+  if (chamfer.enabled && face === 'west') wallW = chamfer.westSideLen;
+  if (chamfer.enabled && face === 'front_chamfer_west') wallW = chamfer.westDiagLen;
+  if (chamfer.enabled && face === 'front_chamfer_east') wallW = chamfer.eastDiagLen;
+  if (isChamferFace && !chamfer.enabled) return [];
   const hasBay = ((face === 'front' && plan.hasFrontBay) || (face === 'back' && plan.hasBackBay))
     && !(face === 'front' && chamfer.enabled);
   const bayH   = plan.bayHeight || 0;
@@ -560,7 +564,7 @@ export function get3DWallOpenings(cfg, plan, face) {
       }
       // awning, balcony, fixture, cladding_override, printed_item → no hole
     }
-  } else {
+  } else if (!isChamferFace) {
     // Auto mode — compute layout fresh
     const winDims = getWindowDims(cfg), gwDims = getGroundFloorWindowDims(cfg);
     const doorStyle = cfg.doorStyle;
@@ -602,7 +606,7 @@ export function get3DWallOpenings(cfg, plan, face) {
   // exists on this face, prefer it over the generic resolved-plan bay. The
   // resolved plan is still used for normal/manual bay openings.
   const bayHoles = [];
-  const railBayOps3D = embeddedRailBayOpsForFace(cfg, face, { coordSpace: 'physical' });
+  const railBayOps3D = isChamferFace ? [] : embeddedRailBayOpsForFace(cfg, face, { coordSpace: 'physical' });
   if (railBayOps3D.length) {
     for (const rb of railBayOps3D) {
       bayHoles.push({ ...rb, type: 'bay' });
@@ -631,7 +635,7 @@ export function get3DWallOpenings(cfg, plan, face) {
 
   // Wing connection holes — punch openings where a wing attaches
   const wingHoles = [];
-  for (const wing of (cfg.wings || [])) {
+  for (const wing of (isChamferFace ? [] : (cfg.wings || []))) {
     if (wing.face !== face) continue;
     const bounds = weWingBounds(cfg, wing);
     const wCfg   = buildWingCfg(cfg, wing);
@@ -673,7 +677,9 @@ export function getBlankedWindows3D(cfg, face) {
   if (!manual.length) return [];
   const plan = buildEdgePlans(cfg);
   const chamfer = plan.frontCornerChamfer || { enabled: false, westInset: 0, frontWidth: plan.fbWidth };
-  const wallW = face === 'front' && chamfer.enabled ? chamfer.frontWidth : plan.fbWidth;
+  let wallW = face === 'front' && chamfer.enabled ? chamfer.frontWidth : plan.fbWidth;
+  if (chamfer.enabled && face === 'front_chamfer_west') wallW = chamfer.westDiagLen;
+  if (chamfer.enabled && face === 'front_chamfer_east') wallW = chamfer.eastDiagLen;
   const out = [];
   for (const op of manual) {
     if (op.type !== 'window') continue;
@@ -1807,6 +1813,23 @@ export function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
   // Main block walls. This is now routed through the shared block-wall
   // renderer used by wings as well; the face definitions below only describe
   // placement/orientation in world space.
+  function frontChamferPanePosition3D(sideKey, op, blanked) {
+    const len = sideKey === 'west' ? chamfer.westDiagLen : chamfer.eastDiagLen;
+    const inset = sideKey === 'west' ? (chamfer.westInset || 0) : (chamfer.eastInset || 0);
+    const theta = sideKey === 'west' ? -Math.PI / 4 : Math.PI / 4;
+    const centerX = sideKey === 'west' ? -w / 2 + inset / 2 : w / 2 - inset / 2;
+    const centerZ = -d / 2 + inset / 2;
+    const localX = (Number(op.x) || 0) + (Number(op.w) || 0) / 2 - len / 2;
+    const hy = h - (Number(op.y) || 0) - (Number(op.h) || 0);
+    const outward = blanked ? 0.05 : 0.1;
+    return {
+      x: centerX + localX * Math.cos(theta),
+      y: hy + (Number(op.h) || 0) / 2,
+      z: centerZ - localX * Math.sin(theta) - outward,
+      rotY: theta,
+    };
+  }
+
   render3DBlockWalls3D('Main', [
     {
       blockCfg: cfg, blockPlan: plan, face: 'front',
@@ -1864,20 +1887,22 @@ export function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
       },
     },
     ...(chamfer.enabled && chamfer.westDiagLen > 0 ? [{
-      blockCfg: cfg, blockPlan: plan, face: 'front',
-      wallW: chamfer.westDiagLen, ops: [],
+      blockCfg: cfg, blockPlan: plan, face: 'front_chamfer_west',
+      wallW: chamfer.westDiagLen, ops: get3DWallOpenings(cfg, plan, 'front_chamfer_west'),
       mirrorX: false,
       meshRotY: -Math.PI / 4,
       meshPos: { x: -w / 2 + (chamfer.westInset || 0) / 2, y: 0, z: -d / 2 + (chamfer.westInset || 0) / 2 },
-      blankedOps: [],
+      blankedOps: getBlankedWindows3D(cfg, 'front_chamfer_west'),
+      panePosition: (op, blanked) => frontChamferPanePosition3D('west', op, blanked),
     }] : []),
     ...(chamfer.enabled && chamfer.eastDiagLen > 0 ? [{
-      blockCfg: cfg, blockPlan: plan, face: 'front',
-      wallW: chamfer.eastDiagLen, ops: [],
+      blockCfg: cfg, blockPlan: plan, face: 'front_chamfer_east',
+      wallW: chamfer.eastDiagLen, ops: get3DWallOpenings(cfg, plan, 'front_chamfer_east'),
       mirrorX: false,
       meshRotY: Math.PI / 4,
       meshPos: { x: w / 2 - (chamfer.eastInset || 0) / 2, y: 0, z: -d / 2 + (chamfer.eastInset || 0) / 2 },
-      blankedOps: [],
+      blankedOps: getBlankedWindows3D(cfg, 'front_chamfer_east'),
+      panePosition: (op, blanked) => frontChamferPanePosition3D('east', op, blanked),
     }] : []),
   ]);
 

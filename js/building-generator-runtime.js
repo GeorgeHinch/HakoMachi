@@ -1515,7 +1515,9 @@ const BAY_DOOR_STYLES = {
    reading `wallFeaturesForFace(...)` instead of each bucket directly.
    ===================================================================== */
 
-const WALL_FACE_KEYS = ['front', 'back', 'east', 'west'];
+const STANDARD_WALL_FACE_KEYS = ['front', 'back', 'east', 'west'];
+const FRONT_CHAMFER_FACE_KEYS = ['front_chamfer_west', 'front_chamfer_east'];
+const WALL_FACE_KEYS = [...STANDARD_WALL_FACE_KEYS, ...FRONT_CHAMFER_FACE_KEYS];
 const WALL_FEATURE_SURFACE_TYPES = new Set([
   'awning',
   'balcony',
@@ -1525,7 +1527,34 @@ const WALL_FEATURE_SURFACE_TYPES = new Set([
 ]);
 
 function emptyWallFeatureMap(fill = null) {
-  return { front: fill, back: fill, east: fill, west: fill };
+  return Object.fromEntries(WALL_FACE_KEYS.map(face => [face, fill]));
+}
+
+function isFrontChamferWallFace(face) {
+  return face === 'front_chamfer_west' || face === 'front_chamfer_east';
+}
+
+function frontChamferFaceSide(face) {
+  return face === 'front_chamfer_west' ? 'west'
+    : (face === 'front_chamfer_east' ? 'east' : null);
+}
+
+function frontChamferFaceKey(side) {
+  return side === 'west' ? 'front_chamfer_west'
+    : (side === 'east' ? 'front_chamfer_east' : null);
+}
+
+function frontChamferFaceLength(chamfer, face) {
+  const side = frontChamferFaceSide(face);
+  if (side === 'west') return Number(chamfer && chamfer.westDiagLen) || 0;
+  if (side === 'east') return Number(chamfer && chamfer.eastDiagLen) || 0;
+  return 0;
+}
+
+function frontChamferWallLabel(face) {
+  if (face === 'front_chamfer_west') return 'Front angle W';
+  if (face === 'front_chamfer_east') return 'Front angle E';
+  return face;
 }
 
 function ensureWallFeatureMap(cfg) {
@@ -14969,6 +14998,8 @@ function generateGroundFloorOffsetParts(cfg, plan) {
   if (Math.abs(offset) < 0.5) return [];  // no meaningful offset
 
   const W = cfg.width;
+  const chamfer = frontCornerChamferFor(cfg, plan);
+  const frontW = chamfer.enabled ? Math.max(1, chamfer.frontWidth || W) : W;
   const offsetMag = Math.abs(offset);
   const firstH = plan.firstFloorHeight;
   const matT = cfg.coreThickness;
@@ -14985,16 +15016,32 @@ function generateGroundFloorOffsetParts(cfg, plan) {
   //   For extension: this is the FRONT wall of the projection (faces -Y in 3D)
   //   For recess: this is the BACK wall of the recess (the inner wall you see
   //     when looking into the recess from outside, faces +Y in 3D)
-  // Width = full building width, height = firstFloorHeight, simple rectangle.
+  // Width = the visible straight front span, height = firstFloorHeight.
   parts.push({
     id: namePrefix + '_outer_wall',
-    name: displayPrefix + ' — outer wall (' + W + ' × ' + firstH + 'mm)',
+    name: displayPrefix + ' — outer wall (' + frontW + ' × ' + firstH + 'mm)',
     material: 'core',
-    bboxW: W, bboxH: firstH,
+    bboxW: frontW, bboxH: firstH,
     bboxOffsetX: 0, bboxOffsetY: 0,
-    paths: [{ type: 'cut', d: rectPath(0, 0, W, firstH) }],
+    paths: [{ type: 'cut', d: rectPath(0, 0, frontW, firstH) }],
     rects: [], lines: [],
   });
+
+  if (chamfer.enabled) {
+    for (const sideName of ['west', 'east']) {
+      const diagLen = sideName === 'west' ? chamfer.westDiagLen : chamfer.eastDiagLen;
+      if (!(diagLen > 0.01)) continue;
+      parts.push({
+        id: namePrefix + '_front_chamfer_' + sideName,
+        name: displayPrefix + ' — front angled ' + sideName + ' wall (' + diagLen.toFixed(2) + ' × ' + firstH + 'mm)',
+        material: 'core',
+        bboxW: diagLen, bboxH: firstH,
+        bboxOffsetX: 0, bboxOffsetY: 0,
+        paths: [{ type: 'cut', d: rectPath(0, 0, diagLen, firstH) }],
+        rects: [], lines: [],
+      });
+    }
+  }
 
   // Two side walls of the sub-assembly. Width = |offset|, height = firstFloorHeight.
   // East and west are identical, named separately for clarity in assembly.
@@ -15014,13 +15061,29 @@ function generateGroundFloorOffsetParts(cfg, plan) {
   // Size: building width × |offset|.
   parts.push({
     id: namePrefix + '_ceiling',
-    name: displayPrefix + ' — ' + (isExtension ? 'roof/shelf' : 'overhang ceiling') + ' (' + W + ' × ' + offsetMag + 'mm)',
+    name: displayPrefix + ' — ' + (isExtension ? 'roof/shelf' : 'overhang ceiling') + ' (' + frontW + ' × ' + offsetMag + 'mm)',
     material: 'core',
-    bboxW: W, bboxH: offsetMag,
+    bboxW: frontW, bboxH: offsetMag,
     bboxOffsetX: 0, bboxOffsetY: 0,
-    paths: [{ type: 'cut', d: rectPath(0, 0, W, offsetMag) }],
+    paths: [{ type: 'cut', d: rectPath(0, 0, frontW, offsetMag) }],
     rects: [], lines: [],
   });
+
+  if (chamfer.enabled) {
+    for (const sideName of ['west', 'east']) {
+      const diagLen = sideName === 'west' ? chamfer.westDiagLen : chamfer.eastDiagLen;
+      if (!(diagLen > 0.01)) continue;
+      parts.push({
+        id: namePrefix + '_ceiling_chamfer_' + sideName,
+        name: displayPrefix + ' — angled ' + sideName + ' ' + (isExtension ? 'roof/shelf' : 'overhang ceiling'),
+        material: 'core',
+        bboxW: diagLen, bboxH: offsetMag,
+        bboxOffsetX: 0, bboxOffsetY: 0,
+        paths: [{ type: 'cut', d: rectPath(0, 0, diagLen, offsetMag) }],
+        rects: [], lines: [],
+      });
+    }
+  }
 
   // ---- Cladding pieces ----
   // For extension: cladding wraps the outside of the box (front, sides, top).
@@ -15035,11 +15098,27 @@ function generateGroundFloorOffsetParts(cfg, plan) {
     id: namePrefix + '_cladding_outer',
     name: displayPrefix + ' — outer wall cladding',
     material: 'cladding',
-    bboxW: W + 2 * cT, bboxH: firstH + cT,
+    bboxW: frontW + 2 * cT, bboxH: firstH + cT,
     bboxOffsetX: 0, bboxOffsetY: 0,
-    paths: [{ type: 'cut', d: rectPath(0, 0, W + 2 * cT, firstH + cT) }],
+    paths: [{ type: 'cut', d: rectPath(0, 0, frontW + 2 * cT, firstH + cT) }],
     rects: [], lines: [],
   });
+
+  if (chamfer.enabled) {
+    for (const sideName of ['west', 'east']) {
+      const diagLen = sideName === 'west' ? chamfer.westDiagLen : chamfer.eastDiagLen;
+      if (!(diagLen > 0.01)) continue;
+      parts.push({
+        id: namePrefix + '_cladding_front_chamfer_' + sideName,
+        name: displayPrefix + ' — front angled ' + sideName + ' cladding',
+        material: 'cladding',
+        bboxW: diagLen + 2 * cT, bboxH: firstH + cT,
+        bboxOffsetX: 0, bboxOffsetY: 0,
+        paths: [{ type: 'cut', d: rectPath(0, 0, diagLen + 2 * cT, firstH + cT) }],
+        rects: [], lines: [],
+      });
+    }
+  }
 
   // Side wall cladding: sits between the outer wall's overhangs (so cT shorter on the front-back direction)
   for (const sideName of ['east', 'west']) {
@@ -15060,11 +15139,27 @@ function generateGroundFloorOffsetParts(cfg, plan) {
     id: namePrefix + '_cladding_top',
     name: displayPrefix + ' — ceiling cladding',
     material: 'cladding',
-    bboxW: W + 2 * cT, bboxH: offsetMag,
+    bboxW: frontW + 2 * cT, bboxH: offsetMag,
     bboxOffsetX: 0, bboxOffsetY: 0,
-    paths: [{ type: 'cut', d: rectPath(0, 0, W + 2 * cT, offsetMag) }],
+    paths: [{ type: 'cut', d: rectPath(0, 0, frontW + 2 * cT, offsetMag) }],
     rects: [], lines: [],
   });
+
+  if (chamfer.enabled) {
+    for (const sideName of ['west', 'east']) {
+      const diagLen = sideName === 'west' ? chamfer.westDiagLen : chamfer.eastDiagLen;
+      if (!(diagLen > 0.01)) continue;
+      parts.push({
+        id: namePrefix + '_cladding_top_chamfer_' + sideName,
+        name: displayPrefix + ' — angled ' + sideName + ' ceiling cladding',
+        material: 'cladding',
+        bboxW: diagLen + 2 * cT, bboxH: offsetMag,
+        bboxOffsetX: 0, bboxOffsetY: 0,
+        paths: [{ type: 'cut', d: rectPath(0, 0, diagLen + 2 * cT, offsetMag) }],
+        rects: [], lines: [],
+      });
+    }
+  }
 
   return parts;
 }
@@ -18291,6 +18386,27 @@ function generateFrontChamferWalls(cfg, plan) {
         left: { tongues: [], openings: [] },
       },
     };
+    const faceKey = frontChamferFaceKey(sideKey);
+    const ops = (manualStructuralOps(cfg, faceKey) || [])
+      .filter(op => op && (op.type === 'window' || op.type === 'door'));
+    const rects = [];
+    const windowsToDraw = [];
+    const doors = [];
+    for (const op of ops) {
+      const x = Math.max(0, Math.min(len - (Number(op.w) || 0), Number(op.x) || 0));
+      const y = Math.max(0, Math.min(H - (Number(op.h) || 0), Number(op.y) || 0));
+      if (op.type === 'window') {
+        const style = op.style ? WINDOW_STYLES[op.style] : null;
+        const placement = (style && style.placement) || 'opening';
+        if (placement !== 'etched') {
+          rects.push({ type: 'cut', x: x - 1, y: y - 1, w: op.w + 2, h: op.h + 2, compensateKerf: false });
+        }
+        windowsToDraw.push({ ...op, x, y });
+      } else if (op.type === 'door') {
+        cutDoorCoreHoles(rects, x, y, op.w, op.h, op.style || cfg.doorStyle, false);
+        doors.push({ ...op, x, y });
+      }
+    }
     return {
       id: `front_chamfer_wall_${sideKey}`,
       name: `Front Chamfer Wall ${sideKey === 'west' ? 'West' : 'East'}`,
@@ -18300,8 +18416,11 @@ function generateFrontChamferWalls(cfg, plan) {
       bboxOffsetX: 0,
       bboxOffsetY: 0,
       paths: [{ type: 'cut', d: buildWallPath(wallSpec) }],
-      rects: [],
+      rects,
       lines: [],
+      wallKey: faceKey,
+      windows: windowsToDraw.length,
+      doors: doors.length,
       assemblyNote: 'Diagonal front corner wall: glue its vertical edges between the shortened front and side walls.',
     };
   };
@@ -18327,6 +18446,7 @@ function generateFrontChamferCladdingPanels(cfg, plan, band) {
 
   const makePanel = (sideKey, len) => {
     if (!(len > 0.01)) return null;
+    const faceKey = frontChamferFaceKey(sideKey);
     const fullW = len + 2 * cT;
     const fullH = H + floorBottomCladdingExtension;
     let y0 = 0;
@@ -18339,8 +18459,60 @@ function generateFrontChamferCladdingPanels(cfg, plan, band) {
     if (!(h > 0.01)) return null;
     const idSuffix = splitMode ? `_${band}` : '';
     const titleBand = splitMode ? ` (${band})` : '';
-    const lines = generateCladdingPattern(styleSpec, 0, 0, fullW, h, [], null)
-      .map(ln => ({ type: 'etch', x1: ln.x1, y1: ln.y1, x2: ln.x2, y2: ln.y2 }));
+    const ops = (wallFeaturesForFace(cfg, faceKey) || [])
+      .filter(op => op && (op.type === 'window' || op.type === 'door'));
+    const bandOps = ops
+      .map(op => ({ ...op, y: Number(op.y || 0) - y0 }))
+      .filter(op => op.y + Number(op.h || 0) >= -0.1 && op.y <= h + 0.1);
+    const cutOpenings = [];
+    const rects = [];
+    const lines = [];
+    const openingWindows = [];
+    const blankedWindows = [];
+    const doorSpecs = [];
+    const isGroundWindow = op => (Number(op.y || 0) + Number(op.h || 0) / 2) >= boundary - 0.1;
+    const effectiveWindowStyle = op => {
+      if (op.style) return op.style;
+      if (isGroundWindow(op) && cfg.firstFloorWindowStyleEnabled && cfg.firstFloorWindowStyle) return cfg.firstFloorWindowStyle;
+      return cfg.windowStyle;
+    };
+    const addEtchedWindow = (x, y, w, hh) => {
+      const inset = 0.25;
+      const x1 = x + inset, y1 = y + inset;
+      const x2 = x + w - inset, y2 = y + hh - inset;
+      lines.push({ type: 'etch', x1, y1, x2, y2: y1 });
+      lines.push({ type: 'etch', x1: x2, y1, x2, y2 });
+      lines.push({ type: 'etch', x1: x2, y1: y2, x2: x1, y2 });
+      lines.push({ type: 'etch', x1, y1: y2, x2: x1, y2: y1 });
+      lines.push({ type: 'etch', x1: (x1 + x2) / 2, y1, x2: (x1 + x2) / 2, y2 });
+      lines.push({ type: 'etch', x1, y1: (y1 + y2) / 2, x2, y2: (y1 + y2) / 2 });
+    };
+    for (const op of bandOps) {
+      const x = Math.max(cT, Math.min(fullW - cT - (Number(op.w) || 0), (Number(op.x) || 0) + cT));
+      const y = Math.max(0, Math.min(h - (Number(op.h) || 0), Number(op.y) || 0));
+      const w = Number(op.w) || 0;
+      const hh = Number(op.h) || 0;
+      if (!(w > 0 && hh > 0)) continue;
+      if (op.type === 'window') {
+        const style = op.style ? WINDOW_STYLES[op.style] : null;
+        const placement = (style && style.placement) || 'opening';
+        if (placement === 'etched') {
+          addEtchedWindow(x, y, w, hh);
+        } else {
+          rects.push({ type: 'cut', x, y, w, h: hh, compensateKerf: false });
+          cutOpenings.push({ x, y, w, h: hh });
+          const spec = { x, y, w, h: hh, originalW: w, clipLeft: 0, style: effectiveWindowStyle(op), isGround: isGroundWindow(op) };
+          if (placement === 'blanked') blankedWindows.push(spec);
+          else openingWindows.push(spec);
+        }
+      } else if (op.type === 'door') {
+        rects.push({ type: 'cut', x, y, w, h: hh, compensateKerf: false });
+        cutOpenings.push({ x, y, w, h: hh });
+        doorSpecs.push({ x, y, w, h: hh, originalW: w, clipLeft: 0, style: op.style || cfg.doorStyle });
+      }
+    }
+    lines.push(...generateCladdingPattern(styleSpec, 0, 0, fullW, h, cutOpenings, null)
+      .map(ln => ({ type: 'etch', x1: ln.x1, y1: ln.y1, x2: ln.x2, y2: ln.y2 })));
     return {
       id: `cladding_front_chamfer_${sideKey}${idSuffix}`,
       name: `Front Chamfer Cladding ${sideKey === 'west' ? 'West' : 'East'}${titleBand}`,
@@ -18348,11 +18520,25 @@ function generateFrontChamferCladdingPanels(cfg, plan, band) {
       bboxW: fullW,
       bboxH: h,
       paths: [{ type: 'cut', d: rectPath(0, 0, fullW, h) }],
-      rects: [],
+      rects,
       lines,
-      windows: 0,
-      doors: 0,
-      wallFeatures: [],
+      windows: openingWindows.length,
+      upperWindows: openingWindows.filter(w => !w.isGround).length,
+      groundWindows: openingWindows.filter(w => w.isGround).length,
+      blankedUpper: blankedWindows.filter(w => !w.isGround).length,
+      blankedGround: blankedWindows.filter(w => w.isGround).length,
+      windowSpecs: openingWindows,
+      blankedSpecs: blankedWindows,
+      doors: doorSpecs.length,
+      doorSpecs,
+      doorStyleTallies: tallyDoorSpecs(doorSpecs),
+      wallKey: faceKey,
+      panelYStart: y0,
+      wallOpenings: [
+        ...openingWindows.map(w => ({ x: w.x - cT, y: w.y + y0, w: w.w, h: w.h, kind: 'window' })),
+        ...blankedWindows.map(w => ({ x: w.x - cT, y: w.y + y0, w: w.w, h: w.h, kind: 'window_blanked' })),
+        ...doorSpecs.map(d => ({ x: d.x - cT, y: d.y + y0, w: d.w, h: d.h, kind: 'door' })),
+      ],
     };
   };
   return [
@@ -33812,6 +33998,8 @@ function wallFromPartId(id) {
   else if (baseId === 'back_wall'      || baseId.startsWith('back_wall_'))      wall = 'back';
   else if (baseId === 'side_wall_east' || baseId.startsWith('side_wall_east_')) wall = 'east';
   else if (baseId === 'side_wall_west' || baseId.startsWith('side_wall_west_')) wall = 'west';
+  else if (baseId === 'front_chamfer_wall_west') wall = 'front_chamfer_west';
+  else if (baseId === 'front_chamfer_wall_east') wall = 'front_chamfer_east';
   // Cladding panels (also clickable — same openings). Front/back use
   // `cladding_front` / `cladding_back`; sides use `cladding_side_east` /
   // `cladding_side_west` (per generateCladdingPanel's id-building logic at
@@ -33819,6 +34007,8 @@ function wallFromPartId(id) {
   // to be checked first — `cladding_side_east`.startsWith('cladding_east')
   // is false anyway, but listing the side variants explicitly keeps the
   // intent clear.
+  else if (baseId.startsWith('cladding_front_chamfer_west')) wall = 'front_chamfer_west';
+  else if (baseId.startsWith('cladding_front_chamfer_east')) wall = 'front_chamfer_east';
   else if (baseId.startsWith('cladding_front'))     wall = 'front';
   else if (baseId.startsWith('cladding_back'))      wall = 'back';
   else if (baseId.startsWith('cladding_side_east')) wall = 'east';
@@ -33854,6 +34044,31 @@ function oeStateActivePlanImpl() {
   return (oeWingIndex != null && oeWingPlan) ? oeWingPlan : lastPlan;
 }
 
+function oeWallTabId(face) {
+  if (face === 'front_chamfer_west') return 'oeTabFrontChamferWest';
+  if (face === 'front_chamfer_east') return 'oeTabFrontChamferEast';
+  return 'oeTab' + String(face || '').charAt(0).toUpperCase() + String(face || '').slice(1);
+}
+
+function oeWallIsAvailable(face) {
+  if (!isFrontChamferWallFace(face)) return true;
+  if (oeWingIndex != null) return false;
+  const chamfer = frontCornerChamferFor(oeActiveCfg(), oeActivePlan());
+  return chamfer.enabled && frontChamferFaceLength(chamfer, face) > 0.01;
+}
+
+function oeRefreshWallTabs() {
+  const target = oeEditTarget();
+  for (const w of WALL_FACE_KEYS) {
+    const tab = document.getElementById(oeWallTabId(w));
+    if (!tab) continue;
+    const available = oeWallIsAvailable(w);
+    tab.style.display = available ? '' : 'none';
+    tab.classList.toggle('oe-active', w === oeWall);
+    tab.classList.toggle('oe-manual-indicator', wallHasManualFeatures(target, w));
+  }
+}
+
 function oeStateOpenImpl(wall, wingIndex) {
   if (typeof wall !== 'string') wall = null;
   if (!lastPlan) { readForm(); regenerate(); }
@@ -33880,8 +34095,8 @@ function oeStateOpenImpl(wall, wingIndex) {
   // unified list from the legacy manual* buckets when wallFeatures is absent.
   const target = oeEditTarget();
   migrateLegacyWallFeatures(target);
-  oeOpenings = { front: null, back: null, east: null, west: null };
-  for (const face of ['front', 'back', 'east', 'west']) {
+  oeOpenings = emptyWallFeatureMap(null);
+  for (const face of WALL_FACE_KEYS) {
     oeOpenings[face] = oeWallFeatureEditorOps(face);
   }
 
@@ -33897,6 +34112,7 @@ function oeStateOpenImpl(wall, wingIndex) {
   // default to 'back' (the wing's outermost face — always editable).
   let initialWall = wall;
   if (oeWingIndex != null && !initialWall) initialWall = 'back';
+  if (initialWall && !oeWallIsAvailable(initialWall)) initialWall = null;
   oeSetWall(initialWall || oeWall);
   oeSetTool(oeTool === 'window' || oeTool === 'door' ? 'move' : oeTool);
 }
@@ -33930,13 +34146,13 @@ function oeStateCloseImpl() {
 
 function oeStateApplyImpl() {
   const target = oeEditTarget();
-  if (!target.manualOpenings) target.manualOpenings = { front: null, back: null, east: null, west: null };
-  if (!target.manualAwnings)  target.manualAwnings  = { front: [],  back: [],  east: [],  west: []  };
-  if (!target.manualBalconies) target.manualBalconies = { front: [], back: [], east: [], west: [] };
-  if (!target.manualFixtures)  target.manualFixtures  = { front: [], back: [], east: [], west: [] };
-  if (!target.manualCladdingOverrides) target.manualCladdingOverrides = { front: [], back: [], east: [], west: [] };
-  if (!target.manualPrintedItems) target.manualPrintedItems = { front: [], back: [], east: [], west: [] };
-  for (const w of ['front', 'back', 'east', 'west']) {
+  if (!target.manualOpenings) target.manualOpenings = emptyWallFeatureMap(null);
+  if (!target.manualAwnings)  target.manualAwnings  = emptyWallFeatureMap([]);
+  if (!target.manualBalconies) target.manualBalconies = emptyWallFeatureMap([]);
+  if (!target.manualFixtures)  target.manualFixtures  = emptyWallFeatureMap([]);
+  if (!target.manualCladdingOverrides) target.manualCladdingOverrides = emptyWallFeatureMap([]);
+  if (!target.manualPrintedItems) target.manualPrintedItems = emptyWallFeatureMap([]);
+  for (const w of WALL_FACE_KEYS) {
     // Drop generated embedded-rail bays before writing manual buckets; they
     // are derived from cfg.embeddedRails and remain linked handles only.
     const rawOps = Array.isArray(oeOpenings[w]) ? oeOpenings[w] : [];
@@ -33974,6 +34190,7 @@ function oeStateApplyImpl() {
 }
 
 function oeStateSetWallImpl(wall) {
+  if (!oeWallIsAvailable(wall)) wall = 'front';
   oeWall = wall;
   oeSelectedSet.clear();
   const targetForManualState = oeEditTarget();
@@ -33994,12 +34211,7 @@ function oeStateSetWallImpl(wall) {
     }
   }
   const targetForTabs = oeEditTarget();
-  for (const w of ['front', 'back', 'east', 'west']) {
-    const tab = document.getElementById('oeTab' + w.charAt(0).toUpperCase() + w.slice(1));
-    if (!tab) continue;
-    tab.classList.toggle('oe-active', w === wall);
-    tab.classList.toggle('oe-manual-indicator', wallHasManualFeatures(targetForTabs, w));
-  }
+  oeRefreshWallTabs();
   oeUpdateModeBadge();
   oeRender();
 }
@@ -34029,6 +34241,7 @@ function oeGetWallDims(wall) {
   if (!plan) return { W: cfg.width || CONFIG.width, H: wallBodyHeightFromConfig(cfg || CONFIG) };
   const { H, fbWidth, sideLen } = plan;
   const chamfer = frontCornerChamferFor(cfg, plan);
+  if (isFrontChamferWallFace(wall)) return { W: Math.max(1, frontChamferFaceLength(chamfer, wall)), H };
   if (wall === 'front') return { W: chamfer.enabled ? chamfer.frontWidth : fbWidth, H };
   if (wall === 'back') return { W: fbWidth, H };
   if (wall === 'east') return { W: chamfer.enabled ? chamfer.eastSideLen : sideLen, H };
@@ -34055,6 +34268,9 @@ function oeGetWallDims(wall) {
  */
 function oeEdgeBuffer(wall) {
   const matT = (CONFIG.coreThickness && CONFIG.coreThickness > 0) ? CONFIG.coreThickness : 1.5;
+  if (isFrontChamferWallFace(wall)) {
+    return { left: matT, right: matT };
+  }
   if (wall === 'front' || wall === 'back') {
     return { left: matT, right: matT };
   }
@@ -36601,6 +36817,7 @@ function oeGetAutoOpenings(wall) {
   const cfg = oeActiveCfg();
   const { H, matT, fbWidth, sideLen } = plan;
   const chamfer = frontCornerChamferFor(cfg, plan);
+  if (isFrontChamferWallFace(wall)) return [];
   const winDims = getWindowDims(cfg);
   const groundWinDims = getGroundFloorWindowDims(cfg);
   const doorStyle = cfg.doorStyle;
@@ -36668,7 +36885,7 @@ function oeMirrorToOpposite() {
   setWallFeaturesForFace(oeEditTarget(), oppWall, mirrored);
 
   // Mark the opposite tab as manually edited
-  const tab = document.getElementById('oeTab' + oppWall.charAt(0).toUpperCase() + oppWall.slice(1));
+  const tab = document.getElementById(oeWallTabId(oppWall));
   if (tab) tab.classList.add('oe-manual-indicator');
 
   oeSelectedSet.clear();
@@ -36811,8 +37028,10 @@ function oeWallShapeInfo() {
   const ridgeDir  = srcCfg.roofRidgeDirection || 'ew';
   const nsAxis    = slopeDir === 'back' || slopeDir === 'front';
   const isSide    = oeWall === 'east' || oeWall === 'west';
+  const isChamfer = isFrontChamferWallFace(oeWall);
 
   const none = { pitchL:0, pitchR:0, gable:0, wallH: baseH };
+  if (isChamfer) return none;
 
   if (roofStyle === 'gabled') {
     const ewRidge = ridgeDir === 'ew';
@@ -38975,7 +39194,7 @@ function oeStateCommitImpl() {
   setWallFeaturesForFace(target, oeWall, ops, { preserveEmpty: persistedOps.length === 0 });
 
   oeUpdateModeBadge();
-  const tab = document.getElementById('oeTab' + oeWall.charAt(0).toUpperCase() + oeWall.slice(1));
+  const tab = document.getElementById(oeWallTabId(oeWall));
   if (tab) tab.classList.toggle('oe-manual-indicator', wallHasManualFeatures(target, oeWall));
 }
 function oeStateResetWallImpl() {
@@ -38984,7 +39203,7 @@ function oeStateResetWallImpl() {
   clearWallFeaturesForFace(target, oeWall);
   oeSelectedSet.clear();
   oeUpdateModeBadge();
-  const tab = document.getElementById('oeTab' + oeWall.charAt(0).toUpperCase() + oeWall.slice(1));
+  const tab = document.getElementById(oeWallTabId(oeWall));
   if (tab) tab.classList.remove('oe-manual-indicator');
   oeRender();
 }

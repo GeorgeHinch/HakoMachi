@@ -469,6 +469,9 @@
     border-top: 1px solid var(--border);
     border-bottom: 0;
   }
+  #assemblyGuidePrintBtn {
+    margin-right: auto;
+  }
   @media (max-width: 760px) {
     .assembly-guide-modal {
       padding: 8px;

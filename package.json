@@ -1,0 +1,14 @@
+{
+  "name": "hakomachi",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Browser-based tools for Japanese N gauge streetscape planning and laser-cut building generation.",
+  "scripts": {
+    "check:runtime": "node tools/runtime_check.js",
+    "check:browser": "playwright test",
+    "check:browser:install": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1"
+  }
+}

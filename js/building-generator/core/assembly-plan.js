@@ -6,6 +6,7 @@ import {
   sanitiseFileName,
 } from './part-metadata.js';
 import { generateBuilding } from './full-building-generation.js';
+import { createAssemblySequence } from './assembly-sequence.js';
 
 export const ASSEMBLY_PLAN_SCHEMA = 'hakomachi.assembly-plan';
 export const ASSEMBLY_PLAN_SCHEMA_VERSION = 1;
@@ -210,7 +211,7 @@ export function createAssemblyPlan(input = {}) {
   const warnings = collectWarnings(unsortedParts, sourceParts);
   const parts = unsortedParts.sort((a, b) => a.exportRef.path.localeCompare(b.exportRef.path) || a.id.localeCompare(b.id));
   const relationships = addInferredRelationships(parts, cfg, warnings);
-  return {
+  const plan = {
     schema: ASSEMBLY_PLAN_SCHEMA,
     schemaVersion: ASSEMBLY_PLAN_SCHEMA_VERSION,
     generator: 'HakoMachi Building Generator',
@@ -230,6 +231,8 @@ export function createAssemblyPlan(input = {}) {
     relationships,
     warnings: warnings.sort((a, b) => `${a.code}:${a.partId || ''}`.localeCompare(`${b.code}:${b.partId || ''}`)),
   };
+  plan.sequence = createAssemblySequence(plan);
+  return plan;
 }
 
 export function createAssemblyPlanFromConfig(config, opts = {}) {

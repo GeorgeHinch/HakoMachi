@@ -26,6 +26,7 @@ import * as blockSupplementalParts from './block-supplemental-parts.js';
 import * as sheetSplitting from './sheet-splitting.js';
 import * as fullBuildingGeneration from './full-building-generation.js';
 import * as assemblyPlan from './assembly-plan.js';
+import * as assemblySequence from './assembly-sequence.js';
 import * as partMetadata from './part-metadata.js';
 import * as configSerialization from './config-serialization.js';
 import * as presetStorage from './preset-storage.js';
@@ -60,6 +61,7 @@ export {
   sheetSplitting,
   fullBuildingGeneration,
   assemblyPlan,
+  assemblySequence,
   partMetadata,
   configSerialization,
   presetStorage,
@@ -95,6 +97,7 @@ export const coreModules = Object.freeze({
   sheetSplitting,
   fullBuildingGeneration,
   assemblyPlan,
+  assemblySequence,
   partMetadata,
   configSerialization,
   presetStorage,

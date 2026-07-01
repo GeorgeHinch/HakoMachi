@@ -1,0 +1,24 @@
+{
+  "schema": "hakomachi.assembly-plan",
+  "schemaVersion": 1,
+  "deterministicKey": "fixture-ambiguous-role",
+  "parts": [
+    {
+      "id": "mystery_part",
+      "sourcePartId": "mystery_part",
+      "name": "Mystery Part",
+      "role": "general",
+      "area": "general",
+      "scope": "main",
+      "wingIndex": null,
+      "material": "misc",
+      "dimensionsMm": { "width": 12, "height": 8, "offsetX": 0, "offsetY": 0 },
+      "exportRef": { "format": "svg", "material": "misc", "fileName": "Mystery_Part.svg", "path": "misc/Mystery_Part.svg" },
+      "operationCounts": { "paths": 1, "rects": 0, "lines": 0 },
+      "metadata": { "scope": "main", "area": "general", "role": "general" },
+      "assemblyNote": null
+    }
+  ],
+  "relationships": [],
+  "warnings": []
+}

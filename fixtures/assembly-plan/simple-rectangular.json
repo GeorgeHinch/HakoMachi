@@ -1,0 +1,109 @@
+{
+  "schema": "hakomachi.assembly-plan",
+  "schemaVersion": 1,
+  "generator": "HakoMachi Building Generator",
+  "deterministicKey": "fixture-simple-rectangular",
+  "source": {
+    "kind": "fixture",
+    "buildingType": "shop",
+    "buildingName": "Simple rectangular fixture",
+    "dimensionsMm": {
+      "width": 60,
+      "depth": 42,
+      "height": 48
+    }
+  },
+  "parts": [
+    {
+      "id": "front_wall",
+      "sourcePartId": "front_wall",
+      "name": "Front Wall",
+      "role": "core_wall",
+      "area": "front",
+      "scope": "main",
+      "wingIndex": null,
+      "material": "core",
+      "dimensionsMm": { "width": 60, "height": 48, "offsetX": 0, "offsetY": 0 },
+      "exportRef": { "format": "svg", "material": "core", "fileName": "Main_Front_Core_Wall.svg", "path": "core/Main_Front_Core_Wall.svg" },
+      "operationCounts": { "paths": 1, "rects": 6, "lines": 4 },
+      "metadata": { "scope": "main", "wingIndex": null, "area": "front", "role": "core_wall" },
+      "assemblyNote": null
+    },
+    {
+      "id": "floor",
+      "sourcePartId": "floor",
+      "name": "Floor Panel",
+      "role": "floor_panel",
+      "area": "floor",
+      "scope": "main",
+      "wingIndex": null,
+      "material": "core",
+      "dimensionsMm": { "width": 60, "height": 42, "offsetX": 1.5, "offsetY": 1.5 },
+      "exportRef": { "format": "svg", "material": "core", "fileName": "Main_Floor_Floor_Panel.svg", "path": "core/Main_Floor_Floor_Panel.svg" },
+      "operationCounts": { "paths": 1, "rects": 12, "lines": 0 },
+      "metadata": { "scope": "main", "wingIndex": null, "area": "floor", "role": "floor_panel" },
+      "assemblyNote": null
+    },
+    {
+      "id": "roof",
+      "sourcePartId": "roof",
+      "name": "Roof Panel",
+      "role": "roof_panel",
+      "area": "roof",
+      "scope": "main",
+      "wingIndex": null,
+      "material": "core",
+      "dimensionsMm": { "width": 60, "height": 42, "offsetX": 0, "offsetY": 0 },
+      "exportRef": { "format": "svg", "material": "core", "fileName": "Main_Roof_Roof_Panel.svg", "path": "core/Main_Roof_Roof_Panel.svg" },
+      "operationCounts": { "paths": 1, "rects": 0, "lines": 0 },
+      "metadata": { "scope": "main", "wingIndex": null, "area": "roof", "role": "roof_panel" },
+      "assemblyNote": null
+    },
+    {
+      "id": "front_cladding",
+      "sourcePartId": "front_cladding",
+      "name": "Front Exterior Cladding",
+      "role": "exterior_cladding",
+      "area": "front",
+      "scope": "main",
+      "wingIndex": null,
+      "material": "cladding",
+      "dimensionsMm": { "width": 60, "height": 48, "offsetX": 0, "offsetY": 0 },
+      "exportRef": { "format": "svg", "material": "cladding", "fileName": "Main_Front_Exterior_Cladding.svg", "path": "cladding/Main_Front_Exterior_Cladding.svg" },
+      "operationCounts": { "paths": 1, "rects": 3, "lines": 24 },
+      "metadata": { "scope": "main", "wingIndex": null, "area": "front", "role": "exterior_cladding" },
+      "assemblyNote": null
+    }
+  ],
+  "materialLayers": [
+    { "id": "cladding", "partIds": ["front_cladding"], "roles": ["exterior_cladding"] },
+    { "id": "core", "partIds": ["floor", "front_wall", "roof"], "roles": ["core_wall", "floor_panel", "roof_panel"] }
+  ],
+  "relationships": [
+    {
+      "id": "cladding-to-core_front_cladding_to_front_wall",
+      "type": "cladding-to-core",
+      "fromPartId": "front_cladding",
+      "toPartId": "front_wall",
+      "confidence": "inferred",
+      "notes": "Cladding role and wall area map this panel back to a core wall."
+    },
+    {
+      "id": "floor-to-wall_floor_to_front_wall",
+      "type": "floor-to-wall",
+      "fromPartId": "floor",
+      "toPartId": "front_wall",
+      "confidence": "inferred",
+      "notes": "Floor/inter-floor tabs or slots relate this panel to the block core walls."
+    },
+    {
+      "id": "wall-to-roof_front_wall_to_roof",
+      "type": "wall-to-roof",
+      "fromPartId": "front_wall",
+      "toPartId": "roof",
+      "confidence": "inferred",
+      "notes": "Roof panels sit on or slot to the same block core walls."
+    }
+  ],
+  "warnings": []
+}

@@ -19,7 +19,7 @@
     top: 14px;
     align-self: start;
     height: calc(100dvh - 28px);
-    background: var(--panel);
+    background: var(--panel-2);
     border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: none;
@@ -34,7 +34,14 @@
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
-    padding: 16px;
+    padding: 0 16px 16px;
+  }
+  .controls-scroll > .app-logo {
+    position: sticky;
+    top: 0;
+    z-index: 25;
+    padding-top: 16px;
+    background: var(--panel-2);
   }
   .preview {
     overflow: auto;
@@ -48,7 +55,7 @@
     position: sticky;
     bottom: 0;
     z-index: 20;
-    background: var(--panel);
+    background: var(--panel-2);
     padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid var(--border);
     flex-shrink: 0;
@@ -165,7 +172,7 @@
       border-bottom: 1px solid var(--border);
       border-radius: 0;
       box-shadow: none;
-      background: var(--panel);
+      background: var(--panel-2);
     }
     .controls-scroll {
       max-height: none;

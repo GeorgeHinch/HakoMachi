@@ -68,6 +68,7 @@ export function partRoleUsesDisposableCutColor(part) {
     'floor_panel',
     'interfloor_panel',
     'roof_panel',
+    'truss',
   ].includes(role);
 }
 
@@ -195,32 +196,49 @@ export function cutOpIsInsideAnotherCut(part, op, kind, index) {
   return false;
 }
 
-export function geometryStrokeColor(part, op, kind, index) {
+export function geometryFabricationOperation(part, op, kind, index) {
   const type = String((op && op.type) || '').toLowerCase();
 
-  if (type === 'etch') return COLOR_ETCH;
-  if (cutOpExplicitlyDiscarded(op)) return COLOR_DISCARD_CUT;
-  if (cutOpExplicitlyStructural(op)) return COLOR_CUT;
+  if (type === 'etch') return SVG_OPERATION_ENGRAVE;
+  if (cutOpExplicitlyDiscarded(op)) return SVG_OPERATION_CUT_SCRAP;
+  if (cutOpExplicitlyStructural(op)) return SVG_OPERATION_CUT_RETAINED;
 
   // Hard rule: fixtures/details are kept objects. Their normal cut geometry is
   // never green, even when a fixture tile contains multiple nested rectangles.
   // Green only appears here if the operation explicitly opted into discard.
-  if (partIsFixtureOrDetailLike(part)) return COLOR_CUT;
+  if (partIsFixtureOrDetailLike(part)) return SVG_OPERATION_CUT_RETAINED;
 
   if (cutOpIsCutLike(op)) {
     const mayHaveDiscardInteriors = partMayHaveGreenDiscardInteriors(part);
-    if (!mayHaveDiscardInteriors) return COLOR_CUT;
+    if (!mayHaveDiscardInteriors) return SVG_OPERATION_CUT_RETAINED;
 
     // Green is only for geometry that is physically inside another retained
     // cut outline on the same sheet. This fixes full exported tiled frame
     // sheets: every tile's outer frame outline stays red, while each tile's
     // inner aperture/dropout turns green. The previous index-based rule worked
     // for preview tiles but made later tile outlines green in the exported SVG.
-    if (kind === 'rect' && rectLooksLikePartOuterBoundary(part, op)) return COLOR_CUT;
-    return cutOpIsInsideAnotherCut(part, op, kind, index) ? COLOR_DISCARD_CUT : COLOR_CUT;
+    if (kind === 'rect' && rectLooksLikePartOuterBoundary(part, op)) return SVG_OPERATION_CUT_RETAINED;
+    return cutOpIsInsideAnotherCut(part, op, kind, index) ? SVG_OPERATION_CUT_SCRAP : SVG_OPERATION_CUT_RETAINED;
   }
 
+  return SVG_OPERATION_ENGRAVE;
+}
+
+export function geometryStrokeColor(part, op, kind, index) {
+  const operation = geometryFabricationOperation(part, op, kind, index);
+  if (operation === SVG_OPERATION_CUT_SCRAP) return COLOR_DISCARD_CUT;
+  if (operation === SVG_OPERATION_CUT_RETAINED) return COLOR_CUT;
   return COLOR_ETCH;
+}
+
+function geometryOperationClass(operation) {
+  if (operation === SVG_OPERATION_CUT_SCRAP) return 'svg-cut-scrap';
+  if (operation === SVG_OPERATION_CUT_RETAINED) return 'svg-cut-retained';
+  return 'svg-engrave';
+}
+
+function geometryOperationAttrs(operation) {
+  return `class="${geometryOperationClass(operation)}" data-operation="${operation}"`;
 }
 
 const CORE_ASSEMBLY_LABEL_ROLES = new Set([
@@ -309,7 +327,7 @@ function coreAssemblyLabelSvg(part) {
     const dy = index === 0 ? 0 : lineGap;
     return `<tspan x="${pos.x.toFixed(3)}" dy="${dy.toFixed(3)}">${assemblyLabelEscape(line)}</tspan>`;
   }).join('');
-  return `<text data-hakomachi-assembly-label="true" x="${pos.x.toFixed(3)}" y="${firstY.toFixed(3)}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${fontSize.toFixed(3)}" fill="${COLOR_ETCH}" stroke="none">${tspans}</text>`;
+  return `<text data-hakomachi-assembly-label="true" ${geometryOperationAttrs(SVG_OPERATION_ENGRAVE)} x="${pos.x.toFixed(3)}" y="${firstY.toFixed(3)}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${fontSize.toFixed(3)}" fill="${COLOR_ETCH}" stroke="none">${tspans}</text>`;
 }
 
 export function partRawGeometrySvg(part, options = {}) {
@@ -323,24 +341,28 @@ export function partRawGeometrySvg(part, options = {}) {
     if (part && part.svgContent) out += part.svgContent;
     for (let i = 0; i < ((part && part.paths) || []).length; i++) {
       const p = ((part && part.paths) || [])[i];
+      const operation = geometryFabricationOperation(part, p, 'path', i);
       const color = geometryStrokeColor(part, p, 'path', i);
-      out += `<path d="${p.d}" fill="none" stroke="${color}" stroke-width="${strokeW}"/>`;
+      out += `<path d="${p.d}" fill="none" stroke="${color}" stroke-width="${strokeW}" ${geometryOperationAttrs(operation)}/>`;
     }
     for (let i = 0; i < ((part && part.rects) || []).length; i++) {
       const r = ((part && part.rects) || [])[i];
+      const operation = geometryFabricationOperation(part, r, 'rect', i);
       const color = geometryStrokeColor(part, r, 'rect', i);
       let { x, y, w, h } = r;
       if (r.compensateKerf && kerf) {
         const exp = -kerf;
         x -= exp; y -= exp; w += 2 * exp; h += 2 * exp;
       }
-      out += `<rect x="${Number(x).toFixed(3)}" y="${Number(y).toFixed(3)}" width="${Number(w).toFixed(3)}" height="${Number(h).toFixed(3)}" fill="none" stroke="${color}" stroke-width="${strokeW}"/>`;
+      out += `<rect x="${Number(x).toFixed(3)}" y="${Number(y).toFixed(3)}" width="${Number(w).toFixed(3)}" height="${Number(h).toFixed(3)}" fill="none" stroke="${color}" stroke-width="${strokeW}" ${geometryOperationAttrs(operation)}/>`;
     }
     for (const l of ((part && part.lines) || [])) {
       const isCrop = isPrinted && l.isCrop;
+      const operation = (l.type === 'cut') ? SVG_OPERATION_CUT_RETAINED : SVG_OPERATION_ENGRAVE;
       const color = isCrop ? '#000' : ((l.type === 'cut') ? COLOR_CUT : COLOR_ETCH);
       const sw = isCrop ? (strokeW * 1.5) : strokeW;
-      out += `<line x1="${Number(l.x1).toFixed(3)}" y1="${Number(l.y1).toFixed(3)}" x2="${Number(l.x2).toFixed(3)}" y2="${Number(l.y2).toFixed(3)}" stroke="${color}" stroke-width="${sw}"/>`;
+      const attrs = isCrop ? '' : ` ${geometryOperationAttrs(operation)}`;
+      out += `<line x1="${Number(l.x1).toFixed(3)}" y1="${Number(l.y1).toFixed(3)}" x2="${Number(l.x2).toFixed(3)}" y2="${Number(l.y2).toFixed(3)}" stroke="${color}" stroke-width="${sw}"${attrs}/>`;
     }
     if (options.assemblyLabels !== false) out += coreAssemblyLabelSvg(part);
     return out;

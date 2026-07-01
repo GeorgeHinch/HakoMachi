@@ -416,7 +416,7 @@ async function exportZip() {
     }
     manifest += '\n';
   }
-  manifest += `## Colour legend\n- Red (#FF0000): cut all the way through\n- Blue (#0000FF): score / etch only\n`;
+  manifest += `## Colour legend\n- Red (#ff0000): retained through-cut\n- Green (#00ff00): scrap / discard through-cut\n- Blue (#0000ff): score / etch only\n`;
   manifest += `\n## Reimport files\n`;
   manifest += `- Building settings: \`${hakoName}\`\n`;
   manifest += `- Material library: \`${matLibName}\`\n`;

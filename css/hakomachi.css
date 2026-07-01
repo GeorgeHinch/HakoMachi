@@ -15,7 +15,7 @@
     background: var(--panel-2);
   }
   .controls {
-    background: rgba(255,255,255,.86);
+    background: var(--panel-2);
     border: 1px solid rgba(200,74,58,.16);
     border-radius: 8px;
     box-shadow:
@@ -140,8 +140,6 @@
     }
     .controls {
       max-height: calc(100dvh - 28px);
-      position: sticky;
-      top: 14px;
       align-self: start;
     }
     .sticky-actions {
@@ -166,7 +164,7 @@
       border-bottom: 1px solid var(--border);
       border-radius: 0;
       box-shadow: none;
-      background: rgba(255,255,255,.94);
+      background: var(--panel-2);
     }
     .controls-scroll {
       max-height: none;
@@ -673,8 +671,18 @@
     border-radius: 4px;
   }
   .building-title-return-btn {
-    width: 100%;
-    margin-top: 10px;
+    display: block;
+    width: auto;
+    max-width: 100%;
+    margin: 10px 0 0 auto;
+    white-space: normal;
+  }
+
+  @media (max-width: 520px) {
+    .building-title-return-btn {
+      width: 100%;
+      margin-left: 0;
+    }
   }
 
 

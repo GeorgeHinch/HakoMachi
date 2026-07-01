@@ -1,8 +1,14 @@
-import * as U from '../shared/browser-utils.js';
+import * as U from './shared.js';
+import { createUtility3dPreview } from './utility-3d-preview.js';
 
 const $ = id => U.byId(id);
-const COLOR_CUT = '#FF0000';
-const COLOR_ENGRAVE = '#0000FF';
+const SVG_OP = U.SVG_FABRICATION_OPERATIONS;
+const COLOR_CUT = U.svgFabricationColor(SVG_OP.CUT_RETAINED);
+const COLOR_ENGRAVE = U.svgFabricationColor(SVG_OP.ENGRAVE);
+
+function operationForClass(cls) {
+  return cls === 'cut' ? SVG_OP.CUT_RETAINED : SVG_OP.ENGRAVE;
+}
 
   const ids = [
     'outerW',
@@ -44,6 +50,8 @@ const COLOR_ENGRAVE = '#0000FF';
     strokeW: 0.05
   };
 
+  const crate3d = createUtility3dPreview($('crate3dPreview'), { readyText: '3D crate preview ready.' });
+
   function settings() {
     return U.readFormSettings(ids);
   }
@@ -54,16 +62,21 @@ const COLOR_ENGRAVE = '#0000FF';
   }
 
   function line(x1, y1, x2, y2, cls = 'cut', extra = '') {
-    return U.svgLine(x1, y1, x2, y2, { class: cls }, extra);
+    return U.svgLine(x1, y1, x2, y2, { class: cls, 'data-operation': operationForClass(cls) }, extra);
   }
 
   function rect(x, y, w, h, cls = 'cut', extra = '') {
-    return U.svgRect(x, y, w, h, { class: cls }, extra);
+    return U.svgRect(x, y, w, h, { class: cls, 'data-operation': operationForClass(cls) }, extra);
+  }
+
+  function polygon(points, cls = 'cut', extra = '') {
+    return `<polygon class="${cls}" data-operation="${operationForClass(cls)}" points="${points.map(p => `${p.x.toFixed(3)},${p.y.toFixed(3)}`).join(' ')}" ${extra}/>`;
   }
 
   function text(x, y, value, cls = 'label', size = 1.8) {
     return U.svgText(x, y, value, {
       class: cls,
+      'data-operation': SVG_OP.ENGRAVE,
       'font-size': size,
       'font-family': 'Arial',
       fill: COLOR_ENGRAVE
@@ -188,7 +201,7 @@ const COLOR_ENGRAVE = '#0000FF';
   function bracePanel() {
     return function(p, s) {
       let out = rect(p.x, p.y, p.w, p.h, 'score');
-      out += braceLines(p.x, p.y, p.w, p.h, s, 'cut');
+      out += braceShapes(p.x, p.y, p.w, p.h, s);
       if (s.nails) out += nails(p.x, p.y, p.w, p.h, s);
       return out;
     };
@@ -229,24 +242,41 @@ const COLOR_ENGRAVE = '#0000FF';
       const xx = lx + lw * 0.12 + lw * 0.42 * i / 8;
       out += line(xx, ly + lh * 0.70, xx, ly + lh * (i % 3 === 0 ? 0.88 : 0.82), 'etch');
     }
-    out += `<circle class="etch" cx="${(lx + lw * 0.80).toFixed(3)}" cy="${(ly + lh * 0.74).toFixed(3)}" r="${(Math.min(lw, lh) * 0.18).toFixed(3)}"/>`;
+      out += `<circle class="etch" data-operation="${SVG_OP.ENGRAVE}" cx="${(lx + lw * 0.80).toFixed(3)}" cy="${(ly + lh * 0.74).toFixed(3)}" r="${(Math.min(lw, lh) * 0.18).toFixed(3)}"/>`;
     return out;
   }
 
-  function braceLines(x, y, w, h, s, cls) {
+  function stripPolygon(x1, y1, x2, y2, width) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len * width / 2;
+    const ny = dx / len * width / 2;
+    return [
+      { x: x1 + nx, y: y1 + ny },
+      { x: x2 + nx, y: y2 + ny },
+      { x: x2 - nx, y: y2 - ny },
+      { x: x1 - nx, y: y1 - ny }
+    ];
+  }
+
+  function braceShapes(x, y, w, h, s) {
     const bw = Math.min(s.braceW, Math.min(w, h) / 3);
     let out = '';
-    const edge = (x1, y1, x2, y2) => {
-      out += line(x1, y1, x2, y2, cls, `stroke-width="${bw.toFixed(3)}" stroke-linecap="square"`);
+    const addRect = (rx, ry, rw, rh) => {
+      out += rect(rx, ry, rw, rh, 'cut');
     };
-    edge(x + bw / 2, y + bw / 2, x + w - bw / 2, y + bw / 2);
-    edge(x + bw / 2, y + h - bw / 2, x + w - bw / 2, y + h - bw / 2);
-    edge(x + bw / 2, y + bw / 2, x + bw / 2, y + h - bw / 2);
-    edge(x + w - bw / 2, y + bw / 2, x + w - bw / 2, y + h - bw / 2);
-    edge(x + w / 2, y + bw / 2, x + w / 2, y + h - bw / 2);
+    const addStrip = (x1, y1, x2, y2) => {
+      out += polygon(stripPolygon(x1, y1, x2, y2, bw), 'cut');
+    };
+    addRect(x, y, w, bw);
+    addRect(x, y + h - bw, w, bw);
+    addRect(x, y, bw, h);
+    addRect(x + w - bw, y, bw, h);
+    addRect(x + w / 2 - bw / 2, y, bw, h);
     if (s.diag !== 'none') {
-      edge(x + bw, y + bw, x + w - bw, y + h - bw);
-      if (s.diag === 'x') edge(x + w - bw, y + bw, x + bw, y + h - bw);
+      addStrip(x + bw, y + bw, x + w - bw, y + h - bw);
+      if (s.diag === 'x') addStrip(x + w - bw, y + bw, x + bw, y + h - bw);
     }
     return out;
   }
@@ -261,7 +291,7 @@ const COLOR_ENGRAVE = '#0000FF';
       [x + w / 2, y + s.braceW * 0.5],
       [x + w / 2, y + h - s.braceW * 0.5]
     ];
-    return pts.map(p => `<circle class="etch" cx="${p[0].toFixed(3)}" cy="${p[1].toFixed(3)}" r="${r}"/>`).join('');
+    return pts.map(p => `<circle class="etch" data-operation="${SVG_OP.ENGRAVE}" cx="${p[0].toFixed(3)}" cy="${p[1].toFixed(3)}" r="${r}"/>`).join('');
   }
 
   function makeSvg(s, preview = false) {
@@ -360,8 +390,8 @@ const COLOR_ENGRAVE = '#0000FF';
       body += thumbWood(pad + 0.25, pad + 0.25, w - 0.5, h - 0.5, s, w > h ? 'h' : 'v');
       if (s.crateLabels) {
         body += crateLabel(pad + 0.25, pad + 0.25, w - 0.5, h - 0.5, Number(part.mode) || 0)
-          .replaceAll('class="etch"', 'stroke="#80512b" fill="none" stroke-width=".05" vector-effect="non-scaling-stroke"')
-          .replaceAll('<line', '<line stroke="#80512b" stroke-width=".05" vector-effect="non-scaling-stroke"');
+          .replaceAll('class="etch"', `stroke="${COLOR_ENGRAVE}" fill="none" stroke-width=".05" vector-effect="non-scaling-stroke"`)
+          .replaceAll('<line', `<line stroke="${COLOR_ENGRAVE}" stroke-width=".05" vector-effect="non-scaling-stroke"`);
       }
     }
     if (part.kind === 'brace') {
@@ -390,12 +420,84 @@ const COLOR_ENGRAVE = '#0000FF';
       .join('');
   }
 
+  function addCrateFaceBraces(group, THREE, box, s, face, sign) {
+    const W = s.outerW;
+    const D = s.outerD;
+    const H = s.outerH;
+    const t = Math.max(0.08, s.matT);
+    const bw = Math.max(0.25, Math.min(s.braceW, Math.min(W, D, H) / 3));
+    const zFace = sign * (D / 2 + t * 1.5);
+    const xFace = sign * (W / 2 + t * 1.5);
+    const wood = 0xb97835;
+    function add(mesh) { group.add(mesh); }
+    if (face === 'frontBack') {
+      add(box({ w: W, h: bw, d: t, x: 0, y: bw / 2, z: zFace, color: wood }));
+      add(box({ w: W, h: bw, d: t, x: 0, y: H - bw / 2, z: zFace, color: wood }));
+      add(box({ w: bw, h: H, d: t, x: -W / 2 + bw / 2, y: H / 2, z: zFace, color: wood }));
+      add(box({ w: bw, h: H, d: t, x: W / 2 - bw / 2, y: H / 2, z: zFace, color: wood }));
+      add(box({ w: bw, h: H, d: t, x: 0, y: H / 2, z: zFace, color: wood }));
+      if (s.diag !== 'none') {
+        const len = Math.hypot(W - bw * 2, H - bw * 2);
+        const angle = Math.atan2(H - bw * 2, W - bw * 2);
+        add(box({ w: len, h: bw, d: t, x: 0, y: H / 2, z: zFace + sign * t * 0.1, color: wood, rotation: { z: angle } }));
+        if (s.diag === 'x') add(box({ w: len, h: bw, d: t, x: 0, y: H / 2, z: zFace + sign * t * 0.2, color: wood, rotation: { z: -angle } }));
+      }
+    } else if (face === 'side') {
+      add(box({ w: t, h: bw, d: D, x: xFace, y: bw / 2, z: 0, color: wood }));
+      add(box({ w: t, h: bw, d: D, x: xFace, y: H - bw / 2, z: 0, color: wood }));
+      add(box({ w: t, h: H, d: bw, x: xFace, y: H / 2, z: -D / 2 + bw / 2, color: wood }));
+      add(box({ w: t, h: H, d: bw, x: xFace, y: H / 2, z: D / 2 - bw / 2, color: wood }));
+      add(box({ w: t, h: H, d: bw, x: xFace, y: H / 2, z: 0, color: wood }));
+      if (s.diag !== 'none') {
+        const len = Math.hypot(D - bw * 2, H - bw * 2);
+        const angle = Math.atan2(H - bw * 2, D - bw * 2);
+        add(box({ w: t, h: bw, d: len, x: xFace + sign * t * 0.1, y: H / 2, z: 0, color: wood, rotation: { x: -angle } }));
+        if (s.diag === 'x') add(box({ w: t, h: bw, d: len, x: xFace + sign * t * 0.2, y: H / 2, z: 0, color: wood, rotation: { x: angle } }));
+      }
+    }
+  }
+
+  function renderCrate3d(s) {
+    crate3d.setModel((THREE, helpers) => {
+      const group = new THREE.Group();
+      const box = helpers.box;
+      const W = Math.max(1, s.outerW);
+      const D = Math.max(1, s.outerD);
+      const H = Math.max(1, s.outerH);
+      const t = Math.max(0.08, s.matT);
+      const skin = 0xd8aa62;
+      const core = 0xf0d8a1;
+      group.add(box({ w: W - t * 2, h: H - t * 2, d: D - t * 2, x: 0, y: H / 2, z: 0, color: core, opacity: 0.34 }));
+      group.add(box({ w: W, h: H, d: t, x: 0, y: H / 2, z: D / 2, color: skin, opacity: 0.88 }));
+      group.add(box({ w: W, h: H, d: t, x: 0, y: H / 2, z: -D / 2, color: skin, opacity: 0.88 }));
+      group.add(box({ w: t, h: H, d: D, x: -W / 2, y: H / 2, z: 0, color: skin, opacity: 0.88 }));
+      group.add(box({ w: t, h: H, d: D, x: W / 2, y: H / 2, z: 0, color: skin, opacity: 0.88 }));
+      group.add(box({ w: W, h: t, d: D, x: 0, y: H, z: 0, color: skin, opacity: 0.92 }));
+      group.add(box({ w: W, h: t, d: D, x: 0, y: t / 2, z: 0, color: skin, opacity: 0.92 }));
+      addCrateFaceBraces(group, THREE, box, s, 'frontBack', 1);
+      addCrateFaceBraces(group, THREE, box, s, 'frontBack', -1);
+      addCrateFaceBraces(group, THREE, box, s, 'side', 1);
+      addCrateFaceBraces(group, THREE, box, s, 'side', -1);
+      if (s.topBrace) {
+        const bw = Math.max(0.25, Math.min(s.braceW, Math.min(W, D) / 3));
+        const y = H + t * 1.5;
+        group.add(box({ w: W, h: t, d: bw, x: 0, y, z: -D / 2 + bw / 2, color: 0xb97835 }));
+        group.add(box({ w: W, h: t, d: bw, x: 0, y, z: D / 2 - bw / 2, color: 0xb97835 }));
+        group.add(box({ w: bw, h: t, d: D, x: -W / 2 + bw / 2, y, z: 0, color: 0xb97835 }));
+        group.add(box({ w: bw, h: t, d: D, x: W / 2 - bw / 2, y, z: 0, color: 0xb97835 }));
+      }
+      group.userData.previewKind = 'wooden-crate';
+      return group;
+    });
+  }
+
   function render() {
     try {
       const s = settings();
       const L = layout(s);
       $('svgHost').innerHTML = '<div class="previewScroller">' + makeSvg(s, true) + '</div>';
       $('renderHost').innerHTML = renderParts(s);
+      renderCrate3d(s);
       $('readout').innerHTML = (L.warn.length ? `<div class="bad">${L.warn.join('<br>')}</div>` : '') +
         `<b>Computed structural core outside:</b><br>${L.coreW.toFixed(2)} W &times; ${L.coreD.toFixed(2)} D &times; ${L.coreH.toFixed(2)} H mm<br>` +
         `<b>Outside layer allowance per side:</b> ${L.outerLayer.toFixed(2)} mm = cladding ${s.matT.toFixed(2)} + bracing ${s.matT.toFixed(2)}<br>` +

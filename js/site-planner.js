@@ -34,6 +34,22 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   const SVG_RETAINED_CUT = svgFabricationColor(SVG_OP.CUT_RETAINED);
   const SVG_SCRAP_CUT = svgFabricationColor(SVG_OP.CUT_SCRAP);
   const SVG_ENGRAVE = svgFabricationColor(SVG_OP.ENGRAVE);
+  const TRACK_PROFILE_DEFAULTS = Object.freeze({
+    gaugeMm: 9,
+    railWidthMm: 0.55,
+    railHeightMm: 0.8,
+    tieSpacingMm: 4,
+    tieLengthMm: 16,
+    tieWidthMm: 1.3,
+    roadbedWidthMm: 19,
+    roadbedHeightMm: 2.5,
+    roadbedShoulderMm: 3.5,
+    roadbedColor: '#c7b084',
+    roadbedTopColor: '#d8c79c',
+    railColor: '#3b3832',
+    tieColor: '#8a6f43',
+    reference: 'N gauge 9 mm track; cork roadbed profile sized as an editable visual/fabrication baseline.'
+  });
   let autosaveTimer = null;
   let autosaveSuppressed = false;
   let renderQueued = false;
@@ -765,28 +781,88 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function normalizeTrack(t){
     if(!t) return t;
     t.id=t.id||uid('track');
+    t.type='track';
     t.name=t.name||`Track ${state.tracks.length+1}`;
     t.pointsPx=Array.isArray(t.pointsPx)?t.pointsPx.map(p=>({x:Number(p.x)||0,y:Number(p.y)||0})):[];
-    t.gaugeMm=Number.isFinite(Number(t.gaugeMm))?Number(t.gaugeMm):9;
-    t.tieSpacingMm=Number.isFinite(Number(t.tieSpacingMm))?Number(t.tieSpacingMm):4;
+    t.gaugeMm=Number.isFinite(Number(t.gaugeMm))?Number(t.gaugeMm):TRACK_PROFILE_DEFAULTS.gaugeMm;
+    t.railWidthMm=Number.isFinite(Number(t.railWidthMm))?Number(t.railWidthMm):TRACK_PROFILE_DEFAULTS.railWidthMm;
+    t.railHeightMm=Number.isFinite(Number(t.railHeightMm))?Number(t.railHeightMm):TRACK_PROFILE_DEFAULTS.railHeightMm;
+    t.tieSpacingMm=Number.isFinite(Number(t.tieSpacingMm))?Number(t.tieSpacingMm):TRACK_PROFILE_DEFAULTS.tieSpacingMm;
+    t.tieLengthMm=Number.isFinite(Number(t.tieLengthMm))?Number(t.tieLengthMm):TRACK_PROFILE_DEFAULTS.tieLengthMm;
+    t.tieWidthMm=Number.isFinite(Number(t.tieWidthMm))?Number(t.tieWidthMm):TRACK_PROFILE_DEFAULTS.tieWidthMm;
+    t.roadbedWidthMm=Number.isFinite(Number(t.roadbedWidthMm))?Number(t.roadbedWidthMm):TRACK_PROFILE_DEFAULTS.roadbedWidthMm;
+    t.roadbedHeightMm=Number.isFinite(Number(t.roadbedHeightMm))?Number(t.roadbedHeightMm):TRACK_PROFILE_DEFAULTS.roadbedHeightMm;
+    t.roadbedShoulderMm=Number.isFinite(Number(t.roadbedShoulderMm))?Number(t.roadbedShoulderMm):TRACK_PROFILE_DEFAULTS.roadbedShoulderMm;
     t.gaugePx=Number.isFinite(Number(t.gaugePx))?Number(t.gaugePx):(state.pxPerMm?mmToPx(t.gaugeMm):10);
     t.tieSpacingPx=Number.isFinite(Number(t.tieSpacingPx))?Number(t.tieSpacingPx):(state.pxPerMm?mmToPx(t.tieSpacingMm):14);
-    t.color=t.color||'#4b4438';
-    t.tieColor=t.tieColor||'#8a6f43';
+    t.railWidthPx=Number.isFinite(Number(t.railWidthPx))?Number(t.railWidthPx):(state.pxPerMm?mmToPx(t.railWidthMm):1.2);
+    t.tieLengthPx=Number.isFinite(Number(t.tieLengthPx))?Number(t.tieLengthPx):(state.pxPerMm?mmToPx(t.tieLengthMm):18);
+    t.tieWidthPx=Number.isFinite(Number(t.tieWidthPx))?Number(t.tieWidthPx):(state.pxPerMm?mmToPx(t.tieWidthMm):2);
+    t.roadbedWidthPx=Number.isFinite(Number(t.roadbedWidthPx))?Number(t.roadbedWidthPx):(state.pxPerMm?mmToPx(t.roadbedWidthMm):24);
+    t.roadbedShoulderPx=Number.isFinite(Number(t.roadbedShoulderPx))?Number(t.roadbedShoulderPx):(state.pxPerMm?mmToPx(t.roadbedShoulderMm):4);
+    t.color=t.color||TRACK_PROFILE_DEFAULTS.railColor;
+    t.tieColor=t.tieColor||TRACK_PROFILE_DEFAULTS.tieColor;
+    t.roadbedColor=t.roadbedColor||TRACK_PROFILE_DEFAULTS.roadbedColor;
+    t.roadbedTopColor=t.roadbedTopColor||TRACK_PROFILE_DEFAULTS.roadbedTopColor;
+    t.endpointConnections=(t.endpointConnections && typeof t.endpointConnections==='object') ? t.endpointConnections : {};
     t.locked=!!t.locked;
     t.hidden=!!t.hidden;
+    normalizeTrackCurves(t);
     return t;
   }
   function syncTrackMetrics(t){
     normalizeTrack(t);
     if(state.pxPerMm){
       t.gaugeMm=pxToMm(t.gaugePx||0);
+      t.railWidthMm=pxToMm(t.railWidthPx||0);
       t.tieSpacingMm=pxToMm(t.tieSpacingPx||0);
+      t.tieLengthMm=pxToMm(t.tieLengthPx||0);
+      t.tieWidthMm=pxToMm(t.tieWidthPx||0);
+      t.roadbedWidthMm=pxToMm(t.roadbedWidthPx||0);
+      t.roadbedShoulderMm=pxToMm(t.roadbedShoulderPx||0);
       t.pointsMm=(t.pointsPx||[]).map(p=>({x:pxToMm(p.x),y:pxToMm(p.y)}));
+      t.curvesMm=(t.curvesPx||[]).map(c=>c?{x:pxToMm(c.x),y:pxToMm(c.y)}:null);
     }
     return t;
   }
-  function trackPathSamples(t){ return normalizeTrack(t).pointsPx||[]; }
+  function normalizeTrackCurves(t){
+    const n=Math.max(0,(t.pointsPx||[]).length-1);
+    const src=Array.isArray(t.curvesPx)?t.curvesPx:(Array.isArray(t.curves)?t.curves:(Array.isArray(t.curvesMm)&&state.pxPerMm?t.curvesMm.map(c=>c?{x:mmToPx(c.x),y:mmToPx(c.y)}:null):[]));
+    t.curvesPx=[];
+    for(let i=0;i<n;i++){
+      const c=src[i];
+      t.curvesPx[i]=c&&Number.isFinite(Number(c.x))&&Number.isFinite(Number(c.y)) ? {x:Number(c.x),y:Number(c.y)} : null;
+    }
+    return t.curvesPx;
+  }
+  function trackProfilePx(t){
+    normalizeTrack(t);
+    return {
+      gauge:t.gaugePx||mmToPx(TRACK_PROFILE_DEFAULTS.gaugeMm),
+      railWidth:Math.max(.5,t.railWidthPx||mmToPx(TRACK_PROFILE_DEFAULTS.railWidthMm)),
+      tieSpacing:Math.max(2,t.tieSpacingPx||mmToPx(TRACK_PROFILE_DEFAULTS.tieSpacingMm)),
+      tieLength:Math.max(t.gaugePx||9,t.tieLengthPx||mmToPx(TRACK_PROFILE_DEFAULTS.tieLengthMm)),
+      tieWidth:Math.max(.8,t.tieWidthPx||mmToPx(TRACK_PROFILE_DEFAULTS.tieWidthMm)),
+      roadbedWidth:Math.max((t.tieLengthPx||0)+2,t.roadbedWidthPx||mmToPx(TRACK_PROFILE_DEFAULTS.roadbedWidthMm)),
+      roadbedTopWidth:Math.max(t.gaugePx||9,(t.roadbedWidthPx||mmToPx(TRACK_PROFILE_DEFAULTS.roadbedWidthMm))-2*(t.roadbedShoulderPx||mmToPx(TRACK_PROFILE_DEFAULTS.roadbedShoulderMm)))
+    };
+  }
+  function trackPathSamples(t, perCurve=14){
+    normalizeTrack(t);
+    const pts=t.pointsPx||[];
+    if(pts.length<2) return pts;
+    const out=[];
+    for(let i=0;i<pts.length-1;i++){
+      const a=pts[i], b=pts[i+1], c=t.curvesPx?.[i];
+      if(i===0) out.push({x:a.x,y:a.y});
+      if(c){
+        for(let k=1;k<=perCurve;k++) out.push(quadPoint(a,c,b,k/perCurve));
+      } else {
+        out.push({x:b.x,y:b.y});
+      }
+    }
+    return out;
+  }
   function offsetTrackPath(path, offsetPx){
     if(!Array.isArray(path)||path.length<2) return [];
     return path.map((p,i)=>{
@@ -798,8 +874,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function trackTieSegments(t){
     t=normalizeTrack(t);
     const path=trackPathSamples(t);
-    const spacing=Math.max(4,t.tieSpacingPx||14);
-    const half=(t.gaugePx||10)/2+4;
+    const profile=trackProfilePx(t);
+    const spacing=profile.tieSpacing;
+    const half=profile.tieLength/2;
     const ties=[];
     let carry=0;
     for(let i=0;i<path.length-1;i++){
@@ -817,6 +894,82 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return ties;
   }
   function selectedTrack(){return (state.tracks||[]).find(t=>t.id===state.selectedTrackId)||null;}
+  function hitTrackPoint(p,t,pointerType='mouse'){
+    if(!t || !Array.isArray(t.pointsPx) || !t.pointsPx.length) return null;
+    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
+    const tol=(coarse?18:11)/state.view.scale;
+    let best={distance:Infinity,index:-1};
+    t.pointsPx.forEach((pt,i)=>{
+      const d=dist(p,pt);
+      if(d<best.distance) best={distance:d,index:i};
+    });
+    return best.distance<=tol ? best : null;
+  }
+  function hitTrackSegment(p,t,pointerType='mouse'){
+    if(!t || !Array.isArray(t.pointsPx) || t.pointsPx.length<2) return null;
+    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
+    const tol=(coarse?18:10)/state.view.scale;
+    normalizeTrackCurves(t);
+    let best={distance:Infinity,index:-1};
+    for(let i=0;i<t.pointsPx.length-1;i++){
+      const a=t.pointsPx[i], b=t.pointsPx[i+1], c=t.curvesPx?.[i];
+      if(c){
+        let prev=a;
+        for(let k=1;k<=16;k++){
+          const cur=quadPoint(a,c,b,k/16);
+          const d=distanceToSegment(p,prev,cur);
+          if(d<best.distance) best={distance:d,index:i};
+          prev=cur;
+        }
+      } else {
+        const d=distanceToSegment(p,a,b);
+        if(d<best.distance) best={distance:d,index:i};
+      }
+    }
+    return best.distance<=tol ? best : null;
+  }
+  function nearestPointOnTrackPath(p, track, includeEndpoints=true){
+    if(!track || track.hidden) return null;
+    const samples=trackPathSamples(track,20);
+    if(!samples || samples.length<2) return null;
+    let best={distance:Infinity,point:null,trackId:track.id,kind:'segment'};
+    if(includeEndpoints && track.pointsPx?.length){
+      [0,track.pointsPx.length-1].forEach(idx=>{
+        const ep=track.pointsPx[idx];
+        const d=dist(p,ep);
+        if(d<best.distance) best={distance:d,point:{x:ep.x,y:ep.y},trackId:track.id,kind:idx===0?'endpointStart':'endpointEnd',pointIndex:idx};
+      });
+    }
+    for(let i=0;i<samples.length-1;i++){
+      const hit=closestPointOnSegment(p,samples[i],samples[i+1]);
+      if(hit.distance<best.distance) best={distance:hit.distance,point:hit.point,trackId:track.id,kind:'segment'};
+    }
+    return best.point ? best : null;
+  }
+  function findTrackConnectionSnap(p, excludeTrackId=null, pointerType='mouse'){
+    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
+    const tol=(coarse?20:14)/state.view.scale;
+    let best=null;
+    (state.tracks||[]).forEach(raw=>{
+      const t=normalizeTrack(raw);
+      if(t.id===excludeTrackId || t.hidden) return;
+      const hit=nearestPointOnTrackPath(p,t,true);
+      if(hit && hit.distance<=tol && (!best || hit.distance<best.distance)) best=hit;
+    });
+    return best;
+  }
+  function snapTrackPointForConnection(p, excludeTrackId=null, pointerType='mouse'){
+    const hit=findTrackConnectionSnap(p, excludeTrackId, pointerType);
+    return hit ? {x:hit.point.x,y:hit.point.y,connection:{trackId:hit.trackId,kind:hit.kind,pointIndex:hit.pointIndex ?? null}} : {x:p.x,y:p.y,connection:null};
+  }
+  function setTrackEndpointConnection(t, index, snap){
+    if(!t || !snap || !Number.isInteger(index)) return;
+    t.endpointConnections=t.endpointConnections||{};
+    const key=index===0 ? 'start' : (index===(t.pointsPx?.length||0)-1 ? 'end' : null);
+    if(!key) return;
+    if(snap.connection) t.endpointConnections[key]=snap.connection;
+    else delete t.endpointConnections[key];
+  }
   function hitTrack(p,pointerType='mouse'){
     const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
     const tol=(coarse?18:10)/state.view.scale;
@@ -824,6 +977,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const t=normalizeTrack(state.tracks[i]);
       if(t.hidden) continue;
       const path=trackPathSamples(t);
+      if(hitTrackPoint(p,t,pointerType)||hitTrackSegment(p,t,pointerType)) return t;
       for(let j=0;j<path.length-1;j++){
         if(distanceToSegment(p,path[j],path[j+1])<=tol) return t;
       }
@@ -833,6 +987,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function moveTrack(t,dx,dy){
     if(!t||t.locked) return;
     t.pointsPx=(t.pointsPx||[]).map(p=>({x:p.x+dx,y:p.y+dy}));
+    t.curvesPx=(t.curvesPx||[]).map(c=>c?{x:c.x+dx,y:c.y+dy}:null);
     syncTrackMetrics(t);
   }
   function deleteSelectedTrack(){
@@ -844,12 +999,17 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function finishTrack(){
     if(!state.trackDraft || state.trackDraft.length<2) return;
-    const t=normalizeTrack({id:uid('track'),name:`Track ${state.tracks.length+1}`,pointsPx:state.trackDraft.slice(),gaugeMm:9,tieSpacingMm:4,color:'#4b4438',tieColor:'#8a6f43'});
+    const t=normalizeTrack({id:uid('track'),name:`Track ${state.tracks.length+1}`,pointsPx:state.trackDraft.slice(),curvesPx:[],gaugeMm:TRACK_PROFILE_DEFAULTS.gaugeMm,tieSpacingMm:TRACK_PROFILE_DEFAULTS.tieSpacingMm,color:TRACK_PROFILE_DEFAULTS.railColor,tieColor:TRACK_PROFILE_DEFAULTS.tieColor,roadbedColor:TRACK_PROFILE_DEFAULTS.roadbedColor,roadbedTopColor:TRACK_PROFILE_DEFAULTS.roadbedTopColor});
+    const conns=state.trackDraftConnections||[];
+    t.endpointConnections={};
+    if(conns[0]?.connection) t.endpointConnections.start=conns[0].connection;
+    if(conns[state.trackDraft.length-1]?.connection) t.endpointConnections.end=conns[state.trackDraft.length-1].connection;
     syncTrackMetrics(t);
     state.tracks.push(t);
     clearBuildingSelection(); state.selectedRoadId=null; state.selectedRoadFeatureId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedFabricId=null;
     state.selectedTrackId=t.id;
     state.trackDraft=[];
+    state.trackDraftConnections=[];
     syncAll();
   }
   function normalizeRoadFeature(f){
@@ -1033,6 +1193,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     ctx.strokeStyle=stroke;
     ctx.lineWidth=width/state.view.scale;
     if(dash) ctx.setLineDash(dash.map(v=>v/state.view.scale));
+    ctx.beginPath();
+    path.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+    ctx.stroke();
+    ctx.restore();
+  }
+  function drawTrackModelPath(path, stroke, width=1.4, alpha=1){
+    if(!Array.isArray(path) || path.length<2) return;
+    ctx.save();
+    ctx.strokeStyle=stroke;
+    ctx.globalAlpha=alpha;
+    ctx.lineWidth=width;
+    ctx.lineCap='round';
+    ctx.lineJoin='round';
     ctx.beginPath();
     path.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
     ctx.stroke();
@@ -1332,24 +1505,67 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const t=normalizeTrack(raw); if(!t || t.hidden || (t.pointsPx||[]).length<2) return;
     const selected=t.id===state.selectedTrackId, hovered=t.id===state.hoverTrackId;
     const path=trackPathSamples(t);
-    const railOffset=(t.gaugePx||10)/2;
+    const profile=trackProfilePx(t);
+    const railOffset=profile.gauge/2;
     const left=offsetTrackPath(path,railOffset);
     const right=offsetTrackPath(path,-railOffset);
     ctx.save();
     ctx.lineCap='round';
     ctx.lineJoin='round';
+    drawTrackModelPath(path,t.roadbedColor||TRACK_PROFILE_DEFAULTS.roadbedColor,profile.roadbedWidth,.72);
+    drawTrackModelPath(path,t.roadbedTopColor||TRACK_PROFILE_DEFAULTS.roadbedTopColor,profile.roadbedTopWidth,.84);
     trackTieSegments(t).forEach(seg=>{
       ctx.strokeStyle=t.tieColor||'#8a6f43';
-      ctx.lineWidth=(selected?3:2)/state.view.scale;
+      ctx.lineWidth=profile.tieWidth;
       ctx.beginPath();
       ctx.moveTo(seg.a.x,seg.a.y);
       ctx.lineTo(seg.b.x,seg.b.y);
       ctx.stroke();
     });
-    drawRoadGeneratedPath(left, selected?'#c84a3a':(hovered?'#d79631':t.color||'#4b4438'), selected?2.2:1.4);
-    drawRoadGeneratedPath(right, selected?'#c84a3a':(hovered?'#d79631':t.color||'#4b4438'), selected?2.2:1.4);
+    drawTrackModelPath(left, selected?'#c84a3a':(hovered?'#d79631':t.color||'#4b4438'), selected?profile.railWidth*1.6:profile.railWidth);
+    drawTrackModelPath(right, selected?'#c84a3a':(hovered?'#d79631':t.color||'#4b4438'), selected?profile.railWidth*1.6:profile.railWidth);
     if(selected||hovered){
       drawRoadGeneratedPath(path,'rgba(200,74,58,.45)',1,[4,4]);
+      if(selected){
+        ctx.fillStyle='#fff7ed';
+        ctx.strokeStyle='#c84a3a';
+        ctx.lineWidth=2/state.view.scale;
+        (t.pointsPx||[]).forEach(pt=>{ctx.beginPath();ctx.arc(pt.x,pt.y,5/state.view.scale,0,Math.PI*2);ctx.fill();ctx.stroke();});
+        (t.curvesPx||[]).forEach((c,i)=>{
+          if(!c) return;
+          const a=t.pointsPx[i], b=t.pointsPx[i+1];
+          if(!a||!b) return;
+          ctx.save();
+          ctx.strokeStyle='rgba(200,74,58,.42)';
+          ctx.lineWidth=1/state.view.scale;
+          ctx.setLineDash([3/state.view.scale,4/state.view.scale]);
+          ctx.beginPath();
+          ctx.moveTo(a.x,a.y);
+          ctx.lineTo(c.x,c.y);
+          ctx.lineTo(b.x,b.y);
+          ctx.stroke();
+          ctx.restore();
+          ctx.beginPath();
+          ctx.arc(c.x,c.y,5/state.view.scale,0,Math.PI*2);
+          ctx.fill();
+          ctx.stroke();
+        });
+        if(state.hoverTrackSegment && state.hoverTrackSegment.trackId===t.id){
+          const i=state.hoverTrackSegment.index, a=t.pointsPx[i], b=t.pointsPx[i+1], c=t.curvesPx?.[i];
+          if(a&&b){
+            ctx.save();
+            ctx.strokeStyle='#d79631';
+            ctx.lineWidth=5/state.view.scale;
+            ctx.globalAlpha=.65;
+            ctx.beginPath();
+            ctx.moveTo(a.x,a.y);
+            if(c) ctx.quadraticCurveTo(c.x,c.y,b.x,b.y);
+            else ctx.lineTo(b.x,b.y);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+      }
       const c=polygonCenter(path);
       drawLabel(`${t.name||'Track'} · ${fmt(t.gaugeMm||9)} mm gauge`,{x:c.x+8/state.view.scale,y:c.y-8/state.view.scale});
     }
@@ -2782,7 +2998,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     (state.tracks||[]).forEach(raw=>{
       const t=normalizeTrack(raw);
       if(t.hidden) return;
-      (t.pointsPx||[]).forEach(p=>{ xs.push(site3DScale(p.x)); ys.push(site3DScale(p.y)); });
+      trackPathSamples(t,18).forEach(p=>{ xs.push(site3DScale(p.x)); ys.push(site3DScale(p.y)); });
     });
     state.buildings.forEach(raw=>{
       const b=normalizeBuilding(raw);
@@ -3101,6 +3317,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function buildSite3DTrackGroup(bounds){
     const group=new THREE.Group();
     group.name='Site Planner tracks';
+    const roadbedMat=new THREE.MeshStandardMaterial({color:0xc7b084,roughness:.96,metalness:0,transparent:true,opacity:.58,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
+    const roadbedLineMat=new THREE.LineBasicMaterial({color:0x8f7b55,transparent:true,opacity:.62});
     const railMat=new THREE.LineBasicMaterial({color:0x34312b,transparent:true,opacity:.9});
     const tieMat=new THREE.LineBasicMaterial({color:0x8a6f43,transparent:true,opacity:.75});
     const addLinePath=(pts,mat,name,y=.13)=>{
@@ -3119,8 +3337,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     (state.tracks||[]).forEach(raw=>{
       const t=normalizeTrack(raw);
       if(t.hidden || (t.pointsPx||[]).length<2) return;
-      const path=trackPathSamples(t);
-      const railOffset=(t.gaugePx||10)/2;
+      const path=trackPathSamples(t,18);
+      const profile=trackProfilePx(t);
+      const railOffset=profile.gauge/2;
+      const roadbedPoly=offsetPathPolygon(path,profile.roadbedWidth/2);
+      site3DAddFlatPolygon(group,roadbedPoly,roadbedMat,roadbedLineMat,`${t.name||'Track'} cork roadbed`,.115);
       addLinePath(offsetTrackPath(path,railOffset),railMat,`${t.name||'Track'} rail A`);
       addLinePath(offsetTrackPath(path,-railOffset),railMat,`${t.name||'Track'} rail B`);
       trackTieSegments(t).forEach((seg,idx)=>addLinePath([seg.a,seg.b],tieMat,`${t.name||'Track'} tie ${idx+1}`,.125));
@@ -5581,6 +5802,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       return true;
     }
     const trackHit=hitTrack(p,e.pointerType);
+    const selectedTrackForEdit=state.selectedTrackId ? selectedTrack() : null;
+    const trackPointHit=selectedTrackForEdit && !trackHit?.locked ? hitTrackPoint(p, selectedTrackForEdit, e.pointerType) : null;
+    if(trackPointHit){
+      const t=selectedTrackForEdit;
+      if(t&&!t.locked){ state.drag={type:'trackPoint',pointerId:e.pointerId,start:p,orig:structuredClone(t),pointIndex:trackPointHit.index}; }
+      return true;
+    }
+    const trackCurveHit=selectedTrackForEdit ? hitTrackSegment(p, selectedTrackForEdit, e.pointerType) : null;
+    if(trackCurveHit){
+      const t=selectedTrackForEdit;
+      if(t&&!t.locked){ state.drag={type:'trackCurve',pointerId:e.pointerId,start:p,orig:structuredClone(t),segmentIndex:trackCurveHit.index}; }
+      return true;
+    }
     if(trackHit){
       clearBuildingSelection(); state.selectedRoadId=null; state.selectedRoadFeatureId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedFabricId=null;
       state.selectedTrackId=trackHit.id;
@@ -5730,8 +5964,27 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       }
     }
     if(state.tool==='track'){
-      if(state.trackDraft.length && dist(p,state.trackDraft[state.trackDraft.length-1])<8/state.view.scale && state.trackDraft.length>=2){ finishTrack(); }
-      else state.trackDraft.push({x:p.x,y:p.y});
+      const selectedTrackForEdit=state.selectedTrackId ? selectedTrack() : null;
+      const selectedTrackPoint=selectedTrackForEdit ? hitTrackPoint(p, selectedTrackForEdit, e.pointerType) : null;
+      if(selectedTrackPoint){
+        const t=selectedTrackForEdit;
+        if(t&&!t.locked){ state.drag={type:'trackPoint',pointerId:e.pointerId,start:p,orig:structuredClone(t),pointIndex:selectedTrackPoint.index}; }
+        return;
+      }
+      const selectedTrackCurve=selectedTrackForEdit ? hitTrackSegment(p, selectedTrackForEdit, e.pointerType) : null;
+      if(selectedTrackCurve){
+        const t=selectedTrackForEdit;
+        if(t&&!t.locked){ state.drag={type:'trackCurve',pointerId:e.pointerId,start:p,orig:structuredClone(t),segmentIndex:selectedTrackCurve.index}; }
+        return;
+      }
+      const snap=snapTrackPointForConnection(p,null,e.pointerType);
+      const np=snap.connection ? snap : {x:p.x,y:p.y,connection:null};
+      if(state.trackDraft.length && dist(np,state.trackDraft[state.trackDraft.length-1])<8/state.view.scale && state.trackDraft.length>=2){ finishTrack(); }
+      else {
+        state.trackDraft.push({x:np.x,y:np.y});
+        state.trackDraftConnections=state.trackDraftConnections||[];
+        state.trackDraftConnections[state.trackDraft.length-1]={connection:np.connection};
+      }
       draw(); return;
     }
     if(state.tool==='fabric'){
@@ -5767,6 +6020,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const roadHit=hitRoad(p,e.pointerType);
       if(roadHit){state.selectedRoadId=roadHit.id; if(roadHit.mode!=='outline') state.roadOutlineEditId=null; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null; renderRoads(); renderList(); renderStreetlights(); renderSelected(); draw(); if(!roadHit.locked) state.drag={type:'moveRoad',pointerId:e.pointerId,start:p,orig:structuredClone(roadHit)}; return;}
       const trackHit=hitTrack(p,e.pointerType);
+      const selectTrackForEdit=state.selectedTrackId ? selectedTrack() : null;
+      const trackPointHit=selectTrackForEdit ? hitTrackPoint(p, selectTrackForEdit, e.pointerType) : null;
+      if(trackPointHit){ const t=selectTrackForEdit; if(t&&!t.locked){ state.drag={type:'trackPoint',pointerId:e.pointerId,start:p,orig:structuredClone(t),pointIndex:trackPointHit.index}; return; } }
+      const trackCurveHit=selectTrackForEdit ? hitTrackSegment(p, selectTrackForEdit, e.pointerType) : null;
+      if(trackCurveHit){ const t=selectTrackForEdit; if(t&&!t.locked){ state.drag={type:'trackCurve',pointerId:e.pointerId,start:p,orig:structuredClone(t),segmentIndex:trackCurveHit.index}; return; } }
       if(trackHit){clearBuildingSelection(); state.selectedRoadId=null; state.selectedRoadFeatureId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedFabricId=null; state.selectedTrackId=trackHit.id; renderList(); renderSelected(); draw(); if(!trackHit.locked) state.drag={type:'moveTrack',pointerId:e.pointerId,start:p,orig:structuredClone(trackHit)}; return;}
       const stlHit=hitStlObject(p,e.pointerType);
       if(stlHit){selectStlObject(stlHit); if(!stlHit.locked) state.drag={type:'moveStlObject',pointerId:e.pointerId,start:p,orig:structuredClone(stlHit)}; return;}
@@ -5833,6 +6091,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       state.hoverRoadId=hoverR ? hoverR.id : (hoverCurve?state.selectedRoadId:null);
       const hoverT=(hoverL||hoverBW||hoverR) ? null : hitTrack(p,e.pointerType);
       state.hoverTrackId=hoverT ? hoverT.id : null;
+      const hoverSelectedTrack=state.selectedTrackId && !hoverL && !hoverBW && !hoverR ? selectedTrack() : null;
+      const hoverTrackCurve=hoverSelectedTrack ? hitTrackSegment(p, hoverSelectedTrack, e.pointerType) : null;
+      state.hoverTrackSegment=hoverTrackCurve?{trackId:state.selectedTrackId,index:hoverTrackCurve.index}:null;
       const hoverStl=(hoverL||hoverBW||hoverR||hoverT) ? null : hitStlObject(p,e.pointerType);
       state.hoverStlObjectId=hoverStl ? hoverStl.id : null;
       const hoverB=(hoverL||hoverBW||hoverR||hoverT||hoverStl) ? null : hitTest(p);
@@ -5864,7 +6125,26 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     else if(d.type==='moveBenchwork'){const bw=state.benchworkOutlines.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(bw&&!bw.locked){bw.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); bw.curvesPx=(d.orig.curvesPx||[]).map(c=>c?{x:c.x+dx,y:c.y+dy}:null); normalizeBenchworkOutline(bw);}}
     else if(d.type==='benchworkCurve'){const bw=state.benchworkOutlines.find(x=>x.id===d.orig.id); if(bw&&!bw.locked){normalizeBenchworkOutline(bw); const i=d.segmentIndex; const a=bw.pointsPx[i], b=bw.pointsPx[(i+1)%bw.pointsPx.length]; if(a&&b){bw.curvesPx[i]={x:2*p.x-(a.x+b.x)/2,y:2*p.y-(a.y+b.y)/2}; normalizeBenchworkOutline(bw);}}}
     else if(d.type==='moveRoad'){const r=state.roads.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(r&&!r.locked){r.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); r.curvesPx=(d.orig.curvesPx||[]).map(c=>c?{x:c.x+dx,y:c.y+dy}:null); syncRoadMetrics(r);}}
-    else if(d.type==='moveTrack'){const t=(state.tracks||[]).find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(t&&!t.locked){t.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); syncTrackMetrics(t);}}
+    else if(d.type==='moveTrack'){const t=(state.tracks||[]).find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(t&&!t.locked){t.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); t.curvesPx=(d.orig.curvesPx||[]).map(c=>c?{x:c.x+dx,y:c.y+dy}:null); syncTrackMetrics(t);}}
+    else if(d.type==='trackPoint'){
+      const t=(state.tracks||[]).find(x=>x.id===d.orig.id);
+      if(t&&!t.locked){
+        const dx=p.x-d.start.x, dy=p.y-d.start.y, i=d.pointIndex;
+        let target={x:d.orig.pointsPx[i].x+dx,y:d.orig.pointsPx[i].y+dy};
+        const isEndpoint=i===0 || i===(d.orig.pointsPx.length-1);
+        const snap=isEndpoint ? snapTrackPointForConnection(target,t.id,e.pointerType) : {x:target.x,y:target.y,connection:null};
+        if(isEndpoint && snap.connection) target={x:snap.x,y:snap.y};
+        t.pointsPx=d.orig.pointsPx.map((q,idx)=>idx===i?target:{x:q.x,y:q.y});
+        const adjDx=target.x-d.orig.pointsPx[i].x, adjDy=target.y-d.orig.pointsPx[i].y;
+        t.curvesPx=(d.orig.curvesPx||[]).map((c,idx)=>{
+          if(!c) return null;
+          const adjacent=idx===i || idx===i-1;
+          return adjacent ? {x:c.x+adjDx,y:c.y+adjDy} : {x:c.x,y:c.y};
+        });
+        if(isEndpoint) setTrackEndpointConnection(t,i,snap);
+        syncTrackMetrics(t);
+      }
+    }
     else if(d.type==='roadPoint'){
       const r=state.roads.find(x=>x.id===d.orig.id);
       if(r&&!r.locked){
@@ -5894,6 +6174,15 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         const i=d.segmentIndex;
         const a=r.pointsPx[i], b=r.mode==='outline'?r.pointsPx[(i+1)%r.pointsPx.length]:r.pointsPx[i+1];
         if(a&&b){r.curvesPx[i]={x:2*p.x-(a.x+b.x)/2,y:2*p.y-(a.y+b.y)/2}; syncRoadMetrics(r);}
+      }
+    }
+    else if(d.type==='trackCurve'){
+      const t=(state.tracks||[]).find(x=>x.id===d.orig.id);
+      if(t&&!t.locked){
+        normalizeTrackCurves(t);
+        const i=d.segmentIndex;
+        const a=t.pointsPx[i], b=t.pointsPx[i+1];
+        if(a&&b){t.curvesPx[i]={x:2*p.x-(a.x+b.x)/2,y:2*p.y-(a.y+b.y)/2}; syncTrackMetrics(t);}
       }
     }
     else if(d.type==='marquee'){d.end=p;}
@@ -6027,11 +6316,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(e.key==='Enter'&&state.tool==='track') finishTrack();
     if(e.key==='Backspace'&&state.tool==='polygon'&&state.polygonDraft.length){state.polygonDraft.pop(); draw(); return;}
     if(e.key==='Backspace'&&state.tool==='benchwork'&&state.benchworkDraft.length){state.benchworkDraft.pop(); draw(); return;}
-    if(e.key==='Backspace'&&state.tool==='track'&&state.trackDraft.length){state.trackDraft.pop(); draw(); return;}
+    if(e.key==='Backspace'&&state.tool==='track'&&state.trackDraft.length){state.trackDraft.pop(); state.trackDraftConnections?.pop?.(); draw(); return;}
     if(e.key==='Escape'){
       hideContextMenu();
       if(cancelGithubBuildingPlacement()){ e.preventDefault(); return; }
       state.hoverPreview=null;
+      state.trackDraft=[];
+      state.trackDraftConnections=[];
       state.selectedAnnotationId=null;
       state.selectedFabricId=null;
       state.selectedStlObjectId=null;
@@ -6058,7 +6349,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function maybeFinishActiveTrackDraft(nextTool){
     if(state.tool !== 'track' || nextTool === 'track' || !Array.isArray(state.trackDraft) || state.trackDraft.length === 0) return;
     if(state.trackDraft.length >= 2) finishTrack();
-    else state.trackDraft = [];
+    else { state.trackDraft = []; state.trackDraftConnections=[]; }
   }
   function setActiveTool(tool){
     maybeFinishActiveRoadDraft(tool);
@@ -6322,6 +6613,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedTrackId=null;
     state.hoverTrackId=null;
     state.trackDraft=[];
+    state.trackDraftConnections=[];
     state.selectedId=null;
     state.drag=null;
     state.hover=null;
@@ -7304,13 +7596,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return (state.tracks||[]).map(raw=>{
       const t=normalizeTrack(raw);
       if(t.hidden || (t.pointsPx||[]).length<2) return '';
-      const railOffset=(t.gaugePx||10)/2;
+      const path=trackPathSamples(t,18);
+      const profile=trackProfilePx(t);
+      const railOffset=profile.gauge/2;
       const pathAttr=pts=>pts.map(p=>`${p.x},${p.y}`).join(' ');
-      const rails=[offsetTrackPath(t.pointsPx,railOffset),offsetTrackPath(t.pointsPx,-railOffset)]
-        .map(pts=>`<polyline points="${pathAttr(pts)}" fill="none" stroke="${escapeAttr(t.color||'#4b4438')}" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>`)
+      const roadbed=`<polyline points="${pathAttr(path)}" fill="none" stroke="${escapeAttr(t.roadbedColor||TRACK_PROFILE_DEFAULTS.roadbedColor)}" stroke-width="${profile.roadbedWidth}" stroke-linecap="round" stroke-linejoin="round" opacity="0.72"/><polyline points="${pathAttr(path)}" fill="none" stroke="${escapeAttr(t.roadbedTopColor||TRACK_PROFILE_DEFAULTS.roadbedTopColor)}" stroke-width="${profile.roadbedTopWidth}" stroke-linecap="round" stroke-linejoin="round" opacity="0.84"/>`;
+      const rails=[offsetTrackPath(path,railOffset),offsetTrackPath(path,-railOffset)]
+        .map(pts=>`<polyline points="${pathAttr(pts)}" fill="none" stroke="${escapeAttr(t.color||'#4b4438')}" stroke-width="${profile.railWidth}" stroke-linecap="round" stroke-linejoin="round"/>`)
         .join('');
-      const ties=trackTieSegments(t).map(seg=>`<line x1="${seg.a.x}" y1="${seg.a.y}" x2="${seg.b.x}" y2="${seg.b.y}" stroke="${escapeAttr(t.tieColor||'#8a6f43')}" stroke-width="1.4" stroke-linecap="round"/>`).join('');
-      return `<g data-type="track" data-name="${escapeAttr(t.name||'Track')}">${ties}${rails}</g>`;
+      const ties=trackTieSegments(t).map(seg=>`<line x1="${seg.a.x}" y1="${seg.a.y}" x2="${seg.b.x}" y2="${seg.b.y}" stroke="${escapeAttr(t.tieColor||'#8a6f43')}" stroke-width="${profile.tieWidth}" stroke-linecap="round"/>`).join('');
+      return `<g data-type="track" data-name="${escapeAttr(t.name||'Track')}" data-profile="${escapeAttr(TRACK_PROFILE_DEFAULTS.reference)}">${roadbed}${ties}${rails}</g>`;
     }).join('\n');
   }
 

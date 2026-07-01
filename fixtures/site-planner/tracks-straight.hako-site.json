@@ -1,0 +1,38 @@
+{
+  "app": "HakoMachi Site Planner",
+  "version": 79,
+  "fixture": "straight flex track with cork roadbed profile",
+  "scale": {
+    "calibrated": true,
+    "pxPerMm": 2,
+    "units": "mm"
+  },
+  "buildings": [],
+  "roads": [],
+  "tracks": [
+    {
+      "id": "fixture_track_straight",
+      "type": "track",
+      "name": "Straight N gauge track",
+      "pointsPx": [
+        { "x": 120, "y": 180 },
+        { "x": 520, "y": 180 }
+      ],
+      "curvesPx": [null],
+      "gaugeMm": 9,
+      "railWidthMm": 0.55,
+      "railHeightMm": 0.8,
+      "tieSpacingMm": 4,
+      "tieLengthMm": 16,
+      "tieWidthMm": 1.3,
+      "roadbedWidthMm": 19,
+      "roadbedHeightMm": 2.5,
+      "roadbedShoulderMm": 3.5
+    }
+  ],
+  "roadFeatures": [],
+  "benchworkOutlines": [],
+  "fabricRegions": [],
+  "streetlights": [],
+  "annotations": []
+}

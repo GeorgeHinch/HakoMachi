@@ -1,0 +1,42 @@
+{
+  "app": "HakoMachi Site Planner",
+  "version": 79,
+  "fixture": "S-curve flex track with two editable curve handles",
+  "scale": {
+    "calibrated": true,
+    "pxPerMm": 2,
+    "units": "mm"
+  },
+  "buildings": [],
+  "roads": [],
+  "tracks": [
+    {
+      "id": "fixture_track_s_curve",
+      "type": "track",
+      "name": "S-curve N gauge track",
+      "pointsPx": [
+        { "x": 120, "y": 220 },
+        { "x": 320, "y": 220 },
+        { "x": 540, "y": 220 }
+      ],
+      "curvesPx": [
+        { "x": 220, "y": 90 },
+        { "x": 430, "y": 350 }
+      ],
+      "gaugeMm": 9,
+      "railWidthMm": 0.55,
+      "railHeightMm": 0.8,
+      "tieSpacingMm": 4,
+      "tieLengthMm": 16,
+      "tieWidthMm": 1.3,
+      "roadbedWidthMm": 19,
+      "roadbedHeightMm": 2.5,
+      "roadbedShoulderMm": 3.5
+    }
+  ],
+  "roadFeatures": [],
+  "benchworkOutlines": [],
+  "fabricRegions": [],
+  "streetlights": [],
+  "annotations": []
+}

@@ -99,6 +99,7 @@ export function createUtility3dPreview(host, options = {}) {
     model: null,
     frameId: null,
     pendingFactory: null,
+    resizeObserver: null,
   };
 
   host.classList.add('utility3dHost');
@@ -126,7 +127,8 @@ export function createUtility3dPreview(host, options = {}) {
   function resize() {
     if (!state.renderer || !state.camera) return;
     const rect = canvasHost.getBoundingClientRect();
-    const w = Math.max(120, Math.floor(rect.width || host.clientWidth || 640));
+    const hostRect = host.getBoundingClientRect();
+    const w = Math.max(120, Math.floor(rect.width || hostRect.width || host.clientWidth || 120));
     const h = Math.max(220, Math.floor(rect.height || 320));
     state.renderer.setSize(w, h, false);
     state.camera.aspect = w / h;
@@ -182,6 +184,11 @@ export function createUtility3dPreview(host, options = {}) {
       state.controls.screenSpacePanning = false;
       state.controls.addEventListener('change', render);
     }
+    if (typeof ResizeObserver !== 'undefined') {
+      state.resizeObserver = new ResizeObserver(() => resize());
+      state.resizeObserver.observe(host);
+      state.resizeObserver.observe(canvasHost);
+    }
     window.addEventListener('resize', resize);
     resize();
     animate();
@@ -228,6 +235,7 @@ export function createUtility3dPreview(host, options = {}) {
     resize,
     dispose() {
       if (state.frameId) cancelAnimationFrame(state.frameId);
+      state.resizeObserver?.disconnect?.();
       window.removeEventListener('resize', resize);
       state.controls?.dispose?.();
       state.renderer?.dispose?.();

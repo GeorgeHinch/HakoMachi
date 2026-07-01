@@ -5671,6 +5671,10 @@ let CONFIG = {
   // depth:  mm the wing extends outward
   // height: wall height mm (null = same as main); connection: 'wall'|'open'
   wings: [],
+  // Front corner chamfers for street-corner commercial buildings. The floor
+  // plate remains rectangular; the front wall and affected side walls shorten,
+  // and short 45-degree facade panels fill the clipped corner(s).
+  frontCornerChamfer: { enabled: false, sides: 'both', inset: 12 },
   // Layout cut masks: non-destructive export crops drawn in the Shape Editor.
   // The full building remains visible for design context, but floor/roof sheet
   // geometry is clipped to the kept side of each cut at export/preview time.
@@ -5885,6 +5889,92 @@ function mirrorSlotsAlongEdge(slots, edgeLength) {
       };
     })
     .sort((a, b) => a.start - b.start);
+}
+
+function clampNumber(value, min, max, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+function normalizeFrontCornerChamfer(raw, cfg = CONFIG) {
+  const base = (raw && typeof raw === 'object') ? raw : {};
+  const enabled = !!base.enabled;
+  const sides = ['left', 'right', 'both'].includes(base.sides) ? base.sides : 'both';
+  const width = Math.max(1, Number(cfg && cfg.width) || 1);
+  const depth = Math.max(1, Number(cfg && cfg.depth) || 1);
+  const matT = Math.max(0.01, Number(cfg && cfg.coreThickness) || 1);
+  const maxInset = Math.max(1, Math.min(width / 2 - matT, depth - 2 * matT - 1));
+  const inset = clampNumber(base.inset, 1, maxInset, Math.min(12, maxInset));
+  const westInset = enabled && (sides === 'left' || sides === 'both') ? inset : 0;
+  const eastInset = enabled && (sides === 'right' || sides === 'both') ? inset : 0;
+  const frontWidth = Math.max(1, width - westInset - eastInset);
+  const sideBaseLen = Math.max(1, depth - 2 * matT);
+  return {
+    enabled: enabled && (westInset > 0 || eastInset > 0),
+    sides,
+    inset,
+    westInset,
+    eastInset,
+    frontWidth,
+    westSideLen: Math.max(1, sideBaseLen - westInset),
+    eastSideLen: Math.max(1, sideBaseLen - eastInset),
+    westDiagLen: westInset > 0 ? Math.hypot(westInset, westInset) : 0,
+    eastDiagLen: eastInset > 0 ? Math.hypot(eastInset, eastInset) : 0,
+  };
+}
+
+function frontCornerChamferFor(cfg = CONFIG, plan = null) {
+  return (plan && plan.frontCornerChamfer)
+    ? plan.frontCornerChamfer
+    : normalizeFrontCornerChamfer(cfg && cfg.frontCornerChamfer, cfg);
+}
+
+function offsetSlots(slots, delta) {
+  if (!delta) return slots || [];
+  return (slots || []).map(s => ({
+    ...s,
+    start: s.start + delta,
+    end: s.end + delta,
+    center: (s.center != null ? s.center : (s.start + s.end) / 2) + delta,
+  }));
+}
+
+function shiftOpsForFrontChamfer(cfg, plan, face, ops) {
+  if (face !== 'front' || !Array.isArray(ops) || !ops.length) return ops;
+  const chamfer = frontCornerChamferFor(cfg, plan);
+  if (!chamfer.enabled || !chamfer.westInset) return ops;
+  return ops
+    .map(op => ({ ...op, x: Number(op.x || 0) - chamfer.westInset }))
+    .filter(op => (Number(op.x || 0) + Number(op.w || 0)) > 0 && Number(op.x || 0) < chamfer.frontWidth);
+}
+
+function frontChamferFloorSlotPaths(cfg, plan) {
+  const chamfer = frontCornerChamferFor(cfg, plan);
+  if (!chamfer.enabled) return [];
+  const matT = Number(cfg.coreThickness) || 1;
+  const tw = Number(cfg.tongueWidth) || 1;
+  const margin = Math.max(matT * 2, 5);
+  const paths = [];
+  const buildForSegment = (inset, start, end) => {
+    if (!inset || inset <= 0) return;
+    const len = Math.hypot(end.x - start.x, end.y - start.y);
+    const slots = placeTongues(len, tw, margin, [], 2, tw / 2);
+    const ux = (end.x - start.x) / len;
+    const uy = (end.y - start.y) / len;
+    const nx = -uy;
+    const ny = ux;
+    slots.forEach(slot => {
+      const a = { x: start.x + ux * slot.start, y: start.y + uy * slot.start };
+      const b = { x: start.x + ux * slot.end, y: start.y + uy * slot.end };
+      const c = { x: b.x + nx * matT, y: b.y + ny * matT };
+      const d = { x: a.x + nx * matT, y: a.y + ny * matT };
+      paths.push(pathFromPoints([a, b, c, d], true));
+    });
+  };
+  buildForSegment(chamfer.westInset, { x: chamfer.westInset, y: 0 }, { x: 0, y: chamfer.westInset });
+  buildForSegment(chamfer.eastInset, { x: cfg.width - chamfer.eastInset, y: 0 }, { x: cfg.width, y: chamfer.eastInset });
+  return paths;
 }
 
 
@@ -6855,6 +6945,18 @@ function buildPanelPerimeterPath(spec) {
 /* Make a rectangle path string */
 function rectPath(x, y, w, h) {
   return `M ${x},${y} L ${x + w},${y} L ${x + w},${y + h} L ${x},${y + h} Z`;
+}
+
+function pathFromPoints(points, close = true) {
+  if (!Array.isArray(points) || !points.length) return '';
+  const f = v => {
+    const s = Number(v || 0).toFixed(3).replace(/\.?0+$/, '');
+    return s === '' || s === '-' ? '0' : s;
+  };
+  const [first, ...rest] = points;
+  return `M ${f(first.x)},${f(first.y)} `
+    + rest.map(p => `L ${f(p.x)},${f(p.y)}`).join(' ')
+    + (close ? ' Z' : '');
 }
 
 /* Clip a vertical line at fixed x, going from y0 to y1, against a list of
@@ -8006,6 +8108,7 @@ function buildEdgePlans(cfg) {
 
   const sideLen = depth - 2 * matT;
   const fbWidth = width;
+  const frontCornerChamfer = normalizeFrontCornerChamfer(cfg.frontCornerChamfer, cfg);
 
   // Resolve bay from manual openings (the only source — bay placement is
   // owned entirely by the opening editor).
@@ -8249,7 +8352,7 @@ function buildEdgePlans(cfg) {
     H, matT, tw,
     parapetH: parapetHeight,
     roofStyle,
-    sideLen, fbWidth,
+    sideLen, fbWidth, frontCornerChamfer,
     bayXStart, bayXEnd, frontBayXStart, frontBayXEnd, backBayXStart, backBayXEnd, bayWidth: resolvedBayWidth, bayHeight,
     hasFrontBay, hasBackBay, bayIsThrough: bayResolved.bayIsThrough,
     bayCeilingY,
@@ -8301,7 +8404,10 @@ function generateSideWall(cfg, plan, side) {
   // wall: only the far wall thickness should be subtracted. Without this, a
   // wing side wall is one core thickness too short and the visible connection
   // tabs do not line up with the slots cut into the main back/front wall.
-  const sideLen = rawSideLen + (cfg._omitConnectionWall ? matT : 0);
+  const sideWallFace = side === 'E' ? 'east' : 'west';
+  const chamfer = frontCornerChamferFor(cfg, plan);
+  const sideFrontInset = sideWallFace === 'east' ? (chamfer.eastInset || 0) : (chamfer.westInset || 0);
+  const sideLen = Math.max(1, rawSideLen + (cfg._omitConnectionWall ? matT : 0) - sideFrontInset);
 
   // Side walls: tongues on left, right, bottom edges. Top is flat (parapet) when roofStyle=parapet.
   // For flat roof, top has tongues into roof.
@@ -8378,7 +8484,6 @@ function generateSideWall(cfg, plan, side) {
       left: { tongues: leftTongues, openings: [] },
     }
   };
-  const sideWallFace = side === 'E' ? 'east' : 'west';
   const sPitch = cfg.roofPitch || 10;
   const isSideGableEnd = isGableEndWall(cfg, sideWallFace);
   const sideSlopeTabSpec = isSideGableEnd
@@ -8733,12 +8838,16 @@ function bayDoorAlignmentMarks(cfg, plan, which) {
 function generateFrontBackWall(cfg, plan, which) {
   const { H, matT, tw, parapetH, roofStyle, fbWidth,
           bayWidth, bayHeight, bayCeilingY } = plan;
+  const chamfer = frontCornerChamferFor(cfg, plan);
+  const frontChamferActive = which === 'front' && chamfer.enabled;
+  const wallW = frontChamferActive ? chamfer.frontWidth : fbWidth;
   // bayXStart / bayXEnd come from planBayXFor so the back wall sees the
   // MIRRORED coords for a through-bay (so its cut aligns with the front
   // in 3D after the wall is flipped during assembly). For side bays or
   // for the front wall, this is identity-equal to plan.bayXStart.
   const { bayXStart, bayXEnd } = planBayXFor(plan, which);
-  const hasBay = (which === 'front' && plan.hasFrontBay) || (which === 'back' && plan.hasBackBay);
+  const rawHasBay = (which === 'front' && plan.hasFrontBay) || (which === 'back' && plan.hasBackBay);
+  const hasBay = rawHasBay && !frontChamferActive;
 
   const margin = Math.max(matT * 2, 5);
 
@@ -8764,7 +8873,7 @@ function generateFrontBackWall(cfg, plan, which) {
   // and let the wall rest against the underside of the roof — a glue
   // joint with no mechanical key, but at the correct geometry.
   const topTongues = (roofStyle === 'flat' || roofStyle === 'flat_overhang')
-    ? placeTongues(fbWidth, tw, margin, [], 3, tw / 2)
+    ? placeTongues(wallW, tw, margin, [], 3, tw / 2)
     : [];
 
   // Bottom edge: tongues into floor — skip bay opening AND door openings.
@@ -8772,12 +8881,12 @@ function generateFrontBackWall(cfg, plan, which) {
   // can be excluded from tongue placement, preventing tabs from colliding with doorways.
   const _earlyFbDoorStyle  = cfg.doorStyle;
   const _earlyFbDoorCount  = (which === 'front') ? (cfg.frontDoorCount || 0) : (cfg.backDoorCount || 0);
-  const _earlyFbManualOps  = manualStructuralOps(cfg, which);
+  const _earlyFbManualOps  = shiftOpsForFrontChamfer(cfg, plan, which, manualStructuralOps(cfg, which));
   let _earlyFbDoors;
   if (_earlyFbManualOps) {
     _earlyFbDoors = _earlyFbManualOps.filter(op => op.type === 'door');
   } else if (!hasBay && _earlyFbDoorCount > 0 && _earlyFbDoorStyle && _earlyFbDoorStyle !== 'none') {
-    _earlyFbDoors = computeDoors(fbWidth, H, { doorStyle: _earlyFbDoorStyle, doorCount: _earlyFbDoorCount, hasOpening: false, bayXStart: 0, bayXEnd: 0 });
+    _earlyFbDoors = computeDoors(wallW, H, { doorStyle: _earlyFbDoorStyle, doorCount: _earlyFbDoorCount, hasOpening: false, bayXStart: 0, bayXEnd: 0 });
   } else {
     _earlyFbDoors = [];
   }
@@ -8787,8 +8896,8 @@ function generateFrontBackWall(cfg, plan, which) {
     ..._fbDoorForbidden,
   ];
   const bottomTongues = applyWallAssemblyKeyToTongues(
-    placeTongues(fbWidth, tw, margin, bottomForbidden, 3, tw / 2),
-    fbWidth, cfg, which, bottomForbidden, matT, tw, margin
+    placeTongues(wallW, tw, margin, bottomForbidden, 3, tw / 2),
+    wallW, cfg, which, bottomForbidden, matT, tw, margin
   );
 
   // Left/right edges: SLOTS for side wall tongues.
@@ -8815,9 +8924,11 @@ function generateFrontBackWall(cfg, plan, which) {
   // Actually in our edge feature model, openings cut INTO the wall body from the edge.
   // Slots for side-wall tongues are openings on left and right edges:
   const sidewallSlots = placeTongues(H, tw, 0.1, verticalForbidden, vTongueCount, tw / 2);
+  const leftEdgeSlots = frontChamferActive && chamfer.westInset ? [] : sidewallSlots;
+  const rightEdgeSlots = frontChamferActive && chamfer.eastInset ? [] : sidewallSlots;
 
   const wallSpec = {
-    width: fbWidth, height: H, matT, kerf: cfg.kerfComp,
+    width: wallW, height: H, matT, kerf: cfg.kerfComp,
     // Bay coords go here so buildFBWallWithBay sees the wall-local (mirrored
     // for back) coords from planBayXFor — without them it would read
     // plan.bayXStart directly and miss the through-bay mirror for the back
@@ -8825,9 +8936,9 @@ function generateFrontBackWall(cfg, plan, which) {
     bayXStart, bayXEnd,
     edges: {
       top: { tongues: topTongues, openings: [] },
-      right: { tongues: [], openings: sidewallSlots },
+      right: { tongues: [], openings: rightEdgeSlots },
       bottom: { tongues: bottomTongues, openings: hasBay ? [{start: bayXStart, end: bayXEnd}] : [] },
-      left: { tongues: [], openings: sidewallSlots },
+      left: { tongues: [], openings: leftEdgeSlots },
     }
   };
   // For the bay opening on the bottom edge, it's a NEGATIVE feature that goes UP into the body
@@ -8867,7 +8978,7 @@ function generateFrontBackWall(cfg, plan, which) {
       wallSpec.topExtension = ext;
       perimeter = buildFBWallWithBay(wallSpec, plan);
     } else {
-      perimeter = buildSlantedWallPath(fbWidth, H, ext, ext, wallSpec);
+      perimeter = buildSlantedWallPath(wallW, H, ext, ext, wallSpec);
     }
   } else if (isGableEnd) {
     const fbSlopeTabSpec = { tw, margin, kerf: cfg.kerfComp || 0 };
@@ -8880,12 +8991,12 @@ function generateFrontBackWall(cfg, plan, which) {
       wallSpec.gableSlopeTabSpec = fbSlopeTabSpec;
       perimeter = buildFBWallWithBay(wallSpec, plan);
     } else {
-      perimeter = buildGableWallPath(fbWidth, H, pitch, wallSpec, fbSlopeTabSpec);
+      perimeter = buildGableWallPath(wallW, H, pitch, wallSpec, fbSlopeTabSpec);
     }
   }
 
   // Slanted-roof: front/back walls perpendicular to an EW slope need trapezoidal tops.
-  // Convention: x=0 is the WEST end, x=fbWidth is the EAST end.
+  // Convention: x=0 is the WEST end, x=wallW is the EAST end.
   // For NS-axis slopes the front/back walls are rectangular but the HIGH-side
   // wall extends UP by the slope pitch so its top edge meets the roof angle.
   // The extension lives ABOVE y=0 (i.e. at y=−sPitch) so internal cuts
@@ -8907,7 +9018,7 @@ function generateFrontBackWall(cfg, plan, which) {
         // EW slope, no bay → front/back walls are trapezoidal (top edge follows slope)
         const pitchL = (slopeDir === 'west') ? pitch : 0;  // west/left end
         const pitchR = (slopeDir === 'east') ? pitch : 0;  // east/right end
-        perimeter = buildSlantedWallPath(fbWidth, H, pitchL, pitchR, wallSpec);
+        perimeter = buildSlantedWallPath(wallW, H, pitchL, pitchR, wallSpec);
       }
       // EW slope WITH bay: keep buildFBWallWithBay's existing rectangle.
       // (Trapezoidal top + bay is a future enhancement; the wall stays flat-top.)
@@ -8923,7 +9034,7 @@ function generateFrontBackWall(cfg, plan, which) {
       } else {
         // No bay: use the rectangular extension via buildSlantedWallPath with
         // equal left/right pitches. Top edge stays featureless.
-        perimeter = buildSlantedWallPath(fbWidth, H, pitch, pitch, wallSpec);
+        perimeter = buildSlantedWallPath(wallW, H, pitch, pitch, wallSpec);
       }
     }
     // NS slope low-side wall: keep the default rectangle (perimeter already set above).
@@ -8941,7 +9052,7 @@ function generateFrontBackWall(cfg, plan, which) {
     // capacity becomes limiting (e.g. wing.span = 48 → fbWidth=48 capacity 2,
     // but interior=45 capacity 1), this prevents wall and roof from disagreeing
     // on tongue count.
-    const interiorW = fbWidth - 2 * matT;
+    const interiorW = wallW - 2 * matT;
     const roofSlotCount = Math.max(2, Math.min(4, Math.floor(interiorW / 30)));
     const roofTonguePoss = placeTongues(interiorW, tw, margin, [], roofSlotCount, tw / 2);
     for (const t of roofTonguePoss) {
@@ -8960,11 +9071,11 @@ function generateFrontBackWall(cfg, plan, which) {
   //
   // CRITICAL: the inter-floor PANEL spans only the inner cavity between
   // the two side walls — its width is bcW = fbWidth − 2·matT, not the
-  // full fbWidth that the FB wall material spans. The panel's tongues are
+  // full wallW that the FB wall material spans. The panel's tongues are
   // placed across bcW; this wall's matching slots must use the SAME
   // edge length (bcW) and the same target count, then offset the result
-  // by matT to land at wall-local x positions [matT, fbWidth−matT].
-  // Previously this code ran placeTongues on fbWidth, which produced a
+  // by matT to land at wall-local x positions [matT, wallW−matT].
+  // Previously this code ran placeTongues on wallW, which produced a
   // shifted layout that drifted apart from the panel tongues by up to
   // ~matT/2 per side — tongues missed slots near the wall ends and the
   // panel didn't seat cleanly.
@@ -8972,7 +9083,7 @@ function generateFrontBackWall(cfg, plan, which) {
   if (!skipInterFloorSlots && plan.interFloorYs && plan.interFloorYs.length > 0) {
     const ifTw = 6;
     const ifMargin = 3;
-    const bcW = fbWidth - 2 * matT;
+    const bcW = wallW - 2 * matT;
     const ifCount = Math.max(2, Math.min(4, Math.floor(bcW / 25)));
     const ifPoss = placeTongues(bcW, ifTw, ifMargin, [], ifCount, ifTw);
     for (const fy of plan.interFloorYs) {
@@ -9007,7 +9118,7 @@ function generateFrontBackWall(cfg, plan, which) {
     : (plan.floorCenterYs || []);
 
   let windowsToDraw = [], doors = [];
-  const _fbManualOps = manualStructuralOps(cfg, which);
+  const _fbManualOps = shiftOpsForFrontChamfer(cfg, plan, which, manualStructuralOps(cfg, which));
   if (_fbManualOps) {
     // Manual mode: use editor-placed openings directly. Only window and door
     // entries cut the wall here — the bay is a separate structural feature
@@ -9037,7 +9148,7 @@ function generateFrontBackWall(cfg, plan, which) {
     }
   } else {
     // Auto mode: compute windows and doors algorithmically
-    const windows = computeWindows(fbWidth, H, {
+    const windows = computeWindows(wallW, H, {
       density: cfg.windowDensity,
       winDims: winDims,
       groundWinDims: groundWinDims,
@@ -9066,7 +9177,7 @@ function generateFrontBackWall(cfg, plan, which) {
     }
     // Doors (front/back walls — only if no bay AND user requested doors)
     if (!hasBay) {
-      doors = computeDoors(fbWidth, H, {
+      doors = computeDoors(wallW, H, {
         doorStyle: doorStyle,
         doorCount: fbDoorCount,
         hasOpening: false,
@@ -9081,7 +9192,7 @@ function generateFrontBackWall(cfg, plan, which) {
   }
 
   // Cut any 'open'-connection wing openings into this wall face
-  applyWingOpenings(rects, cfg, which, fbWidth, H);
+  applyWingOpenings(rects, cfg, which, wallW, H);
 
   // Pass-through holes from cutout-placement fixtures (wiring/LED openings)
   const wallPaths = [{ type: 'cut', d: perimeter }];
@@ -9091,12 +9202,12 @@ function generateFrontBackWall(cfg, plan, which) {
   // verge slots (see generateSideWall for the rationale), but applied
   // here when the FB wall is the gable wall (i.e. under ridge-ns:
   // 'fb' mode, or 'all' mode with the user's ridge set to ns). The
-  // verge line geometry uses fbWidth instead of sideLen; everything
+  // verge line geometry uses wallW instead of sideLen; everything
   // else is identical.
   if (roofStyle === 'parapet_gable' && isGableEndWall(cfg, which)) {
     const sP = pitch;
-    const vergeSlantLen = Math.hypot(fbWidth / 2, sP);
-    const cosA = (fbWidth / 2) / vergeSlantLen;
+    const vergeSlantLen = Math.hypot(wallW / 2, sP);
+    const cosA = (wallW / 2) / vergeSlantLen;
     const sinA = sP / vergeSlantLen;
     const vergeMargin = Math.max(matT * 2, 5);
     const slotCount = Math.max(2, Math.min(4, Math.floor(vergeSlantLen / 25)));
@@ -9117,10 +9228,10 @@ function generateFrontBackWall(cfg, plan, which) {
                   + `L ${(sx1 + px).toFixed(3)},${(sy1 + py).toFixed(3)} Z`;
       wallPaths.push({ type: 'cut', d: sPath });
 
-      const nPath = `M ${(fbWidth - sx2 + px).toFixed(3)},${(sy2 + py).toFixed(3)} `
-                  + `L ${(fbWidth - sx2 - px).toFixed(3)},${(sy2 - py).toFixed(3)} `
-                  + `L ${(fbWidth - sx1 - px).toFixed(3)},${(sy1 - py).toFixed(3)} `
-                  + `L ${(fbWidth - sx1 + px).toFixed(3)},${(sy1 + py).toFixed(3)} Z`;
+      const nPath = `M ${(wallW - sx2 + px).toFixed(3)},${(sy2 + py).toFixed(3)} `
+                  + `L ${(wallW - sx2 - px).toFixed(3)},${(sy2 - py).toFixed(3)} `
+                  + `L ${(wallW - sx1 - px).toFixed(3)},${(sy1 - py).toFixed(3)} `
+                  + `L ${(wallW - sx1 + px).toFixed(3)},${(sy1 + py).toFixed(3)} Z`;
       wallPaths.push({ type: 'cut', d: nPath });
     }
   }
@@ -9128,7 +9239,7 @@ function generateFrontBackWall(cfg, plan, which) {
   // Bay door alignment tick marks (etched on the core, adjacent to the
   // bay opening, indicating where the door panel's far edge should
   // land). Empty when there's no bay door or the door is 100% open.
-  const wallLines = bayDoorAlignmentMarks(cfg, plan, which);
+  const wallLines = hasBay ? bayDoorAlignmentMarks(cfg, plan, which) : [];
 
   // Bbox extension: the high-side FB wall on a slanted-NS roof has its top
   // edge raised by `pitch` (so the wall reaches the roof angle's upper
@@ -9150,7 +9261,7 @@ function generateFrontBackWall(cfg, plan, which) {
     id: which + '_wall',
     name: which === 'front' ? 'Front Wall' : 'Back Wall',
     material: 'core',
-    bboxW: fbWidth,
+    bboxW: wallW,
     bboxH: hasParapetHere ? H + fbParapetUpExt + matT
          : isGableEnd ? H + pitch + matT
          : isHighSideFB ? H + pitch + matT + topTongueOverhang
@@ -12102,6 +12213,13 @@ function generateFloor(cfg, plan) {
   // Floor outer dim: full footprint = fbWidth x depth = fbWidth x (sideLen + 2*matT)
   const floorW = fbWidth;
   const floorH = sideLen + 2 * matT;
+  const chamfer = frontCornerChamferFor(cfg, plan);
+  const frontWallW = chamfer.enabled ? chamfer.frontWidth : floorW;
+  const frontWallXOffset = chamfer.enabled ? chamfer.westInset : 0;
+  const eastWallLen = chamfer.enabled ? chamfer.eastSideLen : sideLen;
+  const westWallLen = chamfer.enabled ? chamfer.westSideLen : sideLen;
+  const eastWallYOffset = chamfer.enabled ? chamfer.eastInset : 0;
+  const westWallYOffset = chamfer.enabled ? chamfer.westInset : 0;
 
   const margin = Math.max(matT * 2, 5);
 
@@ -12133,7 +12251,7 @@ function generateFloor(cfg, plan) {
     return computeDoors(edgeLen, wallH, { doorStyle, doorCount: count, hasOpening: false, bayXStart: 0, bayXEnd: 0 });
   }
 
-  const frontDoors = getWallDoors('front', fbWidth, H, cfg.frontDoorCount || 0, hasFrontBay);
+  const frontDoors = getWallDoors('front', frontWallW, H, cfg.frontDoorCount || 0, hasFrontBay && !chamfer.enabled);
   const backDoors  = getWallDoors('back',  fbWidth, H, cfg.backDoorCount  || 0, hasBackBay);
   // East and west walls can have INDEPENDENT door layouts when the user
   // places doors manually per-face. The floor needs separate slot lists for
@@ -12141,8 +12259,8 @@ function generateFloor(cfg, plan) {
   // east face only, which left the floor's left (west) edge with slots that
   // didn't match the west wall's bottom tongues whenever the two faces
   // diverged (e.g. east=1 door, west=3 doors in the same building).
-  const eastDoors  = getWallDoors('east',  sideLen, H, cfg.sideDoorCount  || 0, false);
-  const westDoors  = getWallDoors('west',  sideLen, H, cfg.sideDoorCount  || 0, false);
+  const eastDoors  = getWallDoors('east',  eastWallLen, H, cfg.sideDoorCount  || 0, false);
+  const westDoors  = getWallDoors('west',  westWallLen, H, cfg.sideDoorCount  || 0, false);
 
   // Use the same wall-local bay coordinates as generateFrontBackWall().
   // This matters for through-bays: the back wall's bay/tongue layout is
@@ -12150,7 +12268,7 @@ function generateFloor(cfg, plan) {
   // that wall part rather than reusing the front wall's canonical X range.
   const frontBaySlotX = planBayXFor(plan, 'front');
   const backBaySlotX  = planBayXFor(plan, 'back');
-  const frontForbidden = [...(hasFrontBay ? [[frontBaySlotX.bayXStart, frontBaySlotX.bayXEnd]] : []), ...doorForbiddenZones(frontDoors)];
+  const frontForbidden = [...((hasFrontBay && !chamfer.enabled) ? [[frontBaySlotX.bayXStart, frontBaySlotX.bayXEnd]] : []), ...doorForbiddenZones(frontDoors)];
   const backForbidden  = [...(hasBackBay  ? [[backBaySlotX.bayXStart,  backBaySlotX.bayXEnd ]] : []), ...doorForbiddenZones(backDoors)];
   const eastForbidden  = doorForbiddenZones(eastDoors);
   const westForbidden  = doorForbiddenZones(westDoors);
@@ -12162,22 +12280,22 @@ function generateFloor(cfg, plan) {
   // wall uses its own wall-local bay exclusions above so through-bay back
   // slots stay aligned with the generated back wall part.
   const frontWallLocalSlots = applyWallAssemblyKeyToTongues(
-    placeTongues(floorW, tw, margin, frontForbidden, 3, tw / 2),
-    floorW, cfg, 'front', frontForbidden, matT, tw, margin
+    placeTongues(frontWallW, tw, margin, frontForbidden, 3, tw / 2),
+    frontWallW, cfg, 'front', frontForbidden, matT, tw, margin
   );
   const splitRanges = floorSplitRangesByFace(cfg, matT, sideLen);
-  let frontSlots = mirrorSlotsAlongEdge(frontWallLocalSlots, floorW);
+  let frontSlots = offsetSlots(mirrorSlotsAlongEdge(frontWallLocalSlots, frontWallW), frontWallXOffset);
   let backSlots  = applyWallAssemblyKeyToTongues(
     placeTongues(floorW, tw, margin, backForbidden,  3, tw / 2),
     floorW, cfg, 'back', backForbidden, matT, tw, margin
   );
   let eastSlots  = applyWallAssemblyKeyToTongues(
-    placeTongues(sideLen, tw, margin, eastForbidden, 3, tw / 2),
-    sideLen, cfg, 'east', eastForbidden, matT, tw, margin
+    placeTongues(eastWallLen, tw, margin, eastForbidden, 3, tw / 2),
+    eastWallLen, cfg, 'east', eastForbidden, matT, tw, margin
   );
   let westSlots  = applyWallAssemblyKeyToTongues(
-    placeTongues(sideLen, tw, margin, westForbidden, 3, tw / 2),
-    sideLen, cfg, 'west', westForbidden, matT, tw, margin
+    placeTongues(westWallLen, tw, margin, westForbidden, 3, tw / 2),
+    westWallLen, cfg, 'west', westForbidden, matT, tw, margin
   );
   frontSlots = applyFloorSplitHalfWidthSlots(frontSlots, splitRanges.front);
   backSlots  = applyFloorSplitHalfWidthSlots(backSlots,  splitRanges.back);
@@ -12202,7 +12320,7 @@ function generateFloor(cfg, plan) {
     // RIGHT (top→bottom): east-wall slots indent LEFT by matT
     let y = 0;
     for (const s of [...eastSlots].sort((a,b) => a.start - b.start)) {
-      const y1 = matT + s.start, y2 = matT + s.end;
+      const y1 = matT + eastWallYOffset + s.start, y2 = matT + eastWallYOffset + s.end;
       if (y1 > y) d += ` L ${floorW.toFixed(3)},${y1.toFixed(3)}`;
       { const sd = floorSlotDepth(s, matT); d += ` L ${(floorW-sd).toFixed(3)},${y1.toFixed(3)} L ${(floorW-sd).toFixed(3)},${y2.toFixed(3)} L ${floorW.toFixed(3)},${y2.toFixed(3)}`; }
       y = y2;
@@ -12221,7 +12339,7 @@ function generateFloor(cfg, plan) {
     // LEFT (bottom→top): west-wall slots indent RIGHT by matT
     y = floorH;
     for (const s of [...westSlots].sort((a,b) => b.start - a.start)) {
-      const y1 = matT + s.start, y2 = matT + s.end;
+      const y1 = matT + westWallYOffset + s.start, y2 = matT + westWallYOffset + s.end;
       if (y2 < y) d += ` L 0,${y2.toFixed(3)}`;
       { const sd = floorSlotDepth(s, matT); d += ` L ${sd.toFixed(3)},${y2.toFixed(3)} L ${sd.toFixed(3)},${y1.toFixed(3)} L 0,${y1.toFixed(3)}`; }
       y = y1;
@@ -12236,7 +12354,7 @@ function generateFloor(cfg, plan) {
     material: 'core',
     bboxW: floorW, bboxH: floorH,
     bboxOffsetX: 0, bboxOffsetY: 0,
-    paths: [{ type: 'cut', d: buildFloorPerimeter() }, ...floorOutlineOpeningPathsFor(cfg, 0, 0, floorW, floorH), ...holePathsForList(cfg.floorHoles)],
+    paths: [{ type: 'cut', d: buildFloorPerimeter() }, ...frontChamferFloorSlotPaths(cfg, plan), ...floorOutlineOpeningPathsFor(cfg, 0, 0, floorW, floorH), ...holePathsForList(cfg.floorHoles)],
     rects: [],
     lines: [],
   };
@@ -16808,6 +16926,12 @@ function generateCladdingPanel(cfg, plan, which, band) {
   // i.e. the boundary (in cladding y) is cT + (H - firstFloorHeight) below the cladding top.
   const { matT, tw, parapetH, fbWidth, sideLen, bayHeight, H,
           hasFrontBay, hasBackBay } = plan;
+  const chamfer = frontCornerChamferFor(cfg, plan);
+  const frontChamferActive = which === 'front' && chamfer.enabled;
+  const wallW = frontChamferActive ? chamfer.frontWidth : fbWidth;
+  const sideCladdingBodyLen = chamfer.enabled && which === 'east'
+    ? chamfer.eastSideLen
+    : (chamfer.enabled && which === 'west' ? chamfer.westSideLen : sideLen);
   // Through-bay mirror for back wall (see planBayXFor). For front, west,
   // east, or side bays this returns plan.bayXStart unchanged.
   const { bayXStart, bayXEnd } = planBayXFor(plan, which);
@@ -16856,11 +16980,11 @@ function generateCladdingPanel(cfg, plan, which, band) {
                             ? ((cfg.roofPitch || 10) + (cfg.parapetHeight || 0))
                             : 0;
     const slopeRise = cladIsHighSide ? (cfg.roofPitch || 10) : cladFBParapetUp;
-    cWidth = fbWidth + 2 * cT;
+    cWidth = wallW + 2 * cT;
     cHeight = H + slopeRise;
     cId = 'cladding_' + which;
     cName = (which === 'front' ? 'Front' : 'Back') + ' Cladding';
-    hasBay = (which === 'front' ? hasFrontBay : hasBackBay);
+    hasBay = (which === 'front' ? (hasFrontBay && !frontChamferActive) : hasBackBay);
     if (hasBay) {
       // Bay cutout: in cladding frame, shifted by +cT from wall frame (because cladding extends cT to left of wall x=0)
       const wallBottomY = cHeight - floorBottomCladdingExtension;
@@ -16892,7 +17016,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
                               ? ((cfg.roofPitch || 10) + (cfg.parapetHeight || 0))
                               : 0;
     const sideSlopeRise = sideClSlantedNS ? (cfg.roofPitch || 10) : cladSideParapetUp;
-    cWidth = sideLen + 2 * matT;
+    cWidth = sideCladdingBodyLen + 2 * matT;
     cHeight = H + sideSlopeRise;
     cId = 'cladding_side_' + which;
     cName = 'Side Cladding ' + (which === 'east' ? 'East' : 'West');
@@ -17101,7 +17225,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
   // instead of treating the whole side wall as one exposure condition.
   const exposureNoCladding = wallExposureNoCladdingWallRects(
     cfg, plan, which,
-    (which === 'front' || which === 'back') ? fbWidth : sideLen,
+    (which === 'front' || which === 'back') ? wallW : sideCladdingBodyLen,
     H
   );
   function wallRectToCladdingLocal(r) {
@@ -17111,7 +17235,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
     } else if (which === 'west') {
       x = r.x + matT;
     } else {
-      x = (sideLen - r.x - r.w) + matT;
+      x = (sideCladdingBodyLen - r.x - r.w) + matT;
     }
     const yFull = r.y + cladTopOverhang;
     const y0 = Math.max(panelYStart, yFull);
@@ -17184,14 +17308,14 @@ function generateCladdingPanel(cfg, plan, which, band) {
     const fbDoorCount = (which === 'front') ? (cfg.frontDoorCount || 0) : (cfg.backDoorCount || 0);
     const doorH = (doorStyle && doorStyle !== 'none' && DOOR_STYLES[doorStyle]) ? DOOR_STYLES[doorStyle].height : 0;
     const doorReserveH = (fbDoorCount > 0 && !hasBay) ? doorH + 3 : 0;
-    const slotYsForThisWall = (hasFrontBay || hasBackBay)
+    const slotYsForThisWall = hasBay
       ? (plan.slotYs || []).filter(y => y < (H - bayHeight) - 1)
       : (plan.slotYs || []);
-    const floorCenterYsForThisWall = (hasFrontBay || hasBackBay)
+    const floorCenterYsForThisWall = hasBay
       ? (plan.floorCenterYs || []).filter(y => y < (H - bayHeight) - 1)
       : (plan.floorCenterYs || []);
 
-    const _fbManualOps = manualStructuralOps(cfg, which);
+    const _fbManualOps = shiftOpsForFrontChamfer(cfg, plan, which, manualStructuralOps(cfg, which));
     if (_fbManualOps) {
       // Manual mode — cladding frame y now matches wall frame y (no top overhang)
       for (const op of _fbManualOps) {
@@ -17203,12 +17327,12 @@ function generateCladdingPanel(cfg, plan, which, band) {
       }
     } else {
       // Auto mode
-      const wallWindows = computeWindows(fbWidth, H, {
+      const wallWindows = computeWindows(wallW, H, {
         density: cfg.windowDensity,
         winDims: winDims,
         groundWinDims: groundWinDims,
         groundFloorCenterY: plan.groundFloorCenterY,
-        hasOpening: (hasFrontBay || hasBackBay) && (which === 'front' ? hasFrontBay : hasBackBay),
+        hasOpening: hasBay,
         openingY: H - bayHeight, openingH: bayHeight,
         slotYs: slotYsForThisWall,
         floorCenterYs: floorCenterYsForThisWall,
@@ -17231,7 +17355,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
         cladWindows.push({ x: w.x + cT, y: w.y, w: w.width, h: w.height, isGround: w.isGround, style: winStyle });
       }
       if (!hasBay) {
-        const wallDoors = computeDoors(fbWidth, H, {
+        const wallDoors = computeDoors(wallW, H, {
           doorStyle: doorStyle, doorCount: fbDoorCount,
           hasOpening: false, bayXStart: 0, bayXEnd: 0,
           cfg, plan, edgeId: which,
@@ -17244,7 +17368,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
     // Pull user-placed fixtures (surface-mounted, don't cut through). Same
     // cladding-frame x shift as windows/doors so the etched outline lands
     // exactly where the editor showed the fixture.
-    for (const fx of surfaceWallFeaturesForFace(cfg, which, 'fixture')) {
+    for (const fx of shiftOpsForFrontChamfer(cfg, plan, which, surfaceWallFeaturesForFace(cfg, which, 'fixture'))) {
       cladFixtures.push({
         x: fx.x + cT, y: fx.y, w: fx.w, h: fx.h,
         style: fx.style,
@@ -17254,11 +17378,11 @@ function generateCladdingPanel(cfg, plan, which, band) {
     // replace the main cladding in a rectangular region. Same x shift as
     // windows/fixtures so the cut bbox lands where the editor showed it.
     //
-    // Edge-flush extension: the cladding panel is `fbWidth + 2*cT` wide
+    // Edge-flush extension: the cladding panel is `wallW + 2*cT` wide
     // (cT overhang on each side covers the corner where the perpendicular
-    // wall's cladding ends), but the wall body itself is just `fbWidth`.
-    // A patch placed at wall x=0 with width=fbWidth lands at cladding
-    // x=[cT, cT+fbWidth] — leaving a cT-wide strip of base cladding
+    // wall's cladding ends), but the wall body itself is just `wallW`.
+    // A patch placed at wall x=0 with width=wallW lands at cladding
+    // x=[cT, cT+wallW] — leaving a cT-wide strip of base cladding
     // visible at each corner. For FB this is only ~0.3 mm and barely
     // perceptible, but the same logic on side walls (matT=1.5 mm) is
     // clearly visible. We extend the cut out to the cladding panel edge
@@ -17266,9 +17390,9 @@ function generateCladdingPanel(cfg, plan, which, band) {
     // full-wall patch covers the full cladding panel cleanly. The
     // matching override piece is enlarged by the same amount in
     // tallyCladdingOverrides so it slots into the wider cut.
-    for (const ov of surfaceWallFeaturesForFace(cfg, which, 'cladding_override')) {
+    for (const ov of shiftOpsForFrontChamfer(cfg, plan, which, surfaceWallFeaturesForFace(cfg, which, 'cladding_override'))) {
       const leftClFlush  = ov.x <= 0.001;
-      const rightClFlush = (ov.x + ov.w) >= (fbWidth - 0.001);
+      const rightClFlush = (ov.x + ov.w) >= (wallW - 0.001);
       const leftExt  = leftClFlush  ? cT : 0;
       const rightExt = rightClFlush ? cT : 0;
       cladOverrides.push({
@@ -17292,14 +17416,14 @@ function generateCladdingPanel(cfg, plan, which, band) {
     const doorReserveH = (sideDoorCount > 0) ? doorH + 3 : 0;
 
     const _sideManualOps = manualStructuralOps(cfg, which);
-    // Side cladding spans sideLen + 2*matT, with the wall body's x=0 sitting
+    // Side cladding spans side body length + 2*matT, with the wall body's x=0 sitting
     // at cladding-frame x = matT (= the south corner extension).
     const sideXShift = matT;
     // East side cladding mirrors x to match the east laser core panel and the
     // openings editor display (internal view, north on right).
     const _sideCladMirrorX = (which === 'east');
     const _sideMirroredX = (rawX, w) => _sideCladMirrorX
-      ? ((sideLen - rawX - w) + sideXShift)
+      ? ((sideCladdingBodyLen - rawX - w) + sideXShift)
       : (rawX + sideXShift);
     if (_sideManualOps) {
       // Manual mode — shift openings into the cladding frame
@@ -17312,7 +17436,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
       }
     } else {
       // Auto mode
-      const wallWindows = computeWindows(sideLen, H, {
+      const wallWindows = computeWindows(sideCladdingBodyLen, H, {
         density: cfg.windowDensity,
         winDims: winDims,
         groundWinDims: groundWinDims,
@@ -17332,7 +17456,7 @@ function generateCladdingPanel(cfg, plan, which, band) {
           : cfg.windowStyle;
         cladWindows.push({ x: _sideMirroredX(w.x, w.width), y: w.y, w: w.width, h: w.height, isGround: w.isGround, style: winStyle });
       }
-      const wallDoors = computeDoors(sideLen, H, {
+      const wallDoors = computeDoors(sideCladdingBodyLen, H, {
         doorStyle: doorStyle, doorCount: sideDoorCount,
         hasOpening: false, bayXStart: 0, bayXEnd: 0,
         cfg, plan, edgeId: which,
@@ -18145,6 +18269,96 @@ function generateCladdingPanel(cfg, plan, which, band) {
       return out;
     })(),
   };
+}
+
+function generateFrontChamferWalls(cfg, plan) {
+  const chamfer = frontCornerChamferFor(cfg, plan);
+  if (!chamfer.enabled) return [];
+  const { H, matT, tw } = plan;
+  const margin = Math.max(matT * 2, 5);
+  const makeWall = (sideKey, len) => {
+    if (!(len > 0.01)) return null;
+    const bottomTongues = placeTongues(len, tw, margin, [], 2, tw / 2);
+    const wallSpec = {
+      width: len,
+      height: H,
+      matT,
+      kerf: cfg.kerfComp,
+      edges: {
+        top: { tongues: [], openings: [] },
+        right: { tongues: [], openings: [] },
+        bottom: { tongues: bottomTongues, openings: [] },
+        left: { tongues: [], openings: [] },
+      },
+    };
+    return {
+      id: `front_chamfer_wall_${sideKey}`,
+      name: `Front Chamfer Wall ${sideKey === 'west' ? 'West' : 'East'}`,
+      material: 'core',
+      bboxW: len,
+      bboxH: H + matT,
+      bboxOffsetX: 0,
+      bboxOffsetY: 0,
+      paths: [{ type: 'cut', d: buildWallPath(wallSpec) }],
+      rects: [],
+      lines: [],
+      assemblyNote: 'Diagonal front corner wall: glue its vertical edges between the shortened front and side walls.',
+    };
+  };
+  return [
+    makeWall('west', chamfer.westDiagLen),
+    makeWall('east', chamfer.eastDiagLen),
+  ].filter(Boolean);
+}
+
+function generateFrontChamferCladdingPanels(cfg, plan, band) {
+  const chamfer = frontCornerChamferFor(cfg, plan);
+  if (!chamfer.enabled) return [];
+  const cT = Number(cfg.claddingThickness) || 0;
+  const { H } = plan;
+  const floorBottomCladdingExtension = cfg.claddingExtendsToFloorBottom
+    ? Math.max(0, Number(cfg.coreThickness || plan.matT || 0))
+    : 0;
+  const firstFloorHeight = plan.firstFloorHeight || H;
+  const boundary = H - firstFloorHeight;
+  const splitMode = band === 'upper' || band === 'ground';
+  const styleKey = band === 'ground' ? getGroundFloorCladdingStyle(cfg) : cfg.claddingStyle;
+  const styleSpec = CLADDING_STYLES[styleKey] || CLADDING_STYLES[cfg.claddingStyle] || Object.values(CLADDING_STYLES)[0];
+
+  const makePanel = (sideKey, len) => {
+    if (!(len > 0.01)) return null;
+    const fullW = len + 2 * cT;
+    const fullH = H + floorBottomCladdingExtension;
+    let y0 = 0;
+    let y1 = fullH;
+    if (band === 'upper') y1 = boundary;
+    if (band === 'ground') y0 = boundary;
+    y0 = Math.max(0, Math.min(fullH, y0));
+    y1 = Math.max(0, Math.min(fullH, y1));
+    const h = Math.max(0, y1 - y0);
+    if (!(h > 0.01)) return null;
+    const idSuffix = splitMode ? `_${band}` : '';
+    const titleBand = splitMode ? ` (${band})` : '';
+    const lines = generateCladdingPattern(styleSpec, 0, 0, fullW, h, [], null)
+      .map(ln => ({ type: 'etch', x1: ln.x1, y1: ln.y1, x2: ln.x2, y2: ln.y2 }));
+    return {
+      id: `cladding_front_chamfer_${sideKey}${idSuffix}`,
+      name: `Front Chamfer Cladding ${sideKey === 'west' ? 'West' : 'East'}${titleBand}`,
+      material: 'cladding',
+      bboxW: fullW,
+      bboxH: h,
+      paths: [{ type: 'cut', d: rectPath(0, 0, fullW, h) }],
+      rects: [],
+      lines,
+      windows: 0,
+      doors: 0,
+      wallFeatures: [],
+    };
+  };
+  return [
+    makePanel('west', chamfer.westDiagLen),
+    makePanel('east', chamfer.eastDiagLen),
+  ].filter(Boolean);
 }
 
 /* ===== js/00-34-window-parts-generators.js ===== */
@@ -21932,6 +22146,7 @@ function generateBuilding(cfg) {
   parts.push(generateSideWall(cfg, plan, 'W'));
   parts.push(generateFrontBackWall(cfg, plan, 'front'));
   parts.push(generateFrontBackWall(cfg, plan, 'back'));
+  parts.push(...generateFrontChamferWalls(cfg, plan));
   const roofResult = generateRoof(cfg, plan);
   if (Array.isArray(roofResult)) parts.push(...roofResult); else parts.push(roofResult);
   addPartsToList(parts, generateMergedFloor(cfg, plan));
@@ -21948,11 +22163,14 @@ function generateBuilding(cfg) {
       parts.push(generateCladdingPanel(cfg, plan, which, 'upper'));
       parts.push(generateCladdingPanel(cfg, plan, which, 'ground'));
     }
+    parts.push(...generateFrontChamferCladdingPanels(cfg, plan, 'upper'));
+    parts.push(...generateFrontChamferCladdingPanels(cfg, plan, 'ground'));
   } else {
     parts.push(generateCladdingPanel(cfg, plan, 'front'));
     parts.push(generateCladdingPanel(cfg, plan, 'back'));
     parts.push(generateCladdingPanel(cfg, plan, 'east'));
     parts.push(generateCladdingPanel(cfg, plan, 'west'));
+    parts.push(...generateFrontChamferCladdingPanels(cfg, plan));
   }
 
   // Interior cladding panels — one per perimeter wall when the toggle is on.
@@ -32484,7 +32702,17 @@ function weRender() {
   // per-block features can hang off the same selector). Highlighted
   // when selected just like wings.
   const mainSel = (weSelectedWingId === 'main');
-  html += `<rect x="${ox}" y="${oy}" width="${W*s}" height="${D*s}"
+  const mainChamfer = normalizeFrontCornerChamfer(CONFIG.frontCornerChamfer, CONFIG);
+  const mainPts = [
+    { x: 0, y: mainChamfer.westInset || 0 },
+    { x: mainChamfer.westInset || 0, y: 0 },
+    { x: W - (mainChamfer.eastInset || 0), y: 0 },
+    { x: W, y: mainChamfer.eastInset || 0 },
+    { x: W, y: D },
+    { x: 0, y: D },
+  ].filter((p, idx, arr) => idx === 0 || Math.abs(p.x - arr[idx - 1].x) > 0.001 || Math.abs(p.y - arr[idx - 1].y) > 0.001);
+  const mainPtsStr = mainPts.map(p => `${ox + p.x * s},${oy + p.y * s}`).join(' ');
+  html += `<polygon points="${mainPtsStr}"
     fill="#c8c0b0" stroke="${mainSel ? '#f70' : '#555'}" stroke-width="${mainSel ? 2.5 : 2}"
     data-wingid="main" style="cursor:pointer"/>`;
   html += `<text x="${ox+W*s/2}" y="${oy+D*s/2+4}" font-size="11" fill="#555"
@@ -32716,6 +32944,55 @@ function weOnMouseDown(e) {
 }
 
 // ---- Sidebar property panel -------------------------------------------
+function weRenderFrontChamferSection(sidebar) {
+  const chamfer = normalizeFrontCornerChamfer(CONFIG.frontCornerChamfer, CONFIG);
+  CONFIG.frontCornerChamfer = {
+    enabled: chamfer.enabled,
+    sides: chamfer.sides,
+    inset: chamfer.inset,
+  };
+  const section = document.createElement('div');
+  section.className = 'we-panel';
+  section.style.cssText = 'margin-top:10px;';
+  section.innerHTML = `
+    <div class="we-section-label">Front corner angles</div>
+    <label class="we-check-row">
+      <input type="checkbox" data-chamfer-enabled ${chamfer.enabled ? 'checked' : ''}>
+      <span>Clip front corner(s)</span>
+    </label>
+    <div class="field">
+      <label>Corners</label>
+      <select data-chamfer-sides>
+        <option value="both"${chamfer.sides === 'both' ? ' selected' : ''}>both front corners</option>
+        <option value="left"${chamfer.sides === 'left' ? ' selected' : ''}>left/front-west only</option>
+        <option value="right"${chamfer.sides === 'right' ? ' selected' : ''}>right/front-east only</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Inset (mm)</label>
+      <input type="number" min="1" max="${Math.max(1, Math.floor(Math.min(CONFIG.width / 2 - CONFIG.coreThickness, CONFIG.depth - 2 * CONFIG.coreThickness - 1)))}" step="1" data-chamfer-inset value="${Number(chamfer.inset || 12).toFixed(0)}">
+    </div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.35;margin-top:6px;">
+      Adds short diagonal wall and cladding parts while keeping the floor plate rectangular.
+    </div>
+  `;
+  const commit = () => {
+    CONFIG.frontCornerChamfer = {
+      enabled: !!section.querySelector('[data-chamfer-enabled]').checked,
+      sides: section.querySelector('[data-chamfer-sides]').value,
+      inset: Number(section.querySelector('[data-chamfer-inset]').value) || 1,
+    };
+    CONFIG.frontCornerChamfer = normalizeFrontCornerChamfer(CONFIG.frontCornerChamfer, CONFIG);
+    weRender();
+    weRenderSidebar();
+    regenerate();
+  };
+  section.querySelector('[data-chamfer-enabled]').addEventListener('change', commit);
+  section.querySelector('[data-chamfer-sides]').addEventListener('change', commit);
+  section.querySelector('[data-chamfer-inset]').addEventListener('change', commit);
+  sidebar.appendChild(section);
+}
+
 function weRenderSidebar() {
   const sidebar = document.getElementById('weSidebar');
   if (!sidebar) return;
@@ -32792,9 +33069,9 @@ function weRenderSidebar() {
     sidebar.appendChild(chip);
   }
 
-  // Main mode: only the truss section is shown (other main settings live
-  // in the main controls panel on the left of the app).
+  // Main mode: controls that apply to the primary block rather than a wing.
   if (weSelectedWingId === 'main') {
+    weRenderFrontChamferSection(sidebar);
     weRenderTrussSection(sidebar, CONFIG, () => { weRender(); weRenderSidebar(); regenerate(); });
     return;
   }
@@ -33751,7 +34028,11 @@ function oeGetWallDims(wall) {
   const cfg  = oeActiveCfg();
   if (!plan) return { W: cfg.width || CONFIG.width, H: wallBodyHeightFromConfig(cfg || CONFIG) };
   const { H, fbWidth, sideLen } = plan;
-  if (wall === 'front' || wall === 'back') return { W: fbWidth, H };
+  const chamfer = frontCornerChamferFor(cfg, plan);
+  if (wall === 'front') return { W: chamfer.enabled ? chamfer.frontWidth : fbWidth, H };
+  if (wall === 'back') return { W: fbWidth, H };
+  if (wall === 'east') return { W: chamfer.enabled ? chamfer.eastSideLen : sideLen, H };
+  if (wall === 'west') return { W: chamfer.enabled ? chamfer.westSideLen : sideLen, H };
   return { W: sideLen, H };
 }
 
@@ -36319,6 +36600,7 @@ function oeGetAutoOpenings(wall) {
   if (!plan) return [];
   const cfg = oeActiveCfg();
   const { H, matT, fbWidth, sideLen } = plan;
+  const chamfer = frontCornerChamferFor(cfg, plan);
   const winDims = getWindowDims(cfg);
   const groundWinDims = getGroundFloorWindowDims(cfg);
   const doorStyle = cfg.doorStyle;
@@ -36328,21 +36610,25 @@ function oeGetAutoOpenings(wall) {
   const pushD = ds   => ds.forEach(d   => result.push({ type: 'door',   x: d.x, y: d.y, w: d.width, h: d.height }));
 
   if (wall === 'front' || wall === 'back') {
-    const hasBay = (wall === 'front' && plan.hasFrontBay) || (wall === 'back' && plan.hasBackBay);
+    const wallW = wall === 'front' && chamfer.enabled ? chamfer.frontWidth : fbWidth;
+    const hasBay = ((wall === 'front' && plan.hasFrontBay) || (wall === 'back' && plan.hasBackBay))
+      && !(wall === 'front' && chamfer.enabled);
     const bayHeight = plan.bayHeight || 0;
     const cnt = (wall === 'front') ? (cfg.frontDoorCount || 0) : (cfg.backDoorCount || 0);
     const dh = DOOR_STYLES[doorStyle] ? DOOR_STYLES[doorStyle].height : 0;
     const doorReserveH = (cnt > 0 && !hasBay) ? dh + 3 : 0;
     const sYs = hasBay ? (plan.slotYs || []).filter(y => y < (H - bayHeight) - 1) : (plan.slotYs || []);
     const fYs = hasBay ? (plan.floorCenterYs || []).filter(y => y < (H - bayHeight) - 1) : (plan.floorCenterYs || []);
-    pushW(computeWindows(fbWidth, H, { density: cfg.windowDensity, winDims, groundWinDims, groundFloorCenterY: plan.groundFloorCenterY, hasOpening: hasBay, openingY: H - bayHeight, openingH: bayHeight, slotYs: sYs, floorCenterYs: fYs, parapetH: plan.parapetH, matT, doorReserveH, cfg, plan, edgeId: wall }));
-    if (!hasBay) pushD(computeDoors(fbWidth, H, { doorStyle, doorCount: cnt, hasOpening: false, bayXStart: 0, bayXEnd: 0, cfg, plan, edgeId: wall }));
+    pushW(computeWindows(wallW, H, { density: cfg.windowDensity, winDims, groundWinDims, groundFloorCenterY: plan.groundFloorCenterY, hasOpening: hasBay, openingY: H - bayHeight, openingH: bayHeight, slotYs: sYs, floorCenterYs: fYs, parapetH: plan.parapetH, matT, doorReserveH, cfg, plan, edgeId: wall }));
+    if (!hasBay) pushD(computeDoors(wallW, H, { doorStyle, doorCount: cnt, hasOpening: false, bayXStart: 0, bayXEnd: 0, cfg, plan, edgeId: wall }));
   } else {
+    const wallLen = wall === 'east' && chamfer.enabled ? chamfer.eastSideLen
+      : (wall === 'west' && chamfer.enabled ? chamfer.westSideLen : sideLen);
     const cnt = cfg.sideDoorCount || 0;
     const dh = DOOR_STYLES[doorStyle] ? DOOR_STYLES[doorStyle].height : 0;
     const doorReserveH = cnt > 0 ? dh + 3 : 0;
-    pushW(computeWindows(sideLen, H, { density: cfg.windowDensity, winDims, groundWinDims, groundFloorCenterY: plan.groundFloorCenterY, hasOpening: false, openingY: 0, openingH: 0, slotYs: plan.slotYs, floorCenterYs: plan.floorCenterYs, parapetH: plan.parapetH, matT, doorReserveH, cfg, plan, edgeId: wall }));
-    pushD(computeDoors(sideLen, H, { doorStyle, doorCount: cnt, hasOpening: false, bayXStart: 0, bayXEnd: 0, cfg, plan, edgeId: wall }));
+    pushW(computeWindows(wallLen, H, { density: cfg.windowDensity, winDims, groundWinDims, groundFloorCenterY: plan.groundFloorCenterY, hasOpening: false, openingY: 0, openingH: 0, slotYs: plan.slotYs, floorCenterYs: plan.floorCenterYs, parapetH: plan.parapetH, matT, doorReserveH, cfg, plan, edgeId: wall }));
+    pushD(computeDoors(wallLen, H, { doorStyle, doorCount: cnt, hasOpening: false, bayXStart: 0, bayXEnd: 0, cfg, plan, edgeId: wall }));
   }
   return result;
 }

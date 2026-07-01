@@ -501,9 +501,18 @@ export function effective3DWindowStyleKey(cfg, op, isGround) {
 export function get3DWallOpenings(cfg, plan, face) {
   if (!plan) return [];
   const { H, matT, fbWidth, sideLen } = plan;
-  const wallW = (face === 'front' || face === 'back') ? fbWidth : sideLen;
-  const hasBay = (face === 'front' && plan.hasFrontBay) || (face === 'back' && plan.hasBackBay);
+  const chamfer = plan.frontCornerChamfer || { enabled: false, westInset: 0, eastInset: 0, frontWidth: fbWidth, eastSideLen: sideLen, westSideLen: sideLen };
+  const wallW = face === 'front' && chamfer.enabled ? chamfer.frontWidth
+    : (face === 'east' && chamfer.enabled ? chamfer.eastSideLen
+    : (face === 'west' && chamfer.enabled ? chamfer.westSideLen
+    : ((face === 'front' || face === 'back') ? fbWidth : sideLen)));
+  const hasBay = ((face === 'front' && plan.hasFrontBay) || (face === 'back' && plan.hasBackBay))
+    && !(face === 'front' && chamfer.enabled);
   const bayH   = plan.bayHeight || 0;
+  const shiftFrontOp = op => {
+    if (face !== 'front' || !chamfer.enabled) return op;
+    return { ...op, x: Number(op.x || 0) - (chamfer.westInset || 0) };
+  };
 
   // Collect the structural wall holes (windows + doors) from EITHER manual or
   // auto, then ALWAYS append bay/wing-connection holes. Bay holes come from
@@ -514,7 +523,10 @@ export function get3DWallOpenings(cfg, plan, face) {
   // overrides, printed items) still falls through to auto-mode window
   // computation. Without this, a default through-bay on front/back would
   // silently suppress all auto windows on those walls in the 3D preview.
-  const manual = manualStructuralOps(cfg, face);
+  const manualRaw = manualStructuralOps(cfg, face);
+  const manual = face === 'front' && chamfer.enabled && Array.isArray(manualRaw)
+    ? manualRaw.map(shiftFrontOp).filter(op => (Number(op.x || 0) + Number(op.w || 0)) > 0 && Number(op.x || 0) < wallW)
+    : manualRaw;
   let wins = [], doors = [];
   if (manual) {
     // Manual mode — only window + door cut through the wall. Awnings sit on
@@ -627,10 +639,10 @@ export function get3DWallOpenings(cfg, plan, face) {
     let hx, hw;
     if (face === 'east' || face === 'west') {
       hx = Math.max(0, bounds.y - matT);
-      hw = Math.min(sideLen, bounds.y + bounds.d - matT) - hx;
+      hw = Math.min(wallW, bounds.y + bounds.d - matT) - hx;
     } else {
-      hx = Math.max(0, bounds.x);
-      hw = Math.min(fbWidth, bounds.x + bounds.w) - hx;
+      hx = Math.max(0, face === 'front' && chamfer.enabled ? bounds.x - (chamfer.westInset || 0) : bounds.x);
+      hw = Math.min(wallW, (face === 'front' && chamfer.enabled ? bounds.x - (chamfer.westInset || 0) : bounds.x) + bounds.w) - hx;
     }
     if (hw > 0) wingHoles.push({ x: hx, y: 0, w: hw, h: wH, type: 'connection' });
   }
@@ -659,14 +671,19 @@ export function get3DWallOpenings(cfg, plan, face) {
 export function getBlankedWindows3D(cfg, face) {
   const manual = structuralWallFeaturesForFace(cfg, face);
   if (!manual.length) return [];
+  const plan = buildEdgePlans(cfg);
+  const chamfer = plan.frontCornerChamfer || { enabled: false, westInset: 0, frontWidth: plan.fbWidth };
+  const wallW = face === 'front' && chamfer.enabled ? chamfer.frontWidth : plan.fbWidth;
   const out = [];
   for (const op of manual) {
     if (op.type !== 'window') continue;
     const style = op.style ? WINDOW_STYLES[op.style] : null;
     const placement = (style && style.placement) || 'opening';
     if (placement !== 'etched' && placement !== 'blanked') continue;
+    const x = face === 'front' && chamfer.enabled ? Number(op.x || 0) - (chamfer.westInset || 0) : op.x;
+    if (face === 'front' && chamfer.enabled && (x + Number(op.w || 0) <= 0 || x >= wallW)) continue;
     out.push({
-      x: op.x, y: op.y, w: op.w, h: op.h,
+      x, y: op.y, w: op.w, h: op.h,
       style: effective3DWindowStyleKey(cfg, op, false),
     });
   }
@@ -1219,6 +1236,13 @@ export function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
   const d = cfg.depth;
   const h = H;
   const t = cfg.coreThickness || 1.5;
+  const chamfer = plan.frontCornerChamfer || { enabled: false, westInset: 0, eastInset: 0, frontWidth: w, eastSideLen: sideLen, westSideLen: sideLen, westDiagLen: 0, eastDiagLen: 0 };
+  const frontWallW = chamfer.enabled ? chamfer.frontWidth : w;
+  const frontCenterX = chamfer.enabled ? ((chamfer.westInset || 0) - (chamfer.eastInset || 0)) / 2 : 0;
+  const eastWallLen = chamfer.enabled ? chamfer.eastSideLen : sideLen;
+  const westWallLen = chamfer.enabled ? chamfer.westSideLen : sideLen;
+  const eastWallCenterZ = chamfer.enabled ? (chamfer.eastInset || 0) / 2 : 0;
+  const westWallCenterZ = chamfer.enabled ? (chamfer.westInset || 0) / 2 : 0;
 
   const wallMat = material3DForId(cfg, 'cladding', { roughness: 0.8 }, 0xc9b89b);
   const roofMat = material3DForId(cfg, 'core', { roughness: 0.9 }, 0x666666);
@@ -1786,19 +1810,19 @@ export function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
   render3DBlockWalls3D('Main', [
     {
       blockCfg: cfg, blockPlan: plan, face: 'front',
-      wallW: w, ops: get3DWallOpenings(cfg, plan, 'front'),
+      wallW: frontWallW, ops: get3DWallOpenings(cfg, plan, 'front'),
       // The flat wall editor shows the exterior face of the panel. In the
       // 3D scene the front wall's local shape is viewed from the opposite
       // side of the SVG/shape plane, so the structural cutouts need the same
       // horizontal mirror used by the wall mesh. Panes use the identical
       // mirrored centre coordinate so glass/doors stay aligned with holes.
       mirrorX: true,
-      meshPos: { x: 0, y: 0, z: -d / 2 },
+      meshPos: { x: frontCenterX, y: 0, z: -d / 2 },
       blankedOps: getBlankedWindows3D(cfg, 'front'),
       panePosition: (op, blanked) => {
-        const hx = w / 2 - op.x - op.w;
+        const hx = frontWallW / 2 - op.x - op.w;
         const hy = h - op.y - op.h;
-        return { x: hx + op.w / 2, y: hy + op.h / 2, z: -d / 2 - (blanked ? 0.05 : 0.1), rotY: 0 };
+        return { x: frontCenterX + hx + op.w / 2, y: hy + op.h / 2, z: -d / 2 - (blanked ? 0.05 : 0.1), rotY: 0 };
       },
     },
     {
@@ -1815,30 +1839,46 @@ export function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
     },
     {
       blockCfg: cfg, blockPlan: plan, face: 'east',
-      wallW: sideLen, ops: get3DWallOpenings(cfg, plan, 'east'),
+      wallW: eastWallLen, ops: get3DWallOpenings(cfg, plan, 'east'),
       mirrorX: true,
       meshRotY: Math.PI / 2,
-      meshPos: { x: w / 2 - t, y: 0, z: 0 },
+      meshPos: { x: w / 2 - t, y: 0, z: eastWallCenterZ },
       blankedOps: getBlankedWindows3D(cfg, 'east'),
       panePosition: (op, blanked) => {
-        const hz = op.x - sideLen / 2;
+        const hz = op.x - eastWallLen / 2;
         const hy = h - op.y - op.h;
-        return { x: w / 2 + (blanked ? 0.05 : 0.1), y: hy + op.h / 2, z: hz + op.w / 2, rotY: Math.PI / 2 };
+        return { x: w / 2 + (blanked ? 0.05 : 0.1), y: hy + op.h / 2, z: eastWallCenterZ + hz + op.w / 2, rotY: Math.PI / 2 };
       },
     },
     {
       blockCfg: cfg, blockPlan: plan, face: 'west',
-      wallW: sideLen, ops: get3DWallOpenings(cfg, plan, 'west'),
+      wallW: westWallLen, ops: get3DWallOpenings(cfg, plan, 'west'),
       mirrorX: false,
       meshRotY: -Math.PI / 2,
-      meshPos: { x: -(w / 2 - t), y: 0, z: 0 },
+      meshPos: { x: -(w / 2 - t), y: 0, z: westWallCenterZ },
       blankedOps: getBlankedWindows3D(cfg, 'west'),
       panePosition: (op, blanked) => {
-        const hz = op.x - sideLen / 2;
+        const hz = op.x - westWallLen / 2;
         const hy = h - op.y - op.h;
-        return { x: -w / 2 - (blanked ? 0.05 : 0.1), y: hy + op.h / 2, z: hz + op.w / 2, rotY: -Math.PI / 2 };
+        return { x: -w / 2 - (blanked ? 0.05 : 0.1), y: hy + op.h / 2, z: westWallCenterZ + hz + op.w / 2, rotY: -Math.PI / 2 };
       },
     },
+    ...(chamfer.enabled && chamfer.westDiagLen > 0 ? [{
+      blockCfg: cfg, blockPlan: plan, face: 'front',
+      wallW: chamfer.westDiagLen, ops: [],
+      mirrorX: false,
+      meshRotY: -Math.PI / 4,
+      meshPos: { x: -w / 2 + (chamfer.westInset || 0) / 2, y: 0, z: -d / 2 + (chamfer.westInset || 0) / 2 },
+      blankedOps: [],
+    }] : []),
+    ...(chamfer.enabled && chamfer.eastDiagLen > 0 ? [{
+      blockCfg: cfg, blockPlan: plan, face: 'front',
+      wallW: chamfer.eastDiagLen, ops: [],
+      mirrorX: false,
+      meshRotY: Math.PI / 4,
+      meshPos: { x: w / 2 - (chamfer.eastInset || 0) / 2, y: 0, z: -d / 2 + (chamfer.eastInset || 0) / 2 },
+      blankedOps: [],
+    }] : []),
   ]);
 
   const roofStyle3d = cfg.roofStyle || 'parapet';

@@ -5012,9 +5012,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const fp=$('fabricPresetSel'); if(fp) fp.onchange=()=>{fabric.fabricType=fp.value; state.fabricPreset=fp.value; syncAll();};
       $('generateFabricRegion').onclick=()=>generateFabricForRegion(fabric,{confirmReplace:true});
       $('deleteFabricRegion').onclick=deleteSelectedFabricRegion;
-    } else if(stl){normalizeStlObject(stl); const sourceList=(stl.sourceAssets||[]).map((source,idx)=>`
+    } else if(stl){normalizeStlObject(stl); const stlAssetStatus=stl.asset?.unavailable?' · asset unavailable':(!stl.asset?.dataBase64&&stl.asset?.path?' · referenced asset':''); const sourceList=(stl.sourceAssets||[]).map((source,idx)=>`
       <div class="listItem compact">
-        <div><b>${escapeHtml(source.name||source.fileName||'Source file')}</b><br><span class="small muted">${escapeHtml(source.fileName||'source file')}</span></div>
+        <div><b>${escapeHtml(source.name||source.fileName||'Source file')}</b><br><span class="small muted">${escapeHtml(source.fileName||'source file')}${source.unavailable?' · unavailable':(!source.dataBase64&&source.path?' · referenced asset':'')}</span></div>
         <div class="buttons"><button data-stl-source-download="${idx}" ${source.dataBase64?'':'disabled'}>Download</button><button data-stl-source-delete="${idx}" class="danger">Remove</button></div>
       </div>`).join('') || '<div class="small muted">No source file attached.</div>'; box.innerHTML=`
       <b>${escapeHtml(stl.name||'STL Object')} selected</b>
@@ -5024,7 +5024,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       <div class="row"><div><label>Height mm</label><input id="stlH" type="number" min="0.1" step="0.1" value="${fmt(stl.heightMm||0)}"></div><div><label>Color</label><input id="stlColor" type="color" value="${stl.color||'#496a78'}"></div></div>
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="stlLocked" type="checkbox" ${stl.locked?'checked':''}> <span>Lock object</span></label>
       <label>Notes</label><textarea id="stlNotes" rows="3">${escapeHtml(stl.notes||'')}</textarea>
-      <div class="small muted" style="margin-top:6px">File: ${escapeHtml(stl.asset?.fileName||'STL asset')} · ${escapeHtml(stl.bounds?.format||'unknown')} bounds · renders as STL geometry when available.</div>
+      <div class="small muted" style="margin-top:6px">File: ${escapeHtml(stl.asset?.fileName||'STL asset')} · ${escapeHtml(stl.bounds?.format||'unknown')} bounds${escapeHtml(stlAssetStatus)} · renders as STL geometry when available.</div>
       <label>Source files</label>
       <div>${sourceList}</div>
       <input id="stlSourceFileInput" class="hiddenFile" type="file" accept=".scad,.blend,.py,.js,.json,.txt,.obj,.dae,.3mf">
@@ -6666,6 +6666,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         const file=await readGithubBase64File(settings, asset.path);
         if(file?.contentBase64){
           obj.asset={...asset,dataBase64:file.contentBase64};
+        } else {
+          obj.asset={...asset,unavailable:true};
         }
       }
       for(const source of (Array.isArray(obj.sourceAssets) ? obj.sourceAssets : [])){
@@ -6673,7 +6675,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         setGithubStatus('Loading referenced STL source asset...');
         const file=await readGithubBase64File(settings, source.path);
         if(file?.contentBase64){
-          Object.assign(source,{dataBase64:file.contentBase64});
+          Object.assign(source,{dataBase64:file.contentBase64,unavailable:false});
+        } else {
+          Object.assign(source,{unavailable:true});
         }
       }
     }
@@ -7073,7 +7077,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         const assetFile=zip.file(assetName) || zip.file(assetName.split('/').pop());
         if(assetFile){
           const b64=await assetFile.async('base64');
-          obj.asset={...stlAsset,dataBase64:b64};
+          obj.asset={...stlAsset,dataBase64:b64,unavailable:false};
+        } else {
+          obj.asset={...stlAsset,unavailable:true};
         }
       }
       const sources=Array.isArray(obj.sourceAssets) ? obj.sourceAssets : [];
@@ -7083,7 +7089,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         const sourceFile=zip.file(sourceName) || zip.file(sourceName.split('/').pop());
         if(sourceFile){
           const b64=await sourceFile.async('base64');
-          Object.assign(source,{dataBase64:b64});
+          Object.assign(source,{dataBase64:b64,unavailable:false});
+        } else {
+          Object.assign(source,{unavailable:true});
         }
       }
     }

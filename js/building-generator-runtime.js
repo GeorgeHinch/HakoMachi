@@ -5709,7 +5709,7 @@ let CONFIG = {
   // geometry is clipped to the kept side of each cut at export/preview time.
   // Cut coords are in global top-down plan mm, same as the shape editor:
   // main block occupies x=0..width, y=0..depth; wings extend outside that box.
-  // Line cut: {id,type:'line',x1,y1,x2,y2,keepSide:'left'|'right'}
+  // Line cut: {id,type:'line',x1,y1,x2,y2,keepSide:'left'|'right',solidBack?:boolean}
   // Arc cut:  {id,type:'arc', x1,y1,x2,y2,cx,cy,keepSide:'left'|'right'} where
   //           cx/cy is a quadratic Bezier control point.
   layoutCuts: [],
@@ -13910,6 +13910,110 @@ function pointInPolygon(pt, poly) {
     if (intersect) inside = !inside;
   }
   return inside;
+}
+
+function layoutCutSolidBackBlocks(cfg) {
+  const out = [{
+    id: 'main',
+    label: 'Main',
+    cfg,
+    poly: [
+      { x: 0, y: 0 },
+      { x: Number(cfg && cfg.width) || 0, y: 0 },
+      { x: Number(cfg && cfg.width) || 0, y: Number(cfg && cfg.depth) || 0 },
+      { x: 0, y: Number(cfg && cfg.depth) || 0 },
+    ],
+  }];
+  if (Array.isArray(cfg && cfg.wings) && typeof weWingBounds === 'function' && typeof buildWingCfg === 'function') {
+    for (let i = 0; i < cfg.wings.length; i++) {
+      const wing = cfg.wings[i];
+      let b = null, wCfg = null;
+      try { b = weWingBounds(cfg, wing); } catch (_) {}
+      try { wCfg = buildWingCfg(cfg, wing); } catch (_) {}
+      if (!b || !wCfg) continue;
+      out.push({
+        id: `wing_${i + 1}`,
+        label: `Wing ${i + 1}`,
+        cfg: wCfg,
+        poly: [
+          { x: Number(b.x) || 0, y: Number(b.y) || 0 },
+          { x: (Number(b.x) || 0) + (Number(b.w) || 0), y: Number(b.y) || 0 },
+          { x: (Number(b.x) || 0) + (Number(b.w) || 0), y: (Number(b.y) || 0) + (Number(b.d) || 0) },
+          { x: Number(b.x) || 0, y: (Number(b.y) || 0) + (Number(b.d) || 0) },
+        ],
+      });
+    }
+  }
+  return out.filter(b => polygonAbsArea(b.poly) > 0.01);
+}
+
+function wallBodyHeightForSolidBack(cfg) {
+  try {
+    if (typeof wallBodyHeightFromConfig === 'function') {
+      const h = Number(wallBodyHeightFromConfig(cfg));
+      if (h > 0) return h;
+    }
+  } catch (_) {}
+  const total = Number(cfg && cfg.height);
+  if (total > 0) return total;
+  return Math.max(1, (Number(cfg && cfg.floorCount) || 1) * (Number(cfg && cfg.floorHeight) || 30));
+}
+
+function pointOnSegment(a, b, t) {
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+}
+
+function cleanIdSegment(value) {
+  return String(value == null ? '' : value).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'cut';
+}
+
+function generateLayoutCutSolidBackParts(cfg) {
+  if (!layoutCutsActive(cfg)) return [];
+  refreshMeasuredLayoutCuts(cfg || CONFIG);
+  const cuts = ((cfg || CONFIG).layoutCuts || []).filter(c => c && c.enabled !== false && c.type === 'line' && c.solidBack === true);
+  if (!cuts.length) return [];
+
+  const parts = [];
+  const blocks = layoutCutSolidBackBlocks(cfg || CONFIG);
+  cuts.forEach((rawCut, cutIndex) => {
+    const cut = resolveLayoutCutGeometry(rawCut, cfg || CONFIG);
+    const a = { x: Number(cut.x1) || 0, y: Number(cut.y1) || 0 };
+    const b = { x: Number(cut.x2) || 0, y: Number(cut.y2) || 0 };
+    if (Math.hypot(b.x - a.x, b.y - a.y) <= 0.01) return;
+
+    blocks.forEach(block => {
+      const originalArea = polygonAbsArea(block.poly);
+      const clipped = clipPolygonByLayoutCuts(block.poly, [cut], cfg || CONFIG);
+      const clippedArea = polygonAbsArea(clipped);
+      if (clipped.length < 3 || clippedArea >= originalArea - 0.05) return;
+
+      const intervals = keptIntervalsOnSegmentInsidePolygon(a, b, block.poly);
+      intervals.forEach((range, segmentIndex) => {
+        const p0 = pointOnSegment(a, b, range[0]);
+        const p1 = pointOnSegment(a, b, range[1]);
+        const panelW = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+        const panelH = wallBodyHeightForSolidBack(block.cfg);
+        if (panelW <= 1 || panelH <= 1) return;
+        const blockSuffix = block.id === 'main' ? '' : ` ${block.label}`;
+        const cutLabel = rawCut.name || `layout cut ${cutIndex + 1}`;
+        parts.push({
+          id: `solid_back_${cleanIdSegment(rawCut.id || cutIndex)}_${cleanIdSegment(block.id)}_${segmentIndex + 1}`,
+          name: `${block.label} Solid Back Cladding (${cutLabel})`,
+          material: 'backing',
+          bboxW: panelW,
+          bboxH: panelH,
+          bboxOffsetX: 0,
+          bboxOffsetY: 0,
+          paths: [{ type: 'cut', d: pointsToSvgPath([{ x: 0, y: 0 }, { x: panelW, y: 0 }, { x: panelW, y: panelH }, { x: 0, y: panelH }]) }],
+          rects: [],
+          lines: [],
+          assemblyNote: `Black-card solid back panel for${blockSuffix || ' the main block'} straight layout cut. Glue this behind the sliced opening so it covers the exposed cut edge from edge to edge; arc layout cuts do not generate solid backs.`,
+          meta: { area: 'layout_cut', role: 'solid_back', cutId: rawCut.id || null, block: block.id },
+        });
+      });
+    });
+  });
+  return parts;
 }
 
 function pathCentroidApprox(d) {
@@ -22513,6 +22617,7 @@ function generateBuilding(cfg) {
   parts.push(...generateInternalWallParts(cfg, plan));
   injectInternalWallSlots(parts, cfg, plan);
 
+  parts.push(...generateLayoutCutSolidBackParts(cfg, plan));
   applyLayoutCutsToGeneratedParts(cfg, parts);
 
   normalizePartsMetadata(parts);
@@ -29654,6 +29759,7 @@ function applyLoadedConfig(data) {
       cx: Number(c.cx) || ((Number(c.x1) || 0) + (Number(c.x2) || 0)) / 2,
       cy: Number(c.cy) || ((Number(c.y1) || 0) + (Number(c.y2) || 0)) / 2,
       keepSide: c.keepSide === 'right' ? 'right' : 'left',
+      solidBack: c.type === 'line' && c.solidBack === true,
       enabled: c.enabled !== false,
       positionMode: (c.type === 'arc' && c.positionMode === 'measured') ? 'measured' : 'free',
       targetId: (typeof c.targetId === 'string' && c.targetId) ? c.targetId : 'main',
@@ -32134,6 +32240,7 @@ function generateBuildingWithWings(cfg) {
   parts.push(...generateInternalWallParts(cfg, plan));
   injectInternalWallSlots(parts, cfg, plan);
 
+  parts.push(...generateLayoutCutSolidBackParts(cfg, plan));
   applyLayoutCutsToGeneratedParts(cfg, parts);
 
   normalizePartsMetadata(parts);
@@ -32472,7 +32579,7 @@ function weAddLayoutCut(type) {
   const cut = type === 'arc'
     ? { id, type: 'arc', x1, y1: y, x2, y2: y, cx: (x1 + x2) / 2, cy: y - Math.max(20, b.h * 0.28), keepSide: 'left', enabled: true,
         positionMode: 'free', targetId: 'main', referenceEdge: 'back', startOffset: 20, endOffset: 20, bulge: Math.max(20, b.h * 0.18), bulgeSide: 1 }
-    : { id, type: 'line', x1, y1: y, x2, y2: y, keepSide: 'left', enabled: true, positionMode: 'free' };
+    : { id, type: 'line', x1, y1: y, x2, y2: y, keepSide: 'left', enabled: true, positionMode: 'free', solidBack: false };
   weEnsureLayoutCuts().push(cut);
   weSelectedCutId = id;
   weSelectedWingId = null;
@@ -32551,7 +32658,27 @@ function weRenderSelectedCutControls(sidebar, cut) {
   dirBtn.onclick = () => weToggleCutDirection(cut.id);
   sidebar.appendChild(dirBtn);
 
-  if (cut.type !== 'arc') return;
+  if (cut.type !== 'arc') {
+    const solidBack = document.createElement('div');
+    solidBack.className = 'field';
+    solidBack.innerHTML = `<label><input type="checkbox"> Solid black back panel</label>
+      <div class="small">Adds a black-card backing piece sized to this straight cut edge. Existing open-slice behavior stays unchanged when off.</div>`;
+    const input = solidBack.querySelector('input');
+    input.checked = cut.solidBack === true;
+    input.onchange = () => {
+      cut.solidBack = input.checked;
+      weRender();
+      weRenderSidebar();
+      regenerate();
+    };
+    sidebar.appendChild(solidBack);
+    return;
+  }
+
+  const arcBackNote = document.createElement('div');
+  arcBackNote.style.cssText = 'font-size:10px;color:var(--muted);line-height:1.35;margin:-2px 0 6px;';
+  arcBackNote.textContent = 'Solid back panels are disabled for arc cuts; use a straight or angled cut for a fabricatable backing piece.';
+  sidebar.appendChild(arcBackNote);
 
   const mode = document.createElement('div');
   mode.className = 'field';
@@ -32677,7 +32804,7 @@ function weRenderLayoutCuts(ox, oy, s, minX, minY, maxX, maxY) {
       html += `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" stroke="transparent" stroke-width="${hitSw}" data-cutline="${cut.id}" pointer-events="stroke" style="cursor:pointer"/>`;
       html += `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" stroke="${stroke}" stroke-width="${sw}" stroke-dasharray="7 4" data-cutline="${cut.id}" pointer-events="stroke" style="cursor:pointer"/>`;
       const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
-      html += `<text x="${f(mx)}" y="${f(my - 8)}" font-size="9" fill="#a22" text-anchor="middle" font-family="system-ui" pointer-events="none">keep ${cut.keepSide}</text>`;
+      html += `<text x="${f(mx)}" y="${f(my - 8)}" font-size="9" fill="#a22" text-anchor="middle" font-family="system-ui" pointer-events="none">keep ${cut.keepSide}${rawCut.solidBack === true ? ' · solid back' : ''}</text>`;
     }
     if (selected && !measuredArc) {
       html += `<circle cx="${f(x1)}" cy="${f(y1)}" r="5" fill="#d22" stroke="#fff" stroke-width="1" data-cutid="${cut.id}" data-cuthandle="p1" style="cursor:move"/>`;

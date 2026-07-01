@@ -1,4 +1,4 @@
-import '../building-generator-runtime.js?v=es-module-runtime-4';
+import '../building-generator-runtime.js?v=es-module-runtime-5';
 import {
   buildingPreviewRenderer,
   installBuildingPreviewGlobal,

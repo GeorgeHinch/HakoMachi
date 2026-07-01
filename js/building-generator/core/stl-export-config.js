@@ -2075,6 +2075,7 @@ export function applyLoadedConfig(data) {
       cx: Number(c.cx) || ((Number(c.x1) || 0) + (Number(c.x2) || 0)) / 2,
       cy: Number(c.cy) || ((Number(c.y1) || 0) + (Number(c.y2) || 0)) / 2,
       keepSide: c.keepSide === 'right' ? 'right' : 'left',
+      solidBack: c.type === 'line' && c.solidBack === true,
       enabled: c.enabled !== false,
       positionMode: (c.type === 'arc' && c.positionMode === 'measured') ? 'measured' : 'free',
       targetId: (typeof c.targetId === 'string' && c.targetId) ? c.targetId : 'main',

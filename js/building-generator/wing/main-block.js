@@ -1053,6 +1053,7 @@ export function generateBuildingWithWings(cfg) {
   parts.push(...generateInternalWallParts(cfg, plan));
   injectInternalWallSlots(parts, cfg, plan);
 
+  parts.push(...generateLayoutCutSolidBackParts(cfg, plan));
   applyLayoutCutsToGeneratedParts(cfg, parts);
 
   normalizePartsMetadata(parts);

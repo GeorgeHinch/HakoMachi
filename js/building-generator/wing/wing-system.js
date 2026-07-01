@@ -266,7 +266,7 @@ export function weAddLayoutCut(type) {
   const cut = type === 'arc'
     ? { id, type: 'arc', x1, y1: y, x2, y2: y, cx: (x1 + x2) / 2, cy: y - Math.max(20, b.h * 0.28), keepSide: 'left', enabled: true,
         positionMode: 'free', targetId: 'main', referenceEdge: 'back', startOffset: 20, endOffset: 20, bulge: Math.max(20, b.h * 0.18), bulgeSide: 1 }
-    : { id, type: 'line', x1, y1: y, x2, y2: y, keepSide: 'left', enabled: true, positionMode: 'free' };
+    : { id, type: 'line', x1, y1: y, x2, y2: y, keepSide: 'left', enabled: true, positionMode: 'free', solidBack: false };
   weEnsureLayoutCuts().push(cut);
   weSelectedCutId = id;
   weSelectedWingId = null;
@@ -345,7 +345,27 @@ export function weRenderSelectedCutControls(sidebar, cut) {
   dirBtn.onclick = () => weToggleCutDirection(cut.id);
   sidebar.appendChild(dirBtn);
 
-  if (cut.type !== 'arc') return;
+  if (cut.type !== 'arc') {
+    const solidBack = document.createElement('div');
+    solidBack.className = 'field';
+    solidBack.innerHTML = `<label><input type="checkbox"> Solid black back panel</label>
+      <div class="small">Adds a black-card backing piece sized to this straight cut edge. Existing open-slice behavior stays unchanged when off.</div>`;
+    const input = solidBack.querySelector('input');
+    input.checked = cut.solidBack === true;
+    input.onchange = () => {
+      cut.solidBack = input.checked;
+      weRender();
+      weRenderSidebar();
+      regenerate();
+    };
+    sidebar.appendChild(solidBack);
+    return;
+  }
+
+  const arcBackNote = document.createElement('div');
+  arcBackNote.style.cssText = 'font-size:10px;color:var(--muted);line-height:1.35;margin:-2px 0 6px;';
+  arcBackNote.textContent = 'Solid back panels are disabled for arc cuts; use a straight or angled cut for a fabricatable backing piece.';
+  sidebar.appendChild(arcBackNote);
 
   const mode = document.createElement('div');
   mode.className = 'field';
@@ -471,7 +491,7 @@ export function weRenderLayoutCuts(ox, oy, s, minX, minY, maxX, maxY) {
       html += `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" stroke="transparent" stroke-width="${hitSw}" data-cutline="${cut.id}" pointer-events="stroke" style="cursor:pointer"/>`;
       html += `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" stroke="${stroke}" stroke-width="${sw}" stroke-dasharray="7 4" data-cutline="${cut.id}" pointer-events="stroke" style="cursor:pointer"/>`;
       const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
-      html += `<text x="${f(mx)}" y="${f(my - 8)}" font-size="9" fill="#a22" text-anchor="middle" font-family="system-ui" pointer-events="none">keep ${cut.keepSide}</text>`;
+      html += `<text x="${f(mx)}" y="${f(my - 8)}" font-size="9" fill="#a22" text-anchor="middle" font-family="system-ui" pointer-events="none">keep ${cut.keepSide}${rawCut.solidBack === true ? ' · solid back' : ''}</text>`;
     }
     if (selected && !measuredArc) {
       html += `<circle cx="${f(x1)}" cy="${f(y1)}" r="5" fill="#d22" stroke="#fff" stroke-width="1" data-cutid="${cut.id}" data-cuthandle="p1" style="cursor:move"/>`;

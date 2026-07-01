@@ -2,7 +2,7 @@
    FULL BUILDING GENERATION
    Combines all parts into a list.
    ===================================================================== */
-import { clipPolygonByLayoutCuts, layoutCutsActive } from './layout-cut-geometry.js?v=shared-building-preview-26';
+import { clipPolygonByLayoutCuts, generateLayoutCutSolidBackParts, layoutCutsActive } from './layout-cut-geometry.js?v=shared-building-preview-26';
 
 
 export function htmlEscapeInline(s) {
@@ -410,6 +410,7 @@ export function generateBuilding(cfg) {
   parts.push(...generateInternalWallParts(cfg, plan));
   injectInternalWallSlots(parts, cfg, plan);
 
+  parts.push(...generateLayoutCutSolidBackParts(cfg, plan));
   applyLayoutCutsToGeneratedParts(cfg, parts);
 
   normalizePartsMetadata(parts);

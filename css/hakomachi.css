@@ -229,6 +229,10 @@
     border-radius: 4px;
     padding: 8px;
   }
+  .part.assembly-current {
+    border-color: #2a64aa;
+    box-shadow: 0 0 0 2px rgba(42,100,170,0.2), 0 10px 24px rgba(24,44,70,0.12);
+  }
   .part-name {
     font-size: 11px; font-weight: 600; color: var(--muted);
     text-transform: uppercase; letter-spacing: 0.04em;
@@ -272,6 +276,193 @@
     font: 700 9px/1.5 system-ui; letter-spacing: 0.04em;
     background: #333; color: #fff; z-index: 3;
     box-shadow: 0 1px 4px rgba(0,0,0,0.22); pointer-events: none;
+  }
+
+  /* Interactive assembly guide */
+  .assembly-guide-modal {
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+  }
+  .assembly-guide-dialog {
+    width: min(1120px, calc(100vw - 36px));
+    height: min(760px, calc(100vh - 36px));
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 24px 80px rgba(24, 24, 20, 0.32);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .assembly-guide-header,
+  .assembly-guide-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel-2);
+  }
+  .assembly-guide-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 17px;
+  }
+  .assembly-guide-header > button {
+    margin-left: auto;
+    min-width: 34px;
+  }
+  .assembly-guide-progress,
+  .assembly-guide-phase {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .assembly-guide-warnings {
+    display: none;
+    padding: 8px 14px;
+    border-bottom: 1px solid #e1c979;
+    background: #fff8dc;
+    color: #6a5620;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .assembly-guide-warnings.has-warnings {
+    display: block;
+  }
+  .assembly-guide-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  }
+  .assembly-guide-steps {
+    min-height: 0;
+    overflow: auto;
+    border-right: 1px solid var(--border);
+    background: #f7f7f2;
+    padding: 8px;
+  }
+  .assembly-guide-step-btn {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr);
+    gap: 8px;
+    align-items: start;
+    padding: 8px;
+    margin: 0 0 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--fg);
+    text-align: left;
+    cursor: pointer;
+  }
+  .assembly-guide-step-btn:hover {
+    background: white;
+    border-color: var(--border);
+  }
+  .assembly-guide-step-btn.is-current {
+    background: white;
+    border-color: #2a64aa;
+    box-shadow: 0 0 0 2px rgba(42,100,170,0.14);
+  }
+  .assembly-guide-step-btn.is-done {
+    color: #42604b;
+  }
+  .assembly-guide-step-index {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font: 700 11px/1 system-ui;
+    background: #e6e6de;
+    color: var(--muted);
+  }
+  .assembly-guide-step-btn.is-current .assembly-guide-step-index {
+    background: #2a64aa;
+    color: white;
+  }
+  .assembly-guide-step-title {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .assembly-guide-step-meta {
+    display: block;
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.25;
+  }
+  .assembly-guide-main {
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    padding: 18px;
+  }
+  .assembly-guide-main h3 {
+    margin: 5px 0 6px;
+    font-size: 20px;
+    line-height: 1.2;
+  }
+  .assembly-guide-main p {
+    margin: 0 0 16px;
+    color: var(--muted);
+  }
+  .assembly-guide-parts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+  }
+  .assembly-guide-part {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: white;
+    padding: 10px;
+  }
+  .assembly-guide-part-name {
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1.25;
+  }
+  .assembly-guide-part-meta,
+  .assembly-guide-part-path {
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  .assembly-guide-footer {
+    justify-content: flex-end;
+    border-top: 1px solid var(--border);
+    border-bottom: 0;
+  }
+  @media (max-width: 760px) {
+    .assembly-guide-modal {
+      padding: 8px;
+    }
+    .assembly-guide-dialog {
+      width: calc(100vw - 16px);
+      height: calc(100vh - 16px);
+    }
+    .assembly-guide-body {
+      grid-template-columns: 1fr;
+      grid-template-rows: minmax(120px, 32vh) minmax(0, 1fr);
+    }
+    .assembly-guide-steps {
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+    }
   }
   /* Empty material group placeholder */
   .mat-group-empty {

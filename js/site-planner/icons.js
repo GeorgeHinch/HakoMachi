@@ -16,6 +16,7 @@ export const ICONS = {
   roadMarking: '<svg viewBox="0 0 24 24"><path d="M5 19h14"/><path d="M8 15h8"/><path d="M10 11h4"/><path d="M12 5v4"/><path d="M9 8l3-3 3 3"/></svg>',
   lamp: '<svg viewBox="0 0 24 24"><path d="M7 22h8"/><path d="M11 22V8"/><path d="M11 8h6l2 3"/><path d="M17 8v5"/><path d="M14 13h6"/><path d="M16 16h2"/></svg>',
   lampAnchored: '<svg viewBox="0 0 24 24"><path d="M7 22h8"/><path d="M11 22V8"/><path d="M11 8h6l2 3"/><path d="M17 8v5"/><path d="M14 13h6"/><circle cx="11" cy="22" r="2"/><path d="M4 22h14"/></svg>',
+  sign: '<svg viewBox="0 0 24 24"><path d="M5 5h14v9H5z"/><path d="M12 14v7"/><path d="M8 21h8"/><path d="M8 9h8"/><path d="M8 12h6"/></svg>',
   undo: '<svg viewBox="0 0 24 24"><path d="M9 14l-4-4 4-4"/><path d="M5 10h9a5 5 0 1 1 0 10h-3"/></svg>',
   redo: '<svg viewBox="0 0 24 24"><path d="M15 14l4-4-4-4"/><path d="M19 10h-9a5 5 0 1 0 0 10h3"/></svg>',
   arrowLeft: '<svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>',

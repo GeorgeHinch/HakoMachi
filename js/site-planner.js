@@ -3770,6 +3770,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       byteLength:approxDataUrlBytes(text)
     };
   }
+  function base64ByteLength(base64){
+    const text=String(base64||'').replace(/\s+/g,'');
+    if(!text) return 0;
+    const padding=(text.endsWith('==')?2:(text.endsWith('=')?1:0));
+    return Math.max(0, Math.floor(text.length*3/4)-padding);
+  }
   function mimeExtension(mimeType, fallbackName='reference-image'){
     const mime=String(mimeType||'').toLowerCase();
     const extFromName=(String(fallbackName||'').match(/\.([a-z0-9]{2,8})$/i)||[])[1];
@@ -3811,6 +3817,32 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       naturalHeightPx:meta?.naturalHeightPx || state.image?.naturalHeight || state.image?.height || null,
       byteLength:info?.byteLength || approxDataUrlBytes(dataUrl || meta?.dataUrl),
       hash:info ? simpleAssetHash(info.data) : (meta?.asset?.hash || null),
+    };
+  }
+  function uniqueStlAssetFileName(obj, usedNames){
+    const sourceName=obj?.asset?.fileName || obj?.fileName || obj?.name || 'site-object.stl';
+    const base=slug(String(sourceName).replace(/\.stl$/i,'') || obj?.name || 'site-object');
+    let fileName=`${base || 'site-object'}.stl`;
+    let suffix=2;
+    while(usedNames.has(fileName.toLowerCase())){
+      fileName=`${base || 'site-object'}-${suffix}.stl`;
+      suffix++;
+    }
+    usedNames.add(fileName.toLowerCase());
+    return fileName;
+  }
+  function stlAssetReference(path, obj, dataBase64){
+    return {
+      schema:'hakomachi.site-stl-asset',
+      schemaVersion:1,
+      kind:'stl',
+      path,
+      sourceObjectId:obj?.id || null,
+      name:obj?.name || obj?.asset?.fileName || 'STL Object',
+      fileName:obj?.asset?.fileName || `${slug(obj?.name||'site-object')}.stl`,
+      mimeType:obj?.asset?.mimeType || 'model/stl',
+      byteLength:base64ByteLength(dataBase64),
+      hash:dataBase64 ? simpleAssetHash(dataBase64) : (obj?.asset?.hash || null),
     };
   }
   function imageAssetCacheKey(asset){
@@ -6644,12 +6676,29 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function projectJson(opts={}){
     const includeImageDataUrl=opts.includeImageDataUrl === true;
     const payload=makeProjectPayload({includeImageDataUrl});
+    const manifestAssets=[];
     if(opts.imageAsset && payload.image){
       payload.image.asset=opts.imageAsset;
+      manifestAssets.push(opts.imageAsset);
+    }
+    if(Array.isArray(opts.stlAssets) && opts.stlAssets.length){
+      const byId=new Map(opts.stlAssets.map(entry=>[entry.objectId,entry.asset]));
+      payload.stlObjects=(payload.stlObjects||[]).map(raw=>{
+        const obj=structuredClone(raw);
+        const asset=byId.get(obj.id);
+        if(asset){
+          obj.asset={...(obj.asset||{}),...asset};
+          delete obj.asset.dataBase64;
+        }
+        return obj;
+      });
+      manifestAssets.push(...opts.stlAssets.map(entry=>entry.asset));
+    }
+    if(manifestAssets.length){
       payload.assetManifest={
         schema:'hakomachi.site-assets',
         schemaVersion:1,
-        assets:[opts.imageAsset]
+        assets:manifestAssets
       };
     }
     if(payload.image?.dataUrl){
@@ -6682,13 +6731,25 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const asset=imageAssetReference('assets/'+imageAssetFileName(state.imageMeta), state.imageMeta, dataUrl);
     return {asset,dataUrl,info:dataUrlInfo(dataUrl)};
   }
+  function localStlBundleAssets(){
+    const usedNames=new Set();
+    return (state.stlObjects||[]).map(raw=>{
+      const obj=normalizeStlObject(raw);
+      const dataBase64=obj?.asset?.dataBase64;
+      if(!dataBase64) return null;
+      const fileName=uniqueStlAssetFileName(obj, usedNames);
+      const asset=stlAssetReference(`assets/stl/${fileName}`, obj, dataBase64);
+      return {asset,dataBase64,objectId:obj.id};
+    }).filter(Boolean);
+  }
   async function saveSitePlanBundle(){
     if(!window.JSZip){
       alert('ZIP support is still loading. Try again in a moment.');
       return;
     }
     const bundleImage=localImageBundleAsset();
-    const project=projectJson({includeImageDataUrl:false,imageAsset:bundleImage?.asset||null});
+    const stlAssets=localStlBundleAssets();
+    const project=projectJson({includeImageDataUrl:false,imageAsset:bundleImage?.asset||null,stlAssets});
     const zip=new JSZip();
     zip.file('hakomachi-site.hako-site.json', JSON.stringify(project,null,2)+'\n');
     if(bundleImage?.asset && bundleImage?.info){
@@ -6696,11 +6757,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       else zip.file(bundleImage.asset.path, decodeURIComponent(bundleImage.info.data));
       cacheImageAsset(bundleImage.asset, bundleImage.dataUrl);
     }
+    stlAssets.forEach(entry=>{
+      if(entry.asset?.path && entry.dataBase64) zip.file(entry.asset.path, entry.dataBase64, {base64:true});
+    });
     zip.file('manifest.json', JSON.stringify({
       schema:'hakomachi.site-bundle',
       schemaVersion:1,
       project:'hakomachi-site.hako-site.json',
-      assets:bundleImage?.asset ? [bundleImage.asset] : []
+      assets:[...(bundleImage?.asset ? [bundleImage.asset] : []), ...stlAssets.map(entry=>entry.asset)]
     }, null, 2)+'\n');
     const blob=await zip.generateAsync({type:'blob'});
     downloadBlob(blob,'hakomachi-site.zip');
@@ -6735,6 +6799,17 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         payload.image.dataUrl=dataUrlFromBase64(asset.mimeType, b64);
         payload.image.asset=asset;
         cacheImageAsset(asset, payload.image.dataUrl);
+      }
+    }
+    const stlObjects=Array.isArray(payload.stlObjects) ? payload.stlObjects : [];
+    for(const obj of stlObjects){
+      const stlAsset=obj?.asset;
+      if(!stlAsset?.path || stlAsset.dataBase64) continue;
+      const assetName=stlAsset.path.replace(/^\/+/,'');
+      const assetFile=zip.file(assetName) || zip.file(assetName.split('/').pop());
+      if(assetFile){
+        const b64=await assetFile.async('base64');
+        obj.asset={...stlAsset,dataBase64:b64};
       }
     }
     loadProject(payload, {fromFile:true});

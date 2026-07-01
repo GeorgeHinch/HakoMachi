@@ -3541,6 +3541,75 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(bytes<1024*1024) return (bytes/1024).toFixed(1)+' KB';
     return (bytes/(1024*1024)).toFixed(1)+' MB';
   }
+  function dataUrlInfo(dataUrl){
+    const text=String(dataUrl||'');
+    const match=text.match(/^data:([^;,]+)?(;base64)?,(.*)$/);
+    if(!match) return null;
+    return {
+      mimeType:match[1]||'application/octet-stream',
+      isBase64:!!match[2],
+      data:match[3]||'',
+      byteLength:approxDataUrlBytes(text)
+    };
+  }
+  function mimeExtension(mimeType, fallbackName='reference-image'){
+    const mime=String(mimeType||'').toLowerCase();
+    const extFromName=(String(fallbackName||'').match(/\.([a-z0-9]{2,8})$/i)||[])[1];
+    if(extFromName) return extFromName.toLowerCase();
+    if(mime.includes('png')) return 'png';
+    if(mime.includes('jpeg')||mime.includes('jpg')) return 'jpg';
+    if(mime.includes('webp')) return 'webp';
+    if(mime.includes('svg')) return 'svg';
+    if(mime.includes('gif')) return 'gif';
+    return 'bin';
+  }
+  function simpleAssetHash(text){
+    const value=String(text||'');
+    let h1=0xdeadbeef^value.length;
+    let h2=0x41c6ce57^value.length;
+    for(let i=0;i<value.length;i++){
+      const ch=value.charCodeAt(i);
+      h1=Math.imul(h1^ch,2654435761);
+      h2=Math.imul(h2^ch,1597334677);
+    }
+    h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);
+    h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);
+    return ((h2>>>0).toString(16).padStart(8,'0')+(h1>>>0).toString(16).padStart(8,'0'));
+  }
+  function imageAssetFileName(meta){
+    const name=meta?.name || 'reference-image';
+    const base=slug(String(name).replace(/\.[a-z0-9]{2,8}$/i,'') || 'reference-image');
+    return `${base || 'reference-image'}.${mimeExtension(meta?.mimeType, name)}`;
+  }
+  function imageAssetReference(path, meta, dataUrl){
+    const info=dataUrlInfo(dataUrl || meta?.dataUrl);
+    return {
+      schema:'hakomachi.site-image-asset',
+      schemaVersion:1,
+      path,
+      name:meta?.name || 'reference-image',
+      mimeType:meta?.mimeType || info?.mimeType || 'application/octet-stream',
+      naturalWidthPx:meta?.naturalWidthPx || state.image?.naturalWidth || state.image?.width || null,
+      naturalHeightPx:meta?.naturalHeightPx || state.image?.naturalHeight || state.image?.height || null,
+      byteLength:info?.byteLength || approxDataUrlBytes(dataUrl || meta?.dataUrl),
+      hash:info ? simpleAssetHash(info.data) : (meta?.asset?.hash || null),
+    };
+  }
+  function imageAssetCacheKey(asset){
+    if(!asset?.path) return null;
+    return 'hakomachiSitePlannerImageAsset_v1:'+[asset.path,asset.hash||'',asset.byteLength||''].join('|');
+  }
+  function cacheImageAsset(asset, dataUrl){
+    const key=imageAssetCacheKey(asset);
+    if(!key || !dataUrl) return;
+    try{sessionStorage.setItem(key, dataUrl);}catch(_err){}
+    try{localStorage.setItem(key, dataUrl);}catch(_err){}
+  }
+  function cachedImageAsset(asset){
+    const key=imageAssetCacheKey(asset);
+    if(!key) return null;
+    try{return sessionStorage.getItem(key) || localStorage.getItem(key);}catch(_err){return null;}
+  }
   function imageMetaForProject(opts={}){
     if(!state.imageMeta) return null;
     const includeDataUrl = opts.includeDataUrl !== false;
@@ -3552,6 +3621,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     meta.originalPixelDimensionsRequired = true;
     meta.dataUrlByteLength = approxDataUrlBytes(meta.dataUrl);
     meta.embeddedInProject = !!(includeDataUrl && meta.dataUrl);
+    if(opts.asset) meta.asset=opts.asset;
     if(!includeDataUrl) delete meta.dataUrl;
     return meta;
   }
@@ -5811,6 +5881,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   async function writeGithubFile(settings, path, text, message){
     return githubData.writeGithubFile(settings, path, text, message);
   }
+  async function readGithubBase64File(settings, path){
+    return githubData.readGithubBase64File(settings, path);
+  }
+  async function writeGithubBase64File(settings, path, contentBase64, message){
+    return githubData.writeGithubBase64File(settings, path, contentBase64, message);
+  }
   async function loadGithubLibrary(settings){
     return githubData.loadLibrary(settings);
   }
@@ -5825,6 +5901,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function githubSiteRecord(id, name, path, project){
     const now=new Date().toISOString();
+    const imageAsset=project.image?.asset||null;
     return {
       kind:'sitePlan',
       recordType:'hakomachi-site-plan',
@@ -5832,7 +5909,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       id,
       name,
       path,
-      paths:{project:path},
+      paths:{project:path, assets:imageAsset?[imageAsset.path]:[]},
       app:'hakomachi-site-planner',
       source:{format:'hako-site-json', version:project.version||null},
       summary:{
@@ -5842,6 +5919,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         benchworkOutlines:project.benchworkOutlines?.length||0,
         streetlights:project.streetlights?.length||0,
         imageEmbedded:!!project.image?.dataUrl,
+        imageAssetPath:imageAsset?.path||null,
         calibrated:!!project.scale?.calibrated
       },
       updatedAt:now,
@@ -5937,7 +6015,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         <div id="githubProgressDetail" class="githubProgressDetail">Building the site plan payload.</div>
       </div>
     `, [{label:'Close', onClick:closeGithubModal}]);
-    setGithubProgress(0,5,'Preparing save...','Building the site plan payload.');
+    setGithubProgress(0,6,'Preparing save...','Building the site plan payload.');
   }
   function openGithubSettings(){
     const settings=getGithubSettings();
@@ -5961,34 +6039,79 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       {label:'Close', onClick:closeGithubModal}
     ]);
   }
+  function githubImageAssetPath(settings, siteId, meta){
+    const root=githubData.cleanRepoPath(settings.sitePlansDir || GITHUB_DEFAULT_SITE_DIR);
+    return githubData.cleanRepoPath(`${root}/${siteId}/assets/${imageAssetFileName(meta)}`);
+  }
+  async function saveGithubImageAsset(settings, siteId, siteName){
+    const dataUrl=state.imageMeta?.dataUrl;
+    if(!dataUrl) return state.imageMeta?.asset || null;
+    const info=dataUrlInfo(dataUrl);
+    if(!info?.isBase64 || !info.data) return state.imageMeta?.asset || null;
+    const path=githubImageAssetPath(settings, siteId, state.imageMeta);
+    const asset=imageAssetReference(path, state.imageMeta, dataUrl);
+    setGithubProgress(2,6,'Writing reference image asset...',`Saving ${asset.name} outside the main site file.`);
+    await writeGithubBase64File(settings, path, info.data, `Save HakoMachi site image asset: ${siteName}`);
+    state.imageMeta.asset=asset;
+    cacheImageAsset(asset, dataUrl);
+    return asset;
+  }
+  async function resolveProjectImageFromGithub(project, settings){
+    const asset=project?.image?.asset;
+    if(!asset?.path || project.image?.dataUrl) return project;
+    const cached=cachedImageAsset(asset);
+    if(cached){
+      project.image.dataUrl=cached;
+      return project;
+    }
+    setGithubStatus('Loading referenced image asset...');
+    const file=await readGithubBase64File(settings, asset.path);
+    if(file?.contentBase64){
+      project.image.dataUrl=dataUrlFromBase64(asset.mimeType, file.contentBase64);
+      cacheImageAsset(asset, project.image.dataUrl);
+    }
+    return project;
+  }
   async function saveSitePlanToGithub(){
     try{
       const settings=getGithubSettings();
       try{requireGithubSettings(settings);}catch(err){openGithubSettings(); setGithubStatus(err.message); return;}
       const current=getCurrentGithubSite();
-      const project=projectJson();
-      const defaultName=current?.name || githubProjectName(project);
+      const projectForName=projectJson({includeImageDataUrl:false});
+      const defaultName=current?.name || githubProjectName(projectForName);
       const name=prompt('Site plan name for GitHub save', defaultName);
       if(!name) return;
       openGithubSaveProgressModal();
-      setGithubProgress(1,5,'Preparing project...','Finalizing the site plan name and GitHub file path.');
+      setGithubProgress(1,6,'Preparing project...','Finalizing the site plan name and GitHub file path.');
       const id=(current && current.name===defaultName && current.id) ? current.id : slug(name);
       const path=(current && current.name===defaultName && current.path) ? current.path : githubData.cleanRepoPath(`${settings.sitePlansDir}/${id}.hako-site.json`);
+      const imageAsset=await saveGithubImageAsset(settings, id, name);
+      if(!imageAsset) setGithubProgress(2,6,'No reference image asset to write.','The site plan does not currently use a background image.');
+      const project=projectJson({includeImageDataUrl:false, imageAsset});
       project.projectName=name;
-      project.hakomachiCloud={schema:'hakomachi.cloud-ref', schemaVersion:1, kind:'sitePlan', id, name, path, savedAt:new Date().toISOString()};
-      setGithubProgress(2,5,'Writing site plan file...','Saving the current plan JSON to the data repository.');
+      project.hakomachiCloud={
+        schema:'hakomachi.cloud-ref',
+        schemaVersion:1,
+        kind:'sitePlan',
+        id,
+        name,
+        path,
+        assetFolder:githubData.cleanRepoPath(`${githubData.cleanRepoPath(settings.sitePlansDir || GITHUB_DEFAULT_SITE_DIR)}/${id}/assets`),
+        savedAt:new Date().toISOString()
+      };
+      setGithubProgress(3,6,'Writing site plan file...','Saving the current plan JSON to the data repository.');
       await writeGithubFile(settings, path, JSON.stringify(project,null,2)+'\n', `Save HakoMachi site plan: ${name}`);
-      setGithubProgress(3,5,'Updating library index...','Loading the shared index so this plan appears in GitHub lists.');
+      setGithubProgress(4,6,'Updating library index...','Loading the shared index so this plan appears in GitHub lists.');
       const library=await loadGithubLibrary(settings);
       upsertGithubSitePlan(library, githubSiteRecord(id, name, path, project));
-      setGithubProgress(4,5,'Writing library index...','Saving the updated site plan list.');
+      setGithubProgress(5,6,'Writing library index...','Saving the updated site plan list.');
       await writeGithubFile(settings, settings.libraryPath, JSON.stringify(library,null,2)+'\n', `Update HakoMachi site plan library: ${name}`);
       setCurrentGithubSite({id,name,path});
       markManualSaveComplete();
-      setGithubProgress(5,5,'Save complete.','Saved '+path);
+      setGithubProgress(6,6,'Save complete.','Saved '+path);
       setTimeout(()=>closeGithubModal(), 900);
     }catch(err){
-      setGithubProgress(0,5,'GitHub save failed.', String(err.message||err));
+      setGithubProgress(0,6,'GitHub save failed.', String(err.message||err));
     }
   }
   async function loadSitePlanFromGithub(record){
@@ -6014,6 +6137,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(normalized.source!=='top-level'){
         setGithubStatus(`Loaded site-plan payload from ${normalized.source}.`);
       }
+      await resolveProjectImageFromGithub(project, settings);
       loadProject(project, {fromFile:true});
       setCurrentGithubSite({id:record.id, name:record.name, path:record.path});
       closeGithubModal();
@@ -6111,29 +6235,31 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   if($('mobileGithubSaveBtn')) $('mobileGithubSaveBtn').onclick=saveSitePlanToGithub;
   if($('mobileGithubLoadBtn')) $('mobileGithubLoadBtn').onclick=openGithubSitePlans;
   if($('mobileGithubBuildingsBtn')) $('mobileGithubBuildingsBtn').onclick=openGithubBuildings;
-  $('saveBtn').onclick=()=>{download(JSON.stringify(projectJson(),null,2),'hakomachi-site.hako-site.json','application/json'); markManualSaveComplete();};
+  $('saveBtn').onclick=()=>saveSitePlanBundle();
   if($('undoBtn')) $('undoBtn').onclick=()=>undo();
   if($('redoBtn')) $('redoBtn').onclick=()=>redo();
   if($('mobileUndoBtn')) $('mobileUndoBtn').onclick=()=>undo();
   if($('mobileRedoBtn')) $('mobileRedoBtn').onclick=()=>redo();
-  $('loadFile').addEventListener('change', e=>{
+  $('loadFile').addEventListener('change', async e=>{
     const f=e.target.files && e.target.files[0];
     if(!f) return;
     openImportProgressModal('Import site plan','Reading file...',`Reading ${f.name||'site plan file'}.`);
-    const reader=new FileReader();
-    reader.onerror=()=>failImportProgress('Could not read file.','The browser could not read that project file.');
-    reader.onload=ev=>{
-      try{
-        setImportProgress(2,4,'Validating site plan...','Checking the project JSON and save format.');
-        const project=JSON.parse(ev.target.result);
+    try{
+      const isZip=/\.zip$/i.test(f.name||'') || /zip/i.test(f.type||'');
+      setImportProgress(2,4,'Validating site plan...','Checking the project JSON and save format.');
+      if(isZip){
+        setImportProgress(3,4,'Applying bundle...','Restoring the site plan and bundled reference image assets.');
+        await loadSitePlanBundle(f);
+      } else {
+        const text=await f.text();
+        const project=JSON.parse(text);
         setImportProgress(3,4,'Applying site plan...','Restoring the canvas, image metadata, and placed objects.');
-        loadProject(project, {fromFile:true});
-        finishImportProgress('Site plan imported.',`${f.name||'Project file'} has been loaded.`);
+        await loadProjectJsonObject(project, {fromFile:true});
       }
-      catch(err){failImportProgress('Could not load project JSON.', err.message);}
-      e.target.value='';
-    };
-    reader.readAsText(f);
+      finishImportProgress('Site plan imported.',`${f.name||'Project file'} has been loaded.`);
+    }
+    catch(err){failImportProgress('Could not load project.', err.message);}
+    e.target.value='';
   });
   if($('roadExportPreviewBtn')) $('roadExportPreviewBtn').onclick=()=>setRoadExportPreview(!state.roadExportPreview);
   if($('mobileRoadExportPreviewBtn')) $('mobileRoadExportPreviewBtn').onclick=()=>setRoadExportPreview(!state.roadExportPreview);
@@ -6142,7 +6268,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   $('csvBtn').onclick=()=>download(csvExport(),'hakomachi-building-pads.csv','text/csv');
   $('svgBtn').onclick=()=>download(svgExport(),'hakomachi-site.svg','image/svg+xml');
   $('seedBtn').onclick=exportSelectedSeed;
-  if($('mobileSaveBtn')) $('mobileSaveBtn').onclick=()=>{download(JSON.stringify(projectJson(),null,2),'hakomachi-site.hako-site.json','application/json'); markManualSaveComplete();};
+  if($('mobileSaveBtn')) $('mobileSaveBtn').onclick=()=>saveSitePlanBundle();
   if($('mobileCsvBtn')) $('mobileCsvBtn').onclick=()=>download(csvExport(),'hakomachi-building-pads.csv','text/csv');
   if($('mobileSeedBtn')) $('mobileSeedBtn').onclick=exportSelectedSeed;
   function openBuildingInHakoMachi(building){
@@ -6168,13 +6294,95 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   const legacyOpenBtn=$('openHakoBtn');
   if(legacyOpenBtn) legacyOpenBtn.onclick=()=>openBuildingInHakoMachi();
-  function projectJson(){
-    const payload=makeProjectPayload({includeImageDataUrl:true});
+  function projectJson(opts={}){
+    const includeImageDataUrl=opts.includeImageDataUrl === true;
+    const payload=makeProjectPayload({includeImageDataUrl});
+    if(opts.imageAsset && payload.image){
+      payload.image.asset=opts.imageAsset;
+      payload.assetManifest={
+        schema:'hakomachi.site-assets',
+        schemaVersion:1,
+        assets:[opts.imageAsset]
+      };
+    }
     if(payload.image?.dataUrl){
       updateImagePortableStatus(`Portable save: embedded original ${payload.image.naturalWidthPx||'?'} × ${payload.image.naturalHeightPx||'?'} px image (${formatBytes(payload.image.dataUrlByteLength||0)}).`);
+    } else if(opts.imageAsset){
+      updateImagePortableStatus(`Portable save: reference image stored separately as ${opts.imageAsset.path}.`);
     } else if(state.imageMeta){
       updateImagePortableStatus('Portable save warning: no embedded image data. Re-import the image before sharing this file.');
     }
+    return payload;
+  }
+  function downloadBlob(blob,name){
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=name;
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  }
+  function localImageBundleAsset(){
+    const dataUrl=state.imageMeta?.dataUrl || cachedImageAsset(state.imageMeta?.asset);
+    if(!dataUrl) return null;
+    const asset=imageAssetReference('assets/'+imageAssetFileName(state.imageMeta), state.imageMeta, dataUrl);
+    return {asset,dataUrl,info:dataUrlInfo(dataUrl)};
+  }
+  async function saveSitePlanBundle(){
+    if(!window.JSZip){
+      alert('ZIP support is still loading. Try again in a moment.');
+      return;
+    }
+    const bundleImage=localImageBundleAsset();
+    const project=projectJson({includeImageDataUrl:false,imageAsset:bundleImage?.asset||null});
+    const zip=new JSZip();
+    zip.file('hakomachi-site.hako-site.json', JSON.stringify(project,null,2)+'\n');
+    if(bundleImage?.asset && bundleImage?.info){
+      if(bundleImage.info.isBase64) zip.file(bundleImage.asset.path, bundleImage.info.data, {base64:true});
+      else zip.file(bundleImage.asset.path, decodeURIComponent(bundleImage.info.data));
+      cacheImageAsset(bundleImage.asset, bundleImage.dataUrl);
+    }
+    zip.file('manifest.json', JSON.stringify({
+      schema:'hakomachi.site-bundle',
+      schemaVersion:1,
+      project:'hakomachi-site.hako-site.json',
+      assets:bundleImage?.asset ? [bundleImage.asset] : []
+    }, null, 2)+'\n');
+    const blob=await zip.generateAsync({type:'blob'});
+    downloadBlob(blob,'hakomachi-site.zip');
+    markManualSaveComplete();
+  }
+  function dataUrlFromBase64(mimeType, base64){
+    return `data:${mimeType||'application/octet-stream'};base64,${String(base64||'').replace(/\s+/g,'')}`;
+  }
+  async function loadProjectJsonObject(project, opts={}){
+    const normalized=normalizeLoadedSitePlanPayload(project);
+    const payload=normalized.payload;
+    loadProject(payload, opts);
+    return payload;
+  }
+  async function loadSitePlanBundle(file){
+    if(!window.JSZip) throw new Error('ZIP support is still loading. Try again in a moment.');
+    const zip=await JSZip.loadAsync(file);
+    const names=Object.keys(zip.files).filter(name=>!zip.files[name].dir);
+    const projectName=names.find(name=>/\.hako-site\.json$/i.test(name))
+      || names.find(name=>/(^|\/)hakomachi-site\.json$/i.test(name))
+      || names.find(name=>/\.json$/i.test(name));
+    if(!projectName) throw new Error('No .hako-site.json project file was found in the ZIP.');
+    const project=JSON.parse(await zip.file(projectName).async('string'));
+    const normalized=normalizeLoadedSitePlanPayload(project);
+    const payload=normalized.payload;
+    const asset=payload.image?.asset;
+    if(asset?.path && !payload.image?.dataUrl){
+      const assetName=asset.path.replace(/^\/+/,'');
+      const assetFile=zip.file(assetName) || zip.file(assetName.split('/').pop());
+      if(assetFile){
+        const b64=await assetFile.async('base64');
+        payload.image.dataUrl=dataUrlFromBase64(asset.mimeType, b64);
+        payload.image.asset=asset;
+        cacheImageAsset(asset, payload.image.dataUrl);
+      }
+    }
+    loadProject(payload, {fromFile:true});
     return payload;
   }
   function scalePointLike(pt, sx, sy){

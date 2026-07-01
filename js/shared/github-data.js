@@ -69,6 +69,10 @@ function base64ToUtf8(b64) {
   return new TextDecoder().decode(bytes);
 }
 
+function normalizeBase64(b64) {
+  return String(b64 || '').replace(/\s+/g, '');
+}
+
 export function assertSettings(settings, message = 'Add GitHub data settings first.') {
   if (!settings || !settings.repoFullName || !settings.repoFullName.includes('/') || !settings.token) {
     throw new Error(message);
@@ -156,11 +160,50 @@ export async function readGithubFile(settings, path) {
   };
 }
 
+export async function readGithubBase64File(settings, path) {
+  const url = contentsUrl(settings, path) + '?ref=' + encodeURIComponent(settings.branch || 'main');
+  const data = await githubRequest(settings, url, { method: 'GET', allow404: true });
+  if (!data) return null;
+  let contentBase64 = '';
+  if (data.content && data.encoding === 'base64') {
+    contentBase64 = normalizeBase64(data.content);
+  } else if (data.git_url) {
+    const blob = await githubRequest(settings, data.git_url, { method: 'GET' });
+    if (blob && blob.content && blob.encoding === 'base64') contentBase64 = normalizeBase64(blob.content);
+  }
+  return {
+    sha: data.sha,
+    name: data.name,
+    path: data.path || cleanRepoPath(path),
+    size: Number(data.size) || 0,
+    contentBase64,
+  };
+}
+
 export async function writeGithubFile(settings, path, text, message) {
   const current = await readGithubFile(settings, path);
   const body = {
     message,
     content: utf8ToBase64(text),
+    branch: settings.branch || 'main',
+  };
+  if (current && current.sha) body.sha = current.sha;
+  return githubRequest(settings, contentsUrl(settings, path), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function writeGithubBase64File(settings, path, contentBase64, message) {
+  const current = await readGithubBase64File(settings, path);
+  const normalizedContent = normalizeBase64(contentBase64);
+  if (current && current.contentBase64 && current.contentBase64 === normalizedContent) {
+    return { skipped: true, sha: current.sha, path: current.path };
+  }
+  const body = {
+    message,
+    content: normalizedContent,
     branch: settings.branch || 'main',
   };
   if (current && current.sha) body.sha = current.sha;
@@ -236,6 +279,8 @@ const githubData = Object.freeze({
   contentsUrl,
   readGithubFile,
   writeGithubFile,
+  readGithubBase64File,
+  writeGithubBase64File,
   defaultLibrary,
   normalizeLibrary,
   loadLibrary,

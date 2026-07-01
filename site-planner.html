@@ -133,12 +133,12 @@
       <div class="title">Site Planner</div>
     </div>
     <input id="imageFile" class="hiddenFile" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp,.svg"/>
-    <input id="loadFile" class="hiddenFile" type="file" accept="application/json,.json,.hako-site.json"/>
+    <input id="loadFile" class="hiddenFile" type="file" accept="application/json,application/zip,.json,.hako-site.json,.zip"/>
     <div class="topActions">
       <label id="imageBtn" class="fileButton" for="imageFile">Import Image</label>
       <button id="undoBtn" class="iconBtn" title="Undo" aria-label="Undo" disabled><span class="topIcon" data-icon="undo"></span></button>
       <button id="redoBtn" class="iconBtn" title="Redo" aria-label="Redo" disabled><span class="topIcon" data-icon="redo"></span></button>
-      <button id="saveBtn" class="desktopAction">Save .hako-site.json</button>
+      <button id="saveBtn" class="desktopAction">Save .zip</button>
       <label id="loadBtn" class="fileButton desktopAction" for="loadFile">Load</label>
       <div class="menuWrap splitExport">
         <button id="svgBtn" title="Export simplified site SVG">Export SVG</button>
@@ -169,7 +169,7 @@
       <div class="menuWrap mobileOnly">
         <button id="overflowBtn" class="iconBtn" title="More actions" aria-label="More actions">⋯</button>
         <div id="overflowMenu" class="dropdownMenu right">
-          <button id="mobileSaveBtn">Save .hako-site.json</button>
+          <button id="mobileSaveBtn">Save .zip</button>
           <label id="mobileLoadBtn" class="menuItem" for="loadFile">Load</label>
           <button id="mobileUndoBtn" disabled>Undo</button>
           <button id="mobileRedoBtn" disabled>Redo</button>
@@ -275,6 +275,7 @@
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script type="module" src="js/shared/hakomachi-analytics.js"></script>
 <script type="module" src="js/shared/building-preview-renderer.js?v=shared-building-preview-30"></script>
 <script type="module" src="js/site-planner/main.js?v=selected-panel-toolbar-2"></script>

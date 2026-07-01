@@ -308,6 +308,24 @@ export function weAddWing(face) {
   regenerate();
 }
 
+function weAttachmentFaceLength(wing) {
+  return (wing.face === 'east' || wing.face === 'west') ? CONFIG.depth : CONFIG.width;
+}
+
+function weClampWingAttachment(wing) {
+  if (!wing) return;
+  const faceLen = Math.max(1, Number(weAttachmentFaceLength(wing)) || 1);
+  wing.span = Math.max(15, Number(wing.span) || 15);
+  wing.depth = Math.max(15, Number(wing.depth) || 15);
+
+  // Keep at least a small real overlap so an overhanging wing remains attached
+  // to the main building instead of becoming a detached rectangle.
+  const minOverlap = Math.min(5, faceLen, wing.span);
+  const minOffset = -wing.span + minOverlap;
+  const maxOffset = faceLen - minOverlap;
+  wing.offset = Math.max(minOffset, Math.min(maxOffset, Number(wing.offset) || 0));
+}
+
 // ---- Drag to reposition / resize wings --------------------------------
 export let _weDragState = null;
 
@@ -367,12 +385,12 @@ export function weOnMouseDown(e) {
 
     if (!handleId) {
       // Drag body = slide along the attachment face
-      const W = CONFIG.width, D = CONFIG.depth;
       if (wing.face === 'east' || wing.face === 'west') {
-        wing.offset = Math.max(0, Math.min(D - wing.span, origOffset + dy));
+        wing.offset = origOffset + dy;
       } else {
-        wing.offset = Math.max(0, Math.min(W - wing.span, origOffset + dx));
+        wing.offset = origOffset + dx;
       }
+      weClampWingAttachment(wing);
     } else if (handleId === 'depth') {
       // Resize depth (outward dimension)
       let delta = (wing.face === 'east' || wing.face === 'front') ? dx :
@@ -380,20 +398,20 @@ export function weOnMouseDown(e) {
       if (wing.face === 'back') delta = dy;
       if (wing.face === 'front') delta = -dy;
       wing.depth = Math.max(15, Math.round(origDepth + delta));
+      weClampWingAttachment(wing);
     } else if (handleId === 'left') {
       // Resize span left/top edge
       let delta = (wing.face === 'east' || wing.face === 'west') ? dy : dx;
       const newSpan   = Math.max(15, origSpan - delta);
       const newOffset = origOffset + (origSpan - newSpan);
-      const W = CONFIG.width, D = CONFIG.depth;
-      if (newOffset >= 0) {
-        wing.span   = Math.round(newSpan);
-        wing.offset = Math.round(newOffset);
-      }
+      wing.span   = Math.round(newSpan);
+      wing.offset = Math.round(newOffset);
+      weClampWingAttachment(wing);
     } else if (handleId === 'right') {
       // Resize span right/bottom edge
       let delta = (wing.face === 'east' || wing.face === 'west') ? dy : dx;
       wing.span = Math.max(15, Math.round(origSpan + delta));
+      weClampWingAttachment(wing);
     }
     weRender();
   }
@@ -520,7 +538,8 @@ export function weRenderSidebar() {
         if (v < min) v = min;
         if (v > max) v = max;
         wing[key] = v;
-        inp.value = v;
+        if (key === 'offset' || key === 'span' || key === 'depth') weClampWingAttachment(wing);
+        inp.value = wing[key];
       }
       weRender(); weRenderSidebar(); regenerate();
     });
@@ -532,14 +551,19 @@ export function weRenderSidebar() {
     function makeF(label, key) {
       const d = document.createElement('div'); d.className = 'field';
       d.innerHTML = `<label>${label}</label><input type="number" min="${min}" max="${max}" step="${step}" value="${wing[key] != null ? wing[key] : ''}">`;
-      d.querySelector('input').addEventListener('change', ev => { wing[key] = parseFloat(ev.target.value) || null; weRender(); weRenderSidebar(); regenerate(); });
+      d.querySelector('input').addEventListener('change', ev => {
+        wing[key] = parseFloat(ev.target.value) || null;
+        if (key === 'offset' || key === 'span' || key === 'depth') weClampWingAttachment(wing);
+        weRender(); weRenderSidebar(); regenerate();
+      });
       return d;
     }
     row.appendChild(makeF(lA, kA)); row.appendChild(makeF(lB, kB));
     sidebar.appendChild(row);
   }
 
-  numField('Offset (mm)',  'offset', 0,   500, 1);
+  const faceLenForWing = weAttachmentFaceLength(wing);
+  numField('Offset (mm)',  'offset', -500, faceLenForWing + 500, 1);
   twoNumFields('Span (mm)', 'span', 'Depth (mm)', 'depth', 5, 500, 1);
   numField('Floors',       'floors',  1,   10, 1);
   // Optional height override — leave blank to derive from Floors × main

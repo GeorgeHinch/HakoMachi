@@ -215,6 +215,16 @@
         <button data-streetlight-mode="anchored"><span data-icon="lampAnchored"></span><span>Anchored Streetlight</span></button>
       </div>
     </div>
+    <div class="toolGroup" id="signToolGroup">
+      <button class="toolbtn" id="signToolBtn" data-tool="sign" aria-label="Construction Sign" title="Construction Sign"><span class="toolIcon" id="signToolIcon" data-icon="sign"></span><span class="toolLabel" id="signToolLabel">Sign</span></button>
+      <button class="toolVariantTrigger" id="signVariantBtn" title="Sign variants" aria-label="Sign variants">▾</button>
+      <div class="toolFlyout" id="signToolMenu">
+        <button data-sign-mode="safetyFirstVertical"><span data-icon="sign"></span><span>Safety First Vertical</span></button>
+        <button data-sign-mode="safetyFirstHorizontal"><span data-icon="sign"></span><span>Safety First Wide</span></button>
+        <button data-sign-mode="safetyFirstSplit"><span data-icon="sign"></span><span>Safety First Split</span></button>
+        <button data-sign-mode="constructionWorker"><span data-icon="sign"></span><span>Construction Worker</span></button>
+      </div>
+    </div>
   </div>
   <div class="canvasWrap"><canvas id="canvas"></canvas><div class="site3dFloatingToolbar" aria-label="Canvas view controls"><div class="site3dSegment" role="group" aria-label="View mode"><button id="view2dCanvasBtn" class="site3dFabBtn active" type="button">2D</button><button id="view3dCanvasBtn" class="site3dFabBtn" type="button">3D</button></div><div class="site3dImageControls" aria-label="3D reference image controls"><label class="site3dImageToggle"><input id="site3dImageVisible" type="checkbox" checked><span>Image</span></label><label class="site3dImageOpacity"><span>Opacity</span><input id="site3dImageOpacity" type="range" min="0" max="1" step="0.05" value="0.45"></label></div></div><div id="emptyImageOverlay" class="emptyImageOverlay" aria-live="polite"><div id="emptyImageCard" class="emptyImageCard"><div class="emptyImageIcon">▧</div><h2>Import a reference image to start</h2><p>The Site Planner needs a PNG, JPG, SVG, or WEBP plan image before you trace buildings, roads, benchwork, and site objects.</p><div class="emptyImageActions"><label class="fileButton" for="imageFile">Import Image</label></div><div class="emptyImageDropHint">Drop an image here, or use <strong>Import Image</strong> in the header.</div></div></div><button id="sidebarToggle" class="sidebarToggle" title="Open properties panel" aria-label="Open properties panel">‹</button><div id="contextMenu" class="contextMenu"></div><div id="roadExportBadge" class="roadExportBadge" style="display:none"></div></div>
   <aside class="sidebar">

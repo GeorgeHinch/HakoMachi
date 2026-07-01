@@ -44,10 +44,13 @@ function box3FromObject(object, THREE) {
 }
 
 function material(THREE, color, opacity = 1, roughness = 0.72) {
+  const transparent = opacity < 1;
   return new THREE.MeshStandardMaterial({
     color,
     opacity,
-    transparent: opacity < 1,
+    transparent,
+    depthTest: true,
+    depthWrite: !transparent,
     roughness,
     metalness: 0.03,
     side: THREE.DoubleSide,
@@ -145,8 +148,8 @@ export function createUtility3dPreview(host, options = {}) {
     const maxDim = Math.max(size.x, size.y, size.z, 10);
     const distance = maxDim * 1.8;
     state.camera.position.set(center.x + distance * 0.9, center.y + distance * 0.65, center.z + distance);
-    state.camera.near = Math.max(0.1, maxDim / 1000);
-    state.camera.far = Math.max(1000, maxDim * 12);
+    state.camera.near = Math.max(0.25, maxDim / 800);
+    state.camera.far = Math.max(600, maxDim * 8);
     state.camera.lookAt(center);
     state.camera.updateProjectionMatrix();
     if (state.controls) {

@@ -2837,7 +2837,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function site3DMaterial(color,fallback=0xd7b56d,opts={}){
     let c;
     try{ c=new THREE.Color(color || fallback); }catch(_err){ c=new THREE.Color(fallback); }
-    return new THREE.MeshStandardMaterial({color:c,roughness:.82,metalness:0,...opts});
+    const opacity=opts.opacity ?? 1;
+    const transparent=opts.transparent ?? opacity<1;
+    return new THREE.MeshStandardMaterial({color:c,roughness:.82,metalness:0,opacity,transparent,depthTest:opts.depthTest ?? true,depthWrite:opts.depthWrite ?? !transparent,...opts});
   }
   function site3DPlannerRotationY(b, opts={}){
     if(opts.geometryAlreadyInSiteCoordinates && b?.padType==='polygon') return 0;
@@ -2946,7 +2948,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     },0)/2;
   }
   function buildSite3DBase(bounds,baseT){
-    const mat=new THREE.MeshStandardMaterial({color:0xcab98d,roughness:.9,metalness:0,side:THREE.DoubleSide});
+    const mat=new THREE.MeshStandardMaterial({color:0xcab98d,roughness:.9,metalness:0,side:THREE.DoubleSide,transparent:false,opacity:1,depthTest:true,depthWrite:true});
     const benchworks=site3DBenchworkFootprintsMm();
     if(!benchworks.length){
       const base=new THREE.Mesh(new THREE.BoxGeometry(bounds.width,baseT,bounds.depth),mat);
@@ -3032,10 +3034,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       transparent:true,
       opacity:settings.imageOpacity,
       side:THREE.DoubleSide,
+      depthTest:true,
       depthWrite:false,
       polygonOffset:true,
-      polygonOffsetFactor:-2,
-      polygonOffsetUnits:-2
+      polygonOffsetFactor:2,
+      polygonOffsetUnits:2
     });
     const width=site3DScale(w);
     const depth=site3DScale(h);
@@ -3043,6 +3046,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     mesh.name='3D reference image plane';
     mesh.rotation.x=Math.PI/2;
     mesh.position.set(width/2-bounds.cx,.035,depth/2-bounds.cy);
+    mesh.renderOrder=-20;
     return mesh;
   }
   function site3DAddFlatPolygon(group, pts, mat, outlineMat, name, y=.07){
@@ -3080,8 +3084,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function buildSite3DRoadGroup(bounds){
     const group=new THREE.Group();
     group.name='Site Planner roads';
-    const roadMat=new THREE.MeshStandardMaterial({color:0x6f6a5e,roughness:.92,metalness:0,transparent:true,opacity:.34,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
-    const sidewalkMat=new THREE.MeshStandardMaterial({color:0xd9ceb4,roughness:.9,metalness:0,transparent:true,opacity:.42,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
+    const roadMat=new THREE.MeshStandardMaterial({color:0x6f6a5e,roughness:.92,metalness:0,transparent:false,opacity:1,depthTest:true,depthWrite:true,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
+    const sidewalkMat=new THREE.MeshStandardMaterial({color:0xd9ceb4,roughness:.9,metalness:0,transparent:false,opacity:1,depthTest:true,depthWrite:true,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
     const roadLineMat=new THREE.LineBasicMaterial({color:0x4d4a42,transparent:true,opacity:.72});
     const sidewalkLineMat=new THREE.LineBasicMaterial({color:0x9d8d6a,transparent:true,opacity:.62});
     state.roads.forEach(raw=>{
@@ -3466,8 +3470,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const dist=Math.max(70,maxDim*1.75);
       camera.position.set(center.x+dist*.72,center.y+Math.max(size.y*.55,35),center.z+dist*.82);
       camera.lookAt(center);
-      camera.near=Math.max(.1,maxDim/800);
-      camera.far=Math.max(1200,maxDim*10);
+      camera.near=Math.max(.25,maxDim/700);
+      camera.far=Math.max(800,maxDim*7);
       camera.updateProjectionMatrix();
       renderer.render(scene,camera);
       const img=document.createElement('img');
@@ -3684,8 +3688,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       }
     });
     const radius=Math.max(bounds.width,bounds.depth,60);
-    site3d.camera.near=.1;
-    site3d.camera.far=Math.max(5000,radius*12);
+    site3d.camera.near=Math.max(.25,radius/1000);
+    site3d.camera.far=Math.max(800,radius*8);
     if(!restoreSite3DCameraSnapshot(cameraSnapshot)){
       site3d.camera.position.set(radius*.72,Math.max(70,radius*.58),radius*.82);
       site3d.camera.updateProjectionMatrix();

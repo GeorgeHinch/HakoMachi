@@ -3,3 +3,6 @@
 .env
 .env.*
 hakomachi-github-token.txt
+node_modules/
+playwright-report/
+test-results/

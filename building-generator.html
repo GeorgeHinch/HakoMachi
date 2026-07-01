@@ -575,6 +575,7 @@
       <div class="actions">
         <button id="wingEditorBtn" title="Add wings to create L, T, U and other complex shapes"><span data-icon="shape"></span> Edit Shape</button>
         <button id="openingEditorBtn" title="WYSIWYG editor for windows and doors on each wall face"><span data-icon="pencil"></span> Edit Openings</button>
+        <button id="assemblyGuideBtn" title="Step through the generated assembly sequence"><span data-icon="steps"></span> Assembly Guide</button>
       </div>
       <div class="actions">
         <button id="exportBtn" class="primary"><span data-icon="download"></span> Download</button>
@@ -641,6 +642,35 @@
 
 <script charset="utf-8" type="module" src="js/shared/hakomachi-analytics.js"></script>
 <script charset="utf-8" type="module" src="js/building-generator/main.js?v=shared-building-preview-32"></script>
+
+<!-- =====================================================================
+     Interactive Assembly Guide
+     ===================================================================== -->
+<div id="assemblyGuideModal" class="editor-modal assembly-guide-modal" style="display:none;">
+  <div class="assembly-guide-dialog">
+    <div class="assembly-guide-header">
+      <div>
+        <h2><span data-icon="steps"></span> Assembly Guide</h2>
+        <div id="assemblyGuideProgress" class="assembly-guide-progress">Step 0 of 0</div>
+      </div>
+      <button id="assemblyGuideClose" title="Close"><span data-icon="close"></span></button>
+    </div>
+    <div id="assemblyGuideWarnings" class="assembly-guide-warnings"></div>
+    <div class="assembly-guide-body">
+      <aside id="assemblyGuideSteps" class="assembly-guide-steps" aria-label="Assembly steps"></aside>
+      <main class="assembly-guide-main">
+        <div id="assemblyGuidePhase" class="assembly-guide-phase"></div>
+        <h3 id="assemblyGuideTitle"></h3>
+        <p id="assemblyGuideSummary"></p>
+        <div id="assemblyGuideParts" class="assembly-guide-parts"></div>
+      </main>
+    </div>
+    <div class="assembly-guide-footer">
+      <button id="assemblyGuidePrev">Previous</button>
+      <button id="assemblyGuideNext" class="primary">Next</button>
+    </div>
+  </div>
+</div>
 
 <!-- =====================================================================
      WYSIWYG Opening Editor Modal

@@ -1,0 +1,15 @@
+{
+  "schema": "hakomachi.assembly-sequence",
+  "schemaVersion": 1,
+  "deterministicKey": "yqok4o",
+  "strategy": "phase-and-relationship-toposort-v1",
+  "steps": [
+    { "id": "assembly_step_001_1b7npm6", "order": 1, "phase": "base-floors", "title": "Main block: Main Floor Panel", "summary": "Install Main Floor Panel.", "partIds": ["main_floor"], "relationshipIds": [], "dependsOnStepIds": [] },
+    { "id": "assembly_step_002_vjo6u6", "order": 2, "phase": "base-floors", "title": "Wing 1: Wing 1 Floor Panel", "summary": "Install Wing 1 Floor Panel.", "partIds": ["wing0_floor"], "relationshipIds": ["wing-to-main_wing0_floor_to_main_floor"], "dependsOnStepIds": ["assembly_step_001_1b7npm6"] },
+    { "id": "assembly_step_003_7xgaqt", "order": 3, "phase": "exterior-core", "title": "Main block: Main Front Wall", "summary": "Install Main Front Wall.", "partIds": ["front_wall"], "relationshipIds": ["floor-to-wall_main_floor_to_front_wall"], "dependsOnStepIds": ["assembly_step_001_1b7npm6"] },
+    { "id": "assembly_step_004_1powz3n", "order": 4, "phase": "exterior-core", "title": "Wing 1: Wing 1 Front Wall", "summary": "Install Wing 1 Front Wall.", "partIds": ["wing0_front_wall"], "relationshipIds": ["floor-to-wall_wing0_floor_to_wing0_front_wall"], "dependsOnStepIds": ["assembly_step_002_vjo6u6"] },
+    { "id": "assembly_step_005_1c0p3qe", "order": 5, "phase": "cladding", "title": "Main block: Main Front Upper Cladding", "summary": "Install Main Front Upper Cladding.", "partIds": ["front_cladding_upper"], "relationshipIds": ["cladding-to-core_front_cladding_upper_to_front_wall"], "dependsOnStepIds": ["assembly_step_003_7xgaqt"] },
+    { "id": "assembly_step_006_3fskhz", "order": 6, "phase": "cladding", "title": "Wing 1: Wing 1 Front Cladding", "summary": "Install Wing 1 Front Cladding.", "partIds": ["wing0_front_cladding"], "relationshipIds": ["cladding-to-core_wing0_front_cladding_to_wing0_front_wall"], "dependsOnStepIds": ["assembly_step_004_1powz3n"] }
+  ],
+  "warnings": []
+}

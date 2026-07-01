@@ -23437,7 +23437,7 @@ function renderPartsOutput(parts) {
 
     html += `<div class="part-grid">`;
     const dedupedParts = deduplicatePartsForDisplay(grpParts);
-    for (const { part, count } of dedupedParts) {
+    for (const { part, count, ids } of dedupedParts) {
       const wi = wallFromPartId(part.id);
       const ea = wi
         ? ` data-editwall="${wi.wall}"` + (wi.wingIndex != null ? ` data-editwing="${wi.wingIndex}"` : '')
@@ -23448,7 +23448,7 @@ function renderPartsOutput(parts) {
         ? ` data-iw-floor="${iwf.floor}"` + (iwf.wingIndex != null ? ` data-iw-wing="${iwf.wingIndex}"` : '')
         : '';
       const iwCls  = iwf !== null ? ' iw-editable' : '';
-      html += `<div class="part${ec}${iwCls}"${ea}${iwAttr} data-part-id="${part.id}">`;
+      html += `<div class="part${ec}${iwCls}"${ea}${iwAttr} data-part-id="${escapeHtml(part.id)}" data-part-ids="${escapeHtml((ids || [part.id]).join(' '))}">`;
       // Tiled sheets (window glass, frames, dividers, door inserts, etc.)
       // carry the "I need N copies" count in part.tileCount alongside a
       // single-tile preview geometry. Multiply by the dedup count so two
@@ -23482,7 +23482,7 @@ function renderPartsOutput(parts) {
     html += `<div class="mat-group">`;
     html += `<div class="mat-group-hdr"><span class="mat-hdr-swatch" style="background:#999"></span>Unassigned<span class="mat-count">${unassignedParts.length} part${unassignedParts.length!==1?'s':''}</span></div>`;
     html += `<div class="part-grid">`;
-    for (const { part, count } of deduplicatePartsForDisplay(unassignedParts)) {
+    for (const { part, count, ids } of deduplicatePartsForDisplay(unassignedParts)) {
       const wi = wallFromPartId(part.id);
       const ea = wi
         ? ` data-editwall="${wi.wall}"` + (wi.wingIndex != null ? ` data-editwing="${wi.wingIndex}"` : '')
@@ -23497,7 +23497,7 @@ function renderPartsOutput(parts) {
       const totalQty = count * tileMult;
       const dimW = (part.tileGeom ? part.tileGeom.bboxW : part.bboxW);
       const dimH = (part.tileGeom ? part.tileGeom.bboxH : part.bboxH);
-      html += `<div class="part${ec}${iwCls}"${ea}${iwAttr} data-part-id="${part.id}">`;
+      html += `<div class="part${ec}${iwCls}"${ea}${iwAttr} data-part-id="${escapeHtml(part.id)}" data-part-ids="${escapeHtml((ids || [part.id]).join(' '))}">`;
       html += `<div class="part-name"><span>${part.name}</span><span class="part-dims">${dimW.toFixed(1)} × ${dimH.toFixed(1)} mm</span></div>`;
       if (totalQty > 1) html += `<span class="part-qty-badge">×${totalQty}</span>`;
       if (part.assemblyNote) html += `<div class="part-note">${part.assemblyNote}${totalQty > 1 ? ` Cut ×${totalQty} identical copies.` : ''}</div>`;
@@ -23547,6 +23547,223 @@ function renderPartsOutput(parts) {
       e.stopPropagation();
       showMaterialPicker(badge.dataset.partId, badge);
     });
+  });
+  applyAssemblyGuidePartHighlight();
+}
+
+let assemblyGuideState = {
+  plan: null,
+  sequence: null,
+  index: 0,
+  activePartIds: new Set(),
+};
+
+function assemblyGuideIsOpen() {
+  const modal = document.getElementById('assemblyGuideModal');
+  return !!(modal && modal.style.display !== 'none');
+}
+
+function currentAssemblyGuidePlan() {
+  readForm();
+  if (!lastParts || !lastParts.length) {
+    regenerate();
+  }
+  const generation = Object.assign({}, lastResult || {});
+  generation.parts = lastParts || generation.parts || [];
+  return createAssemblyPlan({
+    config: serializableCurrentConfig(CONFIG),
+    generation,
+    sourceKind: 'current-design',
+  });
+}
+
+function assemblyGuideWarnings(plan, sequence) {
+  return []
+    .concat(Array.isArray(plan?.warnings) ? plan.warnings : [])
+    .concat(Array.isArray(sequence?.warnings) ? sequence.warnings : []);
+}
+
+function assemblyGuideMaterialLabel(part) {
+  const material = part?.exportRef?.material || part?.material || 'misc';
+  try {
+    return MaterialRegistry.label(material, CONFIG) || material;
+  } catch (_) {
+    return material;
+  }
+}
+
+function assemblyGuideStepParts(step) {
+  return Array.isArray(step?.parts) ? step.parts : [];
+}
+
+function assemblyGuideSetStep(index) {
+  const steps = assemblyGuideState.sequence?.steps || [];
+  if (!steps.length) {
+    assemblyGuideState.index = 0;
+    renderAssemblyGuide();
+    return;
+  }
+  assemblyGuideState.index = Math.max(0, Math.min(index, steps.length - 1));
+  renderAssemblyGuide();
+}
+
+function applyAssemblyGuidePartHighlight(opts = {}) {
+  const active = assemblyGuideState.activePartIds || new Set();
+  let firstMatch = null;
+  document.querySelectorAll('.part.assembly-current').forEach(card => {
+    card.classList.remove('assembly-current');
+    card.removeAttribute('aria-current');
+  });
+  if (!active.size || !assemblyGuideIsOpen()) return;
+  document.querySelectorAll('.part[data-part-id]').forEach(card => {
+    const ids = (card.dataset.partIds || card.dataset.partId || '').split(/\s+/).filter(Boolean);
+    if (ids.some(id => active.has(id))) {
+      card.classList.add('assembly-current');
+      card.setAttribute('aria-current', 'step');
+      if (!firstMatch) firstMatch = card;
+    }
+  });
+  if (opts.scroll && firstMatch) {
+    firstMatch.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }
+}
+
+function renderAssemblyGuideWarnings(plan, sequence) {
+  const box = document.getElementById('assemblyGuideWarnings');
+  if (!box) return;
+  const warnings = assemblyGuideWarnings(plan, sequence);
+  if (!warnings.length) {
+    box.classList.remove('has-warnings');
+    box.innerHTML = '';
+    return;
+  }
+  const shown = warnings.slice(0, 4).map(w => `<div>${escapeHtml(w.message || w.code || 'Assembly sequence warning')}</div>`).join('');
+  const remaining = warnings.length > 4 ? `<div>${warnings.length - 4} more warning${warnings.length - 4 === 1 ? '' : 's'} in assembly_plan.json.</div>` : '';
+  box.innerHTML = shown + remaining;
+  box.classList.add('has-warnings');
+}
+
+function renderAssemblyGuideStepList(steps) {
+  const list = document.getElementById('assemblyGuideSteps');
+  if (!list) return;
+  list.innerHTML = steps.map((step, idx) => {
+    const stateClass = idx < assemblyGuideState.index ? 'is-done' : (idx === assemblyGuideState.index ? 'is-current' : 'is-future');
+    const meta = `${escapeHtml(step.phase || 'step')} · ${assemblyGuideStepParts(step).length || step.partIds?.length || 0} part${(assemblyGuideStepParts(step).length || step.partIds?.length || 0) === 1 ? '' : 's'}`;
+    return `<button class="assembly-guide-step-btn ${stateClass}" data-assembly-step-index="${idx}" type="button">
+      <span class="assembly-guide-step-index">${idx < assemblyGuideState.index ? '✓' : idx + 1}</span>
+      <span>
+        <span class="assembly-guide-step-title">${escapeHtml(step.title || `Step ${idx + 1}`)}</span>
+        <span class="assembly-guide-step-meta">${meta}</span>
+      </span>
+    </button>`;
+  }).join('');
+  list.querySelectorAll('[data-assembly-step-index]').forEach(btn => {
+    btn.addEventListener('click', () => assemblyGuideSetStep(parseInt(btn.dataset.assemblyStepIndex, 10) || 0));
+  });
+}
+
+function renderAssemblyGuideCurrentStep(step, steps) {
+  const phase = document.getElementById('assemblyGuidePhase');
+  const title = document.getElementById('assemblyGuideTitle');
+  const summary = document.getElementById('assemblyGuideSummary');
+  const partsBox = document.getElementById('assemblyGuideParts');
+  const progress = document.getElementById('assemblyGuideProgress');
+  const prev = document.getElementById('assemblyGuidePrev');
+  const next = document.getElementById('assemblyGuideNext');
+
+  if (progress) progress.textContent = steps.length ? `Step ${assemblyGuideState.index + 1} of ${steps.length}` : 'Step 0 of 0';
+  if (phase) phase.textContent = step ? (step.phase || 'Assembly') : 'Assembly';
+  if (title) title.textContent = step ? (step.title || `Step ${assemblyGuideState.index + 1}`) : 'No assembly steps';
+  if (summary) summary.textContent = step ? (step.summary || '') : 'No generated parts were available for sequencing.';
+  if (prev) prev.disabled = !steps.length || assemblyGuideState.index <= 0;
+  if (next) {
+    next.disabled = !steps.length || assemblyGuideState.index >= steps.length - 1;
+    next.textContent = assemblyGuideState.index >= steps.length - 1 ? 'Done' : 'Next';
+  }
+
+  const parts = assemblyGuideStepParts(step);
+  assemblyGuideState.activePartIds = new Set((step?.partIds || parts.map(part => part.partId)).filter(Boolean));
+  if (partsBox) {
+    partsBox.innerHTML = parts.map(part => {
+      const path = part?.exportRef?.path || part?.exportRef?.fileName || 'Not exported';
+      const material = assemblyGuideMaterialLabel(part);
+      const role = String(part?.role || 'part').replace(/[_-]+/g, ' ');
+      const area = String(part?.area || 'general').replace(/[_-]+/g, ' ');
+      return `<div class="assembly-guide-part">
+        <div class="assembly-guide-part-name">${escapeHtml(part?.name || part?.partId || 'Part')}</div>
+        <div class="assembly-guide-part-meta">${escapeHtml(material)} · ${escapeHtml(role)} · ${escapeHtml(area)}</div>
+        <div class="assembly-guide-part-path">${escapeHtml(path)}</div>
+      </div>`;
+    }).join('') || '<div class="small">No parts are attached to this step.</div>';
+  }
+  applyAssemblyGuidePartHighlight({ scroll: true });
+}
+
+function renderAssemblyGuide() {
+  const plan = assemblyGuideState.plan;
+  const sequence = assemblyGuideState.sequence;
+  const steps = Array.isArray(sequence?.steps) ? sequence.steps : [];
+  renderAssemblyGuideWarnings(plan, sequence);
+  renderAssemblyGuideStepList(steps);
+  renderAssemblyGuideCurrentStep(steps[assemblyGuideState.index] || null, steps);
+}
+
+function openAssemblyGuide() {
+  try {
+    const plan = currentAssemblyGuidePlan();
+    const sequence = plan.sequence || createAssemblySequence(plan);
+    assemblyGuideState = {
+      plan,
+      sequence,
+      index: 0,
+      activePartIds: new Set(),
+    };
+    const modal = document.getElementById('assemblyGuideModal');
+    if (modal) modal.style.display = 'flex';
+    renderAssemblyGuide();
+    if (window.HakoMachiIcons) window.HakoMachiIcons.hydrate(document.getElementById('assemblyGuideModal'));
+  } catch (err) {
+    console.error(err);
+    assemblyGuideState = {
+      plan: { warnings: [{ message: 'The assembly guide could not be generated for the current building.' }] },
+      sequence: { steps: [], warnings: [] },
+      index: 0,
+      activePartIds: new Set(),
+    };
+    const modal = document.getElementById('assemblyGuideModal');
+    if (modal) modal.style.display = 'flex';
+    renderAssemblyGuide();
+  }
+}
+
+function closeAssemblyGuide() {
+  const modal = document.getElementById('assemblyGuideModal');
+  if (modal) modal.style.display = 'none';
+  assemblyGuideState.activePartIds = new Set();
+  applyAssemblyGuidePartHighlight();
+}
+
+function setupAssemblyGuideControls() {
+  const btn = document.getElementById('assemblyGuideBtn');
+  if (btn) btn.addEventListener('click', openAssemblyGuide);
+  const closeBtn = document.getElementById('assemblyGuideClose');
+  if (closeBtn) closeBtn.addEventListener('click', closeAssemblyGuide);
+  const prev = document.getElementById('assemblyGuidePrev');
+  if (prev) prev.addEventListener('click', () => assemblyGuideSetStep(assemblyGuideState.index - 1));
+  const next = document.getElementById('assemblyGuideNext');
+  if (next) next.addEventListener('click', () => assemblyGuideSetStep(assemblyGuideState.index + 1));
+  document.addEventListener('keydown', (ev) => {
+    if (!assemblyGuideIsOpen()) return;
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      closeAssemblyGuide();
+    } else if (ev.key === 'ArrowLeft') {
+      ev.preventDefault();
+      assemblyGuideSetStep(assemblyGuideState.index - 1);
+    } else if (ev.key === 'ArrowRight') {
+      ev.preventDefault();
+      assemblyGuideSetStep(assemblyGuideState.index + 1);
+    }
   });
 }
 
@@ -27539,6 +27756,326 @@ function exportPartZipPath(part, folderForMat, usedPaths) {
   return path;
 }
 
+/* Shared assembly-plan data model. Kept DOM-free so it can be reused by later
+   sequencing, guide, and print-manual layers. */
+const ASSEMBLY_PLAN_SCHEMA = 'hakomachi.assembly-plan';
+const ASSEMBLY_PLAN_SCHEMA_VERSION = 1;
+function assemblyCloneJson(value) {
+  return value == null ? value : JSON.parse(JSON.stringify(value));
+}
+function assemblyStableStringify(value) {
+  if (value == null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return '[' + value.map(assemblyStableStringify).join(',') + ']';
+  return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + assemblyStableStringify(value[key])).join(',') + '}';
+}
+function assemblySimpleHash(text) {
+  let hash = 2166136261;
+  const value = String(text || '');
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+function assemblyUniqueId(base, used) {
+  const clean = sanitiseFileName(base || 'part').toLowerCase();
+  let id = clean || 'part';
+  let n = 2;
+  while (used.has(id)) {
+    id = `${clean || 'part'}_${String(n).padStart(2, '0')}`;
+    n++;
+  }
+  used.add(id);
+  return id;
+}
+function assemblyExportRefForPart(part, usedPaths) {
+  if (part && part._exportPath) {
+    const path = String(part._exportPath);
+    const slash = path.lastIndexOf('/');
+    return { format: 'svg', material: slash >= 0 ? path.slice(0, slash) : sanitiseFileName(part.material || 'misc'), fileName: slash >= 0 ? path.slice(slash + 1) : path, path };
+  }
+  const material = sanitiseFileName(part.material || 'misc');
+  const stem = exportPartFileStem(part);
+  let fileName = `${stem}.svg`;
+  let path = `${material}/${fileName}`;
+  let n = 2;
+  while (usedPaths.has(path)) {
+    fileName = `${stem}__${String(n).padStart(2, '0')}.svg`;
+    path = `${material}/${fileName}`;
+    n++;
+  }
+  usedPaths.add(path);
+  return { format: 'svg', material, fileName, path };
+}
+function assemblyPartRecord(part, index, usedIds, usedPaths) {
+  const meta = part.meta || {};
+  const role = normalisePartRole(meta.role || 'general') || 'general';
+  const area = normalisePartArea(meta.area || 'general') || 'general';
+  const scope = meta.scope === 'wing' ? 'wing' : 'main';
+  const wingIndex = scope === 'wing' && meta.wingIndex != null ? Number(meta.wingIndex) : null;
+  return {
+    id: assemblyUniqueId(part.id || `${scope}_${area}_${role}_${index + 1}`, usedIds),
+    sourcePartId: part.id || null,
+    name: part.name || part.id || 'Part',
+    role,
+    area,
+    scope,
+    wingIndex,
+    material: part.material || 'misc',
+    dimensionsMm: { width: Number(part.bboxW) || 0, height: Number(part.bboxH) || 0, offsetX: Number(part.bboxOffsetX) || 0, offsetY: Number(part.bboxOffsetY) || 0 },
+    exportRef: assemblyExportRefForPart(part, usedPaths),
+    operationCounts: {
+      paths: Array.isArray(part.paths) ? part.paths.length : 0,
+      rects: Array.isArray(part.rects) ? part.rects.length : 0,
+      lines: Array.isArray(part.lines) ? part.lines.length : 0,
+    },
+    metadata: assemblyCloneJson(meta),
+    assemblyNote: part.assemblyNote || null,
+  };
+}
+function assemblySameBlock(a, b) {
+  return a && b && a.scope === b.scope && (a.wingIndex ?? null) === (b.wingIndex ?? null);
+}
+function assemblyFirst(parts, predicate) {
+  return parts.find(predicate) || null;
+}
+function assemblyRelationshipId(type, fromId, toId, used) {
+  return assemblyUniqueId(`${type}_${fromId}_to_${toId}`, used);
+}
+function assemblyAddRelationship(list, used, type, fromPart, toPart, confidence, notes) {
+  if (!fromPart || !toPart || fromPart.id === toPart.id) return;
+  list.push({ id: assemblyRelationshipId(type, fromPart.id, toPart.id, used), type, fromPartId: fromPart.id, toPartId: toPart.id, confidence, notes: notes || '' });
+}
+function assemblyInferredRelationships(parts, cfg, warnings) {
+  const relationships = [];
+  const used = new Set();
+  const coreWalls = parts.filter(p => p.role === 'core_wall');
+  const floors = parts.filter(p => p.role === 'floor_panel' || p.role === 'interfloor_panel');
+  const roofs = parts.filter(p => p.role === 'roof_panel' || p.role === 'parapet_panel');
+  const cladding = parts.filter(p => ['exterior_cladding', 'interior_cladding', 'cladding_patch'].includes(p.role));
+  const roofCladding = parts.filter(p => p.role === 'roof_cladding' || p.role === 'ridge_cap' || p.role === 'trim');
+  const detailRoles = new Set(['window_glass', 'window_backing', 'window_inner_frame', 'window_outer_frame', 'window_dividers', 'window_blanking', 'door_insert', 'door_glass', 'door_detail', 'fixture', 'awning', 'balcony', 'shutter', 'printed_detail', 'billboard', 'skylight', 'skylight_plexi', 'skylight_curb', 'skylight_cap']);
+  for (const wall of coreWalls) {
+    floors.filter(p => assemblySameBlock(p, wall)).forEach(floor => assemblyAddRelationship(relationships, used, 'floor-to-wall', floor, wall, 'inferred', 'Floor/inter-floor tabs or slots relate this panel to the block core walls.'));
+    roofs.filter(p => assemblySameBlock(p, wall)).forEach(roof => assemblyAddRelationship(relationships, used, 'wall-to-roof', wall, roof, 'inferred', 'Roof panels sit on or slot to the same block core walls.'));
+  }
+  for (const clad of cladding) {
+    const target = assemblyFirst(coreWalls, p => assemblySameBlock(p, clad) && (p.area === clad.area || clad.area === 'general')) || assemblyFirst(coreWalls, p => assemblySameBlock(p, clad));
+    if (target) assemblyAddRelationship(relationships, used, 'cladding-to-core', clad, target, 'inferred', 'Cladding role and wall area map this panel back to a core wall.');
+    else warnings.push({ code: 'assembly.missingCoreForCladding', severity: 'warning', partId: clad.id, message: `No matching core wall found for ${clad.name}.` });
+  }
+  for (const clad of roofCladding) {
+    const target = assemblyFirst(roofs, p => assemblySameBlock(p, clad)) || assemblyFirst(coreWalls, p => assemblySameBlock(p, clad));
+    if (target) assemblyAddRelationship(relationships, used, 'cladding-to-core', clad, target, 'inferred', 'Roof cladding/trim is associated with the roof or nearest core block.');
+  }
+  parts.filter(p => detailRoles.has(p.role)).forEach(detail => {
+    const target = assemblyFirst(parts, p => assemblySameBlock(p, detail) && p.area === detail.area && ['exterior_cladding', 'interior_cladding', 'core_wall', 'roof_panel'].includes(p.role))
+      || assemblyFirst(parts, p => assemblySameBlock(p, detail) && ['exterior_cladding', 'core_wall', 'roof_panel'].includes(p.role));
+    if (target) assemblyAddRelationship(relationships, used, 'detail-to-parent', detail, target, 'inferred', 'Detail part is associated by block and area metadata.');
+  });
+  (Array.isArray(cfg && cfg.wings) ? cfg.wings : []).forEach((_wing, i) => {
+    const wingParts = parts.filter(p => p.scope === 'wing' && p.wingIndex === i);
+    const mainFloor = assemblyFirst(parts, p => p.scope === 'main' && (p.role === 'floor_panel' || p.role === 'interfloor_panel'));
+    const wingFloor = assemblyFirst(wingParts, p => p.role === 'floor_panel' || p.role === 'interfloor_panel') || wingParts[0];
+    if (wingFloor && mainFloor) assemblyAddRelationship(relationships, used, 'wing-to-main', wingFloor, mainFloor, 'inferred', `Wing ${i + 1} attaches to the main block.`);
+  });
+  return relationships.sort((a, b) => a.id.localeCompare(b.id));
+}
+function assemblyMaterialLayers(parts) {
+  const groups = new Map();
+  parts.forEach(part => {
+    const key = part.material || 'misc';
+    if (!groups.has(key)) groups.set(key, { id: key, partIds: [], roles: new Set() });
+    const group = groups.get(key);
+    group.partIds.push(part.id);
+    group.roles.add(part.role);
+  });
+  return Array.from(groups.values()).map(group => ({ id: group.id, partIds: group.partIds.sort(), roles: Array.from(group.roles).sort() })).sort((a, b) => a.id.localeCompare(b.id));
+}
+function assemblyWarnings(parts, sourceParts) {
+  const warnings = [];
+  sourceParts.forEach((part, index) => {
+    const rec = parts[index];
+    if (!part.id) warnings.push({ code: 'assembly.missingPartId', severity: 'warning', partId: rec.id, message: `${rec.name} has no source part id; a deterministic fallback id was assigned.` });
+    if (!part.name) warnings.push({ code: 'assembly.missingPartName', severity: 'warning', partId: rec.id, message: `${rec.id} has no source part name.` });
+    if (!part.material) warnings.push({ code: 'assembly.missingMaterial', severity: 'warning', partId: rec.id, message: `${rec.name} has no material id.` });
+    if (!rec.dimensionsMm.width || !rec.dimensionsMm.height) warnings.push({ code: 'assembly.emptyPartBounds', severity: 'warning', partId: rec.id, message: `${rec.name} has incomplete bounding dimensions.` });
+    if (rec.role === 'general') warnings.push({ code: 'assembly.ambiguousRole', severity: 'info', partId: rec.id, message: `${rec.name} has a general role; assembly sequencing may need richer metadata.` });
+  });
+  return warnings;
+}
+function createAssemblyPlan(input = {}) {
+  const cfg = assemblyCloneJson(input.config || {});
+  const generation = input.generation || {};
+  const sourceParts = normalizePartsMetadata(assemblyCloneJson(generation.parts || []));
+  const usedIds = new Set();
+  const usedPaths = new Set();
+  const unsortedParts = sourceParts.map((part, index) => assemblyPartRecord(part, index, usedIds, usedPaths));
+  const warnings = assemblyWarnings(unsortedParts, sourceParts);
+  const parts = unsortedParts.sort((a, b) => a.exportRef.path.localeCompare(b.exportRef.path) || a.id.localeCompare(b.id));
+  const relationships = assemblyInferredRelationships(parts, cfg, warnings);
+  const plan = {
+    schema: ASSEMBLY_PLAN_SCHEMA,
+    schemaVersion: ASSEMBLY_PLAN_SCHEMA_VERSION,
+    generator: 'HakoMachi Building Generator',
+    deterministicKey: assemblySimpleHash(assemblyStableStringify({ config: cfg, parts: parts.map(p => [p.id, p.exportRef.path, p.role, p.area, p.material]) })),
+    source: { kind: input.sourceKind || 'generated-building', buildingType: cfg.buildingType || null, buildingName: cfg.buildingName || cfg.name || null, dimensionsMm: { width: Number(cfg.width) || null, depth: Number(cfg.depth) || null, height: Number(cfg.height) || null } },
+    parts,
+    materialLayers: assemblyMaterialLayers(parts),
+    relationships,
+    warnings: warnings.sort((a, b) => `${a.code}:${a.partId || ''}`.localeCompare(`${b.code}:${b.partId || ''}`)),
+  };
+  plan.sequence = createAssemblySequence(plan);
+  return plan;
+}
+function createAssemblyPlanFromConfig(config, opts = {}) {
+  const cfg = assemblyCloneJson(config || {});
+  const generation = opts.generation || generateBuilding(cfg);
+  return createAssemblyPlan({ config: cfg, generation, sourceKind: opts.sourceKind || 'hako-config' });
+}
+
+const ASSEMBLY_SEQUENCE_SCHEMA = 'hakomachi.assembly-sequence';
+const ASSEMBLY_SEQUENCE_SCHEMA_VERSION = 1;
+const ASSEMBLY_SEQUENCE_PHASES = Object.freeze([
+  { id: 'base-floors', order: 10, title: 'Base and floor panels' },
+  { id: 'exterior-core', order: 20, title: 'Exterior core walls' },
+  { id: 'interior-core', order: 30, title: 'Interior walls and inter-floor panels' },
+  { id: 'wing-connections', order: 40, title: 'Wing connections' },
+  { id: 'roof-trusses', order: 50, title: 'Roof, parapets, and trusses' },
+  { id: 'cladding', order: 60, title: 'Cladding layers' },
+  { id: 'trim', order: 70, title: 'Trim and caps' },
+  { id: 'details', order: 80, title: 'Details and fixtures' },
+  { id: 'review', order: 90, title: 'Review unsupported parts' },
+]);
+const ASSEMBLY_SEQUENCE_PHASE_BY_ID = new Map(ASSEMBLY_SEQUENCE_PHASES.map(phase => [phase.id, phase]));
+const ASSEMBLY_SEQUENCE_DETAIL_ROLES = new Set(['window_glass','window_backing','window_inner_frame','window_outer_frame','window_dividers','window_blanking','door_insert','door_glass','door_detail','fixture','awning','balcony','shutter','printed_detail','billboard','skylight','skylight_plexi','skylight_curb','skylight_cap']);
+function assemblySequenceBlockKey(part) {
+  if (!part || part.scope !== 'wing') return 'main';
+  return `wing-${Number.isFinite(Number(part.wingIndex)) ? Number(part.wingIndex) + 1 : 'unknown'}`;
+}
+function assemblySequencePartPhaseId(part, incomingRelationships = []) {
+  const role = String(part?.role || 'general');
+  if (role === 'floor_panel' || role === 'base_panel' || role === 'foundation_panel') return 'base-floors';
+  if (role === 'core_wall') return part.area === 'interior' ? 'interior-core' : 'exterior-core';
+  if (role === 'interior_wall' || role === 'interior_partition' || role === 'interfloor_panel' || role === 'interior_floor') return 'interior-core';
+  if (incomingRelationships.some(rel => rel.type === 'wing-to-main')) return 'wing-connections';
+  if (role === 'roof_panel' || role === 'parapet_panel' || role === 'truss' || role === 'truss_support') return 'roof-trusses';
+  if (role === 'exterior_cladding' || role === 'interior_cladding' || role === 'cladding_patch' || role === 'roof_cladding') return 'cladding';
+  if (role === 'trim' || role === 'ridge_cap' || role === 'fascia' || role === 'soffit') return 'trim';
+  if (ASSEMBLY_SEQUENCE_DETAIL_ROLES.has(role)) return 'details';
+  return 'review';
+}
+function assemblySequencePhaseForPart(part, incomingRelationships) {
+  return ASSEMBLY_SEQUENCE_PHASE_BY_ID.get(assemblySequencePartPhaseId(part, incomingRelationships)) || ASSEMBLY_SEQUENCE_PHASE_BY_ID.get('review');
+}
+function assemblySequencePartSort(a, b) {
+  return String(a.scope || '').localeCompare(String(b.scope || ''))
+    || Number(a.wingIndex ?? -1) - Number(b.wingIndex ?? -1)
+    || String(a.role || '').localeCompare(String(b.role || ''))
+    || String(a.area || '').localeCompare(String(b.area || ''))
+    || String(a.exportRef?.path || '').localeCompare(String(b.exportRef?.path || ''))
+    || String(a.id || '').localeCompare(String(b.id || ''));
+}
+function assemblySequenceStepGroupKey(part, phase, incomingRelationships) {
+  const block = assemblySequenceBlockKey(part);
+  const role = String(part.role || 'general');
+  const area = ASSEMBLY_SEQUENCE_DETAIL_ROLES.has(role) ? 'details' : String(part.area || 'general');
+  const relationshipTag = incomingRelationships.some(rel => rel.type === 'wing-to-main') ? 'join' : 'parts';
+  return [phase.id, block, role, area, relationshipTag].join('|');
+}
+function assemblySequenceTitleCase(value) {
+  return String(value || 'parts').replace(/[_-]+/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+}
+function assemblySequenceStepTitle(parts, phase) {
+  const first = parts[0] || {};
+  const block = assemblySequenceBlockKey(first) === 'main' ? 'Main block' : assemblySequenceTitleCase(assemblySequenceBlockKey(first));
+  const role = assemblySequenceTitleCase(first.role || 'parts');
+  if (phase.id === 'wing-connections') return `${block} connection`;
+  if (parts.length > 1) return `${block}: ${role} group`;
+  return `${block}: ${first.name || role}`;
+}
+function assemblySequenceRelationshipDirection(rel) {
+  if (!rel) return null;
+  if (rel.type === 'floor-to-wall') return { before: rel.fromPartId, after: rel.toPartId };
+  if (rel.type === 'wall-to-roof') return { before: rel.fromPartId, after: rel.toPartId };
+  if (rel.type === 'cladding-to-core') return { before: rel.toPartId, after: rel.fromPartId };
+  if (rel.type === 'detail-to-parent') return { before: rel.toPartId, after: rel.fromPartId };
+  if (rel.type === 'wing-to-main') return { before: rel.toPartId, after: rel.fromPartId };
+  return null;
+}
+function assemblySequenceStepId(index, phase, parts) {
+  const seed = `${phase.id}:${parts.map(part => part.id).join(',')}`;
+  return `assembly_step_${String(index + 1).padStart(3, '0')}_${assemblySimpleHash(seed)}`;
+}
+function assemblySequenceTopoSort(steps, stepDeps, warnings) {
+  const remaining = new Map(steps.map(step => [step.id, step]));
+  const emitted = [];
+  const emittedIds = new Set();
+  while (remaining.size) {
+    const ready = Array.from(remaining.values()).filter(step => Array.from(stepDeps.get(step.id) || []).every(dep => emittedIds.has(dep))).sort((a, b) => a.phaseOrder - b.phaseOrder || a.sortKey.localeCompare(b.sortKey));
+    if (!ready.length) {
+      warnings.push({ code: 'assembly.sequenceCycle', severity: 'warning', message: 'Assembly sequencing found circular or contradictory dependencies; remaining steps were emitted by phase order.' });
+      emitted.push(...Array.from(remaining.values()).sort((a, b) => a.phaseOrder - b.phaseOrder || a.sortKey.localeCompare(b.sortKey)));
+      break;
+    }
+    const next = ready[0];
+    remaining.delete(next.id);
+    emitted.push(next);
+    emittedIds.add(next.id);
+  }
+  return emitted.map((step, index) => ({ ...step, order: index + 1 }));
+}
+function createAssemblySequence(plan = {}) {
+  const warnings = [];
+  const parts = Array.isArray(plan.parts) ? assemblyCloneJson(plan.parts).sort(assemblySequencePartSort) : [];
+  const relationships = Array.isArray(plan.relationships) ? assemblyCloneJson(plan.relationships) : [];
+  const partById = new Map(parts.map(part => [part.id, part]));
+  const incomingByPart = new Map();
+  const relationshipIdsByStep = new Map();
+  if (!parts.length) warnings.push({ code: 'assembly.sequenceNoParts', severity: 'warning', message: 'No assembly parts were available to sequence.' });
+  for (const rel of relationships) {
+    if (!partById.has(rel.fromPartId) || !partById.has(rel.toPartId)) {
+      warnings.push({ code: 'assembly.sequenceMissingRelationshipPart', severity: 'warning', relationshipId: rel.id, message: `Relationship ${rel.id || rel.type || 'unknown'} references a missing part.` });
+      continue;
+    }
+    const direction = assemblySequenceRelationshipDirection(rel);
+    if (!direction) {
+      warnings.push({ code: 'assembly.sequenceUnsupportedRelationship', severity: 'info', relationshipId: rel.id, message: `Relationship type ${rel.type || 'unknown'} is not yet sequenced explicitly.` });
+      continue;
+    }
+    if (!incomingByPart.has(direction.after)) incomingByPart.set(direction.after, []);
+    incomingByPart.get(direction.after).push(rel);
+  }
+  const groups = new Map();
+  for (const part of parts) {
+    const incoming = incomingByPart.get(part.id) || [];
+    const phase = assemblySequencePhaseForPart(part, incoming);
+    const key = assemblySequenceStepGroupKey(part, phase, incoming);
+    if (!groups.has(key)) groups.set(key, { phase, parts: [] });
+    groups.get(key).parts.push(part);
+    if (phase.id === 'review') warnings.push({ code: 'assembly.sequenceAmbiguousRole', severity: 'warning', partId: part.id, message: `${part.name || part.id} has role "${part.role || 'general'}"; manual assembly review may be needed.` });
+  }
+  let provisionalSteps = Array.from(groups.values()).map(group => ({ ...group, parts: group.parts.sort(assemblySequencePartSort) })).sort((a, b) => a.phase.order - b.phase.order || assemblySequencePartSort(a.parts[0], b.parts[0]));
+  provisionalSteps = provisionalSteps.map((group, index) => {
+    const step = { id: assemblySequenceStepId(index, group.phase, group.parts), order: index + 1, phase: group.phase.id, phaseOrder: group.phase.order, title: assemblySequenceStepTitle(group.parts, group.phase), summary: group.parts.length > 1 ? `Install ${group.parts.length} ${assemblySequenceTitleCase(group.parts[0].role || 'part')} parts.` : `Install ${group.parts[0]?.name || 'part'}.`, partIds: group.parts.map(part => part.id), parts: group.parts.map(part => ({ partId: part.id, name: part.name || part.id, role: part.role || 'general', area: part.area || 'general', scope: part.scope || 'main', wingIndex: part.wingIndex ?? null, exportRef: assemblyCloneJson(part.exportRef || null) })), relationshipIds: [], dependsOnStepIds: [], sortKey: `${String(group.phase.order).padStart(3, '0')}:${group.parts.map(part => part.id).join(',')}` };
+    for (const part of group.parts) relationshipIdsByStep.set(part.id, step.id);
+    return step;
+  });
+  const stepDeps = new Map(provisionalSteps.map(step => [step.id, new Set()]));
+  for (const rel of relationships) {
+    const direction = assemblySequenceRelationshipDirection(rel);
+    if (!direction) continue;
+    const beforeStep = relationshipIdsByStep.get(direction.before);
+    const afterStep = relationshipIdsByStep.get(direction.after);
+    if (!beforeStep || !afterStep || beforeStep === afterStep) continue;
+    stepDeps.get(afterStep)?.add(beforeStep);
+    const step = provisionalSteps.find(candidate => candidate.id === afterStep);
+    if (step && rel.id) step.relationshipIds.push(rel.id);
+  }
+  const steps = assemblySequenceTopoSort(provisionalSteps, stepDeps, warnings).map(step => ({ id: step.id, order: step.order, phase: step.phase, title: step.title, summary: step.summary, partIds: step.partIds, parts: step.parts, relationshipIds: Array.from(new Set(step.relationshipIds)).sort(), dependsOnStepIds: Array.from(stepDeps.get(step.id) || []).sort() }));
+  return { schema: ASSEMBLY_SEQUENCE_SCHEMA, schemaVersion: ASSEMBLY_SEQUENCE_SCHEMA_VERSION, deterministicKey: assemblySimpleHash(assemblyStableStringify({ planKey: plan.deterministicKey || null, parts: parts.map(part => [part.id, part.role, part.area, part.scope, part.wingIndex, part.exportRef?.path || null]), relationships: relationships.map(rel => [rel.id, rel.type, rel.fromPartId, rel.toPartId]).sort() })), strategy: 'phase-and-relationship-toposort-v1', steps, warnings: warnings.sort((a, b) => `${a.code}:${a.partId || a.relationshipId || ''}`.localeCompare(`${b.code}:${b.partId || b.relationshipId || ''}`)) };
+}
+
 /* Export ZIP */
 async function exportZip() {
   readForm();
@@ -27588,6 +28125,9 @@ async function exportZip() {
     exportRows.push({ part, exportPath });
   }
 
+  const assemblyPlan = createAssemblyPlan({ config: serializableCurrentConfig(CONFIG), generation: result, sourceKind: 'current-design' });
+  zip.file('assembly_plan.json', JSON.stringify(assemblyPlan, null, 2) + '\n');
+
   // --- README manifest ---
   let manifest = `# HakoMachi — Output Manifest\n\n`;
   manifest += `Building type: ${BUILDING_TYPES[CONFIG.buildingType].label}\n`;
@@ -27619,6 +28159,7 @@ async function exportZip() {
   manifest += `\n## Reimport files\n`;
   manifest += `- Building settings: \`${hakoName}\`\n`;
   manifest += `- Material library: \`${matLibName}\`\n`;
+  manifest += `- Assembly plan: \`assembly_plan.json\`\n`;
 
   // Rooftop equipment STLs
   const equipReq = CONFIG.rooftopEquipment || {};
@@ -30015,6 +30556,7 @@ function init() {
   });
   bindClick('iwCladBtn', iwToggleCladding);
   document.getElementById('wingEditorBtn').addEventListener('click', openWingEditor);
+  setupAssemblyGuideControls();
   bindClick('weApplyBtn', weApply);
   bindClick('weCloseBtn', weClose);
   document.getElementById('exportBtn').addEventListener('click', exportZip);
@@ -39437,6 +39979,9 @@ const HakoMachiRuntimeGlobals = {
   writeForm: typeof writeForm !== 'undefined' ? writeForm : undefined,
   regenerate: typeof regenerate !== 'undefined' ? regenerate : undefined,
   generateBuilding: typeof generateBuilding !== 'undefined' ? generateBuilding : undefined,
+  createAssemblyPlan: typeof createAssemblyPlan !== 'undefined' ? createAssemblyPlan : undefined,
+  createAssemblyPlanFromConfig: typeof createAssemblyPlanFromConfig !== 'undefined' ? createAssemblyPlanFromConfig : undefined,
+  createAssemblySequence: typeof createAssemblySequence !== 'undefined' ? createAssemblySequence : undefined,
   generateBuildingWithWings: typeof generateBuildingWithWings !== 'undefined' ? generateBuildingWithWings : undefined,
   generateBuildingStl: typeof generateBuildingStl !== 'undefined' ? generateBuildingStl : undefined,
   buildEdgePlans: typeof buildEdgePlans !== 'undefined' ? buildEdgePlans : undefined,
@@ -39488,7 +40033,7 @@ Object.defineProperties(globalThis, {
 });
 globalThis.HakoMachiBuildingGeneratorRuntime = Object.freeze({
   get CONFIG() { return CONFIG; },
-  init, regenerate, readForm, writeForm, generateBuilding, generateBuildingWithWings, generateBuildingStl,
+  init, regenerate, readForm, writeForm, generateBuilding, createAssemblyPlan, createAssemblyPlanFromConfig, createAssemblySequence, generateBuildingWithWings, generateBuildingStl,
   buildEdgePlans, upgradeConfigToCurrentStorage, serializableCurrentConfig,
   start: startHakoMachiBuildingGeneratorRuntime,
 });

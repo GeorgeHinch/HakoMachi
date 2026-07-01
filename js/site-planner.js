@@ -2309,6 +2309,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     for(let i=0;i<bytes.length;i+=chunk) out+=String.fromCharCode(...bytes.subarray(i,i+chunk));
     return btoa(out);
   }
+  function base64ToArrayBuffer(base64){
+    const text=String(base64||'').replace(/\s+/g,'');
+    if(!text) return new ArrayBuffer(0);
+    const binary=atob(text);
+    const bytes=new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
+    return bytes.buffer;
+  }
   function emptyStlBounds(format='unknown'){
     return {format,vertexCount:0,minX:0,minY:0,minZ:0,maxX:20,maxY:20,maxZ:8,width:20,depth:20,height:8};
   }
@@ -2357,6 +2365,38 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function parseStlBounds(buffer){
     return parseBinaryStlBounds(buffer) || parseAsciiStlBounds(buffer) || emptyStlBounds('unknown');
   }
+  function parseBinaryStlVertices(buffer){
+    if(!buffer || buffer.byteLength<84) return null;
+    const view=new DataView(buffer);
+    const triangles=view.getUint32(80,true);
+    const expected=84+triangles*50;
+    if(expected!==buffer.byteLength) return null;
+    const vertices=[];
+    for(let i=0;i<triangles;i++){
+      const base=84+i*50+12;
+      for(let v=0;v<3;v++){
+        const o=base+v*12;
+        vertices.push({x:view.getFloat32(o,true),y:view.getFloat32(o+4,true),z:view.getFloat32(o+8,true)});
+      }
+    }
+    return vertices;
+  }
+  function parseAsciiStlVertices(buffer){
+    let text='';
+    try{text=new TextDecoder('utf-8',{fatal:false}).decode(buffer);}catch(_err){return null;}
+    if(!/\bvertex\s+[-+0-9.eE]/i.test(text)) return null;
+    const vertices=[];
+    const re=/\bvertex\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)/gi;
+    let match;
+    while((match=re.exec(text))){
+      const x=Number(match[1]), y=Number(match[2]), z=Number(match[3]);
+      if(Number.isFinite(x)&&Number.isFinite(y)&&Number.isFinite(z)) vertices.push({x,y,z});
+    }
+    return vertices.length ? vertices : null;
+  }
+  function parseStlVertices(buffer){
+    return parseBinaryStlVertices(buffer) || parseAsciiStlVertices(buffer) || [];
+  }
   async function importStlAsSiteObject(file){
     if(!file) return;
     if(!isLikelyStlFile(file)){ failImportProgress('Unsupported file type.','Drop or choose a .stl file to place it as a site object.'); return; }
@@ -2380,7 +2420,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         color:'#496a78',
         locked:false,
         hidden:false,
-        notes:'Imported STL site object. The planner shows a footprint and 3D proxy until full STL geometry rendering is wired in.',
+        notes:'Imported STL site object. The planner renders the STL geometry in 3D when the asset is available, with a footprint/proxy fallback.',
         bounds,
         asset:{
           kind:'stl',
@@ -3299,6 +3339,40 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     return buildSite3DMassing(b,bounds);
   }
+  function site3DStlGeometry(obj, targetW, targetH, targetD){
+    const dataBase64=obj?.asset?.dataBase64;
+    if(!dataBase64 || typeof THREE==='undefined') return null;
+    try{
+      const buffer=base64ToArrayBuffer(dataBase64);
+      const vertices=parseStlVertices(buffer);
+      if(vertices.length<3) return null;
+      const vertexCount=vertices.length - (vertices.length%3);
+      if(vertexCount<3) return null;
+      const bounds=obj.bounds&&obj.bounds.vertexCount?obj.bounds:boundsFromVertices(vertices,'stl');
+      const rawW=Math.max(.0001,Number(bounds.width)||1);
+      const rawD=Math.max(.0001,Number(bounds.depth)||1);
+      const rawH=Math.max(.0001,Number(bounds.height)||1);
+      const cx=(Number(bounds.minX)+Number(bounds.maxX))/2 || 0;
+      const cy=(Number(bounds.minY)+Number(bounds.maxY))/2 || 0;
+      const minZ=Number(bounds.minZ)||0;
+      const sx=targetW/rawW;
+      const sy=targetH/rawH;
+      const sz=targetD/rawD;
+      const positions=[];
+      vertices.slice(0,vertexCount).forEach(v=>{
+        positions.push((v.x-cx)*sx,(v.z-minZ)*sy,(v.y-cy)*sz);
+      });
+      const geo=new THREE.BufferGeometry();
+      geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+      geo.computeVertexNormals();
+      geo.computeBoundingBox();
+      geo.computeBoundingSphere();
+      return geo;
+    }catch(err){
+      console.warn('[HakoMachi Site Planner] STL 3D mesh fallback:',err);
+      return null;
+    }
+  }
   function buildSite3DStlObjectGroup(raw,bounds){
     const obj=normalizeStlObject(raw);
     if(!obj || obj.hidden) return null;
@@ -3306,14 +3380,23 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const d=Math.max(.5,site3DScale(obj.depthPx||mmToPx(obj.depthMm*obj.scale||1)));
     const h=Math.max(.5,Number(obj.heightMm||8)*(Number(obj.scale)||1));
     const group=new THREE.Group();
-    group.name=obj.name||'STL site object proxy';
-    const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),site3DMaterial(obj.color,0x496a78,{transparent:true,opacity:.72}));
-    mesh.position.y=h/2;
-    group.add(mesh);
-    const edgeGeo=new THREE.EdgesGeometry(mesh.geometry);
-    const edges=new THREE.LineSegments(edgeGeo,new THREE.LineBasicMaterial({color:0x24424d,transparent:true,opacity:.62}));
-    edges.position.copy(mesh.position);
-    group.add(edges);
+    const geometry=site3DStlGeometry(obj,w,h,d);
+    if(geometry){
+      group.name=obj.name||'STL site object';
+      const mesh=new THREE.Mesh(geometry,site3DMaterial(obj.color,0x496a78,{transparent:true,opacity:.9,side:THREE.DoubleSide}));
+      mesh.userData.sitePlannerStlActualMesh=true;
+      group.add(mesh);
+      group.add(new THREE.LineSegments(new THREE.EdgesGeometry(geometry,30),new THREE.LineBasicMaterial({color:0x24424d,transparent:true,opacity:.34})));
+    } else {
+      group.name=obj.name||'STL site object proxy';
+      const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),site3DMaterial(obj.color,0x496a78,{transparent:true,opacity:.72}));
+      mesh.position.y=h/2;
+      group.add(mesh);
+      const edgeGeo=new THREE.EdgesGeometry(mesh.geometry);
+      const edges=new THREE.LineSegments(edgeGeo,new THREE.LineBasicMaterial({color:0x24424d,transparent:true,opacity:.62}));
+      edges.position.copy(mesh.position);
+      group.add(edges);
+    }
     group.position.set(site3DScale(obj.x)-bounds.cx,0,site3DScale(obj.y)-bounds.cy);
     group.rotation.y=-(Number(obj.rotationDeg)||0)*Math.PI/180;
     return tagSite3DStlObject(group,obj);
@@ -4941,7 +5024,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       <div class="row"><div><label>Height mm</label><input id="stlH" type="number" min="0.1" step="0.1" value="${fmt(stl.heightMm||0)}"></div><div><label>Color</label><input id="stlColor" type="color" value="${stl.color||'#496a78'}"></div></div>
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="stlLocked" type="checkbox" ${stl.locked?'checked':''}> <span>Lock object</span></label>
       <label>Notes</label><textarea id="stlNotes" rows="3">${escapeHtml(stl.notes||'')}</textarea>
-      <div class="small muted" style="margin-top:6px">File: ${escapeHtml(stl.asset?.fileName||'STL asset')} · ${escapeHtml(stl.bounds?.format||'unknown')} bounds · shown as a footprint and 3D proxy.</div>
+      <div class="small muted" style="margin-top:6px">File: ${escapeHtml(stl.asset?.fileName||'STL asset')} · ${escapeHtml(stl.bounds?.format||'unknown')} bounds · renders as STL geometry when available.</div>
       <label>Source files</label>
       <div>${sourceList}</div>
       <input id="stlSourceFileInput" class="hiddenFile" type="file" accept=".scad,.blend,.py,.js,.json,.txt,.obj,.dae,.3mf">

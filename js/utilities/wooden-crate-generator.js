@@ -69,8 +69,12 @@ function operationForClass(cls) {
     return U.svgRect(x, y, w, h, { class: cls, 'data-operation': operationForClass(cls) }, extra);
   }
 
-  function polygon(points, cls = 'cut', extra = '') {
-    return `<polygon class="${cls}" data-operation="${operationForClass(cls)}" points="${points.map(p => `${p.x.toFixed(3)},${p.y.toFixed(3)}`).join(' ')}" ${extra}/>`;
+  function pathFromPoints(points) {
+    return points.map((p, i) => `${i ? 'L' : 'M'} ${p.x.toFixed(3)} ${p.y.toFixed(3)}`).join(' ') + ' Z';
+  }
+
+  function cutPath(d, extra = '') {
+    return `<path class="cut" data-operation="${SVG_OP.CUT_RETAINED}" d="${d}" ${extra}/>`;
   }
 
   function text(x, y, value, cls = 'label', size = 1.8) {
@@ -200,7 +204,7 @@ function operationForClass(cls) {
 
   function bracePanel() {
     return function(p, s) {
-      let out = rect(p.x, p.y, p.w, p.h, 'score');
+      let out = '';
       out += braceShapes(p.x, p.y, p.w, p.h, s);
       if (s.nails) out += nails(p.x, p.y, p.w, p.h, s);
       return out;
@@ -246,39 +250,112 @@ function operationForClass(cls) {
     return out;
   }
 
-  function stripPolygon(x1, y1, x2, y2, width) {
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const len = Math.hypot(dx, dy) || 1;
-    const nx = -dy / len * width / 2;
-    const ny = dx / len * width / 2;
+  function rectPoly(x, y, w, h) {
     return [
-      { x: x1 + nx, y: y1 + ny },
-      { x: x2 + nx, y: y2 + ny },
-      { x: x2 - nx, y: y2 - ny },
-      { x: x1 - nx, y: y1 - ny }
+      { x, y },
+      { x: x + w, y },
+      { x: x + w, y: y + h },
+      { x, y: y + h }
     ];
   }
 
-  function braceShapes(x, y, w, h, s) {
-    const bw = Math.min(s.braceW, Math.min(w, h) / 3);
-    let out = '';
-    const addRect = (rx, ry, rw, rh) => {
-      out += rect(rx, ry, rw, rh, 'cut');
-    };
-    const addStrip = (x1, y1, x2, y2) => {
-      out += polygon(stripPolygon(x1, y1, x2, y2, bw), 'cut');
-    };
-    addRect(x, y, w, bw);
-    addRect(x, y + h - bw, w, bw);
-    addRect(x, y, bw, h);
-    addRect(x + w - bw, y, bw, h);
-    addRect(x + w / 2 - bw / 2, y, bw, h);
-    if (s.diag !== 'none') {
-      addStrip(x + bw, y + bw, x + w - bw, y + h - bw);
-      if (s.diag === 'x') addStrip(x + w - bw, y + bw, x + bw, y + h - bw);
+  function polygonArea(points) {
+    let sum = 0;
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i];
+      const b = points[(i + 1) % points.length];
+      sum += a.x * b.y - b.x * a.y;
+    }
+    return sum / 2;
+  }
+
+  function signedLineDistance(p, a, b) {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    return ((p.x - a.x) * dy - (p.y - a.y) * dx) / len;
+  }
+
+  function clipPolygonByLineDistance(poly, a, b, threshold, keepGreater) {
+    if (!poly.length) return [];
+    const out = [];
+    const eps = 0.000001;
+    const inside = value => keepGreater ? value >= threshold - eps : value <= threshold + eps;
+    for (let i = 0; i < poly.length; i++) {
+      const cur = poly[i];
+      const prev = poly[(i + poly.length - 1) % poly.length];
+      const curDist = signedLineDistance(cur, a, b);
+      const prevDist = signedLineDistance(prev, a, b);
+      const curInside = inside(curDist);
+      const prevInside = inside(prevDist);
+      if (curInside !== prevInside) {
+        const denom = curDist - prevDist;
+        const t = Math.abs(denom) < eps ? 0 : (threshold - prevDist) / denom;
+        out.push({
+          x: prev.x + (cur.x - prev.x) * t,
+          y: prev.y + (cur.y - prev.y) * t
+        });
+      }
+      if (curInside) out.push(cur);
     }
     return out;
+  }
+
+  function keepValidPolygons(polys) {
+    return polys.filter(poly => poly.length >= 3 && Math.abs(polygonArea(poly)) > 0.0001);
+  }
+
+  function splitHolesAroundStrip(holes, a, b, halfWidth) {
+    const next = [];
+    holes.forEach(poly => {
+      next.push(
+        clipPolygonByLineDistance(poly, a, b, halfWidth, true),
+        clipPolygonByLineDistance(poly, a, b, -halfWidth, false)
+      );
+    });
+    return keepValidPolygons(next);
+  }
+
+  function braceHolePolygons(x, y, w, h, s) {
+    const bw = Math.max(0.05, Math.min(s.braceW, Math.min(w, h) / 3));
+    const innerX0 = x + bw;
+    const innerX1 = x + w - bw;
+    const innerY0 = y + bw;
+    const innerY1 = y + h - bw;
+    const centerX0 = x + w / 2 - bw / 2;
+    const centerX1 = x + w / 2 + bw / 2;
+    let holes = keepValidPolygons([
+      rectPoly(innerX0, innerY0, Math.max(0, centerX0 - innerX0), Math.max(0, innerY1 - innerY0)),
+      rectPoly(centerX1, innerY0, Math.max(0, innerX1 - centerX1), Math.max(0, innerY1 - innerY0))
+    ]);
+
+    if (s.diag !== 'none') {
+      holes = splitHolesAroundStrip(
+        holes,
+        { x: innerX0, y: innerY0 },
+        { x: innerX1, y: innerY1 },
+        bw / 2
+      );
+      if (s.diag === 'x') {
+        holes = splitHolesAroundStrip(
+          holes,
+          { x: innerX1, y: innerY0 },
+          { x: innerX0, y: innerY1 },
+          bw / 2
+        );
+      }
+    }
+    return holes;
+  }
+
+  function braceCompoundPathD(x, y, w, h, s) {
+    const outer = rectPoly(x, y, w, h);
+    const holes = braceHolePolygons(x, y, w, h, s);
+    return [outer, ...holes].map(pathFromPoints).join(' ');
+  }
+
+  function braceShapes(x, y, w, h, s) {
+    return cutPath(braceCompoundPathD(x, y, w, h, s), 'fill-rule="evenodd"');
   }
 
   function nails(x, y, w, h, s) {
@@ -352,25 +429,7 @@ function operationForClass(cls) {
   }
 
   function thumbBrace(x, y, w, h, s) {
-    const bw = Math.min(s.braceW, Math.min(w, h) / 4);
-    let out = '';
-    function strip(rx, ry, rw, rh, angle = 0) {
-      const cx = rx + rw / 2;
-      const cy = ry + rh / 2;
-      out += `<rect x="${rx.toFixed(3)}" y="${ry.toFixed(3)}" width="${Math.max(0, rw).toFixed(3)}" height="${Math.max(0, rh).toFixed(3)}" fill="#b77a32" stroke="#6b421e" stroke-width=".07" vector-effect="non-scaling-stroke" transform="rotate(${angle.toFixed(3)} ${cx.toFixed(3)} ${cy.toFixed(3)})"/>`;
-    }
-    strip(x, y, w, bw);
-    strip(x, y + h - bw, w, bw);
-    strip(x, y, bw, h);
-    strip(x + w - bw, y, bw, h);
-    strip(x + w / 2 - bw / 2, y, bw, h);
-    if (s.diag !== 'none') {
-      const len = Math.sqrt(w * w + h * h);
-      const angle = Math.atan2(h, w) * 180 / Math.PI;
-      strip(x + w / 2 - len / 2, y + h / 2 - bw / 2, len, bw, angle);
-      if (s.diag === 'x') strip(x + w / 2 - len / 2, y + h / 2 - bw / 2, len, bw, -angle);
-    }
-    return out;
+    return `<path d="${braceCompoundPathD(x, y, w, h, s)}" fill="#b77a32" fill-rule="evenodd" stroke="#6b421e" stroke-width=".07" vector-effect="non-scaling-stroke"/>`;
   }
 
   function partSvg(part, s) {
@@ -395,8 +454,6 @@ function operationForClass(cls) {
       }
     }
     if (part.kind === 'brace') {
-      body += thumbRect(pad, pad, w, h, '#f3d79c', '#c9a15f', 0.06);
-      body += thumbWood(pad + 0.25, pad + 0.25, w - 0.5, h - 0.5, s, w > h ? 'h' : 'v');
       body += thumbBrace(pad, pad, w, h, s);
       if (s.nails) {
         [

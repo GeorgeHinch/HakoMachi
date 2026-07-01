@@ -1,0 +1,93 @@
+{
+  "schema": "hakomachi.assembly-sequence",
+  "schemaVersion": 1,
+  "deterministicKey": "suaa48",
+  "strategy": "phase-and-relationship-toposort-v1",
+  "steps": [
+    {
+      "id": "assembly_step_001_2tzl1s",
+      "order": 1,
+      "phase": "base-floors",
+      "title": "Main block: Floor Panel",
+      "summary": "Install Floor Panel.",
+      "partIds": ["floor"],
+      "parts": [
+        {
+          "partId": "floor",
+          "name": "Floor Panel",
+          "role": "floor_panel",
+          "area": "floor",
+          "scope": "main",
+          "wingIndex": null,
+          "exportRef": { "format": "svg", "material": "core", "fileName": "Main_Floor_Floor_Panel.svg", "path": "core/Main_Floor_Floor_Panel.svg" }
+        }
+      ],
+      "relationshipIds": [],
+      "dependsOnStepIds": []
+    },
+    {
+      "id": "assembly_step_002_7xgaqt",
+      "order": 2,
+      "phase": "exterior-core",
+      "title": "Main block: Front Wall",
+      "summary": "Install Front Wall.",
+      "partIds": ["front_wall"],
+      "parts": [
+        {
+          "partId": "front_wall",
+          "name": "Front Wall",
+          "role": "core_wall",
+          "area": "front",
+          "scope": "main",
+          "wingIndex": null,
+          "exportRef": { "format": "svg", "material": "core", "fileName": "Main_Front_Core_Wall.svg", "path": "core/Main_Front_Core_Wall.svg" }
+        }
+      ],
+      "relationshipIds": ["floor-to-wall_floor_to_front_wall"],
+      "dependsOnStepIds": ["assembly_step_001_2tzl1s"]
+    },
+    {
+      "id": "assembly_step_003_oybdrj",
+      "order": 3,
+      "phase": "roof-trusses",
+      "title": "Main block: Roof Panel",
+      "summary": "Install Roof Panel.",
+      "partIds": ["roof"],
+      "parts": [
+        {
+          "partId": "roof",
+          "name": "Roof Panel",
+          "role": "roof_panel",
+          "area": "roof",
+          "scope": "main",
+          "wingIndex": null,
+          "exportRef": { "format": "svg", "material": "core", "fileName": "Main_Roof_Roof_Panel.svg", "path": "core/Main_Roof_Roof_Panel.svg" }
+        }
+      ],
+      "relationshipIds": ["wall-to-roof_front_wall_to_roof"],
+      "dependsOnStepIds": ["assembly_step_002_7xgaqt"]
+    },
+    {
+      "id": "assembly_step_004_1xlafpt",
+      "order": 4,
+      "phase": "cladding",
+      "title": "Main block: Front Exterior Cladding",
+      "summary": "Install Front Exterior Cladding.",
+      "partIds": ["front_cladding"],
+      "parts": [
+        {
+          "partId": "front_cladding",
+          "name": "Front Exterior Cladding",
+          "role": "exterior_cladding",
+          "area": "front",
+          "scope": "main",
+          "wingIndex": null,
+          "exportRef": { "format": "svg", "material": "cladding", "fileName": "Main_Front_Exterior_Cladding.svg", "path": "cladding/Main_Front_Exterior_Cladding.svg" }
+        }
+      ],
+      "relationshipIds": ["cladding-to-core_front_cladding_to_front_wall"],
+      "dependsOnStepIds": ["assembly_step_002_7xgaqt"]
+    }
+  ],
+  "warnings": []
+}

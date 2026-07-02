@@ -3608,13 +3608,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const geometry=site3DStlGeometry(obj,w,h,d);
     if(geometry){
       group.name=obj.name||'STL site object';
-      const mesh=new THREE.Mesh(geometry,site3DMaterial(obj.color,0x496a78,{transparent:true,opacity:.9,side:THREE.DoubleSide}));
+      const mesh=new THREE.Mesh(geometry,site3DMaterial(obj.color,0x496a78,{transparent:false,opacity:1,side:THREE.DoubleSide}));
       mesh.userData.sitePlannerStlActualMesh=true;
       group.add(mesh);
       group.add(new THREE.LineSegments(new THREE.EdgesGeometry(geometry,30),new THREE.LineBasicMaterial({color:0x24424d,transparent:true,opacity:.34})));
     } else {
       group.name=obj.name||'STL site object proxy';
-      const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),site3DMaterial(obj.color,0x496a78,{transparent:true,opacity:.72}));
+      const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),site3DMaterial(obj.color,0x496a78,{transparent:false,opacity:1}));
       mesh.position.y=h/2;
       group.add(mesh);
       const edgeGeo=new THREE.EdgesGeometry(mesh.geometry);

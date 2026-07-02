@@ -142,6 +142,36 @@
     downloadText(JSON.stringify(data, null, 2), filename, 'application/json');
   }
 
+  function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer || new ArrayBuffer(0));
+    let out = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) out += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    return btoa(out);
+  }
+
+  function base64ToArrayBuffer(base64) {
+    const text = String(base64 || '').replace(/\s+/g, '');
+    if (!text) return new ArrayBuffer(0);
+    const binary = atob(text);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  function textToBase64(text) {
+    const bytes = new TextEncoder().encode(String(text || ''));
+    return arrayBufferToBase64(bytes.buffer);
+  }
+
+  function base64ToText(base64) {
+    return new TextDecoder('utf-8', { fatal: false }).decode(base64ToArrayBuffer(base64));
+  }
+
+  function dataUrlFromBase64(mimeType, base64) {
+    return `data:${mimeType || 'application/octet-stream'};base64,${String(base64 || '').replace(/\s+/g, '')}`;
+  }
+
   function openTextPreview(content, mimeType) {
     const url = URL.createObjectURL(new Blob([content], { type: mimeType || 'text/plain' }));
     const preview = window.open(url, '_blank');
@@ -507,6 +537,11 @@ export {
   downloadBlob,
   downloadText,
   downloadJson,
+  arrayBufferToBase64,
+  base64ToArrayBuffer,
+  textToBase64,
+  base64ToText,
+  dataUrlFromBase64,
   openTextPreview,
   copyText,
   extractJsonOrSvgMetadata,

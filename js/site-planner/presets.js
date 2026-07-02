@@ -25,6 +25,53 @@ export const BUILDING_STATES = {
   complete: 'Complete',
 };
 
+export const TRACK_PROFILE_DEFAULTS = Object.freeze({
+  gaugeMm: 9,
+  railWidthMm: 0.55,
+  railHeightMm: 0.8,
+  tieSpacingMm: 4,
+  tieLengthMm: 16,
+  tieWidthMm: 1.3,
+  roadbedWidthMm: 19,
+  roadbedHeightMm: 2.5,
+  roadbedShoulderMm: 3.5,
+  roadbedColor: '#c7b084',
+  roadbedTopColor: '#d8c79c',
+  railColor: '#3b3832',
+  tieColor: '#8a6f43',
+  reference: 'N gauge 9 mm track; 19 mm cork roadbed profile documented in docs/site-planner-track-profile.md.',
+});
+
+export const JP_ROAD_MARKING_STANDARD_ID = 'JP_Order_on_Road_Signs_Road_Lines_and_Road_Surface_Markings_1960';
+
+export const ROAD_MARKING_PRESETS = [
+  {key:'stopLine', label:'Stop Line', jpName:'停止線', category:'regulatory', draw:'stopLine', widthMm:24, depthMm:.55, color:'#f7f2df'},
+  {key:'zebraCrosswalk', label:'Zebra Crosswalk', jpName:'横断歩道', category:'roadSurfaceMarking', draw:'crosswalk', widthMm:28, depthMm:8, color:'#f7f2df'},
+  {key:'bicycleCrossing', label:'Bicycle Crossing', jpName:'自転車横断帯', category:'roadSurfaceMarking', draw:'bicycleCrossing', widthMm:26, depthMm:6, color:'#f7f2df'},
+  {key:'crosswalkAdvanceDiamond', label:'Crosswalk Advance Diamond', jpName:'横断歩道又は自転車横断帯あり', category:'indication', draw:'diamond', widthMm:5, depthMm:10, color:'#f7f2df'},
+  {key:'laneBoundaryDashed', label:'Lane Boundary — Dashed White', jpName:'車両境界線', category:'roadLine', draw:'dashedLine', widthMm:22, depthMm:.35, color:'#f7f2df'},
+  {key:'laneBoundarySolid', label:'Lane Boundary — Solid White', jpName:'車両境界線', category:'roadLine', draw:'solidLine', widthMm:22, depthMm:.35, color:'#f7f2df'},
+  {key:'centerLineWhite', label:'Center Line — White', jpName:'中央線', category:'roadLine', draw:'solidLine', widthMm:24, depthMm:.4, color:'#f7f2df'},
+  {key:'centerLineYellow', label:'Center Line — Yellow', jpName:'中央線（黄色）', category:'roadLine', draw:'solidLine', widthMm:24, depthMm:.45, color:'#ffd34d'},
+  {key:'edgeLine', label:'Road Edge Line', jpName:'車道外側線', category:'roadLine', draw:'solidLine', widthMm:24, depthMm:.35, color:'#f7f2df'},
+  {key:'directionArrow', label:'Direction Arrow', jpName:'進行方向', category:'indication', draw:'arrow', widthMm:8, depthMm:14, color:'#f7f2df'},
+  {key:'channelizingZone', label:'Channelizing Zone', jpName:'導流帯', category:'indication', draw:'chevronZone', widthMm:20, depthMm:10, color:'#f7f2df'},
+  {key:'safetyZone', label:'Safety Zone', jpName:'安全地帯', category:'indication', draw:'safetyZone', widthMm:18, depthMm:7, color:'#f7f2df'},
+  {key:'obstructionChevron', label:'Obstruction / Safety-Zone Chevron', jpName:'安全地帯又は路上障害物に接近', category:'indication', draw:'chevronZone', widthMm:18, depthMm:8, color:'#f7f2df'},
+  {key:'noParkingCurbDash', label:'No Parking Curb Dash', jpName:'駐車禁止系路側標示', category:'curbMarking', draw:'curbDash', widthMm:18, depthMm:.5, color:'#ffd34d'},
+  {key:'noStoppingParkingCurbSolid', label:'No Stopping/Parking Curb Solid', jpName:'駐停車禁止系路側標示', category:'curbMarking', draw:'solidLine', widthMm:24, depthMm:.55, color:'#ffd34d'},
+  {key:'busStopBox', label:'Bus Stop Box', jpName:'バス停留所標示', category:'scenic', draw:'box', widthMm:20, depthMm:6, color:'#f7f2df'},
+  {key:'speedNumber30', label:'Speed Number 30', jpName:'速度表示 30', category:'scenic', draw:'speedNumber', widthMm:10, depthMm:6, color:'#f7f2df', text:'30'}
+];
+
+export const ROAD_HATCH_PRESETS = [
+  {key:'round600', label:'Round manhole Ø600', jpName:'マンホール蓋', shape:'circle', diameterMm:4.0},
+  {key:'round450', label:'Small round utility Ø450', jpName:'小型丸蓋', shape:'circle', diameterMm:3.0},
+  {key:'square600', label:'Square hatch 600×600', jpName:'角型ハッチ', shape:'rect', widthMm:4.0, depthMm:4.0},
+  {key:'rect600x900', label:'Rectangular utility hatch 600×900', jpName:'長方形ハッチ', shape:'rect', widthMm:4.0, depthMm:6.0},
+  {key:'drain450x600', label:'Drain / grate 450×600', jpName:'側溝・排水桝', shape:'rect', widthMm:3.0, depthMm:4.0}
+];
+
 export const FABRIC_PRESETS = {
   lowRiseResidentialFabric: {
     label: 'Low-Rise Residential Fabric',

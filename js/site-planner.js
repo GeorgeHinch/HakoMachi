@@ -1863,7 +1863,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(!('hakoFile' in b)) b.hakoFile=null;
     if(b.hakoFile && !b.hakoFile.fileName && b.hakoFile.name) b.hakoFile.fileName=b.hakoFile.name;
     if(b.hakoFile && !b.hakoFile.importedAt) b.hakoFile.importedAt=new Date().toISOString();
-    if(b.hakoFile) b.hakoFileId=b.hakoFile.fileName || b.hakoFileId || null;
+    if(b.hakoFile) b.hakoFileId=b.hakoFile.path || b.hakoFile.fileName || b.hakoFileId || null;
     if(!Array.isArray(b.hakoTrimLinesMm) && b.hakoConfig){
       const trim=extractHakoTrimLinesMm(b.hakoConfig);
       if(trim.length){ b.hakoTrimLinesMm=trim; b.showHakoTrimLines=true; }
@@ -2033,9 +2033,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const size=Number(b.hakoFile.sizeBytes||0);
     const sizeText=size ? formatBytes(size) : 'unknown size';
     const date=b.hakoFile.importedAt ? new Date(b.hakoFile.importedAt).toLocaleString() : 'unknown date';
-    return `${escapeHtml(b.hakoFile.fileName||'building.hako')} · ${sizeText} · ${date}`;
+    const stateText=b.hakoFile.unavailable?' · asset unavailable':(b.hakoFile.path&&!hakoFileText(b)?' · referenced asset':'');
+    return `${escapeHtml(b.hakoFile.fileName||'building.hako')} · ${sizeText} · ${date}${stateText}`;
   }
   function hasAttachedHakoFile(b){ return !!b?.hakoFile; }
+  function hakoFileText(b){
+    if(!b?.hakoFile) return '';
+    if(typeof b.hakoFile.dataText==='string' && b.hakoFile.dataText) return b.hakoFile.dataText;
+    const cfg=b.hakoFile.parsedConfig || b.hakoConfig;
+    return cfg && typeof cfg==='object' ? JSON.stringify(cfg,null,2) : '';
+  }
 
   function renameAttachedHakoFileForBuilding(b){
     if(!b?.hakoFile) return false;
@@ -2533,6 +2540,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const bytes=new Uint8Array(binary.length);
     for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
     return bytes.buffer;
+  }
+  function textToBase64(text){
+    const bytes=new TextEncoder().encode(String(text||''));
+    return arrayBufferToBase64(bytes.buffer);
+  }
+  function base64ToText(base64){
+    return new TextDecoder('utf-8',{fatal:false}).decode(base64ToArrayBuffer(base64));
   }
   function emptyStlBounds(format='unknown'){
     return {format,vertexCount:0,minX:0,minY:0,minZ:0,maxX:20,maxY:20,maxZ:8,width:20,depth:20,height:8};
@@ -4183,6 +4197,35 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       hash:info ? simpleAssetHash(info.data) : (meta?.asset?.hash || null),
     };
   }
+  function uniqueHakoAssetFileName(b, usedNames){
+    const sourceName=b?.hakoFile?.fileName || b?.hakoFileId || b?.name || 'building.hako';
+    const base=slug(String(sourceName).replace(/\.(hako|hakoseed|hakoplan|json)$/i,'') || b?.name || 'building');
+    let fileName=`${base || 'building'}.hako`;
+    let suffix=2;
+    while(usedNames.has(fileName.toLowerCase())){
+      fileName=`${base || 'building'}-${suffix}.hako`;
+      suffix++;
+    }
+    usedNames.add(fileName.toLowerCase());
+    return fileName;
+  }
+  function hakoFileAssetReference(path, b, text){
+    const file=b?.hakoFile||{};
+    return {
+      schema:'hakomachi.site-building-hako-asset',
+      schemaVersion:1,
+      kind:'building-hako',
+      path,
+      sourceBuildingId:b?.id || null,
+      name:b?.name || file.fileName || 'Building',
+      fileName:file.fileName || `${slug(b?.name||'building')}.hako`,
+      mimeType:file.mimeType || 'application/json',
+      byteLength:new TextEncoder().encode(String(text||'')).byteLength,
+      hash:text ? simpleAssetHash(text) : (file.hash || null),
+      importedAt:file.importedAt || null,
+      source:file.source || null
+    };
+  }
   function uniqueStlAssetFileName(obj, usedNames){
     const sourceName=obj?.asset?.fileName || obj?.fileName || obj?.name || 'site-object.stl';
     const base=slug(String(sourceName).replace(/\.stl$/i,'') || obj?.name || 'site-object');
@@ -4304,7 +4347,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const includeImageDataUrl = opts.includeImageDataUrl !== false;
     return {
       app:'HakoMachi Site Planner',
-      version:79,
+      version:80,
       savedAt:new Date().toISOString(),
       portableProject:true,
       coordinateSystem:{type:'imagePixels', origin:'topLeft', imageWidthPx:state.image?.naturalWidth||state.image?.width||state.imageMeta?.naturalWidthPx||null, imageHeightPx:state.image?.naturalHeight||state.image?.height||state.imageMeta?.naturalHeightPx||null},
@@ -5327,7 +5370,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     <label>Completed .hako file</label>
     <div id="hakoFileSummaryB" class="codebox" style="margin:4px 0 6px;white-space:normal">${hakoFileSummary(b)}</div>
     <input id="hakoFileInput" type="file" accept=".hako,.json,application/json" style="display:none">
-    <div class="buttons" style="margin-bottom:8px"><button id="downloadHakoB" ${b.hakoFile?'':'disabled'}>Download .hako</button></div>
+    <div class="buttons" style="margin-bottom:8px"><button id="downloadHakoB" ${hakoFileText(b)?'':'disabled'}>Download .hako</button></div>
     <div class="small muted" style="margin:-4px 0 8px">Drop a .hako anywhere in this sidebar to attach it to this footprint.</div>
     <label>Notes</label><textarea id="selNotes" rows="3">${escapeHtml(b.notes||'')}</textarea>
     ${b.padType==='rect'?'<div class="buttons" style="margin-top:8px"><button id="polyB">Convert to Polygon</button></div>':''}
@@ -5339,7 +5382,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     bind('selW',v=>{if(state.pxPerMm)b.widthPx=mmToPx(Math.max(.1,parseFloat(v)||1));}); bind('selD',v=>{if(state.pxPerMm)b.depthPx=mmToPx(Math.max(.1,parseFloat(v)||1));});
     const hakoInput=$('hakoFileInput');
     if(hakoInput) hakoInput.onchange=e=>{const f=e.target.files&&e.target.files[0]; if(f) attachHakoFileToSelectedBuilding(f,{source:'selected-building-picker'}); e.target.value='';};
-    if($('downloadHakoB')) $('downloadHakoB').onclick=()=>{if(!b.hakoFile)return; download(b.hakoFile.dataText||JSON.stringify(b.hakoFile.parsedConfig||b.hakoConfig||{},null,2), b.hakoFile.fileName||`${slug(b.name)}.hako`, b.hakoFile.mimeType||'application/json');};
+    if($('downloadHakoB')) $('downloadHakoB').onclick=()=>{const text=hakoFileText(b); if(!text)return; download(text, b.hakoFile?.fileName||`${slug(b.name)}.hako`, b.hakoFile?.mimeType||'application/json');};
     if($('openSelectedHakoB')) $('openSelectedHakoB').onclick=()=>openBuildingInHakoMachi(b);
     if($('copySeedB')) $('copySeedB').onclick=()=>copyHakoSeedForBuilding(b);
     const poly=$('polyB'); if(poly) poly.onclick=()=>{b.padType='polygon'; b.pointsPx=transformedRect(b); delete b.widthPx; delete b.depthPx; syncAll();};
@@ -5418,6 +5461,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         if(!confirm('Remove the stored .hako file from this building?')) return;
         b.hakoFile=null;
         b.hakoFileId=null;
+        b.hakoConfig=null;
         syncAll();
       };
     }
@@ -6787,6 +6831,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         streetlights:project.streetlights?.length||0,
         imageEmbedded:!!project.image?.dataUrl,
         imageAssetPath:imageAsset?.path||null,
+        buildingHakoAssetCount:assets.filter(asset=>asset?.kind==='building-hako').length,
         stlObjects:project.stlObjects?.length||0,
         stlAssetCount:assets.filter(asset=>asset?.kind==='stl').length,
         stlSourceAssetCount:assets.filter(asset=>asset?.kind==='stl-source').length,
@@ -6885,7 +6930,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         <div id="githubProgressDetail" class="githubProgressDetail">Building the site plan payload.</div>
       </div>
     `, [{label:'Close', onClick:closeGithubModal}]);
-    setGithubProgress(0,7,'Preparing save...','Building the site plan payload.');
+    setGithubProgress(0,8,'Preparing save...','Building the site plan payload.');
   }
   function openGithubSettings(){
     const settings=getGithubSettings();
@@ -6913,6 +6958,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const root=githubData.cleanRepoPath(settings.sitePlansDir || GITHUB_DEFAULT_SITE_DIR);
     return githubData.cleanRepoPath(`${root}/${siteId}/assets/${imageAssetFileName(meta)}`);
   }
+  function githubHakoAssetPath(settings, siteId, fileName){
+    const root=githubData.cleanRepoPath(settings.sitePlansDir || GITHUB_DEFAULT_SITE_DIR);
+    return githubData.cleanRepoPath(`${root}/${siteId}/assets/buildings/${fileName}`);
+  }
   function githubStlAssetPath(settings, siteId, fileName){
     const root=githubData.cleanRepoPath(settings.sitePlansDir || GITHUB_DEFAULT_SITE_DIR);
     return githubData.cleanRepoPath(`${root}/${siteId}/assets/stl/${fileName}`);
@@ -6928,11 +6977,30 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(!info?.isBase64 || !info.data) return state.imageMeta?.asset || null;
     const path=githubImageAssetPath(settings, siteId, state.imageMeta);
     const asset=imageAssetReference(path, state.imageMeta, dataUrl);
-    setGithubProgress(2,7,'Writing reference image asset...',`Saving ${asset.name} outside the main site file.`);
+    setGithubProgress(2,8,'Writing reference image asset...',`Saving ${asset.name} outside the main site file.`);
     await writeGithubBase64File(settings, path, info.data, `Save HakoMachi site image asset: ${siteName}`);
     state.imageMeta.asset=asset;
     cacheImageAsset(asset, dataUrl);
     return asset;
+  }
+  async function saveGithubHakoAssets(settings, siteId, siteName){
+    const usedNames=new Set();
+    const hakoAssets=[];
+    for(let i=0;i<state.buildings.length;i++){
+      const b=normalizeBuilding(state.buildings[i],i);
+      const text=hakoFileText(b);
+      if(!b.hakoFile || !text) continue;
+      const fileName=uniqueHakoAssetFileName(b, usedNames);
+      const path=githubHakoAssetPath(settings, siteId, fileName);
+      const asset=hakoFileAssetReference(path, b, text);
+      setGithubProgress(3,8,'Writing building files...',`Saving ${asset.name} (${i+1} of ${state.buildings.length}) outside the main site file.`);
+      await writeGithubBase64File(settings, path, textToBase64(text), `Save HakoMachi building asset: ${siteName}`);
+      b.hakoFile={...(b.hakoFile||{}),...asset,dataText:text,parsedConfig:b.hakoFile?.parsedConfig||b.hakoConfig||null,unavailable:false};
+      b.hakoFileId=asset.path;
+      hakoAssets.push({role:'building-hako',asset,text,buildingId:b.id});
+    }
+    if(!hakoAssets.length) setGithubProgress(3,8,'No building files to write.','The site plan does not currently include attached building .hako files.');
+    return hakoAssets;
   }
   async function saveGithubStlAssets(settings, siteId, siteName){
     const usedModelNames=new Set();
@@ -6946,7 +7014,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         const fileName=uniqueStlAssetFileName(obj, usedModelNames);
         const path=githubStlAssetPath(settings, siteId, fileName);
         const asset=stlAssetReference(path, obj, dataBase64);
-        setGithubProgress(3,7,'Writing STL site objects...',`Saving ${asset.name} (${i+1} of ${stlObjects.length}) outside the main site file.`);
+        setGithubProgress(4,8,'Writing STL site objects...',`Saving ${asset.name} (${i+1} of ${stlObjects.length}) outside the main site file.`);
         await writeGithubBase64File(settings, path, dataBase64, `Save HakoMachi site STL asset: ${siteName}`);
         obj.asset={...(obj.asset||{}),...asset,dataBase64};
         stlAssets.push({role:'model',asset,dataBase64,objectId:obj.id});
@@ -6956,13 +7024,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         const fileName=uniqueStlSourceAssetFileName(source, usedSourceNames);
         const path=githubStlSourceAssetPath(settings, siteId, fileName);
         const asset=stlSourceAssetReference(path, obj, source, source.dataBase64);
-        setGithubProgress(3,7,'Writing STL source files...',`Saving ${asset.name} (${i+1} of ${stlObjects.length}) outside the main site file.`);
+        setGithubProgress(4,8,'Writing STL source files...',`Saving ${asset.name} (${i+1} of ${stlObjects.length}) outside the main site file.`);
         await writeGithubBase64File(settings, path, source.dataBase64, `Save HakoMachi site STL source asset: ${siteName}`);
         Object.assign(source, asset, {dataBase64:source.dataBase64});
         stlAssets.push({role:'source',asset,dataBase64:source.dataBase64,objectId:obj.id,sourceAssetId:source.id});
       }
     }
-    if(!stlAssets.length) setGithubProgress(3,7,'No STL assets to write.','The site plan does not currently include embedded STL or source files.');
+    if(!stlAssets.length) setGithubProgress(4,8,'No STL assets to write.','The site plan does not currently include embedded STL or source files.');
     return stlAssets;
   }
   async function resolveProjectImageFromGithub(project, settings){
@@ -6978,6 +7046,25 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(file?.contentBase64){
       project.image.dataUrl=dataUrlFromBase64(asset.mimeType, file.contentBase64);
       cacheImageAsset(asset, project.image.dataUrl);
+    }
+    return project;
+  }
+  async function resolveProjectHakoAssetsFromGithub(project, settings){
+    const buildings=Array.isArray(project?.buildings) ? project.buildings : [];
+    for(const b of buildings){
+      const asset=b?.hakoFile;
+      if(!asset?.path || hakoFileText(b)) continue;
+      setGithubStatus('Loading referenced building file...');
+      const file=await readGithubBase64File(settings, asset.path);
+      if(file?.contentBase64){
+        const text=base64ToText(file.contentBase64);
+        let parsed=null;
+        try{ parsed=JSON.parse(text); }catch(_err){}
+        b.hakoFile={...asset,dataText:text,parsedConfig:parsed,unavailable:false};
+        if(parsed && !b.hakoConfig) b.hakoConfig=parsed;
+      } else {
+        b.hakoFile={...asset,unavailable:true};
+      }
     }
     return project;
   }
@@ -7017,13 +7104,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const name=prompt('Site plan name for GitHub save', defaultName);
       if(!name) return;
       openGithubSaveProgressModal();
-      setGithubProgress(1,7,'Preparing project...','Finalizing the site plan name and GitHub file path.');
+      setGithubProgress(1,8,'Preparing project...','Finalizing the site plan name and GitHub file path.');
       const id=(current && current.name===defaultName && current.id) ? current.id : slug(name);
       const path=(current && current.name===defaultName && current.path) ? current.path : githubData.cleanRepoPath(`${settings.sitePlansDir}/${id}.hako-site.json`);
       const imageAsset=await saveGithubImageAsset(settings, id, name);
-      if(!imageAsset) setGithubProgress(2,7,'No reference image asset to write.','The site plan does not currently use a background image.');
+      if(!imageAsset) setGithubProgress(2,8,'No reference image asset to write.','The site plan does not currently use a background image.');
+      const hakoAssets=await saveGithubHakoAssets(settings, id, name);
       const stlAssets=await saveGithubStlAssets(settings, id, name);
-      const project=projectJson({includeImageDataUrl:false, imageAsset, stlAssets});
+      const project=projectJson({includeImageDataUrl:false, imageAsset, hakoAssets, stlAssets});
       project.projectName=name;
       project.hakomachiCloud={
         schema:'hakomachi.cloud-ref',
@@ -7035,19 +7123,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         assetFolder:githubData.cleanRepoPath(`${githubData.cleanRepoPath(settings.sitePlansDir || GITHUB_DEFAULT_SITE_DIR)}/${id}/assets`),
         savedAt:new Date().toISOString()
       };
-      setGithubProgress(4,7,'Writing site plan file...','Saving the current plan JSON to the data repository.');
+      setGithubProgress(5,8,'Writing site plan file...','Saving the current plan JSON with references to separate assets.');
       await writeGithubFile(settings, path, JSON.stringify(project,null,2)+'\n', `Save HakoMachi site plan: ${name}`);
-      setGithubProgress(5,7,'Updating library index...','Loading the shared index so this plan appears in GitHub lists.');
+      setGithubProgress(6,8,'Updating library index...','Loading the shared index so this plan appears in GitHub lists.');
       const library=await loadGithubLibrary(settings);
       upsertGithubSitePlan(library, githubSiteRecord(id, name, path, project));
-      setGithubProgress(6,7,'Writing library index...','Saving the updated site plan list.');
+      setGithubProgress(7,8,'Writing library index...','Saving the updated site plan list.');
       await writeGithubFile(settings, settings.libraryPath, JSON.stringify(library,null,2)+'\n', `Update HakoMachi site plan library: ${name}`);
       setCurrentGithubSite({id,name,path});
       markManualSaveComplete();
-      setGithubProgress(7,7,'Save complete.','Saved '+path);
+      setGithubProgress(8,8,'Save complete.','Saved '+path);
       setTimeout(()=>closeGithubModal(), 900);
     }catch(err){
-      setGithubProgress(0,7,'GitHub save failed.', String(err.message||err));
+      setGithubProgress(0,8,'GitHub save failed.', String(err.message||err));
     }
   }
   async function loadSitePlanFromGithub(record){
@@ -7074,6 +7162,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         setGithubStatus(`Loaded site-plan payload from ${normalized.source}.`);
       }
       await resolveProjectImageFromGithub(project, settings);
+      await resolveProjectHakoAssetsFromGithub(project, settings);
       await resolveProjectStlAssetsFromGithub(project, settings);
       loadProject(project, {fromFile:true});
       setCurrentGithubSite({id:record.id, name:record.name, path:record.path});
@@ -7252,6 +7341,22 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       payload.image.asset=opts.imageAsset;
       addManifestAsset(opts.imageAsset);
     }
+    if(Array.isArray(opts.hakoAssets)){
+      const byBuildingId=new Map(opts.hakoAssets.map(entry=>[entry.buildingId,entry.asset]));
+      payload.buildings=(payload.buildings||[]).map(raw=>{
+        const b=structuredClone(raw);
+        const asset=byBuildingId.get(b.id);
+        if(asset && b.hakoFile){
+          b.hakoFile={...(b.hakoFile||{}),...asset};
+          delete b.hakoFile.dataText;
+          delete b.hakoFile.parsedConfig;
+          delete b.hakoFile.unavailable;
+          delete b.hakoConfig;
+        }
+        addManifestAsset(b.hakoFile);
+        return b;
+      });
+    }
     if(Array.isArray(opts.stlAssets)){
       const byId=new Map(opts.stlAssets.filter(entry=>entry.role!=='source').map(entry=>[entry.objectId,entry.asset]));
       const sourceById=new Map(opts.stlAssets.filter(entry=>entry.role==='source').map(entry=>[`${entry.objectId}|${entry.sourceAssetId}`,entry.asset]));
@@ -7313,6 +7418,17 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const asset=imageAssetReference('assets/'+imageAssetFileName(state.imageMeta), state.imageMeta, dataUrl);
     return {asset,dataUrl,info:dataUrlInfo(dataUrl)};
   }
+  function localHakoBundleAssets(){
+    const usedNames=new Set();
+    return state.buildings.flatMap(raw=>{
+      const b=normalizeBuilding(raw);
+      const text=hakoFileText(b);
+      if(!b.hakoFile || !text) return [];
+      const fileName=uniqueHakoAssetFileName(b, usedNames);
+      const asset=hakoFileAssetReference(`assets/buildings/${fileName}`, b, text);
+      return [{role:'building-hako',asset,text,buildingId:b.id}];
+    });
+  }
   function localStlBundleAssets(){
     const usedModelNames=new Set();
     const usedSourceNames=new Set();
@@ -7340,8 +7456,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       return;
     }
     const bundleImage=localImageBundleAsset();
+    const hakoAssets=localHakoBundleAssets();
     const stlAssets=localStlBundleAssets();
-    const project=projectJson({includeImageDataUrl:false,imageAsset:bundleImage?.asset||null,stlAssets});
+    const project=projectJson({includeImageDataUrl:false,imageAsset:bundleImage?.asset||null,hakoAssets,stlAssets});
     const zip=new JSZip();
     zip.file('hakomachi-site.hako-site.json', JSON.stringify(project,null,2)+'\n');
     if(bundleImage?.asset && bundleImage?.info){
@@ -7349,6 +7466,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       else zip.file(bundleImage.asset.path, decodeURIComponent(bundleImage.info.data));
       cacheImageAsset(bundleImage.asset, bundleImage.dataUrl);
     }
+    hakoAssets.forEach(entry=>{
+      if(entry.asset?.path && entry.text) zip.file(entry.asset.path, entry.text);
+    });
     stlAssets.forEach(entry=>{
       if(entry.asset?.path && entry.dataBase64) zip.file(entry.asset.path, entry.dataBase64, {base64:true});
     });
@@ -7356,7 +7476,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       schema:'hakomachi.site-bundle',
       schemaVersion:1,
       project:'hakomachi-site.hako-site.json',
-      assets:[...(bundleImage?.asset ? [bundleImage.asset] : []), ...stlAssets.map(entry=>entry.asset)]
+      assets:[...(bundleImage?.asset ? [bundleImage.asset] : []), ...hakoAssets.map(entry=>entry.asset), ...stlAssets.map(entry=>entry.asset)]
     }, null, 2)+'\n');
     const blob=await zip.generateAsync({type:'blob'});
     downloadBlob(blob,'hakomachi-site.zip');
@@ -7391,6 +7511,23 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         payload.image.dataUrl=dataUrlFromBase64(asset.mimeType, b64);
         payload.image.asset=asset;
         cacheImageAsset(asset, payload.image.dataUrl);
+      }
+    }
+    const buildings=Array.isArray(payload.buildings) ? payload.buildings : [];
+    for(const b of buildings){
+      const hakoAsset=b?.hakoFile;
+      if(hakoAsset?.path && !hakoFileText(b)){
+        const assetName=hakoAsset.path.replace(/^\/+/,'');
+        const assetFile=zip.file(assetName) || zip.file(assetName.split('/').pop());
+        if(assetFile){
+          const text=await assetFile.async('string');
+          let parsed=null;
+          try{ parsed=JSON.parse(text); }catch(_err){}
+          b.hakoFile={...hakoAsset,dataText:text,parsedConfig:parsed,unavailable:false};
+          if(parsed && !b.hakoConfig) b.hakoConfig=parsed;
+        } else {
+          b.hakoFile={...hakoAsset,unavailable:true};
+        }
       }
     }
     const stlObjects=Array.isArray(payload.stlObjects) ? payload.stlObjects : [];

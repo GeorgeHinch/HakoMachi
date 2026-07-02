@@ -4,6 +4,7 @@ import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fa
 import { buildingCsvExport, roadAssetSvgExport, sitePlanSvgExport, trackSvgExport } from './site-planner/export-utils.js';
 import { dataTransferHasFile, hakoFileFromDataTransfer, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
 import { cacheImageAsset, cachedImageAsset, githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, hakoFileAssetReference, imageAssetFileName, imageAssetReference, imageMetaForProject, stlAssetReference, stlSourceAssetReference, uniqueHakoAssetFileName, uniqueStlAssetFileName, uniqueStlSourceAssetFileName } from './site-planner/github-asset-paths.js';
+import { createGithubDataAccess } from './site-planner/github-access-utils.js';
 import { githubProjectName, githubSiteRecord, isGithubContentsMetadata, normalizeGithubLibrary, normalizeLoadedSitePlanPayload, upsertGithubSitePlan } from './site-planner/github-site-library.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
@@ -63,6 +64,18 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     finishImportProgress,
     failImportProgress,
   } = createImportProgressController();
+  const {
+    getGithubSettings,
+    setGithubSettings,
+    getCurrentGithubSite,
+    setCurrentGithubSite,
+    requireGithubSettings,
+    readGithubFile,
+    writeGithubFile,
+    readGithubBase64File,
+    writeGithubBase64File,
+    loadGithubLibrary,
+  } = createGithubDataAccess(githubData, GITHUB_CURRENT_KEY);
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
   function setSidebarOpen(open){
@@ -6217,36 +6230,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const b=selected();
     if(!b) return alert('Select a building first.');
     downloadText(JSON.stringify(makeSeed(b),null,2),`${slug(b.name)}-hakomachi-seed.json`,'application/json');
-  }
-  function getGithubSettings(){
-    return githubData.getSettings();
-  }
-  function setGithubSettings(next){
-    githubData.saveSettings(next);
-  }
-  function getCurrentGithubSite(){
-    try{return JSON.parse(localStorage.getItem(GITHUB_CURRENT_KEY)||'null')||null;}catch(_err){return null;}
-  }
-  function setCurrentGithubSite(value){
-    localStorage.setItem(GITHUB_CURRENT_KEY, JSON.stringify(value));
-  }
-  function requireGithubSettings(settings){
-    githubData.assertSettings(settings);
-  }
-  async function readGithubFile(settings, path){
-    return githubData.readGithubFile(settings, path);
-  }
-  async function writeGithubFile(settings, path, text, message){
-    return githubData.writeGithubFile(settings, path, text, message);
-  }
-  async function readGithubBase64File(settings, path){
-    return githubData.readGithubBase64File(settings, path);
-  }
-  async function writeGithubBase64File(settings, path, contentBase64, message){
-    return githubData.writeGithubBase64File(settings, path, contentBase64, message);
-  }
-  async function loadGithubLibrary(settings){
-    return githubData.loadLibrary(settings);
   }
   function openGithubModal(title, body, actions=[]){
     let modal=document.getElementById('githubDataPlannerModal');

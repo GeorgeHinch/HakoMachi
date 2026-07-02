@@ -4016,6 +4016,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       lastCalibrationLine: state.lastCalibrationLine,
       buildings: state.buildings,
       roads: state.roads,
+      tracks: state.tracks||[],
       roadFeatures: state.roadFeatures,
       stlObjects: state.stlObjects||[],
       benchworkOutlines: state.benchworkOutlines,
@@ -4025,6 +4026,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       selectedId: state.selectedId,
       selectedIds: state.selectedIds,
       selectedRoadId: state.selectedRoadId,
+      selectedTrackId: state.selectedTrackId,
       selectedStlObjectId: state.selectedStlObjectId,
       selectedBenchworkId: state.selectedBenchworkId,
       selectedFabricId: state.selectedFabricId,
@@ -4069,6 +4071,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.lastCalibrationLine=data.lastCalibrationLine||state.calibrationLine||null;
     state.buildings=Array.isArray(data.buildings)?structuredClone(data.buildings):[];
     state.roads=Array.isArray(data.roads)?structuredClone(data.roads):[];
+    state.tracks=(Array.isArray(data.tracks)?structuredClone(data.tracks):[]).map(normalizeTrack);
     state.roadFeatures=Array.isArray(data.roadFeatures)?structuredClone(data.roadFeatures):[];
     state.stlObjects=Array.isArray(data.stlObjects)?structuredClone(data.stlObjects):[];
     state.benchworkOutlines=Array.isArray(data.benchworkOutlines)?structuredClone(data.benchworkOutlines):[];
@@ -4078,6 +4081,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedId=data.selectedId||null;
     state.selectedIds=Array.isArray(data.selectedIds)?data.selectedIds.slice():[];
     state.selectedRoadId=data.selectedRoadId||null;
+    state.selectedTrackId=data.selectedTrackId||null;
     state.selectedStlObjectId=data.selectedStlObjectId||null;
     state.selectedBenchworkId=data.selectedBenchworkId||null;
     state.selectedFabricId=data.selectedFabricId||null;

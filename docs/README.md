@@ -9,6 +9,7 @@ This directory holds project documentation that is useful beyond a single commit
 - `github-datastore.md` explains how to use a GitHub repository as a private HakoMachi datastore.
 - `svg-fabrication-colors.md` defines the shared SVG fabrication operation names and laser colors.
 - `site-planner-stl-assets.md` defines the Site Planner STL placement and asset metadata schema.
+- `site-planner-track-profile.md` documents the N-scale track and cork roadbed profile constants.
 - `dev/` holds active implementation notes, migration plans, and contributor-facing technical notes.
 - `decisions/` is reserved for durable architecture or product decisions when the reasoning needs to be preserved.
 

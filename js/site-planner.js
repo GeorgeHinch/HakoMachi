@@ -49,7 +49,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     roadbedTopColor: '#d8c79c',
     railColor: '#3b3832',
     tieColor: '#8a6f43',
-    reference: 'N gauge 9 mm track; cork roadbed profile sized as an editable visual/fabrication baseline.'
+    reference: 'N gauge 9 mm track; 19 mm cork roadbed profile documented in docs/site-planner-track-profile.md.'
   });
   let autosaveTimer = null;
   let autosaveSuppressed = false;

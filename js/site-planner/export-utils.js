@@ -60,3 +60,59 @@ export function trackSvgExport(tracks, deps){
     return `<g data-type="track" data-name="${escapeAttr(t.name||'Track')}" data-profile="${escapeAttr(TRACK_PROFILE_DEFAULTS.reference)}">${roadbed}${ties}${rails}</g>`;
   }).join('\n');
 }
+
+export function sitePlanSvgExport({state, width, height, tracksSvg}, deps){
+  const {
+    buildingCenter,
+    escapeHtml,
+    mmToPx,
+    normalizeBenchworkOutline,
+    normalizeRoad,
+    normalizeRoadFeature,
+    normalizeStreetlight,
+    polygonCenter,
+    visibleBuildingPolygons,
+  }=deps;
+  const img=state.imageMeta?.dataUrl?`<image href="${state.imageMeta.dataUrl}" x="0" y="0" width="${width}" height="${height}" opacity="${state.imageOpacity}"/>`:'';
+  const notes=state.annotations.map(st=>`<polyline points="${(st.points||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="${st.color||'#6f4326'}" stroke-width="${st.baseWidth||2.2}" stroke-linecap="round" stroke-linejoin="round"/>`).join('\n');
+  const benchworks=state.benchworkOutlines.map(bw=>{
+    normalizeBenchworkOutline(bw);
+    const pts=bw.pointsPx||[];
+    if(pts.length<2) return '';
+    let d=`M ${pts[0].x} ${pts[0].y}`;
+    for(let i=0;i<pts.length;i++){
+      const b=pts[(i+1)%pts.length], c=bw.curvesPx?.[i];
+      d += c ? ` Q ${c.x} ${c.y} ${b.x} ${b.y}` : ` L ${b.x} ${b.y}`;
+    }
+    d+=' Z';
+    return `<path d="${d}" fill="rgba(47,111,78,.05)" stroke="${bw.color||'#2f6f4e'}" stroke-width="3" stroke-dasharray="9 7"/>`;
+  }).join('\n');
+  const roads=state.roads.map(r=>{
+    normalizeRoad(r);
+    const side=(r.sidewalkPolygonsPx||[]).map(sw=>`<polygon points="${(sw.polygon||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="rgba(226,214,188,.62)" stroke="#b9aa86" stroke-width="1"/>`).join('');
+    const road=`<polygon points="${(r.roadPolygonPx||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="rgba(111,106,94,.26)" stroke="#6f6a5e" stroke-width="2"/>`;
+    return side+road;
+  }).join('\n');
+  const roadItems=(state.roadFeatures||[]).map(f=>{
+    normalizeRoadFeature(f);
+    if(f.kind==='manhole'){
+      return f.hatchShape==='circle'
+        ? `<circle cx="${f.x}" cy="${f.y}" r="${(f.diameterPx||18)/2}" fill="rgba(58,43,30,.18)" stroke="#3a2b1e" stroke-width="1"/>`
+        : `<rect x="${f.x-(f.widthPx||20)/2}" y="${f.y-(f.depthPx||10)/2}" width="${f.widthPx||20}" height="${f.depthPx||10}" transform="rotate(${f.rotationDeg||0} ${f.x} ${f.y})" fill="rgba(58,43,30,.18)" stroke="#3a2b1e" stroke-width="1"/>`;
+    }
+    return `<rect x="${f.x-(f.widthPx||24)/2}" y="${f.y-(f.depthPx||6)/2}" width="${f.widthPx||24}" height="${f.depthPx||6}" transform="rotate(${f.rotationDeg||0} ${f.x} ${f.y})" fill="${f.color||'#f7f2df'}" stroke="none"/>`;
+  }).join('\n');
+  const lights=state.streetlights.map(l=>{
+    normalizeStreetlight(l);
+    const r=(state.pxPerMm?mmToPx((l.mode==='anchored'?(l.anchor?.mountMode==='roadEdgeBulbMount'?(l.anchor?.bulbMountDiameterMm||3):(l.anchor?.cutHoleDiameterMm||1.2)):(l.poleDiameterMm||.45))/2):3);
+    return `<circle cx="${l.x}" cy="${l.y}" r="${Math.max(2,r)}" fill="${l.color||'#c84a3a'}" stroke="#3a2b1e" stroke-width="1"/><text x="${l.x+5}" y="${l.y-5}" font-size="10" fill="#3a2b1e">${escapeHtml(l.name||'Streetlight')}</text>`;
+  }).join('\n');
+  const pads=state.buildings.map(b=>{
+    const polys=visibleBuildingPolygons(b);
+    const allPts=polys.flat();
+    const c=allPts.length?polygonCenter(allPts):buildingCenter(b);
+    const shapes=polys.map(poly=>`<polygon points="${poly.map(p=>`${p.x},${p.y}`).join(' ')}" fill="${b.color}33" stroke="${b.color}" stroke-width="3"/>`).join('');
+    return `${shapes}<text x="${c.x+5}" y="${c.y-5}" font-size="12" fill="white">${escapeHtml(b.name)}</text>`;
+  }).join('\n');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${img}${notes}${benchworks}${roads}${tracksSvg}${roadItems}${pads}${lights}</svg>`;
+}

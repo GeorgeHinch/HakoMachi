@@ -83,6 +83,21 @@ function relationshipLabel(rel) {
   return note ? `${type}: ${note}` : type;
 }
 
+function joineryCuesForRelationship(rel, currentPart, targetPart) {
+  const text = [rel?.type, rel?.notes, currentPart?.assemblyNote, targetPart?.assemblyNote]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  const cues = [];
+  if (/\b(tab|tabs|slot|slots|tongue|tongues|notch|notches)\b/.test(text)) cues.push('Tabs/slots');
+  if (/\b(glue|adhesive|cement)\b/.test(text)) cues.push('Glue');
+  if (/\b(surface[-\s]?fit|oversized|insert)\b/.test(text)) cues.push('Surface-fit');
+  if (/\b(etch|etched|engrave|engraved|align|alignment)\b/.test(text)) cues.push('Etch alignment');
+  if (/\b(roof|ridge|parapet)\b/.test(text)) cues.push('Roof seating');
+  if (/\b(wing|main block)\b/.test(text)) cues.push('Wing join');
+  return Array.from(new Set(cues)).slice(0, 3);
+}
+
 function relationshipMap(plan) {
   return new Map((Array.isArray(plan?.relationships) ? plan.relationships : []).map(rel => [rel.id, rel]));
 }
@@ -207,7 +222,7 @@ function calloutsForCurrent(visuals) {
   }));
 }
 
-function attachmentMarkersForStep(visuals, step, relationshipsById) {
+function attachmentMarkersForStep(visuals, step, relationshipsById, partMap) {
   const byId = new Map(visuals.map(visual => [visual.partId, visual]));
   const currentIds = new Set(stepPartIds(step));
   return (Array.isArray(step?.relationshipIds) ? step.relationshipIds : [])
@@ -225,6 +240,7 @@ function attachmentMarkersForStep(visuals, step, relationshipsById) {
         currentPartId: current.partId,
         targetPartId: target.partId,
         label: `Attach to ${shortLabel(target.label, 18)}`,
+        joineryCues: joineryCuesForRelationship(rel, partMap.get(current.partId), partMap.get(target.partId)),
         x: target.x + target.width / 2,
         y: target.y + target.height / 2,
         currentX: current.x + current.width / 2,
@@ -252,7 +268,9 @@ function renderSvg({ step, order, completedIds, currentIds, visuals, callouts, a
   }).join('');
   const markerMarkup = (attachmentMarkers || []).map(marker => {
     const x = marker.x.toFixed(1), y = marker.y.toFixed(1);
-    return `<g><path d="M${marker.currentX.toFixed(1)},${marker.currentY.toFixed(1)} L${x},${y}" fill="none" stroke="#5f6f4f" stroke-width="1.1" stroke-dasharray="3 3"/><path d="M${x},${(marker.y - 5).toFixed(1)} L${(marker.x + 5).toFixed(1)},${y} L${x},${(marker.y + 5).toFixed(1)} L${(marker.x - 5).toFixed(1)},${y} Z" fill="#fff8d8" stroke="#5f6f4f" stroke-width="1.2"/><text x="${(marker.x + 8).toFixed(1)}" y="${(marker.y - 7).toFixed(1)}" font-size="9" font-weight="700" fill="#4f5f3f">${esc(marker.label)}</text></g>`;
+    const cueText = (Array.isArray(marker.joineryCues) ? marker.joineryCues : []).join(' · ');
+    const cueMarkup = cueText ? `<tspan x="${(marker.x + 8).toFixed(1)}" dy="11" font-size="8" font-weight="500">${esc(cueText)}</tspan>` : '';
+    return `<g><path d="M${marker.currentX.toFixed(1)},${marker.currentY.toFixed(1)} L${x},${y}" fill="none" stroke="#5f6f4f" stroke-width="1.1" stroke-dasharray="3 3"/><path d="M${x},${(marker.y - 5).toFixed(1)} L${(marker.x + 5).toFixed(1)},${y} L${x},${(marker.y + 5).toFixed(1)} L${(marker.x - 5).toFixed(1)},${y} Z" fill="#fff8d8" stroke="#5f6f4f" stroke-width="1.2"/><text x="${(marker.x + 8).toFixed(1)}" y="${(marker.y - 7).toFixed(1)}" font-size="9" font-weight="700" fill="#4f5f3f">${esc(marker.label)}${cueMarkup}</text></g>`;
   }).join('');
   const note = currentIds.length > 1 ? `${currentIds.length} new parts highlighted` : '1 new part highlighted';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${CAMERA.viewBox}" role="img" aria-label="${esc(step?.title || 'Assembly step illustration')}">
@@ -288,7 +306,7 @@ function stepIllustration(plan, sequence, step, index, partMap) {
     return visual;
   }).filter(Boolean);
   const callouts = calloutsForCurrent(visuals);
-  const attachmentMarkers = attachmentMarkersForStep(visuals, step, relationshipsById);
+  const attachmentMarkers = attachmentMarkersForStep(visuals, step, relationshipsById, partMap);
   return {
     stepId: step.id,
     order: step.order || index + 1,

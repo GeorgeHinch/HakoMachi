@@ -28153,6 +28153,17 @@ function assemblyIllustrationRelationshipLabel(rel) {
   const note = assemblyIllustrationShort(rel.notes || '', 42);
   return note ? `${type}: ${note}` : type;
 }
+function assemblyIllustrationJoineryCues(rel, currentPart, targetPart) {
+  const text = [rel?.type, rel?.notes, currentPart?.assemblyNote, targetPart?.assemblyNote].filter(Boolean).join(' ').toLowerCase();
+  const cues = [];
+  if (/\b(tab|tabs|slot|slots|tongue|tongues|notch|notches)\b/.test(text)) cues.push('Tabs/slots');
+  if (/\b(glue|adhesive|cement)\b/.test(text)) cues.push('Glue');
+  if (/\b(surface[-\s]?fit|oversized|insert)\b/.test(text)) cues.push('Surface-fit');
+  if (/\b(etch|etched|engrave|engraved|align|alignment)\b/.test(text)) cues.push('Etch alignment');
+  if (/\b(roof|ridge|parapet)\b/.test(text)) cues.push('Roof seating');
+  if (/\b(wing|main block)\b/.test(text)) cues.push('Wing join');
+  return Array.from(new Set(cues)).slice(0, 3);
+}
 function assemblyIllustrationRelationshipMap(plan) {
   return new Map((Array.isArray(plan?.relationships) ? plan.relationships : []).map(rel => [rel.id, rel]));
 }
@@ -28167,7 +28178,7 @@ function assemblyIllustrationCalloutDetails(part, step, plan, relationshipsById)
   if (part?.assemblyNote) lines.push(`Note: ${assemblyIllustrationShort(part.assemblyNote, 46)}`);
   return lines.filter(Boolean).slice(0, 4);
 }
-function assemblyIllustrationAttachmentMarkers(visuals, step, relationshipsById) {
+function assemblyIllustrationAttachmentMarkers(visuals, step, relationshipsById, partMap) {
   const byId = new Map(visuals.map(visual => [visual.partId, visual]));
   const currentIds = new Set(assemblyIllustrationStepPartIds(step));
   return (Array.isArray(step?.relationshipIds) ? step.relationshipIds : []).map(id => relationshipsById.get(id)).filter(Boolean).map(rel => {
@@ -28176,7 +28187,7 @@ function assemblyIllustrationAttachmentMarkers(visuals, step, relationshipsById)
     const current = byId.get(fromCurrent ? rel.fromPartId : (toCurrent ? rel.toPartId : null));
     const target = byId.get(fromCurrent ? rel.toPartId : (toCurrent ? rel.fromPartId : null));
     if (!current || !target) return null;
-    return { relationshipId: rel.id || null, type: rel.type || 'attachment', currentPartId: current.partId, targetPartId: target.partId, label: `Attach to ${assemblyIllustrationShort(target.label, 18)}`, x: target.x + target.width / 2, y: target.y + target.height / 2, currentX: current.x + current.width / 2, currentY: current.y + current.height / 2 };
+    return { relationshipId: rel.id || null, type: rel.type || 'attachment', currentPartId: current.partId, targetPartId: target.partId, label: `Attach to ${assemblyIllustrationShort(target.label, 18)}`, joineryCues: assemblyIllustrationJoineryCues(rel, partMap.get(current.partId), partMap.get(target.partId)), x: target.x + target.width / 2, y: target.y + target.height / 2, currentX: current.x + current.width / 2, currentY: current.y + current.height / 2 };
   }).filter(Boolean).slice(0, 6);
 }
 function assemblyIllustrationColor(phase) {
@@ -28246,7 +28257,11 @@ function assemblyIllustrationRenderSvg({ step, order, completedIds, currentIds, 
     const detail = (Array.isArray(callout.detailLines) ? callout.detailLines : []).map((line, i) => `<tspan x="${callout.x}" dy="${i === 0 ? 14 : 12}" font-size="9" font-weight="400" fill="#6e6a60">${assemblyIllustrationEscape(line)}</tspan>`).join('');
     return `<g><path d="M${callout.x - 12},${callout.y - 4} L${callout.targetX.toFixed(1)},${callout.targetY.toFixed(1)}" fill="none" stroke="${color}" stroke-width="1.2" stroke-dasharray="4 3"/><circle cx="${callout.targetX.toFixed(1)}" cy="${callout.targetY.toFixed(1)}" r="3" fill="${color}"/><text x="${callout.x}" y="${callout.y}" font-size="12" font-weight="700" fill="#222">${assemblyIllustrationEscape(callout.label)}${detail}</text></g>`;
   }).join('');
-  const markerMarkup = (attachmentMarkers || []).map(marker => `<g><path d="M${marker.currentX.toFixed(1)},${marker.currentY.toFixed(1)} L${marker.x.toFixed(1)},${marker.y.toFixed(1)}" fill="none" stroke="#5f6f4f" stroke-width="1.1" stroke-dasharray="3 3"/><path d="M${marker.x.toFixed(1)},${(marker.y - 5).toFixed(1)} L${(marker.x + 5).toFixed(1)},${marker.y.toFixed(1)} L${marker.x.toFixed(1)},${(marker.y + 5).toFixed(1)} L${(marker.x - 5).toFixed(1)},${marker.y.toFixed(1)} Z" fill="#fff8d8" stroke="#5f6f4f" stroke-width="1.2"/><text x="${(marker.x + 8).toFixed(1)}" y="${(marker.y - 7).toFixed(1)}" font-size="9" font-weight="700" fill="#4f5f3f">${assemblyIllustrationEscape(marker.label)}</text></g>`).join('');
+  const markerMarkup = (attachmentMarkers || []).map(marker => {
+    const cueText = (Array.isArray(marker.joineryCues) ? marker.joineryCues : []).join(' · ');
+    const cueMarkup = cueText ? `<tspan x="${(marker.x + 8).toFixed(1)}" dy="11" font-size="8" font-weight="500">${assemblyIllustrationEscape(cueText)}</tspan>` : '';
+    return `<g><path d="M${marker.currentX.toFixed(1)},${marker.currentY.toFixed(1)} L${marker.x.toFixed(1)},${marker.y.toFixed(1)}" fill="none" stroke="#5f6f4f" stroke-width="1.1" stroke-dasharray="3 3"/><path d="M${marker.x.toFixed(1)},${(marker.y - 5).toFixed(1)} L${(marker.x + 5).toFixed(1)},${marker.y.toFixed(1)} L${marker.x.toFixed(1)},${(marker.y + 5).toFixed(1)} L${(marker.x - 5).toFixed(1)},${marker.y.toFixed(1)} Z" fill="#fff8d8" stroke="#5f6f4f" stroke-width="1.2"/><text x="${(marker.x + 8).toFixed(1)}" y="${(marker.y - 7).toFixed(1)}" font-size="9" font-weight="700" fill="#4f5f3f">${assemblyIllustrationEscape(marker.label)}${cueMarkup}</text></g>`;
+  }).join('');
   const note = currentIds.length > 1 ? `${currentIds.length} new parts highlighted` : '1 new part highlighted';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${ASSEMBLY_ILLUSTRATION_CAMERA.viewBox}" role="img" aria-label="${assemblyIllustrationEscape(step?.title || 'Assembly step illustration')}"><rect width="720" height="420" fill="#faf9f4"/><rect x="28" y="48" width="490" height="322" rx="8" fill="#f0eee7" stroke="#d5d0c2"/><path d="M195,318 L360,112 L525,318 Z" fill="none" stroke="#d0c9bb" stroke-width="1" stroke-dasharray="6 5"/><text x="42" y="28" font-size="14" font-weight="700" fill="#222">Step ${order}: ${assemblyIllustrationEscape(step?.title || 'Assembly step')}</text><text x="42" y="44" font-size="10" fill="#6e6a60">${assemblyIllustrationEscape(buildingName)} - ${assemblyIllustrationEscape(assemblyIllustrationTitleCase(step?.phase || 'assembly'))}</text><text x="54" y="345" font-size="10" fill="#777">front</text><text x="54" y="77" font-size="10" fill="#777">back</text><text x="498" y="214" font-size="10" fill="#777">right</text><text x="178" y="214" font-size="10" fill="#777">left</text>${rects}${markerMarkup}<rect x="532" y="56" width="158" height="302" rx="8" fill="#fff" stroke="#ddd7ca"/><text x="548" y="76" font-size="12" font-weight="700" fill="#222">Current parts</text>${calloutMarkup}<text x="548" y="344" font-size="10" fill="#6e6a60">${completedIds.length} completed - ${assemblyIllustrationEscape(note)}</text></svg>`;
 }
@@ -28270,7 +28285,7 @@ function createAssemblyStepIllustrations(plan = {}, sequence = plan.sequence || 
       return visual;
     }).filter(Boolean);
     const callouts = visuals.filter(visual => visual.status === 'current').map((visual, i) => ({ partId: visual.partId, label: `${i + 1}. ${visual.label}`, detailLines: visual.detailLines || [], x: 545, y: 90 + i * 52, targetX: visual.x + visual.width / 2, targetY: visual.y + visual.height / 2 }));
-    const attachmentMarkers = assemblyIllustrationAttachmentMarkers(visuals, step, relationshipsById);
+    const attachmentMarkers = assemblyIllustrationAttachmentMarkers(visuals, step, relationshipsById, partMap);
     return { stepId: step.id, order: step.order || index + 1, phase: step.phase || 'assembly', camera: assemblyCloneJson(ASSEMBLY_ILLUSTRATION_CAMERA), completedPartIds: completedIds, currentPartIds: currentIds, futurePartIds: steps.slice(index + 1).flatMap(assemblyIllustrationStepPartIds), callouts, attachmentMarkers, visualParts: visuals, svg: assemblyIllustrationRenderSvg({ step, order: step.order || index + 1, completedIds, currentIds, visuals, attachmentMarkers, plan }) };
   });
   return { schema: ASSEMBLY_ILLUSTRATIONS_SCHEMA, schemaVersion: ASSEMBLY_ILLUSTRATIONS_SCHEMA_VERSION, deterministicKey: assemblySimpleHash(assemblyStableStringify({ planKey: plan.deterministicKey || null, sequenceKey: sequence.deterministicKey || null, steps: illustrations.map(item => [item.stepId, item.currentPartIds, item.completedPartIds]), mode: opts.mode || 'default' })), strategy: 'role-area-svg-panels-v1', camera: assemblyCloneJson(ASSEMBLY_ILLUSTRATION_CAMERA), steps: illustrations, warnings: warnings.sort((a, b) => `${a.code}:${a.stepId || ''}:${a.partId || ''}`.localeCompare(`${b.code}:${b.stepId || ''}:${b.partId || ''}`)) };

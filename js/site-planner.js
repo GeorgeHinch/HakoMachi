@@ -1,7 +1,7 @@
 import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-4';
 import { approxDataUrlBytes, arrayBufferToBase64, base64ByteLength, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, downloadText, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, mimeExtension, textToBase64 } from './shared/browser-utils.js';
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor, svgFabricationClass } from './shared/svg-fabrication-colors.js';
-import { dataTransferHasFile, hakoFileFromDataTransfer, pageHakoImportFileFromDataTransfer } from './site-planner/file-import-utils.js';
+import { dataTransferHasFile, hakoFileFromDataTransfer, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
@@ -6211,14 +6211,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     el.className='small '+kind;
     el.textContent=message;
   }
-  function readFileAsDataURL(file){
-    return new Promise((resolve,reject)=>{
-      const reader=new FileReader();
-      reader.onerror=()=>reject(new Error('Could not read that image file.'));
-      reader.onload=ev=>resolve(ev.target.result);
-      reader.readAsDataURL(file);
-    });
-  }
   async function loadReferenceImage(file){
     if(!file) return;
     openImportProgressModal('Import reference image','Reading image...',`Loading ${file.name||'reference image'}.`);
@@ -6271,13 +6263,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     e.target.value='';
     await loadReferenceImage(f);
   });
-
-  function isSupportedImageFile(file){
-    if(!file) return false;
-    const name=(file.name||'').toLowerCase();
-    const type=(file.type||'').toLowerCase();
-    return type.startsWith('image/') || /\.(png|jpe?g|svg|webp)$/i.test(name);
-  }
 
   async function handleEmptyImageDrop(file){
     if(!file) return;

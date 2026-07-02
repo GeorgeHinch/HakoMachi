@@ -70,7 +70,15 @@ test.describe('assembly illustration regressions', () => {
     ]));
     expect(result.callouts[0].detailLines.join('\n')).toContain('Cladding To Core');
     expect(result.callouts[0].detailLines.join('\n')).toContain('Etched face points outward');
+    expect(result.attachmentMarkers).toHaveLength(1);
+    expect(result.attachmentMarkers[0]).toMatchObject({
+      relationshipId: 'rel_cladding_front',
+      currentPartId: 'cladding_front',
+      targetPartId: 'core_front',
+      label: 'Attach to Front core wall',
+    });
     expect(result.svg).toContain('Front face');
     expect(result.svg).toContain('Sheet: tile');
+    expect(result.svg).toContain('Attach to Front core wall');
   });
 });

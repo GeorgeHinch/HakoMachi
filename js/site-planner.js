@@ -7,6 +7,7 @@ import { githubProjectName, githubSiteRecord, isGithubContentsMetadata, normaliz
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
 import { findSiteBundleProjectName, hydrateSiteBundleAssets } from './site-planner/project-bundle-utils.js';
+import { buildLocalHakoBundleAssets, buildLocalImageBundleAsset, buildLocalStlBundleAssets } from './site-planner/project-bundle-save-utils.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
 import { isLikelyIPad } from './site-planner/platform.js';
 import { bboxOverlaps, clamp, closestPointOnSegment, deg, dist, distanceToSegment, fmt, pointInPoly, polygonArea, polygonCenter, rad, rectLocal, selectionRectFromPoints, transformedRect, uid } from './site-planner/geometry.js';
@@ -6801,52 +6802,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     return payload;
   }
-  function localImageBundleAsset(){
-    const dataUrl=state.imageMeta?.dataUrl || cachedImageAsset(state.imageMeta?.asset);
-    if(!dataUrl) return null;
-    const asset=imageAssetReference('assets/'+imageAssetFileName(state.imageMeta), state.imageMeta, dataUrl, state.image);
-    return {asset,dataUrl,info:dataUrlInfo(dataUrl)};
-  }
-  function localHakoBundleAssets(){
-    const usedNames=new Set();
-    return state.buildings.flatMap(raw=>{
-      const b=normalizeBuilding(raw);
-      const text=hakoFileText(b);
-      if(!b.hakoFile || !text) return [];
-      const fileName=uniqueHakoAssetFileName(b, usedNames);
-      const asset=hakoFileAssetReference(`assets/buildings/${fileName}`, b, text);
-      return [{role:'building-hako',asset,text,buildingId:b.id}];
-    });
-  }
-  function localStlBundleAssets(){
-    const usedModelNames=new Set();
-    const usedSourceNames=new Set();
-    return (state.stlObjects||[]).flatMap(raw=>{
-      const obj=normalizeStlObject(raw);
-      const entries=[];
-      const dataBase64=obj?.asset?.dataBase64;
-      if(dataBase64){
-        const fileName=uniqueStlAssetFileName(obj, usedModelNames);
-        const asset=stlAssetReference(`assets/stl/${fileName}`, obj, dataBase64);
-        entries.push({role:'model',asset,dataBase64,objectId:obj.id});
-      }
-      (obj.sourceAssets||[]).forEach(source=>{
-        if(!source?.dataBase64) return;
-        const fileName=uniqueStlSourceAssetFileName(source, usedSourceNames);
-        const asset=stlSourceAssetReference(`assets/stl/sources/${fileName}`, obj, source, source.dataBase64);
-        entries.push({role:'source',asset,dataBase64:source.dataBase64,objectId:obj.id,sourceAssetId:source.id});
-      });
-      return entries;
-    }).filter(Boolean);
-  }
   async function saveSitePlanBundle(){
     if(!window.JSZip){
       alert('ZIP support is still loading. Try again in a moment.');
       return;
     }
-    const bundleImage=localImageBundleAsset();
-    const hakoAssets=localHakoBundleAssets();
-    const stlAssets=localStlBundleAssets();
+    const bundleImage=buildLocalImageBundleAsset(state, {cachedImageAsset, imageAssetReference, imageAssetFileName, dataUrlInfo});
+    const hakoAssets=buildLocalHakoBundleAssets(state.buildings, {normalizeBuilding, hakoFileText, uniqueHakoAssetFileName, hakoFileAssetReference});
+    const stlAssets=buildLocalStlBundleAssets(state.stlObjects, {normalizeStlObject, uniqueStlAssetFileName, stlAssetReference, uniqueStlSourceAssetFileName, stlSourceAssetReference});
     const project=projectJson({includeImageDataUrl:false,imageAsset:bundleImage?.asset||null,hakoAssets,stlAssets});
     const zip=new JSZip();
     zip.file('hakomachi-site.hako-site.json', JSON.stringify(project,null,2)+'\n');

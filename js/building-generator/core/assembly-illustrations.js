@@ -207,7 +207,35 @@ function calloutsForCurrent(visuals) {
   }));
 }
 
-function renderSvg({ step, order, completedIds, currentIds, visuals, callouts, plan }) {
+function attachmentMarkersForStep(visuals, step, relationshipsById) {
+  const byId = new Map(visuals.map(visual => [visual.partId, visual]));
+  const currentIds = new Set(stepPartIds(step));
+  return (Array.isArray(step?.relationshipIds) ? step.relationshipIds : [])
+    .map(id => relationshipsById.get(id))
+    .filter(Boolean)
+    .map(rel => {
+      const fromCurrent = currentIds.has(rel.fromPartId);
+      const toCurrent = currentIds.has(rel.toPartId);
+      const current = byId.get(fromCurrent ? rel.fromPartId : (toCurrent ? rel.toPartId : null));
+      const target = byId.get(fromCurrent ? rel.toPartId : (toCurrent ? rel.fromPartId : null));
+      if (!current || !target) return null;
+      return {
+        relationshipId: rel.id || null,
+        type: rel.type || 'attachment',
+        currentPartId: current.partId,
+        targetPartId: target.partId,
+        label: `Attach to ${shortLabel(target.label, 18)}`,
+        x: target.x + target.width / 2,
+        y: target.y + target.height / 2,
+        currentX: current.x + current.width / 2,
+        currentY: current.y + current.height / 2,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
+function renderSvg({ step, order, completedIds, currentIds, visuals, callouts, attachmentMarkers, plan }) {
   const color = phaseColor(step?.phase);
   const buildingName = plan?.source?.buildingName || plan?.source?.buildingType || 'HakoMachi building';
   const rects = visuals.map(visual => {
@@ -222,6 +250,10 @@ function renderSvg({ step, order, completedIds, currentIds, visuals, callouts, p
       .join('');
     return `<g><path d="M${callout.x - 12},${callout.y - 4} L${callout.targetX.toFixed(1)},${callout.targetY.toFixed(1)}" fill="none" stroke="${color}" stroke-width="1.2" stroke-dasharray="4 3"/><circle cx="${callout.targetX.toFixed(1)}" cy="${callout.targetY.toFixed(1)}" r="3" fill="${color}"/><text x="${callout.x}" y="${callout.y}" font-size="12" font-weight="700" fill="#222">${esc(callout.label)}${detail}</text></g>`;
   }).join('');
+  const markerMarkup = (attachmentMarkers || []).map(marker => {
+    const x = marker.x.toFixed(1), y = marker.y.toFixed(1);
+    return `<g><path d="M${marker.currentX.toFixed(1)},${marker.currentY.toFixed(1)} L${x},${y}" fill="none" stroke="#5f6f4f" stroke-width="1.1" stroke-dasharray="3 3"/><path d="M${x},${(marker.y - 5).toFixed(1)} L${(marker.x + 5).toFixed(1)},${y} L${x},${(marker.y + 5).toFixed(1)} L${(marker.x - 5).toFixed(1)},${y} Z" fill="#fff8d8" stroke="#5f6f4f" stroke-width="1.2"/><text x="${(marker.x + 8).toFixed(1)}" y="${(marker.y - 7).toFixed(1)}" font-size="9" font-weight="700" fill="#4f5f3f">${esc(marker.label)}</text></g>`;
+  }).join('');
   const note = currentIds.length > 1 ? `${currentIds.length} new parts highlighted` : '1 new part highlighted';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${CAMERA.viewBox}" role="img" aria-label="${esc(step?.title || 'Assembly step illustration')}">
   <rect width="${VIEWBOX.width}" height="${VIEWBOX.height}" fill="#faf9f4"/>
@@ -234,6 +266,7 @@ function renderSvg({ step, order, completedIds, currentIds, visuals, callouts, p
   <text x="498" y="214" font-size="10" fill="#777">right</text>
   <text x="178" y="214" font-size="10" fill="#777">left</text>
   ${rects}
+  ${markerMarkup}
   <rect x="532" y="56" width="158" height="302" rx="8" fill="#fff" stroke="#ddd7ca"/>
   <text x="548" y="76" font-size="12" font-weight="700" fill="#222">Current parts</text>
   ${calloutMarkup}
@@ -255,6 +288,7 @@ function stepIllustration(plan, sequence, step, index, partMap) {
     return visual;
   }).filter(Boolean);
   const callouts = calloutsForCurrent(visuals);
+  const attachmentMarkers = attachmentMarkersForStep(visuals, step, relationshipsById);
   return {
     stepId: step.id,
     order: step.order || index + 1,
@@ -264,8 +298,9 @@ function stepIllustration(plan, sequence, step, index, partMap) {
     currentPartIds: currentIds,
     futurePartIds: steps.slice(index + 1).flatMap(stepPartIds),
     callouts,
+    attachmentMarkers,
     visualParts: visuals,
-    svg: renderSvg({ step, order: step.order || index + 1, completedIds, currentIds, visuals, callouts, plan }),
+    svg: renderSvg({ step, order: step.order || index + 1, completedIds, currentIds, visuals, callouts, attachmentMarkers, plan }),
   };
 }
 

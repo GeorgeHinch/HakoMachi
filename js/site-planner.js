@@ -1,5 +1,5 @@
 import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-4';
-import { approxDataUrlBytes, arrayBufferToBase64, base64ByteLength, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, mimeExtension, textToBase64 } from './shared/browser-utils.js';
+import { approxDataUrlBytes, arrayBufferToBase64, base64ByteLength, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, downloadText, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, mimeExtension, textToBase64 } from './shared/browser-utils.js';
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor, svgFabricationClass } from './shared/svg-fabrication-colors.js';
 import { dataTransferHasFile, hakoFileFromDataTransfer, pageHakoImportFileFromDataTransfer } from './site-planner/file-import-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
@@ -5099,7 +5099,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     bind('selW',v=>{if(state.pxPerMm)b.widthPx=mmToPx(Math.max(.1,parseFloat(v)||1));}); bind('selD',v=>{if(state.pxPerMm)b.depthPx=mmToPx(Math.max(.1,parseFloat(v)||1));});
     const hakoInput=$('hakoFileInput');
     if(hakoInput) hakoInput.onchange=e=>{const f=e.target.files&&e.target.files[0]; if(f) attachHakoFileToSelectedBuilding(f,{source:'selected-building-picker'}); e.target.value='';};
-    if($('downloadHakoB')) $('downloadHakoB').onclick=()=>{const text=hakoFileText(b); if(!text)return; download(text, b.hakoFile?.fileName||`${slug(b.name)}.hako`, b.hakoFile?.mimeType||'application/json');};
+    if($('downloadHakoB')) $('downloadHakoB').onclick=()=>{const text=hakoFileText(b); if(!text)return; downloadText(text, b.hakoFile?.fileName||`${slug(b.name)}.hako`, b.hakoFile?.mimeType||'application/json');};
     if($('openSelectedHakoB')) $('openSelectedHakoB').onclick=()=>openBuildingInHakoMachi(b);
     if($('copySeedB')) $('copySeedB').onclick=()=>copyHakoSeedForBuilding(b);
     const poly=$('polyB'); if(poly) poly.onclick=()=>{b.padType='polygon'; b.pointsPx=transformedRect(b); delete b.widthPx; delete b.depthPx; syncAll();};
@@ -6460,7 +6460,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function exportSelectedSeed(){
     const b=selected();
     if(!b) return alert('Select a building first.');
-    download(JSON.stringify(makeSeed(b),null,2),`${slug(b.name)}-hakomachi-seed.json`,'application/json');
+    downloadText(JSON.stringify(makeSeed(b),null,2),`${slug(b.name)}-hakomachi-seed.json`,'application/json');
   }
   function getGithubSettings(){
     return githubData.getSettings();
@@ -6995,13 +6995,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   });
   if($('roadExportPreviewBtn')) $('roadExportPreviewBtn').onclick=()=>setRoadExportPreview(!state.roadExportPreview);
   if($('mobileRoadExportPreviewBtn')) $('mobileRoadExportPreviewBtn').onclick=()=>setRoadExportPreview(!state.roadExportPreview);
-  if($('roadAssetSvgBtn')) $('roadAssetSvgBtn').onclick=()=>download(svgRoadAssetExport(),'hakomachi-road-assets.svg','image/svg+xml');
-  if($('mobileRoadAssetSvgBtn')) $('mobileRoadAssetSvgBtn').onclick=()=>download(svgRoadAssetExport(),'hakomachi-road-assets.svg','image/svg+xml');
-  $('csvBtn').onclick=()=>download(csvExport(),'hakomachi-building-pads.csv','text/csv');
-  $('svgBtn').onclick=()=>download(svgExport(),'hakomachi-site.svg','image/svg+xml');
+  if($('roadAssetSvgBtn')) $('roadAssetSvgBtn').onclick=()=>downloadText(svgRoadAssetExport(),'hakomachi-road-assets.svg','image/svg+xml');
+  if($('mobileRoadAssetSvgBtn')) $('mobileRoadAssetSvgBtn').onclick=()=>downloadText(svgRoadAssetExport(),'hakomachi-road-assets.svg','image/svg+xml');
+  $('csvBtn').onclick=()=>downloadText(csvExport(),'hakomachi-building-pads.csv','text/csv');
+  $('svgBtn').onclick=()=>downloadText(svgExport(),'hakomachi-site.svg','image/svg+xml');
   $('seedBtn').onclick=exportSelectedSeed;
   if($('mobileSaveBtn')) $('mobileSaveBtn').onclick=()=>saveSitePlanBundle();
-  if($('mobileCsvBtn')) $('mobileCsvBtn').onclick=()=>download(csvExport(),'hakomachi-building-pads.csv','text/csv');
+  if($('mobileCsvBtn')) $('mobileCsvBtn').onclick=()=>downloadText(csvExport(),'hakomachi-building-pads.csv','text/csv');
   if($('mobileSeedBtn')) $('mobileSeedBtn').onclick=exportSelectedSeed;
   function openBuildingInHakoMachi(building){
     const b=building || selected();
@@ -7468,7 +7468,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
 
   function svgExport(){syncAll(); const w=state.image?.width||1200,h=state.image?.height||800; const img=state.imageMeta?.dataUrl?`<image href="${state.imageMeta.dataUrl}" x="0" y="0" width="${w}" height="${h}" opacity="${state.imageOpacity}"/>`:''; const notes=state.annotations.map(st=>`<polyline points="${(st.points||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="${st.color||'#6f4326'}" stroke-width="${st.baseWidth||2.2}" stroke-linecap="round" stroke-linejoin="round"/>`).join('\n'); const benchworks=state.benchworkOutlines.map(bw=>{normalizeBenchworkOutline(bw); const pts=bw.pointsPx||[]; if(pts.length<2) return ''; let d=`M ${pts[0].x} ${pts[0].y}`; for(let i=0;i<pts.length;i++){const b=pts[(i+1)%pts.length], c=bw.curvesPx?.[i]; d += c ? ` Q ${c.x} ${c.y} ${b.x} ${b.y}` : ` L ${b.x} ${b.y}`;} d+=' Z'; return `<path d="${d}" fill="rgba(47,111,78,.05)" stroke="${bw.color||'#2f6f4e'}" stroke-width="3" stroke-dasharray="9 7"/>`;}).join('\n'); const roads=state.roads.map(r=>{normalizeRoad(r); const side=(r.sidewalkPolygonsPx||[]).map(sw=>`<polygon points="${(sw.polygon||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="rgba(226,214,188,.62)" stroke="#b9aa86" stroke-width="1"/>`).join(''); const road=`<polygon points="${(r.roadPolygonPx||[]).map(p=>`${p.x},${p.y}`).join(' ')}" fill="rgba(111,106,94,.26)" stroke="#6f6a5e" stroke-width="2"/>`; return side+road;}).join('\n'); const tracks=svgTrackExport(); const roadItems=(state.roadFeatures||[]).map(f=>{normalizeRoadFeature(f); if(f.kind==='manhole'){return f.hatchShape==='circle'?`<circle cx="${f.x}" cy="${f.y}" r="${(f.diameterPx||18)/2}" fill="rgba(58,43,30,.18)" stroke="#3a2b1e" stroke-width="1"/>`:`<rect x="${f.x-(f.widthPx||20)/2}" y="${f.y-(f.depthPx||10)/2}" width="${f.widthPx||20}" height="${f.depthPx||10}" transform="rotate(${f.rotationDeg||0} ${f.x} ${f.y})" fill="rgba(58,43,30,.18)" stroke="#3a2b1e" stroke-width="1"/>`; } return `<rect x="${f.x-(f.widthPx||24)/2}" y="${f.y-(f.depthPx||6)/2}" width="${f.widthPx||24}" height="${f.depthPx||6}" transform="rotate(${f.rotationDeg||0} ${f.x} ${f.y})" fill="${f.color||'#f7f2df'}" stroke="none"/>`;}).join('\n'); const lights=state.streetlights.map(l=>{normalizeStreetlight(l); const r=(state.pxPerMm?mmToPx((l.mode==='anchored'?(l.anchor?.mountMode==='roadEdgeBulbMount'?(l.anchor?.bulbMountDiameterMm||3):(l.anchor?.cutHoleDiameterMm||1.2)):(l.poleDiameterMm||.45))/2):3); return `<circle cx="${l.x}" cy="${l.y}" r="${Math.max(2,r)}" fill="${l.color||'#c84a3a'}" stroke="#3a2b1e" stroke-width="1"/><text x="${l.x+5}" y="${l.y-5}" font-size="10" fill="#3a2b1e">${escapeHtml(l.name||'Streetlight')}</text>`;}).join('\n'); const pads=state.buildings.map(b=>{const polys=visibleBuildingPolygons(b); const allPts=polys.flat(); const c=allPts.length?polygonCenter(allPts):buildingCenter(b); const shapes=polys.map(poly=>`<polygon points="${poly.map(p=>`${p.x},${p.y}`).join(' ')}" fill="${b.color}33" stroke="${b.color}" stroke-width="3"/>`).join(''); return `${shapes}<text x="${c.x+5}" y="${c.y-5}" font-size="12" fill="white">${escapeHtml(b.name)}</text>`;}).join('\n'); return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${img}${notes}${benchworks}${roads}${tracks}${roadItems}${pads}${lights}</svg>`;}
-  function download(content,name,type){const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([content],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
   function slug(s){return githubData.slugify(s, 'building');}
 
   function restoreAutosaveIfAvailable(){

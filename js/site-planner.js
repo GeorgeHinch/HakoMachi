@@ -6951,6 +6951,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         });
         setGithubStatus('Settings saved.');
       }},
+      {label:'Datastore guide', onClick:()=>window.open('docs/github-datastore.md','_blank','noopener')},
       {label:'Close', onClick:closeGithubModal}
     ]);
   }

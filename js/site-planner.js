@@ -1,7 +1,8 @@
 import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-4';
-import { approxDataUrlBytes, arrayBufferToBase64, base64ByteLength, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, downloadText, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, mimeExtension, textToBase64 } from './shared/browser-utils.js';
+import { approxDataUrlBytes, arrayBufferToBase64, base64ByteLength, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, downloadText, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, textToBase64 } from './shared/browser-utils.js';
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fabrication-colors.js';
 import { dataTransferHasFile, hakoFileFromDataTransfer, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
+import { githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, imageAssetFileName, imageAssetReference, simpleAssetHash } from './site-planner/github-asset-paths.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
@@ -3933,38 +3934,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     else if(state.lastAutosaveAt) el.textContent='Autosave: '+new Date(state.lastAutosaveAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     else el.textContent='Autosave: ready';
   }
-  function simpleAssetHash(text){
-    const value=String(text||'');
-    let h1=0xdeadbeef^value.length;
-    let h2=0x41c6ce57^value.length;
-    for(let i=0;i<value.length;i++){
-      const ch=value.charCodeAt(i);
-      h1=Math.imul(h1^ch,2654435761);
-      h2=Math.imul(h2^ch,1597334677);
-    }
-    h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);
-    h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);
-    return ((h2>>>0).toString(16).padStart(8,'0')+(h1>>>0).toString(16).padStart(8,'0'));
-  }
-  function imageAssetFileName(meta){
-    const name=meta?.name || 'reference-image';
-    const base=slug(String(name).replace(/\.[a-z0-9]{2,8}$/i,'') || 'reference-image');
-    return `${base || 'reference-image'}.${mimeExtension(meta?.mimeType, name)}`;
-  }
-  function imageAssetReference(path, meta, dataUrl){
-    const info=dataUrlInfo(dataUrl || meta?.dataUrl);
-    return {
-      schema:'hakomachi.site-image-asset',
-      schemaVersion:1,
-      path,
-      name:meta?.name || 'reference-image',
-      mimeType:meta?.mimeType || info?.mimeType || 'application/octet-stream',
-      naturalWidthPx:meta?.naturalWidthPx || state.image?.naturalWidth || state.image?.width || null,
-      naturalHeightPx:meta?.naturalHeightPx || state.image?.naturalHeight || state.image?.height || null,
-      byteLength:info?.byteLength || approxDataUrlBytes(dataUrl || meta?.dataUrl),
-      hash:info ? simpleAssetHash(info.data) : (meta?.asset?.hash || null),
-    };
-  }
   function uniqueHakoAssetFileName(b, usedNames){
     const sourceName=b?.hakoFile?.fileName || b?.hakoFileId || b?.name || 'building.hako';
     const base=slug(String(sourceName).replace(/\.(hako|hakoseed|hakoplan|json)$/i,'') || b?.name || 'building');
@@ -6633,29 +6602,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       {label:'Close', onClick:closeGithubModal}
     ]);
   }
-  function githubImageAssetPath(settings, siteId, meta){
-    const root=githubData.cleanRepoPath(settings.sitePlansDir || GITHUB_DEFAULT_SITE_DIR);
-    return githubData.cleanRepoPath(`${root}/${siteId}/assets/${imageAssetFileName(meta)}`);
-  }
-  function githubHakoAssetPath(settings, siteId, fileName){
-    const root=githubData.cleanRepoPath(settings.sitePlansDir || GITHUB_DEFAULT_SITE_DIR);
-    return githubData.cleanRepoPath(`${root}/${siteId}/assets/buildings/${fileName}`);
-  }
-  function githubStlAssetPath(settings, siteId, fileName){
-    const root=githubData.cleanRepoPath(settings.sitePlansDir || GITHUB_DEFAULT_SITE_DIR);
-    return githubData.cleanRepoPath(`${root}/${siteId}/assets/stl/${fileName}`);
-  }
-  function githubStlSourceAssetPath(settings, siteId, fileName){
-    const root=githubData.cleanRepoPath(settings.sitePlansDir || GITHUB_DEFAULT_SITE_DIR);
-    return githubData.cleanRepoPath(`${root}/${siteId}/assets/stl/sources/${fileName}`);
-  }
   async function saveGithubImageAsset(settings, siteId, siteName){
     const dataUrl=state.imageMeta?.dataUrl;
     if(!dataUrl) return state.imageMeta?.asset || null;
     const info=dataUrlInfo(dataUrl);
     if(!info?.isBase64 || !info.data) return state.imageMeta?.asset || null;
-    const path=githubImageAssetPath(settings, siteId, state.imageMeta);
-    const asset=imageAssetReference(path, state.imageMeta, dataUrl);
+    const path=githubImageAssetPath(settings, GITHUB_DEFAULT_SITE_DIR, siteId, state.imageMeta);
+    const asset=imageAssetReference(path, state.imageMeta, dataUrl, state.image);
     setGithubProgress(2,8,'Writing reference image asset...',`Saving ${asset.name} outside the main site file.`);
     await writeGithubBase64File(settings, path, info.data, `Save HakoMachi site image asset: ${siteName}`);
     state.imageMeta.asset=asset;
@@ -6670,7 +6623,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const text=hakoFileText(b);
       if(!b.hakoFile || !text) continue;
       const fileName=uniqueHakoAssetFileName(b, usedNames);
-      const path=githubHakoAssetPath(settings, siteId, fileName);
+      const path=githubHakoAssetPath(settings, GITHUB_DEFAULT_SITE_DIR, siteId, fileName);
       const asset=hakoFileAssetReference(path, b, text);
       setGithubProgress(3,8,'Writing building files...',`Saving ${asset.name} (${i+1} of ${state.buildings.length}) outside the main site file.`);
       await writeGithubBase64File(settings, path, textToBase64(text), `Save HakoMachi building asset: ${siteName}`);
@@ -6691,7 +6644,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const dataBase64=obj?.asset?.dataBase64;
       if(dataBase64){
         const fileName=uniqueStlAssetFileName(obj, usedModelNames);
-        const path=githubStlAssetPath(settings, siteId, fileName);
+        const path=githubStlAssetPath(settings, GITHUB_DEFAULT_SITE_DIR, siteId, fileName);
         const asset=stlAssetReference(path, obj, dataBase64);
         setGithubProgress(4,8,'Writing STL site objects...',`Saving ${asset.name} (${i+1} of ${stlObjects.length}) outside the main site file.`);
         await writeGithubBase64File(settings, path, dataBase64, `Save HakoMachi site STL asset: ${siteName}`);
@@ -6701,7 +6654,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       for(const source of (obj.sourceAssets||[])){
         if(!source?.dataBase64) continue;
         const fileName=uniqueStlSourceAssetFileName(source, usedSourceNames);
-        const path=githubStlSourceAssetPath(settings, siteId, fileName);
+        const path=githubStlSourceAssetPath(settings, GITHUB_DEFAULT_SITE_DIR, siteId, fileName);
         const asset=stlSourceAssetReference(path, obj, source, source.dataBase64);
         setGithubProgress(4,8,'Writing STL source files...',`Saving ${asset.name} (${i+1} of ${stlObjects.length}) outside the main site file.`);
         await writeGithubBase64File(settings, path, source.dataBase64, `Save HakoMachi site STL source asset: ${siteName}`);
@@ -6807,7 +6760,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         id,
         name,
         path,
-        assetFolder:githubData.cleanRepoPath(`${githubData.cleanRepoPath(settings.sitePlansDir || GITHUB_DEFAULT_SITE_DIR)}/${id}/assets`),
+        assetFolder:githubSiteAssetFolderPath(settings, GITHUB_DEFAULT_SITE_DIR, id),
         savedAt:new Date().toISOString()
       };
       setGithubProgress(5,8,'Writing site plan file...','Saving the current plan JSON with references to separate assets.');
@@ -7087,7 +7040,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function localImageBundleAsset(){
     const dataUrl=state.imageMeta?.dataUrl || cachedImageAsset(state.imageMeta?.asset);
     if(!dataUrl) return null;
-    const asset=imageAssetReference('assets/'+imageAssetFileName(state.imageMeta), state.imageMeta, dataUrl);
+    const asset=imageAssetReference('assets/'+imageAssetFileName(state.imageMeta), state.imageMeta, dataUrl, state.image);
     return {asset,dataUrl,info:dataUrlInfo(dataUrl)};
   }
   function localHakoBundleAssets(){

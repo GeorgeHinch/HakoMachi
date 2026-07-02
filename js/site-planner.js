@@ -1,11 +1,12 @@
 import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-4';
-import { installCanvasGestureBoundary, installThreeRenderCanvas } from './shared/browser-utils.js';
+import { arrayBufferToBase64, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, downloadBlob, installCanvasGestureBoundary, installThreeRenderCanvas, textToBase64 } from './shared/browser-utils.js';
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor, svgFabricationClass } from './shared/svg-fabrication-colors.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
 import { isLikelyIPad } from './site-planner/platform.js';
 import { clamp, deg, dist, fmt, rad, uid } from './site-planner/geometry.js';
-import { BUILDING_STATES, FABRIC_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS } from './site-planner/presets.js';
+import { createImportProgressController } from './site-planner/import-progress-modal.js';
+import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_HATCH_PRESETS, ROAD_MARKING_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS, TRACK_PROFILE_DEFAULTS } from './site-planner/presets.js';
 import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geometry.js?v=shared-building-preview-26';
 
 (() => {
@@ -35,104 +36,18 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   const SVG_RETAINED_CUT = svgFabricationColor(SVG_OP.CUT_RETAINED);
   const SVG_SCRAP_CUT = svgFabricationColor(SVG_OP.CUT_SCRAP);
   const SVG_ENGRAVE = svgFabricationColor(SVG_OP.ENGRAVE);
-  const TRACK_PROFILE_DEFAULTS = Object.freeze({
-    gaugeMm: 9,
-    railWidthMm: 0.55,
-    railHeightMm: 0.8,
-    tieSpacingMm: 4,
-    tieLengthMm: 16,
-    tieWidthMm: 1.3,
-    roadbedWidthMm: 19,
-    roadbedHeightMm: 2.5,
-    roadbedShoulderMm: 3.5,
-    roadbedColor: '#c7b084',
-    roadbedTopColor: '#d8c79c',
-    railColor: '#3b3832',
-    tieColor: '#8a6f43',
-    reference: 'N gauge 9 mm track; 19 mm cork roadbed profile documented in docs/site-planner-track-profile.md.'
-  });
   let autosaveTimer = null;
   let autosaveSuppressed = false;
   let renderQueued = false;
   let activeSidebarDetailKey = null;
   let sidebarObjectType = null;
-  let importProgressCloseTimer = null;
-  let importProgressLastFocus = null;
   const colors = ['#d79631','#b8672d','#0f766e','#7c5f3f','#8b5a2b','#5f7f54','#9b6b44','#496a78'];
-  function ensureImportProgressModal(){
-    let modal=$('hakoImportProgressModal');
-    if(modal) return modal;
-    modal=document.createElement('div');
-    modal.id='hakoImportProgressModal';
-    modal.className='hakoProgressModal';
-    modal.setAttribute('role','dialog');
-    modal.setAttribute('aria-modal','true');
-    modal.setAttribute('aria-labelledby','hakoImportProgressTitle');
-    modal.innerHTML=`
-      <div class="hakoProgressCard" tabindex="-1">
-        <h2 id="hakoImportProgressTitle">Import file</h2>
-        <div id="hakoImportProgress" class="hakoProgress" role="progressbar" aria-label="Import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-          <div class="hakoProgressTrack"><div id="hakoImportProgressFill" class="hakoProgressFill"></div></div>
-          <div class="hakoProgressSummary"><b id="hakoImportProgressLabel">Preparing import...</b><span id="hakoImportProgressPercent">0%</span></div>
-          <div id="hakoImportProgressDetail" class="hakoProgressDetail" aria-live="polite">Waiting for the selected file.</div>
-        </div>
-        <div class="hakoProgressActions"><button type="button" id="hakoImportProgressClose">Close</button></div>
-      </div>`;
-    const close=()=>closeImportProgressModal();
-    modal.addEventListener('click', ev=>{if(ev.target===modal && modal.dataset.locked!=='true') close();});
-    modal.querySelector('#hakoImportProgressClose')?.addEventListener('click', close);
-    document.addEventListener('keydown', ev=>{
-      if(ev.key==='Escape' && modal.classList.contains('open') && modal.dataset.locked!=='true') close();
-    });
-    document.body.appendChild(modal);
-    return modal;
-  }
-  function openImportProgressModal(title='Import file', label='Preparing import...', detail='Waiting for the selected file.'){
-    const modal=ensureImportProgressModal();
-    if(importProgressCloseTimer){clearTimeout(importProgressCloseTimer); importProgressCloseTimer=null;}
-    importProgressLastFocus=document.activeElement;
-    modal.dataset.locked='true';
-    $('hakoImportProgressTitle').textContent=title;
-    $('hakoImportProgressClose').style.display='none';
-    modal.classList.add('open');
-    setImportProgress(0,4,label,detail);
-    modal.querySelector('.hakoProgressCard')?.focus?.();
-    return modal;
-  }
-  function setImportProgress(step,total,label,detail){
-    const safeTotal=Math.max(1,total||1);
-    const percent=Math.max(0,Math.min(100,Math.round((Math.max(0,step||0)/safeTotal)*100)));
-    const progress=$('hakoImportProgress');
-    if(progress) progress.setAttribute('aria-valuenow', String(percent));
-    const fill=$('hakoImportProgressFill'); if(fill) fill.style.width=percent+'%';
-    const pct=$('hakoImportProgressPercent'); if(pct) pct.textContent=percent+'%';
-    const labelEl=$('hakoImportProgressLabel'); if(labelEl) labelEl.textContent=label||'Working...';
-    const detailEl=$('hakoImportProgressDetail'); if(detailEl) detailEl.textContent=detail||'';
-  }
-  function closeImportProgressModal(){
-    const modal=$('hakoImportProgressModal');
-    if(!modal) return;
-    modal.classList.remove('open');
-    modal.dataset.locked='false';
-    if(importProgressCloseTimer){clearTimeout(importProgressCloseTimer); importProgressCloseTimer=null;}
-    importProgressLastFocus?.focus?.();
-    importProgressLastFocus=null;
-  }
-  function finishImportProgress(label, detail, delay=900){
-    const modal=ensureImportProgressModal();
-    modal.dataset.locked='false';
-    setImportProgress(4,4,label||'Import complete.',detail||'The file has been applied.');
-    $('hakoImportProgressClose').style.display='';
-    importProgressCloseTimer=setTimeout(()=>closeImportProgressModal(), delay);
-  }
-  function failImportProgress(label, detail){
-    const modal=ensureImportProgressModal();
-    if(importProgressCloseTimer){clearTimeout(importProgressCloseTimer); importProgressCloseTimer=null;}
-    modal.dataset.locked='false';
-    modal.classList.add('open');
-    setImportProgress(0,4,label||'Import failed.',detail||'Check the file and try again.');
-    $('hakoImportProgressClose').style.display='';
-  }
+  const {
+    openImportProgressModal,
+    setImportProgress,
+    finishImportProgress,
+    failImportProgress,
+  } = createImportProgressController();
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
   function setSidebarOpen(open){
@@ -209,33 +124,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     refreshNativeStep();
   }
 
-  const JP_ROAD_MARKING_STANDARD_ID = 'JP_Order_on_Road_Signs_Road_Lines_and_Road_Surface_Markings_1960';
-  const ROAD_MARKING_PRESETS = [
-    {key:'stopLine', label:'Stop Line', jpName:'停止線', category:'regulatory', draw:'stopLine', widthMm:24, depthMm:.55, color:'#f7f2df'},
-    {key:'zebraCrosswalk', label:'Zebra Crosswalk', jpName:'横断歩道', category:'roadSurfaceMarking', draw:'crosswalk', widthMm:28, depthMm:8, color:'#f7f2df'},
-    {key:'bicycleCrossing', label:'Bicycle Crossing', jpName:'自転車横断帯', category:'roadSurfaceMarking', draw:'bicycleCrossing', widthMm:26, depthMm:6, color:'#f7f2df'},
-    {key:'crosswalkAdvanceDiamond', label:'Crosswalk Advance Diamond', jpName:'横断歩道又は自転車横断帯あり', category:'indication', draw:'diamond', widthMm:5, depthMm:10, color:'#f7f2df'},
-    {key:'laneBoundaryDashed', label:'Lane Boundary — Dashed White', jpName:'車両境界線', category:'roadLine', draw:'dashedLine', widthMm:22, depthMm:.35, color:'#f7f2df'},
-    {key:'laneBoundarySolid', label:'Lane Boundary — Solid White', jpName:'車両境界線', category:'roadLine', draw:'solidLine', widthMm:22, depthMm:.35, color:'#f7f2df'},
-    {key:'centerLineWhite', label:'Center Line — White', jpName:'中央線', category:'roadLine', draw:'solidLine', widthMm:24, depthMm:.4, color:'#f7f2df'},
-    {key:'centerLineYellow', label:'Center Line — Yellow', jpName:'中央線（黄色）', category:'roadLine', draw:'solidLine', widthMm:24, depthMm:.45, color:'#ffd34d'},
-    {key:'edgeLine', label:'Road Edge Line', jpName:'車道外側線', category:'roadLine', draw:'solidLine', widthMm:24, depthMm:.35, color:'#f7f2df'},
-    {key:'directionArrow', label:'Direction Arrow', jpName:'進行方向', category:'indication', draw:'arrow', widthMm:8, depthMm:14, color:'#f7f2df'},
-    {key:'channelizingZone', label:'Channelizing Zone', jpName:'導流帯', category:'indication', draw:'chevronZone', widthMm:20, depthMm:10, color:'#f7f2df'},
-    {key:'safetyZone', label:'Safety Zone', jpName:'安全地帯', category:'indication', draw:'safetyZone', widthMm:18, depthMm:7, color:'#f7f2df'},
-    {key:'obstructionChevron', label:'Obstruction / Safety-Zone Chevron', jpName:'安全地帯又は路上障害物に接近', category:'indication', draw:'chevronZone', widthMm:18, depthMm:8, color:'#f7f2df'},
-    {key:'noParkingCurbDash', label:'No Parking Curb Dash', jpName:'駐車禁止系路側標示', category:'curbMarking', draw:'curbDash', widthMm:18, depthMm:.5, color:'#ffd34d'},
-    {key:'noStoppingParkingCurbSolid', label:'No Stopping/Parking Curb Solid', jpName:'駐停車禁止系路側標示', category:'curbMarking', draw:'solidLine', widthMm:24, depthMm:.55, color:'#ffd34d'},
-    {key:'busStopBox', label:'Bus Stop Box', jpName:'バス停留所標示', category:'scenic', draw:'box', widthMm:20, depthMm:6, color:'#f7f2df'},
-    {key:'speedNumber30', label:'Speed Number 30', jpName:'速度表示 30', category:'scenic', draw:'speedNumber', widthMm:10, depthMm:6, color:'#f7f2df', text:'30'}
-  ];
-  const ROAD_HATCH_PRESETS = [
-    {key:'round600', label:'Round manhole Ø600', jpName:'マンホール蓋', shape:'circle', diameterMm:4.0},
-    {key:'round450', label:'Small round utility Ø450', jpName:'小型丸蓋', shape:'circle', diameterMm:3.0},
-    {key:'square600', label:'Square hatch 600×600', jpName:'角型ハッチ', shape:'rect', widthMm:4.0, depthMm:4.0},
-    {key:'rect600x900', label:'Rectangular utility hatch 600×900', jpName:'長方形ハッチ', shape:'rect', widthMm:4.0, depthMm:6.0},
-    {key:'drain450x600', label:'Drain / grate 450×600', jpName:'側溝・排水桝', shape:'rect', widthMm:3.0, depthMm:4.0}
-  ];
   function markingPresetByKey(key){ return ROAD_MARKING_PRESETS.find(p=>p.key===key) || ROAD_MARKING_PRESETS[0]; }
   function hatchPresetByKey(key){ return ROAD_HATCH_PRESETS.find(p=>p.key===key) || ROAD_HATCH_PRESETS[0]; }
   function markingOptionsHtml(selectedKey){ return ROAD_MARKING_PRESETS.map(p=>`<option value="${p.key}" ${p.key===(selectedKey||'stopLine')?'selected':''}>${escapeHtml(p.label)} / ${escapeHtml(p.jpName)}</option>`).join(''); }
@@ -2573,28 +2461,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function stlFileFromDataTransfer(dataTransfer){
     const files=Array.from(dataTransfer?.files||[]);
     return files.find(isLikelyStlFile) || null;
-  }
-  function arrayBufferToBase64(buffer){
-    const bytes=new Uint8Array(buffer||new ArrayBuffer(0));
-    let out='';
-    const chunk=0x8000;
-    for(let i=0;i<bytes.length;i+=chunk) out+=String.fromCharCode(...bytes.subarray(i,i+chunk));
-    return btoa(out);
-  }
-  function base64ToArrayBuffer(base64){
-    const text=String(base64||'').replace(/\s+/g,'');
-    if(!text) return new ArrayBuffer(0);
-    const binary=atob(text);
-    const bytes=new Uint8Array(binary.length);
-    for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
-    return bytes.buffer;
-  }
-  function textToBase64(text){
-    const bytes=new TextEncoder().encode(String(text||''));
-    return arrayBufferToBase64(bytes.buffer);
-  }
-  function base64ToText(base64){
-    return new TextDecoder('utf-8',{fatal:false}).decode(base64ToArrayBuffer(base64));
   }
   function emptyStlBounds(format='unknown'){
     return {format,vertexCount:0,minX:0,minY:0,minZ:0,maxX:20,maxY:20,maxZ:8,width:20,depth:20,height:8};
@@ -7445,13 +7311,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     return payload;
   }
-  function downloadBlob(blob,name){
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download=name;
-    a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  }
   function downloadBase64(base64,name,type){
     if(!base64) return;
     const dataUrl=dataUrlFromBase64(type||'application/octet-stream',base64);
@@ -7529,9 +7388,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const blob=await zip.generateAsync({type:'blob'});
     downloadBlob(blob,'hakomachi-site.zip');
     markManualSaveComplete();
-  }
-  function dataUrlFromBase64(mimeType, base64){
-    return `data:${mimeType||'application/octet-stream'};base64,${String(base64||'').replace(/\s+/g,'')}`;
   }
   async function loadProjectJsonObject(project, opts={}){
     const normalized=normalizeLoadedSitePlanPayload(project);

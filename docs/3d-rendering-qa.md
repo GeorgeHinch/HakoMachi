@@ -1,17 +1,22 @@
 # 3D Rendering QA
 
-Use this checklist when changing Three.js materials, overlay planes, or camera framing.
+Use this note when checking depth, opacity, and z-fighting regressions across HakoMachi 3D views.
 
-## Depth And Transparency
+## Automated Coverage
 
-- Site Planner: load a large calibrated layout image, enable the 3D reference image, add benchwork, roads, road markings, and several buildings. Confirm solid benchwork and building faces hide the image and roads behind them.
-- Site Planner: toggle the reference image opacity between low and high values. Confirm it remains a ground/reference overlay and does not bleed through opaque building walls.
-- Site Planner: orbit close to road edges, sidewalks, tracks, and building bases. Confirm there is no flickering striping from coplanar surfaces.
-- Building Generator: preview a multi-floor building with roof equipment, inset floors, glass, and interior/floor guides. Confirm walls, roofs, and solid equipment render opaque while intentional glass/guide transparency still works.
-- Utility pages: preview crates, shelves, and railings. Confirm opaque generated parts write depth correctly and intentional ghost/interior previews remain readable.
+- `tests/3d-material-regression.spec.js` checks source-level material contracts for opaque solid surfaces, overlay/depth handling, and near/far camera bounds.
+- `tests/3d-visual-smoke.spec.js` opens live pages and samples rendered WebGL pixels to catch blank, fully transparent, or single-color 3D canvas failures.
+- The Site Planner smoke fixture includes benchwork, multiple solid buildings, a road, and curved track roadbed.
+- The Building Generator smoke fixture checks that the default solid building preview renders with multiple visible colors.
 
-## Expected Material Rules
+## Manual Visual Checklist
 
-- Solid meshes should use `transparent: false`, `opacity: 1`, `depthTest: true`, and `depthWrite: true`.
-- Intentional overlays, guides, decals, and reference images may be transparent, but should keep `depthTest: true`, avoid depth writes, and use explicit offsets or render ordering.
-- Camera `near` and `far` planes should be set from scene bounds so large scenes do not lose depth precision.
+1. Site Planner: load a large reference image, enable 3D, and confirm solid benchwork and buildings hide the image where they overlap.
+2. Site Planner: include roads, road markings, and track/cork roadbed; confirm overlays sit on top without flickering or bleeding through buildings.
+3. Site Planner: toggle the 3D image overlay off/on and move opacity through low, medium, and high values.
+4. Building Generator: check simple rectangular, multi-story, winged, and gabled-roof buildings in the 3D preview.
+5. Utility pages: open safety railing, industrial shelf, and wooden crate utilities and confirm their 3D previews are nonblank, opaque where solid, and not flickering.
+
+## Expected Result
+
+Solid model geometry should use opaque depth-writing materials. Intentional overlays can be transparent, but they should not make unrelated solid objects appear see-through.

@@ -47,6 +47,17 @@ test.describe('3D material depth regression contracts', () => {
     expect(utilityPreview).toContain('state.camera.far = Math.max(600, maxDim * 8)');
   });
 
+  test('Site Planner 3D image controls preserve the active camera', () => {
+    const source = readRepoFile('js/site-planner.js');
+    const imageVisibleHandler = source.match(/imageVisible\.onchange=\(\)=>\{([\s\S]+?)markDirty\('3d reference image visibility'/);
+    const imageOpacityHandler = source.match(/imageOpacity\.oninput=\(\)=>\{([\s\S]+?)markDirty\('3d reference image opacity'/);
+
+    expect(imageVisibleHandler, 'image visibility handler exists').not.toBeNull();
+    expect(imageOpacityHandler, 'image opacity handler exists').not.toBeNull();
+    expect(imageVisibleHandler[1]).toContain('updateSite3D({preserveCamera:true})');
+    expect(imageOpacityHandler[1]).toContain('updateSite3D({preserveCamera:true})');
+  });
+
   test('utility 3D solid material defaults keep depth writes enabled', () => {
     const source = readRepoFile('js/utilities/utility-3d-preview.js');
 

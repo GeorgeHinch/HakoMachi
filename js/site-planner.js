@@ -7,6 +7,7 @@ import { isLikelyIPad } from './site-planner/platform.js';
 import { clamp, deg, dist, fmt, rad, uid } from './site-planner/geometry.js';
 import { createImportProgressController } from './site-planner/import-progress-modal.js';
 import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_HATCH_PRESETS, ROAD_MARKING_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS, TRACK_PROFILE_DEFAULTS } from './site-planner/presets.js';
+import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
 import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geometry.js?v=shared-building-preview-26';
 
 (() => {
@@ -4861,42 +4862,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function fitImage(){const r=canvas.getBoundingClientRect(); if(!state.image){state.view={x:r.width/2,y:r.height/2,scale:1}; draw(); return;} const s=Math.min(r.width/state.image.width,r.height/state.image.height)*.9; state.view.scale=s; state.view.x=(r.width-state.image.width*s)/2; state.view.y=(r.height-state.image.height*s)/2; draw();}
 
   function sidebarObjectTypes(){
-    return [
-      {key:'buildings',label:'Buildings',count:state.buildings.length,hint:'Footprints and attached .hako files',color:'#d79631'},
-      {key:'roads',label:'Roads',count:state.roads.length,hint:'Centerlines and outlines',color:'#6f6a5e'},
-      {key:'tracks',label:'Tracks',count:(state.tracks||[]).length,hint:'Approximate rail alignments',color:'#4b4438'},
-      {key:'roadFeatures',label:'Road Items',count:(state.roadFeatures||[]).length,hint:'Hatches and markings',color:'#3a2b1e'},
-      {key:'fabric',label:'Fabric Areas',count:state.fabricRegions.length,hint:'Generated urban fabric regions',color:'#7c5f3f'},
-      {key:'benchwork',label:'Benchwork',count:state.benchworkOutlines.length,hint:'Layout boundaries',color:'#2f6f4e'},
-      {key:'streetlights',label:'Streetlights',count:state.streetlights.length,hint:'Streetlight objects and anchors',color:'#c84a3a'},
-      {key:'annotations',label:'Annotations',count:state.annotations.length,hint:'Freehand plan notes',color:'#6f4326'},
-      {key:'siteObjects',label:'Site Objects',count:(state.stlObjects||[]).length,hint:'Imported STL assets',color:'#496a78'}
-    ].filter(type=>type.count>0);
+    return sidebarObjectTypesForState(state);
   }
   function sidebarObjectTypeMeta(type){
-    return sidebarObjectTypes().find(t=>t.key===type) || {
-      buildings:{key:'buildings',label:'Buildings',count:state.buildings.length,hint:'Footprints and attached .hako files',color:'#d79631'},
-      roads:{key:'roads',label:'Roads',count:state.roads.length,hint:'Centerlines and outlines',color:'#6f6a5e'},
-      tracks:{key:'tracks',label:'Tracks',count:(state.tracks||[]).length,hint:'Approximate rail alignments',color:'#4b4438'},
-      roadFeatures:{key:'roadFeatures',label:'Road Items',count:(state.roadFeatures||[]).length,hint:'Hatches and markings',color:'#3a2b1e'},
-      fabric:{key:'fabric',label:'Fabric Areas',count:state.fabricRegions.length,hint:'Generated urban fabric regions',color:'#7c5f3f'},
-      benchwork:{key:'benchwork',label:'Benchwork',count:state.benchworkOutlines.length,hint:'Layout boundaries',color:'#2f6f4e'},
-      streetlights:{key:'streetlights',label:'Streetlights',count:state.streetlights.length,hint:'Streetlight objects and anchors',color:'#c84a3a'},
-      annotations:{key:'annotations',label:'Annotations',count:state.annotations.length,hint:'Freehand plan notes',color:'#6f4326'},
-      siteObjects:{key:'siteObjects',label:'Site Objects',count:(state.stlObjects||[]).length,hint:'Imported STL assets',color:'#496a78'}
-    }[type] || null;
-  }
-  function sidebarTypeForDetailKind(kind){
-    if(kind==='building'||kind==='buildings') return 'buildings';
-    if(kind==='road') return 'roads';
-    if(kind==='track') return 'tracks';
-    if(kind==='roadFeature') return 'roadFeatures';
-    if(kind==='benchwork') return 'benchwork';
-    if(kind==='streetlight') return 'streetlights';
-    if(kind==='fabric') return 'fabric';
-    if(kind==='annotation') return 'annotations';
-    if(kind==='stlObject'||kind==='siteObject') return 'siteObjects';
-    return null;
+    return sidebarObjectTypes().find(t=>t.key===type) || sidebarObjectTypeMetaForState(state,type);
   }
   function installHakoImportDropzone(box){
     if(!box) return;
@@ -4953,16 +4922,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     draw();
   }
   function objectRowSelected(type,id){
-    if(type==='buildings') return isBuildingSelected(id);
-    if(type==='roads') return state.selectedRoadId===id;
-    if(type==='tracks') return state.selectedTrackId===id;
-    if(type==='roadFeatures') return state.selectedRoadFeatureId===id;
-    if(type==='benchwork') return state.selectedBenchworkId===id;
-    if(type==='streetlights') return state.selectedStreetlightId===id;
-    if(type==='fabric') return state.selectedFabricId===id;
-    if(type==='annotations') return state.selectedAnnotationId===id;
-    if(type==='siteObjects') return state.selectedStlObjectId===id;
-    return false;
+    return sidebarObjectSelected(state,type,id,isBuildingSelected);
   }
   function makeObjectListRow(type,raw){
     const el=document.createElement('div');
@@ -5021,16 +4981,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return el;
   }
   function sidebarObjectsForType(type){
-    if(type==='buildings') return state.buildings;
-    if(type==='roads') return state.roads;
-    if(type==='tracks') return state.tracks||[];
-    if(type==='roadFeatures') return state.roadFeatures||[];
-    if(type==='benchwork') return state.benchworkOutlines;
-    if(type==='streetlights') return state.streetlights;
-    if(type==='fabric') return state.fabricRegions;
-    if(type==='annotations') return state.annotations;
-    if(type==='siteObjects') return state.stlObjects||[];
-    return [];
+    return objectsForSidebarType(state,type);
   }
   function renderObjectBrowser(){
     const box=$('objectBrowser');
@@ -5307,30 +5258,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
 
   function activeSidebarDetailKind(){
-    if(currentSelectedBuildingIds().length>1) return 'buildings';
-    if(state.selectedId) return 'building';
-    if(state.selectedBenchworkId) return 'benchwork';
-    if(state.selectedRoadId) return 'road';
-    if(state.selectedTrackId) return 'track';
-    if(state.selectedRoadFeatureId) return 'roadFeature';
-    if(state.selectedStreetlightId) return 'streetlight';
-    if(state.selectedFabricId) return 'fabric';
-    if(state.selectedStlObjectId) return 'stlObject';
-    if(state.selectedAnnotationId) return 'annotation';
-    return null;
+    return activeSidebarDetailKindForState(state,currentSelectedBuildingIds());
   }
   function activeSidebarDetailTitle(kind){
-    if(kind==='buildings') return 'Buildings';
-    if(kind==='building') return 'Building';
-    if(kind==='benchwork') return 'Benchwork';
-    if(kind==='road') return 'Road';
-    if(kind==='track') return 'Track';
-    if(kind==='roadFeature') return 'Road Item';
-    if(kind==='streetlight') return 'Streetlight';
-    if(kind==='fabric') return 'Fabric Region';
-    if(kind==='stlObject') return 'Site Object';
-    if(kind==='annotation') return 'Annotation';
-    return 'Selected';
+    return sidebarDetailTitle(kind);
   }
   function clearSidebarDetailSelection(){
     const returnType=sidebarTypeForDetailKind(activeSidebarDetailKind());

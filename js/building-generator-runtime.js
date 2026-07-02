@@ -697,7 +697,7 @@ const COLOR_CUT = '#ff0000';
 const COLOR_ETCH = '#0000ff';
 // Disposable cutouts / drop-out pieces. These are through-cuts whose inside
 // material is fully discarded and does not need laser hold-in tabs.
-const COLOR_DISCARD_CUT = '#00ff00';
+const COLOR_DISCARD_CUT = '#008000';
 
 /* ===== js/00-02-building-type-presets.js ===== */
 'use strict';
@@ -28421,7 +28421,7 @@ async function exportZip() {
     }
     manifest += '\n';
   }
-  manifest += `## Colour legend\n- Red (#ff0000): retained through-cut\n- Green (#00ff00): scrap / discard through-cut\n- Blue (#0000ff): score / etch only\n`;
+  manifest += `## Colour legend\n- Red (#ff0000): retained through-cut\n- Green (#008000): scrap / discard through-cut\n- Blue (#0000ff): score / etch only\n`;
   manifest += `\n## Reimport files\n`;
   manifest += `- Building settings: \`${hakoName}\`\n`;
   manifest += `- Material library: \`${matLibName}\`\n`;

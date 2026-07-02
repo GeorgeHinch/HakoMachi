@@ -6,7 +6,7 @@ HakoMachi SVG exports use three fabrication operations. These names and colors a
 | --- | --- | --- | --- |
 | Engrave / score | Blue `#0000ff` | `engrave` | Surface marks that do not cut through material, including labels, alignment marks, fold/score lines, nail marks, panel seams, and placement guides. |
 | Retained through-cut | Red `#ff0000` | `cut-retained` | Through-cuts for pieces or outlines intended to stay with the final model, including tabbed outer part boundaries and any keepable separate pieces. |
-| Scrap through-cut | Green `#00ff00` | `cut-scrap` | Through-cuts for waste openings, slots, voids, and discard pieces, including internal cutouts that are thrown away after cutting. |
+| Scrap through-cut | Green `#008000` | `cut-scrap` | Through-cuts for waste openings, slots, voids, and discard pieces, including internal cutouts that are thrown away after cutting. |
 
 The importable constants live in `js/shared/svg-fabrication-colors.js`.
 
@@ -25,7 +25,7 @@ Generators should prefer stable operation metadata in addition to color:
 
 ```svg
 <path class="svg-cut-retained" data-operation="cut-retained" stroke="#ff0000" ... />
-<path class="svg-cut-scrap" data-operation="cut-scrap" stroke="#00ff00" ... />
+<path class="svg-cut-scrap" data-operation="cut-scrap" stroke="#008000" ... />
 <path class="svg-engrave" data-operation="engrave" stroke="#0000ff" ... />
 ```
 

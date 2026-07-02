@@ -9,7 +9,8 @@ import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState
 import { isLikelyIPad } from './site-planner/platform.js';
 import { bboxOverlaps, clamp, closestPointOnSegment, deg, dist, distanceToSegment, fmt, pointInPoly, polygonArea, polygonCenter, rad, rectLocal, selectionRectFromPoints, transformedRect, uid } from './site-planner/geometry.js';
 import { createImportProgressController } from './site-planner/import-progress-modal.js';
-import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_HATCH_PRESETS, ROAD_MARKING_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS, TRACK_PROFILE_DEFAULTS } from './site-planner/presets.js';
+import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS, TRACK_PROFILE_DEFAULTS } from './site-planner/presets.js';
+import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
 import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlBounds, parseStlVertices, stlFileFromDataTransfer } from './site-planner/stl-utils.js';
 import { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } from './site-planner/svg-export-utils.js';
@@ -89,44 +90,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function mmToPx(mm){return state.pxPerMm? mm*state.pxPerMm : mm;}
   function pxToMm(px){return state.pxPerMm? px/state.pxPerMm : px;}
   function modelKnownMm(){let v=parseFloat($('knownValue').value)||0; const unit=$('knownUnit').value; const sc=parseFloat($('modelScale').value)||150; if(unit==='mm'||unit==='model_mm') return v; if(unit==='in'||unit==='model_in') return v*25.4; if(unit==='source_mm'||unit==='real_mm') return v/sc; if(unit==='source_m'||unit==='real_m') return v*1000/sc; if(unit==='source_ft'||unit==='real_ft') return v*304.8/sc; return v;}
-  function markingPresetByKey(key){ return ROAD_MARKING_PRESETS.find(p=>p.key===key) || ROAD_MARKING_PRESETS[0]; }
-  function hatchPresetByKey(key){ return ROAD_HATCH_PRESETS.find(p=>p.key===key) || ROAD_HATCH_PRESETS[0]; }
-  function markingOptionsHtml(selectedKey){ return ROAD_MARKING_PRESETS.map(p=>`<option value="${p.key}" ${p.key===(selectedKey||'stopLine')?'selected':''}>${escapeHtml(p.label)} / ${escapeHtml(p.jpName)}</option>`).join(''); }
-  function hatchOptionsHtml(selectedKey){ return ROAD_HATCH_PRESETS.map(p=>`<option value="${p.key}" ${p.key===(selectedKey||'round600')?'selected':''}>${escapeHtml(p.label)}</option>`).join(''); }
-  function applyRoadMarkingPreset(f,key){
-    const p=markingPresetByKey(key);
-    f.markingPreset=p.key; f.markingType=p.key; f.markingDraw=p.draw; f.standard=JP_ROAD_MARKING_STANDARD_ID; f.jpName=p.jpName; f.markingCategory=p.category; f.cutBehavior='etchOnly'; f.exportLayer='roadMarkingEtch';
-    f.widthMm=p.widthMm; f.depthMm=p.depthMm; f.color=p.color||'#f7f2df'; if(p.text) f.text=p.text;
-    if(state.pxPerMm){f.widthPx=mmToPx(f.widthMm); f.depthPx=mmToPx(f.depthMm);} return f;
-  }
-  function applyRoadHatchPreset(f,key){
-    const p=hatchPresetByKey(key);
-    f.hatchPreset=p.key; f.jpName=p.jpName; f.hatchShape=p.shape; f.cutThrough=true; f.exportLayer='roadHatchCut';
-    if(p.shape==='circle'){f.diameterMm=p.diameterMm;}
-    else {f.widthMm=p.widthMm; f.depthMm=p.depthMm;}
-    if(state.pxPerMm){f.diameterPx=mmToPx(f.diameterMm||3); f.widthPx=mmToPx(f.widthMm||4); f.depthPx=mmToPx(f.depthMm||3);} return f;
-  }
-
   function currentScaleDivisor(){ const el=$('modelScale'); const v=el ? parseFloat(el.value) : 150; return (Number.isFinite(v)&&v>0)?v:150; }
-  function presetModelMm(preset){ return preset && Number.isFinite(Number(preset.realM)) ? (Number(preset.realM)*1000/currentScaleDivisor()) : null; }
-  function formatPresetLabel(preset){
-    if(!preset || preset.key==='custom') return preset ? preset.label : 'Custom / override';
-    const mm=presetModelMm(preset);
-    return `${preset.label} — ${preset.realM.toFixed(1)} m real (${fmt(mm)} mm @ 1:${currentScaleDivisor()})`;
-  }
-  function presetOptionsHtml(presets, selectedKey){
-    return presets.map(p=>`<option value="${p.key}" ${p.key===(selectedKey||'custom')?'selected':''}>${escapeHtml(formatPresetLabel(p))}</option>`).join('');
-  }
-  function roadPresetByKey(key){ return ROAD_WIDTH_PRESETS.find(p=>p.key===key) || ROAD_WIDTH_PRESETS[0]; }
-  function sidewalkPresetByKey(key){ return SIDEWALK_WIDTH_PRESETS.find(p=>p.key===key) || SIDEWALK_WIDTH_PRESETS[0]; }
+  function roadPresetScaleContext(){ return {pxPerMm:state.pxPerMm, mmToPx}; }
   function applyRoadWidthPreset(road, key){
     road.roadWidthPreset = key || 'custom';
-    const mm = presetModelMm(roadPresetByKey(key));
+    const mm = presetModelMm(roadPresetByKey(key), currentScaleDivisor());
     if(mm!=null){ road.widthMm = mm; road.widthPx = state.pxPerMm ? mmToPx(mm) : (road.widthPx || mm); rebuildRoadGeometry(road); }
   }
   function applySidewalkWidthPreset(road, key){
     road.sidewalkWidthPreset = key || 'custom';
-    const mm = presetModelMm(sidewalkPresetByKey(key));
+    const mm = presetModelMm(sidewalkPresetByKey(key), currentScaleDivisor());
     if(mm!=null){ road.sidewalkWidthMm = mm; road.sidewalkWidthPx = state.pxPerMm ? mmToPx(mm) : (road.sidewalkWidthPx || mm); rebuildRoadGeometry(road); }
   }
   function updateStatus(){
@@ -369,11 +342,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     r.pointsPx = Array.isArray(r.pointsPx) ? r.pointsPx.map(p=>({x:Number(p.x)||0,y:Number(p.y)||0})) : [];
     if(!r.pointsPx.length && Array.isArray(r.polygon)) r.pointsPx = r.polygon.map(p=>({x:Number(p.x)||0,y:Number(p.y)||0}));
     r.roadWidthPreset = r.roadWidthPreset || r.widthPreset || 'two_lane_local';
-    r.widthMm = Number.isFinite(Number(r.widthMm)) ? Number(r.widthMm) : (presetModelMm(roadPresetByKey(r.roadWidthPreset)) || 40);
+    r.widthMm = Number.isFinite(Number(r.widthMm)) ? Number(r.widthMm) : (presetModelMm(roadPresetByKey(r.roadWidthPreset), currentScaleDivisor()) || 40);
     r.widthPx = Number.isFinite(Number(r.widthPx)) ? Number(r.widthPx) : (state.pxPerMm ? mmToPx(r.widthMm) : 48);
     r.sidewalkSide = r.sidewalkSide || 'none';
     r.sidewalkWidthPreset = r.sidewalkWidthPreset || r.sidewalkPreset || 'standard';
-    r.sidewalkWidthMm = Number.isFinite(Number(r.sidewalkWidthMm)) ? Number(r.sidewalkWidthMm) : (presetModelMm(sidewalkPresetByKey(r.sidewalkWidthPreset)) || 10);
+    r.sidewalkWidthMm = Number.isFinite(Number(r.sidewalkWidthMm)) ? Number(r.sidewalkWidthMm) : (presetModelMm(sidewalkPresetByKey(r.sidewalkWidthPreset), currentScaleDivisor()) || 10);
     r.sidewalkWidthPx = Number.isFinite(Number(r.sidewalkWidthPx)) ? Number(r.sidewalkWidthPx) : (state.pxPerMm ? mmToPx(r.sidewalkWidthMm) : 10);
     r.locked = !!r.locked;
     r.hidden = !!r.hidden;
@@ -913,7 +886,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       f.name=f.name||'Manhole / Hatch';
       f.hatchPreset=f.hatchPreset||'round600';
       f.hatchShape=f.hatchShape||hatchPresetByKey(f.hatchPreset).shape||'circle';
-      if(!Number.isFinite(Number(f.diameterMm)) && !Number.isFinite(Number(f.widthMm))) applyRoadHatchPreset(f,f.hatchPreset);
+      if(!Number.isFinite(Number(f.diameterMm)) && !Number.isFinite(Number(f.widthMm))) applyRoadHatchPreset(f,f.hatchPreset,roadPresetScaleContext());
       f.diameterMm=Number.isFinite(Number(f.diameterMm))?Number(f.diameterMm):(hatchPresetByKey(f.hatchPreset).diameterMm||3);
       f.widthMm=Number.isFinite(Number(f.widthMm))?Number(f.widthMm):(hatchPresetByKey(f.hatchPreset).widthMm||4);
       f.depthMm=Number.isFinite(Number(f.depthMm))?Number(f.depthMm):(hatchPresetByKey(f.hatchPreset).depthMm||3);
@@ -981,8 +954,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const road=roadSurfaceAtPoint(p);
     if(!road){ setStatusHint('Place road items on a generated road surface.'); return null; }
     const f=normalizeRoadFeature({id:uid('roadFeature'),kind,roadId:road.id,x:p.x,y:p.y,rotationDeg:0});
-    if(kind==='marking') applyRoadMarkingPreset(f, state.lastRoadMarkingPreset || 'stopLine');
-    if(kind==='manhole') applyRoadHatchPreset(f, state.lastRoadHatchPreset || 'round600');
+    if(kind==='marking') applyRoadMarkingPreset(f, state.lastRoadMarkingPreset || 'stopLine', roadPresetScaleContext());
+    if(kind==='manhole') applyRoadHatchPreset(f, state.lastRoadHatchPreset || 'round600', roadPresetScaleContext());
     state.roadFeatures.push(f);
     state.selectedRoadFeatureId=f.id;
     state.selectedRoadId=null; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null;
@@ -1047,7 +1020,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     ctx.restore();
   }
   function createRoadCenterlineFromPoints(points){
-    const defaultRoadMm = presetModelMm(roadPresetByKey('two_lane_local')) || 40; const defaultSidewalkMm = presetModelMm(sidewalkPresetByKey('standard')) || 10;
+    const defaultRoadMm = presetModelMm(roadPresetByKey('two_lane_local'), currentScaleDivisor()) || 40; const defaultSidewalkMm = presetModelMm(sidewalkPresetByKey('standard'), currentScaleDivisor()) || 10;
     const r=normalizeRoad({id:uid('road'), name:`Road ${state.roads.length+1}`, mode:'centerline', pointsPx:(points||[]).map(p=>({x:p.x,y:p.y})), curvesPx:[], roadWidthPreset:'two_lane_local', widthMm:defaultRoadMm, widthPx:state.pxPerMm?mmToPx(defaultRoadMm):48, sidewalkSide:'none', sidewalkWidthPreset:'standard', sidewalkWidthMm:defaultSidewalkMm, sidewalkWidthPx:state.pxPerMm?mmToPx(defaultSidewalkMm):10, color:'#6f6a5e'});
     syncRoadMetrics(r);
     return r;
@@ -4758,18 +4731,18 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       bindRF('rfDia',v=>{roadFeature.diameterMm=parseFloat(v)||0; roadFeature.diameterPx=state.pxPerMm?mmToPx(roadFeature.diameterMm):roadFeature.diameterPx;});
       bindRF('rfW',v=>{roadFeature.widthMm=parseFloat(v)||0; roadFeature.widthPx=state.pxPerMm?mmToPx(roadFeature.widthMm):roadFeature.widthPx;});
       bindRF('rfD',v=>{roadFeature.depthMm=parseFloat(v)||0; roadFeature.depthPx=state.pxPerMm?mmToPx(roadFeature.depthMm):roadFeature.depthPx;});
-      const hp=$('rfHatchPreset'); if(hp) hp.onchange=()=>{state.lastRoadHatchPreset=hp.value; applyRoadHatchPreset(roadFeature,hp.value); syncAll();};
+      const hp=$('rfHatchPreset'); if(hp) hp.onchange=()=>{state.lastRoadHatchPreset=hp.value; applyRoadHatchPreset(roadFeature,hp.value,roadPresetScaleContext()); syncAll();};
       const sh=$('rfShape'); if(sh){sh.value=roadFeature.hatchShape||'circle'; sh.onchange=()=>{roadFeature.hatchShape=sh.value; syncAll();};}
-      const mp=$('rfMarkingPreset'); if(mp) mp.onchange=()=>{state.lastRoadMarkingPreset=mp.value; applyRoadMarkingPreset(roadFeature,mp.value); syncAll();};
+      const mp=$('rfMarkingPreset'); if(mp) mp.onchange=()=>{state.lastRoadMarkingPreset=mp.value; applyRoadMarkingPreset(roadFeature,mp.value,roadPresetScaleContext()); syncAll();};
       $('deleteRoadFeature').onclick=deleteSelectedRoadFeature;
       return;
     } if(road){normalizeRoad(road); const roadPresetKey=road.roadWidthPreset||'custom'; const sidewalkPresetKey=road.sidewalkWidthPreset||'custom'; const showRoadOverride=road.mode!=='outline' && roadPresetKey==='custom'; const showSidewalkOverride=road.mode!=='outline' && sidewalkPresetKey==='custom'; box.innerHTML=`
       <b>${road.mode==='outline'?'Road outline':'Road centerline'} selected</b>
       <label>Name</label><input id="roadName" value="${escapeAttr(road.name||'Road')}">
-      <label>Road width preset</label><select id="roadWidthPreset" ${road.mode==='outline'?'disabled':''}>${presetOptionsHtml(ROAD_WIDTH_PRESETS, roadPresetKey)}</select>
+      <label>Road width preset</label><select id="roadWidthPreset" ${road.mode==='outline'?'disabled':''}>${presetOptionsHtml(ROAD_WIDTH_PRESETS, roadPresetKey, currentScaleDivisor())}</select>
       <div id="roadWidthOverrideWrap" style="display:${showRoadOverride?'block':'none'}"><label>Width override (mm)</label><input id="roadWidth" type="number" step="0.1" value="${fmt(road.widthMm||0)}" ${road.mode==='outline'?'disabled':''}></div>
       <label>Sidewalk</label><select id="roadSidewalk" ${road.mode==='outline'?'disabled':''}><option value="none">None</option><option value="left">Left</option><option value="right">Right</option><option value="both">Both sides</option></select>
-      <label>Sidewalk width preset</label><select id="roadSidewalkPreset" ${road.mode==='outline'?'disabled':''}>${presetOptionsHtml(SIDEWALK_WIDTH_PRESETS, sidewalkPresetKey)}</select>
+      <label>Sidewalk width preset</label><select id="roadSidewalkPreset" ${road.mode==='outline'?'disabled':''}>${presetOptionsHtml(SIDEWALK_WIDTH_PRESETS, sidewalkPresetKey, currentScaleDivisor())}</select>
       <div id="roadSidewalkOverrideWrap" style="display:${showSidewalkOverride?'block':'none'}"><label>Sidewalk width override (mm)</label><input id="roadSidewalkWidth" type="number" step="0.1" value="${fmt(road.sidewalkWidthMm||0)}" ${road.mode==='outline'?'disabled':''}></div>
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="roadLocked" type="checkbox" ${road.locked?'checked':''}> <span>Lock road</span></label>
       <div class="buttons" style="margin-top:8px"><button id="regenRoad">Regenerate road geometry</button><button id="deleteRoad" class="danger">Delete Road</button></div>

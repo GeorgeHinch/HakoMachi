@@ -17,6 +17,55 @@ function paeth(a, b, c) {
 }
 
 function pngStats(buffer) {
+  const decoded = decodePng(buffer);
+  if (!decoded) {
+    return { width: 0, height: 0, sampled: 0, uniqueColors: 0, nonEmpty: false };
+  }
+  const { width, height, bpp, pixels, stride } = decoded;
+  const points = [];
+  for (let y = 0; y < 24; y++) {
+    for (let x = 0; x < 36; x++) {
+      points.push([(x + 0.5) / 36, (y + 0.5) / 24]);
+    }
+  }
+  const colors = new Set();
+  let nonEmpty = false;
+  for (const [rx, ry] of points) {
+    const x = Math.max(0, Math.min(width - 1, Math.floor(width * rx)));
+    const y = Math.max(0, Math.min(height - 1, Math.floor(height * ry)));
+    const index = y * stride + x * bpp;
+    const r = pixels[index];
+    const g = pixels[index + 1];
+    const b = pixels[index + 2];
+    const a = bpp === 4 ? pixels[index + 3] : 255;
+    colors.add(`${r},${g},${b},${a}`);
+    if (a && (r || g || b)) nonEmpty = true;
+  }
+  return { width, height, sampled: points.length, uniqueColors: colors.size, nonEmpty };
+}
+
+function countPixels(buffer, predicate) {
+  const decoded = decodePng(buffer);
+  if (!decoded) return { count: 0, total: 0, ratio: 0 };
+  const { width, height, bpp, pixels, stride } = decoded;
+  let count = 0;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const index = y * stride + x * bpp;
+      const pixel = {
+        r: pixels[index],
+        g: pixels[index + 1],
+        b: pixels[index + 2],
+        a: bpp === 4 ? pixels[index + 3] : 255,
+      };
+      if (predicate(pixel)) count++;
+    }
+  }
+  const total = width * height;
+  return { count, total, ratio: total ? count / total : 0 };
+}
+
+function decodePng(buffer) {
   let offset = 8;
   let width = 0;
   let height = 0;
@@ -42,7 +91,7 @@ function pngStats(buffer) {
 
   const bpp = colorType === 6 ? 4 : (colorType === 2 ? 3 : 0);
   if (!width || !height || bitDepth !== 8 || !bpp) {
-    return { width, height, sampled: 0, uniqueColors: 0, nonEmpty: false };
+    return null;
   }
 
   const raw = zlib.inflateSync(Buffer.concat(idat));
@@ -65,27 +114,7 @@ function pngStats(buffer) {
       else if (filter === 4) row[x] = (value + paeth(left, up, upLeft)) & 255;
     }
   }
-
-  const points = [];
-  for (let y = 0; y < 24; y++) {
-    for (let x = 0; x < 36; x++) {
-      points.push([(x + 0.5) / 36, (y + 0.5) / 24]);
-    }
-  }
-  const colors = new Set();
-  let nonEmpty = false;
-  for (const [rx, ry] of points) {
-    const x = Math.max(0, Math.min(width - 1, Math.floor(width * rx)));
-    const y = Math.max(0, Math.min(height - 1, Math.floor(height * ry)));
-    const index = y * stride + x * bpp;
-    const r = pixels[index];
-    const g = pixels[index + 1];
-    const b = pixels[index + 2];
-    const a = bpp === 4 ? pixels[index + 3] : 255;
-    colors.add(`${r},${g},${b},${a}`);
-    if (a && (r || g || b)) nonEmpty = true;
-  }
-  return { width, height, sampled: points.length, uniqueColors: colors.size, nonEmpty };
+  return { width, height, bpp, pixels, stride };
 }
 
 test.describe('3D visual smoke coverage', () => {
@@ -138,6 +167,52 @@ test.describe('3D visual smoke coverage', () => {
     expect(stats.height).toBeGreaterThan(120);
     expect(stats.nonEmpty).toBe(true);
     expect(stats.uniqueColors).toBeGreaterThan(2);
+  });
+
+  test('Site Planner 3D keeps the reference image visible above the benchwork base', async ({ page }) => {
+    const referenceSvg = [
+      '<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600">',
+      '<rect width="900" height="600" fill="#ff00cc"/>',
+      '<rect x="0" y="260" width="900" height="80" fill="#00d6ff"/>',
+      '</svg>',
+    ].join('');
+    const svgDataUrl = 'data:image/svg+xml;base64,' + Buffer.from(referenceSvg).toString('base64');
+    const project = {
+      app: 'HakoMachi Site Planner',
+      version: 82,
+      portableProject: true,
+      savedAt: new Date().toISOString(),
+      coordinateSystem: { type: 'imagePixels', origin: 'topLeft', imageWidthPx: 900, imageHeightPx: 600 },
+      image: { mimeType: 'image/svg+xml', dataUrl: svgDataUrl, naturalWidthPx: 900, naturalHeightPx: 600, widthPx: 900, heightPx: 600 },
+      view: { x: 0, y: 0, scale: 1 },
+      site3d: { imageVisible: true, imageOpacity: 1 },
+      scale: { calibrated: true, pxPerMm: 2, calibrationLine: null, units: 'mm' },
+      buildings: [],
+      roads: [],
+      tracks: [],
+      benchworkOutlines: [
+        { id: 'bench1', points: [{ x: 60, y: 60 }, { x: 840, y: 60 }, { x: 840, y: 540 }, { x: 60, y: 540 }] },
+      ],
+      roadFeatures: [],
+      stlObjects: [],
+      fabricRegions: [],
+      streetlights: [],
+      annotations: [],
+    };
+
+    await page.addInitScript(({ key, metaKey, value }) => {
+      localStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(metaKey, JSON.stringify({ savedAt: value.savedAt, dirtySinceManualSave: true }));
+    }, { key: SITE_AUTOSAVE_KEY, metaKey: SITE_AUTOSAVE_META_KEY, value: project });
+
+    await page.goto('/site-planner.html', { waitUntil: 'networkidle' });
+    await page.locator('#view3dCanvasBtn').click();
+    const canvas = page.locator('#site3dView canvas').first();
+    await expect(canvas).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(500);
+
+    const magenta = countPixels(await canvas.screenshot(), ({ r, g, b, a }) => a > 200 && r > 170 && b > 120 && g < 120);
+    expect(magenta.ratio).toBeGreaterThan(0.01);
   });
 
   test('Building Generator 3D preview renders a nonblank solid model', async ({ page }) => {

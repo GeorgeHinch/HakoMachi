@@ -32,6 +32,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   const SITE_PLANNER_BUILDING_UPDATE_KEY = 'hakomachiSitePlannerBuildingUpdate_v1';
   const SITE3D_BASE_THICKNESS_MM = 4;
   const SITE3D_DEFAULT_IMAGE_OPACITY = 0.45;
+  const SITE3D_REFERENCE_IMAGE_Y_MM = 0.045;
+  const SITE3D_REFERENCE_IMAGE_RENDER_ORDER = 20;
   const SITE3D_STL_MAX_TRIANGLES = 50000;
   const SVG_OP = SVG_FABRICATION_OPERATIONS;
   const SVG_RETAINED_CUT = svgFabricationColor(SVG_OP.CUT_RETAINED);
@@ -3200,16 +3202,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       depthTest:true,
       depthWrite:false,
       polygonOffset:true,
-      polygonOffsetFactor:2,
-      polygonOffsetUnits:2
+      polygonOffsetFactor:-1,
+      polygonOffsetUnits:-1
     });
     const width=site3DScale(w);
     const depth=site3DScale(h);
     const mesh=new THREE.Mesh(new THREE.PlaneGeometry(width,depth),mat);
     mesh.name='3D reference image plane';
     mesh.rotation.x=Math.PI/2;
-    mesh.position.set(width/2-bounds.cx,.035,depth/2-bounds.cy);
-    mesh.renderOrder=-20;
+    mesh.position.set(width/2-bounds.cx,SITE3D_REFERENCE_IMAGE_Y_MM,depth/2-bounds.cy);
+    mesh.renderOrder=SITE3D_REFERENCE_IMAGE_RENDER_ORDER;
     return mesh;
   }
   function site3DAddFlatPolygon(group, pts, mat, outlineMat, name, y=.07){
@@ -6846,10 +6848,18 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       return project;
     }
     setGithubStatus('Loading referenced image asset...');
-    const file=await readGithubBase64File(settings, asset.path);
-    if(file?.contentBase64){
-      project.image.dataUrl=dataUrlFromBase64(asset.mimeType, file.contentBase64);
-      cacheImageAsset(asset, project.image.dataUrl);
+    try{
+      const file=await readGithubBase64File(settings, asset.path);
+      if(file?.contentBase64){
+        project.image.dataUrl=dataUrlFromBase64(asset.mimeType, file.contentBase64);
+        cacheImageAsset(asset, project.image.dataUrl);
+      } else {
+        project.image.assetLoadError='The referenced image asset was empty or unavailable.';
+        setGithubStatus('Referenced image asset could not be loaded.');
+      }
+    }catch(err){
+      project.image.assetLoadError=err?.message || 'The referenced image asset could not be loaded.';
+      setGithubStatus('Referenced image asset could not be loaded.');
     }
     return project;
   }
@@ -7496,8 +7506,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       img.src=state.imageMeta.dataUrl;
     } else {
       if(state.imageMeta){
-        setImageStatus('Project loaded without embedded image data. Re-import the original image to see the reference layer.', 'warning');
-        updateImagePortableStatus('Portable save warning: this project has image metadata but no embedded image data.');
+        if(state.imageMeta.assetLoadError){
+          setImageStatus(`Referenced image asset could not be loaded: ${state.imageMeta.assetLoadError}`, 'warning');
+          updateImagePortableStatus('Portable image warning: referenced image asset could not be loaded.');
+        } else {
+          setImageStatus('Project loaded without embedded image data. Re-import the original image to see the reference layer.', 'warning');
+          updateImagePortableStatus('Portable save warning: this project has image metadata but no embedded image data.');
+        }
       } else {
         setImageStatus('No image loaded.', 'muted');
         updateImagePortableStatus();

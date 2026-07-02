@@ -1,6 +1,7 @@
 import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-4';
 import { approxDataUrlBytes, arrayBufferToBase64, base64ByteLength, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, mimeExtension, textToBase64 } from './shared/browser-utils.js';
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor, svgFabricationClass } from './shared/svg-fabrication-colors.js';
+import { dataTransferHasFile, hakoFileFromDataTransfer, pageHakoImportFileFromDataTransfer } from './site-planner/file-import-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
@@ -2477,25 +2478,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     obj.sourceAssets=obj.sourceAssets||[];
     obj.sourceAssets.push(source);
     syncAll();
-  }
-
-  function hakoFileFromDataTransfer(dataTransfer){
-    const files=Array.from(dataTransfer?.files||[]);
-    return files.find(file=>/\.(hako|hakoseed|hakoplan|json)$/i.test(file.name||'')) || null;
-  }
-
-  function pageHakoImportFileFromDataTransfer(dataTransfer){
-    const files=Array.from(dataTransfer?.files||[]);
-    return files.find(file=>{
-      const name=String(file.name||'');
-      if(/\.hako-site\.json$/i.test(name)) return false;
-      return /\.(hako|hakoseed|hakoplan|json)$/i.test(name);
-    }) || null;
-  }
-
-  function dataTransferHasFile(dataTransfer){
-    const items=Array.from(dataTransfer?.items||[]);
-    return items.some(item=>item.kind==='file') || (dataTransfer?.files?.length||0)>0;
   }
 
   function installWholePageHakoDrop(){

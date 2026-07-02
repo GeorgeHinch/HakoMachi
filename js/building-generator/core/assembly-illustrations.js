@@ -47,6 +47,62 @@ function shortLabel(value, limit = 24) {
   return text.length <= limit ? text : text.slice(0, limit - 1).trimEnd() + '...';
 }
 
+function readableToken(value) {
+  return titleCase(String(value || '').replace(/^core_/, '').replace(/^exterior_/, ''));
+}
+
+function orientationLabel(part) {
+  const areaMap = {
+    front: 'Front face',
+    back: 'Back face',
+    east: 'Right face',
+    right: 'Right face',
+    west: 'Left face',
+    left: 'Left face',
+    roof: 'Roof',
+    floor: 'Floor plate',
+    interior: 'Interior',
+  };
+  const parts = [];
+  const area = String(part?.area || '');
+  const role = String(part?.role || '');
+  if (areaMap[area]) parts.push(areaMap[area]);
+  else if (area && area !== 'general') parts.push(readableToken(area));
+  else if (role) parts.push(readableToken(role));
+  if (part?.scope === 'wing') {
+    const n = Number.isFinite(Number(part.wingIndex)) ? Number(part.wingIndex) + 1 : null;
+    parts.push(n ? `Wing ${n}` : 'Wing');
+  }
+  return parts.filter(Boolean).join(' · ');
+}
+
+function relationshipLabel(rel) {
+  if (!rel) return '';
+  const type = readableToken(rel.type || 'joint');
+  const note = shortLabel(rel.notes || '', 42);
+  return note ? `${type}: ${note}` : type;
+}
+
+function relationshipMap(plan) {
+  return new Map((Array.isArray(plan?.relationships) ? plan.relationships : []).map(rel => [rel.id, rel]));
+}
+
+function calloutDetailLines(part, step, plan, relationshipsById) {
+  const lines = [];
+  const orientation = orientationLabel(part);
+  if (orientation) lines.push(orientation);
+  const material = part?.exportRef?.material || part?.material;
+  if (material) lines.push(`Sheet: ${material}`);
+
+  const stepRelationships = (Array.isArray(step?.relationshipIds) ? step.relationshipIds : [])
+    .map(id => relationshipsById.get(id))
+    .filter(rel => rel && (rel.fromPartId === part?.id || rel.toPartId === part?.id));
+  if (stepRelationships[0]) lines.push(relationshipLabel(stepRelationships[0]));
+
+  if (part?.assemblyNote) lines.push(`Note: ${shortLabel(part.assemblyNote, 46)}`);
+  return lines.filter(Boolean).slice(0, 4);
+}
+
 function phaseColor(phase) {
   const colors = {
     'base-floors': '#5b8a72',
@@ -143,8 +199,9 @@ function calloutsForCurrent(visuals) {
   return visuals.filter(visual => visual.status === 'current').map((visual, index) => ({
     partId: visual.partId,
     label: `${index + 1}. ${visual.label}`,
+    detailLines: visual.detailLines || [],
     x: 545,
-    y: 88 + index * 34,
+    y: 90 + index * 52,
     targetX: visual.x + visual.width / 2,
     targetY: visual.y + visual.height / 2,
   }));
@@ -159,7 +216,12 @@ function renderSvg({ step, order, completedIds, currentIds, visuals, callouts, p
     }
     return `<g><rect x="${visual.x}" y="${visual.y}" width="${visual.width}" height="${visual.height}" rx="5" fill="${color}" stroke="#183552" stroke-width="2"/><rect x="${visual.x - 4}" y="${visual.y - 4}" width="${visual.width + 8}" height="${visual.height + 8}" rx="7" fill="none" stroke="${color}" stroke-width="1.5" stroke-dasharray="5 4"/><text x="${visual.x + visual.width / 2}" y="${visual.y + visual.height / 2 + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">${esc(visual.label)}</text></g>`;
   }).join('');
-  const calloutMarkup = callouts.map(callout => `<g><path d="M${callout.x - 12},${callout.y - 4} L${callout.targetX.toFixed(1)},${callout.targetY.toFixed(1)}" fill="none" stroke="${color}" stroke-width="1.2" stroke-dasharray="4 3"/><circle cx="${callout.targetX.toFixed(1)}" cy="${callout.targetY.toFixed(1)}" r="3" fill="${color}"/><text x="${callout.x}" y="${callout.y}" font-size="12" font-weight="700" fill="#222">${esc(callout.label)}</text></g>`).join('');
+  const calloutMarkup = callouts.map(callout => {
+    const detail = (Array.isArray(callout.detailLines) ? callout.detailLines : [])
+      .map((line, i) => `<tspan x="${callout.x}" dy="${i === 0 ? 14 : 12}" font-size="9" font-weight="400" fill="#6e6a60">${esc(line)}</tspan>`)
+      .join('');
+    return `<g><path d="M${callout.x - 12},${callout.y - 4} L${callout.targetX.toFixed(1)},${callout.targetY.toFixed(1)}" fill="none" stroke="${color}" stroke-width="1.2" stroke-dasharray="4 3"/><circle cx="${callout.targetX.toFixed(1)}" cy="${callout.targetY.toFixed(1)}" r="3" fill="${color}"/><text x="${callout.x}" y="${callout.y}" font-size="12" font-weight="700" fill="#222">${esc(callout.label)}${detail}</text></g>`;
+  }).join('');
   const note = currentIds.length > 1 ? `${currentIds.length} new parts highlighted` : '1 new part highlighted';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${CAMERA.viewBox}" role="img" aria-label="${esc(step?.title || 'Assembly step illustration')}">
   <rect width="${VIEWBOX.width}" height="${VIEWBOX.height}" fill="#faf9f4"/>
@@ -184,9 +246,13 @@ function stepIllustration(plan, sequence, step, index, partMap) {
   const completedIds = completedIdsBefore(steps, index);
   const currentIds = stepPartIds(step);
   const visibleIds = Array.from(new Set(completedIds.concat(currentIds)));
+  const relationshipsById = relationshipMap(plan);
   const visuals = visibleIds.map((partId, visualIndex) => {
     const part = partMap.get(partId);
-    return part ? partVisual(part, visualIndex, currentIds.includes(partId) ? 'current' : 'completed') : null;
+    if (!part) return null;
+    const visual = partVisual(part, visualIndex, currentIds.includes(partId) ? 'current' : 'completed');
+    if (visual.status === 'current') visual.detailLines = calloutDetailLines(part, step, plan, relationshipsById);
+    return visual;
   }).filter(Boolean);
   const callouts = calloutsForCurrent(visuals);
   return {

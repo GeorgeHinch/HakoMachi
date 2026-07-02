@@ -28130,6 +28130,43 @@ function assemblyIllustrationShort(value, limit = 24) {
   const text = String(value || '').trim();
   return text.length <= limit ? text : text.slice(0, limit - 1).trimEnd() + '...';
 }
+function assemblyIllustrationReadableToken(value) {
+  return assemblyIllustrationTitleCase(String(value || '').replace(/^core_/, '').replace(/^exterior_/, ''));
+}
+function assemblyIllustrationOrientationLabel(part) {
+  const areaMap = { front: 'Front face', back: 'Back face', east: 'Right face', right: 'Right face', west: 'Left face', left: 'Left face', roof: 'Roof', floor: 'Floor plate', interior: 'Interior' };
+  const parts = [];
+  const area = String(part?.area || '');
+  const role = String(part?.role || '');
+  if (areaMap[area]) parts.push(areaMap[area]);
+  else if (area && area !== 'general') parts.push(assemblyIllustrationReadableToken(area));
+  else if (role) parts.push(assemblyIllustrationReadableToken(role));
+  if (part?.scope === 'wing') {
+    const n = Number.isFinite(Number(part.wingIndex)) ? Number(part.wingIndex) + 1 : null;
+    parts.push(n ? `Wing ${n}` : 'Wing');
+  }
+  return parts.filter(Boolean).join(' · ');
+}
+function assemblyIllustrationRelationshipLabel(rel) {
+  if (!rel) return '';
+  const type = assemblyIllustrationReadableToken(rel.type || 'joint');
+  const note = assemblyIllustrationShort(rel.notes || '', 42);
+  return note ? `${type}: ${note}` : type;
+}
+function assemblyIllustrationRelationshipMap(plan) {
+  return new Map((Array.isArray(plan?.relationships) ? plan.relationships : []).map(rel => [rel.id, rel]));
+}
+function assemblyIllustrationCalloutDetails(part, step, plan, relationshipsById) {
+  const lines = [];
+  const orientation = assemblyIllustrationOrientationLabel(part);
+  if (orientation) lines.push(orientation);
+  const material = part?.exportRef?.material || part?.material;
+  if (material) lines.push(`Sheet: ${material}`);
+  const stepRelationships = (Array.isArray(step?.relationshipIds) ? step.relationshipIds : []).map(id => relationshipsById.get(id)).filter(rel => rel && (rel.fromPartId === part?.id || rel.toPartId === part?.id));
+  if (stepRelationships[0]) lines.push(assemblyIllustrationRelationshipLabel(stepRelationships[0]));
+  if (part?.assemblyNote) lines.push(`Note: ${assemblyIllustrationShort(part.assemblyNote, 46)}`);
+  return lines.filter(Boolean).slice(0, 4);
+}
 function assemblyIllustrationColor(phase) {
   return ({ 'base-floors': '#5b8a72', 'exterior-core': '#2a64aa', 'interior-core': '#7c66a8', 'wing-connections': '#94633d', 'roof-trusses': '#8a5b4f', cladding: '#b85b3d', trim: '#4e7e91', details: '#7a6a2f', review: '#767676' })[phase] || '#2a64aa';
 }
@@ -28192,8 +28229,11 @@ function assemblyIllustrationRenderSvg({ step, order, completedIds, currentIds, 
     ? `<g opacity="0.34"><rect x="${visual.x}" y="${visual.y}" width="${visual.width}" height="${visual.height}" rx="4" fill="#d8d5ca" stroke="#817b6d" stroke-width="1.2"/><text x="${visual.x + visual.width / 2}" y="${visual.y + visual.height / 2 + 4}" text-anchor="middle" font-size="10" fill="#5e594f">${assemblyIllustrationEscape(visual.label)}</text></g>`
     : `<g><rect x="${visual.x}" y="${visual.y}" width="${visual.width}" height="${visual.height}" rx="5" fill="${color}" stroke="#183552" stroke-width="2"/><rect x="${visual.x - 4}" y="${visual.y - 4}" width="${visual.width + 8}" height="${visual.height + 8}" rx="7" fill="none" stroke="${color}" stroke-width="1.5" stroke-dasharray="5 4"/><text x="${visual.x + visual.width / 2}" y="${visual.y + visual.height / 2 + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">${assemblyIllustrationEscape(visual.label)}</text></g>`).join('');
   const current = visuals.filter(visual => visual.status === 'current');
-  const callouts = current.map((visual, index) => ({ partId: visual.partId, label: `${index + 1}. ${visual.label}`, x: 545, y: 88 + index * 34, targetX: visual.x + visual.width / 2, targetY: visual.y + visual.height / 2 }));
-  const calloutMarkup = callouts.map(callout => `<g><path d="M${callout.x - 12},${callout.y - 4} L${callout.targetX.toFixed(1)},${callout.targetY.toFixed(1)}" fill="none" stroke="${color}" stroke-width="1.2" stroke-dasharray="4 3"/><circle cx="${callout.targetX.toFixed(1)}" cy="${callout.targetY.toFixed(1)}" r="3" fill="${color}"/><text x="${callout.x}" y="${callout.y}" font-size="12" font-weight="700" fill="#222">${assemblyIllustrationEscape(callout.label)}</text></g>`).join('');
+  const callouts = current.map((visual, index) => ({ partId: visual.partId, label: `${index + 1}. ${visual.label}`, detailLines: visual.detailLines || [], x: 545, y: 90 + index * 52, targetX: visual.x + visual.width / 2, targetY: visual.y + visual.height / 2 }));
+  const calloutMarkup = callouts.map(callout => {
+    const detail = (Array.isArray(callout.detailLines) ? callout.detailLines : []).map((line, i) => `<tspan x="${callout.x}" dy="${i === 0 ? 14 : 12}" font-size="9" font-weight="400" fill="#6e6a60">${assemblyIllustrationEscape(line)}</tspan>`).join('');
+    return `<g><path d="M${callout.x - 12},${callout.y - 4} L${callout.targetX.toFixed(1)},${callout.targetY.toFixed(1)}" fill="none" stroke="${color}" stroke-width="1.2" stroke-dasharray="4 3"/><circle cx="${callout.targetX.toFixed(1)}" cy="${callout.targetY.toFixed(1)}" r="3" fill="${color}"/><text x="${callout.x}" y="${callout.y}" font-size="12" font-weight="700" fill="#222">${assemblyIllustrationEscape(callout.label)}${detail}</text></g>`;
+  }).join('');
   const note = currentIds.length > 1 ? `${currentIds.length} new parts highlighted` : '1 new part highlighted';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${ASSEMBLY_ILLUSTRATION_CAMERA.viewBox}" role="img" aria-label="${assemblyIllustrationEscape(step?.title || 'Assembly step illustration')}"><rect width="720" height="420" fill="#faf9f4"/><rect x="28" y="48" width="490" height="322" rx="8" fill="#f0eee7" stroke="#d5d0c2"/><path d="M195,318 L360,112 L525,318 Z" fill="none" stroke="#d0c9bb" stroke-width="1" stroke-dasharray="6 5"/><text x="42" y="28" font-size="14" font-weight="700" fill="#222">Step ${order}: ${assemblyIllustrationEscape(step?.title || 'Assembly step')}</text><text x="42" y="44" font-size="10" fill="#6e6a60">${assemblyIllustrationEscape(buildingName)} - ${assemblyIllustrationEscape(assemblyIllustrationTitleCase(step?.phase || 'assembly'))}</text><text x="54" y="345" font-size="10" fill="#777">front</text><text x="54" y="77" font-size="10" fill="#777">back</text><text x="498" y="214" font-size="10" fill="#777">right</text><text x="178" y="214" font-size="10" fill="#777">left</text>${rects}<rect x="532" y="56" width="158" height="302" rx="8" fill="#fff" stroke="#ddd7ca"/><text x="548" y="76" font-size="12" font-weight="700" fill="#222">Current parts</text>${calloutMarkup}<text x="548" y="344" font-size="10" fill="#6e6a60">${completedIds.length} completed - ${assemblyIllustrationEscape(note)}</text></svg>`;
 }
@@ -28208,11 +28248,15 @@ function createAssemblyStepIllustrations(plan = {}, sequence = plan.sequence || 
     const completedIds = assemblyIllustrationCompletedIds(steps, index);
     const currentIds = assemblyIllustrationStepPartIds(step);
     const visibleIds = Array.from(new Set(completedIds.concat(currentIds)));
+    const relationshipsById = assemblyIllustrationRelationshipMap(plan);
     const visuals = visibleIds.map((partId, visualIndex) => {
       const part = partMap.get(partId);
-      return part ? assemblyIllustrationPartVisual(part, visualIndex, currentIds.includes(partId) ? 'current' : 'completed') : null;
+      if (!part) return null;
+      const visual = assemblyIllustrationPartVisual(part, visualIndex, currentIds.includes(partId) ? 'current' : 'completed');
+      if (visual.status === 'current') visual.detailLines = assemblyIllustrationCalloutDetails(part, step, plan, relationshipsById);
+      return visual;
     }).filter(Boolean);
-    const callouts = visuals.filter(visual => visual.status === 'current').map((visual, i) => ({ partId: visual.partId, label: `${i + 1}. ${visual.label}`, x: 545, y: 88 + i * 34, targetX: visual.x + visual.width / 2, targetY: visual.y + visual.height / 2 }));
+    const callouts = visuals.filter(visual => visual.status === 'current').map((visual, i) => ({ partId: visual.partId, label: `${i + 1}. ${visual.label}`, detailLines: visual.detailLines || [], x: 545, y: 90 + i * 52, targetX: visual.x + visual.width / 2, targetY: visual.y + visual.height / 2 }));
     return { stepId: step.id, order: step.order || index + 1, phase: step.phase || 'assembly', camera: assemblyCloneJson(ASSEMBLY_ILLUSTRATION_CAMERA), completedPartIds: completedIds, currentPartIds: currentIds, futurePartIds: steps.slice(index + 1).flatMap(assemblyIllustrationStepPartIds), callouts, visualParts: visuals, svg: assemblyIllustrationRenderSvg({ step, order: step.order || index + 1, completedIds, currentIds, visuals, plan }) };
   });
   return { schema: ASSEMBLY_ILLUSTRATIONS_SCHEMA, schemaVersion: ASSEMBLY_ILLUSTRATIONS_SCHEMA_VERSION, deterministicKey: assemblySimpleHash(assemblyStableStringify({ planKey: plan.deterministicKey || null, sequenceKey: sequence.deterministicKey || null, steps: illustrations.map(item => [item.stepId, item.currentPartIds, item.completedPartIds]), mode: opts.mode || 'default' })), strategy: 'role-area-svg-panels-v1', camera: assemblyCloneJson(ASSEMBLY_ILLUSTRATION_CAMERA), steps: illustrations, warnings: warnings.sort((a, b) => `${a.code}:${a.stepId || ''}:${a.partId || ''}`.localeCompare(`${b.code}:${b.stepId || ''}:${b.partId || ''}`)) };

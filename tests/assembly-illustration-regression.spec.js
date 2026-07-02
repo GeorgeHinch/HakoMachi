@@ -28,7 +28,7 @@ test.describe('assembly illustration regressions', () => {
             material: 'tile',
             dimensionsMm: { width: 82, height: 44 },
             exportRef: { material: 'tile', path: 'tile/front-cladding.svg' },
-            assemblyNote: 'Etched face points outward and aligns with the front core wall.',
+            assemblyNote: 'Surface-fit insert: etched face points outward, align it with the front core wall, then glue after the tabs and slots dry fit.',
           },
         ],
         relationships: [
@@ -37,7 +37,7 @@ test.describe('assembly illustration regressions', () => {
             type: 'cladding-to-core',
             fromPartId: 'cladding_front',
             toPartId: 'core_front',
-            notes: 'Cladding role and wall area map this panel back to a core wall.',
+            notes: 'Cladding role and wall area map this surface-fit panel back to a core wall.',
           },
         ],
       };
@@ -69,16 +69,20 @@ test.describe('assembly illustration regressions', () => {
       'Sheet: tile',
     ]));
     expect(result.callouts[0].detailLines.join('\n')).toContain('Cladding To Core');
-    expect(result.callouts[0].detailLines.join('\n')).toContain('Etched face points outward');
+    expect(result.callouts[0].detailLines.join('\n')).toContain('Surface-fit insert');
     expect(result.attachmentMarkers).toHaveLength(1);
     expect(result.attachmentMarkers[0]).toMatchObject({
       relationshipId: 'rel_cladding_front',
       currentPartId: 'cladding_front',
       targetPartId: 'core_front',
       label: 'Attach to Front core wall',
+      joineryCues: ['Tabs/slots', 'Glue', 'Surface-fit'],
     });
     expect(result.svg).toContain('Front face');
     expect(result.svg).toContain('Sheet: tile');
     expect(result.svg).toContain('Attach to Front core wall');
+    expect(result.svg).toContain('Tabs/slots');
+    expect(result.svg).toContain('Glue');
+    expect(result.svg).toContain('Surface-fit');
   });
 });

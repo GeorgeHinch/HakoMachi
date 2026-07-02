@@ -3811,7 +3811,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       imageVisible.onchange=()=>{
         state.site3d=state.site3d||{};
         state.site3d.imageVisible=!!imageVisible.checked;
-        updateSite3D();
+        updateSite3D({preserveCamera:true});
         markDirty('3d reference image visibility', {history:false});
       };
     }
@@ -3820,7 +3820,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       imageOpacity.oninput=()=>{
         state.site3d=state.site3d||{};
         state.site3d.imageOpacity=clamp(parseFloat(imageOpacity.value)||0,0,1);
-        updateSite3D();
+        updateSite3D({preserveCamera:true});
         markDirty('3d reference image opacity', {history:false});
       };
     }

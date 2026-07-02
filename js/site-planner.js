@@ -6,6 +6,7 @@ import { cacheImageAsset, cachedImageAsset, githubHakoAssetPath, githubImageAsse
 import { githubProjectName, githubSiteRecord, isGithubContentsMetadata, normalizeGithubLibrary, normalizeLoadedSitePlanPayload, upsertGithubSitePlan } from './site-planner/github-site-library.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
+import { findSiteBundleProjectName, hydrateSiteBundleAssets } from './site-planner/project-bundle-utils.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
 import { isLikelyIPad } from './site-planner/platform.js';
 import { bboxOverlaps, clamp, closestPointOnSegment, deg, dist, distanceToSegment, fmt, pointInPoly, polygonArea, polygonCenter, rad, rectLocal, selectionRectFromPoints, transformedRect, uid } from './site-planner/geometry.js';
@@ -6879,68 +6880,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   async function loadSitePlanBundle(file){
     if(!window.JSZip) throw new Error('ZIP support is still loading. Try again in a moment.');
     const zip=await JSZip.loadAsync(file);
-    const names=Object.keys(zip.files).filter(name=>!zip.files[name].dir);
-    const projectName=names.find(name=>/\.hako-site\.json$/i.test(name))
-      || names.find(name=>/(^|\/)hakomachi-site\.json$/i.test(name))
-      || names.find(name=>/\.json$/i.test(name));
+    const projectName=findSiteBundleProjectName(zip);
     if(!projectName) throw new Error('No .hako-site.json project file was found in the ZIP.');
     const project=JSON.parse(await zip.file(projectName).async('string'));
     const normalized=normalizeLoadedSitePlanPayload(project);
     const payload=normalized.payload;
-    const asset=payload.image?.asset;
-    if(asset?.path && !payload.image?.dataUrl){
-      const assetName=asset.path.replace(/^\/+/,'');
-      const assetFile=zip.file(assetName) || zip.file(assetName.split('/').pop());
-      if(assetFile){
-        const b64=await assetFile.async('base64');
-        payload.image.dataUrl=dataUrlFromBase64(asset.mimeType, b64);
-        payload.image.asset=asset;
-        cacheImageAsset(asset, payload.image.dataUrl);
-      }
-    }
-    const buildings=Array.isArray(payload.buildings) ? payload.buildings : [];
-    for(const b of buildings){
-      const hakoAsset=b?.hakoFile;
-      if(hakoAsset?.path && !hakoFileText(b)){
-        const assetName=hakoAsset.path.replace(/^\/+/,'');
-        const assetFile=zip.file(assetName) || zip.file(assetName.split('/').pop());
-        if(assetFile){
-          const text=await assetFile.async('string');
-          let parsed=null;
-          try{ parsed=JSON.parse(text); }catch(_err){}
-          b.hakoFile={...hakoAsset,dataText:text,parsedConfig:parsed,unavailable:false};
-          if(parsed && !b.hakoConfig) b.hakoConfig=parsed;
-        } else {
-          b.hakoFile={...hakoAsset,unavailable:true};
-        }
-      }
-    }
-    const stlObjects=Array.isArray(payload.stlObjects) ? payload.stlObjects : [];
-    for(const obj of stlObjects){
-      const stlAsset=obj?.asset;
-      if(stlAsset?.path && !stlAsset.dataBase64){
-        const assetName=stlAsset.path.replace(/^\/+/,'');
-        const assetFile=zip.file(assetName) || zip.file(assetName.split('/').pop());
-        if(assetFile){
-          const b64=await assetFile.async('base64');
-          obj.asset={...stlAsset,dataBase64:b64,unavailable:false};
-        } else {
-          obj.asset={...stlAsset,unavailable:true};
-        }
-      }
-      const sources=Array.isArray(obj.sourceAssets) ? obj.sourceAssets : [];
-      for(const source of sources){
-        if(!source?.path || source.dataBase64) continue;
-        const sourceName=source.path.replace(/^\/+/,'');
-        const sourceFile=zip.file(sourceName) || zip.file(sourceName.split('/').pop());
-        if(sourceFile){
-          const b64=await sourceFile.async('base64');
-          Object.assign(source,{dataBase64:b64,unavailable:false});
-        } else {
-          Object.assign(source,{unavailable:true});
-        }
-      }
-    }
+    await hydrateSiteBundleAssets(payload, zip, {dataUrlFromBase64, cacheImageAsset, hakoFileText});
     loadProject(payload, {fromFile:true});
     return payload;
   }

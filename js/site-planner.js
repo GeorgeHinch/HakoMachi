@@ -7,7 +7,7 @@ import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
 import { isLikelyIPad } from './site-planner/platform.js';
-import { clamp, deg, dist, fmt, rad, uid } from './site-planner/geometry.js';
+import { bboxOverlaps, clamp, closestPointOnSegment, deg, dist, distanceToSegment, fmt, pointInPoly, polygonArea, polygonCenter, rad, rectLocal, selectionRectFromPoints, transformedRect, uid } from './site-planner/geometry.js';
 import { createImportProgressController } from './site-planner/import-progress-modal.js';
 import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_HATCH_PRESETS, ROAD_MARKING_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS, TRACK_PROFILE_DEFAULTS } from './site-planner/presets.js';
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
@@ -156,8 +156,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(state.tool==='fabric') h.push('Urban Fabric Fill: click connected points around an area, then click near the first point or press Enter. Choose a fabric preset and generate pads with HakoSeed metadata.');
     if($('hint')) $('hint').textContent=h.join(' ');
   }
-  function transformedRect(b){const c={x:b.x,y:b.y}, w=b.widthPx, h=b.depthPx, a=rad(b.rotationDeg||0), ca=Math.cos(a), sa=Math.sin(a); const local=[{x:-w/2,y:-h/2},{x:w/2,y:-h/2},{x:w/2,y:h/2},{x:-w/2,y:h/2}]; return local.map(p=>({x:c.x+p.x*ca-p.y*sa,y:c.y+p.x*sa+p.y*ca}));}
-  function rectLocal(b,p){const a=rad(-(b.rotationDeg||0)), ca=Math.cos(a), sa=Math.sin(a), dx=p.x-b.x, dy=p.y-b.y; return {x:dx*ca-dy*sa,y:dx*sa+dy*ca};}
   function normalizeStlObject(obj){
     if(!obj) return obj;
     obj.id=obj.id||uid('stl');
@@ -208,9 +206,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     return null;
   }
-  function polygonCenter(pts){const n=pts.length||1; return pts.reduce((s,p)=>({x:s.x+p.x/n,y:s.y+p.y/n}),{x:0,y:0});}
-  function polygonArea(pts){let s=0; for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length]; s+=a.x*b.y-b.x*a.y;} return Math.abs(s)/2;}
-  function pointInPoly(p, pts){let inside=false; for(let i=0,j=pts.length-1;i<pts.length;j=i++){const a=pts[i],b=pts[j]; if(((a.y>p.y)!=(b.y>p.y))&&(p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)) inside=!inside;} return inside;}
   function pointInBuilding(p,b){if(b.hidden) return false; return visibleBuildingPolygons(b).some(pts=>pts.length>=3 && pointInPoly(p,pts));}
   function lockedHitTolerance(pointerType='mouse'){
     const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
@@ -547,14 +542,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return best.distance<=tol ? best : null;
   }
 
-  function closestPointOnSegment(p,a,b){
-    const vx=b.x-a.x, vy=b.y-a.y;
-    const len2=vx*vx+vy*vy;
-    if(len2<=1e-9) return {point:{x:a.x,y:a.y}, t:0, distance:dist(p,a)};
-    const t=clamp(((p.x-a.x)*vx+(p.y-a.y)*vy)/len2,0,1);
-    const point={x:a.x+vx*t,y:a.y+vy*t};
-    return {point,t,distance:dist(p,point)};
-  }
   function nearestPointOnRoadPath(p, road, includeEndpoints=true){
     if(!road || road.hidden || road.mode!=='centerline') return null;
     const samples=roadCenterlineSamples(road, 20);
@@ -1687,13 +1674,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(dist(p,rot)<s*1.5 || rotationZoneHit(p,b,pointerType)) return {type:'rotate'};
     return null;
   }
-  function distanceToSegment(p,a,b){
-    const vx=b.x-a.x, vy=b.y-a.y;
-    const len2=vx*vx+vy*vy;
-    if(len2<=1e-9) return dist(p,a);
-    const t=clamp(((p.x-a.x)*vx+(p.y-a.y)*vy)/len2,0,1);
-    return Math.hypot(p.x-(a.x+vx*t),p.y-(a.y+vy*t));
-  }
   function hitAnnotation(p,pointerType='mouse'){
     const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
     const tol=(coarse?18:9)/state.view.scale;
@@ -2578,14 +2558,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(ids.includes(id)) setBuildingSelection(ids.filter(x=>x!==id));
     else setBuildingSelection([...ids,id], ids.length?null:id);
   }
-  function selectionRectFromPoints(a,b){return {x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(a.x-b.x),h:Math.abs(a.y-b.y)};}
   function buildingBBox(b){
     const pts=b.padType==='rect'?transformedRect(b):(b.pointsPx||[]);
     if(!pts.length) return {x:0,y:0,w:0,h:0};
     const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
     return {x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)};
   }
-  function bboxOverlaps(a,b){return a.x<=b.x+b.w && a.x+a.w>=b.x && a.y<=b.y+b.h && a.y+a.h>=b.y;}
   function buildingsInSelectionRect(rect){
     return state.buildings.filter(b=>!b.hidden && bboxOverlaps(rect,buildingBBox(b))).map(b=>b.id);
   }

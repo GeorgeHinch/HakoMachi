@@ -5932,6 +5932,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     const trackHit=hitTrack(p,e.pointerType);
     const selectedTrackForEdit=state.selectedTrackId ? selectedTrack() : null;
+    if(state.tool==='track' && !selectedTrackForEdit) return false;
     const trackPointHit=selectedTrackForEdit && !trackHit?.locked ? hitTrackPoint(p, selectedTrackForEdit, e.pointerType) : null;
     if(trackPointHit){
       const t=selectedTrackForEdit;

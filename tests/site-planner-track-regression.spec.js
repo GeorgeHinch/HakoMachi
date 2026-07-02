@@ -69,6 +69,19 @@ async function dragWorldPoint(page, from, to, steps = 6) {
   await page.mouse.up();
 }
 
+async function clickWorldPoint(page, point) {
+  const box = await page.locator('#canvas').boundingBox();
+  expect(box).not.toBeNull();
+  const view = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).view || { x: 0, y: 0, scale: 1 }, AUTOSAVE_KEY);
+  const scale = Number(view.scale) || 1;
+  await page.locator('#canvas').click({
+    position: {
+      x: (Number(view.x) || 0) + point.x * scale,
+      y: (Number(view.y) || 0) + point.y * scale,
+    },
+  });
+}
+
 test.describe('Site Planner track regressions', () => {
   test('history snapshots include track geometry and selected track state', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
@@ -97,6 +110,60 @@ test.describe('Site Planner track regressions', () => {
     expect(payload.tracks[0].pointsPx.length).toBeGreaterThanOrEqual(2);
     expect(payload.tracks[0].gaugeMm).toBe(9);
     expect(payload.tracks[0].roadbedWidthMm).toBe(19);
+  });
+
+  test('new track endpoint snaps to an existing track endpoint while drawing', async ({ page }) => {
+    const svgDataUrl = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600"><rect width="900" height="600" fill="#f7f4ec"/></svg>').toString('base64');
+    const project = {
+      app: 'HakoMachi Site Planner',
+      version: 80,
+      portableProject: true,
+      savedAt: new Date().toISOString(),
+      coordinateSystem: { type: 'imagePixels', origin: 'topLeft', imageWidthPx: 900, imageHeightPx: 600 },
+      image: { mimeType: 'image/svg+xml', dataUrl: svgDataUrl, naturalWidthPx: 900, naturalHeightPx: 600, widthPx: 900, heightPx: 600 },
+      view: { x: 0, y: 0, scale: 1 },
+      site3d: { imageVisible: true, imageOpacity: 0.45 },
+      imageOpacity: 0.75,
+      imageLocked: true,
+      scale: { calibrated: false, pxPerMm: null, calibrationLine: null, units: 'mm' },
+      buildings: [],
+      roads: [],
+      roadFeatures: [],
+      stlObjects: [],
+      benchworkOutlines: [],
+      fabricRegions: [],
+      streetlights: [],
+      annotations: [],
+      tracks: [
+        { id: 'track_existing', name: 'Existing fixture', pointsPx: [{ x: 120, y: 220 }, { x: 250, y: 220 }], gaugeMm: 9, roadbedWidthMm: 19, tieSpacingMm: 4 },
+      ],
+    };
+
+    await page.addInitScript(({ key, metaKey, value }) => {
+      localStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(metaKey, JSON.stringify({ savedAt: value.savedAt, dirtySinceManualSave: true }));
+    }, { key: AUTOSAVE_KEY, metaKey: AUTOSAVE_META_KEY, value: project });
+
+    await loadPlanner(page);
+    await expect(page.locator('#emptyImageOverlay')).toBeHidden({ timeout: 10000 });
+    await page.locator('[data-tool="track"]').click();
+    await expect(page.locator('#statusTool')).toContainText(/track/i);
+
+    await clickWorldPoint(page, { x: 250, y: 233 });
+    await clickWorldPoint(page, { x: 320, y: 270 });
+    await page.keyboard.press('Enter');
+
+    await page.waitForTimeout(700);
+    const payload = await autosavePayload(page);
+    expect(payload.tracks).toHaveLength(2);
+    const created = payload.tracks.find(track => track.id !== 'track_existing');
+    expect(created).toBeTruthy();
+    expect(created.pointsPx[0]).toMatchObject({ x: 250, y: 220 });
+    expect(created.endpointConnections.start).toMatchObject({
+      trackId: 'track_existing',
+      kind: 'endpointEnd',
+      pointIndex: 1,
+    });
   });
 
   test('straight, curved, S-curve, and joined track fixtures round-trip through load/autosave', async ({ page }) => {

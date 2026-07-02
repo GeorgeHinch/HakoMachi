@@ -2,7 +2,7 @@ import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-4';
 import { approxDataUrlBytes, arrayBufferToBase64, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, downloadText, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, textToBase64 } from './shared/browser-utils.js';
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fabrication-colors.js';
 import { dataTransferHasFile, hakoFileFromDataTransfer, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
-import { githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, hakoFileAssetReference, imageAssetFileName, imageAssetReference, stlAssetReference, stlSourceAssetReference, uniqueHakoAssetFileName, uniqueStlAssetFileName, uniqueStlSourceAssetFileName } from './site-planner/github-asset-paths.js';
+import { cacheImageAsset, cachedImageAsset, githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, hakoFileAssetReference, imageAssetFileName, imageAssetReference, imageMetaForProject, stlAssetReference, stlSourceAssetReference, uniqueHakoAssetFileName, uniqueStlAssetFileName, uniqueStlSourceAssetFileName } from './site-planner/github-asset-paths.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
@@ -3934,36 +3934,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     else if(state.lastAutosaveAt) el.textContent='Autosave: '+new Date(state.lastAutosaveAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     else el.textContent='Autosave: ready';
   }
-  function imageAssetCacheKey(asset){
-    if(!asset?.path) return null;
-    return 'hakomachiSitePlannerImageAsset_v1:'+[asset.path,asset.hash||'',asset.byteLength||''].join('|');
-  }
-  function cacheImageAsset(asset, dataUrl){
-    const key=imageAssetCacheKey(asset);
-    if(!key || !dataUrl) return;
-    try{sessionStorage.setItem(key, dataUrl);}catch(_err){}
-    try{localStorage.setItem(key, dataUrl);}catch(_err){}
-  }
-  function cachedImageAsset(asset){
-    const key=imageAssetCacheKey(asset);
-    if(!key) return null;
-    try{return sessionStorage.getItem(key) || localStorage.getItem(key);}catch(_err){return null;}
-  }
-  function imageMetaForProject(opts={}){
-    if(!state.imageMeta) return null;
-    const includeDataUrl = opts.includeDataUrl !== false;
-    const meta={...state.imageMeta};
-    meta.name = meta.name || 'reference-image';
-    meta.mimeType = meta.mimeType || (typeof meta.dataUrl==='string' ? (meta.dataUrl.match(/^data:([^;]+);/)||[])[1] : undefined) || 'application/octet-stream';
-    meta.naturalWidthPx = Number.isFinite(meta.naturalWidthPx) ? meta.naturalWidthPx : (state.image?.naturalWidth || state.image?.width || null);
-    meta.naturalHeightPx = Number.isFinite(meta.naturalHeightPx) ? meta.naturalHeightPx : (state.image?.naturalHeight || state.image?.height || null);
-    meta.originalPixelDimensionsRequired = true;
-    meta.dataUrlByteLength = approxDataUrlBytes(meta.dataUrl);
-    meta.embeddedInProject = !!(includeDataUrl && meta.dataUrl);
-    if(opts.asset) meta.asset=opts.asset;
-    if(!includeDataUrl) delete meta.dataUrl;
-    return meta;
-  }
   function updateImagePortableStatus(extraMessage){
     const el=$('imagePortableStatus');
     if(!el) return;
@@ -4003,7 +3973,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       portableProject:true,
       coordinateSystem:{type:'imagePixels', origin:'topLeft', imageWidthPx:state.image?.naturalWidth||state.image?.width||state.imageMeta?.naturalWidthPx||null, imageHeightPx:state.image?.naturalHeight||state.image?.height||state.imageMeta?.naturalHeightPx||null},
       canvasViewport:(()=>{const r=canvas.getBoundingClientRect(); return {widthPx:r.width,heightPx:r.height};})(),
-      image:imageMetaForProject({includeDataUrl:includeImageDataUrl}),
+      image:imageMetaForProject(state.imageMeta, state.image, {includeDataUrl:includeImageDataUrl}),
       view:state.view,
       site3d:state.site3d,
       imageOpacity:state.imageOpacity,

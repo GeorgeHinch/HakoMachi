@@ -36,6 +36,40 @@ export function imageAssetReference(path, meta, dataUrl, image = null) {
   };
 }
 
+export function imageAssetCacheKey(asset) {
+  if (!asset?.path) return null;
+  return 'hakomachiSitePlannerImageAsset_v1:' + [asset.path, asset.hash || '', asset.byteLength || ''].join('|');
+}
+
+export function cacheImageAsset(asset, dataUrl) {
+  const key = imageAssetCacheKey(asset);
+  if (!key || !dataUrl) return;
+  try { sessionStorage.setItem(key, dataUrl); } catch (_err) {}
+  try { localStorage.setItem(key, dataUrl); } catch (_err) {}
+}
+
+export function cachedImageAsset(asset) {
+  const key = imageAssetCacheKey(asset);
+  if (!key) return null;
+  try { return sessionStorage.getItem(key) || localStorage.getItem(key); } catch (_err) { return null; }
+}
+
+export function imageMetaForProject(imageMeta, image = null, opts = {}) {
+  if (!imageMeta) return null;
+  const includeDataUrl = opts.includeDataUrl !== false;
+  const meta = { ...imageMeta };
+  meta.name = meta.name || 'reference-image';
+  meta.mimeType = meta.mimeType || (typeof meta.dataUrl === 'string' ? (meta.dataUrl.match(/^data:([^;]+);/) || [])[1] : undefined) || 'application/octet-stream';
+  meta.naturalWidthPx = Number.isFinite(meta.naturalWidthPx) ? meta.naturalWidthPx : (image?.naturalWidth || image?.width || null);
+  meta.naturalHeightPx = Number.isFinite(meta.naturalHeightPx) ? meta.naturalHeightPx : (image?.naturalHeight || image?.height || null);
+  meta.originalPixelDimensionsRequired = true;
+  meta.dataUrlByteLength = approxDataUrlBytes(meta.dataUrl);
+  meta.embeddedInProject = !!(includeDataUrl && meta.dataUrl);
+  if (opts.asset) meta.asset = opts.asset;
+  if (!includeDataUrl) delete meta.dataUrl;
+  return meta;
+}
+
 export function uniqueHakoAssetFileName(building, usedNames) {
   const sourceName = building?.hakoFile?.fileName || building?.hakoFileId || building?.name || 'building.hako';
   const base = githubData.slugify(String(sourceName).replace(/\.(hako|hakoseed|hakoplan|json)$/i, '') || building?.name || 'building', 'building');

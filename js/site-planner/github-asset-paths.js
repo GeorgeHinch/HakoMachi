@@ -1,4 +1,4 @@
-import { approxDataUrlBytes, dataUrlInfo, mimeExtension } from '../shared/browser-utils.js';
+import { approxDataUrlBytes, base64ByteLength, dataUrlInfo, mimeExtension } from '../shared/browser-utils.js';
 import githubData from '../shared/github-data.js';
 
 export function simpleAssetHash(text) {
@@ -33,6 +33,98 @@ export function imageAssetReference(path, meta, dataUrl, image = null) {
     naturalHeightPx: meta?.naturalHeightPx || image?.naturalHeight || image?.height || null,
     byteLength: info?.byteLength || approxDataUrlBytes(dataUrl || meta?.dataUrl),
     hash: info ? simpleAssetHash(info.data) : (meta?.asset?.hash || null),
+  };
+}
+
+export function uniqueHakoAssetFileName(building, usedNames) {
+  const sourceName = building?.hakoFile?.fileName || building?.hakoFileId || building?.name || 'building.hako';
+  const base = githubData.slugify(String(sourceName).replace(/\.(hako|hakoseed|hakoplan|json)$/i, '') || building?.name || 'building', 'building');
+  let fileName = `${base || 'building'}.hako`;
+  let suffix = 2;
+  while (usedNames.has(fileName.toLowerCase())) {
+    fileName = `${base || 'building'}-${suffix}.hako`;
+    suffix++;
+  }
+  usedNames.add(fileName.toLowerCase());
+  return fileName;
+}
+
+export function hakoFileAssetReference(path, building, text) {
+  const file = building?.hakoFile || {};
+  return {
+    schema: 'hakomachi.site-building-hako-asset',
+    schemaVersion: 1,
+    kind: 'building-hako',
+    path,
+    sourceBuildingId: building?.id || null,
+    name: building?.name || file.fileName || 'Building',
+    fileName: file.fileName || `${githubData.slugify(building?.name || 'building', 'building')}.hako`,
+    mimeType: file.mimeType || 'application/json',
+    byteLength: new TextEncoder().encode(String(text || '')).byteLength,
+    hash: text ? simpleAssetHash(text) : (file.hash || null),
+    importedAt: file.importedAt || null,
+    source: file.source || null,
+  };
+}
+
+export function uniqueStlAssetFileName(obj, usedNames) {
+  const sourceName = obj?.asset?.fileName || obj?.fileName || obj?.name || 'site-object.stl';
+  const base = githubData.slugify(String(sourceName).replace(/\.stl$/i, '') || obj?.name || 'site-object', 'building');
+  let fileName = `${base || 'site-object'}.stl`;
+  let suffix = 2;
+  while (usedNames.has(fileName.toLowerCase())) {
+    fileName = `${base || 'site-object'}-${suffix}.stl`;
+    suffix++;
+  }
+  usedNames.add(fileName.toLowerCase());
+  return fileName;
+}
+
+export function uniqueStlSourceAssetFileName(source, usedNames) {
+  const rawName = String(source?.fileName || source?.name || 'source-file');
+  const match = rawName.match(/\.([a-z0-9]{1,12})$/i);
+  const ext = match ? `.${match[1].toLowerCase()}` : '.source';
+  const rawBase = match ? rawName.slice(0, -match[0].length) : rawName;
+  const base = githubData.slugify(rawBase || 'source-file', 'building') || 'source-file';
+  let fileName = `${base}${ext}`;
+  let suffix = 2;
+  while (usedNames.has(fileName.toLowerCase())) {
+    fileName = `${base}-${suffix}${ext}`;
+    suffix++;
+  }
+  usedNames.add(fileName.toLowerCase());
+  return fileName;
+}
+
+export function stlAssetReference(path, obj, dataBase64) {
+  return {
+    schema: 'hakomachi.site-stl-asset',
+    schemaVersion: 1,
+    kind: 'stl',
+    path,
+    sourceObjectId: obj?.id || null,
+    name: obj?.name || obj?.asset?.fileName || 'STL Object',
+    fileName: obj?.asset?.fileName || `${githubData.slugify(obj?.name || 'site-object', 'building')}.stl`,
+    mimeType: obj?.asset?.mimeType || 'model/stl',
+    byteLength: base64ByteLength(dataBase64),
+    hash: dataBase64 ? simpleAssetHash(dataBase64) : (obj?.asset?.hash || null),
+  };
+}
+
+export function stlSourceAssetReference(path, obj, source, dataBase64) {
+  return {
+    schema: 'hakomachi.site-stl-source-asset',
+    schemaVersion: 1,
+    kind: 'stl-source',
+    path,
+    sourceObjectId: obj?.id || null,
+    sourceAssetId: source?.id || null,
+    name: source?.name || source?.fileName || 'Source file',
+    fileName: source?.fileName || source?.name || 'source-file',
+    mimeType: source?.mimeType || 'application/octet-stream',
+    byteLength: base64ByteLength(dataBase64),
+    hash: dataBase64 ? simpleAssetHash(dataBase64) : (source?.hash || null),
+    importedAt: source?.importedAt || null,
   };
 }
 

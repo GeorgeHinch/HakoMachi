@@ -42,3 +42,21 @@ export function roadAssetSvgExport({data, roadFeatures, width, height}, deps){
   const style=`<style>\n.svg-cut-retained{stroke:${SVG_RETAINED_CUT};fill:none}.svg-cut-scrap{stroke:${SVG_SCRAP_CUT};fill:none}.svg-engrave{stroke:${SVG_ENGRAVE};fill:none}\n</style>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}mm" height="${height}mm" viewBox="0 0 ${width} ${height}">\n<title>HakoMachi Road Asset Export</title>\n<desc>Road surfaces, sidewalk surfaces, seam cuts, hatch cuts, Japanese road-marking etches, curb etches, and labels. Red is retained through-cut, green is scrap through-cut, and blue is engrave/score. Units follow Site Planner image-pixel coordinate space; use the project calibration for model-mm conversion.</desc>\n${style}\n<g id="roadSurfaceCut">${roadSurfaces.join('\n')}</g>\n<g id="sidewalkSurfaceCut">${sidewalkSurfaces.join('\n')}</g>\n<g id="roadHatchCut">${hatchCuts.join('\n')}</g>\n<g id="roadMarkingEtch" data-standard="${JP_ROAD_MARKING_STANDARD_ID}">${markingEtches.join('\n')}</g>\n<g id="seamCut">${seamCuts.join('\n')}</g>\n<g id="curbEtch">${curbEtches.join('\n')}</g>\n<g id="labels">${labels.join('\n')}</g>\n</svg>`;
 }
+
+export function trackSvgExport(tracks, deps){
+  const {TRACK_PROFILE_DEFAULTS, escapeAttr, normalizeTrack, offsetTrackPath, trackPathSamples, trackProfilePx, trackTieSegments}=deps;
+  const pathAttr=pts=>pts.map(p=>`${p.x},${p.y}`).join(' ');
+  return (tracks||[]).map(raw=>{
+    const t=normalizeTrack(raw);
+    if(t.hidden || (t.pointsPx||[]).length<2) return '';
+    const path=trackPathSamples(t,18);
+    const profile=trackProfilePx(t);
+    const railOffset=profile.gauge/2;
+    const roadbed=`<polyline points="${pathAttr(path)}" fill="none" stroke="${escapeAttr(t.roadbedColor||TRACK_PROFILE_DEFAULTS.roadbedColor)}" stroke-width="${profile.roadbedWidth}" stroke-linecap="round" stroke-linejoin="round" opacity="0.72"/><polyline points="${pathAttr(path)}" fill="none" stroke="${escapeAttr(t.roadbedTopColor||TRACK_PROFILE_DEFAULTS.roadbedTopColor)}" stroke-width="${profile.roadbedTopWidth}" stroke-linecap="round" stroke-linejoin="round" opacity="0.84"/>`;
+    const rails=[offsetTrackPath(path,railOffset),offsetTrackPath(path,-railOffset)]
+      .map(pts=>`<polyline points="${pathAttr(pts)}" fill="none" stroke="${escapeAttr(t.color||'#4b4438')}" stroke-width="${profile.railWidth}" stroke-linecap="round" stroke-linejoin="round"/>`)
+      .join('');
+    const ties=trackTieSegments(t).map(seg=>`<line x1="${seg.a.x}" y1="${seg.a.y}" x2="${seg.b.x}" y2="${seg.b.y}" stroke="${escapeAttr(t.tieColor||'#8a6f43')}" stroke-width="${profile.tieWidth}" stroke-linecap="round"/>`).join('');
+    return `<g data-type="track" data-name="${escapeAttr(t.name||'Track')}" data-profile="${escapeAttr(TRACK_PROFILE_DEFAULTS.reference)}">${roadbed}${ties}${rails}</g>`;
+  }).join('\n');
+}

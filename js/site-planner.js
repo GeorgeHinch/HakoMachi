@@ -1,6 +1,6 @@
 import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-4';
 import { approxDataUrlBytes, arrayBufferToBase64, base64ByteLength, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, downloadText, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, mimeExtension, textToBase64 } from './shared/browser-utils.js';
-import { SVG_FABRICATION_OPERATIONS, svgFabricationColor, svgFabricationClass } from './shared/svg-fabrication-colors.js';
+import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fabrication-colors.js';
 import { dataTransferHasFile, hakoFileFromDataTransfer, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
@@ -11,6 +11,7 @@ import { createImportProgressController } from './site-planner/import-progress-m
 import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_HATCH_PRESETS, ROAD_MARKING_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS, TRACK_PROFILE_DEFAULTS } from './site-planner/presets.js';
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
 import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlBounds, parseStlVertices, stlFileFromDataTransfer } from './site-planner/stl-utils.js';
+import { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } from './site-planner/svg-export-utils.js';
 import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geometry.js?v=shared-building-preview-26';
 
 (() => {
@@ -7401,11 +7402,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function csvExport(){syncAll(); const rows=[['id','name','state','type','category','widthMm','depthMm','areaMm2','rotationDeg','hakoFile','notes']]; state.buildings.forEach(raw=>{const b=normalizeBuilding(raw); rows.push([b.id,b.name,b.state,b.padType,b.category,b.widthMm||'',b.depthMm||'',b.derived?.areaMm2||'',b.rotationDeg||0,b.hakoFile?.fileName||'',b.notes||'']);}); return rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\n');}
 
-  function svgPathFromPoly(poly){return (poly||[]).map(p=>`${p.x},${p.y}`).join(' ');}
-  function svgFeatureTransform(f){return `rotate(${f.rotationDeg||0} ${f.x} ${f.y})`;}
-  function svgFabricationAttrs(operation, layer, extra=''){
-    return `class="${svgFabricationClass(operation)}" data-operation="${operation}" data-layer="${layer}"${extra ? ` ${extra}` : ''}`;
-  }
   function svgRoadMarkingFeature(f){
     normalizeRoadFeature(f); const w=f.widthPx||24,h=f.depthPx||6,x=f.x,y=f.y,c=SVG_ENGRAVE,tr=svgFeatureTransform(f),draw=f.markingDraw||markingPresetByKey(f.markingPreset||f.markingType).draw;
     const attrs=svgFabricationAttrs(SVG_OP.ENGRAVE,'roadMarkingEtch',`data-jp-name="${escapeAttr(f.jpName||'')}"`);

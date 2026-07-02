@@ -19,6 +19,7 @@ import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPr
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
 import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlBounds, parseStlVertices, stlFileFromDataTransfer } from './site-planner/stl-utils.js';
 import { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } from './site-planner/svg-export-utils.js';
+import { installTopMenus } from './site-planner/top-menu-utils.js';
 import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geometry.js?v=shared-building-preview-26';
 
 (() => {
@@ -6211,47 +6212,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     updateAutosaveStatus('Autosave: cleared');
   }
 
-  function closeTopMenus(except){
-    ['exportMenu','settingsMenu','overflowMenu'].forEach(id=>{
-      const menu=$(id);
-      if(!menu || menu===except) return;
-      menu.classList.remove('open');
-      menu.closest('.menuWrap')?.classList.remove('menuOpen');
-    });
-  }
-  function toggleTopMenu(id){
-    const menu=$(id);
-    if(!menu) return;
-    const willOpen=!menu.classList.contains('open');
-    closeTopMenus(willOpen?menu:null);
-    menu.classList.toggle('open', willOpen);
-    menu.closest('.menuWrap')?.classList.toggle('menuOpen', willOpen);
-  }
-  function wireMenuButton(btnId, menuId){
-    const btn=$(btnId), menu=$(menuId);
-    if(!btn || !menu) return;
-    btn.addEventListener('click', e=>{
-      e.preventDefault();
-      e.stopPropagation();
-      toggleTopMenu(menuId);
-    });
-    menu.addEventListener('click', e=>{
-      // Labels that open file pickers need the click to complete, then the menu can close.
-      const target=e.target.closest('button,label');
-      if(target) setTimeout(()=>closeTopMenus(), 0);
-    });
-  }
-  wireMenuButton('exportMenuBtn','exportMenu');
-  wireMenuButton('settingsBtn','settingsMenu');
-  wireMenuButton('overflowBtn','overflowMenu');
-  document.addEventListener('pointerdown', e=>{
-    if(e.target.closest('.menuWrap')) return;
-    if(!e.target.closest('.sidebarOverflowWrap')) closeSidebarBuildingOverflow();
-    closeTopMenus();
-  });
-  document.addEventListener('keydown', e=>{
-    if(e.key==='Escape'){ closeTopMenus(); closeSidebarBuildingOverflow(); }
-  });
+  installTopMenus({getElement:$, closeSidebarBuildingOverflow});
   function exportSelectedSeed(){
     const b=selected();
     if(!b) return alert('Select a building first.');

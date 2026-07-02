@@ -142,6 +142,14 @@
     downloadText(JSON.stringify(data, null, 2), filename, 'application/json');
   }
 
+  function downloadBase64(base64, filename, mimeType) {
+    if (!base64) return;
+    const anchor = document.createElement('a');
+    anchor.href = dataUrlFromBase64(mimeType || 'application/octet-stream', base64);
+    anchor.download = filename || 'asset.bin';
+    anchor.click();
+  }
+
   function arrayBufferToBase64(buffer) {
     const bytes = new Uint8Array(buffer || new ArrayBuffer(0));
     let out = '';
@@ -170,6 +178,50 @@
 
   function dataUrlFromBase64(mimeType, base64) {
     return `data:${mimeType || 'application/octet-stream'};base64,${String(base64 || '').replace(/\s+/g, '')}`;
+  }
+
+  function base64ByteLength(base64) {
+    const text = String(base64 || '').replace(/\s+/g, '');
+    if (!text) return 0;
+    const padding = text.endsWith('==') ? 2 : (text.endsWith('=') ? 1 : 0);
+    return Math.max(0, Math.floor(text.length * 3 / 4) - padding);
+  }
+
+  function approxDataUrlBytes(dataUrl) {
+    if (!dataUrl || typeof dataUrl !== 'string') return 0;
+    const comma = dataUrl.indexOf(',');
+    return base64ByteLength(comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl);
+  }
+
+  function dataUrlInfo(dataUrl) {
+    const text = String(dataUrl || '');
+    const match = text.match(/^data:([^;,]+)?(;base64)?,(.*)$/);
+    if (!match) return null;
+    return {
+      mimeType: match[1] || 'application/octet-stream',
+      isBase64: !!match[2],
+      data: match[3] || '',
+      byteLength: approxDataUrlBytes(text),
+    };
+  }
+
+  function formatBytes(bytes) {
+    if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+    if (bytes < 1024) return Math.round(bytes) + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function mimeExtension(mimeType, fallbackName = 'asset') {
+    const mime = String(mimeType || '').toLowerCase();
+    const extFromName = (String(fallbackName || '').match(/\.([a-z0-9]{2,8})$/i) || [])[1];
+    if (extFromName) return extFromName.toLowerCase();
+    if (mime.includes('png')) return 'png';
+    if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg';
+    if (mime.includes('webp')) return 'webp';
+    if (mime.includes('svg')) return 'svg';
+    if (mime.includes('gif')) return 'gif';
+    return 'bin';
   }
 
   function openTextPreview(content, mimeType) {
@@ -537,11 +589,17 @@ export {
   downloadBlob,
   downloadText,
   downloadJson,
+  downloadBase64,
   arrayBufferToBase64,
   base64ToArrayBuffer,
   textToBase64,
   base64ToText,
   dataUrlFromBase64,
+  base64ByteLength,
+  approxDataUrlBytes,
+  dataUrlInfo,
+  formatBytes,
+  mimeExtension,
   openTextPreview,
   copyText,
   extractJsonOrSvgMetadata,

@@ -1,5 +1,5 @@
 import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-4';
-import { arrayBufferToBase64, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, downloadBlob, installCanvasGestureBoundary, installThreeRenderCanvas, textToBase64 } from './shared/browser-utils.js';
+import { approxDataUrlBytes, arrayBufferToBase64, base64ByteLength, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, mimeExtension, textToBase64 } from './shared/browser-utils.js';
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor, svgFabricationClass } from './shared/svg-fabrication-colors.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
@@ -4043,47 +4043,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     else if(state.lastAutosaveAt) el.textContent='Autosave: '+new Date(state.lastAutosaveAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     else el.textContent='Autosave: ready';
   }
-  function approxDataUrlBytes(dataUrl){
-    if(!dataUrl || typeof dataUrl!=='string') return 0;
-    const comma=dataUrl.indexOf(',');
-    const b64=comma>=0?dataUrl.slice(comma+1):dataUrl;
-    const padding=(b64.endsWith('==')?2:(b64.endsWith('=')?1:0));
-    return Math.max(0, Math.floor(b64.length*3/4)-padding);
-  }
-  function formatBytes(bytes){
-    if(!Number.isFinite(bytes) || bytes<=0) return '0 B';
-    if(bytes<1024) return Math.round(bytes)+' B';
-    if(bytes<1024*1024) return (bytes/1024).toFixed(1)+' KB';
-    return (bytes/(1024*1024)).toFixed(1)+' MB';
-  }
-  function dataUrlInfo(dataUrl){
-    const text=String(dataUrl||'');
-    const match=text.match(/^data:([^;,]+)?(;base64)?,(.*)$/);
-    if(!match) return null;
-    return {
-      mimeType:match[1]||'application/octet-stream',
-      isBase64:!!match[2],
-      data:match[3]||'',
-      byteLength:approxDataUrlBytes(text)
-    };
-  }
-  function base64ByteLength(base64){
-    const text=String(base64||'').replace(/\s+/g,'');
-    if(!text) return 0;
-    const padding=(text.endsWith('==')?2:(text.endsWith('=')?1:0));
-    return Math.max(0, Math.floor(text.length*3/4)-padding);
-  }
-  function mimeExtension(mimeType, fallbackName='reference-image'){
-    const mime=String(mimeType||'').toLowerCase();
-    const extFromName=(String(fallbackName||'').match(/\.([a-z0-9]{2,8})$/i)||[])[1];
-    if(extFromName) return extFromName.toLowerCase();
-    if(mime.includes('png')) return 'png';
-    if(mime.includes('jpeg')||mime.includes('jpg')) return 'jpg';
-    if(mime.includes('webp')) return 'webp';
-    if(mime.includes('svg')) return 'svg';
-    if(mime.includes('gif')) return 'gif';
-    return 'bin';
-  }
   function simpleAssetHash(text){
     const value=String(text||'');
     let h1=0xdeadbeef^value.length;
@@ -7241,14 +7200,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       updateImagePortableStatus('Portable save warning: no embedded image data. Re-import the image before sharing this file.');
     }
     return payload;
-  }
-  function downloadBase64(base64,name,type){
-    if(!base64) return;
-    const dataUrl=dataUrlFromBase64(type||'application/octet-stream',base64);
-    const a=document.createElement('a');
-    a.href=dataUrl;
-    a.download=name||'asset.bin';
-    a.click();
   }
   function localImageBundleAsset(){
     const dataUrl=state.imageMeta?.dataUrl || cachedImageAsset(state.imageMeta?.asset);

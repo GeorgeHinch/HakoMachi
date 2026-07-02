@@ -51,6 +51,12 @@ async function waitForTrackGeometry(page, trackId, expected) {
   }, { key: AUTOSAVE_KEY, trackId, expected });
 }
 
+async function waitForTracksGeometry(page, expectedById) {
+  for (const [trackId, expected] of Object.entries(expectedById)) {
+    await waitForTrackGeometry(page, trackId, expected);
+  }
+}
+
 async function dragWorldPoint(page, from, to, steps = 6) {
   const box = await page.locator('#canvas').boundingBox();
   expect(box).not.toBeNull();
@@ -208,5 +214,60 @@ test.describe('Site Planner track regressions', () => {
       curve0: { x: 360, y: 180 },
     });
     await expect(page.locator('#selectedPanel')).toContainText('Track selected');
+  });
+
+  test('joined endpoint follows connected track move through undo and redo', async ({ page }) => {
+    const svgDataUrl = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600"><rect width="900" height="600" fill="#f7f4ec"/></svg>').toString('base64');
+    const project = {
+      app: 'HakoMachi Site Planner',
+      version: 80,
+      portableProject: true,
+      savedAt: new Date().toISOString(),
+      coordinateSystem: { type: 'imagePixels', origin: 'topLeft', imageWidthPx: 900, imageHeightPx: 600 },
+      image: { mimeType: 'image/svg+xml', dataUrl: svgDataUrl, naturalWidthPx: 900, naturalHeightPx: 600, widthPx: 900, heightPx: 600 },
+      view: { x: 0, y: 0, scale: 1 },
+      site3d: { imageVisible: true, imageOpacity: 0.45 },
+      imageOpacity: 0.75,
+      imageLocked: true,
+      scale: { calibrated: false, pxPerMm: null, calibrationLine: null, units: 'mm' },
+      buildings: [],
+      roads: [],
+      roadFeatures: [],
+      stlObjects: [],
+      benchworkOutlines: [],
+      fabricRegions: [],
+      streetlights: [],
+      annotations: [],
+      tracks: [
+        { id: 'track_join_a', name: 'Joined A', pointsPx: [{ x: 180, y: 220 }, { x: 300, y: 220 }], endpointConnections: { end: { trackId: 'track_join_b', kind: 'endpointStart', pointIndex: 0 } }, gaugeMm: 9, roadbedWidthMm: 19, tieSpacingMm: 4 },
+        { id: 'track_join_b', name: 'Joined B', pointsPx: [{ x: 300, y: 220 }, { x: 420, y: 260 }], endpointConnections: { start: { trackId: 'track_join_a', kind: 'endpointEnd', pointIndex: 1 } }, gaugeMm: 9, roadbedWidthMm: 19, tieSpacingMm: 4 },
+      ],
+    };
+
+    await page.addInitScript(({ key, metaKey, value }) => {
+      localStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(metaKey, JSON.stringify({ savedAt: value.savedAt, dirtySinceManualSave: true }));
+    }, { key: AUTOSAVE_KEY, metaKey: AUTOSAVE_META_KEY, value: project });
+
+    await loadPlanner(page);
+    await expect(page.locator('#emptyImageOverlay')).toBeHidden({ timeout: 10000 });
+
+    await dragWorldPoint(page, { x: 240, y: 220 }, { x: 270, y: 240 });
+    await waitForTracksGeometry(page, {
+      track_join_a: { point0: { x: 210, y: 240 }, point1: { x: 330, y: 240 } },
+      track_join_b: { point0: { x: 330, y: 240 }, point1: { x: 420, y: 260 } },
+    });
+
+    await page.keyboard.press('Control+Z');
+    await waitForTracksGeometry(page, {
+      track_join_a: { point0: { x: 180, y: 220 }, point1: { x: 300, y: 220 } },
+      track_join_b: { point0: { x: 300, y: 220 }, point1: { x: 420, y: 260 } },
+    });
+
+    await page.keyboard.press('Control+Y');
+    await waitForTracksGeometry(page, {
+      track_join_a: { point0: { x: 210, y: 240 }, point1: { x: 330, y: 240 } },
+      track_join_b: { point0: { x: 330, y: 240 }, point1: { x: 420, y: 260 } },
+    });
   });
 });

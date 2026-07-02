@@ -1,8 +1,8 @@
 import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-4';
-import { approxDataUrlBytes, arrayBufferToBase64, base64ByteLength, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, downloadText, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, textToBase64 } from './shared/browser-utils.js';
+import { approxDataUrlBytes, arrayBufferToBase64, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, downloadText, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, textToBase64 } from './shared/browser-utils.js';
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fabrication-colors.js';
 import { dataTransferHasFile, hakoFileFromDataTransfer, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
-import { githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, imageAssetFileName, imageAssetReference, simpleAssetHash } from './site-planner/github-asset-paths.js';
+import { githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, hakoFileAssetReference, imageAssetFileName, imageAssetReference, stlAssetReference, stlSourceAssetReference, uniqueHakoAssetFileName, uniqueStlAssetFileName, uniqueStlSourceAssetFileName } from './site-planner/github-asset-paths.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
@@ -3933,92 +3933,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(state.dirty) el.textContent='Autosave: pending';
     else if(state.lastAutosaveAt) el.textContent='Autosave: '+new Date(state.lastAutosaveAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     else el.textContent='Autosave: ready';
-  }
-  function uniqueHakoAssetFileName(b, usedNames){
-    const sourceName=b?.hakoFile?.fileName || b?.hakoFileId || b?.name || 'building.hako';
-    const base=slug(String(sourceName).replace(/\.(hako|hakoseed|hakoplan|json)$/i,'') || b?.name || 'building');
-    let fileName=`${base || 'building'}.hako`;
-    let suffix=2;
-    while(usedNames.has(fileName.toLowerCase())){
-      fileName=`${base || 'building'}-${suffix}.hako`;
-      suffix++;
-    }
-    usedNames.add(fileName.toLowerCase());
-    return fileName;
-  }
-  function hakoFileAssetReference(path, b, text){
-    const file=b?.hakoFile||{};
-    return {
-      schema:'hakomachi.site-building-hako-asset',
-      schemaVersion:1,
-      kind:'building-hako',
-      path,
-      sourceBuildingId:b?.id || null,
-      name:b?.name || file.fileName || 'Building',
-      fileName:file.fileName || `${slug(b?.name||'building')}.hako`,
-      mimeType:file.mimeType || 'application/json',
-      byteLength:new TextEncoder().encode(String(text||'')).byteLength,
-      hash:text ? simpleAssetHash(text) : (file.hash || null),
-      importedAt:file.importedAt || null,
-      source:file.source || null
-    };
-  }
-  function uniqueStlAssetFileName(obj, usedNames){
-    const sourceName=obj?.asset?.fileName || obj?.fileName || obj?.name || 'site-object.stl';
-    const base=slug(String(sourceName).replace(/\.stl$/i,'') || obj?.name || 'site-object');
-    let fileName=`${base || 'site-object'}.stl`;
-    let suffix=2;
-    while(usedNames.has(fileName.toLowerCase())){
-      fileName=`${base || 'site-object'}-${suffix}.stl`;
-      suffix++;
-    }
-    usedNames.add(fileName.toLowerCase());
-    return fileName;
-  }
-  function uniqueStlSourceAssetFileName(source, usedNames){
-    const rawName=String(source?.fileName || source?.name || 'source-file');
-    const match=rawName.match(/\.([a-z0-9]{1,12})$/i);
-    const ext=match ? `.${match[1].toLowerCase()}` : '.source';
-    const rawBase=match ? rawName.slice(0,-match[0].length) : rawName;
-    const base=slug(rawBase || 'source-file') || 'source-file';
-    let fileName=`${base}${ext}`;
-    let suffix=2;
-    while(usedNames.has(fileName.toLowerCase())){
-      fileName=`${base}-${suffix}${ext}`;
-      suffix++;
-    }
-    usedNames.add(fileName.toLowerCase());
-    return fileName;
-  }
-  function stlAssetReference(path, obj, dataBase64){
-    return {
-      schema:'hakomachi.site-stl-asset',
-      schemaVersion:1,
-      kind:'stl',
-      path,
-      sourceObjectId:obj?.id || null,
-      name:obj?.name || obj?.asset?.fileName || 'STL Object',
-      fileName:obj?.asset?.fileName || `${slug(obj?.name||'site-object')}.stl`,
-      mimeType:obj?.asset?.mimeType || 'model/stl',
-      byteLength:base64ByteLength(dataBase64),
-      hash:dataBase64 ? simpleAssetHash(dataBase64) : (obj?.asset?.hash || null),
-    };
-  }
-  function stlSourceAssetReference(path, obj, source, dataBase64){
-    return {
-      schema:'hakomachi.site-stl-source-asset',
-      schemaVersion:1,
-      kind:'stl-source',
-      path,
-      sourceObjectId:obj?.id || null,
-      sourceAssetId:source?.id || null,
-      name:source?.name || source?.fileName || 'Source file',
-      fileName:source?.fileName || source?.name || 'source-file',
-      mimeType:source?.mimeType || 'application/octet-stream',
-      byteLength:base64ByteLength(dataBase64),
-      hash:dataBase64 ? simpleAssetHash(dataBase64) : (source?.hash || null),
-      importedAt:source?.importedAt || null,
-    };
   }
   function imageAssetCacheKey(asset){
     if(!asset?.path) return null;

@@ -8,6 +8,7 @@ import { clamp, deg, dist, fmt, rad, uid } from './site-planner/geometry.js';
 import { createImportProgressController } from './site-planner/import-progress-modal.js';
 import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_HATCH_PRESETS, ROAD_MARKING_PRESETS, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS, TRACK_PROFILE_DEFAULTS } from './site-planner/presets.js';
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
+import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlBounds, parseStlVertices, stlFileFromDataTransfer } from './site-planner/stl-utils.js';
 import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geometry.js?v=shared-building-preview-26';
 
 (() => {
@@ -2456,112 +2457,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     reader.readAsText(file);
   }
 
-  function isLikelyStlFile(file){
-    const name=String(file?.name||'');
-    const type=String(file?.type||'').toLowerCase();
-    return /\.stl$/i.test(name) || type.includes('stl');
-  }
-  function stlFileFromDataTransfer(dataTransfer){
-    const files=Array.from(dataTransfer?.files||[]);
-    return files.find(isLikelyStlFile) || null;
-  }
-  function emptyStlBounds(format='unknown'){
-    return {format,vertexCount:0,minX:0,minY:0,minZ:0,maxX:20,maxY:20,maxZ:8,width:20,depth:20,height:8};
-  }
-  function boundsFromVertices(vertices,format){
-    if(!vertices.length) return emptyStlBounds(format);
-    const xs=vertices.map(v=>v.x), ys=vertices.map(v=>v.y), zs=vertices.map(v=>v.z);
-    const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys), minZ=Math.min(...zs), maxZ=Math.max(...zs);
-    return {
-      format,
-      vertexCount:vertices.length,
-      minX,minY,minZ,maxX,maxY,maxZ,
-      width:Math.max(.1,maxX-minX),
-      depth:Math.max(.1,maxY-minY),
-      height:Math.max(.1,maxZ-minZ)
-    };
-  }
-  function parseBinaryStlBounds(buffer){
-    if(!buffer || buffer.byteLength<84) return null;
-    const view=new DataView(buffer);
-    const triangles=view.getUint32(80,true);
-    const expected=84+triangles*50;
-    if(expected!==buffer.byteLength) return null;
-    const vertices=[];
-    for(let i=0;i<triangles;i++){
-      const base=84+i*50+12;
-      for(let v=0;v<3;v++){
-        const o=base+v*12;
-        vertices.push({x:view.getFloat32(o,true),y:view.getFloat32(o+4,true),z:view.getFloat32(o+8,true)});
-      }
-    }
-    return boundsFromVertices(vertices,'binary');
-  }
-  function parseAsciiStlBounds(buffer){
-    let text='';
-    try{text=new TextDecoder('utf-8',{fatal:false}).decode(buffer);}catch(_err){return null;}
-    if(!/\bvertex\s+[-+0-9.eE]/i.test(text)) return null;
-    const vertices=[];
-    const re=/\bvertex\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)/gi;
-    let match;
-    while((match=re.exec(text))){
-      const x=Number(match[1]), y=Number(match[2]), z=Number(match[3]);
-      if(Number.isFinite(x)&&Number.isFinite(y)&&Number.isFinite(z)) vertices.push({x,y,z});
-    }
-    return vertices.length ? boundsFromVertices(vertices,'ascii') : null;
-  }
-  function parseStlBounds(buffer){
-    return parseBinaryStlBounds(buffer) || parseAsciiStlBounds(buffer) || emptyStlBounds('unknown');
-  }
-  function parseBinaryStlVertices(buffer){
-    if(!buffer || buffer.byteLength<84) return null;
-    const view=new DataView(buffer);
-    const triangles=view.getUint32(80,true);
-    const expected=84+triangles*50;
-    if(expected!==buffer.byteLength) return null;
-    const vertices=[];
-    for(let i=0;i<triangles;i++){
-      const base=84+i*50+12;
-      for(let v=0;v<3;v++){
-        const o=base+v*12;
-        vertices.push({x:view.getFloat32(o,true),y:view.getFloat32(o+4,true),z:view.getFloat32(o+8,true)});
-      }
-    }
-    return vertices;
-  }
-  function parseAsciiStlVertices(buffer){
-    let text='';
-    try{text=new TextDecoder('utf-8',{fatal:false}).decode(buffer);}catch(_err){return null;}
-    if(!/\bvertex\s+[-+0-9.eE]/i.test(text)) return null;
-    const vertices=[];
-    const re=/\bvertex\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)/gi;
-    let match;
-    while((match=re.exec(text))){
-      const x=Number(match[1]), y=Number(match[2]), z=Number(match[3]);
-      if(Number.isFinite(x)&&Number.isFinite(y)&&Number.isFinite(z)) vertices.push({x,y,z});
-    }
-    return vertices.length ? vertices : null;
-  }
-  function parseStlVertices(buffer){
-    return parseBinaryStlVertices(buffer) || parseAsciiStlVertices(buffer) || [];
-  }
-  function estimateStlTriangleCount(buffer){
-    if(!buffer || buffer.byteLength<1) return 0;
-    if(buffer.byteLength>=84){
-      const view=new DataView(buffer);
-      const triangles=view.getUint32(80,true);
-      if(84+triangles*50===buffer.byteLength) return triangles;
-    }
-    let text='';
-    try{text=new TextDecoder('utf-8',{fatal:false}).decode(buffer);}catch(_err){return 0;}
-    const re=/\bvertex\s+[-+0-9.eE]+\s+[-+0-9.eE]+\s+[-+0-9.eE]+/gi;
-    let vertices=0;
-    while(re.exec(text)){
-      vertices++;
-      if(vertices>SITE3D_STL_MAX_TRIANGLES*3) return Math.ceil(vertices/3);
-    }
-    return Math.floor(vertices/3);
-  }
   async function importStlAsSiteObject(file){
     if(!file) return;
     if(!isLikelyStlFile(file)){ failImportProgress('Unsupported file type.','Drop or choose a .stl file to place it as a site object.'); return; }

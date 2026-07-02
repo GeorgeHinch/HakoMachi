@@ -30,6 +30,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   const SITE_PLANNER_BUILDING_UPDATE_KEY = 'hakomachiSitePlannerBuildingUpdate_v1';
   const SITE3D_BASE_THICKNESS_MM = 4;
   const SITE3D_DEFAULT_IMAGE_OPACITY = 0.45;
+  const SITE3D_STL_MAX_TRIANGLES = 50000;
   const SVG_OP = SVG_FABRICATION_OPERATIONS;
   const SVG_RETAINED_CUT = svgFabricationColor(SVG_OP.CUT_RETAINED);
   const SVG_SCRAP_CUT = svgFabricationColor(SVG_OP.CUT_SCRAP);
@@ -2613,6 +2614,23 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function parseStlVertices(buffer){
     return parseBinaryStlVertices(buffer) || parseAsciiStlVertices(buffer) || [];
   }
+  function estimateStlTriangleCount(buffer){
+    if(!buffer || buffer.byteLength<1) return 0;
+    if(buffer.byteLength>=84){
+      const view=new DataView(buffer);
+      const triangles=view.getUint32(80,true);
+      if(84+triangles*50===buffer.byteLength) return triangles;
+    }
+    let text='';
+    try{text=new TextDecoder('utf-8',{fatal:false}).decode(buffer);}catch(_err){return 0;}
+    const re=/\bvertex\s+[-+0-9.eE]+\s+[-+0-9.eE]+\s+[-+0-9.eE]+/gi;
+    let vertices=0;
+    while(re.exec(text)){
+      vertices++;
+      if(vertices>SITE3D_STL_MAX_TRIANGLES*3) return Math.ceil(vertices/3);
+    }
+    return Math.floor(vertices/3);
+  }
   async function importStlAsSiteObject(file){
     if(!file) return;
     if(!isLikelyStlFile(file)){ failImportProgress('Unsupported file type.','Drop or choose a .stl file to place it as a site object.'); return; }
@@ -3566,13 +3584,28 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function site3DStlGeometry(obj, targetW, targetH, targetD){
     const dataBase64=obj?.asset?.dataBase64;
-    if(!dataBase64 || typeof THREE==='undefined') return null;
+    if(obj?.asset) delete obj.asset.renderFallbackReason;
+    if(!dataBase64 || typeof THREE==='undefined'){
+      if(obj?.asset) obj.asset.renderFallbackReason=obj.asset?.unavailable?'asset-unavailable':'asset-missing';
+      return null;
+    }
     try{
       const buffer=base64ToArrayBuffer(dataBase64);
+      const triangleCount=estimateStlTriangleCount(buffer);
+      if(triangleCount>SITE3D_STL_MAX_TRIANGLES){
+        if(obj?.asset) obj.asset.renderFallbackReason='mesh-too-large';
+        return null;
+      }
       const vertices=parseStlVertices(buffer);
-      if(vertices.length<3) return null;
+      if(vertices.length<3){
+        if(obj?.asset) obj.asset.renderFallbackReason='parse-failed';
+        return null;
+      }
       const vertexCount=vertices.length - (vertices.length%3);
-      if(vertexCount<3) return null;
+      if(vertexCount<3){
+        if(obj?.asset) obj.asset.renderFallbackReason='parse-failed';
+        return null;
+      }
       const bounds=obj.bounds&&obj.bounds.vertexCount?obj.bounds:boundsFromVertices(vertices,'stl');
       const rawW=Math.max(.0001,Number(bounds.width)||1);
       const rawD=Math.max(.0001,Number(bounds.depth)||1);
@@ -5232,7 +5265,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const fp=$('fabricPresetSel'); if(fp) fp.onchange=()=>{fabric.fabricType=fp.value; state.fabricPreset=fp.value; syncAll();};
       $('generateFabricRegion').onclick=()=>generateFabricForRegion(fabric,{confirmReplace:true});
       $('deleteFabricRegion').onclick=deleteSelectedFabricRegion;
-    } else if(stl){normalizeStlObject(stl); const stlAssetStatus=stl.asset?.unavailable?' · asset unavailable':(!stl.asset?.dataBase64&&stl.asset?.path?' · referenced asset':''); const sourceList=(stl.sourceAssets||[]).map((source,idx)=>`
+    } else if(stl){normalizeStlObject(stl); const stlFallbackLabels={'asset-unavailable':'asset unavailable','asset-missing':'proxy fallback','mesh-too-large':'proxy fallback: large STL','parse-failed':'proxy fallback: unreadable STL'}; const stlAssetStatus=stl.asset?.renderFallbackReason?` · ${stlFallbackLabels[stl.asset.renderFallbackReason]||'proxy fallback'}`:(stl.asset?.unavailable?' · asset unavailable':(!stl.asset?.dataBase64&&stl.asset?.path?' · referenced asset':'')); const sourceList=(stl.sourceAssets||[]).map((source,idx)=>`
       <div class="listItem compact">
         <div><b>${escapeHtml(source.name||source.fileName||'Source file')}</b><br><span class="small muted">${escapeHtml(source.fileName||'source file')}${source.unavailable?' · unavailable':(!source.dataBase64&&source.path?' · referenced asset':'')}</span></div>
         <div class="buttons"><button data-stl-source-download="${idx}" ${source.dataBase64?'':'disabled'}>Download</button><button data-stl-source-delete="${idx}" class="danger">Remove</button></div>

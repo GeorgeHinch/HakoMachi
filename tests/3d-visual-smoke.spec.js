@@ -66,10 +66,12 @@ function pngStats(buffer) {
     }
   }
 
-  const points = [
-    [0.18, 0.18], [0.35, 0.22], [0.52, 0.28], [0.72, 0.34],
-    [0.24, 0.55], [0.48, 0.58], [0.68, 0.62], [0.84, 0.76],
-  ];
+  const points = [];
+  for (let y = 0; y < 24; y++) {
+    for (let x = 0; x < 36; x++) {
+      points.push([(x + 0.5) / 36, (y + 0.5) / 24]);
+    }
+  }
   const colors = new Set();
   let nonEmpty = false;
   for (const [rx, ry] of points) {
@@ -150,4 +152,24 @@ test.describe('3D visual smoke coverage', () => {
     expect(stats.nonEmpty).toBe(true);
     expect(stats.uniqueColors).toBeGreaterThan(2);
   });
+
+  for (const utility of [
+    { path: '/utils/safety-railing-generator.html', host: '#railing3dPreview', status: /3D railing preview ready/i },
+    { path: '/utils/industrial-shelf-generator.html', host: '#shelf3dPreview', status: /3D object preview ready/i },
+    { path: '/utils/wooden-crate-generator.html', host: '#crate3dPreview', status: /3D crate preview ready/i },
+  ]) {
+    test(`${utility.path} utility 3D preview renders a nonblank object`, async ({ page }) => {
+      await page.goto(utility.path, { waitUntil: 'networkidle' });
+      await expect(page.locator(`${utility.host} .utility3dStatus`)).toContainText(utility.status, { timeout: 20000 });
+      const canvas = page.locator(`${utility.host} canvas`).first();
+      await expect(canvas).toBeVisible({ timeout: 15000 });
+      await page.waitForTimeout(300);
+
+      const stats = await sampledCanvasStats(canvas);
+      expect(stats.width).toBeGreaterThan(200);
+      expect(stats.height).toBeGreaterThan(120);
+      expect(stats.nonEmpty).toBe(true);
+      expect(stats.uniqueColors).toBeGreaterThan(2);
+    });
+  }
 });

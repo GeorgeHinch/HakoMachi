@@ -8,6 +8,7 @@ Use this note when checking depth, opacity, and z-fighting regressions across Ha
 - `tests/3d-visual-smoke.spec.js` opens live pages and samples rendered WebGL pixels to catch blank, fully transparent, or single-color 3D canvas failures.
 - The Site Planner smoke fixture includes benchwork, multiple solid buildings, a road, and curved track roadbed.
 - The Building Generator smoke fixture checks that the default solid building preview renders with multiple visible colors.
+- Utility smoke fixtures check the safety railing, industrial shelf, and wooden crate 3D previews.
 
 ## Manual Visual Checklist
 
@@ -15,7 +16,7 @@ Use this note when checking depth, opacity, and z-fighting regressions across Ha
 2. Site Planner: include roads, road markings, and track/cork roadbed; confirm overlays sit on top without flickering or bleeding through buildings.
 3. Site Planner: toggle the 3D image overlay off/on and move opacity through low, medium, and high values.
 4. Building Generator: check simple rectangular, multi-story, winged, and gabled-roof buildings in the 3D preview.
-5. Utility pages: open safety railing, industrial shelf, and wooden crate utilities and confirm their 3D previews are nonblank, opaque where solid, and not flickering.
+5. Utility pages: for deeper visual QA beyond the automated nonblank checks, rotate safety railing, industrial shelf, and wooden crate previews and confirm their solids remain opaque without flicker.
 
 ## Expected Result
 

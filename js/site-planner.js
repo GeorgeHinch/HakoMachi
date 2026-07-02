@@ -11,6 +11,7 @@ import { isLikelyIPad } from './site-planner/platform.js';
 import { bboxOverlaps, clamp, closestPointOnSegment, deg, dist, distanceToSegment, fmt, pointInPoly, polygonArea, polygonCenter, rad, rectLocal, selectionRectFromPoints, transformedRect, uid } from './site-planner/geometry.js';
 import { createImportProgressController } from './site-planner/import-progress-modal.js';
 import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS, TRACK_PROFILE_DEFAULTS } from './site-planner/presets.js';
+import { loadAlignmentMessage, restoreProjectView, savedImageDimensions, scaleLoadedPixelGeometry } from './site-planner/project-load-utils.js';
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
 import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlBounds, parseStlVertices, stlFileFromDataTransfer } from './site-planner/stl-utils.js';
@@ -6943,87 +6944,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     loadProject(payload, {fromFile:true});
     return payload;
   }
-  function scalePointLike(pt, sx, sy){
-    if(!pt || typeof pt!=='object') return pt;
-    if(Number.isFinite(Number(pt.x))) pt.x=Number(pt.x)*sx;
-    if(Number.isFinite(Number(pt.y))) pt.y=Number(pt.y)*sy;
-    if(Number.isFinite(Number(pt.x1))) pt.x1=Number(pt.x1)*sx;
-    if(Number.isFinite(Number(pt.y1))) pt.y1=Number(pt.y1)*sy;
-    if(Number.isFinite(Number(pt.x2))) pt.x2=Number(pt.x2)*sx;
-    if(Number.isFinite(Number(pt.y2))) pt.y2=Number(pt.y2)*sy;
-    return pt;
-  }
-  function scalePointArray(arr, sx, sy){
-    if(!Array.isArray(arr)) return arr;
-    arr.forEach(p=>scalePointLike(p,sx,sy));
-    return arr;
-  }
-  function scaleLoadedPixelGeometry(sx, sy){
-    if(!Number.isFinite(sx)||!Number.isFinite(sy)||sx<=0||sy<=0) return;
-    if(Math.abs(sx-1)<1e-9 && Math.abs(sy-1)<1e-9) return;
-    const avg=(sx+sy)/2;
-    state.buildings.forEach(b=>{
-      if(b.padType==='rect'){
-        if(Number.isFinite(Number(b.x))) b.x=Number(b.x)*sx;
-        if(Number.isFinite(Number(b.y))) b.y=Number(b.y)*sy;
-        if(Number.isFinite(Number(b.widthPx))) b.widthPx=Number(b.widthPx)*sx;
-        if(Number.isFinite(Number(b.depthPx))) b.depthPx=Number(b.depthPx)*sy;
-      }
-      scalePointArray(b.pointsPx, sx, sy);
-    });
-    state.roads.forEach(r=>{
-      scalePointArray(r.pointsPx, sx, sy);
-      scalePointArray(r.roadPolygonPx, sx, sy);
-      (r.sidewalkPolygonsPx||[]).forEach(sw=>scalePointArray(sw.polygon, sx, sy));
-      if(Number.isFinite(Number(r.widthPx))) r.widthPx=Number(r.widthPx)*avg;
-      if(Number.isFinite(Number(r.sidewalkWidthPx))) r.sidewalkWidthPx=Number(r.sidewalkWidthPx)*avg;
-    });
-    state.benchworkOutlines.forEach(bw=>{scalePointArray(bw.pointsPx, sx, sy); scalePointArray(bw.curvesPx, sx, sy);});
-    (state.stlObjects||[]).forEach(obj=>{
-      if(Number.isFinite(Number(obj.x))) obj.x=Number(obj.x)*sx;
-      if(Number.isFinite(Number(obj.y))) obj.y=Number(obj.y)*sy;
-      if(Number.isFinite(Number(obj.widthPx))) obj.widthPx=Number(obj.widthPx)*sx;
-      if(Number.isFinite(Number(obj.depthPx))) obj.depthPx=Number(obj.depthPx)*sy;
-    });
-    state.streetlights.forEach(l=>scalePointLike(l,sx,sy));
-    state.annotations.forEach(st=>scalePointArray(st.points, sx, sy));
-    if(state.calibrationLine) scalePointLike(state.calibrationLine, sx, sy);
-    if(state.measureLine) scalePointLike(state.measureLine, sx, sy);
-    if(state.pxPerMm) state.pxPerMm *= avg;
-  }
-  function savedImageDimensions(p){
-    const img=p?.image||{};
-    const cs=p?.coordinateSystem||{};
-    const w=Number(img.naturalWidthPx ?? img.widthPx ?? img.width ?? cs.imageWidthPx);
-    const h=Number(img.naturalHeightPx ?? img.heightPx ?? img.height ?? cs.imageHeightPx);
-    return {w:Number.isFinite(w)?w:null,h:Number.isFinite(h)?h:null};
-  }
-  function restoreProjectView(p){
-    const current=canvas.getBoundingClientRect();
-    if(!p?.view) return null;
-    const view={x:Number(p.view.x)||0,y:Number(p.view.y)||0,scale:Number(p.view.scale)||1};
-    const cv=p.canvasViewport||p.viewport||p.savedCanvasViewport;
-    const sw=Number(cv?.widthPx ?? cv?.width);
-    const sh=Number(cv?.heightPx ?? cv?.height);
-    if(Number.isFinite(sw)&&Number.isFinite(sh)&&sw>0&&sh>0&&current.width>0&&current.height>0){
-      const savedCenterWorld={x:(sw/2-view.x)/view.scale,y:(sh/2-view.y)/view.scale};
-      return {x:current.width/2-savedCenterWorld.x*view.scale,y:current.height/2-savedCenterWorld.y*view.scale,scale:view.scale};
-    }
-    return view;
-  }
-  function loadAlignmentMessage(savedW,savedH,loadedW,loadedH,changed){
-    const n=state.buildings.length;
-    const thing=n===1?'footprint':'footprints';
-    if(changed) return `Loaded image ${loadedW} × ${loadedH}px; remapped ${n} building ${thing} from saved ${savedW} × ${savedH}px image coordinates.`;
-    return `Loaded image ${loadedW} × ${loadedH}px and restored ${n} building ${thing} in image-pixel coordinates.`;
-  }
   function loadProject(p, opts={}){
     autosaveSuppressed=true;
     state.image=null;
     state.imageMeta=p.image||null;
     state.imageOpacity=Number.isFinite(p.imageOpacity)?p.imageOpacity:(state.imageMeta?.opacity ?? state.imageOpacity ?? .75);
     state.imageLocked=p.imageLocked ?? state.imageLocked ?? true;
-    state.view=restoreProjectView(p) || state.view;
+    state.view=restoreProjectView(p, canvas.getBoundingClientRect()) || state.view;
     state.viewMode='2d';
     applySite3DSettings(p.site3d||{});
     syncSite3DControls();
@@ -7066,12 +6993,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         const savedH=savedDims.h || state.imageMeta.naturalHeightPx;
         let geometryRemapped=false;
         if(savedW && savedH && (loadedW!==savedW || loadedH!==savedH)){
-          scaleLoadedPixelGeometry(loadedW/savedW, loadedH/savedH);
+          scaleLoadedPixelGeometry(state, loadedW/savedW, loadedH/savedH);
           geometryRemapped=true;
-          setImageStatus(loadAlignmentMessage(savedW,savedH,loadedW,loadedH,true), 'warning');
+          setImageStatus(loadAlignmentMessage(state.buildings.length,savedW,savedH,loadedW,loadedH,true), 'warning');
           updateImagePortableStatus('Portable image warning: loaded pixel dimensions differed from saved metadata, so planner geometry was remapped to the restored image.');
         } else {
-          setImageStatus(loadAlignmentMessage(savedW||loadedW,savedH||loadedH,loadedW,loadedH,false), 'okText');
+          setImageStatus(loadAlignmentMessage(state.buildings.length,savedW||loadedW,savedH||loadedH,loadedW,loadedH,false), 'okText');
           state.imageMeta.naturalWidthPx=loadedW;
           state.imageMeta.naturalHeightPx=loadedH;
           state.imageMeta.pixelDimensionsVerifiedOnLoad=true;

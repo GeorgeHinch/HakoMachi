@@ -22,6 +22,18 @@ test.describe('3D material depth regression contracts', () => {
     expect(material).toContain('depthWrite:true');
   });
 
+  test('Site Planner 3D track uses raised solids for roadbed, sleepers, and rails', () => {
+    const source = readRepoFile('js/site-planner.js');
+
+    expect(source).toContain('function site3DAddRaisedPolygon');
+    expect(source).toContain('new THREE.InstancedMesh');
+    expect(source).toContain('sleeper solids');
+    expect(source).toContain('rail A solids');
+    expect(source).toContain('rail B solids');
+    expect(source).not.toContain('const railMat=new THREE.LineBasicMaterial');
+    expect(source).not.toContain('const tieMat=new THREE.LineBasicMaterial');
+  });
+
   test('3D preview cameras derive near and far planes from scene bounds', () => {
     const sitePlanner = readRepoFile('js/site-planner.js');
     const buildingPreview = readRepoFile('js/building-generator/preview/three-preview.js');

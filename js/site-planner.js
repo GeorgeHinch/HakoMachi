@@ -3246,6 +3246,62 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     edge.name=`${name} outline`;
     group.add(edge);
   }
+  function site3DAddRaisedPolygon(group, pts, mat, outlineMat, name, topY=.2, height=.15){
+    if(!pts || pts.length<3) return null;
+    const ordered=signedArea2D(pts)<0 ? pts.slice().reverse() : pts.slice();
+    const shape=new THREE.Shape();
+    ordered.forEach((p,i)=>{
+      const x=site3DScale(p.x)-site3d.bounds.cx;
+      const z=site3DScale(p.y)-site3d.bounds.cy;
+      if(i===0) shape.moveTo(x,z);
+      else shape.lineTo(x,z);
+    });
+    shape.closePath();
+    const geo=new THREE.ExtrudeGeometry(shape,{depth:Math.max(.02,height),bevelEnabled:false});
+    geo.rotateX(Math.PI/2);
+    const mesh=new THREE.Mesh(geo,mat);
+    mesh.name=name;
+    mesh.position.y=topY;
+    group.add(mesh);
+    if(outlineMat) site3DAddEdges(mesh,outlineMat.color?.getHex?.() ?? 0x8f7b55,outlineMat.opacity ?? .45);
+    return mesh;
+  }
+  function site3DTrackProfileMm(t,profile){
+    return {
+      gauge:Math.max(.1,site3DScale(profile.gauge)),
+      railWidth:Math.max(.08,site3DScale(profile.railWidth)),
+      railHeight:Math.max(.08,positiveNumber(t.railHeightMm,TRACK_PROFILE_DEFAULTS.railHeightMm) || TRACK_PROFILE_DEFAULTS.railHeightMm),
+      tieLength:Math.max(.5,site3DScale(profile.tieLength)),
+      tieWidth:Math.max(.12,site3DScale(profile.tieWidth)),
+      roadbedHeight:Math.max(.12,positiveNumber(t.roadbedHeightMm,TRACK_PROFILE_DEFAULTS.roadbedHeightMm) || TRACK_PROFILE_DEFAULTS.roadbedHeightMm)
+    };
+  }
+  function site3DAddBoxSegments(group,segments,mat,name,width,height,baseY,bounds){
+    const valid=(segments||[]).filter(seg=>seg?.a&&seg?.b&&dist(seg.a,seg.b)>0);
+    if(!valid.length) return null;
+    const geo=new THREE.BoxGeometry(1,1,1);
+    const mesh=new THREE.InstancedMesh(geo,mat,valid.length);
+    const matrix=new THREE.Matrix4();
+    const quat=new THREE.Quaternion();
+    const pos=new THREE.Vector3();
+    const scale=new THREE.Vector3();
+    const up=new THREE.Vector3(0,1,0);
+    valid.forEach((seg,idx)=>{
+      const dx=site3DScale(seg.b.x-seg.a.x);
+      const dz=site3DScale(seg.b.y-seg.a.y);
+      const length=Math.max(.05,Math.hypot(dx,dz));
+      const angle=Math.atan2(dz,dx);
+      pos.set(site3DScale((seg.a.x+seg.b.x)/2)-bounds.cx,baseY+height/2,site3DScale((seg.a.y+seg.b.y)/2)-bounds.cy);
+      quat.setFromAxisAngle(up,-angle);
+      scale.set(length,height,width);
+      matrix.compose(pos,quat,scale);
+      mesh.setMatrixAt(idx,matrix);
+    });
+    mesh.instanceMatrix.needsUpdate=true;
+    mesh.name=name;
+    group.add(mesh);
+    return mesh;
+  }
   function buildSite3DRoadGroup(bounds){
     const group=new THREE.Group();
     group.name='Site Planner roads';
@@ -3266,34 +3322,30 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function buildSite3DTrackGroup(bounds){
     const group=new THREE.Group();
     group.name='Site Planner tracks';
-    const roadbedMat=new THREE.MeshStandardMaterial({color:0xc7b084,roughness:.96,metalness:0,transparent:false,opacity:1,depthTest:true,depthWrite:true,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
+    const roadbedMat=new THREE.MeshStandardMaterial({color:0xc7b084,roughness:.96,metalness:0,transparent:false,opacity:1,depthTest:true,depthWrite:true,side:THREE.DoubleSide});
     const roadbedLineMat=new THREE.LineBasicMaterial({color:0x8f7b55,transparent:true,opacity:.62});
-    const railMat=new THREE.LineBasicMaterial({color:0x34312b,transparent:true,opacity:.9});
-    const tieMat=new THREE.LineBasicMaterial({color:0x8a6f43,transparent:true,opacity:.75});
-    const addLinePath=(pts,mat,name,y=.13)=>{
-      if(!pts || pts.length<2) return;
-      const verts=[];
-      for(let i=0;i<pts.length-1;i++){
-        const a=pts[i], b=pts[i+1];
-        verts.push(site3DScale(a.x)-bounds.cx,y,site3DScale(a.y)-bounds.cy,site3DScale(b.x)-bounds.cx,y,site3DScale(b.y)-bounds.cy);
-      }
-      const geo=new THREE.BufferGeometry();
-      geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
-      const line=new THREE.LineSegments(geo,mat);
-      line.name=name;
-      group.add(line);
-    };
+    const railMat=new THREE.MeshStandardMaterial({color:0x34312b,roughness:.42,metalness:.18,transparent:false,opacity:1,depthTest:true,depthWrite:true});
+    const tieMat=new THREE.MeshStandardMaterial({color:0x8a6f43,roughness:.82,metalness:0,transparent:false,opacity:1,depthTest:true,depthWrite:true});
     (state.tracks||[]).forEach(raw=>{
       const t=normalizeTrack(raw);
       if(t.hidden || (t.pointsPx||[]).length<2) return;
       const path=trackPathSamples(t,18);
       const profile=trackProfilePx(t);
+      const profileMm=site3DTrackProfileMm(t,profile);
       const railOffset=profile.gauge/2;
       const roadbedPoly=offsetPathPolygon(path,profile.roadbedWidth/2);
-      site3DAddFlatPolygon(group,roadbedPoly,roadbedMat,roadbedLineMat,`${t.name||'Track'} cork roadbed`,.115);
-      addLinePath(offsetTrackPath(path,railOffset),railMat,`${t.name||'Track'} rail A`);
-      addLinePath(offsetTrackPath(path,-railOffset),railMat,`${t.name||'Track'} rail B`);
-      trackTieSegments(t).forEach((seg,idx)=>addLinePath([seg.a,seg.b],tieMat,`${t.name||'Track'} tie ${idx+1}`,.125));
+      const roadbedTop=profileMm.roadbedHeight;
+      const sleeperBase=roadbedTop+.03;
+      const sleeperHeight=Math.max(.08,Math.min(.32,profileMm.roadbedHeight*.16));
+      const railBase=sleeperBase+sleeperHeight;
+      site3DAddRaisedPolygon(group,roadbedPoly,roadbedMat,roadbedLineMat,`${t.name||'Track'} raised cork roadbed`,roadbedTop,profileMm.roadbedHeight);
+      site3DAddBoxSegments(group,trackTieSegments(t),tieMat,`${t.name||'Track'} sleeper solids`,profileMm.tieWidth,sleeperHeight,sleeperBase,bounds);
+      const railPathA=offsetTrackPath(path,railOffset);
+      const railPathB=offsetTrackPath(path,-railOffset);
+      const railSegmentsA=railPathA.slice(1).map((p,i)=>({a:railPathA[i],b:p}));
+      const railSegmentsB=railPathB.slice(1).map((p,i)=>({a:railPathB[i],b:p}));
+      site3DAddBoxSegments(group,railSegmentsA,railMat,`${t.name||'Track'} rail A solids`,profileMm.railWidth,profileMm.railHeight,railBase,bounds);
+      site3DAddBoxSegments(group,railSegmentsB,railMat,`${t.name||'Track'} rail B solids`,profileMm.railWidth,profileMm.railHeight,railBase,bounds);
     });
     return group.children.length ? group : null;
   }

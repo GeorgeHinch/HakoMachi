@@ -3,6 +3,7 @@ import { approxDataUrlBytes, arrayBufferToBase64, base64ToArrayBuffer, base64ToT
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fabrication-colors.js';
 import { dataTransferHasFile, hakoFileFromDataTransfer, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
 import { cacheImageAsset, cachedImageAsset, githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, hakoFileAssetReference, imageAssetFileName, imageAssetReference, imageMetaForProject, stlAssetReference, stlSourceAssetReference, uniqueHakoAssetFileName, uniqueStlAssetFileName, uniqueStlSourceAssetFileName } from './site-planner/github-asset-paths.js';
+import { githubProjectName, githubSiteRecord, isGithubContentsMetadata, normalizeGithubLibrary, normalizeLoadedSitePlanPayload, upsertGithubSitePlan } from './site-planner/github-site-library.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
@@ -6281,80 +6282,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   async function loadGithubLibrary(settings){
     return githubData.loadLibrary(settings);
-  }
-  function normalizeGithubLibrary(library){
-    return githubData.normalizeLibrary(library);
-  }
-  function upsertGithubSitePlan(library, record){
-    return githubData.upsertRecord(library, 'sitePlans', record);
-  }
-  function githubProjectName(project){
-    return project.hakomachiCloud?.name || project.projectName || (Array.isArray(project.buildings)&&project.buildings.length ? `HakoMachi site (${project.buildings.length} buildings)` : 'HakoMachi site');
-  }
-  function githubSiteRecord(id, name, path, project){
-    const now=new Date().toISOString();
-    const imageAsset=project.image?.asset||null;
-    const assets=Array.isArray(project.assetManifest?.assets) ? project.assetManifest.assets : (imageAsset?[imageAsset]:[]);
-    return {
-      kind:'sitePlan',
-      recordType:'hakomachi-site-plan',
-      schemaVersion:1,
-      id,
-      name,
-      path,
-      paths:{project:path, assets:assets.map(asset=>asset.path).filter(Boolean)},
-      app:'hakomachi-site-planner',
-      source:{format:'hako-site-json', version:project.version||null},
-      summary:{
-        buildings:project.buildings?.length||0,
-        roads:project.roads?.length||0,
-        tracks:project.tracks?.length||0,
-        benchworkOutlines:project.benchworkOutlines?.length||0,
-        streetlights:project.streetlights?.length||0,
-        imageEmbedded:!!project.image?.dataUrl,
-        imageAssetPath:imageAsset?.path||null,
-        buildingHakoAssetCount:assets.filter(asset=>asset?.kind==='building-hako').length,
-        stlObjects:project.stlObjects?.length||0,
-        stlAssetCount:assets.filter(asset=>asset?.kind==='stl').length,
-        stlSourceAssetCount:assets.filter(asset=>asset?.kind==='stl-source').length,
-        calibrated:!!project.scale?.calibrated
-      },
-      updatedAt:now,
-      createdAt:now
-    };
-  }
-  function looksLikeSitePlanPayload(value){
-    if(!value || typeof value!=='object') return false;
-    return value.app==='HakoMachi Site Planner'
-      || value.portableProject===true
-      || Array.isArray(value.buildings)
-      || Array.isArray(value.buildingPads)
-      || Array.isArray(value.pads)
-      || Array.isArray(value.lots)
-      || Array.isArray(value.roads)
-      || Array.isArray(value.benchworkOutlines)
-      || value.coordinateSystem?.type==='imagePixels'
-      || value.hakomachiCloud?.kind==='sitePlan'
-      || Array.isArray(value.site?.buildings)
-      || Array.isArray(value.site?.buildingPads);
-  }
-  function isGithubContentsMetadata(value){
-    return !!(value && typeof value==='object' && value.type==='file' && value.path && value.url && value.git_url && value.encoding);
-  }
-  function normalizeLoadedSitePlanPayload(value){
-    const candidates=[
-      ['top-level', value],
-      ['project', value?.project],
-      ['sitePlan', value?.sitePlan],
-      ['payload', value?.payload],
-      ['data', value?.data],
-      ['document', value?.document],
-      ['site', value?.site]
-    ];
-    for(const [source,payload] of candidates){
-      if(looksLikeSitePlanPayload(payload)) return {payload, source};
-    }
-    return {payload:value, source:'top-level'};
   }
   function openGithubModal(title, body, actions=[]){
     let modal=document.getElementById('githubDataPlannerModal');

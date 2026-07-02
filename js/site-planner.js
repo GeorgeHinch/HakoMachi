@@ -3349,7 +3349,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function buildSite3DTrackGroup(bounds){
     const group=new THREE.Group();
     group.name='Site Planner tracks';
-    const roadbedMat=new THREE.MeshStandardMaterial({color:0xc7b084,roughness:.96,metalness:0,transparent:true,opacity:.58,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
+    const roadbedMat=new THREE.MeshStandardMaterial({color:0xc7b084,roughness:.96,metalness:0,transparent:false,opacity:1,depthTest:true,depthWrite:true,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
     const roadbedLineMat=new THREE.LineBasicMaterial({color:0x8f7b55,transparent:true,opacity:.62});
     const railMat=new THREE.LineBasicMaterial({color:0x34312b,transparent:true,opacity:.9});
     const tieMat=new THREE.LineBasicMaterial({color:0x8a6f43,transparent:true,opacity:.75});

@@ -971,6 +971,54 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(snap.connection) t.endpointConnections[key]=snap.connection;
     else delete t.endpointConnections[key];
   }
+  function trackEndpointKey(t,index){
+    if(!t || !Number.isInteger(index)) return null;
+    return index===0 ? 'start' : (index===(t.pointsPx?.length||0)-1 ? 'end' : null);
+  }
+  function trackConnectionEndpointIndex(t, connection){
+    if(!t || !connection) return null;
+    if(connection.kind==='endpointStart') return 0;
+    if(connection.kind==='endpointEnd') return Math.max(0,(t.pointsPx?.length||1)-1);
+    if(Number.isInteger(connection.pointIndex)){
+      const idx=connection.pointIndex;
+      if(idx===0 || idx===(t.pointsPx?.length||0)-1) return idx;
+    }
+    return null;
+  }
+  function moveTrackPointWithAdjacentCurves(t,index,target){
+    if(!t || !Array.isArray(t.pointsPx) || !t.pointsPx[index] || !target) return null;
+    normalizeTrackCurves(t);
+    const old=t.pointsPx[index];
+    const dx=target.x-old.x, dy=target.y-old.y;
+    t.pointsPx=t.pointsPx.map((q,idx)=>idx===index?{x:target.x,y:target.y}:{x:q.x,y:q.y});
+    t.curvesPx=(t.curvesPx||[]).map((c,idx)=>{
+      if(!c) return null;
+      const adjacent=idx===index || idx===index-1;
+      return adjacent ? {x:c.x+dx,y:c.y+dy} : {x:c.x,y:c.y};
+    });
+    syncTrackMetrics(t);
+    return {dx,dy};
+  }
+  function syncConnectedTrackEndpoint(sourceTrack, sourceIndex, target){
+    const key=trackEndpointKey(sourceTrack,sourceIndex);
+    const connection=key ? sourceTrack?.endpointConnections?.[key] : null;
+    if(!connection || !target) return;
+    const other=(state.tracks||[]).find(item=>item.id===connection.trackId);
+    if(!other || other.id===sourceTrack.id || other.locked) return;
+    const otherIndex=trackConnectionEndpointIndex(other,connection);
+    if(!Number.isInteger(otherIndex) || !other.pointsPx?.[otherIndex]) return;
+    moveTrackPointWithAdjacentCurves(other,otherIndex,target);
+    other.endpointConnections=other.endpointConnections||{};
+    const otherKey=trackEndpointKey(other,otherIndex);
+    if(otherKey){
+      other.endpointConnections[otherKey]={
+        trackId: sourceTrack.id,
+        kind: sourceIndex===0 ? 'endpointStart' : 'endpointEnd',
+        pointIndex: sourceIndex,
+      };
+    }
+    syncTrackMetrics(other);
+  }
   function hitTrack(p,pointerType='mouse'){
     const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
     const tol=(coarse?18:10)/state.view.scale;
@@ -6206,7 +6254,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     else if(d.type==='moveBenchwork'){const bw=state.benchworkOutlines.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(bw&&!bw.locked){bw.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); bw.curvesPx=(d.orig.curvesPx||[]).map(c=>c?{x:c.x+dx,y:c.y+dy}:null); normalizeBenchworkOutline(bw);}}
     else if(d.type==='benchworkCurve'){const bw=state.benchworkOutlines.find(x=>x.id===d.orig.id); if(bw&&!bw.locked){normalizeBenchworkOutline(bw); const i=d.segmentIndex; const a=bw.pointsPx[i], b=bw.pointsPx[(i+1)%bw.pointsPx.length]; if(a&&b){bw.curvesPx[i]={x:2*p.x-(a.x+b.x)/2,y:2*p.y-(a.y+b.y)/2}; normalizeBenchworkOutline(bw);}}}
     else if(d.type==='moveRoad'){const r=state.roads.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(r&&!r.locked){r.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); r.curvesPx=(d.orig.curvesPx||[]).map(c=>c?{x:c.x+dx,y:c.y+dy}:null); syncRoadMetrics(r);}}
-    else if(d.type==='moveTrack'){const t=(state.tracks||[]).find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(t&&!t.locked){t.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); t.curvesPx=(d.orig.curvesPx||[]).map(c=>c?{x:c.x+dx,y:c.y+dy}:null); syncTrackMetrics(t);}}
+    else if(d.type==='moveTrack'){const t=(state.tracks||[]).find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(t&&!t.locked){t.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); t.curvesPx=(d.orig.curvesPx||[]).map(c=>c?{x:c.x+dx,y:c.y+dy}:null); syncTrackMetrics(t); syncConnectedTrackEndpoint(t,0,t.pointsPx[0]); syncConnectedTrackEndpoint(t,t.pointsPx.length-1,t.pointsPx[t.pointsPx.length-1]);}}
     else if(d.type==='trackPoint'){
       const t=(state.tracks||[]).find(x=>x.id===d.orig.id);
       if(t&&!t.locked){
@@ -6215,15 +6263,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         const isEndpoint=i===0 || i===(d.orig.pointsPx.length-1);
         const snap=isEndpoint ? snapTrackPointForConnection(target,t.id,e.pointerType) : {x:target.x,y:target.y,connection:null};
         if(isEndpoint && snap.connection) target={x:snap.x,y:snap.y};
-        t.pointsPx=d.orig.pointsPx.map((q,idx)=>idx===i?target:{x:q.x,y:q.y});
-        const adjDx=target.x-d.orig.pointsPx[i].x, adjDy=target.y-d.orig.pointsPx[i].y;
-        t.curvesPx=(d.orig.curvesPx||[]).map((c,idx)=>{
-          if(!c) return null;
-          const adjacent=idx===i || idx===i-1;
-          return adjacent ? {x:c.x+adjDx,y:c.y+adjDy} : {x:c.x,y:c.y};
-        });
+        moveTrackPointWithAdjacentCurves(t,i,target);
         if(isEndpoint) setTrackEndpointConnection(t,i,snap);
-        syncTrackMetrics(t);
+        if(isEndpoint) syncConnectedTrackEndpoint(t,i,target);
       }
     }
     else if(d.type==='roadPoint'){

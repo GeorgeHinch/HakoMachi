@@ -11,8 +11,9 @@ import { githubPlacementPreviewPolygon, githubRecordPlacementShape } from './sit
 import { createGithubModalController } from './site-planner/github-modal-utils.js';
 import { githubProjectName, githubSiteRecord, isGithubContentsMetadata, normalizeGithubLibrary, normalizeLoadedSitePlanPayload, upsertGithubSitePlan } from './site-planner/github-site-library.js';
 import { createHakoDropController } from './site-planner/hako-drop-ui.js';
-import { collectArrayFields, deriveFootprintFromHakoConfig, extractHakoTrimLinesMm, sizeFromDerivedHakoFootprint } from './site-planner/hako-footprint-utils.js';
+import { collectArrayFields, deriveFootprintFromHakoConfig, extractHakoTrimLinesMm } from './site-planner/hako-footprint-utils.js';
 import { createHakoFileController } from './site-planner/hako-file-utils.js';
+import { createHakoImportController } from './site-planner/hako-import-controller.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
 import { findSiteBundleProjectName, hydrateSiteBundleAssets } from './site-planner/project-bundle-utils.js';
@@ -1950,48 +1951,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return confirm(`The dropped .hako file does not match the selected footprint size.\n\nSelected footprint: ${currentText}\nDropped building: ${incomingText}\n\nClick OK to upload "${fileName}" and resize the selected footprint to the .hako size.\nClick Cancel to discard the upload.`);
   }
 
-  function attachHakoFileToSelectedBuilding(file, opts={}){
-    const b=selected();
-    if(!b){ failImportProgress('Select a building first.','Choose one footprint, then attach the .hako file again.'); return; }
-    if(!file) return;
-    openImportProgressModal('Attach building file','Reading file...',`Reading ${file.name||'building file'}.`);
-    if(!/\.(hako|hakoseed|hakoplan|json)$/i.test(file.name||'')){
-      failImportProgress('Unsupported file type.','Drop a .hako, .hakoseed, .hakoplan, or JSON building file.');
-      return;
-    }
-    const reader=new FileReader();
-    reader.onerror=()=>failImportProgress('Could not read file.','The browser could not read that .hako file.');
-    reader.onload=ev=>{
-      const text=String(ev.target.result||'');
-      setImportProgress(2,4,'Validating building file...','Checking the JSON and footprint dimensions.');
-      let parsed=null;
-      try{ parsed=JSON.parse(text); }
-      catch(_err){ failImportProgress('Invalid building file.','That .hako file was not valid JSON, so its footprint size could not be checked.'); return; }
-      const derived=deriveFootprintFromHakoConfig(parsed||{});
-      const incomingSize=sizeFromDerivedHakoFootprint(derived);
-      if(!incomingSize){
-        failImportProgress('Missing footprint data.','Could not find a usable footprint, width/depth, or polygon size in that .hako file.');
-        return;
-      }
-      const currentSize=selectedFootprintSizeMm(b);
-      const resizeFootprint=!footprintSizesMatch(currentSize, incomingSize);
-      if(resizeFootprint){
-        setImportProgress(3,4,'Confirming footprint resize...','The incoming building size differs from the selected footprint.');
-        if(!confirmSelectedHakoSizeMismatch(b, currentSize, incomingSize, file.name||'building.hako')){
-          finishImportProgress('Import canceled.','No changes were made to the selected footprint.',650);
-          return;
-        }
-      }
-      setImportProgress(3,4,'Applying building file...',`Attaching ${file.name||'building.hako'} to the selected footprint.`);
-      storeHakoFileOnBuilding(b, file.name||`${slug(b.name||'building')}.hako`, text, parsed, {
-        source:opts.source||'selected-building-upload',
-        resizeFootprint,
-      });
-      finishImportProgress('Building file attached.',`${file.name||'building.hako'} is linked to ${b.name||'the selected footprint'}.`);
-    };
-    reader.readAsText(file);
-  }
-
   function createBuildingFromImportedHako(fileName, text, parsed){
     const derived=deriveFootprintFromHakoConfig(parsed||{});
     if(!derived){
@@ -2104,28 +2063,22 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return true;
   }
 
-  function importHakoAsBuilding(file){
-    if(!file) return;
-    openImportProgressModal('Import building footprint','Reading file...',`Reading ${file.name||'building file'}.`);
-    const reader=new FileReader();
-    reader.onerror=()=>failImportProgress('Could not read file.','The browser could not read that .hako file.');
-    reader.onload=ev=>{
-      const text=String(ev.target.result||'');
-      setImportProgress(2,4,'Validating building file...','Checking the JSON and deriving a footprint.');
-      let parsed=null;
-      try{ parsed=JSON.parse(text); }
-      catch(_err){ failImportProgress('Invalid building file.','That .hako file was not valid JSON, so a footprint could not be derived.'); return; }
-      if(!deriveFootprintFromHakoConfig(parsed||{})){
-        failImportProgress('Missing footprint data.','Could not find a footprint, width/depth, or polygon in that .hako file.');
-        return;
-      }
-      setImportProgress(3,4,'Placing footprint...','Creating a Site Planner footprint from the imported building.');
-      const b=createBuildingFromImportedHako(file.name||'building.hako', text, parsed);
-      if(!b){ failImportProgress('Import failed.','The file could not be converted into a Site Planner footprint.'); return; }
-      finishImportProgress('Building footprint imported.',`${b.name||'Imported building'} is selected on the plan.`);
-    };
-    reader.readAsText(file);
-  }
+  const {
+    attachHakoFileToSelectedBuilding,
+    importHakoAsBuilding,
+  } = createHakoImportController({
+    selected,
+    selectedFootprintSizeMm,
+    footprintSizesMatch,
+    confirmSelectedHakoSizeMismatch,
+    storeHakoFileOnBuilding,
+    createBuildingFromImportedHako,
+    slug,
+    openImportProgressModal,
+    setImportProgress,
+    finishImportProgress,
+    failImportProgress,
+  });
 
   const {
     importStlAsSiteObject,

@@ -4,12 +4,13 @@ import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fa
 import { createAutosaveUiController } from './site-planner/autosave-ui.js';
 import { createBuildingSelectionController } from './site-planner/building-selection-utils.js';
 import { buildingCsvExport, roadAssetSvgExport, sitePlanSvgExport, trackSvgExport } from './site-planner/export-utils.js';
-import { dataTransferHasFile, hakoFileFromDataTransfer, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
+import { dataTransferHasFile, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
 import { cacheImageAsset, cachedImageAsset, githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, hakoFileAssetReference, imageAssetFileName, imageAssetReference, imageMetaForProject, stlAssetReference, stlSourceAssetReference, uniqueHakoAssetFileName, uniqueStlAssetFileName, uniqueStlSourceAssetFileName } from './site-planner/github-asset-paths.js';
 import { createGithubDataAccess } from './site-planner/github-access-utils.js';
 import { githubPlacementPreviewPolygon, githubRecordPlacementShape } from './site-planner/github-building-placement-utils.js';
 import { createGithubModalController } from './site-planner/github-modal-utils.js';
 import { githubProjectName, githubSiteRecord, isGithubContentsMetadata, normalizeGithubLibrary, normalizeLoadedSitePlanPayload, upsertGithubSitePlan } from './site-planner/github-site-library.js';
+import { createHakoDropController } from './site-planner/hako-drop-ui.js';
 import { collectArrayFields, deriveFootprintFromHakoConfig, extractHakoTrimLinesMm, sizeFromDerivedHakoFootprint } from './site-planner/hako-footprint-utils.js';
 import { createHakoFileController } from './site-planner/hako-file-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
@@ -30,7 +31,7 @@ import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDet
 import { createSidebarUiController } from './site-planner/sidebar-ui.js';
 import { createStatusUiController } from './site-planner/status-ui.js';
 import { createStlObjectModelController } from './site-planner/stl-object-model.js';
-import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlBounds, parseStlVertices, stlFileFromDataTransfer } from './site-planner/stl-utils.js';
+import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlBounds, parseStlVertices } from './site-planner/stl-utils.js';
 import { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } from './site-planner/svg-export-utils.js';
 import { installTopMenus } from './site-planner/top-menu-utils.js';
 import { createToolFlyoutController } from './site-planner/tool-flyout-utils.js';
@@ -2189,78 +2190,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     syncAll();
   }
 
-  function installWholePageHakoDrop(){
-    if(document.body?.dataset.hakoPageDropInstalled) return;
-    if(document.body) document.body.dataset.hakoPageDropInstalled='true';
-    const overlay=document.createElement('div');
-    overlay.className='sitePlannerPageDropOverlay';
-    overlay.innerHTML='<div><strong>Import file</strong><span>Drop .hako, .hakoseed, .hakoplan, compatible JSON, or .stl here</span></div>';
-    document.body.appendChild(overlay);
-    let dragDepth=0;
-    const clear=()=>{dragDepth=0; overlay.classList.remove('active');};
-    const hasUnhandledFile=ev=>!ev.defaultPrevented && dataTransferHasFile(ev.dataTransfer);
-    document.addEventListener('dragenter', ev=>{
-      if(!hasUnhandledFile(ev)) return;
-      dragDepth++;
-      ev.preventDefault();
-      overlay.classList.add('active');
-      if(ev.dataTransfer) ev.dataTransfer.dropEffect='copy';
-    });
-    document.addEventListener('dragover', ev=>{
-      if(!hasUnhandledFile(ev)) return;
-      ev.preventDefault();
-      overlay.classList.add('active');
-      if(ev.dataTransfer) ev.dataTransfer.dropEffect='copy';
-    });
-    document.addEventListener('dragleave', ev=>{
-      if(!dataTransferHasFile(ev.dataTransfer)) return;
-      dragDepth=Math.max(0,dragDepth-1);
-      if(dragDepth===0 || ev.target===document || ev.target===document.documentElement) clear();
-    });
-    document.addEventListener('drop', ev=>{
-      if(!hasUnhandledFile(ev)) return;
-      ev.preventDefault();
-      clear();
-      const stl=stlFileFromDataTransfer(ev.dataTransfer);
-      if(stl){ importStlAsSiteObject(stl); return; }
-      const file=pageHakoImportFileFromDataTransfer(ev.dataTransfer);
-      if(!file){
-        failImportProgress('Unsupported file type.','Drop a .hako, .hakoseed, .hakoplan, compatible JSON building file, or .stl site object.');
-        return;
-      }
-      importHakoAsBuilding(file);
-    });
-    document.addEventListener('dragend', clear);
-  }
+  const {
+    installWholePageHakoDrop,
+    installSelectedHakoSidebarDrop,
+  } = createHakoDropController({
+    document,
+    selected,
+    currentSelectedBuildingIds,
+    importHakoAsBuilding,
+    importStlAsSiteObject,
+    attachHakoFileToSelectedBuilding,
+    failImportProgress,
+  });
 
-  function installSelectedHakoSidebarDrop(){
-    const sidebar=document.querySelector('.sidebar');
-    if(!sidebar || sidebar.dataset.hakoAttachDropInstalled) return;
-    sidebar.dataset.hakoAttachDropInstalled='true';
-    const canAttach=()=>!!selected() && currentSelectedBuildingIds().length===1;
-    const clearDragState=()=>sidebar.classList.remove('hakoAttachDragover');
-    ['dragenter','dragover'].forEach(type=>sidebar.addEventListener(type, ev=>{
-      if(!canAttach() || !dataTransferHasFile(ev.dataTransfer)) return;
-      ev.preventDefault();
-      sidebar.classList.add('hakoAttachDragover');
-      if(ev.dataTransfer) ev.dataTransfer.dropEffect='copy';
-    }));
-    ['dragleave','dragend'].forEach(type=>sidebar.addEventListener(type, ev=>{
-      if(type==='dragleave' && sidebar.contains(ev.relatedTarget)) return;
-      clearDragState();
-    }));
-    sidebar.addEventListener('drop', ev=>{
-      if(!canAttach() || !dataTransferHasFile(ev.dataTransfer)) return;
-      ev.preventDefault();
-      clearDragState();
-      const file=hakoFileFromDataTransfer(ev.dataTransfer);
-      if(!file){
-        failImportProgress('Unsupported file type.','Drop a .hako or JSON building file to attach it to the selected footprint.');
-        return;
-      }
-      attachHakoFileToSelectedBuilding(file,{source:'selected-building-drop'});
-    });
-  }
   function selectedStlObject(){return (state.stlObjects||[]).find(obj=>obj.id===state.selectedStlObjectId)||null;}
   function drawSelectionMarquee(){
     if(!state.drag || state.drag.type!=='marquee') return;

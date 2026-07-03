@@ -21,6 +21,7 @@ import { loadAlignmentMessage, restoreProjectView, savedImageDimensions, scaleLo
 import { createReferenceImageUiController } from './site-planner/reference-image-ui.js';
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
+import { createStatusUiController } from './site-planner/status-ui.js';
 import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlBounds, parseStlVertices, stlFileFromDataTransfer } from './site-planner/stl-utils.js';
 import { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } from './site-planner/svg-export-utils.js';
 import { installTopMenus } from './site-planner/top-menu-utils.js';
@@ -99,6 +100,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   const {
     updateAutosaveStatus,
   } = createAutosaveUiController({state, getElement:$});
+  const {
+    updateStatus,
+  } = createStatusUiController({
+    state,
+    getElement:$,
+    fmt,
+    activeSidebarDetailKind,
+    initFabricControls,
+    isLikelyIPad,
+  });
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
   function setSidebarOpen(open){
@@ -143,33 +154,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     road.sidewalkWidthPreset = key || 'custom';
     const mm = presetModelMm(sidewalkPresetByKey(key), currentScaleDivisor());
     if(mm!=null){ road.sidewalkWidthMm = mm; road.sidewalkWidthPx = state.pxPerMm ? mmToPx(mm) : (road.sidewalkWidthPx || mm); rebuildRoadGeometry(road); }
-  }
-  function updateStatus(){
-    const calibrationSection=$('calibrationSection');
-    if(calibrationSection) calibrationSection.style.display = state.tool==='calibrate' ? '' : 'none';
-    const fabricSection=$('fabricSection');
-    if(fabricSection) fabricSection.style.display = (state.tool==='fabric' && !activeSidebarDetailKind()) ? '' : 'none';
-    initFabricControls();
-    const ipadInputSection=$('ipadInputSection');
-    if(ipadInputSection) ipadInputSection.style.display = isLikelyIPad() ? '' : 'none';
-    $('statusTool').textContent='Tool: '+state.tool;
-    $('statusZoom').textContent='Zoom: '+Math.round(state.view.scale*100)+'%';
-    $('statusScale').textContent=state.pxPerMm ? `Calibration: ${fmt(state.pxPerMm)} px/mm` : 'Calibration: unset';
-    $('scaleStatus').className='small '+(state.pxPerMm?'okText':'warning');
-    $('scaleStatus').textContent=state.pxPerMm ? `Calibrated: ${fmt(state.pxPerMm)} px/mm` : 'Not calibrated. Draw a calibration line.';
-    const h=[];
-    if(!state.image) h.push('Import a reference image first.');
-    if(!state.pxPerMm) h.push('Draw a calibration line over a known physical output dimension, enter its value in mm or inches, then Apply Last Line.');
-    if(state.tool==='polygon') h.push('Click points. Click near first point or press Enter to close. Backspace removes last point.');
-    if(state.tool==='rect') h.push('Drag from one corner to the opposite corner to create a rectangle. Hold Shift or turn Snap on to force square/angle snapping. Near-square drags also snap.');
-    if(state.tool==='select') h.push('Drag empty space to box-select multiple footprints. Drag selected pads to move them. Drag corner handles to resize a single selected footprint. Use Cmd/Ctrl+C and Cmd/Ctrl+V to copy/paste selected building footprints. Tap annotation strokes to select them; press Delete/Backspace or use Delete Selected Note to remove. Pencil edits geometry; finger pans when Pencil mode is active. Long-press a pad, point, or note for edit actions.');
-    if(state.tool==='annotate') h.push('Annotate mode: draw freehand notes with Pencil/mouse. Pencil pressure changes stroke width when supported. Notes export with the site project but do not affect HakoSeed geometry.');
-    if(state.tool==='benchwork') h.push('Benchwork Outline: click points around the layout edge, then click near the first point or press Enter to close. Select an outline, then hover/drag an edge segment to curve it. Future exports can trim roads, scenery, and other layout parts to this boundary.');
-    if(state.tool==='road') h.push(state.roadMode==='outline'?'Road Outline: click points around the road surface, then click near the first point or press Enter to close.':state.roadMode==='manhole'?'Manhole / Hatch: click on a road surface to place a cut-through mounting hole.':state.roadMode==='marking'?'Road Marking: click on a road surface to place a visual road marking.':'Road Centerline: click connected points to draw the centerline. Press Enter or double-click to finish. Hover between points and drag to curve a selected road segment; adjust road and sidewalk width in the properties pane.');
-    if(state.tool==='track') h.push('Track: click connected points to sketch approximate rails. Press Enter or double-click to finish; the Site Planner generates twin rails and ties for planning context.');
-    if(state.tool==='streetlight') h.push(state.streetlightMode==='anchored'?'Anchored Streetlight: click to place a pole with sidewalk cut-hole or street-edge bulb mount metadata.':'Streetlight: click to place a free-standing streetlight marker.');
-    if(state.tool==='fabric') h.push('Urban Fabric Fill: click connected points around an area, then click near the first point or press Enter. Choose a fabric preset and generate pads with HakoSeed metadata.');
-    if($('hint')) $('hint').textContent=h.join(' ');
   }
   function normalizeStlObject(obj){
     if(!obj) return obj;

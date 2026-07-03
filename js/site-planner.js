@@ -5,6 +5,7 @@ import { createAutosaveUiController } from './site-planner/autosave-ui.js';
 import { createBuildingSelectionController } from './site-planner/building-selection-utils.js';
 import { buildingCsvExport, roadAssetSvgExport, sitePlanSvgExport, trackSvgExport } from './site-planner/export-utils.js';
 import { dataTransferHasFile, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
+import { createFootprintClipboardController } from './site-planner/footprint-clipboard-controller.js';
 import { cacheImageAsset, cachedImageAsset, githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, hakoFileAssetReference, imageAssetFileName, imageAssetReference, imageMetaForProject, stlAssetReference, stlSourceAssetReference, uniqueHakoAssetFileName, uniqueStlAssetFileName, uniqueStlSourceAssetFileName } from './site-planner/github-asset-paths.js';
 import { createGithubDataAccess } from './site-planner/github-access-utils.js';
 import { githubPlacementPreviewPolygon, githubRecordPlacementShape } from './site-planner/github-building-placement-utils.js';
@@ -2123,70 +2124,22 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     ctx.strokeRect(r.x,r.y,r.w,r.h);
     ctx.restore();
   }
-  function buildingFootprintClipboardPayload(b){
-    if(!b) return null;
-    const payload=structuredClone(b);
-    // Copy/paste is for site footprints, not the finished building design file.
-    // Keep shape + planning metadata, but clear per-building completed .hako attachments
-    // so pasted pads do not accidentally point to the wrong physical building file.
-    payload.hakoFile=null;
-    payload.hakoFileId=null;
-    payload.hakoConfig=null;
-    payload.copiedFromId=b.id;
-    payload.copiedAt=new Date().toISOString();
-    return payload;
-  }
-  function copySelectedFootprint(){
-    const ids=currentSelectedBuildingIds();
-    const selectedBuildings=ids.map(id=>state.buildings.find(b=>b.id===id)).filter(Boolean);
-    if(!selectedBuildings.length) return false;
-    state.footprintClipboard = selectedBuildings.length===1
-      ? buildingFootprintClipboardPayload(selectedBuildings[0])
-      : {multi:true, buildings:selectedBuildings.map(buildingFootprintClipboardPayload), copiedAt:new Date().toISOString()};
-    state.pasteOffsetCount=0;
-    updateStatus();
-    return true;
-  }
-  function pasteFootprintFromClipboard(){
-    const src=state.footprintClipboard;
-    if(!src) return false;
-    const sources=src.multi && Array.isArray(src.buildings) ? src.buildings : [src];
-    const n=++state.pasteOffsetCount;
-    const off=18*n;
-    const pastedIds=[];
-    sources.forEach((item,idx)=>{
-      const copy=structuredClone(item);
-      copy.id=uid('bldg');
-      const baseName=(copy.name||'Building').replace(/ copy(?: \d+)?$/i,'');
-      copy.name=baseName+' copy';
-      copy.state=copy.state||'notStarted';
-      copy.hakoFile=null;
-      copy.hakoFileId=null;
-      copy.hakoConfig=null;
-      copy.hidden=false;
-      const dx=off + idx*10, dy=off + idx*10;
-      if(copy.padType==='rect'){
-        copy.x=(Number(copy.x)||0)+dx;
-        copy.y=(Number(copy.y)||0)+dy;
-      } else if(Array.isArray(copy.pointsPx)) {
-        copy.pointsPx=copy.pointsPx.map(p=>({x:(Number(p.x)||0)+dx,y:(Number(p.y)||0)+dy}));
-      }
-      normalizeBuilding(copy);
-      syncBuildingMetrics(copy);
-      state.buildings.push(copy);
-      pastedIds.push(copy.id);
-    });
-    setBuildingSelection(pastedIds, pastedIds.length===1?pastedIds[0]:null);
-    syncAll();
-    return true;
-  }
-  function duplicateBuildingFootprint(b){
-    if(!b) return null;
-    state.footprintClipboard=buildingFootprintClipboardPayload(b);
-    state.pasteOffsetCount=0;
-    pasteFootprintFromClipboard();
-    return selected();
-  }
+  const {
+    copySelectedFootprint,
+    pasteFootprintFromClipboard,
+    duplicateBuildingFootprint,
+  } = createFootprintClipboardController({
+    state,
+    currentSelectedBuildingIds,
+    selected,
+    uid,
+    normalizeBuilding,
+    syncBuildingMetrics,
+    setBuildingSelection,
+    syncAll,
+    updateStatus,
+  });
+
   function syncBuildingMetrics(b){ if(!state.pxPerMm) return b; if(b.padType==='rect'){b.widthMm=pxToMm(b.widthPx); b.depthMm=pxToMm(b.depthPx); b.pointsPx=transformedRect(b); b.pointsMm=b.pointsPx.map(p=>({x:pxToMm(p.x),y:pxToMm(p.y)}));} else {b.pointsMm=b.pointsPx.map(p=>({x:pxToMm(p.x),y:pxToMm(p.y)})); b.derived={areaMm2:pxToMm(Math.sqrt(polygonArea(b.pointsPx)))**2, boundingWidthMm:pxToMm(Math.max(...b.pointsPx.map(p=>p.x))-Math.min(...b.pointsPx.map(p=>p.x))), boundingDepthMm:pxToMm(Math.max(...b.pointsPx.map(p=>p.y))-Math.min(...b.pointsPx.map(p=>p.y))), rotationDeg:b.rotationDeg||0};} return b; }
   function syncAll(opts = {}){
     state.buildings.forEach(syncBuildingMetrics);

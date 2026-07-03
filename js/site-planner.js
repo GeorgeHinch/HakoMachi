@@ -22,6 +22,7 @@ import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDet
 import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlBounds, parseStlVertices, stlFileFromDataTransfer } from './site-planner/stl-utils.js';
 import { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } from './site-planner/svg-export-utils.js';
 import { installTopMenus } from './site-planner/top-menu-utils.js';
+import { createToolFlyoutController } from './site-planner/tool-flyout-utils.js';
 import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geometry.js?v=shared-building-preview-26';
 
 (() => {
@@ -84,6 +85,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     setGithubProgress,
     openGithubSaveProgressModal,
   } = createGithubModalController({getElement:$});
+  const {
+    hideToolFlyouts,
+    toggleToolFlyout,
+  } = createToolFlyoutController({getElement:$, clamp});
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
   function setSidebarOpen(open){
@@ -5959,32 +5964,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.tool=tool; state.drag=null; hideToolFlyouts(); syncAll();
   }
   document.querySelectorAll('.toolbtn').forEach(btn=>btn.onclick=()=>setActiveTool(btn.dataset.tool));
-  function hideToolFlyouts(){document.querySelectorAll('.toolFlyout').forEach(m=>m.classList.remove('open'));}
-  function positionToolFlyout(menu, anchor){
-    if(!menu || !anchor) return;
-    // Open as a fixed popover so it is not laid out under the canvas or clipped by the toolbar/canvas grid.
-    menu.classList.add('open');
-    menu.style.left='0px';
-    menu.style.top='0px';
-    const ar=anchor.getBoundingClientRect();
-    const mr=menu.getBoundingClientRect();
-    const gap=8;
-    let left=ar.right + gap;
-    let top=ar.top;
-    // If there is not enough room to the right, open to the left of the toolbar button.
-    if(left + mr.width > window.innerWidth - gap) left = Math.max(gap, ar.left - mr.width - gap);
-    // Keep it vertically inside the viewport.
-    top = clamp(top, gap, Math.max(gap, window.innerHeight - mr.height - gap));
-    menu.style.left = left + 'px';
-    menu.style.top = top + 'px';
-  }
-  function toggleToolFlyout(menuId, anchor){
-    const menu=$(menuId);
-    if(!menu) return;
-    const shouldOpen=!menu.classList.contains('open');
-    hideToolFlyouts();
-    if(shouldOpen) positionToolFlyout(menu, anchor);
-  }
 
   let roadToolPressTimer=null;
   function updateRoadToolButton(){

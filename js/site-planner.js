@@ -1,5 +1,5 @@
 import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-4';
-import { approxDataUrlBytes, arrayBufferToBase64, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, downloadText, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, textToBase64 } from './shared/browser-utils.js';
+import { arrayBufferToBase64, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, downloadText, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, textToBase64 } from './shared/browser-utils.js';
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fabrication-colors.js';
 import { createAutosaveUiController } from './site-planner/autosave-ui.js';
 import { buildingCsvExport, roadAssetSvgExport, sitePlanSvgExport, trackSvgExport } from './site-planner/export-utils.js';
@@ -94,6 +94,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   const {
     updateEmptyImageOverlay,
     setImageStatus,
+    updateImagePortableStatus,
   } = createReferenceImageUiController({state, getElement:$});
   const {
     updateAutosaveStatus,
@@ -3918,18 +3919,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return true;
   }
 
-  function updateImagePortableStatus(extraMessage){
-    const el=$('imagePortableStatus');
-    if(!el) return;
-    if(extraMessage){ el.textContent=extraMessage; return; }
-    if(!state.imageMeta){ el.textContent='Portable save: no image.'; return; }
-    const bytes=approxDataUrlBytes(state.imageMeta.dataUrl);
-    if(state.imageMeta.dataUrl){
-      el.textContent=`Portable save: embeds original ${state.imageMeta.naturalWidthPx||'?'} × ${state.imageMeta.naturalHeightPx||'?'} px image (${formatBytes(bytes)}).`;
-    } else {
-      el.textContent='Portable save: image is not embedded yet. Re-import the image before saving for cross-browser portability.';
-    }
-  }
   function markDirty(_reason='', opts={}){
     if(opts.history!==false && !state.historySuppressed) pushHistorySnapshot(_reason);
     if(!state.autosaveReady || autosaveSuppressed) return;

@@ -1,3 +1,5 @@
+import { approxDataUrlBytes, formatBytes } from '../shared/browser-utils.js';
+
 export function createReferenceImageUiController({state, getElement}){
   function updateEmptyImageOverlay(){
     const overlay=getElement('emptyImageOverlay');
@@ -14,8 +16,28 @@ export function createReferenceImageUiController({state, getElement}){
     el.textContent=message;
   }
 
+  function updateImagePortableStatus(extraMessage){
+    const el=getElement('imagePortableStatus');
+    if(!el) return;
+    if(extraMessage){
+      el.textContent=extraMessage;
+      return;
+    }
+    if(!state.imageMeta){
+      el.textContent='Portable save: no image.';
+      return;
+    }
+    const bytes=approxDataUrlBytes(state.imageMeta.dataUrl);
+    if(state.imageMeta.dataUrl){
+      el.textContent=`Portable save: embeds original ${state.imageMeta.naturalWidthPx||'?'} × ${state.imageMeta.naturalHeightPx||'?'} px image (${formatBytes(bytes)}).`;
+    } else {
+      el.textContent='Portable save: image is not embedded yet. Re-import the image before saving for cross-browser portability.';
+    }
+  }
+
   return {
     updateEmptyImageOverlay,
     setImageStatus,
+    updateImagePortableStatus,
   };
 }

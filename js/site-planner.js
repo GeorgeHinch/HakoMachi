@@ -20,6 +20,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_WIDT
 import { loadAlignmentMessage, restoreProjectView, savedImageDimensions, scaleLoadedPixelGeometry } from './site-planner/project-load-utils.js';
 import { createReferenceImageUiController } from './site-planner/reference-image-ui.js';
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
+import { createScaleInputController } from './site-planner/scale-input-utils.js';
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
 import { createStatusUiController } from './site-planner/status-ui.js';
 import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlBounds, parseStlVertices, stlFileFromDataTransfer } from './site-planner/stl-utils.js';
@@ -110,6 +111,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     initFabricControls,
     isLikelyIPad,
   });
+  const { currentScaleDivisor, modelKnownMm } = createScaleInputController({getElement:$});
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
   function setSidebarOpen(open){
@@ -142,8 +144,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function mmToPx(mm){return state.pxPerMm? mm*state.pxPerMm : mm;}
   function pxToMm(px){return state.pxPerMm? px/state.pxPerMm : px;}
-  function modelKnownMm(){let v=parseFloat($('knownValue').value)||0; const unit=$('knownUnit').value; const sc=parseFloat($('modelScale').value)||150; if(unit==='mm'||unit==='model_mm') return v; if(unit==='in'||unit==='model_in') return v*25.4; if(unit==='source_mm'||unit==='real_mm') return v/sc; if(unit==='source_m'||unit==='real_m') return v*1000/sc; if(unit==='source_ft'||unit==='real_ft') return v*304.8/sc; return v;}
-  function currentScaleDivisor(){ const el=$('modelScale'); const v=el ? parseFloat(el.value) : 150; return (Number.isFinite(v)&&v>0)?v:150; }
   function roadPresetScaleContext(){ return {pxPerMm:state.pxPerMm, mmToPx}; }
   function applyRoadWidthPreset(road, key){
     road.roadWidthPreset = key || 'custom';

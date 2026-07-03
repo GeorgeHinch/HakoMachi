@@ -8,6 +8,7 @@ import { cacheImageAsset, cachedImageAsset, githubHakoAssetPath, githubImageAsse
 import { createGithubDataAccess } from './site-planner/github-access-utils.js';
 import { createGithubModalController } from './site-planner/github-modal-utils.js';
 import { githubProjectName, githubSiteRecord, isGithubContentsMetadata, normalizeGithubLibrary, normalizeLoadedSitePlanPayload, upsertGithubSitePlan } from './site-planner/github-site-library.js';
+import { createHakoFileController } from './site-planner/hako-file-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
 import { findSiteBundleProjectName, hydrateSiteBundleAssets } from './site-planner/project-bundle-utils.js';
@@ -1853,32 +1854,18 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     return `Project loaded, but no supported building footprint data was found. Fields found: ${projectShapeFields(p)}.`;
   }
-  function hakoFileSummary(b){
-    if(!b || !b.hakoFile) return 'No completed .hako file stored.';
-    const size=Number(b.hakoFile.sizeBytes||0);
-    const sizeText=size ? formatBytes(size) : 'unknown size';
-    const date=b.hakoFile.importedAt ? new Date(b.hakoFile.importedAt).toLocaleString() : 'unknown date';
-    const stateText=b.hakoFile.unavailable?' · asset unavailable':(b.hakoFile.path&&!hakoFileText(b)?' · referenced asset':'');
-    return `${escapeHtml(b.hakoFile.fileName||'building.hako')} · ${sizeText} · ${date}${stateText}`;
-  }
-  function hasAttachedHakoFile(b){ return !!b?.hakoFile; }
-  function hakoFileText(b){
-    if(!b?.hakoFile) return '';
-    if(typeof b.hakoFile.dataText==='string' && b.hakoFile.dataText) return b.hakoFile.dataText;
-    const cfg=b.hakoFile.parsedConfig || b.hakoConfig;
-    return cfg && typeof cfg==='object' ? JSON.stringify(cfg,null,2) : '';
-  }
-
-  function renameAttachedHakoFileForBuilding(b){
-    if(!b?.hakoFile) return false;
-    const fileName=`${slug(b.name||'building')}.hako`;
-    b.hakoFile.fileName=fileName;
-    b.hakoFile.name=fileName;
-    b.hakoFileId=fileName;
-    const summary=$('hakoFileSummaryB');
-    if(summary && selected()?.id===b.id) summary.innerHTML=hakoFileSummary(b);
-    return true;
-  }
+  const {
+    hakoFileSummary,
+    hasAttachedHakoFile,
+    hakoFileText,
+    renameAttachedHakoFileForBuilding,
+  } = createHakoFileController({
+    slug,
+    formatBytes,
+    escapeHtml,
+    selectedBuilding: selected,
+    summaryElement: ()=>$('hakoFileSummaryB'),
+  });
 
   function visibleWorldCenter(){
     const r=canvas.getBoundingClientRect();

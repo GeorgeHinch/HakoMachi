@@ -1,5 +1,5 @@
 import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-4';
-import { arrayBufferToBase64, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, downloadText, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, textToBase64 } from './shared/browser-utils.js';
+import { base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, downloadText, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, textToBase64 } from './shared/browser-utils.js';
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fabrication-colors.js';
 import { createAutosaveUiController } from './site-planner/autosave-ui.js';
 import { createBuildingSelectionController } from './site-planner/building-selection-utils.js';
@@ -30,8 +30,9 @@ import { createScaleInputController } from './site-planner/scale-input-utils.js'
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
 import { createSidebarUiController } from './site-planner/sidebar-ui.js';
 import { createStatusUiController } from './site-planner/status-ui.js';
+import { createStlImportController } from './site-planner/stl-import-controller.js';
 import { createStlObjectModelController } from './site-planner/stl-object-model.js';
-import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlBounds, parseStlVertices } from './site-planner/stl-utils.js';
+import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlVertices } from './site-planner/stl-utils.js';
 import { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } from './site-planner/svg-export-utils.js';
 import { installTopMenus } from './site-planner/top-menu-utils.js';
 import { createToolFlyoutController } from './site-planner/tool-flyout-utils.js';
@@ -2126,69 +2127,22 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     reader.readAsText(file);
   }
 
-  async function importStlAsSiteObject(file){
-    if(!file) return;
-    if(!isLikelyStlFile(file)){ failImportProgress('Unsupported file type.','Drop or choose a .stl file to place it as a site object.'); return; }
-    openImportProgressModal('Import STL object','Reading STL...',`Reading ${file.name||'site object.stl'}.`);
-    try{
-      const buffer=await file.arrayBuffer();
-      setImportProgress(2,4,'Measuring STL bounds...','Finding the footprint size for placement.');
-      const bounds=parseStlBounds(buffer);
-      const center=visibleWorldCenter();
-      setImportProgress(3,4,'Placing site object...','Creating a selectable Site Planner object.');
-      const obj=normalizeStlObject({
-        id:uid('stl'),
-        name:String(file.name||'STL Object').replace(/\.stl$/i,'') || 'STL Object',
-        x:center.x,
-        y:center.y,
-        rotationDeg:0,
-        scale:1,
-        widthMm:bounds.width,
-        depthMm:bounds.depth,
-        heightMm:bounds.height,
-        color:'#496a78',
-        locked:false,
-        hidden:false,
-        notes:'Imported STL site object. The planner renders the STL geometry in 3D when the asset is available, with a footprint/proxy fallback.',
-        bounds,
-        asset:{
-          kind:'stl',
-          fileName:file.name||'site-object.stl',
-          mimeType:file.type||'model/stl',
-          sizeBytes:file.size||buffer.byteLength,
-          importedAt:new Date().toISOString(),
-          dataBase64:arrayBufferToBase64(buffer)
-        }
-      });
-      state.stlObjects=state.stlObjects||[];
-      state.stlObjects.push(obj);
-      clearPlanObjectSelection();
-      state.selectedStlObjectId=obj.id;
-      sidebarObjectType='siteObjects';
-      syncAll();
-      finishImportProgress('STL object imported.',`${obj.name} is selected on the plan.`);
-    }catch(err){
-      failImportProgress('Could not import STL.', err?.message||'The browser could not read that STL file.');
-    }
-  }
-  async function attachSourceFileToStlObject(obj, file){
-    if(!obj || !file) return;
-    normalizeStlObject(obj);
-    const buffer=await file.arrayBuffer();
-    const source={
-      id:uid('src'),
-      kind:'stl-source',
-      name:file.name||'source-file',
-      fileName:file.name||'source-file',
-      mimeType:file.type||'application/octet-stream',
-      sizeBytes:file.size||buffer.byteLength,
-      importedAt:new Date().toISOString(),
-      dataBase64:arrayBufferToBase64(buffer)
-    };
-    obj.sourceAssets=obj.sourceAssets||[];
-    obj.sourceAssets.push(source);
-    syncAll();
-  }
+  const {
+    importStlAsSiteObject,
+    attachSourceFileToStlObject,
+  } = createStlImportController({
+    state,
+    uid,
+    visibleWorldCenter,
+    normalizeStlObject,
+    clearPlanObjectSelection,
+    setSidebarObjectType: value=>{sidebarObjectType=value;},
+    syncAll,
+    openImportProgressModal,
+    setImportProgress,
+    finishImportProgress,
+    failImportProgress,
+  });
 
   const {
     installWholePageHakoDrop,

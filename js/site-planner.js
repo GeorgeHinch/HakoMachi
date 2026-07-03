@@ -7,9 +7,10 @@ import { buildingCsvExport, roadAssetSvgExport, sitePlanSvgExport, trackSvgExpor
 import { dataTransferHasFile, hakoFileFromDataTransfer, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
 import { cacheImageAsset, cachedImageAsset, githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, hakoFileAssetReference, imageAssetFileName, imageAssetReference, imageMetaForProject, stlAssetReference, stlSourceAssetReference, uniqueHakoAssetFileName, uniqueStlAssetFileName, uniqueStlSourceAssetFileName } from './site-planner/github-asset-paths.js';
 import { createGithubDataAccess } from './site-planner/github-access-utils.js';
+import { githubPlacementPreviewPolygon, githubRecordPlacementShape } from './site-planner/github-building-placement-utils.js';
 import { createGithubModalController } from './site-planner/github-modal-utils.js';
 import { githubProjectName, githubSiteRecord, isGithubContentsMetadata, normalizeGithubLibrary, normalizeLoadedSitePlanPayload, upsertGithubSitePlan } from './site-planner/github-site-library.js';
-import { collectArrayFields, deriveFootprintFromHakoConfig, extractHakoTrimLinesMm, firstNum, sizeFromDerivedHakoFootprint } from './site-planner/hako-footprint-utils.js';
+import { collectArrayFields, deriveFootprintFromHakoConfig, extractHakoTrimLinesMm, sizeFromDerivedHakoFootprint } from './site-planner/hako-footprint-utils.js';
 import { createHakoFileController } from './site-planner/hako-file-utils.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
@@ -2030,45 +2031,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return b;
   }
 
-  function githubRecordConfigForPlacement(record){
-    const footprint=record?.footprint||{};
-    const cfg=structuredClone(record?.hakoConfig || record?.config || record?.hakoSeed || {});
-    if(footprint && typeof footprint==='object' && !cfg.footprint) cfg.footprint=structuredClone(footprint);
-    return cfg && typeof cfg==='object' ? cfg : {};
-  }
-
-  function githubRecordPlacementShape(record){
-    const footprint=record?.footprint||{};
-    const cfg=githubRecordConfigForPlacement(record);
-    let derived=deriveFootprintFromHakoConfig(cfg);
-    if(!derived){
-      const width=firstNum(footprint.widthMm,footprint.width,cfg.widthMm,cfg.width,cfg.dimensions?.widthMm,cfg.dimensions?.width);
-      const depth=firstNum(footprint.depthMm,footprint.depth,cfg.depthMm,cfg.depth,cfg.dimensions?.depthMm,cfg.dimensions?.depth);
-      if(width && depth) derived={padType:'rect',widthMm:width,depthMm:depth,source:'library footprint'};
-    }
-    if(!derived) return null;
-    const points=Array.isArray(derived.pointsMm) ? derived.pointsMm : null;
-    const origin=points?.length ? {
-      x:(Math.min(...points.map(p=>p.x))+Math.max(...points.map(p=>p.x)))/2,
-      y:(Math.min(...points.map(p=>p.y))+Math.max(...points.map(p=>p.y)))/2
-    } : {
-      x:(derived.widthMm||firstNum(footprint.widthMm,footprint.width,cfg.widthMm,cfg.width)||20)/2,
-      y:(derived.depthMm||firstNum(footprint.depthMm,footprint.depth,cfg.depthMm,cfg.depth)||20)/2
-    };
-    return {derived,cfg,origin};
-  }
-
-  function githubPlacementPreviewPolygon(placement, center){
-    if(!placement || !center) return [];
-    const d=placement.derived||{};
-    const origin=placement.origin||{x:0,y:0};
-    if(d.padType==='polygon' && Array.isArray(d.pointsMm) && d.pointsMm.length>=3){
-      return d.pointsMm.map(p=>({x:center.x+mmToPx(p.x-origin.x),y:center.y+mmToPx(p.y-origin.y)}));
-    }
-    const w=mmToPx(d.widthMm||20), h=mmToPx(d.depthMm||20);
-    return [{x:center.x-w/2,y:center.y-h/2},{x:center.x+w/2,y:center.y-h/2},{x:center.x+w/2,y:center.y+h/2},{x:center.x-w/2,y:center.y+h/2}];
-  }
-
   function armGithubBuildingPlacement(record){
     const shape=githubRecordPlacementShape(record);
     if(!shape){ alert('This library record does not include enough footprint data to place it.'); return; }
@@ -2118,7 +2080,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(d.trimLinesMm?.length){ b.hakoTrimLinesMm=d.trimLinesMm; b.showHakoTrimLines=true; }
     if(d.padType==='polygon' && Array.isArray(d.pointsMm) && d.pointsMm.length>=3){
       b.padType='polygon';
-      b.pointsPx=githubPlacementPreviewPolygon(placement, center);
+      b.pointsPx=githubPlacementPreviewPolygon(placement, center, mmToPx);
       b.rotationDeg=0;
       b.hakoGeometryOriginMm=placement.origin;
     } else {
@@ -3889,7 +3851,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function drawHoverPreview(){
     const placement=state.githubBuildingPlacement;
     if(placement?.previewPoint){
-      const poly=githubPlacementPreviewPolygon(placement, placement.previewPoint);
+      const poly=githubPlacementPreviewPolygon(placement, placement.previewPoint, mmToPx);
       if(poly.length>=3){
         ctx.save();
         ctx.strokeStyle='rgba(15,118,110,.95)';

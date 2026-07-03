@@ -22,6 +22,7 @@ import { createReferenceImageUiController } from './site-planner/reference-image
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
 import { createScaleInputController } from './site-planner/scale-input-utils.js';
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
+import { createSidebarUiController } from './site-planner/sidebar-ui.js';
 import { createStatusUiController } from './site-planner/status-ui.js';
 import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlBounds, parseStlVertices, stlFileFromDataTransfer } from './site-planner/stl-utils.js';
 import { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } from './site-planner/svg-export-utils.js';
@@ -118,21 +119,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     setCanvasZoomAtClientPoint,
     zoomCanvasAtClientPoint,
   } = createViewTransformController({canvas, state, clamp, draw:()=>draw()});
+  const {
+    setSidebarOpen,
+    installSidebarToggle,
+  } = createSidebarUiController({state, getElement:$, scheduleResize:()=>setTimeout(resize, 0)});
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
-  function setSidebarOpen(open){
-    state.sidebarOpen = !!open;
-    document.querySelector('.app')?.classList.toggle('sidebar-open', state.sidebarOpen);
-    const btn = $('sidebarToggle');
-    if(btn){
-      btn.textContent = state.sidebarOpen ? '›' : '‹';
-      btn.title = state.sidebarOpen ? 'Close properties panel' : 'Open properties panel';
-      btn.setAttribute('aria-label', btn.title);
-      btn.setAttribute('aria-expanded', String(state.sidebarOpen));
-    }
-    setTimeout(resize, 0);
-  }
-  $('sidebarToggle')?.addEventListener('click', ()=>setSidebarOpen(!state.sidebarOpen));
+  installSidebarToggle();
   function mmToPx(mm){return state.pxPerMm? mm*state.pxPerMm : mm;}
   function pxToMm(px){return state.pxPerMm? px/state.pxPerMm : px;}
   function roadPresetScaleContext(){ return {pxPerMm:state.pxPerMm, mmToPx}; }

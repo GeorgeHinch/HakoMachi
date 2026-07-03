@@ -1,4 +1,4 @@
-import { pointInPoly, polyEdgeDistance } from './geometry.js';
+import { pointInPoly } from './geometry.js';
 import { rebuildRoadGeometry } from './road-geometry.js';
 
 export function createRoadModelController({
@@ -13,6 +13,7 @@ export function createRoadModelController({
   lockedHitTolerance,
   hitRoadPoint,
   hitRoadCenterlineSegment,
+  polyEdgeDistance,
 }) {
   function normalizeRoad(road) {
     if (!road) return road;

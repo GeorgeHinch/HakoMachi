@@ -25,6 +25,7 @@ import { createScaleInputController } from './site-planner/scale-input-utils.js'
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
 import { createSidebarUiController } from './site-planner/sidebar-ui.js';
 import { createStatusUiController } from './site-planner/status-ui.js';
+import { createStlObjectModelController } from './site-planner/stl-object-model.js';
 import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlBounds, parseStlVertices, stlFileFromDataTransfer } from './site-planner/stl-utils.js';
 import { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } from './site-planner/svg-export-utils.js';
 import { installTopMenus } from './site-planner/top-menu-utils.js';
@@ -129,61 +130,26 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     applyRoadWidthPreset,
     applySidewalkWidthPreset,
   } = createRoadPresetApplicationController({state, mmToPx, currentScaleDivisor, rebuildRoadGeometry});
+  const {
+    normalizeStlObject,
+    stlObjectRect,
+    hitStlObject,
+  } = createStlObjectModelController({
+    state,
+    uid,
+    slug,
+    mmToPx,
+    visibleWorldCenter,
+    transformedRect,
+    pointInPoly,
+    polyEdgeDistance,
+    lockedHitTolerance,
+  });
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
   installSidebarToggle();
   function mmToPx(mm){return state.pxPerMm? mm*state.pxPerMm : mm;}
   function pxToMm(px){return state.pxPerMm? px/state.pxPerMm : px;}
-  function normalizeStlObject(obj){
-    if(!obj) return obj;
-    obj.id=obj.id||uid('stl');
-    obj.type='stl';
-    obj.name=obj.name||obj.fileName||`STL Object ${state.stlObjects.length+1}`;
-    obj.x=Number.isFinite(Number(obj.x))?Number(obj.x):visibleWorldCenter().x;
-    obj.y=Number.isFinite(Number(obj.y))?Number(obj.y):visibleWorldCenter().y;
-    obj.rotationDeg=Number.isFinite(Number(obj.rotationDeg))?Number(obj.rotationDeg):0;
-    obj.scale=Number.isFinite(Number(obj.scale))&&Number(obj.scale)>0?Number(obj.scale):1;
-    obj.widthMm=Number.isFinite(Number(obj.widthMm))&&Number(obj.widthMm)>0?Number(obj.widthMm):20;
-    obj.depthMm=Number.isFinite(Number(obj.depthMm))&&Number(obj.depthMm)>0?Number(obj.depthMm):20;
-    obj.heightMm=Number.isFinite(Number(obj.heightMm))&&Number(obj.heightMm)>0?Number(obj.heightMm):8;
-    obj.widthPx=state.pxPerMm?mmToPx(obj.widthMm*obj.scale):(Number(obj.widthPx)||obj.widthMm*obj.scale);
-    obj.depthPx=state.pxPerMm?mmToPx(obj.depthMm*obj.scale):(Number(obj.depthPx)||obj.depthMm*obj.scale);
-    obj.color=obj.color||'#496a78';
-    obj.locked=!!obj.locked;
-    obj.hidden=!!obj.hidden;
-    obj.notes=obj.notes||'';
-    obj.asset=obj.asset&&typeof obj.asset==='object'?obj.asset:{};
-    obj.asset.kind='stl';
-    obj.asset.fileName=obj.asset.fileName||obj.fileName||`${slug(obj.name)}.stl`;
-    obj.asset.mimeType=obj.asset.mimeType||'model/stl';
-    obj.bounds=obj.bounds&&typeof obj.bounds==='object'?obj.bounds:{};
-    obj.sourceAssets=Array.isArray(obj.sourceAssets)?obj.sourceAssets.map(source=>{
-      const src=source&&typeof source==='object'?source:{};
-      src.id=src.id||uid('src');
-      src.kind='stl-source';
-      src.fileName=src.fileName||src.name||'source-file';
-      src.name=src.name||src.fileName;
-      src.mimeType=src.mimeType||'application/octet-stream';
-      src.importedAt=src.importedAt||new Date().toISOString();
-      return src;
-    }):[];
-    return obj;
-  }
-  function stlObjectRect(obj){return transformedRect({x:obj.x,y:obj.y,widthPx:obj.widthPx,depthPx:obj.depthPx,rotationDeg:obj.rotationDeg});}
-  function pointInStlObject(p,obj,pointerType='mouse'){
-    obj=normalizeStlObject(obj);
-    if(!obj || obj.hidden) return false;
-    const pts=stlObjectRect(obj);
-    if(!obj.locked) return pointInPoly(p,pts);
-    return polyEdgeDistance(p,pts)<=lockedHitTolerance(pointerType);
-  }
-  function hitStlObject(p,pointerType='mouse'){
-    for(let i=(state.stlObjects||[]).length-1;i>=0;i--){
-      const obj=normalizeStlObject(state.stlObjects[i]);
-      if(pointInStlObject(p,obj,pointerType)) return obj;
-    }
-    return null;
-  }
   function pointInBuilding(p,b){if(b.hidden) return false; return visibleBuildingPolygons(b).some(pts=>pts.length>=3 && pointInPoly(p,pts));}
   function lockedHitTolerance(pointerType='mouse'){
     const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);

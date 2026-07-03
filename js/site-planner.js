@@ -5,6 +5,7 @@ import { buildingCsvExport, roadAssetSvgExport, sitePlanSvgExport, trackSvgExpor
 import { dataTransferHasFile, hakoFileFromDataTransfer, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
 import { cacheImageAsset, cachedImageAsset, githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, hakoFileAssetReference, imageAssetFileName, imageAssetReference, imageMetaForProject, stlAssetReference, stlSourceAssetReference, uniqueHakoAssetFileName, uniqueStlAssetFileName, uniqueStlSourceAssetFileName } from './site-planner/github-asset-paths.js';
 import { createGithubDataAccess } from './site-planner/github-access-utils.js';
+import { createGithubModalController } from './site-planner/github-modal-utils.js';
 import { githubProjectName, githubSiteRecord, isGithubContentsMetadata, normalizeGithubLibrary, normalizeLoadedSitePlanPayload, upsertGithubSitePlan } from './site-planner/github-site-library.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
@@ -76,6 +77,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     writeGithubBase64File,
     loadGithubLibrary,
   } = createGithubDataAccess(githubData, GITHUB_CURRENT_KEY);
+  const {
+    openGithubModal,
+    closeGithubModal,
+    setGithubStatus,
+    setGithubProgress,
+    openGithubSaveProgressModal,
+  } = createGithubModalController({getElement:$});
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
   function setSidebarOpen(open){
@@ -6230,64 +6238,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const b=selected();
     if(!b) return alert('Select a building first.');
     downloadText(JSON.stringify(makeSeed(b),null,2),`${slug(b.name)}-hakomachi-seed.json`,'application/json');
-  }
-  function openGithubModal(title, body, actions=[]){
-    let modal=document.getElementById('githubDataPlannerModal');
-    if(!modal){
-      modal=document.createElement('div');
-      modal.id='githubDataPlannerModal';
-      modal.className='githubDataModal';
-      modal.innerHTML='<div class="githubDataCard"><h2 id="githubDataTitle"></h2><div id="githubDataBody"></div><div id="githubDataStatus" class="githubDataStatus"></div><div id="githubDataActions" class="githubDataActions"></div></div>';
-      modal.addEventListener('click', event=>{if(event.target===modal) closeGithubModal();});
-      document.body.appendChild(modal);
-    }
-    $('githubDataTitle').textContent=title;
-    $('githubDataBody').innerHTML=body||'';
-    $('githubDataStatus').textContent='';
-    const actionBox=$('githubDataActions');
-    actionBox.innerHTML='';
-    actions.forEach(action=>{
-      const button=document.createElement('button');
-      button.type='button';
-      button.textContent=action.label;
-      if(action.cls) button.className=action.cls;
-      button.onclick=action.onClick;
-      actionBox.appendChild(button);
-    });
-    modal.classList.add('open');
-    return modal;
-  }
-  function closeGithubModal(){
-    document.getElementById('githubDataPlannerModal')?.classList.remove('open');
-  }
-  function setGithubStatus(message){
-    const el=$('githubDataStatus');
-    if(el) el.textContent=message||'';
-  }
-  function setGithubProgress(step,total,label,detail){
-    const progressEl=$('githubProgress');
-    const fillEl=$('githubProgressFill');
-    const percentEl=$('githubProgressPercent');
-    const labelEl=$('githubProgressLabel');
-    const detailEl=$('githubProgressDetail');
-    const safeTotal=Math.max(1,total||1);
-    const percent=Math.max(0,Math.min(100,Math.round((Math.max(0,step||0)/safeTotal)*100)));
-    if(progressEl) progressEl.setAttribute('aria-valuenow', String(percent));
-    if(fillEl) fillEl.style.width=percent+'%';
-    if(percentEl) percentEl.textContent=percent+'%';
-    if(labelEl) labelEl.textContent=label||'Working...';
-    if(detailEl) detailEl.textContent=detail||'';
-    setGithubStatus(label||'');
-  }
-  function openGithubSaveProgressModal(){
-    openGithubModal('Save site plan to GitHub', `
-      <div id="githubProgress" class="githubProgress" role="progressbar" aria-label="GitHub save progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-        <div class="githubProgressTrack"><div id="githubProgressFill" class="githubProgressFill"></div></div>
-        <div class="githubProgressSummary"><b id="githubProgressLabel">Preparing save...</b><span id="githubProgressPercent">0%</span></div>
-        <div id="githubProgressDetail" class="githubProgressDetail">Building the site plan payload.</div>
-      </div>
-    `, [{label:'Close', onClick:closeGithubModal}]);
-    setGithubProgress(0,8,'Preparing save...','Building the site plan payload.');
   }
   function openGithubSettings(){
     const settings=getGithubSettings();

@@ -1,6 +1,7 @@
 import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-4';
 import { approxDataUrlBytes, arrayBufferToBase64, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, downloadText, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, textToBase64 } from './shared/browser-utils.js';
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fabrication-colors.js';
+import { createAutosaveUiController } from './site-planner/autosave-ui.js';
 import { buildingCsvExport, roadAssetSvgExport, sitePlanSvgExport, trackSvgExport } from './site-planner/export-utils.js';
 import { dataTransferHasFile, hakoFileFromDataTransfer, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
 import { cacheImageAsset, cachedImageAsset, githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, hakoFileAssetReference, imageAssetFileName, imageAssetReference, imageMetaForProject, stlAssetReference, stlSourceAssetReference, uniqueHakoAssetFileName, uniqueStlAssetFileName, uniqueStlSourceAssetFileName } from './site-planner/github-asset-paths.js';
@@ -94,6 +95,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     updateEmptyImageOverlay,
     setImageStatus,
   } = createReferenceImageUiController({state, getElement:$});
+  const {
+    updateAutosaveStatus,
+  } = createAutosaveUiController({state, getElement:$});
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
   function setSidebarOpen(open){
@@ -3914,14 +3918,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return true;
   }
 
-  function updateAutosaveStatus(message){
-    const el=$('statusAutosave');
-    if(!el) return;
-    if(message){ el.textContent=message; return; }
-    if(state.dirty) el.textContent='Autosave: pending';
-    else if(state.lastAutosaveAt) el.textContent='Autosave: '+new Date(state.lastAutosaveAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-    else el.textContent='Autosave: ready';
-  }
   function updateImagePortableStatus(extraMessage){
     const el=$('imagePortableStatus');
     if(!el) return;

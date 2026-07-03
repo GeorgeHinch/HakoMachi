@@ -17,6 +17,7 @@ import { bboxOverlaps, clamp, closestPointOnSegment, deg, dist, distanceToSegmen
 import { createImportProgressController } from './site-planner/import-progress-modal.js';
 import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS, TRACK_PROFILE_DEFAULTS } from './site-planner/presets.js';
 import { loadAlignmentMessage, restoreProjectView, savedImageDimensions, scaleLoadedPixelGeometry } from './site-planner/project-load-utils.js';
+import { createReferenceImageUiController } from './site-planner/reference-image-ui.js';
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
 import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlBounds, parseStlVertices, stlFileFromDataTransfer } from './site-planner/stl-utils.js';
@@ -89,6 +90,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     hideToolFlyouts,
     toggleToolFlyout,
   } = createToolFlyoutController({getElement:$, clamp});
+  const {
+    updateEmptyImageOverlay,
+    setImageStatus,
+  } = createReferenceImageUiController({state, getElement:$});
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
   function setSidebarOpen(open){
@@ -6004,24 +6009,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   window.addEventListener('resize', hideToolFlyouts);
   window.addEventListener('scroll', hideToolFlyouts, true);
   updateStreetlightToolButton();
-  function hasAnySiteGeometry(){
-    return !!(state.buildings?.length || state.roads?.length || state.tracks?.length || state.roadFeatures?.length || state.benchworkOutlines?.length || state.streetlights?.length || state.annotations?.length || state.fabricRegions?.length || state.stlObjects?.length || state.siteConstraints?.length);
-  }
-
-  function updateEmptyImageOverlay(){
-    const overlay=$('emptyImageOverlay');
-    if(!overlay) return;
-    const show=!state.image && state.viewMode!=='3d';
-    overlay.classList.toggle('visible', show);
-    overlay.setAttribute('aria-hidden', show ? 'false' : 'true');
-  }
-
-  function setImageStatus(message, kind='muted'){
-    const el=$('imageImportStatus');
-    if(!el) return;
-    el.className='small '+kind;
-    el.textContent=message;
-  }
   async function loadReferenceImage(file){
     if(!file) return;
     openImportProgressModal('Import reference image','Reading image...',`Loading ${file.name||'reference image'}.`);

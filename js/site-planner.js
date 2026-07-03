@@ -19,6 +19,7 @@ import { createImportProgressController } from './site-planner/import-progress-m
 import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS, TRACK_PROFILE_DEFAULTS } from './site-planner/presets.js';
 import { loadAlignmentMessage, restoreProjectView, savedImageDimensions, scaleLoadedPixelGeometry } from './site-planner/project-load-utils.js';
 import { createReferenceImageUiController } from './site-planner/reference-image-ui.js';
+import { createRoadPresetApplicationController } from './site-planner/road-preset-application-utils.js';
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
 import { createScaleInputController } from './site-planner/scale-input-utils.js';
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
@@ -123,22 +124,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     setSidebarOpen,
     installSidebarToggle,
   } = createSidebarUiController({state, getElement:$, scheduleResize:()=>setTimeout(resize, 0)});
+  const {
+    roadPresetScaleContext,
+    applyRoadWidthPreset,
+    applySidewalkWidthPreset,
+  } = createRoadPresetApplicationController({state, mmToPx, currentScaleDivisor, rebuildRoadGeometry});
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
   installSidebarToggle();
   function mmToPx(mm){return state.pxPerMm? mm*state.pxPerMm : mm;}
   function pxToMm(px){return state.pxPerMm? px/state.pxPerMm : px;}
-  function roadPresetScaleContext(){ return {pxPerMm:state.pxPerMm, mmToPx}; }
-  function applyRoadWidthPreset(road, key){
-    road.roadWidthPreset = key || 'custom';
-    const mm = presetModelMm(roadPresetByKey(key), currentScaleDivisor());
-    if(mm!=null){ road.widthMm = mm; road.widthPx = state.pxPerMm ? mmToPx(mm) : (road.widthPx || mm); rebuildRoadGeometry(road); }
-  }
-  function applySidewalkWidthPreset(road, key){
-    road.sidewalkWidthPreset = key || 'custom';
-    const mm = presetModelMm(sidewalkPresetByKey(key), currentScaleDivisor());
-    if(mm!=null){ road.sidewalkWidthMm = mm; road.sidewalkWidthPx = state.pxPerMm ? mmToPx(mm) : (road.sidewalkWidthPx || mm); rebuildRoadGeometry(road); }
-  }
   function normalizeStlObject(obj){
     if(!obj) return obj;
     obj.id=obj.id||uid('stl');

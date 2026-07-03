@@ -2,6 +2,7 @@ import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-4';
 import { arrayBufferToBase64, base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, downloadText, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, textToBase64 } from './shared/browser-utils.js';
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fabrication-colors.js';
 import { createAutosaveUiController } from './site-planner/autosave-ui.js';
+import { createBuildingSelectionController } from './site-planner/building-selection-utils.js';
 import { buildingCsvExport, roadAssetSvgExport, sitePlanSvgExport, trackSvgExport } from './site-planner/export-utils.js';
 import { dataTransferHasFile, hakoFileFromDataTransfer, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
 import { cacheImageAsset, cachedImageAsset, githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, hakoFileAssetReference, imageAssetFileName, imageAssetReference, imageMetaForProject, stlAssetReference, stlSourceAssetReference, uniqueHakoAssetFileName, uniqueStlAssetFileName, uniqueStlSourceAssetFileName } from './site-planner/github-asset-paths.js';
@@ -1856,6 +1857,21 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return `Project loaded, but no supported building footprint data was found. Fields found: ${projectShapeFields(p)}.`;
   }
   const {
+    selected,
+    currentSelectedBuildingIds,
+    clearBuildingSelection,
+    setBuildingSelection,
+    reassertCanvasBuildingSelection,
+    isBuildingSelected,
+    toggleBuildingSelection,
+    buildingsInSelectionRect,
+  } = createBuildingSelectionController({
+    state,
+    bboxOverlaps,
+    transformedRect,
+  });
+
+  const {
     hakoFileSummary,
     hasAttachedHakoFile,
     hakoFileText,
@@ -2283,39 +2299,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       attachHakoFileToSelectedBuilding(file,{source:'selected-building-drop'});
     });
   }
-  function selected(){return state.buildings.find(b=>b.id===state.selectedId)||null;}
   function selectedStlObject(){return (state.stlObjects||[]).find(obj=>obj.id===state.selectedStlObjectId)||null;}
-  function currentSelectedBuildingIds(){
-    const ids=Array.isArray(state.selectedIds)?state.selectedIds.filter(Boolean):[];
-    if(state.selectedId && !ids.includes(state.selectedId)) return [state.selectedId];
-    return [...new Set(ids)].filter(id=>state.buildings.some(b=>b.id===id));
-  }
-  function clearBuildingSelection(){state.selectedId=null; state.selectedIds=[]; state.selectedFabricId=null; state.selectedTrackId=null; state.selectedStlObjectId=null;}
-  function setBuildingSelection(ids, primaryId=null){
-    const valid=[...new Set((ids||[]).filter(id=>state.buildings.some(b=>b.id===id)))];
-    state.selectedIds=valid;
-    state.selectedId=primaryId || (valid.length===1 ? valid[0] : null);
-    state.selectedRoadId=null; state.selectedRoadFeatureId=null; state.selectedTrackId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedAnnotationId=null; state.selectedFabricId=null; state.selectedStlObjectId=null;
-  }
-  function reassertCanvasBuildingSelection(id){
-    const ids=currentSelectedBuildingIds();
-    setBuildingSelection(ids.includes(id) ? ids : [id], id);
-  }
-  function isBuildingSelected(id){return currentSelectedBuildingIds().includes(id);}
-  function toggleBuildingSelection(id){
-    const ids=currentSelectedBuildingIds();
-    if(ids.includes(id)) setBuildingSelection(ids.filter(x=>x!==id));
-    else setBuildingSelection([...ids,id], ids.length?null:id);
-  }
-  function buildingBBox(b){
-    const pts=b.padType==='rect'?transformedRect(b):(b.pointsPx||[]);
-    if(!pts.length) return {x:0,y:0,w:0,h:0};
-    const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
-    return {x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)};
-  }
-  function buildingsInSelectionRect(rect){
-    return state.buildings.filter(b=>!b.hidden && bboxOverlaps(rect,buildingBBox(b))).map(b=>b.id);
-  }
   function drawSelectionMarquee(){
     if(!state.drag || state.drag.type!=='marquee') return;
     const r=selectionRectFromPoints(state.drag.start,state.drag.end||state.drag.start);

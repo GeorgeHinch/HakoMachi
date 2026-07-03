@@ -27,6 +27,7 @@ import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStl
 import { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } from './site-planner/svg-export-utils.js';
 import { installTopMenus } from './site-planner/top-menu-utils.js';
 import { createToolFlyoutController } from './site-planner/tool-flyout-utils.js';
+import { createViewTransformController } from './site-planner/view-transform-utils.js';
 import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geometry.js?v=shared-building-preview-26';
 
 (() => {
@@ -112,6 +113,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     isLikelyIPad,
   });
   const { currentScaleDivisor, modelKnownMm } = createScaleInputController({getElement:$});
+  const {
+    screenToWorld,
+    setCanvasZoomAtClientPoint,
+    zoomCanvasAtClientPoint,
+  } = createViewTransformController({canvas, state, clamp, draw:()=>draw()});
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
   function setSidebarOpen(open){
@@ -127,21 +133,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     setTimeout(resize, 0);
   }
   $('sidebarToggle')?.addEventListener('click', ()=>setSidebarOpen(!state.sidebarOpen));
-  function screenToWorld(e){const r=canvas.getBoundingClientRect(); return {x:(e.clientX-r.left-state.view.x)/state.view.scale, y:(e.clientY-r.top-state.view.y)/state.view.scale};}
-  function worldToScreen(p){return {x:p.x*state.view.scale+state.view.x,y:p.y*state.view.scale+state.view.y};}
-  function setCanvasZoomAtClientPoint(clientX,clientY,nextScale){
-    const r=canvas.getBoundingClientRect();
-    const before={x:(clientX-r.left-state.view.x)/state.view.scale,y:(clientY-r.top-state.view.y)/state.view.scale};
-    const mouse={x:clientX-r.left,y:clientY-r.top};
-    state.view.scale=clamp(nextScale,.05,20);
-    state.view.x=mouse.x-before.x*state.view.scale;
-    state.view.y=mouse.y-before.y*state.view.scale;
-    draw();
-  }
-  function zoomCanvasAtClientPoint(clientX,clientY,deltaY){
-    const factor=deltaY<0?1.1:.9;
-    setCanvasZoomAtClientPoint(clientX,clientY,state.view.scale*factor);
-  }
   function mmToPx(mm){return state.pxPerMm? mm*state.pxPerMm : mm;}
   function pxToMm(px){return state.pxPerMm? px/state.pxPerMm : px;}
   function roadPresetScaleContext(){ return {pxPerMm:state.pxPerMm, mmToPx}; }

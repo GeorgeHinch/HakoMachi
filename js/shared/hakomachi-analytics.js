@@ -1,3 +1,5 @@
+import { appKeyForPath, navigationTargetForHref } from './hakomachi-tool-registry.js';
+
 const ANALYTICS_CONFIG = Object.freeze({
   provider: 'google-analytics',
   measurementId: 'G-EVTQYBFJXS',
@@ -54,16 +56,6 @@ const SAFE_ID_EVENTS = Object.freeze({
   loadGithubBtn: ['hm_github', { feature: 'material_profile', action: 'load' }],
   addMaterialBtn: ['hm_editor', { feature: 'material_profile', action: 'add_material' }],
   languageSelect: ['hm_language', { feature: 'language', action: 'change' }]
-});
-
-const NAVIGATION_TARGETS = Object.freeze({
-  'site-planner.html': 'site_planner',
-  'building-generator.html': 'building_generator',
-  'industrial-shelf-generator.html': 'utility_industrial_shelf',
-  'material-manager.html': 'utility_material_manager',
-  'safety-railing-generator.html': 'utility_safety_railing',
-  'wooden-crate-generator.html': 'utility_wooden_crate',
-  'index.html': 'landing'
 });
 
 function storageValue(key) {
@@ -123,15 +115,7 @@ function disabledReason() {
 }
 
 function detectAppName() {
-  const path = window.location.pathname.replace(/\/+$/, '');
-  const filename = path.split('/').pop() || 'index.html';
-  if (filename === 'site-planner.html') return 'site_planner';
-  if (filename === 'building-generator.html') return 'building_generator';
-  if (filename === 'industrial-shelf-generator.html') return 'utility_industrial_shelf';
-  if (filename === 'material-manager.html') return 'utility_material_manager';
-  if (filename === 'safety-railing-generator.html') return 'utility_safety_railing';
-  if (filename === 'wooden-crate-generator.html') return 'utility_wooden_crate';
-  return 'landing';
+  return appKeyForPath(window.location.pathname, 'landing');
 }
 
 function cleanToken(value, fallback = 'unknown') {
@@ -185,9 +169,7 @@ function injectGoogleTag(measurementId) {
 
 function hrefTarget(element) {
   const href = element.getAttribute('href') || '';
-  if (!href || href.startsWith('#')) return '';
-  const tail = href.split('/').pop() || 'index.html';
-  return NAVIGATION_TARGETS[tail] || '';
+  return navigationTargetForHref(href);
 }
 
 function eventForElement(element) {

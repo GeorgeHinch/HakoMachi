@@ -4,6 +4,7 @@ import {
   initialHakoMachiLanguage,
   saveHakoMachiLanguage,
 } from '../shared/hakomachi-language.js';
+import { initHakoMachiLogo } from '../shared/hakomachi-logo.js';
 import { landingTools } from '../shared/hakomachi-tool-registry.js';
 import { LANDING_TRANSLATIONS } from '../i18n/landing.js';
 
@@ -85,4 +86,5 @@ function initLandingLanguage() {
   });
 }
 
+initHakoMachiLogo();
 initLandingLanguage();

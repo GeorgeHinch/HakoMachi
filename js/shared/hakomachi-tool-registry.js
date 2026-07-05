@@ -84,7 +84,9 @@ const byAppKey = new Map();
 TOOL_REGISTRY.forEach(tool => {
   byAppKey.set(tool.appKey, tool);
   [tool.path, tool.canonicalPath].filter(Boolean).forEach(path => {
-    byPath.set(normalizeToolPath(path), tool);
+    const normalized = normalizeToolPath(path);
+    byPath.set(normalized, tool);
+    byPath.set(filenameFromPath(normalized), tool);
   });
 });
 

@@ -73,6 +73,10 @@ function normalizeBase64(b64) {
   return String(b64 || '').replace(/\s+/g, '');
 }
 
+function normalizeTextContent(text) {
+  return String(text ?? '');
+}
+
 export function assertSettings(settings, message = 'Add GitHub data settings first.') {
   if (!settings || !settings.repoFullName || !settings.repoFullName.includes('/') || !settings.token) {
     throw new Error(message);
@@ -182,9 +186,13 @@ export async function readGithubBase64File(settings, path) {
 
 export async function writeGithubFile(settings, path, text, message) {
   const current = await readGithubFile(settings, path);
+  const normalizedText = normalizeTextContent(text);
+  if (current && normalizeTextContent(current.text) === normalizedText) {
+    return { skipped: true, unchanged: true, sha: current.sha, path: cleanRepoPath(path) };
+  }
   const body = {
     message,
-    content: utf8ToBase64(text),
+    content: utf8ToBase64(normalizedText),
     branch: settings.branch || 'main',
   };
   if (current && current.sha) body.sha = current.sha;

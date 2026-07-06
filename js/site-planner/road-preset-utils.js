@@ -1,68 +1,45 @@
 import { escapeHtml } from '../shared/browser-utils.js';
 import {
   JP_ROAD_MARKING_STANDARD_ID,
-  ROAD_HATCH_PRESETS,
-  ROAD_MARKING_PRESETS,
   ROAD_WIDTH_PRESETS,
   SIDEWALK_WIDTH_PRESETS,
 } from './presets.js';
 import { fmt } from './geometry.js';
+import {
+  applyRoadHatchPresetData,
+  applyRoadMarkingPresetData,
+  roadHatchPresetByKey,
+  roadHatchSelectOptions,
+  roadMarkingPresetByKey,
+  roadMarkingSelectOptions,
+} from './road-marking-presets.js';
 
 export function markingPresetByKey(key) {
-  return ROAD_MARKING_PRESETS.find(preset => preset.key === key) || ROAD_MARKING_PRESETS[0];
+  return roadMarkingPresetByKey(key);
 }
 
 export function hatchPresetByKey(key) {
-  return ROAD_HATCH_PRESETS.find(preset => preset.key === key) || ROAD_HATCH_PRESETS[0];
+  return roadHatchPresetByKey(key);
 }
 
 export function markingOptionsHtml(selectedKey) {
-  return ROAD_MARKING_PRESETS.map(preset => `<option value="${preset.key}" ${preset.key === (selectedKey || 'stopLine') ? 'selected' : ''}>${escapeHtml(preset.label)} / ${escapeHtml(preset.jpName)}</option>`).join('');
+  const selected = markingPresetByKey(selectedKey || 'stopLine').key;
+  return roadMarkingSelectOptions().map(option => `<option value="${option.value}" ${option.value === selected ? 'selected' : ''}>${escapeHtml(option.label)} / ${escapeHtml(option.jpName)}</option>`).join('');
 }
 
 export function hatchOptionsHtml(selectedKey) {
-  return ROAD_HATCH_PRESETS.map(preset => `<option value="${preset.key}" ${preset.key === (selectedKey || 'round600') ? 'selected' : ''}>${escapeHtml(preset.label)}</option>`).join('');
+  const selected = hatchPresetByKey(selectedKey || 'round600').key;
+  return roadHatchSelectOptions().map(option => `<option value="${option.value}" ${option.value === selected ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('');
 }
 
 export function applyRoadMarkingPreset(feature, key, scaleContext = {}) {
-  const preset = markingPresetByKey(key);
-  feature.markingPreset = preset.key;
-  feature.markingType = preset.key;
-  feature.markingDraw = preset.draw;
-  feature.standard = JP_ROAD_MARKING_STANDARD_ID;
-  feature.jpName = preset.jpName;
-  feature.markingCategory = preset.category;
-  feature.cutBehavior = 'etchOnly';
-  feature.exportLayer = 'roadMarkingEtch';
-  feature.widthMm = preset.widthMm;
-  feature.depthMm = preset.depthMm;
-  feature.color = preset.color || '#f7f2df';
-  if (preset.text) feature.text = preset.text;
-  if (scaleContext.pxPerMm && scaleContext.mmToPx) {
-    feature.widthPx = scaleContext.mmToPx(feature.widthMm);
-    feature.depthPx = scaleContext.mmToPx(feature.depthMm);
-  }
+  const next = applyRoadMarkingPresetData(feature, key, scaleContext);
+  Object.assign(feature, next, { standard: next.standard || JP_ROAD_MARKING_STANDARD_ID });
   return feature;
 }
 
 export function applyRoadHatchPreset(feature, key, scaleContext = {}) {
-  const preset = hatchPresetByKey(key);
-  feature.hatchPreset = preset.key;
-  feature.jpName = preset.jpName;
-  feature.hatchShape = preset.shape;
-  feature.cutThrough = true;
-  feature.exportLayer = 'roadHatchCut';
-  if (preset.shape === 'circle') {
-    feature.diameterMm = preset.diameterMm;
-  } else {
-    feature.widthMm = preset.widthMm;
-    feature.depthMm = preset.depthMm;
-  }
-  if (scaleContext.pxPerMm && scaleContext.mmToPx) {
-    feature.diameterPx = scaleContext.mmToPx(feature.diameterMm || 3);
-    feature.widthPx = scaleContext.mmToPx(feature.widthMm || 4);
-    feature.depthPx = scaleContext.mmToPx(feature.depthMm || 3);
-  }
+  Object.assign(feature, applyRoadHatchPresetData(feature, key, scaleContext));
   return feature;
 }
 

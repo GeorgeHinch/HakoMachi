@@ -287,6 +287,24 @@ function clonePreset(preset) {
   return Object.freeze({ ...preset });
 }
 
+const ROAD_MARKING_PRESET_ALIASES = Object.freeze({
+  busStopBox: 'safetyZoneBox',
+  centerLineWhite: 'laneSolidCenter',
+  centerLineYellow: 'laneSolidCenter',
+  crosswalkAdvanceDiamond: 'diamondWarning',
+  directionArrow: 'laneArrowStraight',
+  edgeLine: 'laneSolidCenter',
+  laneBoundaryDashed: 'laneDashedCenter',
+  laneBoundarySolid: 'laneSolidCenter',
+  noStoppingParkingCurbSolid: 'laneSolidCenter',
+  obstructionChevron: 'chevronBuffer',
+  speedNumber30: 'speed30',
+});
+
+const ROAD_HATCH_PRESET_ALIASES = Object.freeze({
+  drain450x600: 'rectDrainLong',
+});
+
 function normalizeKey(key) {
   return String(key || '').trim();
 }
@@ -302,11 +320,13 @@ export const ROAD_MARKING_PRESET_BY_KEY = Object.freeze(byKey(ROAD_MARKING_PRESE
 export const ROAD_HATCH_PRESET_BY_KEY = Object.freeze(byKey(ROAD_HATCH_PRESETS));
 
 export function roadMarkingPresetByKey(key, fallback = 'stopLine') {
-  return ROAD_MARKING_PRESET_BY_KEY[normalizeKey(key)] || ROAD_MARKING_PRESET_BY_KEY[fallback] || ROAD_MARKING_PRESETS[0];
+  const normalized = normalizeKey(key);
+  return ROAD_MARKING_PRESET_BY_KEY[normalized] || ROAD_MARKING_PRESET_BY_KEY[ROAD_MARKING_PRESET_ALIASES[normalized]] || ROAD_MARKING_PRESET_BY_KEY[fallback] || ROAD_MARKING_PRESETS[0];
 }
 
 export function roadHatchPresetByKey(key, fallback = 'round600') {
-  return ROAD_HATCH_PRESET_BY_KEY[normalizeKey(key)] || ROAD_HATCH_PRESET_BY_KEY[fallback] || ROAD_HATCH_PRESETS[0];
+  const normalized = normalizeKey(key);
+  return ROAD_HATCH_PRESET_BY_KEY[normalized] || ROAD_HATCH_PRESET_BY_KEY[ROAD_HATCH_PRESET_ALIASES[normalized]] || ROAD_HATCH_PRESET_BY_KEY[fallback] || ROAD_HATCH_PRESETS[0];
 }
 
 export function roadMarkingPresetsByCategory() {

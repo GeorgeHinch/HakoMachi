@@ -1,6 +1,7 @@
 import { fmt, polygonCenter, rad } from './geometry.js';
 import { roadEdgePaths } from './road-geometry.js';
 import { roadEndpointJunctions } from './road-network.js';
+import { buildRoadMarkingShapes } from './road-marking-shapes.js';
 
 export function createRoadRenderer2dController({
   ctx,
@@ -15,92 +16,34 @@ export function createRoadRenderer2dController({
   function drawRoadMarkingShape(feature) {
     const width = feature.widthPx || 30;
     const depth = feature.depthPx || 6;
-    const draw = feature.markingDraw || markingPresetByKey(feature.markingPreset || feature.markingType).draw;
-    if (draw === 'crosswalk') {
-      const stripes = 5;
-      const gap = width / (stripes + 1);
-      const stripeWidth = Math.max(1.5 / state.view.scale, gap * 0.38);
-      for (let index = 0; index < stripes; index++) ctx.fillRect(-width / 2 + gap * (index + 1) - stripeWidth / 2, -depth / 2, stripeWidth, depth);
-    } else if (draw === 'bicycleCrossing') {
-      ctx.lineWidth = Math.max(0.8 / state.view.scale, depth * 0.12);
-      ctx.strokeRect(-width / 2, -depth / 2, width, depth);
-      ctx.beginPath();
-      ctx.moveTo(-width / 2, -depth * 0.12);
-      ctx.lineTo(width / 2, -depth * 0.12);
-      ctx.moveTo(-width / 2, depth * 0.12);
-      ctx.lineTo(width / 2, depth * 0.12);
-      ctx.stroke();
-    } else if (draw === 'diamond') {
-      ctx.beginPath();
-      ctx.moveTo(0, -depth / 2);
-      ctx.lineTo(width / 2, 0);
-      ctx.lineTo(0, depth / 2);
-      ctx.lineTo(-width / 2, 0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    } else if (draw === 'arrow') {
-      ctx.beginPath();
-      ctx.moveTo(0, -depth / 2);
-      ctx.lineTo(width / 2, -depth * 0.05);
-      ctx.lineTo(width * 0.18, -depth * 0.05);
-      ctx.lineTo(width * 0.18, depth / 2);
-      ctx.lineTo(-width * 0.18, depth / 2);
-      ctx.lineTo(-width * 0.18, -depth * 0.05);
-      ctx.lineTo(-width / 2, -depth * 0.05);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    } else if (draw === 'dashedLine' || draw === 'curbDash') {
-      const segments = draw === 'curbDash' ? 4 : 3;
-      const segmentWidth = width / (segments * 2 - 1);
-      for (let index = 0; index < segments; index++) ctx.fillRect(-width / 2 + index * segmentWidth * 2, -depth / 2, segmentWidth, depth);
-    } else if (draw === 'chevronZone') {
-      ctx.lineWidth = Math.max(1 / state.view.scale, depth * 0.08);
-      ctx.strokeRect(-width / 2, -depth / 2, width, depth);
-      const count = 5;
-      for (let index = 0; index < count; index++) {
-        const x = -width / 2 + (index + 0.5) * width / count;
-        ctx.beginPath();
-        ctx.moveTo(x - width / count * 0.35, depth / 2);
-        ctx.lineTo(x + width / count * 0.35, -depth / 2);
-        ctx.stroke();
+    const preset = {
+      ...markingPresetByKey(feature.markingPreset || feature.markingType),
+      ...feature,
+      widthMm: width,
+      depthMm: depth,
+    };
+    const shapes = buildRoadMarkingShapes(preset);
+    shapes.forEach(shape => {
+      if (shape.type === 'text') {
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `${Math.max(6, depth * 1.15)}px system-ui, sans-serif`;
+        ctx.fillText(shape.text || feature.text || '30', shape.x || 0, shape.y || 0);
+        ctx.restore();
+        return;
       }
-    } else if (draw === 'safetyZone') {
-      ctx.lineWidth = Math.max(1 / state.view.scale, depth * 0.08);
-      ctx.strokeRect(-width / 2, -depth / 2, width, depth);
+      const points = shape.points || [];
+      if (!points.length) return;
       ctx.beginPath();
-      ctx.moveTo(-width / 2, 0);
-      ctx.lineTo(width / 2, 0);
+      points.forEach((point, index) => {
+        if (index === 0) ctx.moveTo(point.x, point.y);
+        else ctx.lineTo(point.x, point.y);
+      });
+      ctx.closePath();
+      if (shape.fill !== false) ctx.fill();
       ctx.stroke();
-      const count = 4;
-      for (let index = 0; index < count; index++) {
-        const x = -width / 2 + (index + 0.5) * width / count;
-        ctx.beginPath();
-        ctx.moveTo(x - width / count * 0.25, depth / 2);
-        ctx.lineTo(x + width / count * 0.25, -depth / 2);
-        ctx.stroke();
-      }
-    } else if (draw === 'box') {
-      ctx.lineWidth = Math.max(1 / state.view.scale, depth * 0.10);
-      ctx.strokeRect(-width / 2, -depth / 2, width, depth);
-      ctx.beginPath();
-      ctx.moveTo(-width / 2, -depth * 0.15);
-      ctx.lineTo(width / 2, -depth * 0.15);
-      ctx.moveTo(-width / 2, depth * 0.15);
-      ctx.lineTo(width / 2, depth * 0.15);
-      ctx.stroke();
-    } else if (draw === 'speedNumber') {
-      ctx.save();
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.font = `${Math.max(6, depth * 1.15)}px system-ui, sans-serif`;
-      ctx.fillText(feature.text || '30', 0, 0);
-      ctx.restore();
-    } else {
-      ctx.fillRect(-width / 2, -depth / 2, width, depth);
-      ctx.strokeRect(-width / 2, -depth / 2, width, depth);
-    }
+    });
   }
 
   function drawRoadFeature(rawFeature) {

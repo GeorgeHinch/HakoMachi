@@ -148,19 +148,19 @@ function roadTextShape(preset, transform) {
 export function buildRoadMarkingShapes(presetOrKey, transform = {}) {
   const preset = typeof presetOrKey === 'string' ? roadMarkingPresetByKey(presetOrKey) : presetOrKey;
   const draw = preset?.markingDraw || preset?.draw || 'bar';
-  if (draw === 'bar') return barShape(preset, transform);
+  if (draw === 'bar' || draw === 'stopLine') return barShape(preset, transform);
   if (draw === 'solidLine') return solidLineShape(preset, transform);
   if (draw === 'dashedLine' || draw === 'curbDash') return dashedLineShape(preset, transform);
   if (draw === 'crosswalk') return crosswalkShape(preset, transform);
   if (draw === 'bicycleCrossing') return bicycleCrossingShape(preset, transform);
-  if (draw === 'arrowStraight') return straightArrowShape(preset, transform);
+  if (draw === 'arrowStraight' || draw === 'arrow') return straightArrowShape(preset, transform);
   if (draw === 'arrowLeft') return turnArrowShape(preset, transform, -1);
   if (draw === 'arrowRight') return turnArrowShape(preset, transform, 1);
   if (draw === 'arrowStraightLeft') return combinedArrowShape(preset, transform, -1);
   if (draw === 'arrowStraightRight') return combinedArrowShape(preset, transform, 1);
   if (draw === 'diamond') return diamondShape(preset, transform);
   if (draw === 'chevronZone') return chevronShape(preset, transform);
-  if (draw === 'safetyZone') return safetyZoneShape(preset, transform);
+  if (draw === 'safetyZone' || draw === 'box') return safetyZoneShape(preset, transform);
   if (draw === 'roadText' || draw === 'speedNumber') return roadTextShape(preset, transform);
   return barShape(preset, transform);
 }

@@ -1,3 +1,5 @@
+import { buildRoadMarkingSvgRecords } from './road-marking-shapes.js';
+
 function csvCell(value){
   return '"'+String(value).replaceAll('"','""')+'"';
 }
@@ -12,20 +14,28 @@ export function buildingCsvExport(buildings, {normalizeBuilding}){
 }
 
 export function svgRoadMarkingFeature(f, deps){
-  const {SVG_OP, SVG_ENGRAVE, escapeAttr, escapeHtml, markingPresetByKey, normalizeRoadFeature, svgFabricationAttrs, svgFeatureTransform}=deps;
+  const {SVG_OP, SVG_ENGRAVE, escapeAttr, escapeHtml, markingPresetByKey, normalizeRoadFeature, svgFabricationAttrs}=deps;
   normalizeRoadFeature(f);
-  const w=f.widthPx||24,h=f.depthPx||6,x=f.x,y=f.y,c=SVG_ENGRAVE,tr=svgFeatureTransform(f),draw=f.markingDraw||markingPresetByKey(f.markingPreset||f.markingType).draw;
-  const attrs=svgFabricationAttrs(SVG_OP.ENGRAVE,'roadMarkingEtch',`data-jp-name="${escapeAttr(f.jpName||'')}"`);
-  if(draw==='crosswalk'){
-    const stripes=5,gap=w/(stripes+1),stripeW=Math.max(.8,gap*.38); let out='';
-    const crosswalkAttrs=svgFabricationAttrs(SVG_OP.ENGRAVE,'roadMarkingEtch',`data-jp-name="${escapeAttr(f.jpName||'横断歩道')}"`);
-    for(let i=0;i<stripes;i++) out+=`<rect x="${x-w/2+gap*(i+1)-stripeW/2}" y="${y-h/2}" width="${stripeW}" height="${h}" transform="${tr}" fill="none" stroke="${c}" stroke-width="0.12" ${crosswalkAttrs}/>`;
-    return out;
-  }
-  if(draw==='diamond') return `<polygon points="${x},${y-h/2} ${x+w/2},${y} ${x},${y+h/2} ${x-w/2},${y}" transform="${tr}" fill="none" stroke="${c}" stroke-width="0.12" ${attrs}/>`;
-  if(draw==='arrow') return `<path d="M ${x} ${y-h/2} L ${x+w/2} ${y-h*.05} L ${x+w*.18} ${y-h*.05} L ${x+w*.18} ${y+h/2} L ${x-w*.18} ${y+h/2} L ${x-w*.18} ${y-h*.05} L ${x-w/2} ${y-h*.05} Z" transform="${tr}" fill="none" stroke="${c}" stroke-width="0.12" ${attrs}/>`;
-  if(draw==='speedNumber') return `<text x="${x}" y="${y}" transform="${tr}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(4,h*1.15)}" fill="none" stroke="${c}" stroke-width="0.08" ${svgFabricationAttrs(SVG_OP.ENGRAVE,'roadMarkingEtch',`data-jp-name="${escapeAttr(f.jpName||'速度表示')}"`)}>${escapeHtml(f.text||'30')}</text>`;
-  return `<rect x="${x-w/2}" y="${y-h/2}" width="${w}" height="${h}" transform="${tr}" fill="none" stroke="${c}" stroke-width="0.12" ${attrs}/>`;
+  const preset = {
+    ...markingPresetByKey(f.markingPreset || f.markingType),
+    ...f,
+    widthMm: f.widthPx || 24,
+    depthMm: f.depthPx || 6,
+  };
+  const records = buildRoadMarkingSvgRecords(preset, {
+    x: f.x,
+    y: f.y,
+    angle: Number(f.rotationDeg || 0) * Math.PI / 180,
+  });
+  return records.map((record, index) => {
+    const attrs=svgFabricationAttrs(SVG_OP.ENGRAVE,record.layer||'roadMarkingEtch',`data-jp-name="${escapeAttr(f.jpName||'')}" data-preset="${escapeAttr(record.presetKey||f.markingPreset||'')}" data-generated-index="${index}"`);
+    if(record.type==='text') {
+      const transform=`rotate(${Number(f.rotationDeg||0)} ${record.x||f.x} ${record.y||f.y})`;
+      return `<text x="${record.x||f.x}" y="${record.y||f.y}" transform="${transform}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(4,(record.depthMm||f.depthPx||6)*1.15)}" fill="none" stroke="${SVG_ENGRAVE}" stroke-width="0.08" ${attrs}>${escapeHtml(record.text||f.text||'')}</text>`;
+    }
+    if(!record.d) return '';
+    return `<path d="${escapeAttr(record.d)}" fill="none" stroke="${SVG_ENGRAVE}" stroke-width="0.12" ${attrs}/>`;
+  }).join('');
 }
 
 export function roadAssetSvgExport({data, roadFeatures, generatedIntersectionRecords = [], width, height}, deps){

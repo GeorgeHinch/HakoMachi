@@ -718,6 +718,45 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     delete feature.grateInsertSpec;
     return feature;
   }
+  function roadArmOverrideKey(arm){
+    return [arm?.roadId||'road', arm?.endpoint||'arm'].join(':');
+  }
+  function selectedRoadIntersectionArmSettings(roadId){
+    const intersections=roadSystem.generatedRoadIntersections();
+    const overrides=state.roadIntersectionOverrides||{};
+    const settings={count:0,crosswalkEnabled:true,stopBarEnabled:true,tactilePaversEnabled:true,curbGuideEnabled:true};
+    intersections.forEach(intersection=>{
+      (intersection.arms||[]).filter(arm=>arm.roadId===roadId).forEach(arm=>{
+        settings.count+=1;
+        const override=overrides[intersection.overrideKey]?.arms?.[roadArmOverrideKey(arm)];
+        ['crosswalkEnabled','stopBarEnabled','tactilePaversEnabled','curbGuideEnabled'].forEach(key=>{
+          if(override?.[key]===false) settings[key]=false;
+        });
+      });
+    });
+    return settings;
+  }
+  function roadIntersectionArmControlsHtml(roadId){
+    const s=selectedRoadIntersectionArmSettings(roadId);
+    const disabled=s.count?'':'disabled';
+    return `<div class="section" style="margin-top:10px">
+      <h3 style="margin:0 0 4px">Intersection markings</h3>
+      <div class="small muted">${s.count?`${s.count} selected-road intersection arm${s.count===1?'':'s'} detected.`:'No generated intersections touch this road yet.'}</div>
+      <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:6px"><input id="roadIntersectionCrosswalks" type="checkbox" ${s.crosswalkEnabled?'checked':''} ${disabled}> <span>Crosswalks on this road</span></label>
+      <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:6px"><input id="roadIntersectionStopBars" type="checkbox" ${s.stopBarEnabled?'checked':''} ${disabled}> <span>Stop bars on this road</span></label>
+      <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:6px"><input id="roadIntersectionTactile" type="checkbox" ${s.tactilePaversEnabled?'checked':''} ${disabled}> <span>Tactile pavers on this road</span></label>
+      <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:6px"><input id="roadIntersectionCurbGuides" type="checkbox" ${s.curbGuideEnabled?'checked':''} ${disabled}> <span>Curb guide marks on this road</span></label>
+      <button id="clearRoadIntersectionArmOverrides" class="secondary" type="button" style="margin-top:8px" ${disabled}>Reset selected-road overrides</button>
+    </div>`;
+  }
+  function bindRoadIntersectionArmCheckbox(id, roadId, key){
+    const el=$(id);
+    if(!el) return;
+    el.onchange=()=>{
+      roadSystem.setRoadIntersectionArmOverrides(roadId,{[key]:!!el.checked});
+      syncAll();
+    };
+  }
   function selectedRoadFeature(){return roadSystem.selectedRoadFeature();}
   function clearRoadFeatureSelection(){return roadSystem.clearRoadFeatureSelection();}
   function roadSurfaceAtPoint(p){
@@ -2826,6 +2865,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       tracks: state.tracks||[],
       roadFeatures: state.roadFeatures,
       roadIntersectionDetails: state.roadIntersectionDetails,
+      roadIntersectionOverrides: state.roadIntersectionOverrides||{},
       stlObjects: state.stlObjects||[],
       benchworkOutlines: state.benchworkOutlines,
       fabricRegions: state.fabricRegions,
@@ -2882,6 +2922,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.tracks=(Array.isArray(data.tracks)?structuredClone(data.tracks):[]).map(normalizeTrack);
     state.roadFeatures=migrateLoadedRoadFeatures(data.roadFeatures);
     state.roadIntersectionDetails=data.roadIntersectionDetails!==false;
+    state.roadIntersectionOverrides=data.roadIntersectionOverrides&&typeof data.roadIntersectionOverrides==='object'?structuredClone(data.roadIntersectionOverrides):{};
     state.generatedRoadIntersections=[];
     state.stlObjects=Array.isArray(data.stlObjects)?structuredClone(data.stlObjects):[];
     state.benchworkOutlines=Array.isArray(data.benchworkOutlines)?structuredClone(data.benchworkOutlines):[];
@@ -2968,6 +3009,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       tracks:state.tracks||[],
       roadFeatures:state.roadFeatures,
       roadIntersectionDetails:state.roadIntersectionDetails!==false,
+      roadIntersectionOverrides:state.roadIntersectionOverrides||{},
       stlObjects:state.stlObjects||[],
       benchworkOutlines:state.benchworkOutlines,
       fabricRegions:state.fabricRegions,
@@ -3784,6 +3826,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       <div id="roadSidewalkOverrideWrap" style="display:${showSidewalkOverride?'block':'none'}"><label>Sidewalk width override (mm)</label><input id="roadSidewalkWidth" type="number" step="0.1" value="${fmt(road.sidewalkWidthMm||0)}" ${road.mode==='outline'?'disabled':''}></div>
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="roadLocked" type="checkbox" ${road.locked?'checked':''}> <span>Lock road</span></label>
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="roadIntersectionDetails" type="checkbox" ${state.roadIntersectionDetails!==false?'checked':''}> <span>Show automatic intersection markings</span></label>
+      ${roadIntersectionArmControlsHtml(road.id)}
       <div class="buttons" style="margin-top:8px"><button id="regenRoad">Regenerate road geometry</button><button id="deleteRoad" class="danger">Delete Road</button></div>
       <div class="small muted" style="margin-top:8px">Presets are common real-world widths converted to physical output millimeters using the calibration scale divisor. Choose <b>Custom / override</b> to show manual width fields. Centerlines can be polyline paths; hover a selected segment and drag to bend it into a curve. Laser-cut road export is not enabled yet.</div>`;
       const sel=$('roadSidewalk'); if(sel) sel.value=road.sidewalkSide||'none';
@@ -3796,6 +3839,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       bindRoad('roadSidewalkWidth',v=>{road.sidewalkWidthPreset='custom'; road.sidewalkWidthMm=parseFloat(v)||0; road.sidewalkWidthPx=state.pxPerMm?mmToPx(road.sidewalkWidthMm):road.sidewalkWidthPx;});
       bindRoad('roadLocked',v=>road.locked=!!v);
       bindRoad('roadIntersectionDetails',v=>{state.roadIntersectionDetails=!!v;});
+      bindRoadIntersectionArmCheckbox('roadIntersectionCrosswalks',road.id,'crosswalkEnabled');
+      bindRoadIntersectionArmCheckbox('roadIntersectionStopBars',road.id,'stopBarEnabled');
+      bindRoadIntersectionArmCheckbox('roadIntersectionTactile',road.id,'tactilePaversEnabled');
+      bindRoadIntersectionArmCheckbox('roadIntersectionCurbGuides',road.id,'curbGuideEnabled');
+      const clearIntersectionOverrides=$('clearRoadIntersectionArmOverrides');
+      if(clearIntersectionOverrides) clearIntersectionOverrides.onclick=()=>{roadSystem.clearRoadIntersectionArmOverrides(road.id); syncAll();};
       $('regenRoad').onclick=()=>syncAll(); $('deleteRoad').onclick=deleteSelectedRoad;
       return;
     } if(track){normalizeTrack(track); box.innerHTML=`
@@ -5740,6 +5789,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.tracks=(Array.isArray(p.tracks)?p.tracks:[]).map(normalizeTrack);
     state.roadFeatures=migrateLoadedRoadFeatures(p.roadFeatures);
     state.roadIntersectionDetails=p.roadIntersectionDetails!==false;
+    state.roadIntersectionOverrides=p.roadIntersectionOverrides&&typeof p.roadIntersectionOverrides==='object'?structuredClone(p.roadIntersectionOverrides):{};
     state.generatedRoadIntersections=[];
     const loadedStlObjects = Array.isArray(p.stlObjects) ? p.stlObjects : (Array.isArray(p.siteObjects) ? p.siteObjects.filter(o=>o&&(o.type==='stl'||o.type==='stlObject'||o.kind==='stl')) : (Array.isArray(p.siteConstraints) ? p.siteConstraints.filter(o=>o&&(o.type==='stlObject'||o.type==='stl'||o.kind==='stl')) : []));
     state.stlObjects=loadedStlObjects.map(normalizeStlObject);

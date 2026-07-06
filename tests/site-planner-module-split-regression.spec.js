@@ -3,6 +3,82 @@ const fs = require('fs');
 const path = require('path');
 
 test.describe('Site Planner module split contracts', () => {
+  test('building generator handoff behavior is wired through the handoff controller', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'hako-handoff-controller.js'), 'utf8');
+    const { createHakoHandoffController } = await import('../js/site-planner/hako-handoff-controller.js');
+
+    expect(source).toContain("import { createHakoHandoffController } from './site-planner/hako-handoff-controller.js';");
+    expect(source).toContain('} = createHakoHandoffController({');
+    expect(source).toContain('applySitePlannerBuildingUpdate(payload)');
+    expect(source).not.toContain('function sitePlannerBuildingUpdatePayload(data)');
+
+    expect(controllerSource).toContain('export function createHakoHandoffController');
+    expect(controllerSource).toContain('function makeSeed(b)');
+    expect(controllerSource).toContain('function applySitePlannerBuildingUpdate(raw, opts = {})');
+    expect(controllerSource).toContain('function processQueuedSitePlannerBuildingUpdate()');
+
+    const state = {
+      projectName: 'Akiba Module',
+      buildings: [{
+        id: 'b1',
+        name: 'Corner Shop',
+        padType: 'rect',
+        category: 'commercial',
+        state: 'notStarted',
+        x: 100,
+        y: 120,
+        widthMm: 20,
+        depthMm: 12,
+        widthPx: 200,
+        depthPx: 120,
+        rotationDeg: 0,
+      }],
+    };
+    const statusHint = { textContent: '' };
+    const selectedIds = [];
+    const controller = createHakoHandoffController({
+      state,
+      autosaveKey: 'autosave-key',
+      buildingUpdateKey: 'building-update-key',
+      getElement: () => null,
+      selected: () => state.buildings[0],
+      normalizeBuilding: building => building,
+      syncBuildingMetrics: building => building,
+      deriveFootprintFromHakoConfig: cfg => ({ padType: 'rect', widthMm: cfg.width, depthMm: cfg.depth }),
+      buildingCenter: building => ({ x: building.x, y: building.y }),
+      mmToPx: value => value * 10,
+      rad: degrees => degrees * Math.PI / 180,
+      slug: value => String(value).toLowerCase().replace(/\s+/g, '-'),
+      setBuildingSelection: ids => selectedIds.splice(0, selectedIds.length, ...ids),
+      syncAll: () => {},
+      statusHintElement: () => statusHint,
+    });
+
+    const seed = controller.makeSeed(state.buildings[0]);
+    expect(seed.sitePlannerHandoff.sitePlan.name).toBe('Akiba Module');
+    expect(seed.sitePlannerHandoff.building.plannerId).toBe('b1');
+    expect(seed.footprint).toEqual({ type: 'rect', widthMm: 20, depthMm: 12, rotationDeg: 0 });
+
+    const result = controller.applySitePlannerBuildingUpdate({
+      payload: {
+        schema: 'hakomachi.building-update',
+        buildingId: 'b1',
+        buildingName: 'Updated Corner Shop',
+        hakoConfig: { buildingName: 'Updated Corner Shop', width: 26, depth: 14 },
+        updatedAt: '2026-07-06T00:00:00.000Z',
+      },
+    });
+
+    expect(result).toEqual({ buildingId: 'b1', buildingName: 'Corner Shop' });
+    expect(state.buildings[0].state).toBe('inProgress');
+    expect(state.buildings[0].hakoFile.fileName).toBe('updated-corner-shop.hako');
+    expect(state.buildings[0].widthPx).toBe(260);
+    expect(state.buildings[0].depthPx).toBe(140);
+    expect(selectedIds).toEqual(['b1']);
+    expect(statusHint.textContent).toBe('Updated Corner Shop from Building Generator.');
+  });
+
   test('road paint stencil specs preserve custom feature dimensions and stay off the road-deck engrave layer', async () => {
     const { paintStencilExportSpec } = await import('../js/site-planner/road-asset-export-specs.js');
     const { roadMarkingPresetByKey } = await import('../js/site-planner/road-marking-presets.js');

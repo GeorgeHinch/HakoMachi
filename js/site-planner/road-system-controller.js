@@ -4,6 +4,9 @@ import { createRoadDraftController } from './road-draft-controller.js';
 import { createRoadExportController } from './road-export.js';
 import { createRoadFeatureEditorController } from './road-feature-editor.js';
 import { hitRoadCenterlineSegment, hitRoadPoint } from './road-geometry.js';
+import { drawRoadIntersections } from './road-intersection-preview-renderer.js';
+import { serializeRoadIntersections } from './road-intersection-svg-export.js';
+import { buildRoadIntersections, intersectionSummary } from './road-intersections.js';
 import { createRoadModelController } from './road-model.js';
 import { createRoadRenderer2dController } from './road-renderer-2d.js';
 
@@ -51,6 +54,33 @@ export function createRoadSystemController(deps) {
     syncAll: deps.syncAll,
   });
 
+  function generatedRoadIntersections(options = {}) {
+    if (deps.state.roadIntersectionDetails === false) {
+      deps.state.generatedRoadIntersections = [];
+      return [];
+    }
+    const intersections = buildRoadIntersections(deps.state.roads, {
+      normalizeRoad: model.normalizeRoad,
+      ...options,
+    });
+    deps.state.generatedRoadIntersections = intersections;
+    return intersections;
+  }
+
+  function drawGeneratedRoadIntersections(options = {}) {
+    if (!deps.ctx || deps.state.roadIntersectionDetails === false) return null;
+    const intersections = generatedRoadIntersections(options);
+    return drawRoadIntersections(deps.ctx, intersections, {
+      viewScale: deps.state.view?.scale || 1,
+      showLabels: false,
+      ...options,
+    });
+  }
+
+  function generatedRoadIntersectionSvgRecords(options = {}) {
+    return serializeRoadIntersections(generatedRoadIntersections(options), options);
+  }
+
   return {
     ...model,
     ...adapter,
@@ -59,5 +89,9 @@ export function createRoadSystemController(deps) {
     ...exporter,
     ...draft,
     ...deletion,
+    drawGeneratedRoadIntersections,
+    generatedRoadIntersectionSvgRecords,
+    generatedRoadIntersections,
+    intersectionSummary,
   };
 }

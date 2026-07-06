@@ -129,11 +129,12 @@ function averagePoints(points) {
 }
 
 function addSegmentArms(clusters, roads, options, normalizeRoad) {
-  const seen = new Set(clusters.flatMap(cluster => cluster.arms.map(armKey)));
   clusters.forEach(cluster => {
+    const seen = new Set((cluster.arms || []).map(armKey));
     (roads || []).forEach(rawRoad => {
       const road = normalizeRoad(rawRoad);
       if (!road || road.hidden || road.mode !== 'centerline' || !Array.isArray(road.pointsPx) || road.pointsPx.length < 2) return;
+      if ((cluster.arms || []).some(arm => arm.roadId === road.id)) return;
       const hit = nearestPointOnRoadPath(cluster.center, road, false);
       if (!hit || hit.distance > Math.max(options.endpointSnapPx, roadWidth(road) * 0.35)) return;
       const key = `${road.id}:through`;

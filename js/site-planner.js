@@ -26,6 +26,7 @@ import { createImportProgressController } from './site-planner/import-progress-m
 import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS, TRACK_PROFILE_DEFAULTS } from './site-planner/presets.js';
 import { loadAlignmentMessage, restoreProjectView, savedImageDimensions, scaleLoadedPixelGeometry } from './site-planner/project-load-utils.js';
 import { createReferenceImageUiController } from './site-planner/reference-image-ui.js';
+import { createRoadSystemController } from './site-planner/road-system-controller.js';
 import { createRoadPresetApplicationController } from './site-planner/road-preset-application-utils.js';
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
 import { createScaleInputController } from './site-planner/scale-input-utils.js';
@@ -75,6 +76,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let renderQueued = false;
   let activeSidebarDetailKey = null;
   let sidebarObjectType = null;
+  let roadSystem = null;
   const colors = ['#d79631','#b8672d','#0f766e','#7c5f3f','#8b5a2b','#5f7f54','#9b6b44','#496a78'];
   const {
     openImportProgressModal,
@@ -314,81 +316,20 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return true;
   }
   function normalizeRoad(r){
-    if(!r) return r;
-    r.id = r.id || uid('road');
-    r.name = r.name || (r.mode==='outline'?'Road Outline':'Road Centerline') + ' ' + (state.roads.length+1);
-    r.mode = r.mode || r.roadMode || 'centerline';
-    r.pointsPx = Array.isArray(r.pointsPx) ? r.pointsPx.map(p=>({x:Number(p.x)||0,y:Number(p.y)||0})) : [];
-    if(!r.pointsPx.length && Array.isArray(r.polygon)) r.pointsPx = r.polygon.map(p=>({x:Number(p.x)||0,y:Number(p.y)||0}));
-    r.roadWidthPreset = r.roadWidthPreset || r.widthPreset || 'two_lane_local';
-    r.widthMm = Number.isFinite(Number(r.widthMm)) ? Number(r.widthMm) : (presetModelMm(roadPresetByKey(r.roadWidthPreset), currentScaleDivisor()) || 40);
-    r.widthPx = Number.isFinite(Number(r.widthPx)) ? Number(r.widthPx) : (state.pxPerMm ? mmToPx(r.widthMm) : 48);
-    r.sidewalkSide = r.sidewalkSide || 'none';
-    r.sidewalkWidthPreset = r.sidewalkWidthPreset || r.sidewalkPreset || 'standard';
-    r.sidewalkWidthMm = Number.isFinite(Number(r.sidewalkWidthMm)) ? Number(r.sidewalkWidthMm) : (presetModelMm(sidewalkPresetByKey(r.sidewalkWidthPreset), currentScaleDivisor()) || 10);
-    r.sidewalkWidthPx = Number.isFinite(Number(r.sidewalkWidthPx)) ? Number(r.sidewalkWidthPx) : (state.pxPerMm ? mmToPx(r.sidewalkWidthMm) : 10);
-    r.locked = !!r.locked;
-    r.hidden = !!r.hidden;
-    r.color = r.color || '#6f6a5e';
-    normalizeRoadCurves(r);
-    rebuildRoadGeometry(r);
-    return r;
+    return roadSystem.normalizeRoad(r);
   }
   function syncRoadMetrics(r){
-    if(!r) return r;
-    if(state.pxPerMm){
-      r.widthMm = pxToMm(r.widthPx || 0);
-      r.sidewalkWidthMm = pxToMm(r.sidewalkWidthPx || 0);
-      r.pointsMm = (r.pointsPx||[]).map(p=>({x:pxToMm(p.x), y:pxToMm(p.y)}));
-      r.curvesMm = (r.curvesPx||[]).map(c=>c?{x:pxToMm(c.x),y:pxToMm(c.y)}:null);
-    }
-    rebuildRoadGeometry(r);
-    return r;
+    return roadSystem.syncRoadMetrics(r);
   }
   function quadPoint(a,c,b,t){
     const mt=1-t;
     return {x:mt*mt*a.x+2*mt*t*c.x+t*t*b.x, y:mt*mt*a.y+2*mt*t*c.y+t*t*b.y};
   }
-  function normalizeRoadCurves(r){
-    const n=Math.max(0, r.mode==='outline' ? (r.pointsPx||[]).length : (r.pointsPx||[]).length-1);
-    const src=Array.isArray(r.curvesPx)?r.curvesPx:(Array.isArray(r.curves)?r.curves:[]);
-    r.curvesPx=[];
-    for(let i=0;i<n;i++){
-      const c=src[i];
-      r.curvesPx[i]=c&&Number.isFinite(Number(c.x))&&Number.isFinite(Number(c.y)) ? {x:Number(c.x),y:Number(c.y)} : null;
-    }
-    return r.curvesPx;
-  }
   function roadCenterlineSamples(r, perCurve=14){
-    if(!r || !Array.isArray(r.pointsPx) || r.pointsPx.length<2) return [];
-    normalizeRoadCurves(r);
-    const out=[];
-    for(let i=0;i<r.pointsPx.length-1;i++){
-      const a=r.pointsPx[i], b=r.pointsPx[i+1], c=r.curvesPx?.[i];
-      if(i===0) out.push({x:a.x,y:a.y});
-      if(c){
-        for(let k=1;k<=perCurve;k++) out.push(quadPoint(a,c,b,k/perCurve));
-      } else {
-        out.push({x:b.x,y:b.y});
-      }
-    }
-    return out;
+    return roadSystem.roadCenterlineSamples(r, perCurve);
   }
   function roadOutlineSamples(r, perCurve=14){
-    if(!r || !Array.isArray(r.pointsPx) || r.pointsPx.length<2) return [];
-    normalizeRoadCurves(r);
-    const pts=r.pointsPx;
-    const out=[];
-    for(let i=0;i<pts.length;i++){
-      const a=pts[i], b=pts[(i+1)%pts.length], c=r.curvesPx?.[i];
-      if(i===0) out.push({x:a.x,y:a.y});
-      if(c){
-        for(let k=1;k<=perCurve;k++) out.push(quadPoint(a,c,b,k/perCurve));
-      } else {
-        out.push({x:b.x,y:b.y});
-      }
-    }
-    return out;
+    return roadSystem.roadOutlineSamples(r, perCurve);
   }
   function offsetPathPolygon(path, offsetPx){
     if(!Array.isArray(path) || path.length<2 || !Number.isFinite(offsetPx) || Math.abs(offsetPx)<0.001) return [];
@@ -401,175 +342,43 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const left=side(1), right=side(-1).reverse();
     return left.concat(right);
   }
-  function roadOffsetPolygon(pointsOrRoad, widthPx){
-    const path=Array.isArray(pointsOrRoad) ? pointsOrRoad : roadCenterlineSamples(pointsOrRoad);
-    return offsetPathPolygon(path, (widthPx||20)/2);
-  }
   function roadSidewalkPolygons(r){
-    if(!r || r.mode!=='centerline' || !Array.isArray(r.pointsPx) || r.pointsPx.length<2) return [];
-    const path=roadCenterlineSamples(r);
-    const hw=(r.widthPx||20)/2, sw=(r.sidewalkWidthPx||0);
-    const out=[];
-    function strip(sign,label){
-      const inner=offsetPathPolygon(path, hw*sign);
-      const outer=offsetPathPolygon(path, (hw+sw)*sign);
-      if(!inner.length||!outer.length) return null;
-      const innerSide=inner.slice(0,path.length);
-      const outerSide=outer.slice(0,path.length);
-      return {side:label, polygon:innerSide.concat(outerSide.slice().reverse())};
-    }
-    if(sw>0 && (r.sidewalkSide==='left'||r.sidewalkSide==='both')){ const p=strip(1,'left'); if(p) out.push(p); }
-    if(sw>0 && (r.sidewalkSide==='right'||r.sidewalkSide==='both')){ const p=strip(-1,'right'); if(p) out.push(p); }
-    return out;
+    return roadSystem.roadSidewalkPolygons(r);
   }
   function rebuildRoadGeometry(r){
-    if(!r) return r;
-    if(r.mode==='outline'){
-      normalizeRoadCurves(r);
-      r.roadPolygonPx = roadOutlineSamples(r);
-      r.sidewalkPolygonsPx = [];
-    } else {
-      normalizeRoadCurves(r);
-      r.roadCenterlineSamplesPx = roadCenterlineSamples(r);
-      r.roadPolygonPx = roadOffsetPolygon(r, r.widthPx||20);
-      r.sidewalkPolygonsPx = roadSidewalkPolygons(r);
-    }
-    return r;
+    return roadSystem.rebuildRoadGeometry(r);
   }
   function hitRoadCenterlineSegment(p,r,pointerType='mouse'){
-    if(!r || r.mode!=='centerline' || !Array.isArray(r.pointsPx) || r.pointsPx.length<2) return null;
-    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
-    const tol=(coarse?18:10)/state.view.scale;
-    normalizeRoadCurves(r);
-    let best={distance:Infinity,index:-1};
-    for(let i=0;i<r.pointsPx.length-1;i++){
-      const a=r.pointsPx[i], b=r.pointsPx[i+1], c=r.curvesPx?.[i];
-      if(c){
-        let prev=a;
-        for(let k=1;k<=16;k++){
-          const cur=quadPoint(a,c,b,k/16);
-          const d=distanceToSegment(p,prev,cur);
-          if(d<best.distance) best={distance:d,index:i};
-          prev=cur;
-        }
-      } else {
-        const d=distanceToSegment(p,a,b);
-        if(d<best.distance) best={distance:d,index:i};
-      }
-    }
-    return best.distance<=tol ? best : null;
+    return roadSystem.hitRoadCenterlineSegment(p, r, pointerType);
   }
   function hitRoadOutlineSegment(p,r,pointerType='mouse'){
-    if(!r || r.mode!=='outline' || !Array.isArray(r.pointsPx) || r.pointsPx.length<2) return null;
-    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
-    const tol=(coarse?18:10)/state.view.scale;
-    normalizeRoadCurves(r);
-    let best={distance:Infinity,index:-1};
-    for(let i=0;i<r.pointsPx.length;i++){
-      const a=r.pointsPx[i], b=r.pointsPx[(i+1)%r.pointsPx.length], c=r.curvesPx?.[i];
-      if(c){
-        let prev=a;
-        for(let k=1;k<=16;k++){
-          const cur=quadPoint(a,c,b,k/16);
-          const d=distanceToSegment(p,prev,cur);
-          if(d<best.distance) best={distance:d,index:i};
-          prev=cur;
-        }
-      } else {
-        const d=distanceToSegment(p,a,b);
-        if(d<best.distance) best={distance:d,index:i};
-      }
-    }
-    return best.distance<=tol ? best : null;
+    return roadSystem.hitRoadOutlineSegment(p, r, pointerType);
   }
   function hitRoadPoint(p,r,pointerType='mouse'){
-    if(!r || !Array.isArray(r.pointsPx) || !r.pointsPx.length) return null;
-    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
-    const tol=(coarse?18:11)/state.view.scale;
-    let best={distance:Infinity,index:-1};
-    r.pointsPx.forEach((pt,i)=>{
-      const d=dist(p,pt);
-      if(d<best.distance) best={distance:d,index:i};
-    });
-    return best.distance<=tol ? best : null;
+    return roadSystem.hitRoadPoint(p, r, pointerType);
   }
 
   function nearestPointOnRoadPath(p, road, includeEndpoints=true){
-    if(!road || road.hidden || road.mode!=='centerline') return null;
-    const samples=roadCenterlineSamples(road, 20);
-    if(!samples || samples.length<2) return null;
-    let best={distance:Infinity, point:null, roadId:road.id, kind:'segment'};
-    if(includeEndpoints && road.pointsPx?.length){
-      [0, road.pointsPx.length-1].forEach(idx=>{
-        const ep=road.pointsPx[idx];
-        const d=dist(p,ep);
-        if(d<best.distance) best={distance:d,point:{x:ep.x,y:ep.y},roadId:road.id,kind:idx===0?'endpointStart':'endpointEnd',pointIndex:idx};
-      });
-    }
-    for(let i=0;i<samples.length-1;i++){
-      const hit=closestPointOnSegment(p,samples[i],samples[i+1]);
-      if(hit.distance<best.distance) best={distance:hit.distance,point:hit.point,roadId:road.id,kind:'segment'};
-    }
-    return best.point ? best : null;
+    return roadSystem.nearestPointOnRoadPath(p, road, includeEndpoints);
   }
   function findRoadConnectionSnap(p, excludeRoadId=null, pointerType='mouse'){
-    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
-    const tol=(coarse?20:14)/state.view.scale;
-    let best=null;
-    state.roads.forEach(raw=>{
-      const r=normalizeRoad(raw);
-      if(r.id===excludeRoadId || r.hidden || r.mode!=='centerline') return;
-      const hit=nearestPointOnRoadPath(p,r,true);
-      if(hit && hit.distance<=tol && (!best || hit.distance<best.distance)) best=hit;
-    });
-    return best;
+    return roadSystem.findRoadConnectionSnap(p, excludeRoadId, pointerType);
   }
   function snapRoadPointForConnection(p, excludeRoadId=null, pointerType='mouse'){
-    const hit=findRoadConnectionSnap(p, excludeRoadId, pointerType);
-    return hit ? {x:hit.point.x,y:hit.point.y, connection:{roadId:hit.roadId, kind:hit.kind, pointIndex:hit.pointIndex ?? null}} : {x:p.x,y:p.y, connection:null};
+    return roadSystem.snapRoadPointForConnection(p, excludeRoadId, pointerType);
   }
   function setRoadEndpointConnection(r, index, snap){
-    if(!r || !snap || !Number.isInteger(index)) return;
-    r.endpointConnections = r.endpointConnections || {};
-    const key = index===0 ? 'start' : (index===(r.pointsPx?.length||0)-1 ? 'end' : null);
-    if(!key) return;
-    if(snap.connection) r.endpointConnections[key]=snap.connection;
-    else delete r.endpointConnections[key];
+    return roadSystem.setRoadEndpointConnection(r, index, snap);
   }
-  function selectedRoad(){return state.roads.find(r=>r.id===state.selectedRoadId)||null;}
+  function selectedRoad(){return roadSystem.selectedRoad();}
   function hitRoad(p,pointerType='mouse'){
-    for(let i=state.roads.length-1;i>=0;i--){
-      const r=normalizeRoad(state.roads[i]);
-      if(r.hidden) continue;
-      if(r.locked){
-        const tol=lockedHitTolerance(pointerType);
-        if(hitRoadPoint(p,r,pointerType) || hitRoadCenterlineSegment(p,r,pointerType)) return r;
-        if((r.roadPolygonPx||[]).length>=2 && polyEdgeDistance(p,r.roadPolygonPx)<=tol) return r;
-        for(const sw of (r.sidewalkPolygonsPx||[])){
-          if((sw.polygon||[]).length>=2 && polyEdgeDistance(p, sw.polygon)<=tol) return r;
-        }
-        continue;
-      }
-      if(pointInPoly(p, r.roadPolygonPx||[])) return r;
-      for(const sw of (r.sidewalkPolygonsPx||[])) if(pointInPoly(p, sw.polygon||[])) return r;
-    }
-    return null;
+    return roadSystem.hitRoad(p, pointerType);
   }
   function moveRoad(r, dx, dy){
-    if(!r || r.locked) return;
-    r.pointsPx = (r.pointsPx||[]).map(p=>({x:p.x+dx,y:p.y+dy}));
-    r.curvesPx = (r.curvesPx||[]).map(c=>c?{x:c.x+dx,y:c.y+dy}:null);
-    rebuildRoadGeometry(r);
-    syncRoadMetrics(r);
+    return roadSystem.moveRoad(r, dx, dy);
   }
   function deleteSelectedRoad(){
-    if(!state.selectedRoadId) return false;
-    state.roads=state.roads.filter(r=>r.id!==state.selectedRoadId);
-    state.roadFeatures=state.roadFeatures.filter(f=>f.roadId!==state.selectedRoadId);
-    state.roadOutlineEditId=null;
-    state.selectedRoadId=null;
-    syncAll();
-    return true;
+    return roadSystem.deleteSelectedRoad();
   }
   function normalizeTrack(t){
     if(!t) return t;
@@ -854,166 +663,40 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     syncAll();
   }
   function normalizeRoadFeature(f){
-    if(!f) return f;
-    f.id=f.id||uid('roadFeature');
-    f.kind=f.kind||f.type||'manhole';
-    f.x=Number(f.x)||0; f.y=Number(f.y)||0;
-    f.rotationDeg=Number(f.rotationDeg)||0;
-    f.roadId=f.roadId||null;
-    f.hidden=!!f.hidden; f.locked=!!f.locked;
-    if(f.kind==='manhole'){
-      f.name=f.name||'Manhole / Hatch';
-      f.hatchPreset=f.hatchPreset||'round600';
-      f.hatchShape=f.hatchShape||hatchPresetByKey(f.hatchPreset).shape||'circle';
-      if(!Number.isFinite(Number(f.diameterMm)) && !Number.isFinite(Number(f.widthMm))) applyRoadHatchPreset(f,f.hatchPreset,roadPresetScaleContext());
-      f.diameterMm=Number.isFinite(Number(f.diameterMm))?Number(f.diameterMm):(hatchPresetByKey(f.hatchPreset).diameterMm||3);
-      f.widthMm=Number.isFinite(Number(f.widthMm))?Number(f.widthMm):(hatchPresetByKey(f.hatchPreset).widthMm||4);
-      f.depthMm=Number.isFinite(Number(f.depthMm))?Number(f.depthMm):(hatchPresetByKey(f.hatchPreset).depthMm||3);
-      f.cutThrough=true;
-      f.exportLayer='roadHatchCut';
-      f.color=f.color||'#3a2b1e';
-    } else {
-      f.kind='marking';
-      f.name=f.name||'Road Marking';
-      f.markingPreset=f.markingPreset||f.markingType||'stopLine';
-      const mp=markingPresetByKey(f.markingPreset);
-      f.markingType=f.markingType||mp.key;
-      f.markingDraw=f.markingDraw||mp.draw;
-      f.standard=f.standard||JP_ROAD_MARKING_STANDARD_ID;
-      f.jpName=f.jpName||mp.jpName;
-      f.markingCategory=f.markingCategory||mp.category;
-      f.widthMm=Number.isFinite(Number(f.widthMm))?Number(f.widthMm):mp.widthMm;
-      f.depthMm=Number.isFinite(Number(f.depthMm))?Number(f.depthMm):mp.depthMm;
-      f.color=f.color||mp.color||'#f7f2df';
-      if(mp.text && !f.text) f.text=mp.text;
-      f.visualOnly=true;
-      f.cutBehavior='etchOnly';
-      f.exportLayer='roadMarkingEtch';
-    }
-    if(state.pxPerMm){
-      f.xMm=pxToMm(f.x); f.yMm=pxToMm(f.y);
-      f.diameterPx=mmToPx(f.diameterMm||3);
-      f.widthPx=mmToPx(f.widthMm||4);
-      f.depthPx=mmToPx(f.depthMm||1);
-    } else {
-      f.diameterPx=Number.isFinite(Number(f.diameterPx))?Number(f.diameterPx):18;
-      f.widthPx=Number.isFinite(Number(f.widthPx))?Number(f.widthPx):30;
-      f.depthPx=Number.isFinite(Number(f.depthPx))?Number(f.depthPx):6;
-    }
-    return f;
+    return roadSystem.normalizeRoadFeature(f);
   }
-  function selectedRoadFeature(){return state.roadFeatures.find(f=>f.id===state.selectedRoadFeatureId)||null;}
-  function clearRoadFeatureSelection(){state.selectedRoadFeatureId=null;}
+  function selectedRoadFeature(){return roadSystem.selectedRoadFeature();}
+  function clearRoadFeatureSelection(){return roadSystem.clearRoadFeatureSelection();}
   function roadSurfaceAtPoint(p){
-    for(let i=state.roads.length-1;i>=0;i--){
-      const r=normalizeRoad(state.roads[i]);
-      if(r.hidden) continue;
-      if((r.roadPolygonPx||[]).length>=3 && pointInPoly(p,r.roadPolygonPx)) return r;
-    }
-    return null;
+    return roadSystem.roadSurfaceAtPoint(p);
   }
   function hitRoadFeature(p,pointerType='mouse'){
-    const tol=(pointerType==='touch'?14:9)/state.view.scale;
-    for(let i=state.roadFeatures.length-1;i>=0;i--){
-      const f=normalizeRoadFeature(state.roadFeatures[i]);
-      if(f.hidden) continue;
-      const a=rad(f.rotationDeg||0), ca=Math.cos(-a), sa=Math.sin(-a);
-      const dx=p.x-f.x, dy=p.y-f.y;
-      const lx=dx*ca-dy*sa, ly=dx*sa+dy*ca;
-      if(f.kind==='manhole' && f.hatchShape==='circle'){
-        if(Math.hypot(lx,ly) <= (f.diameterPx||18)/2 + tol) return f;
-      } else {
-        const hw=(f.widthPx||20)/2+tol, hh=(f.depthPx||8)/2+tol;
-        if(Math.abs(lx)<=hw && Math.abs(ly)<=hh) return f;
-      }
-    }
-    return null;
+    return roadSystem.hitRoadFeature(p, pointerType);
   }
   function placeRoadFeature(p,kind){
-    const road=roadSurfaceAtPoint(p);
-    if(!road){ setStatusHint('Place road items on a generated road surface.'); return null; }
-    const f=normalizeRoadFeature({id:uid('roadFeature'),kind,roadId:road.id,x:p.x,y:p.y,rotationDeg:0});
-    if(kind==='marking') applyRoadMarkingPreset(f, state.lastRoadMarkingPreset || 'stopLine', roadPresetScaleContext());
-    if(kind==='manhole') applyRoadHatchPreset(f, state.lastRoadHatchPreset || 'round600', roadPresetScaleContext());
-    state.roadFeatures.push(f);
-    state.selectedRoadFeatureId=f.id;
-    state.selectedRoadId=null; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null;
-    syncAll();
-    return f;
+    return roadSystem.placeRoadFeature(p, kind);
   }
-  function moveRoadFeature(f,dx,dy){ if(!f||f.locked) return; f.x+=dx; f.y+=dy; normalizeRoadFeature(f); }
+  function moveRoadFeature(f,dx,dy){ return roadSystem.moveRoadFeature(f, dx, dy); }
   function deleteSelectedRoadFeature(){
-    if(!state.selectedRoadFeatureId) return false;
-    state.roadFeatures=state.roadFeatures.filter(f=>f.id!==state.selectedRoadFeatureId);
-    state.selectedRoadFeatureId=null;
-    syncAll();
-    return true;
+    return roadSystem.deleteSelectedRoadFeature();
   }
 
   function drawRoadMarkingShape(f){
-    const w=f.widthPx||30, h=f.depthPx||6, draw=f.markingDraw||markingPresetByKey(f.markingPreset||f.markingType).draw;
-    if(draw==='crosswalk'){
-      const stripes=5, gap=w/(stripes+1), stripeW=Math.max(1.5/state.view.scale,gap*.38);
-      for(let i=0;i<stripes;i++) ctx.fillRect(-w/2+gap*(i+1)-stripeW/2,-h/2,stripeW,h);
-    } else if(draw==='bicycleCrossing'){
-      ctx.lineWidth=Math.max(.8/state.view.scale,h*.12); ctx.strokeRect(-w/2,-h/2,w,h); ctx.beginPath(); ctx.moveTo(-w/2,-h*.12); ctx.lineTo(w/2,-h*.12); ctx.moveTo(-w/2,h*.12); ctx.lineTo(w/2,h*.12); ctx.stroke();
-    } else if(draw==='diamond'){
-      ctx.beginPath(); ctx.moveTo(0,-h/2); ctx.lineTo(w/2,0); ctx.lineTo(0,h/2); ctx.lineTo(-w/2,0); ctx.closePath(); ctx.fill(); ctx.stroke();
-    } else if(draw==='arrow'){
-      ctx.beginPath(); ctx.moveTo(0,-h/2); ctx.lineTo(w/2,-h*.05); ctx.lineTo(w*.18,-h*.05); ctx.lineTo(w*.18,h/2); ctx.lineTo(-w*.18,h/2); ctx.lineTo(-w*.18,-h*.05); ctx.lineTo(-w/2,-h*.05); ctx.closePath(); ctx.fill(); ctx.stroke();
-    } else if(draw==='dashedLine' || draw==='curbDash'){
-      const segs=draw==='curbDash'?4:3, segW=w/(segs*2-1);
-      for(let i=0;i<segs;i++) ctx.fillRect(-w/2+i*segW*2,-h/2,segW,h);
-    } else if(draw==='chevronZone'){
-      ctx.lineWidth=Math.max(1/state.view.scale,h*.08); ctx.strokeRect(-w/2,-h/2,w,h); const n=5; for(let i=0;i<n;i++){const x=-w/2+(i+.5)*w/n; ctx.beginPath(); ctx.moveTo(x-w/n*.35,h/2); ctx.lineTo(x+w/n*.35,-h/2); ctx.stroke();}
-    } else if(draw==='safetyZone'){
-      ctx.lineWidth=Math.max(1/state.view.scale,h*.08); ctx.strokeRect(-w/2,-h/2,w,h); ctx.beginPath(); ctx.moveTo(-w/2,0); ctx.lineTo(w/2,0); ctx.stroke(); const n=4; for(let i=0;i<n;i++){const x=-w/2+(i+.5)*w/n; ctx.beginPath(); ctx.moveTo(x-w/n*.25,h/2); ctx.lineTo(x+w/n*.25,-h/2); ctx.stroke();}
-    } else if(draw==='box'){
-      ctx.lineWidth=Math.max(1/state.view.scale,h*.10); ctx.strokeRect(-w/2,-h/2,w,h); ctx.beginPath(); ctx.moveTo(-w/2,-h*.15); ctx.lineTo(w/2,-h*.15); ctx.moveTo(-w/2,h*.15); ctx.lineTo(w/2,h*.15); ctx.stroke();
-    } else if(draw==='speedNumber'){
-      ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font=`${Math.max(6,h*1.15)}px system-ui, sans-serif`; ctx.fillText(f.text||'30',0,0); ctx.restore();
-    } else {
-      ctx.fillRect(-w/2,-h/2,w,h); ctx.strokeRect(-w/2,-h/2,w,h);
-    }
+    return roadSystem.drawRoadMarkingShape(f);
   }
 
   function drawRoadFeature(raw){
-    const f=normalizeRoadFeature(raw); if(!f||f.hidden) return;
-    const selected=f.id===state.selectedRoadFeatureId, hovered=f.id===state.hoverRoadFeatureId;
-    ctx.save(); ctx.translate(f.x,f.y); ctx.rotate(rad(f.rotationDeg||0));
-    ctx.lineWidth=(selected||hovered?2.5:1.5)/state.view.scale;
-    if(f.kind==='manhole'){
-      ctx.strokeStyle=selected?'#d95f24':(f.color||'#3a2b1e'); ctx.fillStyle='rgba(58,43,30,.18)';
-      if(f.hatchShape==='circle'){
-        const r=(f.diameterPx||18)/2; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-r*.65,0); ctx.lineTo(r*.65,0); ctx.moveTo(0,-r*.65); ctx.lineTo(0,r*.65); ctx.stroke();
-      } else {
-        const w=f.widthPx||24, h=f.depthPx||18; ctx.beginPath(); ctx.rect(-w/2,-h/2,w,h); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-w/2,h/2); ctx.lineTo(w/2,-h/2); ctx.stroke();
-      }
-    } else {
-      ctx.strokeStyle=selected?'#d95f24':(f.color||'#f7f2df'); ctx.fillStyle=f.color||'#f7f2df';
-      drawRoadMarkingShape(f);
-    }
-    if(selected){ctx.setLineDash([4/state.view.scale,3/state.view.scale]); ctx.strokeStyle='#d95f24'; ctx.beginPath(); ctx.arc(0,0,Math.max(f.widthPx||0,f.depthPx||0,f.diameterPx||0)/2+6/state.view.scale,0,Math.PI*2); ctx.stroke();}
-    ctx.restore();
+    return roadSystem.drawRoadFeature(raw);
   }
   function createRoadCenterlineFromPoints(points){
-    const defaultRoadMm = presetModelMm(roadPresetByKey('two_lane_local'), currentScaleDivisor()) || 40; const defaultSidewalkMm = presetModelMm(sidewalkPresetByKey('standard'), currentScaleDivisor()) || 10;
-    const r=normalizeRoad({id:uid('road'), name:`Road ${state.roads.length+1}`, mode:'centerline', pointsPx:(points||[]).map(p=>({x:p.x,y:p.y})), curvesPx:[], roadWidthPreset:'two_lane_local', widthMm:defaultRoadMm, widthPx:state.pxPerMm?mmToPx(defaultRoadMm):48, sidewalkSide:'none', sidewalkWidthPreset:'standard', sidewalkWidthMm:defaultSidewalkMm, sidewalkWidthPx:state.pxPerMm?mmToPx(defaultSidewalkMm):10, color:'#6f6a5e'});
-    syncRoadMetrics(r);
-    return r;
+    return roadSystem.createRoadCenterlineFromPoints(points);
   }
   function createRoadCenterline(a,b){ return createRoadCenterlineFromPoints([a,b]); }
   function finishRoadCenterline(){
-    if(state.roadDraft.length<2) return;
-    const r=createRoadCenterlineFromPoints(state.roadDraft);
-    state.roads.push(r); state.selectedRoadId=r.id; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null; state.roadDraft=[]; syncAll();
+    return roadSystem.finishRoadCenterline();
   }
   function finishRoadOutline(){
-    if(state.roadDraft.length<3) return;
-    const r=normalizeRoad({id:uid('road'), name:`Road Outline ${state.roads.length+1}`, mode:'outline', pointsPx:state.roadDraft.slice(), widthMm:0, widthPx:0, sidewalkSide:'none', sidewalkWidthMm:0, sidewalkWidthPx:0, color:'#6f6a5e'});
-    state.roads.push(r); state.selectedRoadId=r.id; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null; state.roadDraft=[]; syncAll();
+    return roadSystem.finishRoadOutline();
   }
 
   function drawPoly(pts, fill=true, stroke=true){
@@ -1053,178 +736,33 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     ctx.restore();
   }
   function roadEdgePaths(r){
-    const path = r.roadCenterlineSamplesPx || roadCenterlineSamples(r);
-    if(!Array.isArray(path) || path.length<2) return {left:[], right:[]};
-    const hw=(r.widthPx||20)/2;
-    const left=[], right=[];
-    path.forEach((p,i)=>{
-      const prev=path[Math.max(0,i-1)], next=path[Math.min(path.length-1,i+1)];
-      let dx=next.x-prev.x, dy=next.y-prev.y, len=Math.hypot(dx,dy)||1;
-      const nx=-dy/len, ny=dx/len;
-      left.push({x:p.x+nx*hw,y:p.y+ny*hw});
-      right.push({x:p.x-nx*hw,y:p.y-ny*hw});
-    });
-    return {left,right};
+    return roadSystem.roadEdgePaths(r);
   }
 
   function roadHasSidewalk(r){
-    return !!(r && r.mode==='centerline' && r.sidewalkSide && r.sidewalkSide!=='none' && Number(r.sidewalkWidthPx)>0);
+    return roadSystem.roadHasSidewalk(r);
   }
   function roadEndpointJunctions(){
-    const out=[];
-    const seen=new Set();
-    state.roads.forEach(raw=>{
-      const r=normalizeRoad(raw);
-      if(r.hidden || r.mode!=='centerline' || !r.pointsPx || r.pointsPx.length<2) return;
-      const endpoints=[{point:r.pointsPx[0], key:'start'}, {point:r.pointsPx[r.pointsPx.length-1], key:'end'}];
-      endpoints.forEach(ep=>{
-        let best=null;
-        state.roads.forEach(otherRaw=>{
-          const other=normalizeRoad(otherRaw);
-          if(other.id===r.id || other.hidden || other.mode!=='centerline') return;
-          const hit=nearestPointOnRoadPath(ep.point, other, true);
-          const tol=Math.max(3, Math.min((r.widthPx||20),(other.widthPx||20))*0.35);
-          if(hit && hit.distance<=tol && (!best || hit.distance<best.distance)) best={...hit, other};
-        });
-        if(best){
-          const x=(ep.point.x+best.point.x)/2, y=(ep.point.y+best.point.y)/2;
-          const k=`${Math.round(x*10)/10},${Math.round(y*10)/10}`;
-          if(!seen.has(k)){
-            seen.add(k);
-            const roadRadius=Math.max((r.widthPx||20),(best.other?.widthPx||20))*0.58;
-            const sw=Math.max(roadHasSidewalk(r)?(r.sidewalkWidthPx||0):0, roadHasSidewalk(best.other)?(best.other.sidewalkWidthPx||0):0);
-            const hasSidewalkBulb=sw>0;
-            out.push({
-              x,y,
-              radius:roadRadius,
-              sidewalkRadius:hasSidewalkBulb ? roadRadius + sw : 0,
-              sidewalkWidth:sw,
-              hasSidewalkBulb,
-              selected:r.id===state.selectedRoadId || best.other?.id===state.selectedRoadId
-            });
-          }
-        }
-      });
-    });
-    return out;
-  }
-
-  function pathTotalLength(path){let len=0; for(let i=1;i<(path||[]).length;i++) len+=dist(path[i-1],path[i]); return len;}
-  function pointAtPathDistance(path, target){
-    path=path||[]; if(!path.length) return null;
-    if(target<=0) return {point:{...path[0]}, tangent:path[1]?Math.atan2(path[1].y-path[0].y,path[1].x-path[0].x):0, index:0};
-    let acc=0;
-    for(let i=1;i<path.length;i++){
-      const a=path[i-1], b=path[i], seg=dist(a,b);
-      if(acc+seg>=target){const t=seg?((target-acc)/seg):0; return {point:{x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t}, tangent:Math.atan2(b.y-a.y,b.x-a.x), index:i-1};}
-      acc+=seg;
-    }
-    const a=path[Math.max(0,path.length-2)], b=path[path.length-1];
-    return {point:{...b}, tangent:a?Math.atan2(b.y-a.y,b.x-a.x):0, index:path.length-1};
-  }
-  function lineIntersection(a,b,c,d){
-    const den=(a.x-b.x)*(c.y-d.y)-(a.y-b.y)*(c.x-d.x); if(Math.abs(den)<1e-9) return null;
-    const px=((a.x*b.y-a.y*b.x)*(c.x-d.x)-(a.x-b.x)*(c.x*d.y-c.y*d.x))/den;
-    const py=((a.x*b.y-a.y*b.x)*(c.y-d.y)-(a.y-b.y)*(c.x*d.y-c.y*d.x))/den;
-    const within=(p,q,r)=>Math.min(p,q)-1e-6<=r&&r<=Math.max(p,q)+1e-6;
-    if(within(a.x,b.x,px)&&within(a.y,b.y,py)&&within(c.x,d.x,px)&&within(c.y,d.y,py)) return {x:px,y:py};
-    return null;
+    return roadSystem.roadEndpointJunctions();
   }
   function benchworkBoundaryDistances(path){
-    const hits=[]; if(!path?.length) return hits;
-    for(const bwRaw of (state.benchworkOutlines||[])){
-      const bw=normalizeBenchworkOutline(bwRaw); const pts=benchworkPathSamples(bw,10); if(pts.length<2) continue;
-      let acc=0;
-      for(let i=1;i<path.length;i++){
-        const a=path[i-1], b=path[i], segLen=dist(a,b);
-        for(let j=1;j<pts.length;j++){
-          const hit=lineIntersection(a,b,pts[j-1],pts[j]);
-          if(hit){ hits.push({distance:acc+dist(a,hit), point:hit, source:'benchwork'}); }
-        }
-        acc+=segLen;
-      }
-    }
-    return hits;
+    return roadSystem.benchworkBoundaryDistances(path);
   }
-  function roadJunctionPoints(){return roadEndpointJunctions().map(j=>({x:j.x,y:j.y,radius:Math.max(j.radius||0,j.sidewalkRadius||0)}));}
-  function isNearJunctionPoint(p, junctions, avoidPx){return (junctions||[]).some(j=>dist(p,j)<Math.max(avoidPx,j.radius||0));}
+  function roadJunctionPoints(){return roadSystem.roadJunctionPoints();}
   function sidewalkTotalWidthPx(r){
-    if(!roadHasSidewalk(r)) return 0;
-    const sw=r.sidewalkWidthPx||0;
-    if(r.sidewalkSide==='both') return sw*2;
-    if(r.sidewalkSide==='left'||r.sidewalkSide==='right') return sw;
-    return 0;
+    return roadSystem.sidewalkTotalWidthPx(r);
   }
   function roadSeamLineAt(r, path, d, opts={}){
-    const hit=pointAtPathDistance(path,d); if(!hit) return null;
-    const half=(r.widthPx||20)/2 + sidewalkTotalWidthPx(r) + 3;
-    const a=hit.tangent+Math.PI/2;
-    return {roadId:r.id, x:hit.point.x, y:hit.point.y, x1:hit.point.x+Math.cos(a)*half, y1:hit.point.y+Math.sin(a)*half, x2:hit.point.x-Math.cos(a)*half, y2:hit.point.y-Math.sin(a)*half, distance:d, source:opts.source||'length'};
+    return roadSystem.roadSeamLineAt(r, path, d, opts);
   }
   function outlineSeams(r,maxPiecePx){
-    const poly=r.roadPolygonPx||[]; if(poly.length<3) return [];
-    const xs=poly.map(p=>p.x), ys=poly.map(p=>p.y); const bb={minX:Math.min(...xs),maxX:Math.max(...xs),minY:Math.min(...ys),maxY:Math.max(...ys)};
-    const w=bb.maxX-bb.minX, h=bb.maxY-bb.minY, seams=[];
-    if(Math.max(w,h)<=maxPiecePx*1.15) return seams;
-    if(w>=h){const count=Math.floor(w/maxPiecePx); for(let i=1;i<=count;i++){const x=bb.minX+i*w/(count+1); seams.push({roadId:r.id,x,y:(bb.minY+bb.maxY)/2,x1:x,y1:bb.minY,x2:x,y2:bb.maxY,source:'outline'});}}
-    else {const count=Math.floor(h/maxPiecePx); for(let i=1;i<=count;i++){const y=bb.minY+i*h/(count+1); seams.push({roadId:r.id,x:(bb.minX+bb.maxX)/2,y,x1:bb.minX,y1:y,x2:bb.maxX,y2:y,source:'outline'});}}
-    return seams;
+    return roadSystem.outlineSeams(r, maxPiecePx);
   }
   function generateRoadExportData(){
-    syncAll();
-    const maxPiecePx=Math.max(12, mmToPx(state.roadExportSettings?.maxPieceMm||120));
-    const avoidPx=Math.max(4, mmToPx(state.roadExportSettings?.avoidJunctionMm||18));
-    const minPiecePx=Math.max(4, mmToPx(state.roadExportSettings?.minPieceMm||35));
-    const junctions=roadJunctionPoints();
-    const roads=[]; const seams=[];
-    (state.roads||[]).forEach(raw=>{
-      const r=normalizeRoad(raw); if(r.hidden) return;
-      const roadRecord={id:r.id,name:r.name||'Road',mode:r.mode,roadPolygonPx:r.roadPolygonPx||[],sidewalkPolygonsPx:r.sidewalkPolygonsPx||[],seams:[]};
-      if(r.mode==='centerline'){
-        const path=roadCenterlineSamples(r,20); const total=pathTotalLength(path);
-        const benchHits=benchworkBoundaryDistances(path).filter(h=>h.distance>minPiecePx&&h.distance<total-minPiecePx);
-        const candidateDistances=[];
-        if(total>maxPiecePx*1.15){const count=Math.floor(total/maxPiecePx); for(let i=1;i<=count;i++) candidateDistances.push({distance:i*total/(count+1), source:'length'});}
-        benchHits.forEach(h=>candidateDistances.push({distance:h.distance, source:'benchwork'}));
-        candidateDistances.sort((a,b)=>a.distance-b.distance);
-        const used=[];
-        for(const cand of candidateDistances){
-          let d=cand.distance;
-          let hit=pointAtPathDistance(path,d);
-          if(!hit) continue;
-          // Phase 3: avoid junction bulbs by sliding the seam a little along the road.
-          let tries=0;
-          while(isNearJunctionPoint(hit.point,junctions,avoidPx) && tries<12){d += avoidPx*(tries%2? -1:1) * (Math.floor(tries/2)+1); d=clamp(d,minPiecePx,total-minPiecePx); hit=pointAtPathDistance(path,d); tries++;}
-          if(!hit || isNearJunctionPoint(hit.point,junctions,avoidPx)) continue;
-          if(used.some(u=>Math.abs(u-d)<minPiecePx)) continue;
-          const seam=roadSeamLineAt(r,path,d,{source:cand.source});
-          if(seam){used.push(d); roadRecord.seams.push(seam); seams.push(seam);}
-        }
-      } else {
-        roadRecord.seams=outlineSeams(r,maxPiecePx); seams.push(...roadRecord.seams);
-      }
-      roads.push(roadRecord);
-    });
-    return {roads,seams,junctions,maxPiecePx,avoidPx};
+    return roadSystem.generateRoadExportData();
   }
   function drawRoadExportPreview(){
-    if(!state.roadExportPreview) return;
-    const data=generateRoadExportData();
-    ctx.save();
-    ctx.lineWidth=2.2/state.view.scale;
-    ctx.setLineDash([8/state.view.scale,5/state.view.scale]);
-    data.seams.forEach((s,i)=>{
-      ctx.strokeStyle=s.source==='benchwork'?'#0f766e':'#c84a3a';
-      ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke();
-      drawLabel(`R${i+1}`,{x:s.x+4/state.view.scale,y:s.y-4/state.view.scale});
-    });
-    ctx.setLineDash([]);
-    data.roads.forEach((r,idx)=>{
-      const poly=r.roadPolygonPx||[]; if(!poly.length) return;
-      const c=polygonCenter(poly); drawLabel(`${r.name||('Road '+(idx+1))} · ${Math.max(1,(r.seams||[]).length+1)} pcs`,{x:c.x+6/state.view.scale,y:c.y-8/state.view.scale});
-    });
-    ctx.restore();
-    updateRoadExportBadge(data);
+    return roadSystem.drawRoadExportPreview();
   }
   function updateRoadExportBadge(data){
     const el=$('roadExportBadge'); if(!el) return;
@@ -1239,108 +777,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
 
   function drawRoadJunctions(){
-    const junctions=roadEndpointJunctions();
-    if(!junctions.length) return;
-    ctx.save();
-    junctions.forEach(j=>{
-      const roadR=Math.max(4/state.view.scale,j.radius);
-      if(j.hasSidewalkBulb){
-        // Sidewalk corner bulbs: draw one rounded joined sidewalk mass around the
-        // junction first, then repaint the road mouth through the middle. This
-        // visually splits sidewalks back from the road while joining touching
-        // sidewalk corners into one continuous crossing bulb.
-        const bulbR=Math.max(roadR + 2/state.view.scale, j.sidewalkRadius);
-        ctx.fillStyle='rgba(226,214,188,.84)';
-        ctx.strokeStyle=j.selected?'#c84a3a':'rgba(154,140,105,.85)';
-        ctx.lineWidth=(j.selected?1.8:1.1)/state.view.scale;
-        ctx.beginPath();
-        ctx.arc(j.x,j.y,bulbR,0,Math.PI*2);
-        ctx.fill(); ctx.stroke();
-      }
-      ctx.fillStyle=j.selected?'rgba(200,74,58,.30)':'rgba(111,106,94,.52)';
-      ctx.strokeStyle=j.selected?'#c84a3a':'rgba(70,68,62,.82)';
-      ctx.lineWidth=(j.selected?2.2:1.4)/state.view.scale;
-      ctx.beginPath();
-      ctx.arc(j.x,j.y,roadR,0,Math.PI*2);
-      ctx.fill(); ctx.stroke();
-      ctx.fillStyle=j.selected?'#c84a3a':'#6f6a5e';
-      ctx.beginPath();
-      ctx.arc(j.x,j.y,3.5/state.view.scale,0,Math.PI*2);
-      ctx.fill();
-    });
-    ctx.restore();
+    return roadSystem.drawRoadJunctions();
+  }
+  function drawGeneratedRoadIntersections(){
+    return roadSystem.drawGeneratedRoadIntersections();
   }
   function drawRoad(r){
-    r=normalizeRoad(r); if(r.hidden) return;
-    const selected=r.id===state.selectedRoadId, hovered=r.id===state.hoverRoadId;
-    const roadPoly=r.roadPolygonPx||[];
-    ctx.save();
-
-    // Generated sidewalk surfaces first, so the road surface sits cleanly on top.
-    for(const sw of (r.sidewalkPolygonsPx||[])){
-      ctx.fillStyle='rgba(226,214,188,.72)';
-      ctx.strokeStyle=selected?'#c84a3a':'#b9aa86';
-      ctx.lineWidth=(selected?2.2:1.4)/state.view.scale;
-      drawPoly(sw.polygon, true);
-    }
-
-    // Generated road surface. Keep this visible even when the road is not selected;
-    // the centerline remains an edit control, not the only visible road geometry.
-    ctx.fillStyle=selected?'rgba(200,74,58,.26)':(hovered?'rgba(111,106,94,.46)':'rgba(111,106,94,.36)');
-    ctx.strokeStyle=selected?'#c84a3a':(hovered?'#2a64aa':'#6f6a5e');
-    ctx.lineWidth=(selected||hovered?3:2.2)/state.view.scale;
-    drawPoly(roadPoly, true);
-
-    if(r.mode==='centerline' && r.pointsPx?.length>=2){
-      const edges=roadEdgePaths(r);
-      // Draw explicit generated edge paths so completed roads read as road/sidewalk paths.
-      drawRoadGeneratedPath(edges.left, selected?'#c84a3a':'rgba(70,68,62,.75)', selected?2.2:1.4);
-      drawRoadGeneratedPath(edges.right, selected?'#c84a3a':'rgba(70,68,62,.75)', selected?2.2:1.4);
-      for(const sw of (r.sidewalkPolygonsPx||[])){
-        const poly=sw.polygon||[];
-        if(poly.length>=2) drawRoadGeneratedPath(poly.concat([poly[0]]), selected?'#c84a3a':'rgba(154,140,105,.75)', selected?1.8:1.1);
-      }
-
-      // Editable centerline spline overlay.
-      ctx.strokeStyle=selected?'rgba(42,42,40,.85)':'rgba(42,42,40,.45)';
-      ctx.lineWidth=(selected?1.6:1.15)/state.view.scale;
-      ctx.setLineDash([6/state.view.scale,5/state.view.scale]);
-      ctx.beginPath();
-      r.pointsPx.forEach((pt,i)=>{
-        if(i===0) ctx.moveTo(pt.x,pt.y);
-        else { const c=r.curvesPx?.[i-1]; if(c) ctx.quadraticCurveTo(c.x,c.y,pt.x,pt.y); else ctx.lineTo(pt.x,pt.y); }
-      });
-      ctx.stroke(); ctx.setLineDash([]);
-      if(selected||hovered){
-        ctx.fillStyle=selected?'#c84a3a':'#2a64aa';
-        r.pointsPx.forEach(pt=>{ctx.beginPath();ctx.arc(pt.x,pt.y,4/state.view.scale,0,Math.PI*2);ctx.fill();});
-        if(r.curvesPx){
-          ctx.strokeStyle='rgba(200,74,58,.42)'; ctx.lineWidth=1/state.view.scale; ctx.setLineDash([3/state.view.scale,4/state.view.scale]);
-          r.curvesPx.forEach((c,i)=>{ if(!c) return; const a=r.pointsPx[i], b=r.pointsPx[i+1]; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(c.x,c.y); ctx.lineTo(b.x,b.y); ctx.stroke(); });
-          ctx.setLineDash([]);
-          ctx.fillStyle='#fff'; ctx.strokeStyle='#c84a3a'; ctx.lineWidth=2/state.view.scale;
-          r.curvesPx.forEach(c=>{ if(!c) return; ctx.beginPath(); ctx.arc(c.x,c.y,5/state.view.scale,0,Math.PI*2); ctx.fill(); ctx.stroke(); });
-        }
-        if(state.hoverRoadSegment && state.hoverRoadSegment.roadId===r.id){
-          const i=state.hoverRoadSegment.index, a=r.pointsPx[i], b=r.pointsPx[i+1], c=r.curvesPx?.[i];
-          ctx.save(); ctx.strokeStyle='#d79631'; ctx.lineWidth=5/state.view.scale; ctx.globalAlpha=.65; ctx.beginPath(); ctx.moveTo(a.x,a.y); if(c) ctx.quadraticCurveTo(c.x,c.y,b.x,b.y); else ctx.lineTo(b.x,b.y); ctx.stroke(); ctx.restore();
-        }
-      }
-    }
-    if(r.mode==='outline' && (selected||hovered)){
-      const edit = selected && state.roadOutlineEditId===r.id;
-      if(edit){
-        ctx.fillStyle='#fff7ed'; ctx.strokeStyle='#c84a3a'; ctx.lineWidth=2/state.view.scale;
-        (r.pointsPx||[]).forEach(pt=>{ctx.beginPath();ctx.arc(pt.x,pt.y,5/state.view.scale,0,Math.PI*2);ctx.fill();ctx.stroke();});
-        (r.curvesPx||[]).forEach((c,i)=>{ if(!c) return; const a=r.pointsPx[i], b=r.pointsPx[(i+1)%r.pointsPx.length]; ctx.save(); ctx.strokeStyle='rgba(200,74,58,.42)'; ctx.lineWidth=1/state.view.scale; ctx.setLineDash([3/state.view.scale,4/state.view.scale]); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(c.x,c.y); ctx.lineTo(b.x,b.y); ctx.stroke(); ctx.restore(); ctx.beginPath(); ctx.arc(c.x,c.y,5/state.view.scale,0,Math.PI*2); ctx.fill(); ctx.stroke(); });
-        if(state.hoverRoadSegment && state.hoverRoadSegment.roadId===r.id){
-          const i=state.hoverRoadSegment.index, a=r.pointsPx[i], b=r.pointsPx[(i+1)%r.pointsPx.length], c=r.curvesPx?.[i];
-          ctx.save(); ctx.strokeStyle='#d79631'; ctx.lineWidth=6/state.view.scale; ctx.globalAlpha=.65; ctx.beginPath(); ctx.moveTo(a.x,a.y); if(c) ctx.quadraticCurveTo(c.x,c.y,b.x,b.y); else ctx.lineTo(b.x,b.y); ctx.stroke(); ctx.restore();
-        }
-      }
-    }
-    if(selected||hovered){ const c=polygonCenter(roadPoly||r.pointsPx||[]); const extra=r.mode==='centerline'?' · '+fmt(r.widthMm)+' mm':(state.roadOutlineEditId===r.id?' · editing outline':''); drawLabel(`${r.name||'Road'}${extra}`,{x:c.x+8/state.view.scale,y:c.y-8/state.view.scale}); }
-    ctx.restore();
+    return roadSystem.drawRoad(r);
   }
   function drawTrack(raw){
     const t=normalizeTrack(raw); if(!t || t.hidden || (t.pointsPx||[]).length<2) return;
@@ -1875,6 +1318,35 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     bboxOverlaps,
     transformedRect,
   });
+  roadSystem = createRoadSystemController({
+    state,
+    ctx,
+    uid,
+    mmToPx,
+    pxToMm,
+    currentScaleDivisor,
+    presetModelMm,
+    roadPresetByKey,
+    sidewalkPresetByKey,
+    hatchPresetByKey,
+    markingPresetByKey,
+    defaultMarkingStandardId: JP_ROAD_MARKING_STANDARD_ID,
+    roadPresetScaleContext,
+    applyRoadHatchPreset,
+    applyRoadMarkingPreset,
+    clearBuildingSelection,
+    lockedHitTolerance,
+    polyEdgeDistance,
+    normalizeBenchworkOutline,
+    benchworkPathSamples: benchworkSamples,
+    drawLabel,
+    drawPoly,
+    drawGeneratedPath: drawRoadGeneratedPath,
+    updateRoadExportBadge,
+    setStatusHint: () => {},
+    syncAll,
+    dist,
+  });
 
   const {
     hakoFileSummary,
@@ -2144,6 +1616,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function syncAll(opts = {}){
     state.buildings.forEach(syncBuildingMetrics);
     state.roads.forEach(syncRoadMetrics);
+    roadSystem.generatedRoadIntersections();
     state.tracks=(state.tracks||[]).map(syncTrackMetrics);
     state.roadFeatures=(state.roadFeatures||[]).map(normalizeRoadFeature);
     state.stlObjects=(state.stlObjects||[]).map(normalizeStlObject);
@@ -3299,6 +2772,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       roads: state.roads,
       tracks: state.tracks||[],
       roadFeatures: state.roadFeatures,
+      roadIntersectionDetails: state.roadIntersectionDetails,
       stlObjects: state.stlObjects||[],
       benchworkOutlines: state.benchworkOutlines,
       fabricRegions: state.fabricRegions,
@@ -3354,6 +2828,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.roads=Array.isArray(data.roads)?structuredClone(data.roads):[];
     state.tracks=(Array.isArray(data.tracks)?structuredClone(data.tracks):[]).map(normalizeTrack);
     state.roadFeatures=Array.isArray(data.roadFeatures)?structuredClone(data.roadFeatures):[];
+    state.roadIntersectionDetails=data.roadIntersectionDetails!==false;
+    state.generatedRoadIntersections=[];
     state.stlObjects=Array.isArray(data.stlObjects)?structuredClone(data.stlObjects):[];
     state.benchworkOutlines=Array.isArray(data.benchworkOutlines)?structuredClone(data.benchworkOutlines):[];
     state.fabricRegions=Array.isArray(data.fabricRegions)?structuredClone(data.fabricRegions):[];
@@ -3438,6 +2914,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       roads:state.roads,
       tracks:state.tracks||[],
       roadFeatures:state.roadFeatures,
+      roadIntersectionDetails:state.roadIntersectionDetails!==false,
       stlObjects:state.stlObjects||[],
       benchworkOutlines:state.benchworkOutlines,
       fabricRegions:state.fabricRegions,
@@ -4015,7 +3492,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       drawNow();
     });
   }
-  function drawNow(){const r=canvas.getBoundingClientRect(); const dpr=devicePixelRatio||1; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.benchworkOutlines.forEach(drawBenchwork); state.roads.forEach(drawRoad); (state.tracks||[]).forEach(drawTrack); drawRoadJunctions(); (state.roadFeatures||[]).forEach(drawRoadFeature); drawRoadExportPreview(); (state.fabricRegions||[]).forEach(drawFabricRegion); state.buildings.forEach(drawBuilding); (state.stlObjects||[]).forEach(drawStlObject); state.streetlights.forEach(drawStreetlight); if(state.roadDraft.length){ctx.save();ctx.strokeStyle='#6f6a5e';ctx.fillStyle='rgba(111,106,94,.18)';ctx.lineWidth=3/state.view.scale;if(state.roadMode==='centerline'&&state.roadDraft.length>=2){const temp=createRoadCenterlineFromPoints(state.roadDraft); temp.id='road_draft'; drawRoad(temp);} else {ctx.beginPath();state.roadDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();}state.roadDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.trackDraft&&state.trackDraft.length){ctx.save();const temp=normalizeTrack({id:'track_draft',name:'Track preview',pointsPx:state.trackDraft.slice(),gaugeMm:9,tieSpacingMm:4,color:'#4b4438',tieColor:'#8a6f43'}); drawTrack(temp); ctx.fillStyle='rgba(75,68,56,.20)'; state.trackDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.benchworkDraft.length){ctx.save();ctx.strokeStyle='#2f6f4e';ctx.fillStyle='rgba(47,111,78,.12)';ctx.lineWidth=3/state.view.scale;ctx.setLineDash([8/state.view.scale,6/state.view.scale]);ctx.beginPath();state.benchworkDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.setLineDash([]);state.benchworkDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} drawFabricDraft(); if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview){ if(state.drag.type==='roadCenterline') drawRoad(state.drag.preview); else drawBuilding(state.drag.preview); } drawSelectionMarquee(); drawHoverPreview(); ctx.restore(); updateEmptyImageOverlay(); updateStatus();}
+  function drawNow(){const r=canvas.getBoundingClientRect(); const dpr=devicePixelRatio||1; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.benchworkOutlines.forEach(drawBenchwork); state.roads.forEach(drawRoad); (state.tracks||[]).forEach(drawTrack); drawRoadJunctions(); drawGeneratedRoadIntersections(); (state.roadFeatures||[]).forEach(drawRoadFeature); drawRoadExportPreview(); (state.fabricRegions||[]).forEach(drawFabricRegion); state.buildings.forEach(drawBuilding); (state.stlObjects||[]).forEach(drawStlObject); state.streetlights.forEach(drawStreetlight); if(state.roadDraft.length){ctx.save();ctx.strokeStyle='#6f6a5e';ctx.fillStyle='rgba(111,106,94,.18)';ctx.lineWidth=3/state.view.scale;if(state.roadMode==='centerline'&&state.roadDraft.length>=2){const temp=createRoadCenterlineFromPoints(state.roadDraft); temp.id='road_draft'; drawRoad(temp);} else {ctx.beginPath();state.roadDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();}state.roadDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.trackDraft&&state.trackDraft.length){ctx.save();const temp=normalizeTrack({id:'track_draft',name:'Track preview',pointsPx:state.trackDraft.slice(),gaugeMm:9,tieSpacingMm:4,color:'#4b4438',tieColor:'#8a6f43'}); drawTrack(temp); ctx.fillStyle='rgba(75,68,56,.20)'; state.trackDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.benchworkDraft.length){ctx.save();ctx.strokeStyle='#2f6f4e';ctx.fillStyle='rgba(47,111,78,.12)';ctx.lineWidth=3/state.view.scale;ctx.setLineDash([8/state.view.scale,6/state.view.scale]);ctx.beginPath();state.benchworkDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.setLineDash([]);state.benchworkDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} drawFabricDraft(); if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview){ if(state.drag.type==='roadCenterline') drawRoad(state.drag.preview); else drawBuilding(state.drag.preview); } drawSelectionMarquee(); drawHoverPreview(); ctx.restore(); updateEmptyImageOverlay(); updateStatus();}
   function fitImage(){const r=canvas.getBoundingClientRect(); if(!state.image){state.view={x:r.width/2,y:r.height/2,scale:1}; draw(); return;} const s=Math.min(r.width/state.image.width,r.height/state.image.height)*.9; state.view.scale=s; state.view.x=(r.width-state.image.width*s)/2; state.view.y=(r.height-state.image.height*s)/2; draw();}
 
   function sidebarObjectTypes(){
@@ -4249,6 +3726,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       <label>Sidewalk width preset</label><select id="roadSidewalkPreset" ${road.mode==='outline'?'disabled':''}>${presetOptionsHtml(SIDEWALK_WIDTH_PRESETS, sidewalkPresetKey, currentScaleDivisor())}</select>
       <div id="roadSidewalkOverrideWrap" style="display:${showSidewalkOverride?'block':'none'}"><label>Sidewalk width override (mm)</label><input id="roadSidewalkWidth" type="number" step="0.1" value="${fmt(road.sidewalkWidthMm||0)}" ${road.mode==='outline'?'disabled':''}></div>
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="roadLocked" type="checkbox" ${road.locked?'checked':''}> <span>Lock road</span></label>
+      <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="roadIntersectionDetails" type="checkbox" ${state.roadIntersectionDetails!==false?'checked':''}> <span>Show automatic intersection markings</span></label>
       <div class="buttons" style="margin-top:8px"><button id="regenRoad">Regenerate road geometry</button><button id="deleteRoad" class="danger">Delete Road</button></div>
       <div class="small muted" style="margin-top:8px">Presets are common real-world widths converted to physical output millimeters using the calibration scale divisor. Choose <b>Custom / override</b> to show manual width fields. Centerlines can be polyline paths; hover a selected segment and drag to bend it into a curve. Laser-cut road export is not enabled yet.</div>`;
       const sel=$('roadSidewalk'); if(sel) sel.value=road.sidewalkSide||'none';
@@ -4260,6 +3738,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       bindRoad('roadSidewalkPreset',v=>{applySidewalkWidthPreset(road,v);});
       bindRoad('roadSidewalkWidth',v=>{road.sidewalkWidthPreset='custom'; road.sidewalkWidthMm=parseFloat(v)||0; road.sidewalkWidthPx=state.pxPerMm?mmToPx(road.sidewalkWidthMm):road.sidewalkWidthPx;});
       bindRoad('roadLocked',v=>road.locked=!!v);
+      bindRoad('roadIntersectionDetails',v=>{state.roadIntersectionDetails=!!v;});
       $('regenRoad').onclick=()=>syncAll(); $('deleteRoad').onclick=deleteSelectedRoad;
       return;
     } if(track){normalizeTrack(track); box.innerHTML=`
@@ -5248,7 +4727,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     else if(d.type==='roadCurve'){
       const r=state.roads.find(x=>x.id===d.orig.id);
       if(r&&!r.locked){
-        normalizeRoadCurves(r);
+        normalizeRoad(r);
         const i=d.segmentIndex;
         const a=r.pointsPx[i], b=r.mode==='outline'?r.pointsPx[(i+1)%r.pointsPx.length]:r.pointsPx[i+1];
         if(a&&b){r.curvesPx[i]={x:2*p.x-(a.x+b.x)/2,y:2*p.y-(a.y+b.y)/2}; syncRoadMetrics(r);}
@@ -6203,6 +5682,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.roads=loadedRoads.map(normalizeRoad);
     state.tracks=(Array.isArray(p.tracks)?p.tracks:[]).map(normalizeTrack);
     state.roadFeatures=(Array.isArray(p.roadFeatures)?p.roadFeatures:[]).map(normalizeRoadFeature);
+    state.roadIntersectionDetails=p.roadIntersectionDetails!==false;
+    state.generatedRoadIntersections=[];
     const loadedStlObjects = Array.isArray(p.stlObjects) ? p.stlObjects : (Array.isArray(p.siteObjects) ? p.siteObjects.filter(o=>o&&(o.type==='stl'||o.type==='stlObject'||o.kind==='stl')) : (Array.isArray(p.siteConstraints) ? p.siteConstraints.filter(o=>o&&(o.type==='stlObject'||o.type==='stl'||o.kind==='stl')) : []));
     state.stlObjects=loadedStlObjects.map(normalizeStlObject);
     const loadedBenchworks = Array.isArray(p.benchworkOutlines) ? p.benchworkOutlines : (Array.isArray(p.siteConstraints) ? p.siteConstraints.filter(c=>c&&(c.type==='benchworkOutline'||c.type==='benchwork'||c.constraintType==='benchworkOutline')) : []);
@@ -6283,7 +5764,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function svgRoadAssetExport(){
     const data=generateRoadExportData();
     const w=state.image?.width||1200,h=state.image?.height||800;
-    return roadAssetSvgExport({data, roadFeatures:state.roadFeatures, width:w, height:h}, {JP_ROAD_MARKING_STANDARD_ID, SVG_OP, SVG_ENGRAVE, SVG_RETAINED_CUT, SVG_SCRAP_CUT, escapeAttr, escapeHtml, markingPresetByKey, normalizeRoadFeature, polygonCenter, svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly});
+    return roadAssetSvgExport({data, roadFeatures:state.roadFeatures, generatedIntersectionRecords:roadSystem.generatedRoadIntersectionSvgRecords({includeCurbGuides:false}), width:w, height:h}, {JP_ROAD_MARKING_STANDARD_ID, SVG_OP, SVG_ENGRAVE, SVG_RETAINED_CUT, SVG_SCRAP_CUT, escapeAttr, escapeHtml, markingPresetByKey, normalizeRoadFeature, polygonCenter, svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly});
   }
   function svgTrackExport(){
     return trackSvgExport(state.tracks, {TRACK_PROFILE_DEFAULTS, escapeAttr, normalizeTrack, offsetTrackPath, trackPathSamples, trackProfilePx, trackTieSegments});

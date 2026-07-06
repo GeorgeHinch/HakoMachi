@@ -1,4 +1,4 @@
-import { hitRoadCenterlineSegment, hitRoadOutlineSegment, hitRoadPoint, nearestPointOnRoadPath, rebuildRoadGeometry, roadCenterlineSamples, roadEdgePaths, roadHasSidewalk, roadOutlineSamples, roadSidewalkPolygons } from './road-geometry.js';
+import { hitRoadCenterlineSegment, hitRoadOutlineSegment, hitRoadPoint, nearestPointOnRoadPath, rebuildRoadGeometry, roadCenterlineSamples, roadEdgePaths, roadHasSidewalk, roadOutlineSamples, roadSidewalkPolygons, sidewalkTotalWidthPx } from './road-geometry.js';
 import { findRoadConnectionSnap, roadEndpointJunctions, roadJunctionPoints, roadSurfaceAtPoint, setRoadEndpointConnection, snapRoadPointForConnection } from './road-network.js';
 
 export function createRoadAdapterController({
@@ -24,6 +24,7 @@ export function createRoadAdapterController({
     roadSidewalkPolygons,
     roadSurfaceAtPoint: point => roadSurfaceAtPoint(point, state.roads, { normalizeRoad }),
     setRoadEndpointConnection,
+    sidewalkTotalWidthPx,
     snapRoadPointForConnection: (point, excludeRoadId = null, pointerType = 'mouse') => snapRoadPointForConnection(point, state.roads, { excludeRoadId, pointerType, viewScale: viewScale(), normalizeRoad }),
   };
 }

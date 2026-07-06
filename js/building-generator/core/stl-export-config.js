@@ -2122,27 +2122,6 @@ export function init() {
   Object.assign(CONFIG, BUILDING_TYPES.industrial_loading.defaults);
   upgradeConfigToCurrentStorage(CONFIG);
 
-  // Animated logo: replay the SMIL timeline from t=0 on hover, but only
-  // once the previous cycle has finished. The build-on sequence takes 2.23s
-  // (final animate ends at begin 1.85s + dur 0.38s); we add a small buffer
-  // so a hover landing on the very tail of the animation doesn't chain
-  // into an immediate restart. The initial page-load animation counts as
-  // the first cycle — we seed lastTriggerTime to "now" so a hover within
-  // the first 2.3s post-load is also suppressed. The listener lives here
-  // (not inline in the SVG) so the offline test sandbox doesn't try to
-  // run document.currentScript.closest.
-  const logoSvg = document.querySelector('svg.app-logo');
-  if (logoSvg && typeof logoSvg.setCurrentTime === 'function') {
-    const LOGO_ANIM_DURATION_MS = 2300;
-    let lastTriggerTime = performance.now();
-    logoSvg.addEventListener('mouseenter', () => {
-      const now = performance.now();
-      if (now - lastTriggerTime < LOGO_ANIM_DURATION_MS) return;
-      lastTriggerTime = now;
-      try { logoSvg.setCurrentTime(0); } catch (_) { /* older browsers */ }
-    });
-  }
-
   // Try loading a saved preset from browser cache (silent if none)
   tryAutoLoadPreset();
   if (typeof applyPendingMaterialProfileHandoff === 'function') applyPendingMaterialProfileHandoff();

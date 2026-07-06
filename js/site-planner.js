@@ -6050,20 +6050,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
   });
 
-  // HakoMachi animated logo: replay the SMIL build-on animation on hover,
-  // matching the main HakoMachi editor behavior.
-  const logoSvg = document.querySelector('svg.app-logo');
-  if (logoSvg && typeof logoSvg.setCurrentTime === 'function') {
-    const LOGO_ANIM_DURATION_MS = 2300;
-    let lastTriggerTime = performance.now();
-    logoSvg.addEventListener('mouseenter', () => {
-      const now = performance.now();
-      if (now - lastTriggerTime < LOGO_ANIM_DURATION_MS) return;
-      lastTriggerTime = now;
-      try { logoSvg.setCurrentTime(0); } catch (_) { /* older browsers */ }
-    });
-  }
-
   bindSite3DButtons();
   installWholePageHakoDrop();
   installSelectedHakoSidebarDrop();

@@ -32,6 +32,7 @@ import { loadAlignmentMessage, restoreProjectView, savedImageDimensions, scaleLo
 import { createReferenceImageUiController } from './site-planner/reference-image-ui.js';
 import { drainageGrateFamilyOptions, grateFamilyPresetByKey } from './site-planner/road-drainage-grate-inserts.js';
 import { createRoadSystemController } from './site-planner/road-system-controller.js';
+import { paintStencilExportSpecs, physicalGrateExportSpecs } from './site-planner/road-asset-export-specs.js';
 import { migrateRoadFeatures } from './site-planner/road-feature-migration.js';
 import { serializeGrateInsertSheetsByMaterial } from './site-planner/road-grate-sheet-serializer.js';
 import { serializePaintStencilSheetsByMaterial } from './site-planner/road-paint-stencil-templates.js';
@@ -5296,62 +5297,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const w=state.image?.width||1200,h=state.image?.height||800;
     return roadAssetSvgExport({data, roadFeatures:state.roadFeatures, generatedIntersectionRecords:roadSystem.generatedRoadIntersectionSvgRecords({includeCurbGuides:false}), width:w, height:h}, {JP_ROAD_MARKING_STANDARD_ID, SVG_OP, SVG_ENGRAVE, SVG_RETAINED_CUT, SVG_SCRAP_CUT, escapeAttr, escapeHtml, markingPresetByKey, normalizeRoadFeature, polygonCenter, svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly});
   }
-  function physicalGrateExportSpec(raw,index){
-    const f=normalizeRoadFeature(raw);
-    if(!f || f.hidden || f.kind!=='manhole' || f.physicalInsert!=='foldedDrainageGrateInsert') return null;
-    const spec={
-      ...(f.grateInsertSpec||{}),
-      id:f.id||`road-grate-${index+1}`,
-      label:f.name||`Road grate ${index+1}`,
-      key:f.grateInsertSpec?.key || (f.hatchShape==='circle'?'etchedManholeCover':'rectangularDrain'),
-    };
-    if(f.hatchShape==='circle'){
-      spec.shape='circle';
-      spec.diameterMm=Number(f.diameterMm)||Number(spec.diameterMm)||Number(spec.widthMm)||4;
-      spec.widthMm=spec.diameterMm;
-      spec.depthMm=spec.diameterMm;
-    } else {
-      spec.shape=spec.shape==='circle'?'rect':spec.shape;
-      spec.widthMm=Number(f.widthMm)||Number(spec.widthMm)||4;
-      spec.depthMm=Number(f.depthMm)||Number(spec.depthMm)||2;
-    }
-    return spec;
-  }
-  function physicalGrateExportSpecs(){
-    return (state.roadFeatures||[]).map(physicalGrateExportSpec).filter(Boolean);
-  }
-  function paintStencilExportSpec(raw,index){
-    const f=normalizeRoadFeature(raw);
-    if(!f || f.hidden || f.kind!=='marking' || (f.outputMode!=='paintStencil' && f.cutBehavior!=='paintStencil')) return null;
-    const preset=markingPresetByKey(f.markingPreset||f.markingType);
-    return {
-      id:f.id||`road-paint-stencil-${index+1}`,
-      label:f.name||preset.label||`Road paint stencil ${index+1}`,
-      materialId:f.stencilMaterialId||'stencil-stock',
-      rotationDeg:Number(f.rotationDeg)||0,
-      preset:{
-        ...preset,
-        ...f,
-        key:preset.key,
-        widthMm:Number(f.widthMm)||preset.widthMm,
-        depthMm:Number(f.depthMm)||preset.depthMm,
-        exportLayer:'paintStencilCut',
-      },
-      transform:{x:0,y:0,angle:0},
-      options:{
-        ...(f.stencilSpec||{}),
-        materialId:f.stencilMaterialId||'stencil-stock',
-        materialRole:'stencilStock',
-      },
-    };
-  }
-  function paintStencilExportSpecs(){
-    return (state.roadFeatures||[]).map(paintStencilExportSpec).filter(Boolean);
-  }
   async function downloadRoadAssetExport(){
     const roadSvg=svgRoadAssetExport();
-    const grates=physicalGrateExportSpecs();
-    const stencils=paintStencilExportSpecs();
+    const exportDeps={normalizeRoadFeature, markingPresetByKey, pxPerMm:state.pxPerMm};
+    const grates=physicalGrateExportSpecs(state.roadFeatures, exportDeps);
+    const stencils=paintStencilExportSpecs(state.roadFeatures, exportDeps);
     if(!grates.length && !stencils.length){
       downloadText(roadSvg,'hakomachi-road-assets.svg','image/svg+xml');
       return;

@@ -3,6 +3,59 @@ const fs = require('fs');
 const path = require('path');
 
 test.describe('Site Planner module split contracts', () => {
+  test('road paint stencil specs preserve custom feature dimensions and stay off the road-deck engrave layer', async () => {
+    const { paintStencilExportSpec } = await import('../js/site-planner/road-asset-export-specs.js');
+    const { roadMarkingPresetByKey } = await import('../js/site-planner/road-marking-presets.js');
+    const { roadAssetSvgExport } = await import('../js/site-planner/export-utils.js');
+    const { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } = await import('../js/site-planner/svg-export-utils.js');
+
+    const normalizeRoadFeature = feature => ({ ...feature });
+    const feature = {
+      id: 'paint-stop-1',
+      kind: 'marking',
+      name: 'Custom stop stencil',
+      markingPreset: 'stopLine',
+      outputMode: 'paintStencil',
+      stencilMaterialId: 'masking-film',
+      widthPx: 60,
+      depthPx: 10,
+      x: 42,
+      y: 24,
+    };
+    const markingPresetByKey = roadMarkingPresetByKey;
+    const spec = paintStencilExportSpec(feature, 0, { normalizeRoadFeature, markingPresetByKey, pxPerMm: 10 });
+
+    expect(spec.materialId).toBe('masking-film');
+    expect(spec.preset.widthMm).toBe(6);
+    expect(spec.preset.depthMm).toBe(1);
+    expect(spec.preset.exportLayer).toBe('paintStencilCut');
+
+    const roadSvg = roadAssetSvgExport({
+      data: { roads: [], seams: [] },
+      roadFeatures: [feature],
+      width: 100,
+      height: 80,
+    }, {
+      JP_ROAD_MARKING_STANDARD_ID: 'jp-urban',
+      SVG_OP: { ENGRAVE: 'engrave', CUT_RETAINED: 'cut-retained', CUT_SCRAP: 'cut-scrap' },
+      SVG_ENGRAVE: '#2271b1',
+      SVG_RETAINED_CUT: '#d33',
+      SVG_SCRAP_CUT: '#178a3b',
+      escapeAttr: value => String(value ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])),
+      escapeHtml: value => String(value ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])),
+      markingPresetByKey,
+      normalizeRoadFeature,
+      polygonCenter: () => ({ x: 0, y: 0 }),
+      svgFabricationAttrs,
+      svgFeatureTransform,
+      svgPathFromPoly,
+    });
+
+    expect(roadSvg).toContain('<g id="roadMarkingEtch"');
+    expect(roadSvg).not.toContain('Custom stop stencil');
+    expect(roadSvg).not.toContain('paint-stop-1');
+  });
+
   test('benchwork outline behavior is wired through the benchwork controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'benchwork-controller.js'), 'utf8');

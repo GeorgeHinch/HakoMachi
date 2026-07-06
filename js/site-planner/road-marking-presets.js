@@ -366,6 +366,7 @@ export function roadHatchSelectOptions() {
 export function applyRoadMarkingPresetData(feature = {}, key, scaleContext = {}) {
   const preset = roadMarkingPresetByKey(key);
   const scale = Number(scaleContext.scale || scaleContext.pxPerMm || 1) || 1;
+  const outputMode = feature.outputMode || (feature.cutBehavior === 'paintStencil' ? 'paintStencil' : 'etch');
   return {
     ...feature,
     kind: 'marking',
@@ -383,9 +384,12 @@ export function applyRoadMarkingPresetData(feature = {}, key, scaleContext = {})
     widthPx: preset.widthMm * scale,
     depthPx: preset.depthMm * scale,
     color: preset.color,
-    exportLayer: preset.exportLayer,
-    visualOnly: true,
-    cutBehavior: 'etchOnly',
+    outputMode,
+    stencilMaterialId: feature.stencilMaterialId || 'stencil-stock',
+    stencilSpec: feature.stencilSpec,
+    exportLayer: outputMode === 'paintStencil' ? 'paintStencilCut' : preset.exportLayer,
+    visualOnly: outputMode !== 'paintStencil',
+    cutBehavior: outputMode === 'paintStencil' ? 'paintStencil' : 'etchOnly',
   };
 }
 

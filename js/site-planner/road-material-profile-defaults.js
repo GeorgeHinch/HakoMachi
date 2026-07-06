@@ -1,4 +1,4 @@
-import { ROAD_MATERIAL_ROLE_FALLBACKS, roadMaterialLibraryCoverage } from './road-material-library-roles.js';
+import { PHYSICAL_ROAD_MATERIAL_ROLES, ROAD_MATERIAL_ROLE_FALLBACKS, roadMaterialLibraryCoverage } from './road-material-library-roles.js';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -15,13 +15,26 @@ function materialExists(materials, id) {
 }
 
 export function defaultRoadDetailMaterials() {
-  return Object.entries(ROAD_MATERIAL_ROLE_FALLBACKS).map(([role, material]) => ({
-    ...clone(material),
+  return PHYSICAL_ROAD_MATERIAL_ROLES.map(role => ({
+    ...clone(ROAD_MATERIAL_ROLE_FALLBACKS[role]),
     role,
     materialRole: role,
     usage: role,
     tags: ['road', 'detail', role],
     virtual: false,
+    stockQty: ROAD_MATERIAL_ROLE_FALLBACKS[role].stockQty ?? 0,
+    stockUnit: ROAD_MATERIAL_ROLE_FALLBACKS[role].stockUnit || 'sheets',
+  }));
+}
+
+export function defaultRoadStyleMaterials() {
+  return Object.entries(ROAD_MATERIAL_ROLE_FALLBACKS).filter(([, material]) => material.virtual).map(([role, material]) => ({
+    ...clone(material),
+    role,
+    materialRole: role,
+    usage: role,
+    tags: ['road', 'detail', role],
+    virtual: true,
     stockQty: material.stockQty ?? 0,
     stockUnit: material.stockUnit || 'sheets',
   }));

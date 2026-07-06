@@ -126,7 +126,7 @@ function initMaterialManager() {
       ['Cladding thickness', clad && clad.thickness ? clad.thickness + ' mm' : 'Fallback 0.28 mm'],
       ['Cladding routes', routed],
       ['Stock entries', stock ? stock + ' total' : 'Not counted'],
-      ['Road detail materials', roadMissingCount ? `${roadProfileCount}/${roadSummary.length} assigned` : 'Ready'],
+      ['Physical road stock', roadMissingCount ? `${roadProfileCount}/${roadSummary.length} assigned` : 'Ready'],
     ].map(row => `<div class="summary-card"><b>${esc(row[0])}</b><span class="small">${esc(row[1])}</span></div>`).join('');
   }
 
@@ -266,7 +266,7 @@ function initMaterialManager() {
     $('addRoadDetailsBtn').addEventListener('click', () => {
       const result = addRoadDetailMaterialsToLibrary(currentProfile.library);
       render();
-      status(result.added.length ? `Added ${result.added.length} road detail materials.` : 'Road detail materials are already present.', 'ok');
+      status(result.added.length ? `Added ${result.added.length} physical road stock materials.` : 'Physical road stock materials are already present.', 'ok');
     });
 
     $('newProfileBtn').addEventListener('click', () => {

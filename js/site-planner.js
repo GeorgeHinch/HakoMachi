@@ -30,6 +30,7 @@ import { drainageGrateFamilyOptions, grateFamilyPresetByKey } from './site-plann
 import { createRoadSystemController } from './site-planner/road-system-controller.js';
 import { migrateRoadFeatures } from './site-planner/road-feature-migration.js';
 import { serializeGrateInsertSheetsByMaterial } from './site-planner/road-grate-sheet-serializer.js';
+import { serializePaintStencilSheetsByMaterial } from './site-planner/road-paint-stencil-templates.js';
 import { createRoadPresetApplicationController } from './site-planner/road-preset-application-utils.js';
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
 import { createScaleInputController } from './site-planner/scale-input-utils.js';
@@ -716,6 +717,21 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(enabled) return applyPhysicalGrateFamily(feature, feature.grateInsertSpec?.key || (feature.hatchShape==='circle'?'etchedManholeCover':'rectangularDrain'));
     delete feature.physicalInsert;
     delete feature.grateInsertSpec;
+    return feature;
+  }
+  function setRoadMarkingOutputMode(feature, mode){
+    feature.outputMode=mode==='paintStencil'?'paintStencil':'etch';
+    if(feature.outputMode==='paintStencil'){
+      feature.visualOnly=false;
+      feature.cutBehavior='paintStencil';
+      feature.exportLayer='paintStencilCut';
+      feature.stencilMaterialId=feature.stencilMaterialId||'stencil-stock';
+      feature.stencilSpec=feature.stencilSpec||{marginMm:2, bridgeMm:0.35};
+    } else {
+      feature.visualOnly=true;
+      feature.cutBehavior='etchOnly';
+      feature.exportLayer='roadMarkingEtch';
+    }
     return feature;
   }
   function roadArmOverrideKey(arm){
@@ -3797,10 +3813,15 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       <div class="row"><div><label>Diameter mm</label><input id="rfDia" type="number" step="0.1" value="${fmt(roadFeature.diameterMm||0)}"></div><div><label>Rotation °</label><input id="rfRot" type="number" step="1" value="${fmt(roadFeature.rotationDeg||0)}"></div></div>
       <div class="row"><div><label>Width mm</label><input id="rfW" type="number" step="0.1" value="${fmt(roadFeature.widthMm||0)}"></div><div><label>Depth mm</label><input id="rfD" type="number" step="0.1" value="${fmt(roadFeature.depthMm||0)}"></div></div>
       <div class="small muted">Exports as <code>roadHatchCut</code> for mounting separate printed or detailed hatch/manhole pieces.</div>`:`<label>Japanese marking preset</label><select id="rfMarkingPreset">${markingOptionsHtml(roadFeature.markingPreset||roadFeature.markingType)}</select>
-      <div class="small muted" style="margin:4px 0">${escapeHtml(roadFeature.jpName||'')} · ${escapeHtml(roadFeature.markingCategory||'')} · etch/visual only</div>
+      <div class="small muted" style="margin:4px 0">${escapeHtml(roadFeature.jpName||'')} · ${escapeHtml(roadFeature.markingCategory||'')}</div>
+      <label>Output</label><select id="rfMarkingOutput"><option value="etch">Etch / visual on road deck</option><option value="paintStencil">Paint stencil sheet</option></select>
+      <div id="rfStencilOptions" style="display:${roadFeature.outputMode==='paintStencil'?'block':'none'}">
+        <label>Stencil stock material ID</label><input id="rfStencilMaterialId" value="${escapeAttr(roadFeature.stencilMaterialId||'stencil-stock')}">
+        <div class="row"><div><label>Frame margin mm</label><input id="rfStencilMargin" type="number" min="0" step="0.1" value="${fmt(roadFeature.stencilSpec?.marginMm??2)}"></div><div><label>Bridge guide mm</label><input id="rfStencilBridge" type="number" min="0" step="0.05" value="${fmt(roadFeature.stencilSpec?.bridgeMm??0.35)}"></div></div>
+      </div>
       <div class="row"><div><label>Width mm</label><input id="rfW" type="number" step="0.1" value="${fmt(roadFeature.widthMm||0)}"></div><div><label>Depth mm</label><input id="rfD" type="number" step="0.1" value="${fmt(roadFeature.depthMm||0)}"></div></div>
       <div class="row"><div><label>Rotation °</label><input id="rfRot" type="number" step="1" value="${fmt(roadFeature.rotationDeg||0)}"></div><div><label>Color</label><input id="rfColor" type="color" value="${roadFeature.color||'#f7f2df'}"></div></div>
-      <div class="small muted">Based on Japanese road marking categories from the 1960 Order; exported as <code>roadMarkingEtch</code>, not cut through.</div>`}
+      <div class="small muted">Etch mode exports <code>roadMarkingEtch</code>. Paint stencil mode exports a separate inverse stencil sheet from real stock.</div>`}
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="rfLocked" type="checkbox" ${roadFeature.locked?'checked':''}> <span>Lock item</span></label>
       <div class="buttons" style="margin-top:8px"><button id="deleteRoadFeature" class="danger">Delete Item</button></div>`;
       const bindRF=(id,fn)=>{const el=$(id); if(el) el.oninput=()=>{fn(el.type==='checkbox'?el.checked:el.value); normalizeRoadFeature(roadFeature); syncAll();};};
@@ -3814,6 +3835,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const pi=$('rfPhysicalInsert'); if(pi){pi.value=roadFeature.physicalInsert||''; pi.onchange=()=>{setPhysicalGrateMode(roadFeature,!!pi.value); syncAll();};}
       const gf=$('rfGrateFamily'); if(gf){gf.disabled=!roadFeature.physicalInsert; gf.onchange=()=>{applyPhysicalGrateFamily(roadFeature,gf.value); syncAll();};}
       const mp=$('rfMarkingPreset'); if(mp) mp.onchange=()=>{state.lastRoadMarkingPreset=mp.value; applyRoadMarkingPreset(roadFeature,mp.value,roadPresetScaleContext()); syncAll();};
+      const mo=$('rfMarkingOutput'); if(mo){mo.value=roadFeature.outputMode==='paintStencil'?'paintStencil':'etch'; mo.onchange=()=>{setRoadMarkingOutputMode(roadFeature,mo.value); syncAll();};}
+      bindRF('rfStencilMaterialId',v=>{roadFeature.stencilMaterialId=v||'stencil-stock'; setRoadMarkingOutputMode(roadFeature,'paintStencil');});
+      bindRF('rfStencilMargin',v=>{roadFeature.stencilSpec={...(roadFeature.stencilSpec||{}),marginMm:Math.max(0,parseFloat(v)||0)}; setRoadMarkingOutputMode(roadFeature,'paintStencil');});
+      bindRF('rfStencilBridge',v=>{roadFeature.stencilSpec={...(roadFeature.stencilSpec||{}),bridgeMm:Math.max(0,parseFloat(v)||0)}; setRoadMarkingOutputMode(roadFeature,'paintStencil');});
       $('deleteRoadFeature').onclick=deleteSelectedRoadFeature;
       return;
     } if(road){normalizeRoad(road); const roadPresetKey=road.roadWidthPreset||'custom'; const sidewalkPresetKey=road.sidewalkWidthPreset||'custom'; const showRoadOverride=road.mode!=='outline' && roadPresetKey==='custom'; const showSidewalkOverride=road.mode!=='outline' && sidewalkPresetKey==='custom'; box.innerHTML=`
@@ -5897,10 +5922,39 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function physicalGrateExportSpecs(){
     return (state.roadFeatures||[]).map(physicalGrateExportSpec).filter(Boolean);
   }
+  function paintStencilExportSpec(raw,index){
+    const f=normalizeRoadFeature(raw);
+    if(!f || f.hidden || f.kind!=='marking' || (f.outputMode!=='paintStencil' && f.cutBehavior!=='paintStencil')) return null;
+    const preset=markingPresetByKey(f.markingPreset||f.markingType);
+    return {
+      id:f.id||`road-paint-stencil-${index+1}`,
+      label:f.name||preset.label||`Road paint stencil ${index+1}`,
+      materialId:f.stencilMaterialId||'stencil-stock',
+      rotationDeg:Number(f.rotationDeg)||0,
+      preset:{
+        ...preset,
+        ...f,
+        key:preset.key,
+        widthMm:Number(f.widthMm)||preset.widthMm,
+        depthMm:Number(f.depthMm)||preset.depthMm,
+        exportLayer:'paintStencilCut',
+      },
+      transform:{x:0,y:0,angle:0},
+      options:{
+        ...(f.stencilSpec||{}),
+        materialId:f.stencilMaterialId||'stencil-stock',
+        materialRole:'stencilStock',
+      },
+    };
+  }
+  function paintStencilExportSpecs(){
+    return (state.roadFeatures||[]).map(paintStencilExportSpec).filter(Boolean);
+  }
   async function downloadRoadAssetExport(){
     const roadSvg=svgRoadAssetExport();
     const grates=physicalGrateExportSpecs();
-    if(!grates.length){
+    const stencils=paintStencilExportSpecs();
+    if(!grates.length && !stencils.length){
       downloadText(roadSvg,'hakomachi-road-assets.svg','image/svg+xml');
       return;
     }
@@ -5914,11 +5968,21 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const materialId=slug(sheet.materialId||`grate-material-${index+1}`);
       zip.file(`road-grate-inserts/${materialId}.svg`,sheet.svg);
     });
+    serializePaintStencilSheetsByMaterial(stencils,{includeGuides:true}).forEach((sheet,index)=>{
+      const materialId=slug(sheet.materialId||`stencil-material-${index+1}`);
+      zip.file(`road-paint-stencils/${materialId}.svg`,sheet.svg);
+    });
     zip.file('road-grate-inserts/manifest.json',JSON.stringify({
       schema:'hakomachi.road-asset-export',
       schemaVersion:1,
       roadDeck:'hakomachi-road-assets.svg',
       physicalGrates:grates.map(spec=>({id:spec.id,label:spec.label,key:spec.key,widthMm:spec.widthMm,depthMm:spec.depthMm,shape:spec.shape||'rect'})),
+    },null,2)+'\n');
+    zip.file('road-paint-stencils/manifest.json',JSON.stringify({
+      schema:'hakomachi.road-paint-stencils',
+      schemaVersion:1,
+      roadDeck:'hakomachi-road-assets.svg',
+      paintStencils:stencils.map(spec=>({id:spec.id,label:spec.label,preset:spec.preset?.key,materialId:spec.materialId,widthMm:spec.preset?.widthMm,depthMm:spec.preset?.depthMm,rotationDeg:spec.rotationDeg,marginMm:spec.options?.marginMm??2,bridgeMm:spec.options?.bridgeMm??0.35})),
     },null,2)+'\n');
     const blob=await zip.generateAsync({type:'blob'});
     downloadBlob(blob,'hakomachi-road-assets.zip');

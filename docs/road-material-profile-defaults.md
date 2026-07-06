@@ -4,17 +4,16 @@ This document describes:
 
 - `js/site-planner/road-material-profile-defaults.js`
 
-It provides helper functions for adding road-detail materials to an existing HakoMachi material profile.
+It provides helper functions for adding physical road-detail stock to an existing HakoMachi material profile.
 
 ## Materials added
 
-The helper seeds real material entries for the road roles defined in `road-material-library-roles.js`:
+The helper seeds real cuttable stock entries for the physical road roles defined in `road-material-library-roles.js`:
 
-- `roadMarkingWhite`
-- `roadMarkingYellow`
 - `roadHatchDark`
-- `roadTactileYellow`
-- `roadCurbGuide`
+- `stencilStock`
+
+Paint and guide roles such as `roadMarkingWhite`, `roadMarkingYellow`, `roadTactileYellow`, and `roadCurbGuide` remain style/output fallbacks. They are not inserted into Material Manager as zero-thickness stock.
 
 ## Basic usage
 
@@ -34,7 +33,7 @@ console.log(result.coverage);
 
 1. Add a Material Manager button:
 
-- `Add road detail materials`
+- `Add physical road stock`
 
 2. When clicked, call `addRoadDetailMaterialsToLibrary(currentProfile.library)`.
 3. Re-render materials and profile summary.
@@ -49,5 +48,6 @@ No existing code must be removed immediately. If Codex adds local duplicate seed
 
 - Existing materials are not duplicated.
 - New materials include role/materialRole/usage/tags.
-- Road material coverage switches from fallback to profile-backed.
+- Physical road stock coverage switches from fallback to profile-backed.
+- Paint style roles are not added as stock materials.
 - Material Manager can edit colors/thicknesses after seeding.

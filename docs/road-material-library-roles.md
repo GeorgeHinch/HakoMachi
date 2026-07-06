@@ -1,6 +1,6 @@
 # Road Material Library Roles
 
-Road marking, hatch, tactile, and curb-guide presets should not be hard-coded to one visual color forever. They should be able to resolve against the HakoMachi material library.
+Road marking, hatch, tactile, curb-guide, and stencil outputs should not be hard-coded to one visual color or stock forever. They should be able to resolve against the HakoMachi material library when they represent real physical stock, while paint colors can remain style/output roles.
 
 This support is provided by:
 
@@ -10,12 +10,12 @@ This support is provided by:
 
 The material manager stores reusable material profiles in the GitHub data library under `records.materialProfiles`. Each material profile has a `library.materials` list with material IDs, names, colors, thicknesses, sheet sizes, and stock metadata.
 
-Road details are often visual/etch-only rather than cut-through sheet material, but they still need consistent material/color routing for:
+Road details are often visual/etch-only rather than cut-through sheet material, but they still need consistent role/color routing for:
 
 - preview color
 - SVG export layer routing
 - future print/paint/decal sheets
-- stock/material reporting
+- stock/material reporting when the output is physical
 - user customization
 
 ## Supported material roles
@@ -27,6 +27,9 @@ Road details are often visual/etch-only rather than cut-through sheet material, 
 | `roadHatchDark` | `road-hatch-dark` | Manholes, drains, utility covers |
 | `roadTactileYellow` | `road-tactile-yellow` | Tactile paving / warning tile markings |
 | `roadCurbGuide` | `road-curb-guide` | Curb return guide/etch preview material |
+| `stencilStock` | `stencil-stock` | Real stock for inverse paint stencil sheets |
+
+`roadHatchDark` and `stencilStock` are physical roles seeded by Material Manager. Paint and guide roles are virtual fallbacks unless a workflow explicitly routes them to a real physical output.
 
 ## Matching rules
 
@@ -43,12 +46,12 @@ Example material entry:
 
 ```json
 {
-  "id": "road-marking-white",
-  "name": "Road marking white paint",
-  "colour": "#f7f2df",
-  "thickness": 0,
-  "role": "roadMarkingWhite",
-  "tags": ["road", "marking", "white"]
+  "id": "stencil-stock",
+  "name": "Paint stencil stock",
+  "colour": "#d7d2c4",
+  "thickness": 0.1,
+  "role": "stencilStock",
+  "tags": ["road", "detail", "stencilStock"]
 }
 ```
 
@@ -72,11 +75,11 @@ Output includes:
 
 ```js
 {
-  materialRole: 'roadMarkingWhite',
-  materialId: 'road-marking-white',
-  materialName: 'Road marking white paint',
-  color: '#f7f2df',
-  thicknessMm: 0,
+  materialRole: 'stencilStock',
+  materialId: 'stencil-stock',
+  materialName: 'Paint stencil stock',
+  color: '#d7d2c4',
+  thicknessMm: 0.1,
   material: { ... }
 }
 ```
@@ -97,9 +100,9 @@ applyRoadMaterialToFeature(feature, activeMaterialProfile.library)
 - `feature.color`
 - `feature.materialThicknessMm`
 
-4. Add road material role defaults to new material profiles, or provide a button in Material Manager:
+4. Add physical road stock defaults to new material profiles, or provide a button in Material Manager:
 
-- `Add road detail materials`
+- `Add physical road stock`
 
 5. Add a coverage/debug card using:
 
@@ -107,10 +110,10 @@ applyRoadMaterialToFeature(feature, activeMaterialProfile.library)
 roadMaterialLibraryCoverage(activeMaterialProfile.library)
 ```
 
-This can show whether each road role is backed by a real material profile or using a fallback.
+This can show whether each physical road stock role is backed by a real material profile or using a fallback.
 
 ## Notes
 
-- `thickness: 0` is valid for visual/etch/decal-style materials.
-- If road details later need physical cut material, users can set a non-zero thickness on those material profiles.
+- Visual/etch/decal-style roles can use virtual zero-thickness fallbacks without being saved as stock.
+- If painted markings need physical output, use `paintStencil` and route to `stencilStock`.
 - This resolver intentionally works with both a raw material library and a stored material profile wrapper with a `.library` field.

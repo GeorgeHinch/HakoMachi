@@ -4,15 +4,19 @@ const ROAD_MATERIAL_ROLE_ALIASES = Object.freeze({
   roadHatchDark: Object.freeze(['road-hatch-dark', 'road_hatch_dark', 'hatch-dark', 'manhole', 'utility-cover', 'dark-cover', 'dark']),
   roadTactileYellow: Object.freeze(['road-tactile-yellow', 'road_tactile_yellow', 'tactile-yellow', 'tactile-paving', 'warning-tile']),
   roadCurbGuide: Object.freeze(['road-curb-guide', 'road_curb_guide', 'curb-guide', 'guide-etch']),
+  stencilStock: Object.freeze(['stencil-stock', 'stencil_stock', 'masking-film', 'masking', 'acetate', 'cardstock', 'stencil-sheet']),
 });
 
 const DEFAULT_ROLE_FALLBACKS = Object.freeze({
   roadMarkingWhite: Object.freeze({ id: 'road-marking-white', name: 'Road marking white', colour: '#f7f2df', thickness: 0, virtual: true }),
   roadMarkingYellow: Object.freeze({ id: 'road-marking-yellow', name: 'Road marking yellow', colour: '#f7c84a', thickness: 0, virtual: true }),
-  roadHatchDark: Object.freeze({ id: 'road-hatch-dark', name: 'Road hatch dark', colour: '#3a2b1e', thickness: 0, virtual: true }),
+  roadHatchDark: Object.freeze({ id: 'road-hatch-dark', name: 'Road hatch/grate stock', colour: '#3a2b1e', thickness: 0.2, physical: true }),
   roadTactileYellow: Object.freeze({ id: 'road-tactile-yellow', name: 'Road tactile yellow', colour: '#d8b95a', thickness: 0, virtual: true }),
   roadCurbGuide: Object.freeze({ id: 'road-curb-guide', name: 'Road curb guide', colour: '#8a765f', thickness: 0, virtual: true }),
+  stencilStock: Object.freeze({ id: 'stencil-stock', name: 'Paint stencil stock', colour: '#d7d2c4', thickness: 0.1, physical: true }),
 });
+
+const PHYSICAL_ROAD_MATERIAL_ROLES = Object.freeze(['roadHatchDark', 'stencilStock']);
 
 function cleanToken(value) {
   return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -39,6 +43,7 @@ function materialMatchesRole(material, role) {
 
 export function roadMaterialRoleForPreset(preset = {}) {
   if (preset.materialRole) return preset.materialRole;
+  if (preset.outputMode === 'paintStencil' || preset.cutBehavior === 'paintStencil') return 'stencilStock';
   if (preset.materialId) return preset.materialId;
   if (preset.key === 'noParkingCurbDash' || preset.color === '#f7c84a') return 'roadMarkingYellow';
   if (preset.exportLayer === 'roadHatchCut' || preset.kind === 'manhole' || preset.hatchPreset) return 'roadHatchDark';
@@ -83,8 +88,9 @@ export function applyRoadMaterialToFeature(feature = {}, materialLibraryOrProfil
   };
 }
 
-export function roadMaterialRoleSelectOptions() {
-  return Object.keys(ROAD_MATERIAL_ROLE_ALIASES).map(role => ({
+export function roadMaterialRoleSelectOptions(options = {}) {
+  const roles = options.includeStyleRoles ? Object.keys(ROAD_MATERIAL_ROLE_ALIASES) : PHYSICAL_ROAD_MATERIAL_ROLES;
+  return roles.map(role => ({
     value: role,
     label: DEFAULT_ROLE_FALLBACKS[role]?.name || role,
     fallbackColor: DEFAULT_ROLE_FALLBACKS[role]?.colour || '#aaaaaa',
@@ -106,4 +112,4 @@ export function roadMaterialLibraryCoverage(materialLibraryOrProfile = {}) {
   });
 }
 
-export { DEFAULT_ROLE_FALLBACKS as ROAD_MATERIAL_ROLE_FALLBACKS, ROAD_MATERIAL_ROLE_ALIASES };
+export { DEFAULT_ROLE_FALLBACKS as ROAD_MATERIAL_ROLE_FALLBACKS, PHYSICAL_ROAD_MATERIAL_ROLES, ROAD_MATERIAL_ROLE_ALIASES };

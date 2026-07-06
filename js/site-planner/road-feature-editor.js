@@ -52,9 +52,21 @@ export function createRoadFeatureEditorController({
       feature.depthMm = Number.isFinite(Number(feature.depthMm)) ? Number(feature.depthMm) : preset.depthMm;
       feature.color = feature.color || preset.color || '#f7f2df';
       if (preset.text && !feature.text) feature.text = preset.text;
-      feature.visualOnly = true;
-      feature.cutBehavior = 'etchOnly';
-      feature.exportLayer = 'roadMarkingEtch';
+      feature.outputMode = feature.outputMode || (feature.cutBehavior === 'paintStencil' ? 'paintStencil' : 'etch');
+      if (feature.outputMode === 'paintStencil') {
+        feature.visualOnly = false;
+        feature.cutBehavior = 'paintStencil';
+        feature.exportLayer = 'paintStencilCut';
+        feature.stencilMaterialId = feature.stencilMaterialId || 'stencil-stock';
+        feature.stencilSpec = {
+          marginMm: Number(feature.stencilSpec?.marginMm) || 2,
+          bridgeMm: Number.isFinite(Number(feature.stencilSpec?.bridgeMm)) ? Number(feature.stencilSpec.bridgeMm) : 0.35,
+        };
+      } else {
+        feature.visualOnly = true;
+        feature.cutBehavior = 'etchOnly';
+        feature.exportLayer = 'roadMarkingEtch';
+      }
     }
     if (state.pxPerMm) {
       feature.xMm = pxToMm(feature.x);

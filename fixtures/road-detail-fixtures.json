@@ -1,0 +1,62 @@
+{
+  "schema": "hakomachi.road-detail-fixtures",
+  "schemaVersion": 1,
+  "description": "Small road layouts for testing generated intersections, road markings, physical grates, and export wiring.",
+  "fixtures": [
+    {
+      "id": "t_junction_sidewalks",
+      "name": "T-junction with sidewalks",
+      "roads": [
+        { "id": "road_main", "mode": "centerline", "widthPx": 48, "sidewalkSide": "both", "sidewalkWidthPx": 10, "pointsPx": [{ "x": 40, "y": 120 }, { "x": 220, "y": 120 }], "curvesPx": [] },
+        { "id": "road_side", "mode": "centerline", "widthPx": 36, "sidewalkSide": "both", "sidewalkWidthPx": 8, "pointsPx": [{ "x": 130, "y": 40 }, { "x": 130, "y": 120 }], "curvesPx": [] }
+      ],
+      "expected": { "intersectionTypes": ["t-junction"], "crosswalks": true, "tactilePavers": true }
+    },
+    {
+      "id": "cross_junction_no_sidewalks",
+      "name": "Four-way crossing without sidewalks",
+      "roads": [
+        { "id": "road_ew", "mode": "centerline", "widthPx": 44, "sidewalkSide": "none", "sidewalkWidthPx": 0, "pointsPx": [{ "x": 30, "y": 100 }, { "x": 210, "y": 100 }], "curvesPx": [] },
+        { "id": "road_ns", "mode": "centerline", "widthPx": 44, "sidewalkSide": "none", "sidewalkWidthPx": 0, "pointsPx": [{ "x": 120, "y": 20 }, { "x": 120, "y": 180 }], "curvesPx": [] }
+      ],
+      "expected": { "intersectionTypes": ["cross-junction"], "crosswalks": true, "tactilePavers": false }
+    },
+    {
+      "id": "corner_with_drain",
+      "name": "Road corner with physical drain",
+      "roads": [
+        { "id": "road_a", "mode": "centerline", "widthPx": 40, "sidewalkSide": "both", "sidewalkWidthPx": 8, "pointsPx": [{ "x": 40, "y": 140 }, { "x": 140, "y": 140 }], "curvesPx": [] },
+        { "id": "road_b", "mode": "centerline", "widthPx": 40, "sidewalkSide": "both", "sidewalkWidthPx": 8, "pointsPx": [{ "x": 140, "y": 140 }, { "x": 140, "y": 40 }], "curvesPx": [] }
+      ],
+      "features": [
+        { "id": "drain_1", "kind": "manhole", "hatchPreset": "rectDrainSmall", "physicalInsert": "foldedDrainageGrateInsert", "grateInsertSpec": { "key": "rectangularDrain" }, "x": 116, "y": 128, "angle": 0 }
+      ],
+      "expected": { "intersectionTypes": ["corner"], "physicalGrates": 1 }
+    },
+    {
+      "id": "curb_trench_grate",
+      "name": "Long curb trench grate",
+      "roads": [
+        { "id": "road_curb", "mode": "centerline", "widthPx": 50, "sidewalkSide": "left", "sidewalkWidthPx": 10, "pointsPx": [{ "x": 30, "y": 90 }, { "x": 230, "y": 90 }], "curvesPx": [] }
+      ],
+      "features": [
+        { "id": "trench_1", "kind": "manhole", "hatchPreset": "rectDrainLong", "physicalInsert": "foldedDrainageGrateInsert", "grateInsertSpec": { "key": "longCurbTrench" }, "x": 132, "y": 62, "angle": 0 }
+      ],
+      "expected": { "physicalGrates": 1 }
+    },
+    {
+      "id": "marking_presets",
+      "name": "Road marking preset sampler",
+      "roads": [
+        { "id": "road_marking", "mode": "centerline", "widthPx": 52, "sidewalkSide": "none", "sidewalkWidthPx": 0, "pointsPx": [{ "x": 20, "y": 100 }, { "x": 260, "y": 100 }], "curvesPx": [] }
+      ],
+      "features": [
+        { "id": "mark_stop", "kind": "marking", "markingPreset": "stopLine", "x": 70, "y": 100, "angle": 1.5707963268 },
+        { "id": "mark_arrow", "kind": "marking", "markingPreset": "laneArrowStraight", "x": 120, "y": 100, "angle": 1.5707963268 },
+        { "id": "mark_text", "kind": "marking", "markingPreset": "stopTextTomare", "x": 170, "y": 100, "angle": 1.5707963268 },
+        { "id": "mark_diamond", "kind": "marking", "markingPreset": "diamondWarning", "x": 220, "y": 100, "angle": 1.5707963268 }
+      ],
+      "expected": { "markings": 4 }
+    }
+  ]
+}

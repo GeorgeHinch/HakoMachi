@@ -42,35 +42,55 @@ function inferHatchPreset(feature = {}) {
   return cleanKey(feature.hatchPreset || feature.hatchType || HATCH_ALIAS[feature.type] || HATCH_ALIAS[feature.kind] || feature.preset) || 'round600';
 }
 
-export function migrateRoadMarkingFeature(feature = {}, materialLibraryOrProfile = {}) {
+function featureScaleContext(feature = {}, scaleContext = {}) {
+  const rawScale = scaleContext.pxPerMm || scaleContext.scale || feature.pxPerMm || feature.scale;
+  const pxPerMm = Number(rawScale);
+  return {
+    hasScale: Number.isFinite(pxPerMm) && pxPerMm > 0,
+    pxPerMm: Number.isFinite(pxPerMm) && pxPerMm > 0 ? pxPerMm : 1,
+  };
+}
+
+export function migrateRoadMarkingFeature(feature = {}, materialLibraryOrProfile = {}, scaleContext = {}) {
   const presetKey = inferMarkingPreset(feature);
   const preset = roadMarkingPresetByKey(presetKey);
-  const migrated = applyRoadMarkingPresetData(feature, preset.key, { pxPerMm: feature.pxPerMm || feature.scale || 1 });
+  const scale = featureScaleContext(feature, scaleContext);
+  const migrated = applyRoadMarkingPresetData(feature, preset.key, scale);
+  if (!scale.hasScale) {
+    if (Number.isFinite(Number(feature.widthPx))) migrated.widthPx = Number(feature.widthPx);
+    if (Number.isFinite(Number(feature.depthPx))) migrated.depthPx = Number(feature.depthPx);
+  }
   return applyRoadMaterialToFeature({
     ...migrated,
     migration: { from: feature.markingType || feature.type || feature.preset || '', to: preset.key },
   }, materialLibraryOrProfile);
 }
 
-export function migrateRoadHatchFeature(feature = {}, materialLibraryOrProfile = {}) {
+export function migrateRoadHatchFeature(feature = {}, materialLibraryOrProfile = {}, scaleContext = {}) {
   const presetKey = inferHatchPreset(feature);
   const preset = roadHatchPresetByKey(presetKey);
-  const migrated = applyRoadHatchPresetData(feature, preset.key, { pxPerMm: feature.pxPerMm || feature.scale || 1 });
+  const scale = featureScaleContext(feature, scaleContext);
+  const migrated = applyRoadHatchPresetData(feature, preset.key, scale);
+  if (!scale.hasScale) {
+    if (Number.isFinite(Number(feature.diameterPx))) migrated.diameterPx = Number(feature.diameterPx);
+    if (Number.isFinite(Number(feature.widthPx))) migrated.widthPx = Number(feature.widthPx);
+    if (Number.isFinite(Number(feature.depthPx))) migrated.depthPx = Number(feature.depthPx);
+  }
   return applyRoadMaterialToFeature({
     ...migrated,
     migration: { from: feature.hatchType || feature.type || feature.preset || '', to: preset.key },
   }, materialLibraryOrProfile);
 }
 
-export function migrateRoadFeature(feature = {}, materialLibraryOrProfile = {}) {
+export function migrateRoadFeature(feature = {}, materialLibraryOrProfile = {}, scaleContext = {}) {
   const kind = String(feature.kind || feature.type || '').toLowerCase();
-  if (kind.includes('mark') || feature.markingPreset || feature.markingType) return migrateRoadMarkingFeature(feature, materialLibraryOrProfile);
-  if (kind.includes('manhole') || kind.includes('hatch') || kind.includes('drain') || feature.hatchPreset || feature.hatchType) return migrateRoadHatchFeature(feature, materialLibraryOrProfile);
+  if (kind.includes('mark') || feature.markingPreset || feature.markingType) return migrateRoadMarkingFeature(feature, materialLibraryOrProfile, scaleContext);
+  if (kind.includes('manhole') || kind.includes('hatch') || kind.includes('drain') || feature.hatchPreset || feature.hatchType) return migrateRoadHatchFeature(feature, materialLibraryOrProfile, scaleContext);
   return feature;
 }
 
-export function migrateRoadFeatures(features = [], materialLibraryOrProfile = {}) {
-  return (features || []).map(feature => migrateRoadFeature(feature, materialLibraryOrProfile));
+export function migrateRoadFeatures(features = [], materialLibraryOrProfile = {}, scaleContext = {}) {
+  return (features || []).map(feature => migrateRoadFeature(feature, materialLibraryOrProfile, scaleContext));
 }
 
 export function roadFeatureMigrationSummary(before = [], after = []) {

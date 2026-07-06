@@ -27,6 +27,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_WIDT
 import { loadAlignmentMessage, restoreProjectView, savedImageDimensions, scaleLoadedPixelGeometry } from './site-planner/project-load-utils.js';
 import { createReferenceImageUiController } from './site-planner/reference-image-ui.js';
 import { createRoadSystemController } from './site-planner/road-system-controller.js';
+import { migrateRoadFeatures } from './site-planner/road-feature-migration.js';
 import { createRoadPresetApplicationController } from './site-planner/road-preset-application-utils.js';
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
 import { createScaleInputController } from './site-planner/scale-input-utils.js';
@@ -664,6 +665,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function normalizeRoadFeature(f){
     return roadSystem.normalizeRoadFeature(f);
+  }
+  function migrateLoadedRoadFeatures(features){
+    return migrateRoadFeatures(Array.isArray(features) ? structuredClone(features) : [], {}, { pxPerMm: state.pxPerMm }).map(normalizeRoadFeature);
   }
   function selectedRoadFeature(){return roadSystem.selectedRoadFeature();}
   function clearRoadFeatureSelection(){return roadSystem.clearRoadFeatureSelection();}
@@ -2827,7 +2831,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.buildings=Array.isArray(data.buildings)?structuredClone(data.buildings):[];
     state.roads=Array.isArray(data.roads)?structuredClone(data.roads):[];
     state.tracks=(Array.isArray(data.tracks)?structuredClone(data.tracks):[]).map(normalizeTrack);
-    state.roadFeatures=Array.isArray(data.roadFeatures)?structuredClone(data.roadFeatures):[];
+    state.roadFeatures=migrateLoadedRoadFeatures(data.roadFeatures);
     state.roadIntersectionDetails=data.roadIntersectionDetails!==false;
     state.generatedRoadIntersections=[];
     state.stlObjects=Array.isArray(data.stlObjects)?structuredClone(data.stlObjects):[];
@@ -5681,7 +5685,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const loadedRoads = Array.isArray(p.roads) ? p.roads : (Array.isArray(p.siteConstraints) ? p.siteConstraints.filter(c=>c&&c.type==='road') : []);
     state.roads=loadedRoads.map(normalizeRoad);
     state.tracks=(Array.isArray(p.tracks)?p.tracks:[]).map(normalizeTrack);
-    state.roadFeatures=(Array.isArray(p.roadFeatures)?p.roadFeatures:[]).map(normalizeRoadFeature);
+    state.roadFeatures=migrateLoadedRoadFeatures(p.roadFeatures);
     state.roadIntersectionDetails=p.roadIntersectionDetails!==false;
     state.generatedRoadIntersections=[];
     const loadedStlObjects = Array.isArray(p.stlObjects) ? p.stlObjects : (Array.isArray(p.siteObjects) ? p.siteObjects.filter(o=>o&&(o.type==='stl'||o.type==='stlObject'||o.kind==='stl')) : (Array.isArray(p.siteConstraints) ? p.siteConstraints.filter(o=>o&&(o.type==='stlObject'||o.type==='stl'||o.kind==='stl')) : []));

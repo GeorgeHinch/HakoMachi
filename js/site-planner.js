@@ -4,6 +4,7 @@ import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fa
 import { createAutosaveUiController } from './site-planner/autosave-ui.js';
 import { createBuildingSelectionController } from './site-planner/building-selection-utils.js';
 import { buildingCsvExport, roadAssetSvgExport, sitePlanSvgExport, trackSvgExport } from './site-planner/export-utils.js';
+import { createAnnotationController } from './site-planner/annotation-controller.js';
 import { dataTransferHasFile, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
 import { createFootprintClipboardController } from './site-planner/footprint-clipboard-controller.js';
 import { cacheImageAsset, cachedImageAsset, githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, hakoFileAssetReference, imageAssetFileName, imageAssetReference, imageMetaForProject, stlAssetReference, stlSourceAssetReference, uniqueHakoAssetFileName, uniqueStlAssetFileName, uniqueStlSourceAssetFileName } from './site-planner/github-asset-paths.js';
@@ -793,31 +794,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(dist(p,rot)<s*1.5 || rotationZoneHit(p,b,pointerType)) return {type:'rotate'};
     return null;
   }
-  function hitAnnotation(p,pointerType='mouse'){
-    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
-    const tol=(coarse?18:9)/state.view.scale;
-    for(let si=state.annotations.length-1; si>=0; si--){
-      const st=state.annotations[si], pts=st.points||[];
-      if(pts.length<2) continue;
-      for(let i=1;i<pts.length;i++){
-        const a=pts[i-1], b=pts[i];
-        const pr=((a.pressure||.5)+(b.pressure||.5))/2;
-        const visual=((st.baseWidth||2.2)*(0.55+pr*1.45))/state.view.scale;
-        if(distanceToSegment(p,a,b) <= tol + visual/2) return st;
-      }
-    }
-    return null;
-  }
-  function selectedAnnotation(){return state.annotations.find(st=>st.id===state.selectedAnnotationId)||null;}
-  function deleteSelectedAnnotation(){
-    if(!state.selectedAnnotationId) return false;
-    const before=state.annotations.length;
-    state.annotations=state.annotations.filter(st=>st.id!==state.selectedAnnotationId);
-    state.selectedAnnotationId=null;
-    if(before!==state.annotations.length){renderSelected(); draw(); markDirty('annotation deleted'); return true;}
-    return false;
-  }
-
   function selectedStreetlight(){return state.streetlights.find(l=>l.id===state.selectedStreetlightId)||null;}
   function deleteSelectedStreetlight(){
     if(!state.selectedStreetlightId) return false;
@@ -1061,6 +1037,24 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     polygonCenter,
     clearBuildingSelection,
     syncAll,
+  });
+  const {
+    hitAnnotation,
+    selectedAnnotation,
+    deleteSelectedAnnotation,
+    startAnnotationStroke,
+    addAnnotationPoint,
+    drawAnnotations,
+  } = createAnnotationController({
+    state,
+    ctx,
+    uid,
+    dist,
+    distanceToSegment,
+    renderList,
+    renderSelected,
+    draw,
+    markDirty,
   });
   const {
     normalizeTrack,
@@ -2872,43 +2866,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function moveCancelsLongPress(e){
     if(!state.longPress || state.longPress.pointerId!==e.pointerId) return;
     if(Math.hypot(e.clientX-state.longPress.start.x,e.clientY-state.longPress.start.y)>8) clearLongPress();
-  }
-  function startAnnotationStroke(e,p){
-    const pressure=(e.pressure && e.pressure>0 ? e.pressure : .5);
-    const stroke={id:uid('note'),points:[{x:p.x,y:p.y,pressure}],color:'#6f4326',baseWidth:2.2};
-    state.annotations.push(stroke);
-    state.selectedAnnotationId=stroke.id; state.selectedId=null; state.selectedStlObjectId=null; renderList(); renderSelected();
-    state.drag={type:'annotate',pointerId:e.pointerId,strokeId:stroke.id};
-  }
-  function addAnnotationPoint(e,p){
-    const st=state.annotations.find(s=>s.id===state.drag?.strokeId); if(!st) return;
-    const pressure=(e.pressure && e.pressure>0 ? e.pressure : .5);
-    const last=st.points[st.points.length-1];
-    if(!last || dist(last,p)>1.5/state.view.scale) st.points.push({x:p.x,y:p.y,pressure});
-  }
-  function drawAnnotations(){
-    ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
-    state.annotations.forEach(st=>{
-      const pts=st.points||[]; if(pts.length<2) return;
-      const selected=st.id===state.selectedAnnotationId;
-      if(selected){
-        ctx.strokeStyle='rgba(200,74,58,.55)';
-        for(let i=1;i<pts.length;i++){
-          const a=pts[i-1], b=pts[i];
-          const pr=((a.pressure||.5)+(b.pressure||.5))/2;
-          ctx.lineWidth=((st.baseWidth||2.2)*(0.55+pr*1.45)+8)/state.view.scale;
-          ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
-        }
-      }
-      ctx.strokeStyle=st.color||'#6f4326';
-      for(let i=1;i<pts.length;i++){
-        const a=pts[i-1], b=pts[i];
-        const pr=((a.pressure||.5)+(b.pressure||.5))/2;
-        ctx.lineWidth=(st.baseWidth||2.2)*(0.55+pr*1.45)/state.view.scale;
-        ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
-      }
-    });
-    ctx.restore();
   }
   function drawHoverPreview(){
     const placement=state.githubBuildingPlacement;

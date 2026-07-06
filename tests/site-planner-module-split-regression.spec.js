@@ -18,4 +18,20 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('function hitBenchworkSegment');
     expect(controller).toContain('function finishBenchworkOutline');
   });
+
+  test('freehand annotation behavior is wired through the annotation controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'annotation-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createAnnotationController } from './site-planner/annotation-controller.js';");
+    expect(source).toContain('} = createAnnotationController({');
+    expect(source).toContain('hitAnnotation,');
+    expect(source).toContain('drawAnnotations,');
+    expect(source).toContain("markDirty('annotations cleared');");
+
+    expect(controller).toContain('export function createAnnotationController');
+    expect(controller).toContain('function hitAnnotation');
+    expect(controller).toContain('function startAnnotationStroke');
+    expect(controller).toContain('function drawAnnotations');
+  });
 });

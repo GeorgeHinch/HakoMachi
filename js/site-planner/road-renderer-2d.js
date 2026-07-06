@@ -1,6 +1,7 @@
 import { fmt, polygonCenter, rad } from './geometry.js';
 import { roadEdgePaths } from './road-geometry.js';
 import { roadEndpointJunctions } from './road-network.js';
+import { drawPhysicalGrateInsert } from './road-grate-preview-renderer.js';
 import { buildRoadMarkingShapes } from './road-marking-shapes.js';
 
 export function createRoadRenderer2dController({
@@ -46,6 +47,43 @@ export function createRoadRenderer2dController({
     });
   }
 
+  function physicalGratePreviewSpec(feature) {
+    const width = feature.hatchShape === 'circle'
+      ? (feature.diameterPx || feature.widthPx || 18)
+      : (feature.widthPx || 24);
+    const depth = feature.hatchShape === 'circle'
+      ? (feature.diameterPx || feature.depthPx || width)
+      : (feature.depthPx || 18);
+    return {
+      ...(feature.grateInsertSpec || {}),
+      widthMm: width,
+      depthMm: depth,
+      diameterMm: feature.diameterPx || width,
+      shape: feature.hatchShape === 'circle' ? 'circle' : (feature.grateInsertSpec?.shape || 'rect'),
+      clearanceMm: Math.max(0.5 / state.view.scale, 0),
+      tabDepthMm: Math.max(1.5 / state.view.scale, depth * 0.35),
+    };
+  }
+
+  function drawPhysicalGrateFeature(feature) {
+    const spec = physicalGratePreviewSpec(feature);
+    const width = spec.shape === 'circle' ? spec.diameterMm : spec.widthMm;
+    const depth = spec.shape === 'circle' ? spec.diameterMm : spec.depthMm;
+    drawPhysicalGrateInsert(ctx, spec, {
+      x: -width / 2,
+      y: -depth / 2,
+      showGuides: false,
+      styles: {
+        roadCutFill: 'rgba(210,210,205,.32)',
+        roadCutStroke: 'rgba(58,43,30,.72)',
+        grateFill: feature.color || '#3a2b1e',
+        grateStroke: 'rgba(28,24,20,.95)',
+        slotFill: 'rgba(255,247,237,.90)',
+        scoreStroke: 'rgba(42,100,170,.85)',
+      },
+    });
+  }
+
   function drawRoadFeature(rawFeature) {
     const feature = normalizeRoadFeature(rawFeature);
     if (!feature || feature.hidden) return;
@@ -58,7 +96,9 @@ export function createRoadRenderer2dController({
     if (feature.kind === 'manhole') {
       ctx.strokeStyle = selected ? '#d95f24' : (feature.color || '#3a2b1e');
       ctx.fillStyle = 'rgba(58,43,30,.18)';
-      if (feature.hatchShape === 'circle') {
+      if (feature.physicalInsert === 'foldedDrainageGrateInsert') {
+        drawPhysicalGrateFeature(feature);
+      } else if (feature.hatchShape === 'circle') {
         const radius = (feature.diameterPx || 18) / 2;
         ctx.beginPath();
         ctx.arc(0, 0, radius, 0, Math.PI * 2);

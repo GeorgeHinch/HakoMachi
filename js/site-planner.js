@@ -26,6 +26,7 @@ import { createImportProgressController } from './site-planner/import-progress-m
 import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS, TRACK_PROFILE_DEFAULTS } from './site-planner/presets.js';
 import { loadAlignmentMessage, restoreProjectView, savedImageDimensions, scaleLoadedPixelGeometry } from './site-planner/project-load-utils.js';
 import { createReferenceImageUiController } from './site-planner/reference-image-ui.js';
+import { drainageGrateFamilyOptions, grateFamilyPresetByKey } from './site-planner/road-drainage-grate-inserts.js';
 import { createRoadSystemController } from './site-planner/road-system-controller.js';
 import { migrateRoadFeatures } from './site-planner/road-feature-migration.js';
 import { createRoadPresetApplicationController } from './site-planner/road-preset-application-utils.js';
@@ -668,6 +669,53 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function migrateLoadedRoadFeatures(features){
     return migrateRoadFeatures(Array.isArray(features) ? structuredClone(features) : [], {}, { pxPerMm: state.pxPerMm }).map(normalizeRoadFeature);
+  }
+  function grateFamilyOptionsHtml(selectedKey){
+    const selected=grateFamilyPresetByKey(selectedKey||'rectangularDrain').key;
+    return drainageGrateFamilyOptions().map(option=>`<option value="${escapeAttr(option.value)}" ${option.value===selected?'selected':''}>${escapeHtml(option.label)}</option>`).join('');
+  }
+  function applyPhysicalGrateFamily(feature, key){
+    const preset=grateFamilyPresetByKey(key||feature.grateInsertSpec?.key||'rectangularDrain');
+    feature.physicalInsert='foldedDrainageGrateInsert';
+    feature.grateInsertSpec={
+      ...(feature.grateInsertSpec||{}),
+      key:preset.key,
+      widthMm:preset.widthMm,
+      depthMm:preset.depthMm,
+      diameterMm:preset.diameterMm,
+      shape:preset.shape,
+    };
+    feature.hatchShape=preset.shape==='circle'?'circle':'rect';
+    if(preset.shape==='circle'){
+      feature.diameterMm=preset.diameterMm||preset.widthMm;
+      if(state.pxPerMm) feature.diameterPx=mmToPx(feature.diameterMm);
+    } else {
+      feature.widthMm=preset.widthMm;
+      feature.depthMm=preset.depthMm;
+      if(state.pxPerMm){feature.widthPx=mmToPx(feature.widthMm); feature.depthPx=mmToPx(feature.depthMm);}
+    }
+    return feature;
+  }
+  function syncPhysicalGrateSpecDimensions(feature){
+    if(feature.physicalInsert!=='foldedDrainageGrateInsert') return feature;
+    feature.grateInsertSpec=feature.grateInsertSpec||{key:feature.hatchShape==='circle'?'etchedManholeCover':'rectangularDrain'};
+    if(feature.hatchShape==='circle'){
+      feature.grateInsertSpec.shape='circle';
+      feature.grateInsertSpec.diameterMm=feature.diameterMm;
+      feature.grateInsertSpec.widthMm=feature.diameterMm;
+      feature.grateInsertSpec.depthMm=feature.diameterMm;
+    } else {
+      feature.grateInsertSpec.shape='rect';
+      feature.grateInsertSpec.widthMm=feature.widthMm;
+      feature.grateInsertSpec.depthMm=feature.depthMm;
+    }
+    return feature;
+  }
+  function setPhysicalGrateMode(feature, enabled){
+    if(enabled) return applyPhysicalGrateFamily(feature, feature.grateInsertSpec?.key || (feature.hatchShape==='circle'?'etchedManholeCover':'rectangularDrain'));
+    delete feature.physicalInsert;
+    delete feature.grateInsertSpec;
+    return feature;
   }
   function selectedRoadFeature(){return roadSystem.selectedRoadFeature();}
   function clearRoadFeatureSelection(){return roadSystem.clearRoadFeatureSelection();}
@@ -3701,6 +3749,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       <label>Name</label><input id="rfName" value="${escapeAttr(roadFeature.name||'Road item')}">
       ${roadFeature.kind==='manhole'?`<label>Hatch preset</label><select id="rfHatchPreset">${hatchOptionsHtml(roadFeature.hatchPreset)}</select>
       <label>Shape</label><select id="rfShape"><option value="circle">Round cut hole</option><option value="rect">Rectangular cut hole</option></select>
+      <label>Physical insert</label><select id="rfPhysicalInsert"><option value="">Visual / cut opening only</option><option value="foldedDrainageGrateInsert">Physical see-through insert</option></select>
+      <label>Grate family</label><select id="rfGrateFamily">${grateFamilyOptionsHtml(roadFeature.grateInsertSpec?.key)}</select>
       <div class="row"><div><label>Diameter mm</label><input id="rfDia" type="number" step="0.1" value="${fmt(roadFeature.diameterMm||0)}"></div><div><label>Rotation °</label><input id="rfRot" type="number" step="1" value="${fmt(roadFeature.rotationDeg||0)}"></div></div>
       <div class="row"><div><label>Width mm</label><input id="rfW" type="number" step="0.1" value="${fmt(roadFeature.widthMm||0)}"></div><div><label>Depth mm</label><input id="rfD" type="number" step="0.1" value="${fmt(roadFeature.depthMm||0)}"></div></div>
       <div class="small muted">Exports as <code>roadHatchCut</code> for mounting separate printed or detailed hatch/manhole pieces.</div>`:`<label>Japanese marking preset</label><select id="rfMarkingPreset">${markingOptionsHtml(roadFeature.markingPreset||roadFeature.markingType)}</select>
@@ -3713,11 +3763,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const bindRF=(id,fn)=>{const el=$(id); if(el) el.oninput=()=>{fn(el.type==='checkbox'?el.checked:el.value); normalizeRoadFeature(roadFeature); syncAll();};};
       bindRF('rfName',v=>roadFeature.name=v); bindRF('rfRot',v=>roadFeature.rotationDeg=parseFloat(v)||0); bindRF('rfLocked',v=>roadFeature.locked=!!v); bindRF('rfColor',v=>roadFeature.color=v);
       installAdaptiveDegreeStepping($('rfRot'));
-      bindRF('rfDia',v=>{roadFeature.diameterMm=parseFloat(v)||0; roadFeature.diameterPx=state.pxPerMm?mmToPx(roadFeature.diameterMm):roadFeature.diameterPx;});
-      bindRF('rfW',v=>{roadFeature.widthMm=parseFloat(v)||0; roadFeature.widthPx=state.pxPerMm?mmToPx(roadFeature.widthMm):roadFeature.widthPx;});
-      bindRF('rfD',v=>{roadFeature.depthMm=parseFloat(v)||0; roadFeature.depthPx=state.pxPerMm?mmToPx(roadFeature.depthMm):roadFeature.depthPx;});
+      bindRF('rfDia',v=>{roadFeature.diameterMm=parseFloat(v)||0; roadFeature.diameterPx=state.pxPerMm?mmToPx(roadFeature.diameterMm):roadFeature.diameterPx; syncPhysicalGrateSpecDimensions(roadFeature);});
+      bindRF('rfW',v=>{roadFeature.widthMm=parseFloat(v)||0; roadFeature.widthPx=state.pxPerMm?mmToPx(roadFeature.widthMm):roadFeature.widthPx; syncPhysicalGrateSpecDimensions(roadFeature);});
+      bindRF('rfD',v=>{roadFeature.depthMm=parseFloat(v)||0; roadFeature.depthPx=state.pxPerMm?mmToPx(roadFeature.depthMm):roadFeature.depthPx; syncPhysicalGrateSpecDimensions(roadFeature);});
       const hp=$('rfHatchPreset'); if(hp) hp.onchange=()=>{state.lastRoadHatchPreset=hp.value; applyRoadHatchPreset(roadFeature,hp.value,roadPresetScaleContext()); syncAll();};
-      const sh=$('rfShape'); if(sh){sh.value=roadFeature.hatchShape||'circle'; sh.onchange=()=>{roadFeature.hatchShape=sh.value; syncAll();};}
+      const sh=$('rfShape'); if(sh){sh.value=roadFeature.hatchShape||'circle'; sh.onchange=()=>{roadFeature.hatchShape=sh.value; syncPhysicalGrateSpecDimensions(roadFeature); syncAll();};}
+      const pi=$('rfPhysicalInsert'); if(pi){pi.value=roadFeature.physicalInsert||''; pi.onchange=()=>{setPhysicalGrateMode(roadFeature,!!pi.value); syncAll();};}
+      const gf=$('rfGrateFamily'); if(gf){gf.disabled=!roadFeature.physicalInsert; gf.onchange=()=>{applyPhysicalGrateFamily(roadFeature,gf.value); syncAll();};}
       const mp=$('rfMarkingPreset'); if(mp) mp.onchange=()=>{state.lastRoadMarkingPreset=mp.value; applyRoadMarkingPreset(roadFeature,mp.value,roadPresetScaleContext()); syncAll();};
       $('deleteRoadFeature').onclick=deleteSelectedRoadFeature;
       return;

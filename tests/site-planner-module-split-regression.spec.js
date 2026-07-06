@@ -64,4 +64,20 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('function contextTargetAt');
     expect(controller).toContain('function showContextMenuForPointerEvent');
   });
+
+  test('fabric fill behavior is wired through the fabric controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'fabric-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createFabricController } from './site-planner/fabric-controller.js';");
+    expect(source).toContain('fabricController = createFabricController({');
+    expect(source).toContain('if(fabricController) fabricController.initFabricControls();');
+    expect(source).toContain('generateFabricForRegion,');
+    expect(source).toContain('state.fabricRegions=(p.fabricRegions||[]).map(normalizeFabricRegion);');
+
+    expect(controller).toContain('export function createFabricController');
+    expect(controller).toContain('function normalizeFabricRegion(region)');
+    expect(controller).toContain('function generateFabricForRegion');
+    expect(controller).toContain('function initFabricControls');
+  });
 });

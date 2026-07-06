@@ -204,7 +204,7 @@ export const MaterialRegistry = {
       };
 
       const thickness = parseFloat(m.thickness);
-      if (isFinite(thickness) && thickness > 0) out.thickness = thickness;
+      if (isFinite(thickness) && thickness >= 0) out.thickness = thickness;
 
       const maxWidthMm = parseFloat(m.maxWidthMm != null ? m.maxWidthMm : m.maxW);
       const maxHeightMm = parseFloat(m.maxHeightMm != null ? m.maxHeightMm : m.maxH);
@@ -218,6 +218,15 @@ export const MaterialRegistry = {
       if (isFinite(stockQty) && stockQty >= 0) out.stockQty = stockQty;
       if (m.stockUnit != null) out.stockUnit = String(m.stockUnit).trim().slice(0, 24);
       if (m.notes != null) out.notes = String(m.notes).trim().slice(0, 500);
+      if (m.role != null) out.role = String(m.role).trim().slice(0, 80);
+      if (m.materialRole != null) out.materialRole = String(m.materialRole).trim().slice(0, 80);
+      if (m.usage != null) out.usage = String(m.usage).trim().slice(0, 80);
+      if (Array.isArray(m.tags)) {
+        out.tags = m.tags
+          .map(tag => String(tag || '').trim().slice(0, 48))
+          .filter(Boolean)
+          .slice(0, 20);
+      }
 
       return out;
     });

@@ -55,6 +55,7 @@ const SAFE_ID_EVENTS = Object.freeze({
   saveGithubBtn: ['hm_github', { feature: 'material_profile', action: 'save' }],
   loadGithubBtn: ['hm_github', { feature: 'material_profile', action: 'load' }],
   addMaterialBtn: ['hm_editor', { feature: 'material_profile', action: 'add_material' }],
+  addRoadDetailsBtn: ['hm_editor', { feature: 'material_profile', action: 'add_road_detail_materials' }],
   languageSelect: ['hm_language', { feature: 'language', action: 'change' }]
 });
 

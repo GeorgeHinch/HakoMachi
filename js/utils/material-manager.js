@@ -1,6 +1,7 @@
 import * as githubData from '../shared/github-data.js';
 import { CLADDING_STYLES } from '../building-generator/data/cladding-styles.js';
 import { MaterialRegistry } from '../building-generator/core/material-registry.js';
+import { addRoadDetailMaterialsToLibrary, roadDetailMaterialSummary } from '../site-planner/road-material-profile-defaults.js';
 
 window.HakoMachiGithubDataShared = githubData;
 
@@ -86,7 +87,7 @@ function initMaterialManager() {
           <button class="danger secondary" data-action="delete-material" type="button">Delete</button>
         </div>
         <div class="material-grid">
-          <div class="field"><label>Thickness mm</label><input data-field="thickness" type="number" min="0.01" step="0.01" value="${esc(m.thickness == null ? '' : m.thickness)}"></div>
+          <div class="field"><label>Thickness mm</label><input data-field="thickness" type="number" min="0" step="0.01" value="${esc(m.thickness == null ? '' : m.thickness)}"></div>
           <div class="field"><label>Sheet width</label><input data-field="maxWidth" type="number" min="0.1" step="${m.sizeUnit === 'in' ? '0.125' : '1'}" value="${esc(displaySize(m, 'maxWidthMm'))}"></div>
           <div class="field"><label>Sheet height</label><input data-field="maxHeight" type="number" min="0.1" step="${m.sizeUnit === 'in' ? '0.125' : '1'}" value="${esc(displaySize(m, 'maxHeightMm'))}"></div>
           <div class="field"><label>Unit</label><select data-field="sizeUnit"><option value="mm"${m.sizeUnit !== 'in' ? ' selected' : ''}>mm</option><option value="in"${m.sizeUnit === 'in' ? ' selected' : ''}>in</option></select></div>
@@ -116,12 +117,16 @@ function initMaterialManager() {
     const clad = mats.find(m => m.id === 'cladding');
     const routed = Object.keys(currentProfile.library.claddingMaterials || {}).length;
     const stock = mats.reduce((sum, m) => sum + (Number(m.stockQty) || 0), 0);
+    const roadSummary = roadDetailMaterialSummary(currentProfile.library);
+    const roadProfileCount = roadSummary.filter(row => row.status === 'profile').length;
+    const roadMissingCount = Math.max(0, roadSummary.length - roadProfileCount);
     $('summary').innerHTML = [
       ['Materials', mats.length],
       ['Core thickness', core && core.thickness ? core.thickness + ' mm' : 'Fallback 1.5 mm'],
       ['Cladding thickness', clad && clad.thickness ? clad.thickness + ' mm' : 'Fallback 0.28 mm'],
       ['Cladding routes', routed],
       ['Stock entries', stock ? stock + ' total' : 'Not counted'],
+      ['Road detail materials', roadMissingCount ? `${roadProfileCount}/${roadSummary.length} assigned` : 'Ready'],
     ].map(row => `<div class="summary-card"><b>${esc(row[0])}</b><span class="small">${esc(row[1])}</span></div>`).join('');
   }
 
@@ -256,6 +261,12 @@ function initMaterialManager() {
         stockUnit: 'sheets',
       });
       render();
+    });
+
+    $('addRoadDetailsBtn').addEventListener('click', () => {
+      const result = addRoadDetailMaterialsToLibrary(currentProfile.library);
+      render();
+      status(result.added.length ? `Added ${result.added.length} road detail materials.` : 'Road detail materials are already present.', 'ok');
     });
 
     $('newProfileBtn').addEventListener('click', () => {

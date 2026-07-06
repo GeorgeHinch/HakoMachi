@@ -50,4 +50,18 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('function hitStreetlight');
     expect(controller).toContain('function placeStreetlight');
   });
+
+  test('context menu behavior is wired through the context menu controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'context-menu-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createContextMenuController } from './site-planner/context-menu-controller.js';");
+    expect(source).toContain('} = createContextMenuController({');
+    expect(source).toContain('showContextMenuForPointerEvent(e, screenToWorld(e));');
+
+    expect(controller).toContain('export function createContextMenuController');
+    expect(controller).toContain('function showContextMenu(screenX, screenY, target)');
+    expect(controller).toContain('function contextTargetAt');
+    expect(controller).toContain('function showContextMenuForPointerEvent');
+  });
 });

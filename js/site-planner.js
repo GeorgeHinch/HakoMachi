@@ -3,6 +3,7 @@ import { base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, down
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fabrication-colors.js';
 import { createAutosaveUiController } from './site-planner/autosave-ui.js';
 import { createBuildingSelectionController } from './site-planner/building-selection-utils.js';
+import { createContextMenuController } from './site-planner/context-menu-controller.js';
 import { buildingCsvExport, roadAssetSvgExport, sitePlanSvgExport, trackSvgExport } from './site-planner/export-utils.js';
 import { createAnnotationController } from './site-planner/annotation-controller.js';
 import { dataTransferHasFile, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
@@ -1025,6 +1026,40 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     dist,
     clearBuildingSelection,
     syncAll,
+  });
+  const {
+    clearLongPress,
+    hideContextMenu,
+    showContextMenu,
+    contextTargetAt,
+    handleContextAction,
+    beginLongPress,
+    moveCancelsLongPress,
+    showContextMenuForPointerEvent,
+  } = createContextMenuController({
+    state,
+    getElement: $,
+    wrap,
+    clamp,
+    clearBuildingSelection,
+    renderList,
+    renderStreetlights,
+    renderSelected,
+    updateHandoff,
+    draw,
+    syncAll,
+    markDirty,
+    hitAnnotation,
+    selectedStreetlight,
+    hitStreetlight,
+    selectedStlObject,
+    hitStlObject,
+    selected,
+    hitTest,
+    handleAt,
+    duplicateStreetlight,
+    transformedRect,
+    syncBuildingMetrics,
   });
   const {
     normalizeTrack,
@@ -2713,130 +2748,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
 
 
-  function clearLongPress(){
-    if(state.longPress?.timer) clearTimeout(state.longPress.timer);
-    state.longPress=null;
-  }
-  function hideContextMenu(){const m=$('contextMenu'); if(m) m.style.display='none'; state.contextTarget=null;}
-  function showContextMenu(screenX,screenY,target){
-    const m=$('contextMenu'); if(!m) return;
-    state.contextTarget=target;
-    if(target?.streetlight){
-      state.selectedStreetlightId=target.streetlight.id; clearBuildingSelection(); state.selectedAnnotationId=null;
-      m.innerHTML=`<button data-action="duplicateStreetlight">Duplicate Streetlight</button><button data-action="lockStreetlight">${target.streetlight.locked?'Unlock':'Lock'} Streetlight</button><button data-action="deleteStreetlight" class="dangerItem">Delete Streetlight</button>`;
-      m.querySelectorAll('button').forEach(btn=>btn.onclick=()=>handleContextAction(btn.dataset.action));
-      m.style.display='block';
-      const wrapRect=wrap.getBoundingClientRect(); const mw=m.offsetWidth||210, mh=m.offsetHeight||120;
-      m.style.left=clamp(screenX-wrapRect.left,8,wrapRect.width-mw-8)+'px';
-      m.style.top=clamp(screenY-wrapRect.top,8,wrapRect.height-mh-8)+'px';
-      renderList(); renderStreetlights(); renderSelected(); draw();
-      return;
-    }
-    if(target?.annotation){
-      m.innerHTML=`
-        <button data-action="deleteAnnotation" class="dangerItem">Delete Annotation</button>
-      `;
-      m.querySelectorAll('button').forEach(btn=>btn.onclick=()=>handleContextAction(btn.dataset.action));
-      m.style.display='block';
-      const wrapRect=wrap.getBoundingClientRect();
-      const mw=m.offsetWidth||190, mh=m.offsetHeight||80;
-      m.style.left=clamp(screenX-wrapRect.left,8,wrapRect.width-mw-8)+'px';
-      m.style.top=clamp(screenY-wrapRect.top,8,wrapRect.height-mh-8)+'px';
-      return;
-    }
-    if(target?.stlObject){
-      clearBuildingSelection();
-      state.selectedRoadId=null; state.selectedRoadFeatureId=null; state.selectedTrackId=null; state.selectedBenchworkId=null; state.selectedStreetlightId=null; state.selectedFabricId=null; state.selectedAnnotationId=null;
-      state.selectedStlObjectId=target.stlObject.id;
-      m.innerHTML=`<button data-action="lockStlObject">${target.stlObject.locked?'Unlock':'Lock'} Site Object</button><button data-action="deleteStlObject" class="dangerItem">Delete Site Object</button>`;
-      m.querySelectorAll('button').forEach(btn=>btn.onclick=()=>handleContextAction(btn.dataset.action));
-      m.style.display='block';
-      const wrapRect=wrap.getBoundingClientRect(); const mw=m.offsetWidth||210, mh=m.offsetHeight||100;
-      m.style.left=clamp(screenX-wrapRect.left,8,wrapRect.width-mw-8)+'px';
-      m.style.top=clamp(screenY-wrapRect.top,8,wrapRect.height-mh-8)+'px';
-      renderList(); renderSelected(); draw();
-      return;
-    }
-    const b=target?.building;
-    const hasPolyPoint=target?.handle?.type==='polyPoint';
-    m.innerHTML=`
-      <button data-action="lock">${b?.locked?'Unlock Pad':'Lock Pad'}</button>
-      <button data-action="convert" ${b?.padType==='rect'?'':'disabled'}>Convert Rect to Polygon</button>
-      <button data-action="deletePoint" ${hasPolyPoint?'':'disabled'}>Delete Point</button>
-      <button data-action="deletePad" class="dangerItem">Delete Pad</button>
-    `;
-    m.querySelectorAll('button').forEach(btn=>btn.onclick=()=>handleContextAction(btn.dataset.action));
-    m.style.display='block';
-    const wrapRect=wrap.getBoundingClientRect();
-    const mw=m.offsetWidth||190, mh=m.offsetHeight||150;
-    m.style.left=clamp(screenX-wrapRect.left,8,wrapRect.width-mw-8)+'px';
-    m.style.top=clamp(screenY-wrapRect.top,8,wrapRect.height-mh-8)+'px';
-  }
-  function contextTargetAt(worldPoint,pointerType='pen'){
-    const note=hitAnnotation(worldPoint,pointerType);
-    if(note) return {annotation:note,point:worldPoint};
-    const sl=selectedStreetlight() || hitStreetlight(worldPoint,pointerType);
-    if(sl) return {streetlight:sl,point:worldPoint};
-    const stl=selectedStlObject() || hitStlObject(worldPoint,pointerType);
-    if(stl) return {stlObject:stl,point:worldPoint};
-    const b=selected() || hitTest(worldPoint);
-    if(!b) return null;
-    const h=handleAt(worldPoint,b,pointerType);
-    return {building:b,handle:h,point:worldPoint};
-  }
-  function handleContextAction(action){
-    const t=state.contextTarget, b=t?.building;
-    if(action==='deleteStreetlight' && t?.streetlight){
-      state.streetlights=state.streetlights.filter(l=>l.id!==t.streetlight.id);
-      if(state.selectedStreetlightId===t.streetlight.id) state.selectedStreetlightId=null;
-      hideContextMenu(); syncAll(); return;
-    }
-    if(action==='lockStreetlight' && t?.streetlight){t.streetlight.locked=!t.streetlight.locked; hideContextMenu(); syncAll(); return;}
-    if(action==='duplicateStreetlight' && t?.streetlight){duplicateStreetlight(t.streetlight); hideContextMenu(); syncAll(); return;}
-    if(action==='deleteAnnotation' && t?.annotation){
-      state.annotations=state.annotations.filter(st=>st.id!==t.annotation.id);
-      if(state.selectedAnnotationId===t.annotation.id) state.selectedAnnotationId=null;
-      hideContextMenu(); renderSelected(); draw(); markDirty('annotation deleted'); return;
-    }
-    if(action==='lockStlObject' && t?.stlObject){t.stlObject.locked=!t.stlObject.locked; hideContextMenu(); syncAll(); return;}
-    if(action==='deleteStlObject' && t?.stlObject){
-      state.stlObjects=(state.stlObjects||[]).filter(obj=>obj.id!==t.stlObject.id);
-      if(state.selectedStlObjectId===t.stlObject.id) state.selectedStlObjectId=null;
-      hideContextMenu(); syncAll(); return;
-    }
-    if(!b) return hideContextMenu();
-    if(action==='lock'){b.locked=!b.locked;}
-    if(action==='convert' && b.padType==='rect') convertRectToPoly(b);
-    if(action==='deletePoint' && b.padType==='polygon' && t.handle?.type==='polyPoint' && b.pointsPx.length>3){b.pointsPx.splice(t.handle.index,1); syncBuildingMetrics(b);}
-    if(action==='deletePad'){state.buildings=state.buildings.filter(x=>x.id!==b.id); if(state.selectedId===b.id) state.selectedId=null;}
-    hideContextMenu(); syncAll();
-  }
-  function convertRectToPoly(b){
-    const pts=transformedRect(b);
-    b.padType='polygon'; b.pointsPx=pts; b.rotationDeg=0; delete b.widthPx; delete b.depthPx; delete b.widthMm; delete b.depthMm; syncBuildingMetrics(b);
-  }
-  function beginLongPress(e,worldPoint){
-    clearLongPress();
-    if(e.pointerType==='mouse') return;
-    const target=contextTargetAt(worldPoint,e.pointerType);
-    if(!target) return;
-    state.longPress={pointerId:e.pointerId,start:{x:e.clientX,y:e.clientY},world:worldPoint,timer:setTimeout(()=>{
-      if(!state.drag || state.drag.pointerId===e.pointerId){
-        state.drag=null;
-        if(target.stlObject) selectStlObject(target.stlObject);
-        else if(target.building) state.selectedId=target.building.id;
-        else if(target.annotation) state.selectedAnnotationId=target.annotation.id;
-        else if(target.streetlight) state.selectedStreetlightId=target.streetlight.id;
-        renderList(); renderSelected(); updateHandoff();
-        showContextMenu(e.clientX,e.clientY,target);
-        draw();
-      }
-    },620)};
-  }
-  function moveCancelsLongPress(e){
-    if(!state.longPress || state.longPress.pointerId!==e.pointerId) return;
-    if(Math.hypot(e.clientX-state.longPress.start.x,e.clientY-state.longPress.start.y)>8) clearLongPress();
-  }
   function drawHoverPreview(){
     const placement=state.githubBuildingPlacement;
     if(placement?.previewPoint){
@@ -4519,20 +4430,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     e.preventDefault();
     if(state.suppressNextContextMenu){state.suppressNextContextMenu=false; hideContextMenu(); return;}
     hideContextMenu();
-    const p=screenToWorld(e); const target=contextTargetAt(p,'mouse');
-    if(target?.streetlight){
-      state.selectedStreetlightId=target.streetlight.id; clearBuildingSelection(); state.selectedAnnotationId=null;
-      m.innerHTML=`<button data-action="duplicateStreetlight">Duplicate Streetlight</button><button data-action="lockStreetlight">${target.streetlight.locked?'Unlock':'Lock'} Streetlight</button><button data-action="deleteStreetlight" class="dangerItem">Delete Streetlight</button>`;
-      m.querySelectorAll('button').forEach(btn=>btn.onclick=()=>handleContextAction(btn.dataset.action));
-      m.style.display='block';
-      const wrapRect=wrap.getBoundingClientRect(); const mw=m.offsetWidth||210, mh=m.offsetHeight||120;
-      m.style.left=clamp(screenX-wrapRect.left,8,wrapRect.width-mw-8)+'px';
-      m.style.top=clamp(screenY-wrapRect.top,8,wrapRect.height-mh-8)+'px';
-      renderList(); renderStreetlights(); renderSelected(); draw();
-      return;
-    }
-    if(target?.annotation){state.selectedAnnotationId=target.annotation.id; state.selectedId=null; state.selectedStlObjectId=null; state.selectedFabricId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
-    else if(target?.building){state.selectedId=target.building.id; state.selectedStlObjectId=null; state.selectedFabricId=null; state.selectedAnnotationId=null; renderList(); renderSelected(); updateHandoff(); showContextMenu(e.clientX,e.clientY,target); draw();}
+    showContextMenuForPointerEvent(e, screenToWorld(e));
   });
   installCanvasGestureBoundary({
     surface:wrap,

@@ -34,4 +34,20 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('function startAnnotationStroke');
     expect(controller).toContain('function drawAnnotations');
   });
+
+  test('streetlight model behavior is wired through the streetlight controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'streetlight-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createStreetlightController } from './site-planner/streetlight-controller.js';");
+    expect(source).toContain('} = createStreetlightController({');
+    expect(source).toContain('normalizeStreetlight,');
+    expect(source).toContain('placeStreetlight,');
+    expect(source).toContain('state.streetlights.forEach(drawStreetlight);');
+
+    expect(controller).toContain('export function createStreetlightController');
+    expect(controller).toContain('function normalizeStreetlight(l)');
+    expect(controller).toContain('function hitStreetlight');
+    expect(controller).toContain('function placeStreetlight');
+  });
 });

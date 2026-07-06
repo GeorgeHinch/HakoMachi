@@ -29,6 +29,7 @@ import { createReferenceImageUiController } from './site-planner/reference-image
 import { drainageGrateFamilyOptions, grateFamilyPresetByKey } from './site-planner/road-drainage-grate-inserts.js';
 import { createRoadSystemController } from './site-planner/road-system-controller.js';
 import { migrateRoadFeatures } from './site-planner/road-feature-migration.js';
+import { serializeGrateInsertSheetsByMaterial } from './site-planner/road-grate-sheet-serializer.js';
 import { createRoadPresetApplicationController } from './site-planner/road-preset-application-utils.js';
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
 import { createScaleInputController } from './site-planner/scale-input-utils.js';
@@ -5562,8 +5563,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   });
   if($('roadExportPreviewBtn')) $('roadExportPreviewBtn').onclick=()=>setRoadExportPreview(!state.roadExportPreview);
   if($('mobileRoadExportPreviewBtn')) $('mobileRoadExportPreviewBtn').onclick=()=>setRoadExportPreview(!state.roadExportPreview);
-  if($('roadAssetSvgBtn')) $('roadAssetSvgBtn').onclick=()=>downloadText(svgRoadAssetExport(),'hakomachi-road-assets.svg','image/svg+xml');
-  if($('mobileRoadAssetSvgBtn')) $('mobileRoadAssetSvgBtn').onclick=()=>downloadText(svgRoadAssetExport(),'hakomachi-road-assets.svg','image/svg+xml');
+  if($('roadAssetSvgBtn')) $('roadAssetSvgBtn').onclick=downloadRoadAssetExport;
+  if($('mobileRoadAssetSvgBtn')) $('mobileRoadAssetSvgBtn').onclick=downloadRoadAssetExport;
   $('csvBtn').onclick=()=>downloadText(csvExport(),'hakomachi-building-pads.csv','text/csv');
   $('svgBtn').onclick=()=>downloadText(svgExport(),'hakomachi-site.svg','image/svg+xml');
   $('seedBtn').onclick=exportSelectedSeed;
@@ -5821,6 +5822,56 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const data=generateRoadExportData();
     const w=state.image?.width||1200,h=state.image?.height||800;
     return roadAssetSvgExport({data, roadFeatures:state.roadFeatures, generatedIntersectionRecords:roadSystem.generatedRoadIntersectionSvgRecords({includeCurbGuides:false}), width:w, height:h}, {JP_ROAD_MARKING_STANDARD_ID, SVG_OP, SVG_ENGRAVE, SVG_RETAINED_CUT, SVG_SCRAP_CUT, escapeAttr, escapeHtml, markingPresetByKey, normalizeRoadFeature, polygonCenter, svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly});
+  }
+  function physicalGrateExportSpec(raw,index){
+    const f=normalizeRoadFeature(raw);
+    if(!f || f.hidden || f.kind!=='manhole' || f.physicalInsert!=='foldedDrainageGrateInsert') return null;
+    const spec={
+      ...(f.grateInsertSpec||{}),
+      id:f.id||`road-grate-${index+1}`,
+      label:f.name||`Road grate ${index+1}`,
+      key:f.grateInsertSpec?.key || (f.hatchShape==='circle'?'etchedManholeCover':'rectangularDrain'),
+    };
+    if(f.hatchShape==='circle'){
+      spec.shape='circle';
+      spec.diameterMm=Number(f.diameterMm)||Number(spec.diameterMm)||Number(spec.widthMm)||4;
+      spec.widthMm=spec.diameterMm;
+      spec.depthMm=spec.diameterMm;
+    } else {
+      spec.shape=spec.shape==='circle'?'rect':spec.shape;
+      spec.widthMm=Number(f.widthMm)||Number(spec.widthMm)||4;
+      spec.depthMm=Number(f.depthMm)||Number(spec.depthMm)||2;
+    }
+    return spec;
+  }
+  function physicalGrateExportSpecs(){
+    return (state.roadFeatures||[]).map(physicalGrateExportSpec).filter(Boolean);
+  }
+  async function downloadRoadAssetExport(){
+    const roadSvg=svgRoadAssetExport();
+    const grates=physicalGrateExportSpecs();
+    if(!grates.length){
+      downloadText(roadSvg,'hakomachi-road-assets.svg','image/svg+xml');
+      return;
+    }
+    if(!window.JSZip){
+      downloadText(roadSvg,'hakomachi-road-assets.svg','image/svg+xml');
+      return;
+    }
+    const zip=new JSZip();
+    zip.file('hakomachi-road-assets.svg',roadSvg);
+    serializeGrateInsertSheetsByMaterial(grates).forEach((sheet,index)=>{
+      const materialId=slug(sheet.materialId||`grate-material-${index+1}`);
+      zip.file(`road-grate-inserts/${materialId}.svg`,sheet.svg);
+    });
+    zip.file('road-grate-inserts/manifest.json',JSON.stringify({
+      schema:'hakomachi.road-asset-export',
+      schemaVersion:1,
+      roadDeck:'hakomachi-road-assets.svg',
+      physicalGrates:grates.map(spec=>({id:spec.id,label:spec.label,key:spec.key,widthMm:spec.widthMm,depthMm:spec.depthMm,shape:spec.shape||'rect'})),
+    },null,2)+'\n');
+    const blob=await zip.generateAsync({type:'blob'});
+    downloadBlob(blob,'hakomachi-road-assets.zip');
   }
   function svgTrackExport(){
     return trackSvgExport(state.tracks, {TRACK_PROFILE_DEFAULTS, escapeAttr, normalizeTrack, offsetTrackPath, trackPathSamples, trackProfilePx, trackTieSegments});

@@ -92,7 +92,12 @@ export function serializeGrateInsertSheetSvg(grateSpecs = [], options = {}) {
   const sheet = { ...DEFAULT_SHEET, ...(options.sheet || {}) };
   const items = layoutItems(buildGrateSheetItems(grateSpecs, options.materialLibrary || {}), sheet);
   const body = items.map(item => {
-    const groups = Object.entries(item.paths).map(([layer, parts]) => {
+    const sheetLayers = {
+      grateCut: item.paths.grateCut || [],
+      grateScore: item.paths.grateScore || [],
+      ...(options.includeGuides ? { grateGuide: item.paths.grateGuide || [] } : {}),
+    };
+    const groups = Object.entries(sheetLayers).map(([layer, parts]) => {
       const style = styleForLayer(layer);
       return `<g data-layer="${escapeAttr(layer)}">${parts.map(part => partElement(part, { x: item.sheetX, y: item.sheetY }, style)).join('')}</g>`;
     }).join('');

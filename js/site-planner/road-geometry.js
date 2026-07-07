@@ -165,6 +165,164 @@ function resamplePathForSidewalkClipping(path, stepPx) {
   return samples;
 }
 
+function normalizeAngle(angle) {
+  const twoPi = Math.PI * 2;
+  let out = angle % twoPi;
+  if (out < 0) out += twoPi;
+  return out;
+}
+
+function angularDelta(from, to) {
+  return normalizeAngle(to - from);
+}
+
+function tangentVector(angle) {
+  return { x: Math.cos(angle), y: Math.sin(angle) };
+}
+
+function localSideVector(angle, side) {
+  const sign = side === 'right' ? -1 : 1;
+  return { x: -Math.sin(angle) * sign, y: Math.cos(angle) * sign };
+}
+
+function addVector(point, vector, amount = 1) {
+  return { x: point.x + vector.x * amount, y: point.y + vector.y * amount };
+}
+
+function pointNear(a, b, tolerance = 1e-5) {
+  return dist(a, b) <= tolerance;
+}
+
+function roadSideMatchesLocalSide(roadSide, localSide, sameDirection) {
+  if (roadSide === 'both') return true;
+  if (roadSide !== 'left' && roadSide !== 'right') return false;
+  if (sameDirection) return roadSide === localSide;
+  return roadSide !== localSide;
+}
+
+function sidewalkOnLocalSide(arm, localSide) {
+  return !!(arm?.sidewalkWidthPx > 0 && roadSideMatchesLocalSide(arm.road?.sidewalkSide, localSide, arm.sameDirection));
+}
+
+function roadPathSegments(road) {
+  const path = roadCenterlineSamples(road, 18);
+  return (path || []).slice(0, -1).map((a, index) => {
+    const b = path[index + 1];
+    const angle = Math.atan2(b.y - a.y, b.x - a.x);
+    return { road, roadId: road.id, a, b, angle };
+  }).filter(segment => !pointNear(segment.a, segment.b));
+}
+
+function armFromSegment(segment, center, sameDirection) {
+  const angle = sameDirection ? segment.angle : normalizeAngle(segment.angle + Math.PI);
+  return {
+    road: segment.road,
+    roadId: segment.roadId,
+    center,
+    tangent: angle,
+    sameDirection,
+    halfWidthPx: Math.max(0.5, Number(segment.road?.widthPx) || 20) / 2,
+    sidewalkWidthPx: Math.max(0, Number(segment.road?.sidewalkWidthPx) || 0),
+  };
+}
+
+function armsForSegmentIntersection(segment, center) {
+  const startHit = pointNear(center, segment.a);
+  const endHit = pointNear(center, segment.b);
+  if (startHit && !endHit) return [armFromSegment(segment, center, true)];
+  if (endHit && !startHit) return [armFromSegment(segment, center, false)];
+  return [armFromSegment(segment, center, true), armFromSegment(segment, center, false)];
+}
+
+function addUniqueArm(arms, arm) {
+  if (!arm?.roadId) return;
+  const duplicate = arms.some(existing => existing.roadId === arm.roadId && angularDelta(existing.tangent, arm.tangent) < 0.02);
+  if (!duplicate) arms.push(arm);
+}
+
+function collectSidewalkIntersectionNodes(roads = []) {
+  const centerlineRoads = (roads || []).filter(road => road && !road.hidden && road.mode === 'centerline' && (road.pointsPx || []).length >= 2);
+  const segmentsByRoad = new Map(centerlineRoads.map(road => [road.id, roadPathSegments(road)]));
+  const nodes = [];
+  const nodeTolerance = Math.max(1, ...centerlineRoads.map(road => Number(road.widthPx) || 20)) * 0.04;
+  const findNode = point => nodes.find(node => dist(node.center, point) <= nodeTolerance);
+
+  for (let aIndex = 0; aIndex < centerlineRoads.length; aIndex++) {
+    for (let bIndex = aIndex + 1; bIndex < centerlineRoads.length; bIndex++) {
+      const aSegments = segmentsByRoad.get(centerlineRoads[aIndex].id) || [];
+      const bSegments = segmentsByRoad.get(centerlineRoads[bIndex].id) || [];
+      aSegments.forEach(aSegment => {
+        bSegments.forEach(bSegment => {
+          const hit = lineIntersection(aSegment.a, aSegment.b, bSegment.a, bSegment.b);
+          if (!hit) return;
+          let node = findNode(hit);
+          if (!node) {
+            node = { center: hit, arms: [] };
+            nodes.push(node);
+          }
+          armsForSegmentIntersection(aSegment, hit).forEach(arm => addUniqueArm(node.arms, arm));
+          armsForSegmentIntersection(bSegment, hit).forEach(arm => addUniqueArm(node.arms, arm));
+        });
+      });
+    }
+  }
+
+  return nodes
+    .map(node => ({ ...node, arms: node.arms.sort((a, b) => a.tangent - b.tangent) }))
+    .filter(node => node.arms.length >= 2 && node.arms.some(arm => arm.sidewalkWidthPx > 0));
+}
+
+function sidewalkCornerPolygon(node, arm, nextArm, delta) {
+  if (delta < 0.22 || delta > Math.PI * 1.45) return null;
+  if (!sidewalkOnLocalSide(arm, 'left') || !sidewalkOnLocalSide(nextArm, 'right')) return null;
+  const aForward = tangentVector(arm.tangent);
+  const bForward = tangentVector(nextArm.tangent);
+  const aSide = localSideVector(arm.tangent, 'left');
+  const bSide = localSideVector(nextArm.tangent, 'right');
+  const reach = Math.max(arm.halfWidthPx, nextArm.halfWidthPx, 4);
+  const p1 = addVector(addVector(node.center, aForward, reach), aSide, arm.halfWidthPx);
+  const p2 = addVector(addVector(node.center, bForward, reach), bSide, nextArm.halfWidthPx);
+  const p3 = addVector(addVector(node.center, bForward, reach), bSide, nextArm.halfWidthPx + nextArm.sidewalkWidthPx);
+  const p4 = addVector(addVector(node.center, aForward, reach), aSide, arm.halfWidthPx + arm.sidewalkWidthPx);
+  const polygon = [p1, p2, p3, p4].filter((point, index, points) => index === 0 || !pointNear(point, points[index - 1], 0.01));
+  if (polygon.length < 3 || Math.abs(polygonAreaSigned(polygon)) < 0.5) return null;
+  return {
+    side: 'intersection',
+    polygon: polygonAreaSigned(polygon) < 0 ? polygon.reverse() : polygon,
+    clipped: true,
+    merged: true,
+    kind: 'intersectionSidewalkCorner',
+    ownerRoadId: arm.roadId,
+    fromRoadId: arm.roadId,
+    toRoadId: nextArm.roadId,
+  };
+}
+
+function polygonAreaSigned(points = []) {
+  let area = 0;
+  for (let index = 0; index < points.length; index++) {
+    const a = points[index];
+    const b = points[(index + 1) % points.length];
+    area += a.x * b.y - b.x * a.y;
+  }
+  return area / 2;
+}
+
+function intersectionSidewalkCornerPolygons(road, roads = []) {
+  if (!road?.id || !Array.isArray(roads) || roads.length <= 1) return [];
+  const corners = [];
+  collectSidewalkIntersectionNodes(roads).forEach(node => {
+    const arms = node.arms || [];
+    arms.forEach((arm, index) => {
+      const nextArm = arms[(index + 1) % arms.length];
+      const delta = angularDelta(arm.tangent, nextArm.tangent);
+      const corner = sidewalkCornerPolygon(node, arm, nextArm, delta);
+      if (corner && corner.ownerRoadId === road.id) corners.push(corner);
+    });
+  });
+  return corners;
+}
+
 export function clippedRoadSidewalkPolygons(road, roads = []) {
   const base = roadSidewalkPolygons(road);
   if (!base.length || !Array.isArray(roads) || roads.length <= 1) return base;
@@ -202,7 +360,9 @@ export function clippedRoadSidewalkPolygons(road, roads = []) {
     }
     flushRun(path.length - 1);
   });
-  return clipped ? kept : base;
+  const clippedStrips = clipped ? kept : base;
+  const corners = intersectionSidewalkCornerPolygons(road, roads);
+  return corners.length ? clippedStrips.concat(corners) : clippedStrips;
 }
 
 export function rebuildRoadGeometry(road) {

@@ -296,6 +296,101 @@ test.describe('Site Planner module split contracts', () => {
     expect(clipped.some(sidewalk => sidewalk.side === 'right')).toBe(true);
   });
 
+  test('sidewalk intersections generate corner patches for cross, T, and angled roads', async () => {
+    const {
+      clippedRoadSidewalkPolygons,
+      rebuildRoadGeometry,
+    } = await import('../js/site-planner/road-geometry.js');
+    const { pointInPoly } = await import('../js/site-planner/geometry.js');
+
+    const centroid = polygon => polygon.reduce((sum, point) => ({
+      x: sum.x + point.x / polygon.length,
+      y: sum.y + point.y / polygon.length,
+    }), { x: 0, y: 0 });
+    const area = polygon => Math.abs(polygon.reduce((sum, point, index) => {
+      const next = polygon[(index + 1) % polygon.length];
+      return sum + point.x * next.y - next.x * point.y;
+    }, 0) / 2);
+    const rebuildAll = roads => {
+      roads.forEach(rebuildRoadGeometry);
+      roads.forEach(road => { road.sidewalkPolygonsPx = clippedRoadSidewalkPolygons(road, roads); });
+      return roads;
+    };
+    const allCorners = roads => roads.flatMap(road => road.sidewalkPolygonsPx || []).filter(sidewalk => sidewalk.kind === 'intersectionSidewalkCorner');
+    const roadSurfaceContainsCentroid = (roads, sidewalk) => roads.some(road => pointInPoly(centroid(sidewalk.polygon), road.roadPolygonPx || []));
+
+    const crossRoads = rebuildAll([
+      { id: 'cross-main', mode: 'centerline', pointsPx: [{ x: -80, y: 0 }, { x: 80, y: 0 }], widthPx: 20, sidewalkSide: 'both', sidewalkWidthPx: 8 },
+      { id: 'cross-side', mode: 'centerline', pointsPx: [{ x: 0, y: -80 }, { x: 0, y: 80 }], widthPx: 20, sidewalkSide: 'both', sidewalkWidthPx: 8 },
+    ]);
+    const crossCorners = allCorners(crossRoads);
+    expect(crossCorners.length).toBeGreaterThanOrEqual(4);
+    expect(crossCorners.every(sidewalk => area(sidewalk.polygon) > 0.5)).toBe(true);
+    expect(crossCorners.every(sidewalk => !roadSurfaceContainsCentroid(crossRoads, sidewalk))).toBe(true);
+
+    const tRoads = rebuildAll([
+      { id: 't-main', mode: 'centerline', pointsPx: [{ x: -90, y: 0 }, { x: 90, y: 0 }], widthPx: 22, sidewalkSide: 'both', sidewalkWidthPx: 8 },
+      { id: 't-stem', mode: 'centerline', pointsPx: [{ x: 0, y: 0 }, { x: 0, y: 80 }], widthPx: 20, sidewalkSide: 'both', sidewalkWidthPx: 8 },
+    ]);
+    const firstAverageX = allCorners(tRoads).reduce((sum, sidewalk) => sum + centroid(sidewalk.polygon).x, 0) / allCorners(tRoads).length;
+    expect(allCorners(tRoads).some(sidewalk => sidewalk.fromRoadId === 't-main' && sidewalk.toRoadId === 't-main')).toBe(true);
+    tRoads[1].pointsPx = [{ x: 30, y: 0 }, { x: 30, y: 80 }];
+    rebuildAll(tRoads);
+    const movedAverageX = allCorners(tRoads).reduce((sum, sidewalk) => sum + centroid(sidewalk.polygon).x, 0) / allCorners(tRoads).length;
+    expect(movedAverageX).toBeGreaterThan(firstAverageX + 10);
+
+    const angledRoads = rebuildAll([
+      { id: 'angled-main', mode: 'centerline', pointsPx: [{ x: -80, y: 0 }, { x: 80, y: 0 }], widthPx: 20, sidewalkSide: 'both', sidewalkWidthPx: 8 },
+      { id: 'angled-diagonal', mode: 'centerline', pointsPx: [{ x: -65, y: -45 }, { x: 65, y: 45 }], widthPx: 20, sidewalkSide: 'both', sidewalkWidthPx: 8 },
+    ]);
+    const angledCorners = allCorners(angledRoads);
+    expect(angledCorners.length).toBeGreaterThanOrEqual(4);
+    expect(angledCorners.every(sidewalk => sidewalk.polygon.every(point => Number.isFinite(point.x) && Number.isFinite(point.y)))).toBe(true);
+    expect(angledCorners.every(sidewalk => area(sidewalk.polygon) > 0.5)).toBe(true);
+  });
+
+  test('road asset SVG exports the same generated sidewalk intersection pieces as the canvas model', async () => {
+    const {
+      clippedRoadSidewalkPolygons,
+      rebuildRoadGeometry,
+    } = await import('../js/site-planner/road-geometry.js');
+    const { polygonCenter } = await import('../js/site-planner/geometry.js');
+    const { roadAssetSvgExport } = await import('../js/site-planner/export-utils.js');
+    const { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } = await import('../js/site-planner/svg-export-utils.js');
+    const roads = [
+      { id: 'svg-main', name: 'Main', mode: 'centerline', pointsPx: [{ x: -80, y: 0 }, { x: 80, y: 0 }], widthPx: 20, sidewalkSide: 'both', sidewalkWidthPx: 8 },
+      { id: 'svg-cross', name: 'Cross', mode: 'centerline', pointsPx: [{ x: 0, y: -80 }, { x: 0, y: 80 }], widthPx: 20, sidewalkSide: 'both', sidewalkWidthPx: 8 },
+    ];
+    roads.forEach(rebuildRoadGeometry);
+    roads.forEach(road => { road.sidewalkPolygonsPx = clippedRoadSidewalkPolygons(road, roads); });
+    const sidewalkCount = roads.reduce((sum, road) => sum + (road.sidewalkPolygonsPx || []).length, 0);
+    const cornerCount = roads.reduce((sum, road) => sum + (road.sidewalkPolygonsPx || []).filter(sidewalk => sidewalk.kind === 'intersectionSidewalkCorner').length, 0);
+
+    const svg = roadAssetSvgExport({
+      data: { roads, seams: [] },
+      roadFeatures: [],
+      width: 120,
+      height: 120,
+    }, {
+      JP_ROAD_MARKING_STANDARD_ID: 'jp-urban',
+      SVG_OP: { ENGRAVE: 'engrave', CUT_RETAINED: 'cut-retained', CUT_SCRAP: 'cut-scrap' },
+      SVG_ENGRAVE: '#2271b1',
+      SVG_RETAINED_CUT: '#d33',
+      SVG_SCRAP_CUT: '#178a3b',
+      escapeAttr: value => String(value ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])),
+      escapeHtml: value => String(value ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])),
+      markingPresetByKey: () => ({}),
+      normalizeRoadFeature: feature => ({ ...feature }),
+      polygonCenter,
+      svgFabricationAttrs,
+      svgFeatureTransform,
+      svgPathFromPoly,
+    });
+
+    expect(cornerCount).toBeGreaterThanOrEqual(4);
+    expect(svg.match(/_sidewalk_\d+"/g) || []).toHaveLength(sidewalkCount);
+  });
+
   test('generated intersection stop bars default to Japanese left-hand inbound lanes', async () => {
     const { buildIntersectionNode } = await import('../js/site-planner/road-intersections.js');
     const { renderIntersectionSvgElements, serializeIntersectionStopBars } = await import('../js/site-planner/road-intersection-svg-export.js');

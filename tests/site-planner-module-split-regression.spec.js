@@ -132,6 +132,63 @@ test.describe('Site Planner module split contracts', () => {
     expect(roadSvg).not.toContain('paint-stop-1');
   });
 
+  test('road markings auto-orient from the nearest road tangent when placed', async () => {
+    const { createRoadFeatureEditorController } = await import('../js/site-planner/road-feature-editor.js');
+    const { rebuildRoadGeometry } = await import('../js/site-planner/road-geometry.js');
+    const {
+      applyRoadHatchPreset,
+      applyRoadMarkingPreset,
+      hatchPresetByKey,
+      markingPresetByKey,
+    } = await import('../js/site-planner/road-preset-utils.js');
+
+    const state = {
+      pxPerMm: 10,
+      view: { scale: 1 },
+      roads: [{
+        id: 'road-1',
+        mode: 'centerline',
+        pointsPx: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+        widthPx: 30,
+      }],
+      roadFeatures: [],
+      lastRoadMarkingPreset: 'stopLine',
+    };
+    const normalizeRoad = road => rebuildRoadGeometry(road);
+    normalizeRoad(state.roads[0]);
+    const controller = createRoadFeatureEditorController({
+      state,
+      uid: prefix => `${prefix}-${state.roadFeatures.length + 1}`,
+      mmToPx: value => value * 10,
+      pxToMm: value => value / 10,
+      roadPresetScaleContext: () => ({ pxPerMm: 10 }),
+      normalizeRoad,
+      applyRoadHatchPreset,
+      applyRoadMarkingPreset,
+      hatchPresetByKey,
+      markingPresetByKey,
+      defaultMarkingStandardId: 'jp-urban',
+      syncAll: () => {},
+    });
+
+    const stopLine = controller.placeRoadFeature({ x: 50, y: 0 }, 'marking');
+    expect(stopLine.rotationDeg).toBe(90);
+    expect(stopLine.orientationMode).toBe('perpendicular');
+    expect(stopLine.autoAlignedToRoad).toBe(true);
+
+    state.lastRoadMarkingPreset = 'laneDashedCenter';
+    const laneLine = controller.placeRoadFeature({ x: 60, y: 0 }, 'marking');
+    expect(laneLine.rotationDeg).toBe(0);
+    expect(laneLine.orientationMode).toBe('parallel');
+
+    state.roads[0].pointsPx = [{ x: 0, y: 0 }, { x: 0, y: 100 }];
+    normalizeRoad(state.roads[0]);
+    laneLine.x = 0;
+    laneLine.y = 60;
+    expect(controller.alignRoadMarkingToRoad(laneLine)).toBe(true);
+    expect(laneLine.rotationDeg).toBe(90);
+  });
+
   test('benchwork outline behavior is wired through the benchwork controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'benchwork-controller.js'), 'utf8');

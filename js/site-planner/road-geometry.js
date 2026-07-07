@@ -208,15 +208,25 @@ export function nearestPointOnRoadPath(point, road, includeEndpoints = true) {
   if (includeEndpoints && road.pointsPx?.length) {
     [0, road.pointsPx.length - 1].forEach(index => {
       const endpoint = road.pointsPx[index];
+      const neighbor = index === 0 ? road.pointsPx[1] : road.pointsPx[index - 1];
+      const tangent = neighbor ? Math.atan2((index === 0 ? neighbor.y - endpoint.y : endpoint.y - neighbor.y), (index === 0 ? neighbor.x - endpoint.x : endpoint.x - neighbor.x)) : 0;
       const distance = dist(point, endpoint);
       if (distance < best.distance) {
-        best = { distance, point: { x: endpoint.x, y: endpoint.y }, roadId: road.id, kind: index === 0 ? 'endpointStart' : 'endpointEnd', pointIndex: index };
+        best = { distance, point: { x: endpoint.x, y: endpoint.y }, tangent, roadId: road.id, kind: index === 0 ? 'endpointStart' : 'endpointEnd', pointIndex: index };
       }
     });
   }
   for (let index = 0; index < samples.length - 1; index++) {
     const hit = closestPointOnSegment(point, samples[index], samples[index + 1]);
-    if (hit.distance < best.distance) best = { distance: hit.distance, point: hit.point, roadId: road.id, kind: 'segment' };
+    if (hit.distance < best.distance) {
+      best = {
+        distance: hit.distance,
+        point: hit.point,
+        tangent: Math.atan2(samples[index + 1].y - samples[index].y, samples[index + 1].x - samples[index].x),
+        roadId: road.id,
+        kind: 'segment',
+      };
+    }
   }
   return best.point ? best : null;
 }

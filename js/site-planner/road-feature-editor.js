@@ -1,4 +1,5 @@
 import { rad } from './geometry.js';
+import { nearestPointOnRoadPath } from './road-geometry.js';
 import { roadSurfaceAtPoint } from './road-network.js';
 
 export function createRoadFeatureEditorController({
@@ -48,6 +49,7 @@ export function createRoadFeatureEditorController({
       feature.standard = feature.standard || defaultMarkingStandardId;
       feature.jpName = feature.jpName || preset.jpName;
       feature.markingCategory = feature.markingCategory || preset.category;
+      feature.orientationMode = feature.orientationMode || preset.orientationMode || 'parallel';
       feature.widthMm = Number.isFinite(Number(feature.widthMm)) ? Number(feature.widthMm) : preset.widthMm;
       feature.depthMm = Number.isFinite(Number(feature.depthMm)) ? Number(feature.depthMm) : preset.depthMm;
       feature.color = feature.color || preset.color || '#f7f2df';
@@ -80,6 +82,32 @@ export function createRoadFeatureEditorController({
       feature.depthPx = Number.isFinite(Number(feature.depthPx)) ? Number(feature.depthPx) : 6;
     }
     return feature;
+  }
+
+  function normalizeAngleDeg(value) {
+    const n = ((Number(value) % 360) + 360) % 360;
+    return n > 180 ? n - 360 : n;
+  }
+
+  function roadMarkingRotationFromTangent(feature, tangentRad) {
+    const preset = markingPresetByKey(feature.markingPreset || feature.markingType);
+    const mode = feature.orientationMode || preset.orientationMode || 'parallel';
+    const tangentDeg = tangentRad * 180 / Math.PI;
+    if (mode === 'fixed' || mode === 'manual') return Number(feature.rotationDeg) || 0;
+    if (mode === 'perpendicular' || mode === 'directional') return normalizeAngleDeg(tangentDeg + 90);
+    return normalizeAngleDeg(tangentDeg);
+  }
+
+  function alignRoadMarkingToRoad(feature) {
+    if (!feature || feature.kind !== 'marking') return false;
+    const road = state.roads.find(item => item.id === feature.roadId) || roadSurfaceAtPoint(feature, state.roads, { normalizeRoad });
+    if (!road) return false;
+    const nearest = nearestPointOnRoadPath(feature, normalizeRoad(road), false);
+    if (!nearest || !Number.isFinite(Number(nearest.tangent))) return false;
+    feature.rotationDeg = roadMarkingRotationFromTangent(feature, nearest.tangent);
+    feature.autoAlignedToRoad = true;
+    feature.roadAlignmentMode = feature.orientationMode || markingPresetByKey(feature.markingPreset || feature.markingType).orientationMode || 'parallel';
+    return true;
   }
 
   function selectedRoadFeature() {
@@ -120,7 +148,10 @@ export function createRoadFeatureEditorController({
       return null;
     }
     const feature = normalizeRoadFeature({ id: uid('roadFeature'), kind, roadId: road.id, x: point.x, y: point.y, rotationDeg: 0 });
-    if (kind === 'marking') applyRoadMarkingPreset(feature, state.lastRoadMarkingPreset || 'stopLine', roadPresetScaleContext());
+    if (kind === 'marking') {
+      applyRoadMarkingPreset(feature, state.lastRoadMarkingPreset || 'stopLine', roadPresetScaleContext());
+      alignRoadMarkingToRoad(feature);
+    }
     if (kind === 'manhole') applyRoadHatchPreset(feature, state.lastRoadHatchPreset || 'round600', roadPresetScaleContext());
     state.roadFeatures.push(feature);
     state.selectedRoadFeatureId = feature.id;
@@ -152,6 +183,7 @@ export function createRoadFeatureEditorController({
     clearRoadFeatureSelection,
     deleteSelectedRoadFeature,
     hitRoadFeature,
+    alignRoadMarkingToRoad,
     moveRoadFeature,
     normalizeRoadFeature,
     placeRoadFeature,

@@ -98,6 +98,52 @@ export function createRoadFeatureEditorController({
     return normalizeAngleDeg(tangentDeg);
   }
 
+  function positiveNumber(...values) {
+    for (const value of values) {
+      const n = Number(value);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return null;
+  }
+
+  function syncRoadMarkingDimension(feature, key, valueMm) {
+    const pxKey = key === 'widthMm' ? 'widthPx' : 'depthPx';
+    feature[key] = valueMm;
+    feature[pxKey] = state.pxPerMm ? mmToPx(valueMm) : valueMm;
+  }
+
+  function roadMarkingRoadWidthMm(road) {
+    return positiveNumber(
+      road?.widthMm,
+      state.pxPerMm && road ? pxToMm(road.widthPx) : null,
+      road?.widthPx,
+    );
+  }
+
+  function fitRoadMarkingToRoad(feature) {
+    if (!feature || feature.kind !== 'marking') return false;
+    const road = state.roads.find(item => item.id === feature.roadId) || roadSurfaceAtPoint(feature, state.roads, { normalizeRoad });
+    if (!road) return false;
+    normalizeRoad(road);
+    const roadWidthMm = roadMarkingRoadWidthMm(road);
+    if (!roadWidthMm) return false;
+
+    const preset = markingPresetByKey(feature.markingPreset || feature.markingType);
+    const mode = feature.orientationMode || preset.orientationMode || 'parallel';
+    const crossAxisKey = mode === 'parallel' ? 'depthMm' : 'widthMm';
+    const currentMm = positiveNumber(feature[crossAxisKey], preset[crossAxisKey]);
+    if (!currentMm) return false;
+
+    const maxCrossAxisMm = Math.max(0.25, roadWidthMm * (mode === 'parallel' ? 0.38 : 0.9));
+    if (currentMm <= maxCrossAxisMm) return false;
+
+    syncRoadMarkingDimension(feature, crossAxisKey, maxCrossAxisMm);
+    feature.roadFitMode = 'road-bounds';
+    feature.roadFitAxis = crossAxisKey === 'widthMm' ? 'width' : 'depth';
+    feature.roadFitRoadWidthMm = roadWidthMm;
+    return true;
+  }
+
   function alignRoadMarkingToRoad(feature) {
     if (!feature || feature.kind !== 'marking') return false;
     const road = state.roads.find(item => item.id === feature.roadId) || roadSurfaceAtPoint(feature, state.roads, { normalizeRoad });
@@ -150,6 +196,7 @@ export function createRoadFeatureEditorController({
     const feature = normalizeRoadFeature({ id: uid('roadFeature'), kind, roadId: road.id, x: point.x, y: point.y, rotationDeg: 0 });
     if (kind === 'marking') {
       applyRoadMarkingPreset(feature, state.lastRoadMarkingPreset || 'stopLine', roadPresetScaleContext());
+      fitRoadMarkingToRoad(feature);
       alignRoadMarkingToRoad(feature);
     }
     if (kind === 'manhole') applyRoadHatchPreset(feature, state.lastRoadHatchPreset || 'round600', roadPresetScaleContext());
@@ -184,6 +231,7 @@ export function createRoadFeatureEditorController({
     deleteSelectedRoadFeature,
     hitRoadFeature,
     alignRoadMarkingToRoad,
+    fitRoadMarkingToRoad,
     moveRoadFeature,
     normalizeRoadFeature,
     placeRoadFeature,

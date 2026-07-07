@@ -412,6 +412,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function moveRoadFeature(f,dx,dy){ return roadSystem.moveRoadFeature(f, dx, dy); }
   function alignRoadMarkingToRoad(f){ return roadSystem.alignRoadMarkingToRoad(f); }
+  function fitRoadMarkingToRoad(f){ return roadSystem.fitRoadMarkingToRoad(f); }
   function deleteSelectedRoadFeature(){
     return roadSystem.deleteSelectedRoadFeature();
   }
@@ -3260,7 +3261,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       </div>
       <div class="row"><div><label>Width mm</label><input id="rfW" type="number" step="0.1" value="${fmt(roadFeature.widthMm||0)}"></div><div><label>Depth mm</label><input id="rfD" type="number" step="0.1" value="${fmt(roadFeature.depthMm||0)}"></div></div>
       <div class="row"><div><label>Rotation °</label><input id="rfRot" type="number" step="1" value="${fmt(roadFeature.rotationDeg||0)}"></div><div><label>Color</label><input id="rfColor" type="color" value="${roadFeature.color||'#f7f2df'}"></div></div>
-      <div class="buttons" style="margin-top:8px"><button id="realignRoadMarking" type="button">Realign to Road</button></div>
+      <div class="buttons" style="margin-top:8px"><button id="realignRoadMarking" type="button">Realign to Road</button><button id="fitRoadMarking" type="button">Fit to Road</button></div>
       <div class="small muted">Etch mode exports <code>roadMarkingEtch</code>. Paint stencil mode exports a separate inverse stencil sheet from real stock.</div>`}
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="rfLocked" type="checkbox" ${roadFeature.locked?'checked':''}> <span>Lock item</span></label>
       <div class="buttons" style="margin-top:8px"><button id="deleteRoadFeature" class="danger">Delete Item</button></div>`;
@@ -3274,8 +3275,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const sh=$('rfShape'); if(sh){sh.value=roadFeature.hatchShape||'circle'; sh.onchange=()=>{roadFeature.hatchShape=sh.value; syncPhysicalGrateSpecDimensions(roadFeature); syncAll();};}
       const pi=$('rfPhysicalInsert'); if(pi){pi.value=roadFeature.physicalInsert||''; pi.onchange=()=>{setPhysicalGrateMode(roadFeature,!!pi.value); syncAll();};}
       const gf=$('rfGrateFamily'); if(gf){gf.disabled=!roadFeature.physicalInsert; gf.onchange=()=>{applyPhysicalGrateFamily(roadFeature,gf.value); syncAll();};}
-      const mp=$('rfMarkingPreset'); if(mp) mp.onchange=()=>{state.lastRoadMarkingPreset=mp.value; applyRoadMarkingPreset(roadFeature,mp.value,roadPresetScaleContext()); syncAll();};
+      const mp=$('rfMarkingPreset'); if(mp) mp.onchange=()=>{state.lastRoadMarkingPreset=mp.value; applyRoadMarkingPreset(roadFeature,mp.value,roadPresetScaleContext()); fitRoadMarkingToRoad(roadFeature); alignRoadMarkingToRoad(roadFeature); syncAll();};
       const realign=$('realignRoadMarking'); if(realign) realign.onclick=()=>{if(alignRoadMarkingToRoad(roadFeature)) syncAll();};
+      const fitMarking=$('fitRoadMarking'); if(fitMarking) fitMarking.onclick=()=>{if(fitRoadMarkingToRoad(roadFeature)) syncAll();};
       const mo=$('rfMarkingOutput'); if(mo){mo.value=roadFeature.outputMode==='paintStencil'?'paintStencil':'etch'; mo.onchange=()=>{setRoadMarkingOutputMode(roadFeature,mo.value); syncAll();};}
       bindRF('rfStencilMaterialId',v=>{roadFeature.stencilMaterialId=v||'stencil-stock'; setRoadMarkingOutputMode(roadFeature,'paintStencil');});
       bindRF('rfStencilMargin',v=>{roadFeature.stencilSpec={...(roadFeature.stencilSpec||{}),marginMm:Math.max(0,parseFloat(v)||0)}; setRoadMarkingOutputMode(roadFeature,'paintStencil');});

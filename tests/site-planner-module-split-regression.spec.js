@@ -189,6 +189,66 @@ test.describe('Site Planner module split contracts', () => {
     expect(laneLine.rotationDeg).toBe(90);
   });
 
+  test('road markings fit their cross-road axis to the selected road width', async () => {
+    const { createRoadFeatureEditorController } = await import('../js/site-planner/road-feature-editor.js');
+    const { rebuildRoadGeometry } = await import('../js/site-planner/road-geometry.js');
+    const {
+      applyRoadHatchPreset,
+      applyRoadMarkingPreset,
+      hatchPresetByKey,
+      markingPresetByKey,
+    } = await import('../js/site-planner/road-preset-utils.js');
+
+    const state = {
+      pxPerMm: 10,
+      view: { scale: 1 },
+      roads: [{
+        id: 'narrow-road',
+        mode: 'centerline',
+        pointsPx: [{ x: 0, y: 0 }, { x: 120, y: 0 }],
+        widthPx: 40,
+      }],
+      roadFeatures: [],
+      lastRoadMarkingPreset: 'stopLine',
+    };
+    const normalizeRoad = road => rebuildRoadGeometry(road);
+    normalizeRoad(state.roads[0]);
+    const controller = createRoadFeatureEditorController({
+      state,
+      uid: prefix => `${prefix}-${state.roadFeatures.length + 1}`,
+      mmToPx: value => value * 10,
+      pxToMm: value => value / 10,
+      roadPresetScaleContext: () => ({ pxPerMm: 10 }),
+      normalizeRoad,
+      applyRoadHatchPreset,
+      applyRoadMarkingPreset,
+      hatchPresetByKey,
+      markingPresetByKey,
+      defaultMarkingStandardId: 'jp-urban',
+      syncAll: () => {},
+    });
+
+    const stopLine = controller.placeRoadFeature({ x: 40, y: 0 }, 'marking');
+    expect(stopLine.widthMm).toBeCloseTo(3.6, 5);
+    expect(stopLine.widthPx).toBeCloseTo(36, 5);
+    expect(stopLine.depthMm).toBeCloseTo(0.45, 5);
+    expect(stopLine.roadFitMode).toBe('road-bounds');
+    expect(stopLine.roadFitAxis).toBe('width');
+
+    state.lastRoadMarkingPreset = 'laneDashedCenter';
+    const laneDash = controller.placeRoadFeature({ x: 60, y: 0 }, 'marking');
+    expect(laneDash.widthMm).toBeCloseTo(9, 5);
+    expect(laneDash.depthMm).toBeCloseTo(0.28, 5);
+    expect(laneDash.roadFitMode).toBeUndefined();
+
+    laneDash.depthMm = 3;
+    laneDash.depthPx = 30;
+    expect(controller.fitRoadMarkingToRoad(laneDash)).toBe(true);
+    expect(laneDash.depthMm).toBeCloseTo(1.52, 5);
+    expect(laneDash.depthPx).toBeCloseTo(15.2, 5);
+    expect(laneDash.roadFitAxis).toBe('depth');
+  });
+
   test('sidewalk polygons are segmented away from crossing road surfaces', async () => {
     const {
       clippedRoadSidewalkPolygons,

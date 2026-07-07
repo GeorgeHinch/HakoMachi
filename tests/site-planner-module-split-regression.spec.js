@@ -296,6 +296,41 @@ test.describe('Site Planner module split contracts', () => {
     expect(clipped.some(sidewalk => sidewalk.side === 'right')).toBe(true);
   });
 
+  test('generated intersection stop bars default to Japanese left-hand inbound lanes', async () => {
+    const { buildIntersectionNode } = await import('../js/site-planner/road-intersections.js');
+    const { renderIntersectionSvgElements, serializeIntersectionStopBars } = await import('../js/site-planner/road-intersection-svg-export.js');
+    const cluster = {
+      center: { x: 0, y: 0 },
+      arms: [
+        { roadId: 'east-road', endpoint: 'start', point: { x: 0, y: 0 }, widthPx: 40, sidewalkWidthPx: 0, tangent: 0 },
+        { roadId: 'west-road', endpoint: 'end', point: { x: 0, y: 0 }, widthPx: 40, sidewalkWidthPx: 0, tangent: Math.PI },
+      ],
+    };
+
+    const leftHandNode = buildIntersectionNode(cluster, 0, { drivingSide: 'left' });
+    const leftHandStop = leftHandNode.stopBars.find(stopBar => stopBar.roadId === 'east-road');
+    expect(leftHandStop.laneScope).toBe('inboundLane');
+    expect(leftHandStop.laneSide).toBe('left');
+    expect(leftHandStop.widthPx).toBeLessThan(40);
+    expect(leftHandStop.center.y).toBeGreaterThan(leftHandNode.center.y);
+
+    const rightHandNode = buildIntersectionNode(cluster, 0, { drivingSide: 'right' });
+    const rightHandStop = rightHandNode.stopBars.find(stopBar => stopBar.roadId === 'east-road');
+    expect(rightHandStop.laneSide).toBe('right');
+    expect(rightHandStop.center.y).toBeLessThan(rightHandNode.center.y);
+
+    const fullWidthNode = buildIntersectionNode(cluster, 0, { drivingSide: 'left', stopBarLaneScope: 'fullRoad' });
+    const fullWidthStop = fullWidthNode.stopBars.find(stopBar => stopBar.roadId === 'east-road');
+    expect(fullWidthStop.laneSide).toBe('both');
+    expect(fullWidthStop.widthPx).toBeGreaterThan(30);
+    expect(fullWidthStop.center.y).toBeCloseTo(fullWidthNode.center.y, 5);
+
+    const records = serializeIntersectionStopBars(leftHandNode);
+    expect(records.find(record => record.roadId === 'east-road').laneSide).toBe('left');
+    expect(renderIntersectionSvgElements(records)).toContain('data-lane-side="left"');
+    expect(renderIntersectionSvgElements(records)).toContain('data-driving-side="left"');
+  });
+
   test('benchwork outline behavior is wired through the benchwork controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'benchwork-controller.js'), 'utf8');

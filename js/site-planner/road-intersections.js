@@ -11,6 +11,9 @@ const DEFAULTS = Object.freeze({
   crosswalkWidthFactor: 0.45,
   stopBarOffsetFactor: 1.95,
   stopBarDepthFactor: 0.12,
+  stopBarLaneWidthFactor: 0.44,
+  stopBarLaneScope: 'inboundLane',
+  drivingSide: 'left',
   tactileDepthFactor: 0.28,
 });
 
@@ -53,6 +56,21 @@ function unit(angle) {
 
 function sideVector(angle) {
   return { x: -Math.sin(angle), y: Math.cos(angle) };
+}
+
+function normalizeDrivingSide(value) {
+  return value === 'right' ? 'right' : 'left';
+}
+
+function stopBarLaneSide(scope, drivingSide) {
+  if (scope === 'fullRoad' || scope === 'bothDirections') return 'both';
+  if (scope === 'leftLane' || scope === 'leftInboundLane') return 'left';
+  if (scope === 'rightLane' || scope === 'rightInboundLane') return 'right';
+  return normalizeDrivingSide(drivingSide);
+}
+
+function laneSideSign(laneSide) {
+  return laneSide === 'right' ? -1 : 1;
 }
 
 function add(point, vector, amount = 1) {
@@ -264,8 +282,17 @@ export function buildStopBars(node, options = {}) {
   return node.arms.map(arm => {
     const forward = unit(arm.tangent);
     const side = sideVector(arm.tangent);
-    const center = add(node.center, forward, node.curbRadiusPx * opts.stopBarOffsetFactor);
-    const width = Math.max(arm.widthPx * 0.72, arm.widthPx - 4);
+    const baseCenter = add(node.center, forward, node.curbRadiusPx * opts.stopBarOffsetFactor);
+    const fullWidth = Math.max(arm.widthPx * 0.72, arm.widthPx - 4);
+    const laneScope = arm.stopBarLaneScope || opts.stopBarLaneScope || 'inboundLane';
+    const drivingSide = normalizeDrivingSide(arm.drivingSide || opts.drivingSide);
+    const laneSide = stopBarLaneSide(laneScope, drivingSide);
+    const width = laneSide === 'both'
+      ? fullWidth
+      : Math.max(2, Math.min(fullWidth, arm.widthPx * opts.stopBarLaneWidthFactor));
+    const center = laneSide === 'both'
+      ? baseCenter
+      : add(baseCenter, side, laneSideSign(laneSide) * arm.widthPx * 0.25);
     const depth = Math.max(2, arm.widthPx * opts.stopBarDepthFactor);
     return {
       roadId: arm.roadId,
@@ -274,6 +301,10 @@ export function buildStopBars(node, options = {}) {
       angle: arm.tangent,
       widthPx: width,
       depthPx: depth,
+      laneScope,
+      laneSide,
+      drivingSide,
+      trafficDirection: 'inbound',
       corners: rectangleCorners(center, side, forward, width, depth),
     };
   });

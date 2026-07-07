@@ -50,6 +50,7 @@ export function createRoadFeatureEditorController({
       feature.jpName = feature.jpName || preset.jpName;
       feature.markingCategory = feature.markingCategory || preset.category;
       feature.orientationMode = feature.orientationMode || preset.orientationMode || 'parallel';
+      feature.laneScope = feature.laneScope || preset.laneScope || 'singleLane';
       feature.widthMm = Number.isFinite(Number(feature.widthMm)) ? Number(feature.widthMm) : preset.widthMm;
       feature.depthMm = Number.isFinite(Number(feature.depthMm)) ? Number(feature.depthMm) : preset.depthMm;
       feature.color = feature.color || preset.color || '#f7f2df';

@@ -62,6 +62,7 @@ export function createRoadSystemController(deps) {
     }
     const generated = buildRoadIntersections(deps.state.roads, {
       normalizeRoad: model.normalizeRoad,
+      drivingSide: deps.state.roadDrivingSide || 'left',
       ...options,
     });
     deps.state.roadIntersectionOverrides = pruneStaleIntersectionOverrides(deps.state.roadIntersectionOverrides || {}, generated);

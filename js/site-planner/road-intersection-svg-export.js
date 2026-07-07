@@ -59,6 +59,9 @@ function makeElement(record, options = {}) {
     'data-intersection-id': record.intersectionId || '',
     'data-feature-type': record.type || '',
     'data-layer': record.layer || '',
+    'data-lane-side': record.laneSide || '',
+    'data-lane-scope': record.laneScope || '',
+    'data-driving-side': record.drivingSide || '',
     ...(includeStyle ? record.style : {}),
   };
   const attrText = svgStyle(attrs);
@@ -111,6 +114,9 @@ export function serializeIntersectionStopBars(intersection, options = {}) {
     roadId: stopBar.roadId,
     endpoint: stopBar.endpoint,
     index,
+    laneSide: stopBar.laneSide,
+    laneScope: stopBar.laneScope,
+    drivingSide: stopBar.drivingSide,
     d: polygonPath(stopBar.corners),
     style,
   })).filter(record => record.d);

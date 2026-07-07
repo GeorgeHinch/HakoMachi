@@ -14,6 +14,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7f2df',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'perpendicular',
+    laneScope: 'inboundLane',
   },
   {
     key: 'zebraCrosswalk',
@@ -29,6 +30,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7f2df',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'perpendicular',
+    laneScope: 'fullRoad',
   },
   {
     key: 'bicycleCrossing',
@@ -43,6 +45,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7f2df',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'perpendicular',
+    laneScope: 'fullRoad',
   },
   {
     key: 'laneArrowStraight',
@@ -57,6 +60,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7f2df',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'directional',
+    laneScope: 'singleLane',
   },
   {
     key: 'laneArrowLeft',
@@ -71,6 +75,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7f2df',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'directional',
+    laneScope: 'singleLane',
   },
   {
     key: 'laneArrowRight',
@@ -85,6 +90,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7f2df',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'directional',
+    laneScope: 'singleLane',
   },
   {
     key: 'laneArrowStraightLeft',
@@ -99,6 +105,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7f2df',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'directional',
+    laneScope: 'singleLane',
   },
   {
     key: 'laneArrowStraightRight',
@@ -113,6 +120,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7f2df',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'directional',
+    laneScope: 'singleLane',
   },
   {
     key: 'speed30',
@@ -128,6 +136,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7f2df',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'directional',
+    laneScope: 'singleLane',
   },
   {
     key: 'speed40',
@@ -143,6 +152,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7f2df',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'directional',
+    laneScope: 'singleLane',
   },
   {
     key: 'stopTextTomare',
@@ -158,6 +168,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7f2df',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'directional',
+    laneScope: 'singleLane',
   },
   {
     key: 'noParkingCurbDash',
@@ -173,6 +184,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7c84a',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'parallel',
+    laneScope: 'curbEdge',
   },
   {
     key: 'laneDashedCenter',
@@ -188,6 +200,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7f2df',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'parallel',
+    laneScope: 'centerline',
   },
   {
     key: 'laneSolidCenter',
@@ -202,6 +215,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7f2df',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'parallel',
+    laneScope: 'centerline',
   },
   {
     key: 'diamondWarning',
@@ -216,6 +230,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7f2df',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'directional',
+    laneScope: 'singleLane',
   },
   {
     key: 'chevronBuffer',
@@ -230,6 +245,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7f2df',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'parallel',
+    laneScope: 'fullRoad',
   },
   {
     key: 'safetyZoneBox',
@@ -244,6 +260,7 @@ const ROAD_MARKING_PRESETS = Object.freeze([
     color: '#f7f2df',
     exportLayer: 'roadMarkingEtch',
     orientationMode: 'parallel',
+    laneScope: 'fullRoad',
   },
 ]);
 
@@ -397,6 +414,7 @@ export function applyRoadMarkingPresetData(feature = {}, key, scaleContext = {})
     standard: preset.standard,
     text: preset.text || feature.text || '',
     orientationMode: preset.orientationMode || feature.orientationMode || 'parallel',
+    laneScope: preset.laneScope || feature.laneScope || 'singleLane',
     widthMm: preset.widthMm,
     depthMm: preset.depthMm,
     widthPx: preset.widthMm * scale,

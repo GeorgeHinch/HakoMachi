@@ -36,6 +36,7 @@ export function createInitialState() {
     roadFeatures: [],
     selectedRoadFeatureId: null,
     hoverRoadFeatureId: null,
+    roadDrivingSide: 'left',
     roadIntersectionDetails: true,
     roadIntersectionOverrides: {},
     generatedRoadIntersections: [],

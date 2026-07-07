@@ -360,6 +360,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     return feature;
   }
+  function normalizeDrivingSide(value){
+    return value === 'right' ? 'right' : 'left';
+  }
   function roadArmOverrideKey(arm){
     return [arm?.roadId||'road', arm?.endpoint||'arm'].join(':');
   }
@@ -2620,6 +2623,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       roads: state.roads,
       tracks: state.tracks||[],
       roadFeatures: state.roadFeatures,
+      roadDrivingSide: normalizeDrivingSide(state.roadDrivingSide),
       roadIntersectionDetails: state.roadIntersectionDetails,
       roadIntersectionOverrides: state.roadIntersectionOverrides||{},
       stlObjects: state.stlObjects||[],
@@ -2677,6 +2681,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.roads=Array.isArray(data.roads)?structuredClone(data.roads):[];
     state.tracks=(Array.isArray(data.tracks)?structuredClone(data.tracks):[]).map(normalizeTrack);
     state.roadFeatures=migrateLoadedRoadFeatures(data.roadFeatures);
+    state.roadDrivingSide=normalizeDrivingSide(data.roadDrivingSide);
     state.roadIntersectionDetails=data.roadIntersectionDetails!==false;
     state.roadIntersectionOverrides=data.roadIntersectionOverrides&&typeof data.roadIntersectionOverrides==='object'?structuredClone(data.roadIntersectionOverrides):{};
     state.generatedRoadIntersections=[];
@@ -2764,6 +2769,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       roads:state.roads,
       tracks:state.tracks||[],
       roadFeatures:state.roadFeatures,
+      roadDrivingSide:normalizeDrivingSide(state.roadDrivingSide),
       roadIntersectionDetails:state.roadIntersectionDetails!==false,
       roadIntersectionOverrides:state.roadIntersectionOverrides||{},
       stlObjects:state.stlObjects||[],
@@ -3294,6 +3300,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       <div id="roadSidewalkOverrideWrap" style="display:${showSidewalkOverride?'block':'none'}"><label>Sidewalk width override (mm)</label><input id="roadSidewalkWidth" type="number" step="0.1" value="${fmt(road.sidewalkWidthMm||0)}" ${road.mode==='outline'?'disabled':''}></div>
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="roadLocked" type="checkbox" ${road.locked?'checked':''}> <span>Lock road</span></label>
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="roadIntersectionDetails" type="checkbox" ${state.roadIntersectionDetails!==false?'checked':''}> <span>Show automatic intersection markings</span></label>
+      <label>Driving side</label><select id="roadDrivingSide"><option value="left">Left-hand traffic (Japan)</option><option value="right">Right-hand traffic</option></select>
       ${roadIntersectionArmControlsHtml(road.id)}
       <div class="buttons" style="margin-top:8px"><button id="regenRoad">Regenerate road geometry</button><button id="deleteRoad" class="danger">Delete Road</button></div>
       <div class="small muted" style="margin-top:8px">Presets are common real-world widths converted to physical output millimeters using the calibration scale divisor. Choose <b>Custom / override</b> to show manual width fields. Centerlines can be polyline paths; hover a selected segment and drag to bend it into a curve. Laser-cut road export is not enabled yet.</div>`;
@@ -3307,6 +3314,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       bindRoad('roadSidewalkWidth',v=>{road.sidewalkWidthPreset='custom'; road.sidewalkWidthMm=parseFloat(v)||0; road.sidewalkWidthPx=state.pxPerMm?mmToPx(road.sidewalkWidthMm):road.sidewalkWidthPx;});
       bindRoad('roadLocked',v=>road.locked=!!v);
       bindRoad('roadIntersectionDetails',v=>{state.roadIntersectionDetails=!!v;});
+      const roadDrivingSide=$('roadDrivingSide'); if(roadDrivingSide){roadDrivingSide.value=normalizeDrivingSide(state.roadDrivingSide); roadDrivingSide.onchange=()=>{state.roadDrivingSide=normalizeDrivingSide(roadDrivingSide.value); syncAll();};}
       bindRoadIntersectionArmCheckbox('roadIntersectionCrosswalks',road.id,'crosswalkEnabled');
       bindRoadIntersectionArmCheckbox('roadIntersectionStopBars',road.id,'stopBarEnabled');
       bindRoadIntersectionArmCheckbox('roadIntersectionTactile',road.id,'tactilePaversEnabled');
@@ -4479,6 +4487,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.measureLine=null;
     state.annotations=[];
     state.selectedAnnotationId=null;
+    state.roadDrivingSide='left';
     state.selectedFabricId=null;
     state.streetlights=[];
     state.selectedStreetlightId=null;
@@ -5042,6 +5051,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.roads=loadedRoads.map(normalizeRoad);
     state.tracks=(Array.isArray(p.tracks)?p.tracks:[]).map(normalizeTrack);
     state.roadFeatures=migrateLoadedRoadFeatures(p.roadFeatures);
+    state.roadDrivingSide=normalizeDrivingSide(p.roadDrivingSide);
     state.roadIntersectionDetails=p.roadIntersectionDetails!==false;
     state.roadIntersectionOverrides=p.roadIntersectionOverrides&&typeof p.roadIntersectionOverrides==='object'?structuredClone(p.roadIntersectionOverrides):{};
     state.generatedRoadIntersections=[];

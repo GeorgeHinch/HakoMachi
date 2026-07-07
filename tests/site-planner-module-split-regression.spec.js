@@ -189,6 +189,53 @@ test.describe('Site Planner module split contracts', () => {
     expect(laneLine.rotationDeg).toBe(90);
   });
 
+  test('sidewalk polygons are segmented away from crossing road surfaces', async () => {
+    const {
+      clippedRoadSidewalkPolygons,
+      lineIntersection,
+      rebuildRoadGeometry,
+      roadSidewalkPolygons,
+    } = await import('../js/site-planner/road-geometry.js');
+    const { pointInPoly } = await import('../js/site-planner/geometry.js');
+    const mainRoad = {
+      id: 'main',
+      mode: 'centerline',
+      pointsPx: [{ x: 0, y: 0 }, { x: 120, y: 0 }],
+      widthPx: 20,
+      sidewalkSide: 'both',
+      sidewalkWidthPx: 8,
+    };
+    const crossingRoad = {
+      id: 'crossing',
+      mode: 'centerline',
+      pointsPx: [{ x: 60, y: -50 }, { x: 60, y: 50 }],
+      widthPx: 24,
+      sidewalkSide: 'none',
+      sidewalkWidthPx: 0,
+    };
+    rebuildRoadGeometry(mainRoad);
+    rebuildRoadGeometry(crossingRoad);
+
+    const base = roadSidewalkPolygons(mainRoad);
+    const clipped = clippedRoadSidewalkPolygons(mainRoad, [mainRoad, crossingRoad]);
+    const intersects = (poly, clip) => {
+      if (poly.some(point => pointInPoly(point, clip))) return true;
+      if (clip.some(point => pointInPoly(point, poly))) return true;
+      for (let i = 0; i < poly.length; i++) {
+        for (let j = 0; j < clip.length; j++) {
+          if (lineIntersection(poly[i], poly[(i + 1) % poly.length], clip[j], clip[(j + 1) % clip.length])) return true;
+        }
+      }
+      return false;
+    };
+
+    expect(base).toHaveLength(2);
+    expect(clipped.length).toBeGreaterThan(2);
+    expect(clipped.every(sidewalk => !intersects(sidewalk.polygon, crossingRoad.roadPolygonPx))).toBe(true);
+    expect(clipped.some(sidewalk => sidewalk.side === 'left')).toBe(true);
+    expect(clipped.some(sidewalk => sidewalk.side === 'right')).toBe(true);
+  });
+
   test('benchwork outline behavior is wired through the benchwork controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'benchwork-controller.js'), 'utf8');

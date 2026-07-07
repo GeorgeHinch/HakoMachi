@@ -1,5 +1,5 @@
 import { pointInPoly } from './geometry.js';
-import { rebuildRoadGeometry } from './road-geometry.js';
+import { clippedRoadSidewalkPolygons, rebuildRoadGeometry } from './road-geometry.js';
 
 export function createRoadModelController({
   state,
@@ -33,6 +33,7 @@ export function createRoadModelController({
     road.hidden = !!road.hidden;
     road.color = road.color || '#6f6a5e';
     rebuildRoadGeometry(road);
+    road.sidewalkPolygonsPx = clippedRoadSidewalkPolygons(road, state.roads);
     return road;
   }
 
@@ -45,6 +46,7 @@ export function createRoadModelController({
       road.curvesMm = (road.curvesPx || []).map(curve => curve ? { x: pxToMm(curve.x), y: pxToMm(curve.y) } : null);
     }
     rebuildRoadGeometry(road);
+    road.sidewalkPolygonsPx = clippedRoadSidewalkPolygons(road, state.roads);
     return road;
   }
 
@@ -78,6 +80,7 @@ export function createRoadModelController({
     road.pointsPx = (road.pointsPx || []).map(point => ({ x: point.x + dx, y: point.y + dy }));
     road.curvesPx = (road.curvesPx || []).map(curve => curve ? { x: curve.x + dx, y: curve.y + dy } : null);
     rebuildRoadGeometry(road);
+    road.sidewalkPolygonsPx = clippedRoadSidewalkPolygons(road, state.roads);
     syncRoadMetrics(road);
   }
 

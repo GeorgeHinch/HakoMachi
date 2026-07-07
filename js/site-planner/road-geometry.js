@@ -1,4 +1,4 @@
-import { closestPointOnSegment, distanceToSegment, dist } from './geometry.js';
+import { closestPointOnSegment, distanceToSegment, dist, pointInPoly } from './geometry.js';
 
 export function quadPoint(a, c, b, t) {
   const mt = 1 - t;
@@ -100,6 +100,109 @@ export function roadSidewalkPolygons(road) {
     if (polygon) polygons.push(polygon);
   }
   return polygons;
+}
+
+function roadPolygonForClipping(road) {
+  if (!road || road.hidden) return [];
+  if ((road.roadPolygonPx || []).length >= 3) return road.roadPolygonPx;
+  if (road.mode === 'outline') return roadOutlineSamples(road);
+  if (road.mode === 'centerline') return roadOffsetPolygon(road, road.widthPx || 20);
+  return [];
+}
+
+function polygonsIntersect(a = [], b = []) {
+  if (a.length < 3 || b.length < 3) return false;
+  if (a.some(point => pointInPoly(point, b)) || b.some(point => pointInPoly(point, a))) return true;
+  for (let ai = 0; ai < a.length; ai++) {
+    const a0 = a[ai];
+    const a1 = a[(ai + 1) % a.length];
+    for (let bi = 0; bi < b.length; bi++) {
+      if (lineIntersection(a0, a1, b[bi], b[(bi + 1) % b.length])) return true;
+    }
+  }
+  return false;
+}
+
+function sidewalkSegmentPolygon(a, b, sign, halfWidth, sidewalkWidth) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const length = Math.hypot(dx, dy) || 1;
+  const nx = -dy / length * sign;
+  const ny = dx / length * sign;
+  const innerA = { x: a.x + nx * halfWidth, y: a.y + ny * halfWidth };
+  const innerB = { x: b.x + nx * halfWidth, y: b.y + ny * halfWidth };
+  const outerB = { x: b.x + nx * (halfWidth + sidewalkWidth), y: b.y + ny * (halfWidth + sidewalkWidth) };
+  const outerA = { x: a.x + nx * (halfWidth + sidewalkWidth), y: a.y + ny * (halfWidth + sidewalkWidth) };
+  return [innerA, innerB, outerB, outerA];
+}
+
+function sidewalkRunPolygon(path, sign, halfWidth, sidewalkWidth) {
+  const offsetSide = offset => path.map((point, index) => {
+    const previous = path[Math.max(0, index - 1)];
+    const next = path[Math.min(path.length - 1, index + 1)];
+    const dx = next.x - previous.x;
+    const dy = next.y - previous.y;
+    const length = Math.hypot(dx, dy) || 1;
+    const nx = -dy / length * sign;
+    const ny = dx / length * sign;
+    return { x: point.x + nx * offset, y: point.y + ny * offset };
+  });
+  const inner = offsetSide(halfWidth);
+  const outer = offsetSide(halfWidth + sidewalkWidth);
+  return inner.concat(outer.reverse());
+}
+
+function resamplePathForSidewalkClipping(path, stepPx) {
+  if (!Array.isArray(path) || path.length < 2) return path || [];
+  const total = pathTotalLength(path);
+  if (!Number.isFinite(total) || total <= stepPx) return path;
+  const count = Math.max(1, Math.ceil(total / stepPx));
+  const samples = [];
+  for (let index = 0; index <= count; index++) {
+    const hit = pointAtPathDistance(path, total * index / count);
+    if (hit?.point) samples.push(hit.point);
+  }
+  return samples;
+}
+
+export function clippedRoadSidewalkPolygons(road, roads = []) {
+  const base = roadSidewalkPolygons(road);
+  if (!base.length || !Array.isArray(roads) || roads.length <= 1) return base;
+  const clippingPolygons = roads
+    .filter(other => other && other.id !== road.id)
+    .map(roadPolygonForClipping)
+    .filter(polygon => polygon.length >= 3);
+  if (!clippingPolygons.length || road.mode !== 'centerline') return base;
+  const halfWidth = (road.widthPx || 20) / 2;
+  const sidewalkWidth = road.sidewalkWidthPx || 0;
+  const path = resamplePathForSidewalkClipping(roadCenterlineSamples(road), Math.max(4, Math.min(18, halfWidth, sidewalkWidth || 10)));
+  if (path.length < 2) return base;
+  const sides = [];
+  if (sidewalkWidth > 0 && (road.sidewalkSide === 'left' || road.sidewalkSide === 'both')) sides.push({ sign: 1, side: 'left' });
+  if (sidewalkWidth > 0 && (road.sidewalkSide === 'right' || road.sidewalkSide === 'both')) sides.push({ sign: -1, side: 'right' });
+  const kept = [];
+  let clipped = false;
+  sides.forEach(({ sign, side }) => {
+    let runStart = null;
+    const flushRun = endIndex => {
+      if (runStart === null) return;
+      const runPath = path.slice(runStart, endIndex + 1);
+      if (runPath.length >= 2) kept.push({ side, polygon: sidewalkRunPolygon(runPath, sign, halfWidth, sidewalkWidth), clipped: true, segmentIndex: runStart });
+      runStart = null;
+    };
+    for (let index = 0; index < path.length - 1; index++) {
+      const polygon = sidewalkSegmentPolygon(path[index], path[index + 1], sign, halfWidth, sidewalkWidth);
+      const blocked = clippingPolygons.some(clip => polygonsIntersect(polygon, clip));
+      if (blocked) {
+        clipped = true;
+        flushRun(index);
+      } else {
+        if (runStart === null) runStart = index;
+      }
+    }
+    flushRun(path.length - 1);
+  });
+  return clipped ? kept : base;
 }
 
 export function rebuildRoadGeometry(road) {

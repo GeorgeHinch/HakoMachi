@@ -4,7 +4,6 @@ export function createStatusUiController({
   fmt,
   activeSidebarDetailKind,
   initFabricControls,
-  isLikelyIPad,
 }){
   function setText(id, text){
     const el=getElement(id);
@@ -17,8 +16,6 @@ export function createStatusUiController({
     const fabricSection=getElement('fabricSection');
     if(fabricSection) fabricSection.style.display = (state.tool==='fabric' && !activeSidebarDetailKind()) ? '' : 'none';
     initFabricControls();
-    const ipadInputSection=getElement('ipadInputSection');
-    if(ipadInputSection) ipadInputSection.style.display = isLikelyIPad() ? '' : 'none';
     const roadModeLabel = state.roadMode === 'outline' ? 'Road outline' : state.roadMode === 'manhole' ? 'Road detail cutout' : state.roadMode === 'marking' ? 'Road etching / marking' : 'Road centerline';
     const roadTaskLabel = state.roadTask === 'intersections' ? 'Intersection controls' : state.roadTask === 'exportPreview' ? 'Cut preview' : state.roadTask === 'exportAssets' ? 'Road asset export' : null;
     const trackTaskLabel = state.trackTask === 'edit' ? 'Track edit' : state.trackTask === 'connect' ? 'Endpoint connections' : state.trackTask === 'sensor' ? 'Under-track sensor' : state.trackTask === 'signal' ? 'Signal location' : state.trackTask === 'crossingArm' ? 'Crossing arm location' : state.trackTask === 'intrusionDetector' ? 'Intrusion detector' : state.trackTask === 'occupancyLight' ? 'Blinking occupancy lights' : null;

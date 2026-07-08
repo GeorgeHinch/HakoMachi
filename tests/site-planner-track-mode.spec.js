@@ -15,6 +15,26 @@ async function canvasClick(page, relX, relY) {
 }
 
 test.describe('site planner track editing workspace', () => {
+  test('keeps input and Pencil settings in the top settings menu', async ({ page }) => {
+    await page.goto('/site-planner.html', { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('#ipadInputSection')).toHaveCount(0);
+
+    await page.click('#settingsBtn');
+    await expect(page.locator('#inputSettingsSection')).toBeVisible();
+    await expect(page.locator('#inputMode')).toBeVisible();
+    await expect(page.locator('#snapBtn')).toBeVisible();
+    await expect(page.locator('#deleteAnnotationBtn')).toBeVisible();
+    await expect(page.locator('#clearAnnotationsBtn')).toBeVisible();
+
+    await page.selectOption('#inputMode', 'mouseTrackpad');
+    await expect(page.locator('#inputMode')).toHaveValue('mouseTrackpad');
+
+    await page.click('#snapBtn');
+    await expect(page.locator('#snapBtn')).toHaveText('Snap: On');
+    await expect(page.locator('#snapBtn')).toHaveClass(/active/);
+  });
+
   test('switches the left rail to track-specific tools', async ({ page }) => {
     await page.goto('/site-planner.html', { waitUntil: 'domcontentloaded' });
 

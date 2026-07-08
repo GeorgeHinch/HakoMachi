@@ -43,7 +43,7 @@ body {
   min-width: 0;
   overflow: visible;
   position: relative;
-  z-index: 5;
+  z-index: 110;
 }
 
 .brand {
@@ -185,6 +185,62 @@ body {
   width: 100%;
   justify-content: flex-start;
   text-align: left;
+}
+
+.settingsPanel {
+  width: 260px;
+  max-width: calc(100vw - 32px);
+  padding: 8px 10px;
+}
+
+.settingsPanelTitle {
+  margin-bottom: 6px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.settingsPanel label {
+  margin-top: 0;
+}
+
+.settingsPanel select {
+  height: 30px;
+  font-size: 12px;
+}
+
+.settingsButtonRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.top .dropdownMenu .settingsButtonRow button {
+  width: auto;
+  min-height: 30px;
+  flex: 1 1 auto;
+  justify-content: center;
+  padding: 6px 8px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #f7f5ef;
+}
+
+.top .dropdownMenu .settingsButtonRow button:hover {
+  background: #f0f0ec;
+}
+
+.top .dropdownMenu .settingsButtonRow button.active {
+  background: var(--accent);
+  border-color: var(--accent-dark);
+  color: #fff;
+}
+
+.settingsHint {
+  margin-top: 8px;
+  line-height: 1.35;
 }
 .menuWrap.menuOpen { z-index: 90; }
 .menuWrap.menuOpen > button { background: var(--panel-3); border-color: #999; }

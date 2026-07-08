@@ -25,7 +25,6 @@ import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js'
 import { findSiteBundleProjectName, hydrateSiteBundleAssets } from './site-planner/project-bundle-utils.js';
 import { buildLocalHakoBundleAssets, buildLocalImageBundleAsset, buildLocalStlBundleAssets } from './site-planner/project-bundle-save-utils.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
-import { isLikelyIPad } from './site-planner/platform.js';
 import { bboxOverlaps, clamp, closestPointOnSegment, deg, dist, distanceToSegment, fmt, pointInPoly, polygonArea, polygonCenter, rad, rectLocal, selectionRectFromPoints, transformedRect, uid } from './site-planner/geometry.js';
 import { createImportProgressController } from './site-planner/import-progress-modal.js';
 import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS, TRACK_PROFILE_DEFAULTS } from './site-planner/presets.js';
@@ -146,7 +145,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     fmt,
     activeSidebarDetailKind,
     initFabricControls,
-    isLikelyIPad,
   });
   const { currentScaleDivisor, modelKnownMm } = createScaleInputController({getElement:$});
   const {

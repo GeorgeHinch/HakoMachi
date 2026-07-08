@@ -67,6 +67,25 @@
         <div id="settingsMenu" class="dropdownMenu right">
           <button id="fitBtn">Fit Image</button>
           <button id="resetBtn">Reset View</button>
+          <div class="overflow-sep"></div>
+          <div class="settingsPanel" id="inputSettingsSection">
+            <div class="settingsPanelTitle">Input / Apple Pencil</div>
+            <label for="inputMode">Input mode</label>
+            <select id="inputMode">
+              <option value="auto">Auto</option>
+              <option value="penDrawFingerPan" selected>Apple Pencil draws, finger pans</option>
+              <option value="penOnly">Pen only edits</option>
+              <option value="touchDraw">Touch draws</option>
+              <option value="mouseTrackpad">Mouse / trackpad</option>
+            </select>
+            <div class="settingsButtonRow">
+              <button id="snapBtn" title="On-screen replacement for holding Shift on iPad">Snap: Off</button>
+              <button id="deleteAnnotationBtn" title="Delete the selected annotation stroke" disabled>Delete Selected Note</button>
+              <button id="clearAnnotationsBtn" title="Clear freehand annotation strokes">Clear Notes</button>
+            </div>
+            <div class="small muted settingsHint">Recommended for iPad: Apple Pencil draws/edits pads, one finger pans, two fingers pinch-zoom. Snap replaces the keyboard Shift key. Use Annotate for pressure-aware Pencil markup that does not affect building geometry.</div>
+          </div>
+          <div class="overflow-sep"></div>
           <button id="clearCacheBtn" class="danger" title="Clear saved planner handoff/cache and reset this planner to a blank default project">Clear Cache / Reset</button>
           <div class="overflow-sep"></div>
           <button id="githubSettingsBtn">GitHub data settings</button>
@@ -146,23 +165,6 @@
   </div>
   <div class="canvasWrap"><canvas id="canvas"></canvas><div class="site3dFloatingToolbar" aria-label="Canvas view controls"><div class="site3dSegment" role="group" aria-label="View mode"><button id="view2dCanvasBtn" class="site3dFabBtn active" type="button">2D</button><button id="view3dCanvasBtn" class="site3dFabBtn" type="button">3D</button></div><div class="site3dImageControls" aria-label="3D reference image controls"><label class="site3dImageToggle"><input id="site3dImageVisible" type="checkbox" checked><span>Image</span></label><label class="site3dImageOpacity"><span>Opacity</span><input id="site3dImageOpacity" type="range" min="0" max="1" step="0.05" value="0.45"></label></div></div><div id="emptyImageOverlay" class="emptyImageOverlay" aria-live="polite"><div id="emptyImageCard" class="emptyImageCard"><div class="emptyImageIcon">▧</div><h2>Import a reference image to start</h2><p>The Site Planner needs a PNG, JPG, SVG, or WEBP plan image before you trace buildings, roads, benchwork, and site objects.</p><div class="emptyImageActions"><label class="fileButton" for="imageFile">Import Image</label></div><div class="emptyImageDropHint">Drop an image here, or use <strong>Import Image</strong> in the header.</div></div></div><button id="sidebarToggle" class="sidebarToggle" title="Open properties panel" aria-label="Open properties panel">‹</button><div id="contextMenu" class="contextMenu"></div><div id="roadExportBadge" class="roadExportBadge" style="display:none"></div></div>
   <aside class="sidebar">
-    <div class="section" id="ipadInputSection" style="display:none">
-      <h3>Input / iPad Pencil</h3>
-      <label>Input mode</label>
-      <select id="inputMode">
-        <option value="auto">Auto</option>
-        <option value="penDrawFingerPan" selected>Apple Pencil draws, finger pans</option>
-        <option value="penOnly">Pen only edits</option>
-        <option value="touchDraw">Touch draws</option>
-        <option value="mouseTrackpad">Mouse / trackpad</option>
-      </select>
-      <div class="buttons" style="margin-top:8px">
-        <button id="snapBtn" title="On-screen replacement for holding Shift on iPad">Snap: Off</button>
-        <button id="deleteAnnotationBtn" title="Delete the selected annotation stroke" disabled>Delete Selected Note</button>
-        <button id="clearAnnotationsBtn" title="Clear freehand annotation strokes">Clear Notes</button>
-      </div>
-      <div class="small muted" style="margin-top:8px">Recommended for iPad: Apple Pencil draws/edits pads, one finger pans, two fingers pinch-zoom. Snap replaces the keyboard Shift key. Use Annotate for pressure-aware Pencil markup that does not affect building geometry.</div>
-    </div>
     <div class="section" id="calibrationSection" style="display:none">
       <h3>Calibration</h3>
       <div id="scaleStatus" class="small warning">Not calibrated. Draw a calibration line.</div>

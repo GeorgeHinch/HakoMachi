@@ -55,6 +55,7 @@ test.describe('site planner track editing workspace', () => {
     await expect(page.locator('#trackCrossingArmModeBtn')).toBeVisible();
     await expect(page.locator('#trackIntrusionDetectorModeBtn')).toBeVisible();
     await expect(page.locator('#trackOccupancyLightModeBtn')).toBeVisible();
+    await expect(page.locator('#catenaryToolBtn')).toBeVisible();
 
     await page.click('#trackDrawModeBtn');
     await expect(page.locator('#trackDrawModeBtn')).toHaveClass(/active/);
@@ -71,6 +72,13 @@ test.describe('site planner track editing workspace', () => {
     await page.click('#trackOccupancyLightModeBtn');
     await expect(page.locator('#trackOccupancyLightModeBtn')).toHaveClass(/active/);
     await expect(page.locator('#statusTool')).toContainText('Blinking occupancy lights');
+
+    await page.click('#catenaryVariantBtn');
+    await expect(page.locator('#catenaryToolMenu')).toHaveClass(/open/);
+    await page.click('#catenaryToolMenu [data-catenary-kind="catenaryDoublePortal"]');
+    await expect(page.locator('#catenaryToolBtn')).toHaveClass(/active/);
+    await expect(page.locator('#catenaryToolLabel')).toHaveText('Catenary Portal');
+    await expect(page.locator('#statusTool')).toContainText('Double-track catenary portal');
   });
 
   test('shows toolbar tooltips for hover and touch-style presses', async ({ page }) => {
@@ -111,5 +119,50 @@ test.describe('site planner track editing workspace', () => {
     await expect(page.locator('#selectedPanel')).toContainText('Track item selected');
     await expect(page.locator('#selectedPanel')).toContainText('Under-track Sensor');
     await expect(page.locator('#objectBrowser')).toContainText('Track Items');
+  });
+
+  test('places a double-track catenary portal and shows it in the 3D preview', async ({ page }) => {
+    await page.goto('/site-planner.html', { waitUntil: 'domcontentloaded' });
+    await importBlankPlan(page);
+
+    await page.selectOption('#workspaceMode', 'track');
+    await page.click('#trackDrawModeBtn');
+    await canvasClick(page, 130, 180);
+    await canvasClick(page, 300, 180);
+    await canvasClick(page, 300, 180);
+
+    await page.click('#catenaryVariantBtn');
+    await page.click('#catenaryToolMenu [data-catenary-kind="catenaryDoublePortal"]');
+    await expect(page.locator('#statusTool')).toContainText('Double-track catenary portal');
+    await canvasClick(page, 210, 180);
+
+    await expect(page.locator('#selectedPanel')).toContainText('Track item selected');
+    await expect(page.locator('#selectedPanel')).toContainText('Double-track Catenary Portal');
+    await expect(page.locator('#objectBrowser')).toContainText('Track Items');
+
+    const sidebarToggle = page.locator('#sidebarToggle[aria-expanded="true"]');
+    if (await sidebarToggle.count() && await sidebarToggle.isVisible()) await sidebarToggle.click();
+    await page.click('#view3dCanvasBtn');
+    await expect(page.locator('.canvasWrap')).toHaveClass(/view3d/);
+    const site3dCanvas = page.locator('#site3dView canvas');
+    await expect(site3dCanvas).toBeVisible();
+    await page.waitForTimeout(250);
+    const previewScreenshot = await site3dCanvas.screenshot();
+    expect(previewScreenshot.length).toBeGreaterThan(1000);
+    const hasRenderedPixels = await site3dCanvas.evaluate(canvas => {
+      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+      if (!gl || gl.drawingBufferWidth < 2 || gl.drawingBufferHeight < 2) return false;
+      const width = Math.min(80, gl.drawingBufferWidth);
+      const height = Math.min(80, gl.drawingBufferHeight);
+      const x = Math.max(0, Math.floor((gl.drawingBufferWidth - width) / 2));
+      const y = Math.max(0, Math.floor((gl.drawingBufferHeight - height) / 2));
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      for (let i = 0; i < pixels.length; i += 4) {
+        if (pixels[i + 3] && (pixels[i] !== 236 || pixels[i + 1] !== 236 || pixels[i + 2] !== 230)) return true;
+      }
+      return false;
+    });
+    expect(hasRenderedPixels).toBe(true);
   });
 });

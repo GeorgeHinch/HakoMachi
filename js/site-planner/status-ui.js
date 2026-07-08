@@ -18,7 +18,7 @@ export function createStatusUiController({
     initFabricControls();
     const roadModeLabel = state.roadMode === 'outline' ? 'Road outline' : state.roadMode === 'manhole' ? 'Road detail cutout' : state.roadMode === 'marking' ? 'Road etching / marking' : 'Road centerline';
     const roadTaskLabel = state.roadTask === 'intersections' ? 'Intersection controls' : state.roadTask === 'exportPreview' ? 'Cut preview' : state.roadTask === 'exportAssets' ? 'Road asset export' : null;
-    const trackTaskLabel = state.trackTask === 'edit' ? 'Track edit' : state.trackTask === 'connect' ? 'Endpoint connections' : state.trackTask === 'sensor' ? 'Under-track sensor' : state.trackTask === 'signal' ? 'Signal location' : state.trackTask === 'crossingArm' ? 'Crossing arm location' : state.trackTask === 'intrusionDetector' ? 'Intrusion detector' : state.trackTask === 'occupancyLight' ? 'Blinking occupancy lights' : null;
+    const trackTaskLabel = state.trackTask === 'edit' ? 'Track edit' : state.trackTask === 'connect' ? 'Endpoint connections' : state.trackTask === 'sensor' ? 'Under-track sensor' : state.trackTask === 'signal' ? 'Signal location' : state.trackTask === 'crossingArm' ? 'Crossing arm location' : state.trackTask === 'intrusionDetector' ? 'Intrusion detector' : state.trackTask === 'occupancyLight' ? 'Blinking occupancy lights' : state.trackTask === 'catenarySingleSide' ? 'Single-side catenary pole' : state.trackTask === 'catenaryDoublePortal' ? 'Double-track catenary portal' : null;
     const toolLabel = state.workspaceMode === 'track'
       ? `Mode: Track Editing · ${trackTaskLabel || (state.tool === 'track' ? 'Draw track' : state.tool)}`
       : state.workspaceMode === 'road'
@@ -53,6 +53,8 @@ export function createStatusUiController({
     if(state.workspaceMode==='track' && state.trackTask==='crossingArm') hints.push('Crossing arm location: click near a road or track crossing to mark the arm placement.');
     if(state.workspaceMode==='track' && state.trackTask==='intrusionDetector') hints.push('Intrusion detector: click near a level crossing to mark the detection object location.');
     if(state.workspaceMode==='track' && state.trackTask==='occupancyLight') hints.push('Blinking occupancy lights: click near a level crossing to mark warning lights driven by occupancy detection.');
+    if(state.workspaceMode==='track' && state.trackTask==='catenarySingleSide') hints.push('Single-side catenary pole: click near a track to place a side mast with an outreach arm.');
+    if(state.workspaceMode==='track' && state.trackTask==='catenaryDoublePortal') hints.push('Double-track catenary portal: click between or beside tracks to place a two-pole gantry.');
     if(state.tool==='streetlight') hints.push(state.streetlightMode==='anchored'?'Anchored Streetlight: click to place a pole with sidewalk cut-hole or street-edge bulb mount metadata.':'Streetlight: click to place a free-standing streetlight marker.');
     if(state.tool==='fabric') hints.push('Urban Fabric Fill: click connected points around an area, then click near the first point or press Enter. Choose a fabric preset and generate pads with HakoSeed metadata.');
     setText('hint', hints.join(' '));

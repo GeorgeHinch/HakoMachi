@@ -2,7 +2,7 @@ const OBJECT_TYPE_DEFINITIONS = Object.freeze([
   { key: 'buildings', label: 'Buildings', hint: 'Footprints and attached .hako files', color: '#d79631' },
   { key: 'roads', label: 'Roads', hint: 'Centerlines and outlines', color: '#6f6a5e' },
   { key: 'tracks', label: 'Tracks', hint: 'Approximate rail alignments', color: '#4b4438' },
-  { key: 'trackAccessories', label: 'Track Items', hint: 'Sensors, signals, crossings, and detectors', color: '#2f6f7e' },
+  { key: 'trackAccessories', label: 'Track Items', hint: 'Sensors, signals, catenary, crossings, and detectors', color: '#2f6f7e' },
   { key: 'roadFeatures', label: 'Road Items', hint: 'Hatches and markings', color: '#3a2b1e' },
   { key: 'fabric', label: 'Fabric Areas', hint: 'Generated urban fabric regions', color: '#7c5f3f' },
   { key: 'benchwork', label: 'Benchwork', hint: 'Layout boundaries', color: '#2f6f4e' },

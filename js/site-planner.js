@@ -88,6 +88,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     crossingArm: { label: 'Crossing Arm', color: '#c84a3a', defaultNotes: 'Crossing arm placement marker.' },
     intrusionDetector: { label: 'Intrusion Detector', color: '#7b5aa6', defaultNotes: 'Level crossing intrusion detection marker.' },
     occupancyLight: { label: 'Blinking Occupancy Lights', color: '#c84a3a', defaultNotes: 'Blinking occupancy detection lights for level crossing status.' },
+    catenarySingleSide: { label: 'Single-side Catenary Pole', color: '#f2f0e8', defaultNotes: 'Single-track catenary pole with one side mast and outreach arm.' },
+    catenaryDoublePortal: { label: 'Double-track Catenary Portal', color: '#f2f0e8', defaultNotes: 'Double-track catenary gantry with poles on both sides.' },
   });
   let autosaveTimer = null;
   let autosaveSuppressed = false;
@@ -717,7 +719,34 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     ctx.strokeStyle=color;
     ctx.fillStyle='rgba(255,255,255,.92)';
     ctx.lineWidth=(selected?2.5:1.8)*scale;
-    if(item.kind==='signal'){
+    if(item.kind==='catenarySingleSide'){
+      ctx.beginPath(); ctx.rect(-15*scale,-8*scale,8*scale,16*scale); ctx.fill(); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-11*scale,8*scale); ctx.lineTo(-11*scale,-18*scale);
+      ctx.moveTo(-15*scale,-18*scale); ctx.lineTo(-7*scale,-18*scale);
+      ctx.moveTo(-11*scale,-10*scale); ctx.lineTo(16*scale,-10*scale);
+      ctx.moveTo(-7*scale,-10*scale); ctx.lineTo(10*scale,2*scale);
+      ctx.moveTo(2*scale,2*scale); ctx.lineTo(18*scale,2*scale);
+      ctx.moveTo(10*scale,2*scale); ctx.lineTo(16*scale,-10*scale);
+      ctx.stroke();
+      ctx.beginPath(); ctx.arc(13*scale,4*scale,1.5*scale,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    } else if(item.kind==='catenaryDoublePortal'){
+      ctx.beginPath(); ctx.rect(-19*scale,-6*scale,7*scale,12*scale); ctx.rect(12*scale,-6*scale,7*scale,12*scale); ctx.fill(); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-15*scale,6*scale); ctx.lineTo(-15*scale,-18*scale);
+      ctx.moveTo(15*scale,6*scale); ctx.lineTo(15*scale,-18*scale);
+      ctx.moveTo(-18*scale,-18*scale); ctx.lineTo(18*scale,-18*scale);
+      ctx.moveTo(-18*scale,-12*scale); ctx.lineTo(18*scale,-12*scale);
+      ctx.moveTo(-15*scale,-12*scale); ctx.lineTo(-9*scale,-18*scale);
+      ctx.moveTo(-9*scale,-12*scale); ctx.lineTo(-3*scale,-18*scale);
+      ctx.moveTo(-3*scale,-12*scale); ctx.lineTo(3*scale,-18*scale);
+      ctx.moveTo(3*scale,-12*scale); ctx.lineTo(9*scale,-18*scale);
+      ctx.moveTo(9*scale,-12*scale); ctx.lineTo(15*scale,-18*scale);
+      ctx.moveTo(-6*scale,-8*scale); ctx.lineTo(-6*scale,-12*scale);
+      ctx.moveTo(6*scale,-8*scale); ctx.lineTo(6*scale,-12*scale);
+      ctx.stroke();
+      ctx.beginPath(); ctx.arc(-6*scale,-7*scale,1.3*scale,0,Math.PI*2); ctx.arc(6*scale,-7*scale,1.3*scale,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    } else if(item.kind==='signal'){
       ctx.beginPath(); ctx.moveTo(0,10*scale); ctx.lineTo(0,-10*scale); ctx.stroke();
       ctx.beginPath(); ctx.arc(0,-12*scale,5*scale,0,Math.PI*2); ctx.fill(); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-7*scale,12*scale); ctx.lineTo(7*scale,12*scale); ctx.stroke();
@@ -1738,6 +1767,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(t.hidden) return;
       trackPathSamples(t,18).forEach(p=>{ xs.push(site3DScale(p.x)); ys.push(site3DScale(p.y)); });
     });
+    (state.trackAccessories||[]).forEach(raw=>{
+      const item=normalizeTrackAccessory(raw);
+      if(item.hidden) return;
+      xs.push(site3DScale(item.x));
+      ys.push(site3DScale(item.y));
+    });
     state.buildings.forEach(raw=>{
       const b=normalizeBuilding(raw);
       if(b.hidden) return;
@@ -2146,6 +2181,89 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const mesh=new THREE.Mesh(new THREE.BoxGeometry(Math.max(.05,w),Math.max(.05,h),Math.max(.05,d)),mat);
     mesh.position.set(x||0,y||0,z||0);
     return mesh;
+  }
+  function site3DBeam(group,a,b,radius,mat,name='Catenary beam'){
+    const start=new THREE.Vector3(a.x,a.y,a.z);
+    const end=new THREE.Vector3(b.x,b.y,b.z);
+    const delta=end.clone().sub(start);
+    const len=delta.length();
+    if(!(len>.01)) return null;
+    const mesh=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,len,8),mat);
+    mesh.name=name;
+    mesh.position.copy(start.add(end).multiplyScalar(.5));
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());
+    group.add(mesh);
+    return mesh;
+  }
+  function tagSite3DTrackAccessory(group,item){
+    if(!group || !item) return group;
+    group.userData.sitePlannerTrackAccessoryId=item.id;
+    group.userData.sitePlannerTrackAccessoryName=item.name||trackAccessoryLabel(item.kind);
+    group.traverse?.(child=>{
+      child.userData=child.userData||{};
+      child.userData.sitePlannerTrackAccessoryId=item.id;
+      child.userData.sitePlannerTrackAccessoryName=item.name||trackAccessoryLabel(item.kind);
+    });
+    return group;
+  }
+  function buildSite3DCatenaryItem(item,bounds){
+    const selected=item.id===state.selectedTrackAccessoryId;
+    const material=new THREE.MeshStandardMaterial({
+      color:selected?0xc8493a:0xf2f0e8,
+      roughness:.72,
+      metalness:.02,
+      transparent:false,
+      opacity:1,
+      depthTest:true,
+      depthWrite:true,
+    });
+    const detailMat=new THREE.MeshStandardMaterial({color:selected?0x8f2f24:0xd8d3c5,roughness:.78,metalness:.02});
+    const group=new THREE.Group();
+    group.name=item.name||trackAccessoryLabel(item.kind);
+    group.position.set(site3DScale(item.x)-bounds.cx,0,site3DScale(item.y)-bounds.cy);
+    group.rotation.y=-rad(item.rotationDeg||0);
+    const addBox=(w,h,d,x,y,z,mat=material)=>group.add(site3DAddEdges(site3DBox(w,h,d,mat,x,y,z),0x9b9485,.28));
+    const addInsulator=(x,y,z)=>addBox(.7,1.4,.7,x,y,z,detailMat);
+    if(item.kind==='catenaryDoublePortal'){
+      const poleZ=13.5;
+      const height=28;
+      addBox(5,.45,4.2,0,.23,-poleZ);
+      addBox(5,.45,4.2,0,.23,poleZ);
+      addBox(.9,height,.9,0,height/2,-poleZ);
+      addBox(.9,height,.9,0,height/2,poleZ);
+      site3DBeam(group,{x:0,y:height,z:-poleZ},{x:0,y:height,z:poleZ},.32,material,'Catenary portal top chord');
+      site3DBeam(group,{x:0,y:height-4,z:-poleZ},{x:0,y:height-4,z:poleZ},.24,material,'Catenary portal lower chord');
+      [-8,-3,3,8].forEach((z,i)=>{
+        site3DBeam(group,{x:0,y:height-4,z},{x:0,y:height,z:z+(i%2===0?4:-4)},.18,material,'Catenary portal truss brace');
+      });
+      site3DBeam(group,{x:0,y:19,z:-poleZ},{x:0,y:height-4,z:-7},.22,material,'Catenary left brace');
+      site3DBeam(group,{x:0,y:19,z:poleZ},{x:0,y:height-4,z:7},.22,material,'Catenary right brace');
+      addInsulator(0,height-6,-5.2);
+      addInsulator(0,height-6,5.2);
+    } else {
+      const poleZ=-11;
+      const height=28;
+      addBox(5,.45,4.2,0,.23,poleZ);
+      addBox(.9,height,.9,0,height/2,poleZ);
+      site3DBeam(group,{x:0,y:height-3,z:poleZ},{x:0,y:height-3,z:10},.3,material,'Single-side catenary outreach');
+      site3DBeam(group,{x:0,y:height-10,z:poleZ},{x:0,y:height-3,z:7},.22,material,'Single-side catenary brace');
+      site3DBeam(group,{x:0,y:height-8,z:-4},{x:0,y:height-8,z:12},.18,material,'Single-side contact wire guide');
+      site3DBeam(group,{x:0,y:height-3,z:7},{x:0,y:height-8,z:12},.16,material,'Single-side catenary hanger');
+      addBox(5,.45,.7,0,height+1,poleZ);
+      addInsulator(0,height-7,8);
+    }
+    return tagSite3DTrackAccessory(group,item);
+  }
+  function buildSite3DTrackAccessoryGroup(bounds){
+    const group=new THREE.Group();
+    group.name='Site Planner track items';
+    (state.trackAccessories||[]).forEach(raw=>{
+      const item=normalizeTrackAccessory(raw);
+      if(item.hidden || (item.kind!=='catenarySingleSide' && item.kind!=='catenaryDoublePortal')) return;
+      const catenary=buildSite3DCatenaryItem(item,bounds);
+      if(catenary) group.add(catenary);
+    });
+    return group.children.length ? group : null;
   }
   function site3DWindowColumns(width,density){
     const d=String(density||'normal');
@@ -2678,6 +2796,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(roads) site3d.root.add(roads);
     const tracks=buildSite3DTrackGroup(bounds);
     if(tracks) site3d.root.add(tracks);
+    const trackItems=buildSite3DTrackAccessoryGroup(bounds);
+    if(trackItems) site3d.root.add(trackItems);
     if(!benchworkBaseCount){
       const grid=new THREE.GridHelper(Math.max(bounds.width,bounds.depth),20,0x8a7f66,0xcfc5aa);
       grid.position.y=.015;
@@ -3415,13 +3535,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const track=selectedTrack(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const fabric=selectedFabric(); const stl=selectedStlObject(); const selIds=currentSelectedBuildingIds(); const trackAccessory=(!b && !selIds.length && !note && !roadFeature && !road && !track && !bench && !light && !fabric && !stl) ? selectedTrackAccessory() : null; if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use keyboard shortcuts to copy/paste selected building footprints.</span><div class="buttons" style="margin-top:8px"><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(trackAccessory){normalizeTrackAccessory(trackAccessory); box.innerHTML=`
       <b>Track item selected</b>
       <label>Name</label><input id="trackItemName" value="${escapeAttr(trackAccessory.name||trackAccessoryLabel(trackAccessory.kind))}">
-      <label>Type</label><select id="trackItemKind"><option value="sensor">Under-track Sensor</option><option value="signal">Signal Location</option><option value="crossingArm">Crossing Arm</option><option value="intrusionDetector">Intrusion Detector</option><option value="occupancyLight">Blinking Occupancy Lights</option></select>
+      <label>Type</label><select id="trackItemKind"><option value="sensor">Under-track Sensor</option><option value="signal">Signal Location</option><option value="crossingArm">Crossing Arm</option><option value="intrusionDetector">Intrusion Detector</option><option value="occupancyLight">Blinking Occupancy Lights</option><option value="catenarySingleSide">Single-side Catenary Pole</option><option value="catenaryDoublePortal">Double-track Catenary Portal</option></select>
       <div class="row"><div><label>X px</label><input id="trackItemX" type="number" step="1" value="${fmt(trackAccessory.x||0)}"></div><div><label>Y px</label><input id="trackItemY" type="number" step="1" value="${fmt(trackAccessory.y||0)}"></div></div>
       <div class="row"><div><label>Rotation °</label><input id="trackItemRot" type="number" step="1" value="${fmt(trackAccessory.rotationDeg||0)}"></div><div><label>Color</label><input id="trackItemColor" type="color" value="${trackAccessory.color||trackAccessoryPreset(trackAccessory.kind).color}"></div></div>
       <label>Notes</label><textarea id="trackItemNotes" rows="3">${escapeHtml(trackAccessory.notes||'')}</textarea>
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="trackItemLocked" type="checkbox" ${trackAccessory.locked?'checked':''}> <span>Lock item</span></label>
       <div class="buttons" style="margin-top:8px"><button id="trackItemSnap">Snap to Nearest Track</button><button id="deleteTrackItem" class="danger">Delete Item</button></div>
-      <div class="small muted" style="margin-top:8px">Track items mark placement for sensors, signals, crossing arms, and level crossing detection around physical track. They are saved with the site plan but are not exported as track parts.</div>`;
+      <div class="small muted" style="margin-top:8px">Track items mark placement for sensors, signals, crossing arms, catenary poles, and level crossing detection around physical track. They are saved with the site plan but are not exported as track parts.</div>`;
       const kind=$('trackItemKind'); if(kind){kind.value=trackAccessory.kind; kind.onchange=()=>{trackAccessory.kind=kind.value; const preset=trackAccessoryPreset(trackAccessory.kind); trackAccessory.color=trackAccessory.color||preset.color; trackAccessory.name=trackAccessory.name||preset.label; normalizeTrackAccessory(trackAccessory); syncAll();};}
       const bindTrackItem=(id,fn)=>{const el=$(id); if(el) el.oninput=()=>{fn(el.type==='checkbox'?el.checked:el.value); normalizeTrackAccessory(trackAccessory); syncAll();};};
       bindTrackItem('trackItemName',v=>trackAccessory.name=v); bindTrackItem('trackItemX',v=>trackAccessory.x=parseFloat(v)||0); bindTrackItem('trackItemY',v=>trackAccessory.y=parseFloat(v)||0); bindTrackItem('trackItemRot',v=>trackAccessory.rotationDeg=parseFloat(v)||0); bindTrackItem('trackItemColor',v=>trackAccessory.color=v); bindTrackItem('trackItemNotes',v=>trackAccessory.notes=v); bindTrackItem('trackItemLocked',v=>trackAccessory.locked=!!v);
@@ -4506,6 +4626,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         (mode==='track' && state.trackTask===action);
       btn.classList.toggle('active', active);
     });
+    updateCatenaryToolButton();
     const previewBtn=$('roadCutPreviewModeBtn');
     if(previewBtn){
       const label='Cut preview '+(state.roadExportPreview?'on':'off');
@@ -4627,6 +4748,18 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       downloadRoadAssetExport();
     }
   });
+  function beginTrackAccessoryPlacement(action){
+    state.trackTask=action;
+    setWorkspaceMode('track', {preserveTrackTask: true});
+    setActiveTool('select', {preserveTrackTask: true});
+    renderSelected();
+    draw();
+    if(window.matchMedia && window.matchMedia('(max-width: 700px)').matches) setSidebarOpen(false);
+    else setSidebarOpen(true);
+    const hint=$('statusHint');
+    if(hint) hint.textContent=`${trackAccessoryLabel(action)} placement is active. Click near track to place a marker.`;
+    updateWorkspaceModeUi();
+  }
   document.querySelectorAll('[data-track-action]').forEach(btn=>btn.onclick=()=>{
     const action=btn.dataset.trackAction;
     setWorkspaceMode('track', {preserveTrackTask: true});
@@ -4649,15 +4782,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       return;
     }
     if(isTrackAccessoryAction(action)){
-      state.trackTask=action;
-      setActiveTool('select', {preserveTrackTask: true});
-      renderSelected();
-      draw();
-      if(window.matchMedia && window.matchMedia('(max-width: 700px)').matches) setSidebarOpen(false);
-      else setSidebarOpen(true);
-      const hint=$('statusHint');
-      if(hint) hint.textContent=`${trackAccessoryLabel(action)} placement is active. Click near track to place a marker.`;
-      updateWorkspaceModeUi();
+      beginTrackAccessoryPlacement(action);
       return;
     }
   });
@@ -4698,11 +4823,42 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   $('streetlightToolBtn')?.addEventListener('pointercancel', ()=>clearTimeout(streetlightToolPressTimer));
   $('streetlightToolBtn')?.addEventListener('contextmenu', e=>{e.preventDefault(); showStreetlightToolMenu($('streetlightToolGroup')||$('streetlightVariantBtn'));});
   document.querySelectorAll('#streetlightToolMenu button').forEach(btn=>btn.onclick=e=>{e.stopPropagation(); state.streetlightMode=btn.dataset.streetlightMode||'free'; updateStreetlightToolButton(); setActiveTool('streetlight');});
+  function catenaryToolTask(){
+    return state.trackTask==='catenaryDoublePortal' ? 'catenaryDoublePortal' : 'catenarySingleSide';
+  }
+  function updateCatenaryToolButton(){
+    const task=catenaryToolTask();
+    const icon=$('catenaryToolIcon'), label=$('catenaryToolLabel'), btn=$('catenaryToolBtn');
+    const portal=task==='catenaryDoublePortal';
+    const title=portal?'Double-track catenary portal':'Single-side catenary pole';
+    if(icon){ icon.dataset.icon=portal?'catenaryPortal':'catenarySingle'; setIcon(icon, icon.dataset.icon); }
+    if(label) label.textContent=portal?'Catenary Portal':'Catenary Pole';
+    if(btn){
+      btn.dataset.trackAction=task;
+      btn.title=title;
+      btn.setAttribute('aria-label', title);
+      btn.classList.toggle('active', state.workspaceMode==='track' && state.trackTask===task);
+    }
+    document.querySelectorAll('#catenaryToolMenu button').forEach(b=>b.classList.toggle('active', b.dataset.catenaryKind===task));
+  }
+  function showCatenaryToolMenu(anchor=$('catenaryToolGroup')||$('catenaryToolBtn')){toggleToolFlyout('catenaryToolMenu', anchor); updateCatenaryToolButton();}
+  let catenaryToolPressTimer=null;
+  $('catenaryVariantBtn')?.addEventListener('click', e=>{e.preventDefault(); e.stopPropagation(); showCatenaryToolMenu($('catenaryToolGroup')||$('catenaryVariantBtn'));});
+  $('catenaryToolBtn')?.addEventListener('pointerdown', e=>{clearTimeout(catenaryToolPressTimer); catenaryToolPressTimer=setTimeout(()=>showCatenaryToolMenu($('catenaryToolGroup')||$('catenaryToolBtn')), 420);});
+  $('catenaryToolBtn')?.addEventListener('pointerup', ()=>clearTimeout(catenaryToolPressTimer));
+  $('catenaryToolBtn')?.addEventListener('pointercancel', ()=>clearTimeout(catenaryToolPressTimer));
+  $('catenaryToolBtn')?.addEventListener('contextmenu', e=>{e.preventDefault(); showCatenaryToolMenu($('catenaryToolGroup')||$('catenaryVariantBtn'));});
+  document.querySelectorAll('#catenaryToolMenu button').forEach(btn=>btn.onclick=e=>{
+    e.stopPropagation();
+    beginTrackAccessoryPlacement(btn.dataset.catenaryKind||'catenarySingleSide');
+    hideToolFlyouts();
+  });
   document.addEventListener('pointerdown', e=>{if(!e.target.closest('.toolGroup') && !e.target.closest('.toolFlyout')) hideToolFlyouts();});
   window.addEventListener('resize', hideToolFlyouts);
   window.addEventListener('scroll', hideToolFlyouts, true);
   installTooltips();
   updateStreetlightToolButton();
+  updateCatenaryToolButton();
   async function loadReferenceImage(file){
     if(!file) return;
     openImportProgressModal('Import reference image','Reading image...',`Loading ${file.name||'reference image'}.`);

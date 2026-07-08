@@ -53,6 +53,25 @@ test.describe('site planner track editing workspace', () => {
     await expect(page.locator('#statusTool')).toContainText('Blinking occupancy lights');
   });
 
+  test('shows toolbar tooltips for hover and touch-style presses', async ({ page }) => {
+    await page.goto('/site-planner.html', { waitUntil: 'domcontentloaded' });
+
+    await page.selectOption('#workspaceMode', 'track');
+
+    await page.locator('#trackSignalModeBtn').hover();
+    await expect(page.locator('#toolTooltip')).toHaveText('Signal location');
+    await expect(page.locator('#toolTooltip')).toHaveClass(/visible/);
+
+    await page.dispatchEvent('#trackOccupancyLightModeBtn', 'pointerdown', {
+      bubbles: true,
+      pointerType: 'touch',
+      pointerId: 21,
+      isPrimary: true,
+    });
+    await expect(page.locator('#toolTooltip')).toHaveText('Blinking occupancy lights');
+    await expect(page.locator('#toolTooltip')).toHaveClass(/visible/);
+  });
+
   test('places an under-track sensor marker from track mode', async ({ page }) => {
     await page.goto('/site-planner.html', { waitUntil: 'domcontentloaded' });
     await importBlankPlan(page);

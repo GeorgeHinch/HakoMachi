@@ -343,29 +343,29 @@ body {
   border: 0;
 }
 
-.toolbtn::after {
-  content: attr(aria-label);
-  position: absolute;
-  left: 48px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: #fff;
-  color: var(--text);
+.toolTooltip {
+  position: fixed;
+  z-index: 10080;
+  max-width: min(240px, calc(100vw - 16px));
+  padding: 7px 9px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 6px 8px;
+  background: rgba(255,255,255,.98);
+  color: var(--text);
+  box-shadow: 0 6px 18px rgba(0,0,0,.16);
   font-size: 12px;
-  line-height: 1;
+  line-height: 1.2;
   white-space: nowrap;
-  box-shadow: 0 4px 16px rgba(0,0,0,.15);
   opacity: 0;
+  transform: translateY(-50%) translateX(-2px);
   pointer-events: none;
-  transition: opacity .12s ease;
-  z-index: 20;
+  transition: opacity .12s ease, transform .12s ease;
 }
 
-.toolbtn:hover::after,
-.toolbtn:focus-visible::after { opacity: 1; }
+.toolTooltip.visible {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
 
 .toolGroup {
   position: relative;

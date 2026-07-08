@@ -176,6 +176,12 @@ function angularDelta(from, to) {
   return normalizeAngle(to - from);
 }
 
+function shortestAngularDelta(from, to) {
+  let delta = angularDelta(from, to);
+  if (delta > Math.PI) delta -= Math.PI * 2;
+  return delta;
+}
+
 function tangentVector(angle) {
   return { x: Math.cos(angle), y: Math.sin(angle) };
 }
@@ -187,6 +193,14 @@ function localSideVector(angle, side) {
 
 function addVector(point, vector, amount = 1) {
   return { x: point.x + vector.x * amount, y: point.y + vector.y * amount };
+}
+
+function angleFrom(center, point) {
+  return normalizeAngle(Math.atan2(point.y - center.y, point.x - center.x));
+}
+
+function polarPoint(center, angle, radius) {
+  return { x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius };
 }
 
 function pointNear(a, b, tolerance = 1e-5) {
@@ -284,7 +298,19 @@ function sidewalkCornerPolygon(node, arm, nextArm, delta) {
   const p2 = addVector(addVector(node.center, bForward, reach), bSide, nextArm.halfWidthPx);
   const p3 = addVector(addVector(node.center, bForward, reach), bSide, nextArm.halfWidthPx + nextArm.sidewalkWidthPx);
   const p4 = addVector(addVector(node.center, aForward, reach), aSide, arm.halfWidthPx + arm.sidewalkWidthPx);
-  const polygon = [p1, p2, p3, p4].filter((point, index, points) => index === 0 || !pointNear(point, points[index - 1], 0.01));
+  const outerStart = angleFrom(node.center, p4);
+  const outerSpan = shortestAngularDelta(outerStart, angleFrom(node.center, p3));
+  const stepCount = Math.max(2, Math.min(8, Math.ceil(delta / (Math.PI / 10))));
+  const sampleEdge = (startAngle, span, startRadius, endRadius) => {
+    const points = [];
+    for (let index = 0; index <= stepCount; index++) {
+      const t = index / stepCount;
+      points.push(polarPoint(node.center, startAngle + span * t, startRadius + (endRadius - startRadius) * t));
+    }
+    return points;
+  };
+  const outer = sampleEdge(outerStart, outerSpan, dist(node.center, p4), dist(node.center, p3));
+  const polygon = [p1, p2].concat(outer.reverse()).filter((point, index, points) => index === 0 || !pointNear(point, points[index - 1], 0.01));
   if (polygon.length < 3 || Math.abs(polygonAreaSigned(polygon)) < 0.5) return null;
   return {
     side: 'intersection',

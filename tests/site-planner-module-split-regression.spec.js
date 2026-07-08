@@ -347,6 +347,7 @@ test.describe('Site Planner module split contracts', () => {
     expect(angledCorners.length).toBeGreaterThanOrEqual(4);
     expect(angledCorners.every(sidewalk => sidewalk.polygon.every(point => Number.isFinite(point.x) && Number.isFinite(point.y)))).toBe(true);
     expect(angledCorners.every(sidewalk => area(sidewalk.polygon) > 0.5)).toBe(true);
+    expect(angledCorners.every(sidewalk => sidewalk.polygon.length > 4)).toBe(true);
   });
 
   test('road asset SVG exports the same generated sidewalk intersection pieces as the canvas model', async () => {

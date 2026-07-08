@@ -21,7 +21,10 @@ export function createStatusUiController({
     if(ipadInputSection) ipadInputSection.style.display = isLikelyIPad() ? '' : 'none';
     const roadModeLabel = state.roadMode === 'outline' ? 'Road outline' : state.roadMode === 'manhole' ? 'Road detail cutout' : state.roadMode === 'marking' ? 'Road etching / marking' : 'Road centerline';
     const roadTaskLabel = state.roadTask === 'intersections' ? 'Intersection controls' : state.roadTask === 'exportPreview' ? 'Cut preview' : state.roadTask === 'exportAssets' ? 'Road asset export' : null;
-    const toolLabel = state.workspaceMode === 'road'
+    const trackTaskLabel = state.trackTask === 'edit' ? 'Track edit' : state.trackTask === 'connect' ? 'Endpoint connections' : state.trackTask === 'exportPreview' ? 'Track output preview' : state.trackTask === 'exportAssets' ? 'Track SVG export' : null;
+    const toolLabel = state.workspaceMode === 'track'
+      ? `Mode: Track Editing · ${trackTaskLabel || (state.tool === 'track' ? 'Draw track' : state.tool)}`
+      : state.workspaceMode === 'road'
       ? `Mode: Road Editing · ${roadTaskLabel || (state.tool === 'road' ? roadModeLabel : state.tool)}`
       : 'Tool: '+state.tool;
     setText('statusTool', toolLabel);
@@ -45,6 +48,10 @@ export function createStatusUiController({
     if(state.workspaceMode==='road' && state.roadTask==='intersections') hints.push('Intersection controls: select a road and use the properties pane to toggle crosswalks, stop bars, tactile pavers, and curb guide marks.');
     if(state.workspaceMode==='road' && state.roadExportPreview) hints.push('Cut preview is on: retained road pieces, stencil cuts, and engraving output are shown for checking before export.');
     if(state.tool==='track') hints.push('Track: click connected points to sketch approximate rails. Press Enter or double-click to finish; the Site Planner generates twin rails and ties for planning context.');
+    if(state.workspaceMode==='track' && state.tool==='select' && !state.trackTask) hints.push('Track Editing mode: select tracks or choose a track tool from the left rail.');
+    if(state.workspaceMode==='track' && state.trackTask==='edit') hints.push('Track edit: select a track, then drag points or bend a highlighted segment to curve it.');
+    if(state.workspaceMode==='track' && state.trackTask==='connect') hints.push('Endpoint connections: select a track and drag an endpoint near another track endpoint to snap them together.');
+    if(state.workspaceMode==='track' && state.trackExportPreview) hints.push('Track output preview is on: roadbed, rail, and tie output is highlighted over the canvas for export checking.');
     if(state.tool==='streetlight') hints.push(state.streetlightMode==='anchored'?'Anchored Streetlight: click to place a pole with sidewalk cut-hole or street-edge bulb mount metadata.':'Streetlight: click to place a free-standing streetlight marker.');
     if(state.tool==='fabric') hints.push('Urban Fabric Fill: click connected points around an area, then click near the first point or press Enter. Choose a fabric preset and generate pads with HakoSeed metadata.');
     setText('hint', hints.join(' '));

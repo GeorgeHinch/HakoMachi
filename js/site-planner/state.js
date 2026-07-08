@@ -34,6 +34,8 @@ export function createInitialState() {
     tracks: [],
     selectedTrackId: null,
     hoverTrackId: null,
+    trackTask: null,
+    trackExportPreview: false,
     trackDraft: [],
     roadFeatures: [],
     selectedRoadFeatureId: null,

@@ -14,6 +14,7 @@ export const ICONS = {
   fabric: '<svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M4 11h16"/><path d="M9 5v14"/><path d="M15 5v14"/><path d="M9 11l6 8"/></svg>',
   manhole: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M7 10h10"/><path d="M7 14h10"/><path d="M10 5v14"/><path d="M14 5v14"/></svg>',
   roadMarking: '<svg viewBox="0 0 24 24"><path d="M5 19h14"/><path d="M8 15h8"/><path d="M10 11h4"/><path d="M12 5v4"/><path d="M9 8l3-3 3 3"/></svg>',
+  trackConnect: '<svg viewBox="0 0 24 24"><path d="M5 19l4-14"/><path d="M15 5l4 14"/><path d="M7 14h10"/><path d="M8 10h8"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/></svg>',
   intersection: '<svg viewBox="0 0 24 24"><path d="M4 10h16"/><path d="M4 14h16"/><path d="M10 4v16"/><path d="M14 4v16"/><path d="M7 7h2"/><path d="M15 17h2"/></svg>',
   preview: '<svg viewBox="0 0 24 24"><path d="M3 12s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="12" cy="12" r="3"/></svg>',
   download: '<svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>',

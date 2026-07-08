@@ -250,7 +250,11 @@ body {
 }
 
 .sitePlannerApp:not(.roadWorkspace) .toolbar [data-workspace="road"],
-.sitePlannerApp.roadWorkspace .toolbar [data-workspace="layout"] {
+.sitePlannerApp:not(.trackWorkspace) .toolbar [data-workspace="track"],
+.sitePlannerApp.roadWorkspace .toolbar [data-workspace="layout"],
+.sitePlannerApp.roadWorkspace .toolbar [data-workspace="track"],
+.sitePlannerApp.trackWorkspace .toolbar [data-workspace="layout"],
+.sitePlannerApp.trackWorkspace .toolbar [data-workspace="road"] {
   display: none;
 }
 
@@ -291,6 +295,12 @@ body {
   background: #eef5ee;
   border-color: #3f7a50;
   color: #2f6f4e;
+}
+
+.toolbtn.trackActionActive {
+  background: #eef2f7;
+  border-color: #4b6380;
+  color: #344d67;
 }
 
 .toolbtn:hover {
@@ -1132,6 +1142,10 @@ canvas {
   display: block;
   font-size: 12px;
   margin-bottom: 2px;
+}
+
+#trackExportBadge {
+  top: 122px;
 }
 
 .githubDataModal {

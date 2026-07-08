@@ -515,6 +515,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     updateWorkspaceModeUi();
     draw();
   }
+  function updateTrackExportBadge(){
+    const el=$('trackExportBadge'); if(!el) return;
+    if(!state.trackExportPreview){el.style.display='none'; return;}
+    const tracks=(state.tracks||[]).map(normalizeTrack).filter(t=>!t.hidden && (t.pointsPx||[]).length>=2);
+    const tieCount=tracks.reduce((sum,t)=>sum+trackTieSegments(t).length,0);
+    el.style.display='block';
+    el.innerHTML=`<b>Track Output Preview</b>${tracks.length} tracks · ${tieCount} ties<br><span class="muted">Roadbed, rails, and ties match the dedicated track SVG export.</span>`;
+  }
+  function setTrackExportPreview(on){
+    state.trackExportPreview=!!on;
+    updateWorkspaceModeUi();
+    draw();
+  }
 
   function drawRoadJunctions(){
     return roadSystem.drawRoadJunctions();
@@ -593,6 +606,34 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const c=polygonCenter(path);
       drawLabel(`${t.name||'Track'} · ${fmt(t.gaugeMm||9)} mm gauge`,{x:c.x+8/state.view.scale,y:c.y-8/state.view.scale});
     }
+    ctx.restore();
+  }
+  function drawTrackExportPreview(){
+    updateTrackExportBadge();
+    if(!state.trackExportPreview) return;
+    const tracks=(state.tracks||[]).map(normalizeTrack).filter(t=>!t.hidden && (t.pointsPx||[]).length>=2);
+    if(!tracks.length) return;
+    ctx.save();
+    ctx.lineCap='round';
+    ctx.lineJoin='round';
+    tracks.forEach(t=>{
+      const path=trackPathSamples(t,18);
+      const profile=trackProfilePx(t);
+      const railOffset=profile.gauge/2;
+      drawTrackModelPath(path,SVG_RETAINED_CUT,Math.max(profile.roadbedWidth,2),.58);
+      drawTrackModelPath(path,SVG_RETAINED_CUT,Math.max(profile.roadbedTopWidth,1.4),.72);
+      trackTieSegments(t).forEach(seg=>{
+        ctx.strokeStyle=SVG_ENGRAVE;
+        ctx.globalAlpha=.82;
+        ctx.lineWidth=Math.max(profile.tieWidth,1.2);
+        ctx.beginPath();
+        ctx.moveTo(seg.a.x,seg.a.y);
+        ctx.lineTo(seg.b.x,seg.b.y);
+        ctx.stroke();
+      });
+      drawTrackModelPath(offsetTrackPath(path,railOffset),SVG_ENGRAVE,Math.max(profile.railWidth,1),.92);
+      drawTrackModelPath(offsetTrackPath(path,-railOffset),SVG_ENGRAVE,Math.max(profile.railWidth,1),.92);
+    });
     ctx.restore();
   }
   function renderRoads(){
@@ -3050,7 +3091,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       drawNow();
     });
   }
-  function drawNow(){const r=canvas.getBoundingClientRect(); const dpr=devicePixelRatio||1; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.benchworkOutlines.forEach(drawBenchwork); state.roads.forEach(drawRoad); (state.tracks||[]).forEach(drawTrack); drawRoadJunctions(); drawGeneratedRoadIntersections(); (state.roadFeatures||[]).forEach(drawRoadFeature); drawRoadExportPreview(); (state.fabricRegions||[]).forEach(drawFabricRegion); state.buildings.forEach(drawBuilding); (state.stlObjects||[]).forEach(drawStlObject); state.streetlights.forEach(drawStreetlight); if(state.roadDraft.length){ctx.save();ctx.strokeStyle='#6f6a5e';ctx.fillStyle='rgba(111,106,94,.18)';ctx.lineWidth=3/state.view.scale;if(state.roadMode==='centerline'&&state.roadDraft.length>=2){const temp=createRoadCenterlineFromPoints(state.roadDraft); temp.id='road_draft'; drawRoad(temp);} else {ctx.beginPath();state.roadDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();}state.roadDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.trackDraft&&state.trackDraft.length){ctx.save();const temp=normalizeTrack({id:'track_draft',name:'Track preview',pointsPx:state.trackDraft.slice(),gaugeMm:9,tieSpacingMm:4,color:'#4b4438',tieColor:'#8a6f43'}); drawTrack(temp); ctx.fillStyle='rgba(75,68,56,.20)'; state.trackDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.benchworkDraft.length){ctx.save();ctx.strokeStyle='#2f6f4e';ctx.fillStyle='rgba(47,111,78,.12)';ctx.lineWidth=3/state.view.scale;ctx.setLineDash([8/state.view.scale,6/state.view.scale]);ctx.beginPath();state.benchworkDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.setLineDash([]);state.benchworkDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} drawFabricDraft(); if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview){ if(state.drag.type==='roadCenterline') drawRoad(state.drag.preview); else drawBuilding(state.drag.preview); } drawSelectionMarquee(); drawHoverPreview(); ctx.restore(); updateEmptyImageOverlay(); updateStatus();}
+  function drawNow(){const r=canvas.getBoundingClientRect(); const dpr=devicePixelRatio||1; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.benchworkOutlines.forEach(drawBenchwork); state.roads.forEach(drawRoad); (state.tracks||[]).forEach(drawTrack); drawTrackExportPreview(); drawRoadJunctions(); drawGeneratedRoadIntersections(); (state.roadFeatures||[]).forEach(drawRoadFeature); drawRoadExportPreview(); (state.fabricRegions||[]).forEach(drawFabricRegion); state.buildings.forEach(drawBuilding); (state.stlObjects||[]).forEach(drawStlObject); state.streetlights.forEach(drawStreetlight); if(state.roadDraft.length){ctx.save();ctx.strokeStyle='#6f6a5e';ctx.fillStyle='rgba(111,106,94,.18)';ctx.lineWidth=3/state.view.scale;if(state.roadMode==='centerline'&&state.roadDraft.length>=2){const temp=createRoadCenterlineFromPoints(state.roadDraft); temp.id='road_draft'; drawRoad(temp);} else {ctx.beginPath();state.roadDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();}state.roadDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.trackDraft&&state.trackDraft.length){ctx.save();const temp=normalizeTrack({id:'track_draft',name:'Track preview',pointsPx:state.trackDraft.slice(),gaugeMm:9,tieSpacingMm:4,color:'#4b4438',tieColor:'#8a6f43'}); drawTrack(temp); ctx.fillStyle='rgba(75,68,56,.20)'; state.trackDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.benchworkDraft.length){ctx.save();ctx.strokeStyle='#2f6f4e';ctx.fillStyle='rgba(47,111,78,.12)';ctx.lineWidth=3/state.view.scale;ctx.setLineDash([8/state.view.scale,6/state.view.scale]);ctx.beginPath();state.benchworkDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.setLineDash([]);state.benchworkDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} drawFabricDraft(); if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview){ if(state.drag.type==='roadCenterline') drawRoad(state.drag.preview); else drawBuilding(state.drag.preview); } drawSelectionMarquee(); drawHoverPreview(); ctx.restore(); updateEmptyImageOverlay(); updateStatus();}
   function fitImage(){const r=canvas.getBoundingClientRect(); if(!state.image){state.view={x:r.width/2,y:r.height/2,scale:1}; draw(); return;} const s=Math.min(r.width/state.image.width,r.height/state.image.height)*.9; state.view.scale=s; state.view.x=(r.width-state.image.width*s)/2; state.view.y=(r.height-state.image.height*s)/2; draw();}
 
   function sidebarObjectTypes(){
@@ -4281,13 +4322,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return mode==='outline' ? 'Road Outline' : mode==='manhole' ? 'Manhole / Hatch' : mode==='marking' ? 'Road Marking' : 'Road Centerline';
   }
   function normalizeWorkspaceMode(mode){
-    return mode === 'road' ? 'road' : 'layout';
+    return mode === 'road' || mode === 'track' ? mode : 'layout';
   }
   function updateWorkspaceModeUi(){
     const mode=normalizeWorkspaceMode(state.workspaceMode);
     state.workspaceMode=mode;
     const app=document.querySelector('.sitePlannerApp');
-    if(app) app.classList.toggle('roadWorkspace', mode==='road');
+    if(app){
+      app.classList.toggle('roadWorkspace', mode==='road');
+      app.classList.toggle('trackWorkspace', mode==='track');
+    }
     const picker=$('workspaceMode');
     if(picker && picker.value!==mode) picker.value=mode;
     document.querySelectorAll('[data-road-mode-tool]').forEach(btn=>{
@@ -4299,20 +4343,38 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       btn.classList.toggle('active', active);
       btn.classList.toggle('roadActionActive', active && action==='exportPreview');
     });
+    document.querySelectorAll('[data-track-action]').forEach(btn=>{
+      const action=btn.dataset.trackAction;
+      const active=(action==='draw' && mode==='track' && state.tool==='track' && !state.trackTask) ||
+        (action==='edit' && mode==='track' && state.trackTask==='edit') ||
+        (action==='connect' && mode==='track' && state.trackTask==='connect') ||
+        (action==='exportPreview' && state.trackExportPreview);
+      btn.classList.toggle('active', active);
+      btn.classList.toggle('trackActionActive', active && action==='exportPreview');
+    });
     const previewBtn=$('roadCutPreviewModeBtn');
     if(previewBtn){
       const label='Cut preview '+(state.roadExportPreview?'on':'off');
       previewBtn.title=label;
       previewBtn.setAttribute('aria-label', label);
     }
+    const trackPreviewBtn=$('trackCutPreviewModeBtn');
+    if(trackPreviewBtn){
+      const label='Track output preview '+(state.trackExportPreview?'on':'off');
+      trackPreviewBtn.title=label;
+      trackPreviewBtn.setAttribute('aria-label', label);
+    }
   }
   function setWorkspaceMode(mode, opts={}){
     state.workspaceMode=normalizeWorkspaceMode(mode);
     if(state.workspaceMode==='road' && !['select','pan','road'].includes(state.tool)){
       setActiveTool('select', {preserveRoadTask: true});
+    } else if(state.workspaceMode==='track' && !['select','pan','track'].includes(state.tool)){
+      setActiveTool('select', {preserveTrackTask: true});
     } else if(!opts.preserveRoadTask && state.workspaceMode!=='road'){
       state.roadTask=null;
     }
+    if(!opts.preserveTrackTask && state.workspaceMode!=='track') state.trackTask=null;
     updateWorkspaceModeUi();
     updateStatus();
   }
@@ -4322,13 +4384,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     maybeFinishActiveTrackDraft(tool);
     state.tool=tool;
     if(!opts.preserveRoadTask) state.roadTask=null;
+    if(!opts.preserveTrackTask) state.trackTask=null;
     document.querySelectorAll('.toolbtn').forEach(b=>{
-      if(b.dataset.roadModeTool || b.dataset.roadAction) return;
+      if(b.dataset.roadModeTool || b.dataset.roadAction || b.dataset.trackAction) return;
       b.classList.toggle('active', b.dataset.tool===tool);
     });
     state.drag=null; hideToolFlyouts(); updateWorkspaceModeUi(); syncAll();
   }
-  document.querySelectorAll('.toolbtn[data-tool]:not([data-road-mode-tool])').forEach(btn=>btn.onclick=()=>setActiveTool(btn.dataset.tool));
+  document.querySelectorAll('.toolbtn[data-tool]:not([data-road-mode-tool]):not([data-track-action])').forEach(btn=>btn.onclick=()=>setActiveTool(btn.dataset.tool));
   $('workspaceMode')?.addEventListener('change', e=>setWorkspaceMode(e.target.value));
   document.querySelectorAll('[data-road-mode-tool]').forEach(btn=>btn.onclick=()=>{
     state.roadMode=btn.dataset.roadModeTool||'centerline';
@@ -4362,6 +4425,39 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       state.roadTask='exportAssets';
       updateWorkspaceModeUi();
       downloadRoadAssetExport();
+    }
+  });
+  document.querySelectorAll('[data-track-action]').forEach(btn=>btn.onclick=()=>{
+    const action=btn.dataset.trackAction;
+    setWorkspaceMode('track', {preserveTrackTask: true});
+    if(action==='draw'){
+      state.trackTask=null;
+      setActiveTool('track');
+      return;
+    }
+    if(action==='edit' || action==='connect'){
+      state.trackTask=action;
+      setActiveTool('select', {preserveTrackTask: true});
+      renderSelected();
+      draw();
+      setSidebarOpen(true);
+      const hint=$('statusHint');
+      if(hint) hint.textContent=action==='connect'
+        ? 'Endpoint connection editing is active. Select a track and drag an endpoint near another endpoint to snap them together.'
+        : 'Track editing is active. Select a track, then drag points or bend a highlighted segment.';
+      updateWorkspaceModeUi();
+      return;
+    }
+    if(action==='exportPreview'){
+      state.trackTask='exportPreview';
+      setTrackExportPreview(!state.trackExportPreview);
+      updateWorkspaceModeUi();
+      return;
+    }
+    if(action==='exportAssets'){
+      state.trackTask='exportAssets';
+      updateWorkspaceModeUi();
+      downloadTrackAssetExport();
     }
   });
 
@@ -5259,6 +5355,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function svgTrackExport(){
     return trackSvgExport(state.tracks, {TRACK_PROFILE_DEFAULTS, escapeAttr, normalizeTrack, offsetTrackPath, trackPathSamples, trackProfilePx, trackTieSegments});
+  }
+  function standaloneTrackSvgExport(){
+    const w=state.image?.width||1200,h=state.image?.height||800;
+    const tracksSvg=svgTrackExport();
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}mm" height="${h}mm" viewBox="0 0 ${w} ${h}">\n<title>HakoMachi Track Export</title>\n<desc>Track roadbed, rails, and ties generated from Site Planner track paths.</desc>\n${tracksSvg}\n</svg>`;
+  }
+  function downloadTrackAssetExport(){
+    downloadText(standaloneTrackSvgExport(),'hakomachi-track-assets.svg','image/svg+xml');
   }
 
   function svgExport(){

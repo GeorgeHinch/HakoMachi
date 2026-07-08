@@ -34,6 +34,18 @@ test.describe('3D material depth regression contracts', () => {
     expect(source).not.toContain('const tieMat=new THREE.LineBasicMaterial');
   });
 
+  test('Site Planner 3D road meshes use benchwork-clipped display polygons', () => {
+    const source = readRepoFile('js/site-planner.js');
+    const roadGroup = source.match(/function buildSite3DRoadGroup\(bounds\)\{([\s\S]+?)function buildSite3DTrackGroup/);
+    const bounds = source.match(/function site3DBounds\(\)\{([\s\S]+?)function disposeSite3DObject/);
+
+    expect(roadGroup, '3D road group builder exists').not.toBeNull();
+    expect(bounds, '3D bounds builder exists').not.toBeNull();
+    expect(roadGroup[1]).toContain('roadDisplayPolygons(r,{perCurve:32})');
+    expect(roadGroup[1]).not.toContain('site3DAddFlatPolygon(group,r.roadPolygonPx||[]');
+    expect(bounds[1]).toContain('roadDisplayPolygons(r,{perCurve:32})');
+  });
+
   test('3D preview cameras derive near and far planes from scene bounds', () => {
     const sitePlanner = readRepoFile('js/site-planner.js');
     const buildingPreview = readRepoFile('js/building-generator/preview/three-preview.js');

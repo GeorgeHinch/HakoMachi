@@ -2,6 +2,7 @@ const OBJECT_TYPE_DEFINITIONS = Object.freeze([
   { key: 'buildings', label: 'Buildings', hint: 'Footprints and attached .hako files', color: '#d79631' },
   { key: 'roads', label: 'Roads', hint: 'Centerlines and outlines', color: '#6f6a5e' },
   { key: 'tracks', label: 'Tracks', hint: 'Approximate rail alignments', color: '#4b4438' },
+  { key: 'trackAccessories', label: 'Track Items', hint: 'Sensors, signals, crossings, and detectors', color: '#2f6f7e' },
   { key: 'roadFeatures', label: 'Road Items', hint: 'Hatches and markings', color: '#3a2b1e' },
   { key: 'fabric', label: 'Fabric Areas', hint: 'Generated urban fabric regions', color: '#7c5f3f' },
   { key: 'benchwork', label: 'Benchwork', hint: 'Layout boundaries', color: '#2f6f4e' },
@@ -15,6 +16,7 @@ const DETAIL_KIND_TO_TYPE = Object.freeze({
   buildings: 'buildings',
   road: 'roads',
   track: 'tracks',
+  trackAccessory: 'trackAccessories',
   roadFeature: 'roadFeatures',
   benchwork: 'benchwork',
   streetlight: 'streetlights',
@@ -30,6 +32,7 @@ const DETAIL_TITLES = Object.freeze({
   benchwork: 'Benchwork',
   road: 'Road',
   track: 'Track',
+  trackAccessory: 'Track Item',
   roadFeature: 'Road Item',
   streetlight: 'Streetlight',
   fabric: 'Fabric Region',
@@ -41,6 +44,7 @@ function collectionForType(state, type) {
   if (type === 'buildings') return state.buildings || [];
   if (type === 'roads') return state.roads || [];
   if (type === 'tracks') return state.tracks || [];
+  if (type === 'trackAccessories') return state.trackAccessories || [];
   if (type === 'roadFeatures') return state.roadFeatures || [];
   if (type === 'benchwork') return state.benchworkOutlines || [];
   if (type === 'streetlights') return state.streetlights || [];
@@ -81,6 +85,7 @@ export function sidebarObjectSelected(state, type, id, isBuildingSelected) {
   if (type === 'buildings') return isBuildingSelected(id);
   if (type === 'roads') return state.selectedRoadId === id;
   if (type === 'tracks') return state.selectedTrackId === id;
+  if (type === 'trackAccessories') return state.selectedTrackAccessoryId === id;
   if (type === 'roadFeatures') return state.selectedRoadFeatureId === id;
   if (type === 'benchwork') return state.selectedBenchworkId === id;
   if (type === 'streetlights') return state.selectedStreetlightId === id;
@@ -96,6 +101,7 @@ export function activeSidebarDetailKindForState(state, selectedBuildingIds) {
   if (state.selectedBenchworkId) return 'benchwork';
   if (state.selectedRoadId) return 'road';
   if (state.selectedTrackId) return 'track';
+  if (state.selectedTrackAccessoryId) return 'trackAccessory';
   if (state.selectedRoadFeatureId) return 'roadFeature';
   if (state.selectedStreetlightId) return 'streetlight';
   if (state.selectedFabricId) return 'fabric';

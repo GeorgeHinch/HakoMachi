@@ -1,5 +1,19 @@
 const { expect, test } = require('@playwright/test');
 
+async function importBlankPlan(page) {
+  await page.setInputFiles('#imageFile', {
+    name: 'blank-plan.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="#f8f6f1"/></svg>'),
+  });
+  await expect(page.locator('#emptyImageOverlay')).toBeHidden();
+}
+
+async function canvasClick(page, relX, relY) {
+  const box = await page.locator('#canvas').boundingBox();
+  await page.mouse.click(box.x + relX, box.y + relY);
+}
+
 test.describe('site planner track editing workspace', () => {
   test('switches the left rail to track-specific tools', async ({ page }) => {
     await page.goto('/site-planner.html', { waitUntil: 'domcontentloaded' });
@@ -16,15 +30,47 @@ test.describe('site planner track editing workspace', () => {
     await expect(page.locator('#trackDrawModeBtn')).toBeVisible();
     await expect(page.locator('#trackEditModeBtn')).toBeVisible();
     await expect(page.locator('#trackConnectModeBtn')).toBeVisible();
-    await expect(page.locator('#trackCutPreviewModeBtn')).toBeVisible();
+    await expect(page.locator('#trackSensorModeBtn')).toBeVisible();
+    await expect(page.locator('#trackSignalModeBtn')).toBeVisible();
+    await expect(page.locator('#trackCrossingArmModeBtn')).toBeVisible();
+    await expect(page.locator('#trackIntrusionDetectorModeBtn')).toBeVisible();
+    await expect(page.locator('#trackOccupancyLightModeBtn')).toBeVisible();
 
     await page.click('#trackDrawModeBtn');
     await expect(page.locator('#trackDrawModeBtn')).toHaveClass(/active/);
     await expect(page.locator('#statusTool')).toContainText('Draw track');
 
-    await page.click('#trackCutPreviewModeBtn');
-    await expect(page.locator('#trackCutPreviewModeBtn')).toHaveClass(/trackActionActive/);
-    await expect(page.locator('#trackExportBadge')).toBeVisible();
-    await expect(page.locator('#statusTool')).toContainText('Track output preview');
+    await page.click('#trackSensorModeBtn');
+    await expect(page.locator('#trackSensorModeBtn')).toHaveClass(/active/);
+    await expect(page.locator('#statusTool')).toContainText('Under-track sensor');
+
+    await page.click('#trackIntrusionDetectorModeBtn');
+    await expect(page.locator('#trackIntrusionDetectorModeBtn')).toHaveClass(/active/);
+    await expect(page.locator('#statusTool')).toContainText('Intrusion detector');
+
+    await page.click('#trackOccupancyLightModeBtn');
+    await expect(page.locator('#trackOccupancyLightModeBtn')).toHaveClass(/active/);
+    await expect(page.locator('#statusTool')).toContainText('Blinking occupancy lights');
+  });
+
+  test('places an under-track sensor marker from track mode', async ({ page }) => {
+    await page.goto('/site-planner.html', { waitUntil: 'domcontentloaded' });
+    await importBlankPlan(page);
+
+    await page.selectOption('#workspaceMode', 'track');
+    await page.click('#trackDrawModeBtn');
+    await canvasClick(page, 120, 140);
+    await canvasClick(page, 260, 140);
+    await canvasClick(page, 260, 140);
+
+    const sidebarToggle = page.locator('#sidebarToggle[aria-expanded="true"]');
+    if (await sidebarToggle.count()) await sidebarToggle.click();
+    await page.locator('#trackSensorModeBtn').click({ force: true });
+    await expect(page.locator('#statusTool')).toContainText('Under-track sensor');
+    await canvasClick(page, 190, 140);
+
+    await expect(page.locator('#selectedPanel')).toContainText('Track item selected');
+    await expect(page.locator('#selectedPanel')).toContainText('Under-track Sensor');
+    await expect(page.locator('#objectBrowser')).toContainText('Track Items');
   });
 });

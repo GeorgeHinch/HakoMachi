@@ -297,12 +297,6 @@ body {
   color: #2f6f4e;
 }
 
-.toolbtn.trackActionActive {
-  background: #eef2f7;
-  border-color: #4b6380;
-  color: #344d67;
-}
-
 .toolbtn:hover {
   background: #f0ede8;
   border-color: #888;
@@ -1142,10 +1136,6 @@ canvas {
   display: block;
   font-size: 12px;
   margin-bottom: 2px;
-}
-
-#trackExportBadge {
-  top: 122px;
 }
 
 .githubDataModal {

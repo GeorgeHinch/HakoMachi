@@ -21,7 +21,7 @@ export function createStatusUiController({
     if(ipadInputSection) ipadInputSection.style.display = isLikelyIPad() ? '' : 'none';
     const roadModeLabel = state.roadMode === 'outline' ? 'Road outline' : state.roadMode === 'manhole' ? 'Road detail cutout' : state.roadMode === 'marking' ? 'Road etching / marking' : 'Road centerline';
     const roadTaskLabel = state.roadTask === 'intersections' ? 'Intersection controls' : state.roadTask === 'exportPreview' ? 'Cut preview' : state.roadTask === 'exportAssets' ? 'Road asset export' : null;
-    const trackTaskLabel = state.trackTask === 'edit' ? 'Track edit' : state.trackTask === 'connect' ? 'Endpoint connections' : state.trackTask === 'exportPreview' ? 'Track output preview' : state.trackTask === 'exportAssets' ? 'Track SVG export' : null;
+    const trackTaskLabel = state.trackTask === 'edit' ? 'Track edit' : state.trackTask === 'connect' ? 'Endpoint connections' : state.trackTask === 'sensor' ? 'Under-track sensor' : state.trackTask === 'signal' ? 'Signal location' : state.trackTask === 'crossingArm' ? 'Crossing arm location' : state.trackTask === 'intrusionDetector' ? 'Intrusion detector' : state.trackTask === 'occupancyLight' ? 'Blinking occupancy lights' : null;
     const toolLabel = state.workspaceMode === 'track'
       ? `Mode: Track Editing · ${trackTaskLabel || (state.tool === 'track' ? 'Draw track' : state.tool)}`
       : state.workspaceMode === 'road'
@@ -47,11 +47,15 @@ export function createStatusUiController({
     if(state.workspaceMode==='road' && state.tool==='select' && state.roadTask!=='intersections') hints.push('Road Editing mode: select roads or road details, then use the road tools in the left rail.');
     if(state.workspaceMode==='road' && state.roadTask==='intersections') hints.push('Intersection controls: select a road and use the properties pane to toggle crosswalks, stop bars, tactile pavers, and curb guide marks.');
     if(state.workspaceMode==='road' && state.roadExportPreview) hints.push('Cut preview is on: retained road pieces, stencil cuts, and engraving output are shown for checking before export.');
-    if(state.tool==='track') hints.push('Track: click connected points to sketch approximate rails. Press Enter or double-click to finish; the Site Planner generates twin rails and ties for planning context.');
+    if(state.tool==='track') hints.push('Track: click connected points to sketch approximate physical track alignment. Press Enter or double-click to finish; this is planning context, not a fabrication export.');
     if(state.workspaceMode==='track' && state.tool==='select' && !state.trackTask) hints.push('Track Editing mode: select tracks or choose a track tool from the left rail.');
     if(state.workspaceMode==='track' && state.trackTask==='edit') hints.push('Track edit: select a track, then drag points or bend a highlighted segment to curve it.');
     if(state.workspaceMode==='track' && state.trackTask==='connect') hints.push('Endpoint connections: select a track and drag an endpoint near another track endpoint to snap them together.');
-    if(state.workspaceMode==='track' && state.trackExportPreview) hints.push('Track output preview is on: roadbed, rail, and tie output is highlighted over the canvas for export checking.');
+    if(state.workspaceMode==='track' && state.trackTask==='sensor') hints.push('Under-track sensor: click near a track to place a sensor marker beneath the nearest rail alignment.');
+    if(state.workspaceMode==='track' && state.trackTask==='signal') hints.push('Signal location: click near the track to mark a signal placement.');
+    if(state.workspaceMode==='track' && state.trackTask==='crossingArm') hints.push('Crossing arm location: click near a road or track crossing to mark the arm placement.');
+    if(state.workspaceMode==='track' && state.trackTask==='intrusionDetector') hints.push('Intrusion detector: click near a level crossing to mark the detection object location.');
+    if(state.workspaceMode==='track' && state.trackTask==='occupancyLight') hints.push('Blinking occupancy lights: click near a level crossing to mark warning lights driven by occupancy detection.');
     if(state.tool==='streetlight') hints.push(state.streetlightMode==='anchored'?'Anchored Streetlight: click to place a pole with sidewalk cut-hole or street-edge bulb mount metadata.':'Streetlight: click to place a free-standing streetlight marker.');
     if(state.tool==='fabric') hints.push('Urban Fabric Fill: click connected points around an area, then click near the first point or press Enter. Choose a fabric preset and generate pads with HakoSeed metadata.');
     setText('hint', hints.join(' '));

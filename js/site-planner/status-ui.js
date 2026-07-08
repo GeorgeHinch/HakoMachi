@@ -19,7 +19,12 @@ export function createStatusUiController({
     initFabricControls();
     const ipadInputSection=getElement('ipadInputSection');
     if(ipadInputSection) ipadInputSection.style.display = isLikelyIPad() ? '' : 'none';
-    setText('statusTool', 'Tool: '+state.tool);
+    const roadModeLabel = state.roadMode === 'outline' ? 'Road outline' : state.roadMode === 'manhole' ? 'Road detail cutout' : state.roadMode === 'marking' ? 'Road etching / marking' : 'Road centerline';
+    const roadTaskLabel = state.roadTask === 'intersections' ? 'Intersection controls' : state.roadTask === 'exportPreview' ? 'Cut preview' : state.roadTask === 'exportAssets' ? 'Road asset export' : null;
+    const toolLabel = state.workspaceMode === 'road'
+      ? `Mode: Road Editing · ${roadTaskLabel || (state.tool === 'road' ? roadModeLabel : state.tool)}`
+      : 'Tool: '+state.tool;
+    setText('statusTool', toolLabel);
     setText('statusZoom', 'Zoom: '+Math.round(state.view.scale*100)+'%');
     setText('statusScale', state.pxPerMm ? `Calibration: ${fmt(state.pxPerMm)} px/mm` : 'Calibration: unset');
     const scaleStatus=getElement('scaleStatus');
@@ -36,6 +41,9 @@ export function createStatusUiController({
     if(state.tool==='annotate') hints.push('Annotate mode: draw freehand notes with Pencil/mouse. Pencil pressure changes stroke width when supported. Notes export with the site project but do not affect HakoSeed geometry.');
     if(state.tool==='benchwork') hints.push('Benchwork Outline: click points around the layout edge, then click near the first point or press Enter to close. Select an outline, then hover/drag an edge segment to curve it. Future exports can trim roads, scenery, and other layout parts to this boundary.');
     if(state.tool==='road') hints.push(state.roadMode==='outline'?'Road Outline: click points around the road surface, then click near the first point or press Enter to close.':state.roadMode==='manhole'?'Manhole / Hatch: click on a road surface to place a cut-through mounting hole.':state.roadMode==='marking'?'Road Marking: click on a road surface to place a visual road marking.':'Road Centerline: click connected points to draw the centerline. Press Enter or double-click to finish. Hover between points and drag to curve a selected road segment; adjust road and sidewalk width in the properties pane.');
+    if(state.workspaceMode==='road' && state.tool==='select' && state.roadTask!=='intersections') hints.push('Road Editing mode: select roads or road details, then use the road tools in the left rail.');
+    if(state.workspaceMode==='road' && state.roadTask==='intersections') hints.push('Intersection controls: select a road and use the properties pane to toggle crosswalks, stop bars, tactile pavers, and curb guide marks.');
+    if(state.workspaceMode==='road' && state.roadExportPreview) hints.push('Cut preview is on: retained road pieces, stencil cuts, and engraving output are shown for checking before export.');
     if(state.tool==='track') hints.push('Track: click connected points to sketch approximate rails. Press Enter or double-click to finish; the Site Planner generates twin rails and ties for planning context.');
     if(state.tool==='streetlight') hints.push(state.streetlightMode==='anchored'?'Anchored Streetlight: click to place a pole with sidewalk cut-hole or street-edge bulb mount metadata.':'Streetlight: click to place a free-standing streetlight marker.');
     if(state.tool==='fabric') hints.push('Urban Fabric Fill: click connected points around an area, then click near the first point or press Enter. Choose a fabric preset and generate pads with HakoSeed metadata.');

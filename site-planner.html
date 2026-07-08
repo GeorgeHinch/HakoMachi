@@ -33,6 +33,13 @@
       <div data-hakomachi-logo data-logo-label="HakoMachi"></div>
       <div class="title">Site Planner</div>
     </div>
+    <label class="workspaceModePicker" for="workspaceMode">
+      <span>Mode</span>
+      <select id="workspaceMode" aria-label="Workspace mode">
+        <option value="layout">Layout</option>
+        <option value="road">Road Editing</option>
+      </select>
+    </label>
     <input id="imageFile" class="hiddenFile" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp,.svg"/>
     <input id="loadFile" class="hiddenFile" type="file" accept="application/json,application/zip,.json,.hako-site.json,.zip,.stl,model/stl"/>
     <div class="topActions">
@@ -88,16 +95,16 @@
     </div>
   </div>
   <div class="toolbar" aria-label="Drawing tools">
-    <button class="toolbtn active" data-tool="select" aria-label="Select" title="Select"><span class="toolIcon" data-icon="select"></span><span class="toolLabel">Select</span></button>
-    <button class="toolbtn" data-tool="pan" aria-label="Pan" title="Pan"><span class="toolIcon" data-icon="pan"></span><span class="toolLabel">Pan</span></button>
-    <button class="toolbtn" data-tool="calibrate" aria-label="Calibration" title="Calibration"><span class="toolIcon" data-icon="ruler"></span><span class="toolLabel">Calibrate</span></button>
-    <button class="toolbtn" data-tool="rect" aria-label="Rectangle pad" title="Rectangle pad"><span class="toolIcon" data-icon="rectangle"></span><span class="toolLabel">Rect Pad</span></button>
-    <button class="toolbtn" data-tool="polygon" aria-label="Polygon pad" title="Polygon pad"><span class="toolIcon" data-icon="polygon"></span><span class="toolLabel">Polygon</span></button>
-    <button class="toolbtn" data-tool="measure" aria-label="Measure" title="Measure"><span class="toolIcon" data-icon="measure"></span><span class="toolLabel">Measure</span></button>
-    <button class="toolbtn" data-tool="annotate" aria-label="Annotate" title="Annotate"><span class="toolIcon" data-icon="pencil"></span><span class="toolLabel">Annotate</span></button>
-    <button class="toolbtn" data-tool="benchwork" aria-label="Benchwork outline" title="Benchwork outline"><span class="toolIcon" data-icon="benchwork"></span><span class="toolLabel">Benchwork Outline</span></button>
-    <button class="toolbtn" data-tool="fabric" aria-label="Urban fabric fill" title="Urban fabric fill"><span class="toolIcon" data-icon="fabric"></span><span class="toolLabel">Fabric Fill</span></button>
-    <div class="toolGroup" id="roadToolGroup">
+    <button class="toolbtn active" data-workspace="all" data-tool="select" aria-label="Select" title="Select"><span class="toolIcon" data-icon="select"></span><span class="toolLabel">Select</span></button>
+    <button class="toolbtn" data-workspace="all" data-tool="pan" aria-label="Pan" title="Pan"><span class="toolIcon" data-icon="pan"></span><span class="toolLabel">Pan</span></button>
+    <button class="toolbtn" data-workspace="layout" data-tool="calibrate" aria-label="Calibration" title="Calibration"><span class="toolIcon" data-icon="ruler"></span><span class="toolLabel">Calibrate</span></button>
+    <button class="toolbtn" data-workspace="layout" data-tool="rect" aria-label="Rectangle pad" title="Rectangle pad"><span class="toolIcon" data-icon="rectangle"></span><span class="toolLabel">Rect Pad</span></button>
+    <button class="toolbtn" data-workspace="layout" data-tool="polygon" aria-label="Polygon pad" title="Polygon pad"><span class="toolIcon" data-icon="polygon"></span><span class="toolLabel">Polygon</span></button>
+    <button class="toolbtn" data-workspace="layout" data-tool="measure" aria-label="Measure" title="Measure"><span class="toolIcon" data-icon="measure"></span><span class="toolLabel">Measure</span></button>
+    <button class="toolbtn" data-workspace="layout" data-tool="annotate" aria-label="Annotate" title="Annotate"><span class="toolIcon" data-icon="pencil"></span><span class="toolLabel">Annotate</span></button>
+    <button class="toolbtn" data-workspace="layout" data-tool="benchwork" aria-label="Benchwork outline" title="Benchwork outline"><span class="toolIcon" data-icon="benchwork"></span><span class="toolLabel">Benchwork Outline</span></button>
+    <button class="toolbtn" data-workspace="layout" data-tool="fabric" aria-label="Urban fabric fill" title="Urban fabric fill"><span class="toolIcon" data-icon="fabric"></span><span class="toolLabel">Fabric Fill</span></button>
+    <div class="toolGroup" id="roadToolGroup" data-workspace="layout">
       <button class="toolbtn" id="roadToolBtn" data-tool="road" aria-label="Road Centerline" title="Road Centerline"><span class="toolIcon" id="roadToolIcon" data-icon="road"></span><span class="toolLabel" id="roadToolLabel">Road Centerline</span></button>
       <button class="toolVariantTrigger" id="roadVariantBtn" title="Road variants" aria-label="Road variants">▾</button>
       <div class="toolFlyout" id="roadToolMenu">
@@ -107,8 +114,8 @@
         <button data-road-mode="marking"><span data-icon="roadMarking"></span><span>Road Marking</span></button>
       </div>
     </div>
-    <button class="toolbtn" data-tool="track" aria-label="Track" title="Track"><span class="toolIcon" data-icon="track"></span><span class="toolLabel">Track</span></button>
-    <div class="toolGroup" id="streetlightToolGroup">
+    <button class="toolbtn" data-workspace="layout" data-tool="track" aria-label="Track" title="Track"><span class="toolIcon" data-icon="track"></span><span class="toolLabel">Track</span></button>
+    <div class="toolGroup" id="streetlightToolGroup" data-workspace="layout">
       <button class="toolbtn" id="streetlightToolBtn" data-tool="streetlight" aria-label="Streetlight" title="Streetlight"><span class="toolIcon" id="streetlightToolIcon" data-icon="lamp"></span><span class="toolLabel" id="streetlightToolLabel">Streetlight</span></button>
       <button class="toolVariantTrigger" id="streetlightVariantBtn" title="Streetlight variants" aria-label="Streetlight variants">▾</button>
       <div class="toolFlyout" id="streetlightToolMenu">
@@ -116,6 +123,15 @@
         <button data-streetlight-mode="anchored"><span data-icon="lampAnchored"></span><span>Anchored Streetlight</span></button>
       </div>
     </div>
+    <div class="toolDivider" data-workspace="road" aria-hidden="true"></div>
+    <button class="toolbtn roadModeTool" id="roadCenterlineModeBtn" data-workspace="road" data-tool="road" data-road-mode-tool="centerline" aria-label="Road centerline" title="Road centerline"><span class="toolIcon" data-icon="roadCenterline"></span><span class="toolLabel">Road Centerline</span></button>
+    <button class="toolbtn roadModeTool" id="roadOutlineModeBtn" data-workspace="road" data-tool="road" data-road-mode-tool="outline" aria-label="Road outline" title="Road outline"><span class="toolIcon" data-icon="roadOutline"></span><span class="toolLabel">Road Outline</span></button>
+    <button class="toolbtn roadModeTool" id="roadMarkingModeBtn" data-workspace="road" data-tool="road" data-road-mode-tool="marking" aria-label="Road etching or marking" title="Road etching or marking"><span class="toolIcon" data-icon="roadMarking"></span><span class="toolLabel">Road Marking</span></button>
+    <button class="toolbtn roadModeTool" id="roadManholeModeBtn" data-workspace="road" data-tool="road" data-road-mode-tool="manhole" aria-label="Road detail cutout" title="Road detail cutout"><span class="toolIcon" data-icon="manhole"></span><span class="toolLabel">Manhole / Hatch</span></button>
+    <button class="toolbtn roadModeTool" id="roadIntersectionModeBtn" data-workspace="road" data-road-action="intersections" aria-label="Intersection controls" title="Intersection controls"><span class="toolIcon" data-icon="intersection"></span><span class="toolLabel">Intersections</span></button>
+    <div class="toolDivider" data-workspace="road" aria-hidden="true"></div>
+    <button class="toolbtn roadModeTool" id="roadCutPreviewModeBtn" data-workspace="road" data-road-action="exportPreview" aria-label="Cut preview" title="Cut preview"><span class="toolIcon" data-icon="preview"></span><span class="toolLabel">Cut Preview</span></button>
+    <button class="toolbtn roadModeTool" id="roadExportModeBtn" data-workspace="road" data-road-action="exportAssets" aria-label="Export road assets" title="Export road assets"><span class="toolIcon" data-icon="download"></span><span class="toolLabel">Export Road Assets</span></button>
   </div>
   <div class="canvasWrap"><canvas id="canvas"></canvas><div class="site3dFloatingToolbar" aria-label="Canvas view controls"><div class="site3dSegment" role="group" aria-label="View mode"><button id="view2dCanvasBtn" class="site3dFabBtn active" type="button">2D</button><button id="view3dCanvasBtn" class="site3dFabBtn" type="button">3D</button></div><div class="site3dImageControls" aria-label="3D reference image controls"><label class="site3dImageToggle"><input id="site3dImageVisible" type="checkbox" checked><span>Image</span></label><label class="site3dImageOpacity"><span>Opacity</span><input id="site3dImageOpacity" type="range" min="0" max="1" step="0.05" value="0.45"></label></div></div><div id="emptyImageOverlay" class="emptyImageOverlay" aria-live="polite"><div id="emptyImageCard" class="emptyImageCard"><div class="emptyImageIcon">▧</div><h2>Import a reference image to start</h2><p>The Site Planner needs a PNG, JPG, SVG, or WEBP plan image before you trace buildings, roads, benchwork, and site objects.</p><div class="emptyImageActions"><label class="fileButton" for="imageFile">Import Image</label></div><div class="emptyImageDropHint">Drop an image here, or use <strong>Import Image</strong> in the header.</div></div></div><button id="sidebarToggle" class="sidebarToggle" title="Open properties panel" aria-label="Open properties panel">‹</button><div id="contextMenu" class="contextMenu"></div><div id="roadExportBadge" class="roadExportBadge" style="display:none"></div></div>
   <aside class="sidebar">

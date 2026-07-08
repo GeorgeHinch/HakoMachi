@@ -512,6 +512,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function setRoadExportPreview(on){
     state.roadExportPreview=!!on;
     ['roadExportPreviewBtn','mobileRoadExportPreviewBtn'].forEach(id=>{const b=$(id); if(b) b.textContent='Road Export Preview: '+(state.roadExportPreview?'On':'Off');});
+    updateWorkspaceModeUi();
     draw();
   }
 
@@ -4276,22 +4277,103 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(state.trackDraft.length >= 2) finishTrack();
     else { state.trackDraft = []; state.trackDraftConnections=[]; }
   }
-  function setActiveTool(tool){
+  function roadModeLabel(mode=state.roadMode){
+    return mode==='outline' ? 'Road Outline' : mode==='manhole' ? 'Manhole / Hatch' : mode==='marking' ? 'Road Marking' : 'Road Centerline';
+  }
+  function normalizeWorkspaceMode(mode){
+    return mode === 'road' ? 'road' : 'layout';
+  }
+  function updateWorkspaceModeUi(){
+    const mode=normalizeWorkspaceMode(state.workspaceMode);
+    state.workspaceMode=mode;
+    const app=document.querySelector('.sitePlannerApp');
+    if(app) app.classList.toggle('roadWorkspace', mode==='road');
+    const picker=$('workspaceMode');
+    if(picker && picker.value!==mode) picker.value=mode;
+    document.querySelectorAll('[data-road-mode-tool]').forEach(btn=>{
+      btn.classList.toggle('active', mode==='road' && state.tool==='road' && state.roadMode===btn.dataset.roadModeTool);
+    });
+    document.querySelectorAll('[data-road-action]').forEach(btn=>{
+      const action=btn.dataset.roadAction;
+      const active=(action==='intersections' && mode==='road' && state.roadTask==='intersections') || (action==='exportPreview' && state.roadExportPreview);
+      btn.classList.toggle('active', active);
+      btn.classList.toggle('roadActionActive', active && action==='exportPreview');
+    });
+    const previewBtn=$('roadCutPreviewModeBtn');
+    if(previewBtn){
+      const label='Cut preview '+(state.roadExportPreview?'on':'off');
+      previewBtn.title=label;
+      previewBtn.setAttribute('aria-label', label);
+    }
+  }
+  function setWorkspaceMode(mode, opts={}){
+    state.workspaceMode=normalizeWorkspaceMode(mode);
+    if(state.workspaceMode==='road' && !['select','pan','road'].includes(state.tool)){
+      setActiveTool('select', {preserveRoadTask: true});
+    } else if(!opts.preserveRoadTask && state.workspaceMode!=='road'){
+      state.roadTask=null;
+    }
+    updateWorkspaceModeUi();
+    updateStatus();
+  }
+  function setActiveTool(tool, opts={}){
+    if(!tool) return;
     maybeFinishActiveRoadDraft(tool);
     maybeFinishActiveTrackDraft(tool);
-    document.querySelectorAll('.toolbtn').forEach(b=>b.classList.toggle('active', b.dataset.tool===tool));
-    state.tool=tool; state.drag=null; hideToolFlyouts(); syncAll();
+    state.tool=tool;
+    if(!opts.preserveRoadTask) state.roadTask=null;
+    document.querySelectorAll('.toolbtn').forEach(b=>{
+      if(b.dataset.roadModeTool || b.dataset.roadAction) return;
+      b.classList.toggle('active', b.dataset.tool===tool);
+    });
+    state.drag=null; hideToolFlyouts(); updateWorkspaceModeUi(); syncAll();
   }
-  document.querySelectorAll('.toolbtn').forEach(btn=>btn.onclick=()=>setActiveTool(btn.dataset.tool));
+  document.querySelectorAll('.toolbtn[data-tool]:not([data-road-mode-tool])').forEach(btn=>btn.onclick=()=>setActiveTool(btn.dataset.tool));
+  $('workspaceMode')?.addEventListener('change', e=>setWorkspaceMode(e.target.value));
+  document.querySelectorAll('[data-road-mode-tool]').forEach(btn=>btn.onclick=()=>{
+    state.roadMode=btn.dataset.roadModeTool||'centerline';
+    updateRoadToolButton();
+    setWorkspaceMode('road', {preserveRoadTask: true});
+    setActiveTool('road');
+  });
+  document.querySelectorAll('[data-road-action]').forEach(btn=>btn.onclick=()=>{
+    const action=btn.dataset.roadAction;
+    setWorkspaceMode('road', {preserveRoadTask: true});
+    if(action==='intersections'){
+      state.roadTask='intersections';
+      state.roadIntersectionDetails=true;
+      setActiveTool('select', {preserveRoadTask: true});
+      roadSystem.generatedRoadIntersections();
+      renderSelected();
+      draw();
+      setSidebarOpen(true);
+      const hint=$('statusHint');
+      if(hint) hint.textContent=state.selectedRoadId ? 'Intersection controls are open for the selected road.' : 'Select a road to adjust its automatic intersection markings.';
+      updateWorkspaceModeUi();
+      return;
+    }
+    if(action==='exportPreview'){
+      state.roadTask='exportPreview';
+      setRoadExportPreview(!state.roadExportPreview);
+      updateWorkspaceModeUi();
+      return;
+    }
+    if(action==='exportAssets'){
+      state.roadTask='exportAssets';
+      updateWorkspaceModeUi();
+      downloadRoadAssetExport();
+    }
+  });
 
   let roadToolPressTimer=null;
   function updateRoadToolButton(){
     const btn=$('roadToolBtn'), icon=$('roadToolIcon'), label=$('roadToolLabel');
-    const title=state.roadMode==='outline'?'Road Outline':state.roadMode==='manhole'?'Manhole / Hatch':state.roadMode==='marking'?'Road Marking':'Road Centerline';
+    const title=roadModeLabel();
     if(label) label.textContent=title;
     if(btn){btn.title=title; btn.setAttribute('aria-label', title);}
     if(icon){icon.dataset.icon=state.roadMode==='manhole'?'manhole':state.roadMode==='marking'?'roadMarking':'road'; setIcon(icon,icon.dataset.icon);}
     document.querySelectorAll('#roadToolMenu button').forEach(b=>b.classList.toggle('active', b.dataset.roadMode===state.roadMode));
+    updateWorkspaceModeUi();
   }
   function showRoadToolMenu(anchor=$('roadToolGroup')||$('roadToolBtn')){toggleToolFlyout('roadToolMenu', anchor); updateRoadToolButton();}
   $('roadVariantBtn')?.addEventListener('click', e=>{e.preventDefault(); e.stopPropagation(); showRoadToolMenu($('roadToolGroup')||$('roadVariantBtn'));});

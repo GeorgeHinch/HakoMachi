@@ -71,6 +71,39 @@ body {
   letter-spacing: 0;
 }
 
+.workspaceModePicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #f7f5ef;
+  color: var(--text);
+  flex: 0 0 auto;
+}
+
+.workspaceModePicker span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.workspaceModePicker select {
+  min-width: 128px;
+  height: 28px;
+  padding: 0 24px 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  outline: none;
+}
+
 .topActions,
 .topRight {
   display: flex;
@@ -216,6 +249,21 @@ body {
   overflow-y: auto;
 }
 
+.sitePlannerApp:not(.roadWorkspace) .toolbar [data-workspace="road"],
+.sitePlannerApp.roadWorkspace .toolbar [data-workspace="layout"] {
+  display: none;
+}
+
+.toolDivider {
+  width: 34px;
+  height: 1px;
+  min-height: 1px;
+  margin: 4px 0;
+  background: var(--border);
+  opacity: .9;
+  flex: 0 0 auto;
+}
+
 .toolbtn {
   width: 44px !important;
   max-width: 100%;
@@ -237,6 +285,12 @@ body {
   border-color: var(--accent);
   color: var(--accent);
   box-shadow: none;
+}
+
+.toolbtn.roadActionActive {
+  background: #eef5ee;
+  border-color: #3f7a50;
+  color: #2f6f4e;
 }
 
 .toolbtn:hover {
@@ -1274,6 +1328,8 @@ canvas {
   .bottom #statusHint { display: none; }
   .desktopAction { display: none !important; }
   .mobileOnly { display: inline-flex !important; }
+  .workspaceModePicker { padding: 0 6px; }
+  .workspaceModePicker select { min-width: 110px; font-size: 12px; }
   .toolbtn { width: 40px !important; height: 40px !important; min-height: 40px !important; font-size: 16px; }
   .toolGroup { width: 40px; height: 40px; }
   .toolVariantTrigger { width: 14px; height: 14px; min-height: 14px; font-size: 8px; }
@@ -1296,6 +1352,8 @@ canvas {
   .app.sitePlannerApp,
   .app { grid-template-columns: 44px minmax(0,1fr); grid-template-rows: auto minmax(0,1fr) 32px; }
   .brand .app-logo { width: 96px; max-width: 30vw; }
+  .workspaceModePicker span { display: none; }
+  .workspaceModePicker select { min-width: 92px; padding-left: 4px; padding-right: 18px; }
   .toolbar { padding: 4px 3px; }
   .toolbtn { width: 36px !important; height: 38px !important; min-height: 38px !important; font-size: 15px; }
   .toolGroup { width: 36px; height: 38px; }

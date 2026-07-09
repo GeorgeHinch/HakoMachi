@@ -579,9 +579,14 @@ test.describe('Site Planner module split contracts', () => {
     const updateStart = source.indexOf('function updateSite3D(options={})');
     const updateEnd = source.indexOf('function setSite3DMode');
     const updateSite3D = source.slice(updateStart, updateEnd);
+    const modeStart = source.indexOf('function setSite3DMode(on)');
+    const modeEnd = source.indexOf('function bindSite3DButtons');
+    const setSite3DMode = source.slice(modeStart, modeEnd);
 
     expect(syncAll).toContain("if(state.viewMode==='3d') updateSite3D({preserveCamera:true})");
     expect(syncAll).not.toContain('updateSite3D();');
+    expect(setSite3DMode).toContain("updateSite3D({preserveCamera:site3d.initialized})");
+    expect(setSite3DMode).not.toContain('updateSite3D();');
     expect(updateSite3D).toContain('const hadCamera=!!(site3d.initialized && site3d.camera)');
     expect(updateSite3D).toContain('options.preserveCamera!==false && hadCamera');
   });

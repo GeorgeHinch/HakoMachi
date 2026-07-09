@@ -4297,7 +4297,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     $('view2dCanvasBtn')?.classList.toggle('active',state.viewMode!=='3d');
     $('view3dCanvasBtn')?.classList.toggle('active',state.viewMode==='3d');
     updateEmptyImageOverlay();
-    if(state.viewMode==='3d') updateSite3D();
+    if(state.viewMode==='3d') updateSite3D({preserveCamera:site3d.initialized});
     else draw();
   }
   function bindSite3DButtons(){

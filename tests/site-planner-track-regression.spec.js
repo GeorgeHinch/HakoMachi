@@ -381,6 +381,57 @@ test.describe('Site Planner track regressions', () => {
     });
   });
 
+  test('selected track switches can be copied and pasted as fresh objects', async ({ page }) => {
+    const project = blankTrackProject({
+      selectedTrackAccessoryId: 'switch_1',
+      trackAccessories: [
+        {
+          id: 'switch_1',
+          kind: 'trackSwitchRight',
+          name: 'Right turnout',
+          x: 300,
+          y: 220,
+          rotationDeg: 15,
+          trackId: 'track_existing',
+          trackAnchor: {
+            kind: 'trackSwitchEndpoint',
+            trackAccessoryId: 'other_switch',
+            endpoint: 'diverging',
+            sourceEndpoint: 'heel',
+          },
+        },
+      ],
+    });
+
+    await seedAutosave(page, project);
+    await loadPlanner(page);
+    await expect(page.locator('#emptyImageOverlay')).toBeHidden({ timeout: 10000 });
+    await clickWorldPoint(page, { x: 300, y: 220 });
+    await expect(page.locator('#selectedPanel')).toContainText('Track item selected');
+
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+C' : 'Control+C');
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+V' : 'Control+V');
+
+    await page.waitForFunction(({ key }) => {
+      const payload = JSON.parse(localStorage.getItem(key) || '{}');
+      const items = payload.trackAccessories || [];
+      return items.length === 2 && items.some(item => item.id !== 'switch_1' && item.name === 'Right turnout copy');
+    }, { key: AUTOSAVE_KEY });
+
+    const payload = await autosavePayload(page);
+    const copy = payload.trackAccessories.find(item => item.id !== 'switch_1');
+    expect(copy).toBeTruthy();
+    expect(copy.kind).toBe('trackSwitchRight');
+    expect(copy.name).toBe('Right turnout copy');
+    expect(copy.x).toBeCloseTo(318, 0);
+    expect(copy.y).toBeCloseTo(238, 0);
+    expect(copy.rotationDeg).toBeCloseTo(15, 0);
+    expect(copy.trackId).toBeNull();
+    expect(copy.trackAnchor).toBeNull();
+    expect(copy.locked).toBe(false);
+    await expect(page.locator('#trackItemName')).toHaveValue('Right turnout copy');
+  });
+
   test('connected flex track endpoint follows a moved switch endpoint', async ({ page }) => {
     const endpoints = tomixSwitchFixtureEndpoints();
     const project = blankTrackProject({

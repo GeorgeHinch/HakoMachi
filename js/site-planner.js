@@ -1086,6 +1086,131 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function selectedTrackAccessory(){
     return (state.trackAccessories||[]).find(x=>x.id===state.selectedTrackAccessoryId) || null;
   }
+  const SITE_OBJECT_CLIPBOARD_TYPES = Object.freeze({
+    annotation: { collection:'annotations', selectedId:'selectedAnnotationId', prefix:'note' },
+    roadFeature: { collection:'roadFeatures', selectedId:'selectedRoadFeatureId', prefix:'roadFeature' },
+    streetlight: { collection:'streetlights', selectedId:'selectedStreetlightId', prefix:'light' },
+    road: { collection:'roads', selectedId:'selectedRoadId', prefix:'road' },
+    trackAccessory: { collection:'trackAccessories', selectedId:'selectedTrackAccessoryId', prefix:'trackItem' },
+    track: { collection:'tracks', selectedId:'selectedTrackId', prefix:'track' },
+    stlObject: { collection:'stlObjects', selectedId:'selectedStlObjectId', prefix:'stl' },
+    benchwork: { collection:'benchworkOutlines', selectedId:'selectedBenchworkId', prefix:'benchwork' },
+    fabric: { collection:'fabricRegions', selectedId:'selectedFabricId', prefix:'fabric' },
+  });
+  function offsetPointArray(points, dx, dy){
+    return Array.isArray(points) ? points.map(point=>point?{...point,x:(Number(point.x)||0)+dx,y:(Number(point.y)||0)+dy}:point) : points;
+  }
+  function selectedSiteObjectForClipboard(){
+    if(state.selectedAnnotationId) return {type:'annotation', item:selectedAnnotation()};
+    if(state.selectedRoadFeatureId) return {type:'roadFeature', item:selectedRoadFeature()};
+    if(state.selectedStreetlightId) return {type:'streetlight', item:selectedStreetlight()};
+    if(state.selectedRoadId) return {type:'road', item:selectedRoad()};
+    if(state.selectedTrackAccessoryId) return {type:'trackAccessory', item:selectedTrackAccessory()};
+    if(state.selectedTrackId) return {type:'track', item:selectedTrack()};
+    if(state.selectedStlObjectId) return {type:'stlObject', item:selectedStlObject()};
+    if(state.selectedBenchworkId) return {type:'benchwork', item:selectedBenchwork()};
+    if(state.selectedFabricId) return {type:'fabric', item:selectedFabric()};
+    return null;
+  }
+  function normalizeSiteObjectForClipboard(type,item){
+    if(type==='roadFeature') return normalizeRoadFeature(item);
+    if(type==='streetlight') return normalizeStreetlight(item);
+    if(type==='road') return normalizeRoad(item);
+    if(type==='trackAccessory') return normalizeTrackAccessory(item);
+    if(type==='track') return normalizeTrack(item);
+    if(type==='stlObject') return normalizeStlObject(item);
+    if(type==='benchwork') return normalizeBenchworkOutline(item);
+    if(type==='fabric') return normalizeFabricRegion(item);
+    return item;
+  }
+  function clearCopiedSiteObjectRelationships(type,payload){
+    if(type==='roadFeature'){
+      payload.roadId=null;
+      payload.autoAlignedToRoad=false;
+    } else if(type==='streetlight'){
+      if(payload.anchor){
+        payload.anchor={...payload.anchor,targetRoadId:null,lockToRoadEdge:false};
+      }
+    } else if(type==='road'){
+      payload.endpointConnections={};
+      delete payload.roadPolygonPx;
+      delete payload.sidewalkPolygonsPx;
+    } else if(type==='trackAccessory'){
+      payload.trackId=null;
+      payload.trackAnchor=null;
+      payload.autoOrientToTrack=false;
+    } else if(type==='track'){
+      payload.endpointConnections={};
+    } else if(type==='fabric'){
+      payload.generatedPadIds=[];
+    }
+    return payload;
+  }
+  function siteObjectClipboardPayload(type,item){
+    if(!type || !item || !SITE_OBJECT_CLIPBOARD_TYPES[type]) return null;
+    const normalized=normalizeSiteObjectForClipboard(type,item);
+    const payload=structuredClone(normalized);
+    payload.copiedFromId=item.id;
+    payload.copiedAt=new Date().toISOString();
+    clearCopiedSiteObjectRelationships(type,payload);
+    return payload;
+  }
+  function copySelectedSiteObject(){
+    const selection=selectedSiteObjectForClipboard();
+    if(!selection?.item) return false;
+    state.siteObjectClipboard={type:selection.type,item:siteObjectClipboardPayload(selection.type,selection.item)};
+    state.siteObjectPasteOffsetCount=0;
+    state.objectClipboardType='siteObject';
+    return true;
+  }
+  function preparePastedSiteObject(type,src){
+    const meta=SITE_OBJECT_CLIPBOARD_TYPES[type];
+    if(!meta || !src) return null;
+    const copy=structuredClone(src);
+    const n=++state.siteObjectPasteOffsetCount;
+    const off=18*n;
+    copy.id=uid(meta.prefix);
+    if(copy.name){
+      const baseName=String(copy.name).replace(/ copy(?: \d+)?$/i,'');
+      copy.name=baseName+' copy';
+    }
+    copy.hidden=false;
+    copy.locked=false;
+    if(Number.isFinite(Number(copy.x))) copy.x=Number(copy.x)+off;
+    if(Number.isFinite(Number(copy.y))) copy.y=Number(copy.y)+off;
+    copy.pointsPx=offsetPointArray(copy.pointsPx,off,off);
+    copy.curvesPx=offsetPointArray(copy.curvesPx,off,off);
+    copy.polygon=offsetPointArray(copy.polygon,off,off);
+    copy.points=offsetPointArray(copy.points,off,off);
+    clearCopiedSiteObjectRelationships(type,copy);
+    normalizeSiteObjectForClipboard(type,copy);
+    return copy;
+  }
+  function selectPastedSiteObject(type,item){
+    clearPlanObjectSelection();
+    state.selectedTrackId=null;
+    const meta=SITE_OBJECT_CLIPBOARD_TYPES[type];
+    if(meta) state[meta.selectedId]=item.id;
+  }
+  function pasteSiteObjectFromClipboard(){
+    const src=state.siteObjectClipboard;
+    const type=src?.type;
+    const meta=SITE_OBJECT_CLIPBOARD_TYPES[type];
+    if(!meta || !src.item) return false;
+    const copy=preparePastedSiteObject(type,src.item);
+    if(!copy) return false;
+    state[meta.collection]=state[meta.collection]||[];
+    state[meta.collection].push(copy);
+    selectPastedSiteObject(type,copy);
+    syncAll();
+    return true;
+  }
+  function copySelectedTrackAccessory(){
+    return !!(state.selectedTrackAccessoryId && copySelectedSiteObject());
+  }
+  function pasteTrackAccessoryFromClipboard(){
+    return state.siteObjectClipboard?.type==='trackAccessory' && pasteSiteObjectFromClipboard();
+  }
   function trackAccessorySnapDistance(){
     return 56/state.view.scale;
   }
@@ -1388,9 +1513,22 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function trackAccessoryRotationHandlePoint(item){
     if(!item) return null;
-    const offset=34/state.view.scale;
     const a=rad(Number(item.rotationDeg)||0);
-    return {x:item.x+Math.sin(a)*offset,y:item.y-Math.cos(a)*offset};
+    const local=trackAccessoryRotationHandleLocal(item);
+    return {
+      x:item.x+local.x*Math.cos(a)-local.y*Math.sin(a),
+      y:item.y+local.x*Math.sin(a)+local.y*Math.cos(a),
+    };
+  }
+  function trackAccessoryRotationHandleLocal(item){
+    const scale=1/state.view.scale;
+    if(isTrackSwitchAccessoryKind(item?.kind)){
+      const geom=trackSwitchGeometryPx(item);
+      const dir=trackSwitchDirection(item.kind);
+      const minY=dir<0 ? -geom.offset-geom.roadbedWidth/2 : -geom.roadbedWidth/2;
+      return {x:0,y:minY-28*scale};
+    }
+    return {x:0,y:-34*scale};
   }
   function hitTrackAccessoryRotationHandle(p,pointerType='mouse'){
     const item=selectedTrackAccessory();
@@ -1399,6 +1537,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(!handle) return null;
     const tol=(pointerType==='touch'?20:12)/state.view.scale;
     return dist(p,handle)<=tol ? item : null;
+  }
+  function trackAccessoryLabelPoint(item){
+    const scale=1/state.view.scale;
+    if(!isTrackSwitchAccessoryKind(item?.kind)) return {x:item.x+12*scale,y:item.y-12*scale};
+    const geom=trackSwitchGeometryPx(item);
+    const dir=trackSwitchDirection(item.kind);
+    const maxY=dir<0 ? geom.roadbedWidth/2 : geom.offset+geom.roadbedWidth/2;
+    const local={x:-geom.halfLength,y:maxY+24*scale};
+    const a=rad(Number(item.rotationDeg)||0);
+    return {
+      x:item.x+local.x*Math.cos(a)-local.y*Math.sin(a),
+      y:item.y+local.x*Math.sin(a)+local.y*Math.cos(a),
+    };
   }
   function selectTrackAccessory(item, opts={}){
     if(!item) return false;
@@ -1602,18 +1753,27 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         ctx.setLineDash([]);
         ctx.strokeStyle='rgba(75,68,56,.75)';
         ctx.fillStyle='#fffaf0';
+        const handleLocal=trackAccessoryRotationHandleLocal(item);
+        const stemStartY=isTrackSwitchAccessoryKind(item.kind)
+          ? (trackSwitchDirection(item.kind)<0
+              ? -trackSwitchGeometryPx(item).offset-trackSwitchGeometryPx(item).roadbedWidth/2-4*scale
+              : -trackSwitchGeometryPx(item).roadbedWidth/2-4*scale)
+          : -18*scale;
         ctx.beginPath();
-        ctx.moveTo(0,-18*scale);
-        ctx.lineTo(0,-34*scale);
+        ctx.moveTo(0,stemStartY);
+        ctx.lineTo(handleLocal.x,handleLocal.y);
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(0,-34*scale,4.8*scale,0,Math.PI*2);
+        ctx.arc(handleLocal.x,handleLocal.y,6.8*scale,0,Math.PI*2);
         ctx.fill();
         ctx.stroke();
+        ctx.font=`${11*scale}px system-ui`;
+        ctx.fillStyle='#4b4438';
+        ctx.fillText('↻',handleLocal.x-4*scale,handleLocal.y+4*scale);
       }
     }
     ctx.restore();
-    if(selected||hovered) drawLabel(item.name||trackAccessoryLabel(item.kind),{x:item.x+12*scale,y:item.y-12*scale});
+    if(selected||hovered) drawLabel(item.name||trackAccessoryLabel(item.kind),trackAccessoryLabelPoint(item));
   }
   function renderRoads(){
     renderObjectBrowser();
@@ -5538,11 +5698,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       return;
     }
     if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='c'){
-      if(currentSelectedBuildingIds().length){e.preventDefault(); copySelectedFootprint(); renderSelected();}
+      if(currentSelectedBuildingIds().length){e.preventDefault(); if(copySelectedFootprint()) state.objectClipboardType='footprint'; renderSelected();}
+      else if(copySelectedSiteObject()){e.preventDefault(); renderSelected();}
       return;
     }
     if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='v'){
-      if(state.footprintClipboard){e.preventDefault(); pasteFootprintFromClipboard();}
+      if(state.objectClipboardType==='siteObject' && state.siteObjectClipboard){e.preventDefault(); pasteSiteObjectFromClipboard();}
+      else if(state.footprintClipboard){e.preventDefault(); pasteFootprintFromClipboard();}
       return;
     }
     if(e.key==='Enter'&&state.tool==='polygon') finishPolygon();

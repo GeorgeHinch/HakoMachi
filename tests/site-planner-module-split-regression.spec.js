@@ -541,6 +541,21 @@ test.describe('Site Planner module split contracts', () => {
     expect(scaleHelpers).not.toContain('return 0.32');
   });
 
+  test('track switch labels are anchored away from the rotation handle', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const labelStart = source.indexOf('function trackAccessoryLabelPoint');
+    const labelEnd = source.indexOf('function selectTrackAccessory');
+    const labelHelper = source.slice(labelStart, labelEnd);
+    const drawStart = source.indexOf('function drawTrackAccessory');
+    const drawEnd = source.indexOf('function renderRoads');
+    const drawHelper = source.slice(drawStart, drawEnd);
+
+    expect(labelHelper).toContain('isTrackSwitchAccessoryKind');
+    expect(labelHelper).toContain('maxY+24*scale');
+    expect(drawHelper).toContain('drawLabel(item.name||trackAccessoryLabel(item.kind),trackAccessoryLabelPoint(item))');
+    expect(drawHelper).not.toContain('drawLabel(item.name||trackAccessoryLabel(item.kind),{x:item.x+12*scale,y:item.y-12*scale})');
+  });
+
   test('benchwork outline behavior is wired through the benchwork controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'benchwork-controller.js'), 'utf8');

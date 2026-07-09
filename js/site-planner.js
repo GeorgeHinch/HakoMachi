@@ -3485,6 +3485,134 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     return tagSite3DTrackAccessory(group,item);
   }
+  function buildSite3DCrossingSignalItem(item,bounds){
+    const selected=item.id===state.selectedTrackAccessoryId;
+    const yellowMat=new THREE.MeshStandardMaterial({color:selected?0xc8493a:0xf0b82f,roughness:.78,metalness:.02});
+    const blackMat=new THREE.MeshStandardMaterial({color:0x23201c,roughness:.72,metalness:.04});
+    const redMat=new THREE.MeshStandardMaterial({color:0xd52522,emissive:0x4a0504,roughness:.38,metalness:.02});
+    const lensOffMat=new THREE.MeshStandardMaterial({color:0x3a1715,roughness:.48,metalness:.02});
+    const metalMat=new THREE.MeshStandardMaterial({color:0x6f6a5e,roughness:.68,metalness:.08});
+    const group=new THREE.Group();
+    group.name=item.name||trackAccessoryLabel(item.kind);
+    group.position.set(site3DScale(item.x)-bounds.cx,0,site3DScale(item.y)-bounds.cy);
+    group.rotation.y=-rad(item.rotationDeg||0);
+    const addBox=(w,h,d,x,y,z,mat=yellowMat,edge=0x4b4438)=>{
+      const mesh=site3DAddEdges(site3DBox(w,h,d,mat,x,y,z),edge,.32);
+      group.add(mesh);
+      return mesh;
+    };
+    const addStripe=(x,y,z,rotation=0)=>{const stripe=site3DBox(1.3,.08,7.6,blackMat,x,y,z); stripe.rotation.y=rotation; group.add(stripe);};
+    addBox(6,.5,5,0,.25,0,metalMat,0x4b4438);
+    addBox(.85,24,.85,0,12,0,yellowMat,0x3a2b1e);
+    for(let y=4;y<22;y+=5.2) addBox(.92,2.3,.92,0,y,0,blackMat,0x1d1712);
+    [-4.1,4.1].forEach((z,index)=>{
+      const head=addBox(2.8,3.2,2.2,0,13.5,z,blackMat,0x1d1712);
+      head.name=`${group.name} red warning lamp housing ${index+1}`;
+      const lens=new THREE.Mesh(new THREE.CylinderGeometry(1.05,1.05,.22,18),index===0||item.kind==='occupancyLight'?redMat:lensOffMat);
+      lens.name=`${group.name} red warning lamp lens ${index+1}`;
+      lens.rotation.x=Math.PI/2;
+      lens.position.set(0,13.5,z-1.16);
+      group.add(lens);
+      const hood=site3DBox(.42,.42,1.5,0,15.15,z-1.4,blackMat);
+      hood.name='Crossing lamp hood';
+      group.add(hood);
+    });
+    if(item.kind==='occupancyLight'){
+      addBox(3,3,1.4,0,8.7,-4.2,redMat,0x641b16);
+      addBox(3,3,1.4,0,8.7,4.2,redMat,0x641b16);
+    }
+    const crossA=addBox(2.4,.42,18,0,23.2,0,yellowMat,0x3a2b1e);
+    const crossB=addBox(2.4,.42,18,0,23.2,0,yellowMat,0x3a2b1e);
+    crossA.name='Japanese crossing buck diagonal plate A';
+    crossB.name='Japanese crossing buck diagonal plate B';
+    crossA.rotation.x=rad(36);
+    crossB.rotation.x=rad(-36);
+    [-6,0,6].forEach(z=>addStripe(0,23.45,z,0));
+    tagSite3DTrackAccessory(group,item);
+    return group;
+  }
+  function buildSite3DCrossingArmItem(item,bounds){
+    const selected=item.id===state.selectedTrackAccessoryId;
+    const yellowMat=new THREE.MeshStandardMaterial({color:selected?0xc8493a:0xf0b82f,roughness:.78,metalness:.02});
+    const blackMat=new THREE.MeshStandardMaterial({color:0x23201c,roughness:.72,metalness:.04});
+    const redMat=new THREE.MeshStandardMaterial({color:0xd52522,emissive:0x4a0504,roughness:.38,metalness:.02});
+    const metalMat=new THREE.MeshStandardMaterial({color:0x6f6a5e,roughness:.72,metalness:.08});
+    const group=new THREE.Group();
+    group.name=item.name||trackAccessoryLabel(item.kind);
+    group.position.set(site3DScale(item.x)-bounds.cx,0,site3DScale(item.y)-bounds.cy);
+    group.rotation.y=-rad(item.rotationDeg||0);
+    const addBox=(w,h,d,x,y,z,mat=yellowMat,edge=0x4b4438)=>{
+      const mesh=site3DAddEdges(site3DBox(w,h,d,mat,x,y,z),edge,.32);
+      group.add(mesh);
+      return mesh;
+    };
+    addBox(6,.55,5,0,.28,0,metalMat,0x4b4438);
+    addBox(1,17,1,0,8.8,0,yellowMat,0x3a2b1e);
+    [4.2,9.4,14.6].forEach(y=>addBox(1.08,2.4,1.08,0,y,0,blackMat,0x1d1712));
+    addBox(4.8,3.2,3.2,0,8.5,-2.9,blackMat,0x1d1712);
+    const boomY=13.4;
+    const boom=addBox(39,.68,.68,20,boomY,0,yellowMat,0x3a2b1e);
+    boom.name='Japanese crossing striped barrier arm';
+    for(let x=4;x<39;x+=7){
+      const stripe=site3DBox(2.4,.74,.74,0,0,0,blackMat);
+      stripe.name='Barrier arm black stripe';
+      stripe.position.set(x,boomY+.01,0);
+      stripe.rotation.z=rad(18);
+      group.add(stripe);
+    }
+    [-3.6,3.6].forEach(z=>{
+      const lamp=new THREE.Mesh(new THREE.CylinderGeometry(.95,.95,.24,18),redMat);
+      lamp.rotation.x=Math.PI/2;
+      lamp.position.set(0,11.8,z);
+      lamp.name='Crossing arm red warning lens';
+      group.add(lamp);
+      addBox(2.5,2.5,1.4,0,11.8,z,blackMat,0x1d1712);
+    });
+    const crossA=addBox(2.2,.38,13,0,18.8,0,yellowMat,0x3a2b1e);
+    const crossB=addBox(2.2,.38,13,0,18.8,0,yellowMat,0x3a2b1e);
+    crossA.name='Crossing arm crossbuck diagonal plate A';
+    crossB.name='Crossing arm crossbuck diagonal plate B';
+    crossA.rotation.x=rad(36);
+    crossB.rotation.x=rad(-36);
+    [-4,0,4].forEach(z=>addBox(1,.08,4.6,0,19.05,z,blackMat,0x1d1712));
+    return tagSite3DTrackAccessory(group,item);
+  }
+  function buildSite3DIntrusionDetectorItem(item,bounds){
+    const selected=item.id===state.selectedTrackAccessoryId;
+    const yellowMat=new THREE.MeshStandardMaterial({color:selected?0xc8493a:0xf0b82f,roughness:.78,metalness:.02});
+    const blackMat=new THREE.MeshStandardMaterial({color:0x201d19,roughness:.68,metalness:.04});
+    const lensMat=new THREE.MeshStandardMaterial({color:0x11151a,roughness:.28,metalness:.04});
+    const glassMat=new THREE.MeshStandardMaterial({color:0x22364a,roughness:.18,metalness:.02,transparent:true,opacity:.72});
+    const metalMat=new THREE.MeshStandardMaterial({color:0x73706a,roughness:.72,metalness:.08});
+    const whiteMat=new THREE.MeshStandardMaterial({color:0xf2f0e8,roughness:.65,metalness:.02});
+    const group=new THREE.Group();
+    group.name=item.name||trackAccessoryLabel(item.kind);
+    group.position.set(site3DScale(item.x)-bounds.cx,0,site3DScale(item.y)-bounds.cy);
+    group.rotation.y=-rad(item.rotationDeg||0);
+    const addBox=(w,h,d,x,y,z,mat=yellowMat,edge=0x4b4438)=>{
+      const mesh=site3DAddEdges(site3DBox(w,h,d,mat,x,y,z),edge,.32);
+      group.add(mesh);
+      return mesh;
+    };
+    addBox(5,.5,4.2,0,.25,0,metalMat,0x4b4438);
+    addBox(.8,13,.8,0,6.7,0,metalMat,0x4b4438);
+    const body=addBox(5.8,4.2,4.2,0,14.6,-1.4,yellowMat,0x3a2b1e);
+    body.name='Level crossing intrusion detector striped sensor box';
+    [-1.6,1.6].forEach(x=>{
+      const lens=new THREE.Mesh(new THREE.CylinderGeometry(.78,.78,.24,18),glassMat);
+      lens.name='Intrusion detector camera lens';
+      lens.rotation.x=Math.PI/2;
+      lens.position.set(x,14.8,-3.62);
+      group.add(lens);
+    });
+    const visor=addBox(7.2,.32,5.8,0,17,-2.1,metalMat,0x4b4438);
+    visor.name='Intrusion detector rain visor';
+    addBox(2.8,1.2,.35,0,16.4,-4.45,blackMat,0x1d1712);
+    for(let i=-1;i<=1;i++) addBox(1.2,4.4,.2,i*1.9,14.65,-3.8,blackMat,0x1d1712);
+    site3DBeam(group,{x:9,y:.5,z:0},{x:9,y:13,z:0},.22,whiteMat,'Intrusion detector reflective pole');
+    for(let y=2.5;y<12;y+=3.5) site3DBeam(group,{x:9,y,z:0},{x:9,y:y+1.2,z:0},.24,blackMat,'Reflective pole black band');
+    return tagSite3DTrackAccessory(group,item);
+  }
   function buildSite3DTrackAccessoryGroup(bounds){
     const group=new THREE.Group();
     group.name='Site Planner track items';
@@ -3497,6 +3625,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         ? buildSite3DTrackSwitchItem(item,bounds)
         : isTrackBufferAccessoryKind(item.kind)
         ? buildSite3DTrackBufferItem(item,bounds)
+        : item.kind==='signal' || item.kind==='occupancyLight'
+        ? buildSite3DCrossingSignalItem(item,bounds)
+        : item.kind==='crossingArm'
+        ? buildSite3DCrossingArmItem(item,bounds)
+        : item.kind==='intrusionDetector'
+        ? buildSite3DIntrusionDetectorItem(item,bounds)
         : null;
       if(accessory) group.add(accessory);
     });

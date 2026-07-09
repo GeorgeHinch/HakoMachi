@@ -319,6 +319,57 @@ test.describe('site planner track editing workspace', () => {
     expect(hasRenderedPixels).toBe(true);
   });
 
+  test('renders crossing signal, crossing arm, and detector track items in the 3D preview', async ({ page }) => {
+    await page.goto('/site-planner.html', { waitUntil: 'domcontentloaded' });
+    await importBlankPlan(page);
+
+    await page.selectOption('#workspaceMode', 'track');
+    await page.click('#trackDrawModeBtn');
+    await canvasClick(page, 120, 220);
+    await canvasClick(page, 520, 220);
+    await page.keyboard.press('Enter');
+
+    const sidebarToggle = page.locator('#sidebarToggle[aria-expanded="true"]');
+    if (await sidebarToggle.count() && await sidebarToggle.isVisible()) await sidebarToggle.click();
+    await page.click('#trackSignalModeBtn', { force: true });
+    await canvasClick(page, 190, 198);
+    await page.click('#trackCrossingArmModeBtn', { force: true });
+    await canvasClick(page, 250, 198);
+    await page.click('#trackIntrusionDetectorModeBtn', { force: true });
+    await canvasClick(page, 310, 198);
+    await page.click('#trackOccupancyLightModeBtn', { force: true });
+    await canvasClick(page, 370, 198);
+
+    await page.waitForFunction(key => {
+      const payload = JSON.parse(localStorage.getItem(key) || '{}');
+      const kinds = new Set((payload.trackAccessories || []).map(item => item.kind));
+      return ['signal', 'crossingArm', 'intrusionDetector', 'occupancyLight'].every(kind => kinds.has(kind));
+    }, AUTOSAVE_KEY);
+
+    await page.click('#view3dCanvasBtn');
+    await expect(page.locator('.canvasWrap')).toHaveClass(/view3d/);
+    const site3dCanvas = page.locator('#site3dView canvas');
+    await expect(site3dCanvas).toBeVisible();
+    await page.waitForTimeout(300);
+    const previewScreenshot = await site3dCanvas.screenshot();
+    expect(previewScreenshot.length).toBeGreaterThan(1000);
+    const hasRenderedPixels = await site3dCanvas.evaluate(canvas => {
+      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+      if (!gl || gl.drawingBufferWidth < 2 || gl.drawingBufferHeight < 2) return false;
+      const width = Math.min(100, gl.drawingBufferWidth);
+      const height = Math.min(100, gl.drawingBufferHeight);
+      const x = Math.max(0, Math.floor((gl.drawingBufferWidth - width) / 2));
+      const y = Math.max(0, Math.floor((gl.drawingBufferHeight - height) / 2));
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      for (let i = 0; i < pixels.length; i += 4) {
+        if (pixels[i + 3] && (pixels[i] !== 236 || pixels[i + 1] !== 236 || pixels[i + 2] !== 230)) return true;
+      }
+      return false;
+    });
+    expect(hasRenderedPixels).toBe(true);
+  });
+
   test('auto-fills a selected track spline with scaled catenary poles', async ({ page }) => {
     await page.goto('/site-planner.html', { waitUntil: 'domcontentloaded' });
     await importBlankPlan(page);

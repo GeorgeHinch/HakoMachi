@@ -530,6 +530,25 @@ test.describe('Site Planner module split contracts', () => {
     expect(renderer).not.toContain('geom.roadbedWidth/2');
   });
 
+  test('crossing equipment track items route to dedicated 3D model builders', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const start = source.indexOf('function buildSite3DCrossingSignalItem');
+    const end = source.indexOf('function buildSite3DTrackAccessoryGroup');
+    const renderer = source.slice(start, end);
+    const switchboard = source.slice(end, source.indexOf('function site3DWindowColumns'));
+
+    expect(renderer).toContain('Japanese crossing buck diagonal plate A');
+    expect(renderer).toContain('Japanese crossing striped barrier arm');
+    expect(renderer).toContain('Level crossing intrusion detector striped sensor box');
+    expect(renderer).toContain('Intrusion detector reflective pole');
+    expect(switchboard).toContain("item.kind==='signal' || item.kind==='occupancyLight'");
+    expect(switchboard).toContain('buildSite3DCrossingSignalItem(item,bounds)');
+    expect(switchboard).toContain("item.kind==='crossingArm'");
+    expect(switchboard).toContain('buildSite3DCrossingArmItem(item,bounds)');
+    expect(switchboard).toContain("item.kind==='intrusionDetector'");
+    expect(switchboard).toContain('buildSite3DIntrusionDetectorItem(item,bounds)');
+  });
+
   test('Tomix track accessories fall back to the flex-track gauge scale', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const start = source.indexOf('function defaultTrackAccessoryPxPerMm');

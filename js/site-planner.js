@@ -3164,7 +3164,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return mesh;
   }
   function site3DAddFlatPolygon(group, pts, mat, outlineMat, name, y=.07){
-    if(!pts || pts.length<3) return;
+    if(!pts || pts.length<3) return null;
     const ordered=signedArea2D(pts)<0 ? pts.slice().reverse() : pts.slice();
     const shape=new THREE.Shape();
     ordered.forEach((p,i)=>{
@@ -3194,6 +3194,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const edge=new THREE.LineSegments(edgeGeo,outlineMat);
     edge.name=`${name} outline`;
     group.add(edge);
+    return mesh;
   }
   function site3DAddRaisedPolygon(group, pts, mat, outlineMat, name, topY=.2, height=.15){
     if(!pts || pts.length<3) return null;
@@ -3263,10 +3264,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       syncRoadMetrics(r);
       const display=roadDisplayPolygons(r,{perCurve:32});
       display.roadPolygons.forEach((polygon,idx)=>{
-        site3DAddFlatPolygon(group,polygon,roadMat,roadLineMat,`${r.name||'Road'} surface ${idx+1}`,.08);
+        tagSite3DRoadObject(site3DAddFlatPolygon(group,polygon,roadMat,roadLineMat,`${r.name||'Road'} surface ${idx+1}`,.08),r);
       });
       display.sidewalkPolygons.forEach((sw,idx)=>{
-        site3DAddFlatPolygon(group,sw.polygon||[],sidewalkMat,sidewalkLineMat,`${r.name||'Road'} sidewalk ${idx+1}`,.09);
+        tagSite3DRoadObject(site3DAddFlatPolygon(group,sw.polygon||[],sidewalkMat,sidewalkLineMat,`${r.name||'Road'} sidewalk ${idx+1}`,.09),r);
       });
     });
     return group.children.length ? group : null;
@@ -3290,14 +3291,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const sleeperBase=roadbedTop+.03;
       const sleeperHeight=Math.max(.08,Math.min(.32,profileMm.roadbedHeight*.16));
       const railBase=sleeperBase+sleeperHeight;
-      site3DAddRaisedPolygon(group,roadbedPoly,roadbedMat,roadbedLineMat,`${t.name||'Track'} raised cork roadbed`,roadbedTop,profileMm.roadbedHeight);
-      site3DAddBoxSegments(group,trackTieSegments(t),tieMat,`${t.name||'Track'} sleeper solids`,profileMm.tieWidth,sleeperHeight,sleeperBase,bounds);
+      tagSite3DTrackObject(site3DAddRaisedPolygon(group,roadbedPoly,roadbedMat,roadbedLineMat,`${t.name||'Track'} raised cork roadbed`,roadbedTop,profileMm.roadbedHeight),t);
+      tagSite3DTrackObject(site3DAddBoxSegments(group,trackTieSegments(t),tieMat,`${t.name||'Track'} sleeper solids`,profileMm.tieWidth,sleeperHeight,sleeperBase,bounds),t);
       const railPathA=offsetTrackPath(path,railOffset);
       const railPathB=offsetTrackPath(path,-railOffset);
       const railSegmentsA=railPathA.slice(1).map((p,i)=>({a:railPathA[i],b:p}));
       const railSegmentsB=railPathB.slice(1).map((p,i)=>({a:railPathB[i],b:p}));
-      site3DAddBoxSegments(group,railSegmentsA,railMat,`${t.name||'Track'} rail A solids`,profileMm.railWidth,profileMm.railHeight,railBase,bounds);
-      site3DAddBoxSegments(group,railSegmentsB,railMat,`${t.name||'Track'} rail B solids`,profileMm.railWidth,profileMm.railHeight,railBase,bounds);
+      tagSite3DTrackObject(site3DAddBoxSegments(group,railSegmentsA,railMat,`${t.name||'Track'} rail A solids`,profileMm.railWidth,profileMm.railHeight,railBase,bounds),t);
+      tagSite3DTrackObject(site3DAddBoxSegments(group,railSegmentsB,railMat,`${t.name||'Track'} rail B solids`,profileMm.railWidth,profileMm.railHeight,railBase,bounds),t);
     });
     return group.children.length ? group : null;
   }
@@ -3325,6 +3326,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function tagSite3DTrackAccessory(group,item){
     if(!group || !item) return group;
+    if(!group.userData?.sitePlannerTrackAccessoryPickProxy){
+      const pickMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.001,depthWrite:false});
+      const pick=new THREE.Mesh(new THREE.BoxGeometry(30,36,30),pickMat);
+      pick.name=`${item.name||trackAccessoryLabel(item.kind)} 3D pick volume`;
+      pick.position.y=18;
+      pick.userData.sitePlannerTrackAccessoryPickProxy=true;
+      group.add(pick);
+    }
     group.userData.sitePlannerTrackAccessoryId=item.id;
     group.userData.sitePlannerTrackAccessoryName=item.name||trackAccessoryLabel(item.kind);
     group.traverse?.(child=>{
@@ -3333,6 +3342,30 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       child.userData.sitePlannerTrackAccessoryName=item.name||trackAccessoryLabel(item.kind);
     });
     return group;
+  }
+  function tagSite3DRoadObject(object,road){
+    if(!object || !road) return object;
+    object.userData=object.userData||{};
+    object.userData.sitePlannerRoadId=road.id;
+    object.userData.sitePlannerRoadName=road.name||'Road';
+    object.traverse?.(child=>{
+      child.userData=child.userData||{};
+      child.userData.sitePlannerRoadId=road.id;
+      child.userData.sitePlannerRoadName=road.name||'Road';
+    });
+    return object;
+  }
+  function tagSite3DTrackObject(object,track){
+    if(!object || !track) return object;
+    object.userData=object.userData||{};
+    object.userData.sitePlannerTrackId=track.id;
+    object.userData.sitePlannerTrackName=track.name||'Track';
+    object.traverse?.(child=>{
+      child.userData=child.userData||{};
+      child.userData.sitePlannerTrackId=track.id;
+      child.userData.sitePlannerTrackName=track.name||'Track';
+    });
+    return object;
   }
   function buildSite3DCatenaryItem(item,bounds){
     refreshTrackAccessoryAnchor(item);
@@ -3579,38 +3612,52 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function buildSite3DIntrusionDetectorItem(item,bounds){
     const selected=item.id===state.selectedTrackAccessoryId;
-    const yellowMat=new THREE.MeshStandardMaterial({color:selected?0xc8493a:0xf0b82f,roughness:.78,metalness:.02});
-    const blackMat=new THREE.MeshStandardMaterial({color:0x201d19,roughness:.68,metalness:.04});
-    const lensMat=new THREE.MeshStandardMaterial({color:0x11151a,roughness:.28,metalness:.04});
-    const glassMat=new THREE.MeshStandardMaterial({color:0x22364a,roughness:.18,metalness:.02,transparent:true,opacity:.72});
-    const metalMat=new THREE.MeshStandardMaterial({color:0x73706a,roughness:.72,metalness:.08});
-    const whiteMat=new THREE.MeshStandardMaterial({color:0xf2f0e8,roughness:.65,metalness:.02});
+    const baseMat=new THREE.MeshStandardMaterial({color:selected?0xc8493a:0x7d807e,roughness:.72,metalness:.08});
+    const housingMat=new THREE.MeshStandardMaterial({color:selected?0xd96250:0xa6aaa8,roughness:.66,metalness:.06});
+    const darkMat=new THREE.MeshStandardMaterial({color:0x222629,roughness:.55,metalness:.04});
+    const glassMat=new THREE.MeshStandardMaterial({color:0x263b48,roughness:.2,metalness:.02,transparent:true,opacity:.78});
+    const beamMat=new THREE.MeshBasicMaterial({color:0x72a6bd,transparent:true,opacity:selected ? .45 : .24});
     const group=new THREE.Group();
     group.name=item.name||trackAccessoryLabel(item.kind);
     group.position.set(site3DScale(item.x)-bounds.cx,0,site3DScale(item.y)-bounds.cy);
     group.rotation.y=-rad(item.rotationDeg||0);
-    const addBox=(w,h,d,x,y,z,mat=yellowMat,edge=0x4b4438)=>{
+    const addBox=(w,h,d,x,y,z,mat=housingMat,edge=0x4b4438)=>{
       const mesh=site3DAddEdges(site3DBox(w,h,d,mat,x,y,z),edge,.32);
       group.add(mesh);
       return mesh;
     };
-    addBox(5,.5,4.2,0,.25,0,metalMat,0x4b4438);
-    addBox(.8,13,.8,0,6.7,0,metalMat,0x4b4438);
-    const body=addBox(5.8,4.2,4.2,0,14.6,-1.4,yellowMat,0x3a2b1e);
-    body.name='Level crossing intrusion detector striped sensor box';
-    [-1.6,1.6].forEach(x=>{
-      const lens=new THREE.Mesh(new THREE.CylinderGeometry(.78,.78,.24,18),glassMat);
-      lens.name='Intrusion detector camera lens';
-      lens.rotation.x=Math.PI/2;
-      lens.position.set(x,14.8,-3.62);
-      group.add(lens);
+    const addDetectorHead=(z,faceDir)=>{
+      addBox(5.6,.45,4.4,0,.23,z,baseMat,0x4b4438).name='HB-type intrusion detector low concrete plinth';
+      addBox(3.6,1.8,3.2,0,1.35,z,baseMat,0x4b4438).name='HB-type intrusion detector short grey pedestal';
+      const body=addBox(5.2,3.4,3.8,0,3.9,z,housingMat,0x4b4438);
+      body.name='HB-type level crossing obstruction detector grey sensor housing';
+      const face=addBox(4.1,2.45,.32,0,3.95,z+(faceDir*2.08),darkMat,0x151719);
+      face.name='HB-type intrusion detector dark sensor face';
+      [-1.25,1.25].forEach(x=>{
+        const lens=new THREE.Mesh(new THREE.CylinderGeometry(.48,.48,.2,18),glassMat);
+        lens.name='HB-type intrusion detector optical sensor lens';
+        lens.rotation.x=Math.PI/2;
+        lens.position.set(x,4.05,z+(faceDir*2.28));
+        group.add(lens);
+      });
+      const hood=addBox(5.6,.28,1.2,0,5.55,z+(faceDir*1.72),housingMat,0x4b4438);
+      hood.name='HB-type intrusion detector shallow rain hood';
+      const rear=addBox(3.2,1.4,.24,0,3.9,z-(faceDir*2.03),darkMat,0x151719);
+      rear.name='HB-type intrusion detector rear service panel';
+    };
+    addDetectorHead(-8,1);
+    addDetectorHead(8,-1);
+    const beamGeo=new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0,4.05,-5.65),
+      new THREE.Vector3(0,4.05,5.65)
+    ]);
+    const beam=new THREE.Line(beamGeo,beamMat);
+    beam.name='HB-type intrusion detector obstruction detection beam';
+    group.add(beam);
+    [-8,8].forEach(z=>{
+      const cable=site3DBeam(group,{x:-2.15,y:.48,z},{x:-2.15,y:3.05,z},.08,darkMat,'HB-type intrusion detector conduit');
+      cable.name='HB-type intrusion detector conduit';
     });
-    const visor=addBox(7.2,.32,5.8,0,17,-2.1,metalMat,0x4b4438);
-    visor.name='Intrusion detector rain visor';
-    addBox(2.8,1.2,.35,0,16.4,-4.45,blackMat,0x1d1712);
-    for(let i=-1;i<=1;i++) addBox(1.2,4.4,.2,i*1.9,14.65,-3.8,blackMat,0x1d1712);
-    site3DBeam(group,{x:9,y:.5,z:0},{x:9,y:13,z:0},.22,whiteMat,'Intrusion detector reflective pole');
-    for(let y=2.5;y<12;y+=3.5) site3DBeam(group,{x:9,y,z:0},{x:9,y:y+1.2,z:0},.24,blackMat,'Reflective pole black band');
     return tagSite3DTrackAccessory(group,item);
   }
   function buildSite3DTrackAccessoryGroup(bounds){
@@ -4111,6 +4158,54 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     return true;
   }
+  function site3DHitSelectionData(object){
+    const data=object?.userData||{};
+    if(data.sitePlannerSelectionHelper || data.sitePlannerHoverHelper) return null;
+    if(data.sitePlannerTrackAccessoryId) return {type:'trackAccessory',id:data.sitePlannerTrackAccessoryId};
+    if(data.sitePlannerStlObjectId) return {type:'stlObject',id:data.sitePlannerStlObjectId};
+    if(data.sitePlannerBuildingId) return {type:'building',id:data.sitePlannerBuildingId};
+    if(data.sitePlannerTrackId) return {type:'track',id:data.sitePlannerTrackId};
+    if(data.sitePlannerRoadId) return {type:'road',id:data.sitePlannerRoadId};
+    return null;
+  }
+  function selectSite3DHit(selection){
+    if(!selection?.id) return false;
+    if(selection.type==='trackAccessory'){
+      const item=(state.trackAccessories||[]).find(accessory=>accessory.id===selection.id);
+      if(!item) return false;
+      selectTrackAccessory(item,{skipSync:true});
+    } else if(selection.type==='stlObject'){
+      const obj=(state.stlObjects||[]).find(item=>item.id===selection.id);
+      if(!obj) return false;
+      selectStlObject(obj);
+    } else if(selection.type==='building'){
+      const b=state.buildings.find(item=>item.id===selection.id);
+      if(!b) return false;
+      clearPlanObjectSelection();
+      setBuildingSelection([selection.id],selection.id);
+    } else if(selection.type==='track'){
+      const track=(state.tracks||[]).find(item=>item.id===selection.id);
+      if(!track) return false;
+      clearPlanObjectSelection();
+      state.selectedTrackId=track.id;
+    } else if(selection.type==='road'){
+      const road=(state.roads||[]).find(item=>item.id===selection.id);
+      if(!road) return false;
+      clearPlanObjectSelection();
+      state.selectedRoadId=road.id;
+      if(road.mode!=='outline') state.roadOutlineEditId=null;
+    } else {
+      return false;
+    }
+    renderList();
+    renderRoads();
+    renderStreetlights();
+    renderSelected();
+    updateHandoff();
+    updateSite3D({preserveCamera:true});
+    setSidebarOpen(true);
+    return true;
+  }
   function handleSite3DPointerUp(e){
     if(state.viewMode!=='3d' || !site3d.raycaster || !site3d.pointer || !site3d.camera || !site3d.renderer) return;
     if(e.button != null && e.button !== 0) return;
@@ -4123,31 +4218,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     site3d.pointer.y=-(((e.clientY-rect.top)/rect.height)*2-1);
     site3d.raycaster.setFromCamera(site3d.pointer,site3d.camera);
     const hits=site3d.raycaster.intersectObjects(site3d.root?.children||[],true);
-    const hit=hits.find(item=>item.object?.userData?.sitePlannerBuildingId || item.object?.userData?.sitePlannerStlObjectId);
-    if(!hit) return;
-    if(hit.object.userData.sitePlannerStlObjectId){
-      const id=hit.object.userData.sitePlannerStlObjectId;
-      const obj=(state.stlObjects||[]).find(item=>item.id===id);
-      if(!obj) return;
-      selectStlObject(obj);
-      updateSite3D({preserveCamera:true});
-      setSidebarOpen(true);
-      return;
-    }
-    const id=hit.object.userData.sitePlannerBuildingId;
-    const b=state.buildings.find(item=>item.id===id);
-    if(!b) return;
-    state.selectedRoadId=null;
-    state.selectedBenchworkId=null;
-    state.selectedFabricId=null;
-    state.selectedStreetlightId=null;
-    state.selectedAnnotationId=null;
-    setBuildingSelection([id],id);
-    renderList();
-    renderSelected();
-    updateHandoff();
-    updateSite3D({preserveCamera:true});
-    setSidebarOpen(true);
+    const selection=hits.map(hit=>site3DHitSelectionData(hit.object)).find(Boolean);
+    selectSite3DHit(selection);
   }
   function updateSite3D(options={}){
     if(state.viewMode!=='3d') return;
@@ -4701,7 +4773,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     renderQueued = true;
     requestAnimationFrame(() => {
       renderQueued = false;
-      drawNow();
+      if(state.viewMode==='3d') updateSite3D({preserveCamera:true});
+      else drawNow();
     });
   }
   function drawNow(){const r=canvas.getBoundingClientRect(); const dpr=devicePixelRatio||1; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.benchworkOutlines.forEach(drawBenchwork); drawRoadLayer(); drawGeneratedRailCrossings(); (state.tracks||[]).forEach(drawTrack); (state.trackAccessories||[]).forEach(drawTrackAccessory); (state.fabricRegions||[]).forEach(drawFabricRegion); state.buildings.forEach(drawBuilding); (state.stlObjects||[]).forEach(drawStlObject); state.streetlights.forEach(drawStreetlight); if(state.roadDraft.length){ctx.save();ctx.strokeStyle='#6f6a5e';ctx.fillStyle='rgba(111,106,94,.18)';ctx.lineWidth=3/state.view.scale;if(state.roadMode==='centerline'&&state.roadDraft.length>=2){const temp=createRoadCenterlineFromPoints(state.roadDraft); temp.id='road_draft'; drawRoad(temp);} else {ctx.beginPath();state.roadDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();}state.roadDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.trackDraft&&state.trackDraft.length){ctx.save();const temp=normalizeTrack({id:'track_draft',name:'Track preview',pointsPx:state.trackDraft.slice(),gaugeMm:9,tieSpacingMm:4,color:'#4b4438',tieColor:'#8a6f43'}); drawTrack(temp); ctx.fillStyle='rgba(75,68,56,.20)'; state.trackDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.benchworkDraft.length){ctx.save();ctx.strokeStyle='#2f6f4e';ctx.fillStyle='rgba(47,111,78,.12)';ctx.lineWidth=3/state.view.scale;ctx.setLineDash([8/state.view.scale,6/state.view.scale]);ctx.beginPath();state.benchworkDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.setLineDash([]);state.benchworkDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} drawFabricDraft(); if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview){ if(state.drag.type==='roadCenterline') drawRoad(state.drag.preview); else drawBuilding(state.drag.preview); } drawSelectionMarquee(); drawHoverPreview(); ctx.restore(); updateEmptyImageOverlay(); updateStatus();}

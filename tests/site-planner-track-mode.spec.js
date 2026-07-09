@@ -319,6 +319,46 @@ test.describe('site planner track editing workspace', () => {
     expect(hasRenderedPixels).toBe(true);
   });
 
+  test('selects a track item from the 3D preview and applies property edits', async ({ page }) => {
+    await page.goto('/site-planner.html', { waitUntil: 'domcontentloaded' });
+    await importBlankPlan(page);
+
+    await page.selectOption('#workspaceMode', 'track');
+    await page.click('#trackDrawModeBtn');
+    await canvasClick(page, 280, 300);
+    await canvasClick(page, 520, 300);
+    await page.keyboard.press('Enter');
+
+    const sidebarToggle = page.locator('#sidebarToggle[aria-expanded="true"]');
+    if (await sidebarToggle.count() && await sidebarToggle.isVisible()) await sidebarToggle.click();
+    await page.click('#catenaryVariantBtn');
+    await page.click('#catenaryToolMenu [data-catenary-kind="catenarySingleSide"]');
+    await canvasClick(page, 400, 300);
+    await expect(page.locator('#selectedPanel')).toContainText('Track item selected');
+    await page.click('#sidebarBackBtn');
+
+    await page.click('#view3dCanvasBtn');
+    await expect(page.locator('.canvasWrap')).toHaveClass(/view3d/);
+    const site3dCanvas = page.locator('#site3dView canvas');
+    await expect(site3dCanvas).toBeVisible();
+    await page.waitForTimeout(300);
+    const box = await site3dCanvas.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.42);
+
+    await expect(page.locator('#selectedPanel')).toContainText('Track item selected');
+    await expect(page.locator('#selectedPanel')).toContainText('Single-side Catenary Pole');
+    const before = await site3dCanvas.screenshot();
+    await page.locator('#trackItemRot').fill('90');
+    await page.waitForFunction(key => {
+      const payload = JSON.parse(localStorage.getItem(key) || '{}');
+      return (payload.trackAccessories || []).some(item => item.kind === 'catenarySingleSide' && Math.abs((Number(item.rotationDeg) || 0) - 90) < 0.01);
+    }, AUTOSAVE_KEY);
+    await page.waitForTimeout(250);
+    const after = await site3dCanvas.screenshot();
+    expect(Buffer.compare(before, after)).not.toBe(0);
+  });
+
   test('renders crossing signal, crossing arm, and detector track items in the 3D preview', async ({ page }) => {
     await page.goto('/site-planner.html', { waitUntil: 'domcontentloaded' });
     await importBlankPlan(page);

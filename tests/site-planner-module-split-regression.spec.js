@@ -539,14 +539,36 @@ test.describe('Site Planner module split contracts', () => {
 
     expect(renderer).toContain('Japanese crossing buck diagonal plate A');
     expect(renderer).toContain('Japanese crossing striped barrier arm');
-    expect(renderer).toContain('Level crossing intrusion detector striped sensor box');
-    expect(renderer).toContain('Intrusion detector reflective pole');
+    expect(renderer).toContain('HB-type level crossing obstruction detector grey sensor housing');
+    expect(renderer).toContain('HB-type intrusion detector obstruction detection beam');
     expect(switchboard).toContain("item.kind==='signal' || item.kind==='occupancyLight'");
     expect(switchboard).toContain('buildSite3DCrossingSignalItem(item,bounds)');
     expect(switchboard).toContain("item.kind==='crossingArm'");
     expect(switchboard).toContain('buildSite3DCrossingArmItem(item,bounds)');
     expect(switchboard).toContain("item.kind==='intrusionDetector'");
     expect(switchboard).toContain('buildSite3DIntrusionDetectorItem(item,bounds)');
+  });
+
+  test('site planner 3D objects carry selection tags and route clicks to property panes', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const tagsStart = source.indexOf('function tagSite3DBuilding');
+    const tagsEnd = source.indexOf('function buildSite3DCatenaryItem');
+    const tagHelpers = source.slice(tagsStart, tagsEnd);
+    const pickerStart = source.indexOf('function site3DHitSelectionData');
+    const pickerEnd = source.indexOf('function updateSite3D(options={})');
+    const picker = source.slice(pickerStart, pickerEnd);
+
+    expect(tagHelpers).toContain('sitePlannerRoadId');
+    expect(tagHelpers).toContain('sitePlannerTrackId');
+    expect(source).toContain('tagSite3DRoadObject(site3DAddFlatPolygon');
+    expect(source).toContain('tagSite3DTrackObject(site3DAddRaisedPolygon');
+    expect(source).toContain('tagSite3DTrackObject(site3DAddBoxSegments');
+    expect(picker).toContain("return {type:'trackAccessory'");
+    expect(picker).toContain("return {type:'stlObject'");
+    expect(picker).toContain("return {type:'building'");
+    expect(picker).toContain("return {type:'track'");
+    expect(picker).toContain("return {type:'road'");
+    expect(picker).toContain('updateSite3D({preserveCamera:true})');
   });
 
   test('Tomix track accessories fall back to the flex-track gauge scale', () => {

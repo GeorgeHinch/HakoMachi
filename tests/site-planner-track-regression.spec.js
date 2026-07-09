@@ -82,6 +82,55 @@ async function clickWorldPoint(page, point) {
   });
 }
 
+async function activateLayoutTrackTool(page) {
+  await page.locator('[data-tool="track"][data-workspace="layout"]').click();
+}
+
+function tomixSwitchFixtureEndpoints(x = 300, y = 220) {
+  const length = 541 * Math.sin(15 * Math.PI / 180) * 0.32;
+  const offset = 541 * (1 - Math.cos(15 * Math.PI / 180)) * 0.32;
+  return {
+    heel: { x: x - length / 2, y },
+    straight: { x: x + length / 2, y },
+    diverging: { x: x + length / 2, y: y + offset },
+  };
+}
+
+function blankTrackProject(overrides = {}) {
+  const svgDataUrl = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600"><rect width="900" height="600" fill="#f7f4ec"/></svg>').toString('base64');
+  return {
+    app: 'HakoMachi Site Planner',
+    version: 80,
+    portableProject: true,
+    savedAt: new Date().toISOString(),
+    coordinateSystem: { type: 'imagePixels', origin: 'topLeft', imageWidthPx: 900, imageHeightPx: 600 },
+    image: { mimeType: 'image/svg+xml', dataUrl: svgDataUrl, naturalWidthPx: 900, naturalHeightPx: 600, widthPx: 900, heightPx: 600 },
+    view: { x: 0, y: 0, scale: 1 },
+    site3d: { imageVisible: true, imageOpacity: 0.45 },
+    imageOpacity: 0.75,
+    imageLocked: true,
+    scale: { calibrated: false, pxPerMm: null, calibrationLine: null, units: 'mm' },
+    buildings: [],
+    roads: [],
+    roadFeatures: [],
+    stlObjects: [],
+    benchworkOutlines: [],
+    fabricRegions: [],
+    streetlights: [],
+    annotations: [],
+    tracks: [],
+    trackAccessories: [],
+    ...overrides,
+  };
+}
+
+async function seedAutosave(page, project) {
+  await page.addInitScript(({ key, metaKey, value }) => {
+    localStorage.setItem(key, JSON.stringify(value));
+    localStorage.setItem(metaKey, JSON.stringify({ savedAt: value.savedAt, dirtySinceManualSave: true }));
+  }, { key: AUTOSAVE_KEY, metaKey: AUTOSAVE_META_KEY, value: project });
+}
+
 test.describe('Site Planner track regressions', () => {
   test('history snapshots include track geometry through the track controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
@@ -101,7 +150,7 @@ test.describe('Site Planner track regressions', () => {
     await loadPlanner(page);
     await importTinyReferenceImage(page);
 
-    await page.locator('[data-tool="track"]').click();
+    await activateLayoutTrackTool(page);
     const box = await page.locator('#canvas').boundingBox();
     expect(box).not.toBeNull();
 
@@ -118,7 +167,7 @@ test.describe('Site Planner track regressions', () => {
     expect(payload.tracks[0].roadbedWidthMm).toBe(19);
   });
 
-  test('new track endpoint snaps to an existing track endpoint while drawing', async ({ page }) => {
+  test('new track endpoint snaps to an existing track segment while drawing', async ({ page }) => {
     const svgDataUrl = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600"><rect width="900" height="600" fill="#f7f4ec"/></svg>').toString('base64');
     const project = {
       app: 'HakoMachi Site Planner',
@@ -152,10 +201,10 @@ test.describe('Site Planner track regressions', () => {
 
     await loadPlanner(page);
     await expect(page.locator('#emptyImageOverlay')).toBeHidden({ timeout: 10000 });
-    await page.locator('[data-tool="track"]').click();
+    await activateLayoutTrackTool(page);
     await expect(page.locator('#statusTool')).toContainText(/track/i);
 
-    await clickWorldPoint(page, { x: 250, y: 233 });
+    await clickWorldPoint(page, { x: 190, y: 233 });
     await clickWorldPoint(page, { x: 320, y: 270 });
     await page.keyboard.press('Enter');
 
@@ -164,12 +213,176 @@ test.describe('Site Planner track regressions', () => {
     expect(payload.tracks).toHaveLength(2);
     const created = payload.tracks.find(track => track.id !== 'track_existing');
     expect(created).toBeTruthy();
-    expect(created.pointsPx[0]).toMatchObject({ x: 250, y: 220 });
+    expect(created.pointsPx[0]).toMatchObject({ x: 190, y: 220 });
     expect(created.endpointConnections.start).toMatchObject({
       trackId: 'track_existing',
-      kind: 'endpointEnd',
-      pointIndex: 1,
+      kind: 'segment',
     });
+  });
+
+  test('track draw tool continues an existing endpoint as one path', async ({ page }) => {
+    const svgDataUrl = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600"><rect width="900" height="600" fill="#f7f4ec"/></svg>').toString('base64');
+    const project = {
+      app: 'HakoMachi Site Planner',
+      version: 80,
+      portableProject: true,
+      savedAt: new Date().toISOString(),
+      coordinateSystem: { type: 'imagePixels', origin: 'topLeft', imageWidthPx: 900, imageHeightPx: 600 },
+      image: { mimeType: 'image/svg+xml', dataUrl: svgDataUrl, naturalWidthPx: 900, naturalHeightPx: 600, widthPx: 900, heightPx: 600 },
+      view: { x: 0, y: 0, scale: 1 },
+      site3d: { imageVisible: true, imageOpacity: 0.45 },
+      imageOpacity: 0.75,
+      imageLocked: true,
+      scale: { calibrated: false, pxPerMm: null, calibrationLine: null, units: 'mm' },
+      buildings: [],
+      roads: [],
+      roadFeatures: [],
+      stlObjects: [],
+      benchworkOutlines: [],
+      fabricRegions: [],
+      streetlights: [],
+      annotations: [],
+      tracks: [
+        { id: 'track_existing', name: 'Existing fixture', pointsPx: [{ x: 120, y: 220 }, { x: 250, y: 220 }], gaugeMm: 9, roadbedWidthMm: 19, tieSpacingMm: 4 },
+      ],
+    };
+
+    await page.addInitScript(({ key, metaKey, value }) => {
+      localStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(metaKey, JSON.stringify({ savedAt: value.savedAt, dirtySinceManualSave: true }));
+    }, { key: AUTOSAVE_KEY, metaKey: AUTOSAVE_META_KEY, value: project });
+
+    await loadPlanner(page);
+    await expect(page.locator('#emptyImageOverlay')).toBeHidden({ timeout: 10000 });
+    await activateLayoutTrackTool(page);
+    await expect(page.locator('#statusTool')).toContainText(/track/i);
+
+    await clickWorldPoint(page, { x: 250, y: 220 });
+    await expect(page.locator('#statusHint')).toContainText('continuation started');
+    await clickWorldPoint(page, { x: 340, y: 260 });
+    await page.keyboard.press('Enter');
+
+    await page.waitForTimeout(700);
+    const payload = await autosavePayload(page);
+    expect(payload.tracks).toHaveLength(1);
+    const extended = payload.tracks[0];
+    expect(extended.id).toBe('track_existing');
+    expect(extended.pointsPx).toHaveLength(3);
+    expect(extended.pointsPx[0]).toMatchObject({ x: 120, y: 220 });
+    expect(extended.pointsPx[1]).toMatchObject({ x: 250, y: 220 });
+    expect(extended.pointsPx[2].x).toBeCloseTo(340, 1);
+    expect(extended.pointsPx[2].y).toBeCloseTo(260, 1);
+    await expect(page.locator('#selectedPanel')).toContainText('Track selected');
+  });
+
+  test('flex track snaps to Tomix switch heel, straight, and diverging endpoints', async ({ page }) => {
+    const endpoints = tomixSwitchFixtureEndpoints();
+    const project = blankTrackProject({
+      trackAccessories: [
+        { id: 'switch_1', kind: 'trackSwitchRight', name: 'Right turnout', x: 300, y: 220, rotationDeg: 0 },
+      ],
+    });
+
+    await seedAutosave(page, project);
+    await loadPlanner(page);
+    await expect(page.locator('#emptyImageOverlay')).toBeHidden({ timeout: 10000 });
+    await activateLayoutTrackTool(page);
+
+    await clickWorldPoint(page, { x: endpoints.diverging.x + 2, y: endpoints.diverging.y + 1 });
+    await clickWorldPoint(page, { x: 430, y: 285 });
+    await page.keyboard.press('Enter');
+
+    await page.waitForTimeout(700);
+    const payload = await autosavePayload(page);
+    expect(payload.tracks).toHaveLength(1);
+    const created = payload.tracks[0];
+    expect(created.pointsPx[0].x).toBeCloseTo(endpoints.diverging.x, 0);
+    expect(created.pointsPx[0].y).toBeCloseTo(endpoints.diverging.y, 0);
+    expect(created.endpointConnections.start).toMatchObject({
+      trackAccessoryId: 'switch_1',
+      kind: 'trackSwitchEndpoint',
+      endpoint: 'diverging',
+    });
+
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.locator('#canvas').waitFor({ state: 'visible' });
+    await activateLayoutTrackTool(page);
+    await clickWorldPoint(page, { x: endpoints.heel.x, y: endpoints.heel.y });
+    await clickWorldPoint(page, { x: 210, y: 255 });
+    await page.keyboard.press('Enter');
+
+    await page.waitForTimeout(700);
+    const heelPayload = await autosavePayload(page);
+    const heelTrack = heelPayload.tracks.find(track => track.endpointConnections?.start?.endpoint === 'heel');
+    expect(heelTrack).toBeTruthy();
+    expect(heelTrack.endpointConnections.start).toMatchObject({
+      trackAccessoryId: 'switch_1',
+      kind: 'trackSwitchEndpoint',
+      endpoint: 'heel',
+    });
+
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.locator('#canvas').waitFor({ state: 'visible' });
+    await activateLayoutTrackTool(page);
+    await clickWorldPoint(page, { x: endpoints.straight.x, y: endpoints.straight.y });
+    await clickWorldPoint(page, { x: 430, y: 220 });
+    await page.keyboard.press('Enter');
+
+    await page.waitForTimeout(700);
+    const straightPayload = await autosavePayload(page);
+    const straightTrack = straightPayload.tracks.find(track => track.endpointConnections?.start?.endpoint === 'straight');
+    expect(straightTrack).toBeTruthy();
+    expect(straightTrack.endpointConnections.start).toMatchObject({
+      trackAccessoryId: 'switch_1',
+      kind: 'trackSwitchEndpoint',
+      endpoint: 'straight',
+    });
+  });
+
+  test('connected flex track endpoint follows a moved switch endpoint', async ({ page }) => {
+    const endpoints = tomixSwitchFixtureEndpoints();
+    const project = blankTrackProject({
+      selectedTrackAccessoryId: 'switch_1',
+      trackAccessories: [
+        { id: 'switch_1', kind: 'trackSwitchRight', name: 'Right turnout', x: 300, y: 220, rotationDeg: 0 },
+      ],
+      tracks: [
+        {
+          id: 'track_from_switch',
+          name: 'Flex from turnout',
+          pointsPx: [endpoints.diverging, { x: 430, y: 285 }],
+          gaugeMm: 9,
+          roadbedWidthMm: 19,
+          tieSpacingMm: 4,
+          endpointConnections: {
+            start: { trackAccessoryId: 'switch_1', kind: 'trackSwitchEndpoint', endpoint: 'diverging' },
+          },
+        },
+      ],
+    });
+
+    await seedAutosave(page, project);
+    await loadPlanner(page);
+    await expect(page.locator('#emptyImageOverlay')).toBeHidden({ timeout: 10000 });
+    await clickWorldPoint(page, { x: 300, y: 220 });
+    await expect(page.locator('#selectedPanel')).toContainText('Track item selected');
+    await expect(page.locator('#trackItemName')).toHaveValue('Right turnout');
+
+    await page.locator('#trackItemX').fill('340');
+
+    const moved = tomixSwitchFixtureEndpoints(340, 220);
+    await page.waitForFunction(({ key, expected }) => {
+      const payload = JSON.parse(localStorage.getItem(key) || '{}');
+      const track = (payload.tracks || []).find(item => item.id === 'track_from_switch');
+      if (!track) return false;
+      return Math.abs(track.pointsPx?.[0]?.x - expected.x) < 0.75
+        && Math.abs(track.pointsPx?.[0]?.y - expected.y) < 0.75;
+    }, { key: AUTOSAVE_KEY, expected: moved.diverging });
+
+    const payload = await autosavePayload(page);
+    const track = payload.tracks.find(item => item.id === 'track_from_switch');
+    expect(track.pointsPx[0].x).toBeCloseTo(moved.diverging.x, 0);
+    expect(track.pointsPx[0].y).toBeCloseTo(moved.diverging.y, 0);
   });
 
   test('straight, curved, S-curve, and joined track fixtures round-trip through load/autosave', async ({ page }) => {

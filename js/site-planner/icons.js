@@ -20,6 +20,8 @@ export const ICONS = {
   crossingArm: '<svg viewBox="0 0 24 24"><path d="M6 21V7"/><circle cx="6" cy="6" r="2"/><path d="M6 10l14 6"/><path d="M10 12l2-2"/><path d="M14 14l2-2"/><path d="M18 16l2-2"/></svg>',
   intrusionDetector: '<svg viewBox="0 0 24 24"><rect x="6" y="8" width="12" height="9" rx="1"/><path d="M9 8l3-4 3 4"/><circle cx="10" cy="12.5" r="1.4"/><circle cx="14" cy="12.5" r="1.4"/><path d="M8 20h8"/></svg>',
   occupancyLight: '<svg viewBox="0 0 24 24"><path d="M12 21V9"/><circle cx="8.5" cy="7" r="3"/><circle cx="15.5" cy="7" r="3"/><path d="M5 3l-2-2"/><path d="M19 3l2-2"/><path d="M8 21h8"/></svg>',
+  trackSwitchLeft: '<svg viewBox="0 0 24 24"><path d="M4 17h16"/><path d="M7 13h10"/><path d="M9 9h6"/><path d="M9 17c3-1 5-3 8-7"/><path d="M13 14l4-4"/><path d="M6 20h12"/></svg>',
+  trackSwitchRight: '<svg viewBox="0 0 24 24"><path d="M4 17h16"/><path d="M7 13h10"/><path d="M9 9h6"/><path d="M9 17c3-1 5-3 8-7" transform="translate(24 0) scale(-1 1)"/><path d="M11 14l-4-4"/><path d="M6 20h12"/></svg>',
   catenarySingle: '<svg viewBox="0 0 24 24"><path d="M7 22V5"/><path d="M5 22h5"/><path d="M7 7h5"/><path d="M7 10h12"/><path d="M12 10l5 5"/><path d="M10 15h9"/><path d="M17 15l2-5"/><path d="M6 5h4"/></svg>',
   catenaryPortal: '<svg viewBox="0 0 24 24"><path d="M5 22V6"/><path d="M19 22V6"/><path d="M3 22h5"/><path d="M16 22h5"/><path d="M5 7h14"/><path d="M5 10h14"/><path d="M6 10l4-3"/><path d="M10 10l4-3"/><path d="M14 10l4-3"/><path d="M9 14h2"/><path d="M13 14h2"/></svg>',
   intersection: '<svg viewBox="0 0 24 24"><path d="M4 10h16"/><path d="M4 14h16"/><path d="M10 4v16"/><path d="M14 4v16"/><path d="M7 7h2"/><path d="M15 17h2"/></svg>',

@@ -162,12 +162,21 @@
     <button class="toolbtn trackModeTool" id="trackCrossingArmModeBtn" data-workspace="track" data-track-action="crossingArm" aria-label="Crossing arm location" title="Crossing arm location"><span class="toolIcon" data-icon="crossingArm"></span><span class="toolLabel">Crossing Arm</span></button>
     <button class="toolbtn trackModeTool" id="trackIntrusionDetectorModeBtn" data-workspace="track" data-track-action="intrusionDetector" aria-label="Intrusion detector" title="Intrusion detector"><span class="toolIcon" data-icon="intrusionDetector"></span><span class="toolLabel">Intrusion Detector</span></button>
     <button class="toolbtn trackModeTool" id="trackOccupancyLightModeBtn" data-workspace="track" data-track-action="occupancyLight" aria-label="Blinking occupancy lights" title="Blinking occupancy lights"><span class="toolIcon" data-icon="occupancyLight"></span><span class="toolLabel">Occupancy Lights</span></button>
+    <div class="toolGroup" id="trackSwitchToolGroup" data-workspace="track">
+      <button class="toolbtn trackModeTool" id="trackSwitchToolBtn" data-workspace="track" data-track-action="trackSwitchLeft" aria-label="Left-hand track switch" title="Left-hand track switch"><span class="toolIcon" id="trackSwitchToolIcon" data-icon="trackSwitchLeft"></span><span class="toolLabel" id="trackSwitchToolLabel">Track Switch</span></button>
+      <button class="toolVariantTrigger" id="trackSwitchVariantBtn" title="Track switch variants" aria-label="Track switch variants">&#9662;</button>
+      <div class="toolFlyout" id="trackSwitchToolMenu">
+        <button data-track-switch-kind="trackSwitchLeft"><span data-icon="trackSwitchLeft"></span><span>Left-hand track switch</span></button>
+        <button data-track-switch-kind="trackSwitchRight"><span data-icon="trackSwitchRight"></span><span>Right-hand track switch</span></button>
+      </div>
+    </div>
     <div class="toolGroup" id="catenaryToolGroup" data-workspace="track">
       <button class="toolbtn trackModeTool" id="catenaryToolBtn" data-workspace="track" data-track-action="catenarySingleSide" aria-label="Single-side catenary pole" title="Single-side catenary pole"><span class="toolIcon" id="catenaryToolIcon" data-icon="catenarySingle"></span><span class="toolLabel" id="catenaryToolLabel">Catenary Pole</span></button>
       <button class="toolVariantTrigger" id="catenaryVariantBtn" title="Catenary variants" aria-label="Catenary variants">▾</button>
       <div class="toolFlyout" id="catenaryToolMenu">
         <button data-catenary-kind="catenarySingleSide"><span data-icon="catenarySingle"></span><span>Single-side catenary pole</span></button>
         <button data-catenary-kind="catenaryDoublePortal"><span data-icon="catenaryPortal"></span><span>Double-track catenary portal</span></button>
+        <button data-catenary-kind="catenaryAutoSection"><span data-icon="catenaryPortal"></span><span>Auto catenary section</span></button>
       </div>
     </div>
   </div>

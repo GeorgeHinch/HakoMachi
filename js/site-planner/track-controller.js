@@ -11,6 +11,7 @@ export function createTrackController(deps) {
     quadPoint,
     clearBuildingSelection,
     syncAll,
+    getExternalTrackConnectionPoints = () => [],
   } = deps;
 
   function pointerTolerance(pointerType = 'mouse', coarsePx = 18, finePx = 10) {
@@ -208,12 +209,28 @@ export function createTrackController(deps) {
       const hit = nearestPointOnTrackPath(p, t, true);
       if (hit && hit.distance <= tol && (!best || hit.distance < best.distance)) best = hit;
     });
+    (getExternalTrackConnectionPoints() || []).forEach(endpoint => {
+      if (!endpoint || endpoint.hidden || !endpoint.point) return;
+      const distance = dist(p, endpoint.point);
+      if (distance <= tol && (!best || distance < best.distance)) {
+        best = {
+          ...endpoint,
+          distance,
+          point: { x: endpoint.point.x, y: endpoint.point.y },
+          kind: endpoint.kind || 'externalEndpoint',
+        };
+      }
+    });
     return best;
   }
 
   function snapTrackPointForConnection(p, excludeTrackId = null, pointerType = 'mouse') {
     const hit = findTrackConnectionSnap(p, excludeTrackId, pointerType);
-    return hit ? { x: hit.point.x, y: hit.point.y, connection: { trackId: hit.trackId, kind: hit.kind, pointIndex: hit.pointIndex ?? null } } : { x: p.x, y: p.y, connection: null };
+    if (!hit) return { x: p.x, y: p.y, connection: null };
+    const connection = hit.trackAccessoryId
+      ? { trackAccessoryId: hit.trackAccessoryId, kind: hit.kind, endpoint: hit.endpoint || null }
+      : { trackId: hit.trackId, kind: hit.kind, pointIndex: hit.pointIndex ?? null };
+    return { x: hit.point.x, y: hit.point.y, connection };
   }
 
   function setTrackEndpointConnection(t, index, snap) {
@@ -308,6 +325,43 @@ export function createTrackController(deps) {
 
   function finishTrack() {
     if (!state.trackDraft || state.trackDraft.length < 2) return;
+    const extension = state.trackDraftExtension;
+    if (extension && (extension.kind === 'endpointStart' || extension.kind === 'endpointEnd')) {
+      const existing = (state.tracks || []).find(track => track.id === extension.trackId);
+      if (existing && !existing.locked) {
+        normalizeTrack(existing);
+        const additions = state.trackDraft.slice(1).map(point => ({ x: point.x, y: point.y }));
+        const conns = state.trackDraftConnections || [];
+        const outerConnection = conns[state.trackDraft.length - 1]?.connection || null;
+        if (extension.kind === 'endpointStart') {
+          existing.pointsPx = additions.slice().reverse().concat(existing.pointsPx || []);
+          existing.curvesPx = additions.map(() => null).concat(existing.curvesPx || []);
+          existing.endpointConnections = existing.endpointConnections || {};
+          delete existing.endpointConnections.start;
+          if (outerConnection) existing.endpointConnections.start = outerConnection;
+        } else {
+          existing.pointsPx = (existing.pointsPx || []).concat(additions);
+          existing.curvesPx = (existing.curvesPx || []).concat(additions.map(() => null));
+          existing.endpointConnections = existing.endpointConnections || {};
+          delete existing.endpointConnections.end;
+          if (outerConnection) existing.endpointConnections.end = outerConnection;
+        }
+        syncTrackMetrics(existing);
+        clearBuildingSelection();
+        state.selectedRoadId = null;
+        state.selectedRoadFeatureId = null;
+        state.selectedBenchworkId = null;
+        state.selectedStreetlightId = null;
+        state.selectedAnnotationId = null;
+        state.selectedFabricId = null;
+        state.selectedTrackId = existing.id;
+        state.trackDraft = [];
+        state.trackDraftConnections = [];
+        state.trackDraftExtension = null;
+        syncAll();
+        return;
+      }
+    }
     const t = normalizeTrack({
       id: uid('track'),
       name: `Track ${state.tracks.length + 1}`,
@@ -336,6 +390,7 @@ export function createTrackController(deps) {
     state.selectedTrackId = t.id;
     state.trackDraft = [];
     state.trackDraftConnections = [];
+    state.trackDraftExtension = null;
     syncAll();
   }
 

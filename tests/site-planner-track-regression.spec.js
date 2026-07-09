@@ -87,8 +87,9 @@ async function activateLayoutTrackTool(page) {
 }
 
 function tomixSwitchFixtureEndpoints(x = 300, y = 220) {
-  const length = 541 * Math.sin(15 * Math.PI / 180) * 0.32;
-  const offset = 541 * (1 - Math.cos(15 * Math.PI / 180)) * 0.32;
+  const defaultFlexTrackPxPerMm = 10 / 9;
+  const length = 541 * Math.sin(15 * Math.PI / 180) * defaultFlexTrackPxPerMm;
+  const offset = 541 * (1 - Math.cos(15 * Math.PI / 180)) * defaultFlexTrackPxPerMm;
   return {
     heel: { x: x - length / 2, y },
     straight: { x: x + length / 2, y },

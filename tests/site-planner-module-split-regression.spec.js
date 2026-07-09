@@ -524,8 +524,21 @@ test.describe('Site Planner module split contracts', () => {
 
     expect(renderer).toContain('TRACK_PROFILE_DEFAULTS.railColor');
     expect(renderer).toContain('TRACK_PROFILE_DEFAULTS.tieColor');
+    expect(renderer).toContain('TRACK_PROFILE_DEFAULTS.roadbedHeightMm');
+    expect(renderer).toContain('const railBase=sleeperBase+sleeperHeight');
     expect(renderer).toContain('addLocalSegment(branch[i],branch[i+1]');
     expect(renderer).not.toContain('geom.roadbedWidth/2');
+  });
+
+  test('Tomix track accessories fall back to the flex-track gauge scale', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const start = source.indexOf('function defaultTrackAccessoryPxPerMm');
+    const end = source.indexOf('function tomixBufferGeometry');
+    const scaleHelpers = source.slice(start, end);
+
+    expect(scaleHelpers).toContain('TRACK_PROFILE_DEFAULTS.gaugeMm');
+    expect(scaleHelpers).toContain('return 10 /');
+    expect(scaleHelpers).not.toContain('return 0.32');
   });
 
   test('benchwork outline behavior is wired through the benchwork controller', () => {

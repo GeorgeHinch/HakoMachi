@@ -815,14 +815,20 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function trackBufferHasCatenaryTerminal(item){
     return item?.kind==='trackBufferTomix1428Catenary' || !!item?.catenaryEndTerminal;
   }
-  function trackBufferPxPerMm(item){
+  function defaultTrackAccessoryPxPerMm(){
+    return 10 / Math.max(.1, TRACK_PROFILE_DEFAULTS.gaugeMm || TOMIX_TURNOUT_GAUGE_MM);
+  }
+  function trackAccessoryPxPerMm(item){
     if(state.pxPerMm) return state.pxPerMm;
     const trackId=item?.trackId || item?.trackAnchor?.trackId;
     const track=trackId ? (state.tracks||[]).map(normalizeTrack).find(t=>t.id===trackId) : null;
     const gaugePx=Number(track?.gaugePx);
     const gaugeMm=Number(track?.gaugeMm);
     if(Number.isFinite(gaugePx) && gaugePx>0 && Number.isFinite(gaugeMm) && gaugeMm>0) return gaugePx/gaugeMm;
-    return 0.32;
+    return defaultTrackAccessoryPxPerMm();
+  }
+  function trackBufferPxPerMm(item){
+    return trackAccessoryPxPerMm(item);
   }
   function tomixBufferGeometry(scale=1){
     return {
@@ -844,13 +850,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return kind==='trackSwitchLeft' ? -1 : 1;
   }
   function trackSwitchPxPerMm(item){
-    if(state.pxPerMm) return state.pxPerMm;
-    const trackId=item?.trackId || item?.trackAnchor?.trackId;
-    const track=trackId ? (state.tracks||[]).map(normalizeTrack).find(t=>t.id===trackId) : null;
-    const gaugePx=Number(track?.gaugePx);
-    const gaugeMm=Number(track?.gaugeMm);
-    if(Number.isFinite(gaugePx) && gaugePx>0 && Number.isFinite(gaugeMm) && gaugeMm>0) return gaugePx/gaugeMm;
-    return 0.32;
+    return trackAccessoryPxPerMm(item);
   }
   function tomixTurnoutGeometry(scale=1){
     const length=TOMIX_TURNOUT_LENGTH_MM*scale;
@@ -3113,6 +3113,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     group.rotation.y=-rad(item.rotationDeg||0);
     const dir=trackSwitchDirection(item.kind);
     const geom=trackSwitchGeometrySite3D(item);
+    const roadbedHeight=Math.max(.12,TRACK_PROFILE_DEFAULTS.roadbedHeightMm||2.5);
+    const sleeperHeight=Math.max(.08,Math.min(.32,roadbedHeight*.16));
+    const sleeperBase=roadbedHeight+.03;
+    const railHeight=Math.max(.08,TRACK_PROFILE_DEFAULTS.railHeightMm||.8);
+    const railBase=sleeperBase+sleeperHeight;
     const branch=trackSwitchCurvePoints(geom,dir,24);
     const branchRailA=offsetTrackPath(branch,geom.gauge/2);
     const branchRailB=offsetTrackPath(branch,-geom.gauge/2);
@@ -3128,16 +3133,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     };
     const addRailPath=(points,name)=>{
       for(let i=0;i<points.length-1;i++){
-        addLocalSegment(points[i],points[i+1],Math.max(.08,geom.railWidth),Math.max(.08,TRACK_PROFILE_DEFAULTS.railHeightMm||.45),.72,railMat,name);
+        addLocalSegment(points[i],points[i+1],Math.max(.08,geom.railWidth),railHeight,railBase,railMat,name);
       }
     };
     const addTie=(p,nx,ny,name)=>{
       const half=Math.max(geom.tieLength/2,geom.gauge/2+2);
-      addLocalSegment({x:p.x-nx*half,y:p.y-ny*half},{x:p.x+nx*half,y:p.y+ny*half},Math.max(.12,geom.tieWidth),.24,.34,tieMat,name);
+      addLocalSegment({x:p.x-nx*half,y:p.y-ny*half},{x:p.x+nx*half,y:p.y+ny*half},Math.max(.12,geom.tieWidth),sleeperHeight,sleeperBase,tieMat,name);
     };
-    group.add(site3DAddEdges(site3DBox(geom.length,.34,geom.roadbedWidth,baseMat,0,.12,0),0x8f7b55,.35));
+    group.add(site3DAddEdges(site3DBox(geom.length,roadbedHeight,geom.roadbedWidth,baseMat,0,roadbedHeight/2,0),0x8f7b55,.35));
     for(let i=0;i<branch.length-1;i++){
-      addLocalSegment(branch[i],branch[i+1],Math.max(.5,geom.roadbedWidth),.18,.05,baseMat,'Tomix switch curved roadbed');
+      addLocalSegment(branch[i],branch[i+1],Math.max(.5,geom.roadbedWidth),roadbedHeight,0,baseMat,'Tomix switch curved roadbed');
     }
     for(let x=-geom.halfLength; x<=geom.halfLength+.01; x+=Math.max(geom.tieSpacing,2)){
       addTie({x,y:0},0,1,'Tomix switch straight tie');
@@ -3151,7 +3156,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     addRailPath([{x:-geom.halfLength,y:geom.gauge/2},{x:geom.halfLength,y:geom.gauge/2}],'Tomix switch straight rail B');
     addRailPath(branchRailA,'Tomix switch diverging rail A');
     addRailPath(branchRailB,'Tomix switch diverging rail B');
-    addLocalSegment({x:-geom.halfLength+geom.length*.34,y:0},{x:-geom.halfLength+geom.length*.52,y:dir*geom.offset*.42},Math.max(.08,geom.railWidth*.72),Math.max(.08,(TRACK_PROFILE_DEFAULTS.railHeightMm||.45)*.7),.78,railMat,'Tomix switch point blade');
+    addLocalSegment({x:-geom.halfLength+geom.length*.34,y:0},{x:-geom.halfLength+geom.length*.52,y:dir*geom.offset*.42},Math.max(.08,geom.railWidth*.72),Math.max(.08,railHeight*.7),railBase,railMat,'Tomix switch point blade');
     return tagSite3DTrackAccessory(group,item);
   }
   function buildSite3DTrackBufferItem(item,bounds){

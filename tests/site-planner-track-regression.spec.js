@@ -339,6 +339,47 @@ test.describe('Site Planner track regressions', () => {
     });
   });
 
+  test('dragged switch endpoint snaps to another switch endpoint and matches its turnout angle', async ({ page }) => {
+    const sourceEndpoints = tomixSwitchFixtureEndpoints();
+    const secondCenter = { x: 520, y: 250 };
+    const secondEndpoints = tomixSwitchFixtureEndpoints(secondCenter.x, secondCenter.y);
+    const halfLength = secondCenter.x - secondEndpoints.heel.x;
+    const target = sourceEndpoints.diverging;
+    const project = blankTrackProject({
+      selectedTrackAccessoryId: 'switch_2',
+      trackAccessories: [
+        { id: 'switch_1', kind: 'trackSwitchRight', name: 'Source turnout', x: 300, y: 220, rotationDeg: 0 },
+        { id: 'switch_2', kind: 'trackSwitchRight', name: 'Dropped turnout', x: secondCenter.x, y: secondCenter.y, rotationDeg: 0 },
+      ],
+    });
+
+    await seedAutosave(page, project);
+    await loadPlanner(page);
+    await expect(page.locator('#emptyImageOverlay')).toBeHidden({ timeout: 10000 });
+
+    await dragWorldPoint(page, secondCenter, { x: target.x + halfLength, y: target.y }, 10);
+
+    await page.waitForFunction(({ key }) => {
+      const payload = JSON.parse(localStorage.getItem(key) || '{}');
+      const moved = (payload.trackAccessories || []).find(item => item.id === 'switch_2');
+      return moved && Math.abs((Number(moved.rotationDeg) || 0) - 15) < 0.75
+        && moved.trackAnchor?.kind === 'trackSwitchEndpoint'
+        && moved.trackAnchor?.trackAccessoryId === 'switch_1'
+        && moved.trackAnchor?.endpoint === 'diverging'
+        && moved.trackAnchor?.sourceEndpoint === 'heel';
+    }, { key: AUTOSAVE_KEY });
+
+    const payload = await autosavePayload(page);
+    const moved = payload.trackAccessories.find(item => item.id === 'switch_2');
+    expect(moved.rotationDeg).toBeCloseTo(15, 0);
+    expect(moved.trackAnchor).toMatchObject({
+      kind: 'trackSwitchEndpoint',
+      trackAccessoryId: 'switch_1',
+      endpoint: 'diverging',
+      sourceEndpoint: 'heel',
+    });
+  });
+
   test('connected flex track endpoint follows a moved switch endpoint', async ({ page }) => {
     const endpoints = tomixSwitchFixtureEndpoints();
     const project = blankTrackProject({

@@ -31,6 +31,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_WIDT
 import { loadAlignmentMessage, restoreProjectView, savedImageDimensions, scaleLoadedPixelGeometry } from './site-planner/project-load-utils.js';
 import { createReferenceImageUiController } from './site-planner/reference-image-ui.js';
 import { drainageGrateFamilyOptions, grateFamilyPresetByKey } from './site-planner/road-drainage-grate-inserts.js';
+import { intersectionFeatureKey } from './site-planner/road-intersection-overrides.js';
 import { createRoadSystemController } from './site-planner/road-system-controller.js';
 import { paintStencilExportSpecs, physicalGrateExportSpecs } from './site-planner/road-asset-export-specs.js';
 import { migrateRoadFeatures } from './site-planner/road-feature-migration.js';
@@ -410,6 +411,63 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     });
     return settings;
   }
+  function intersectionArmOverride(intersectionKey, armKey){
+    return (state.roadIntersectionOverrides||{})[intersectionKey]?.arms?.[armKey] || null;
+  }
+  function intersectionFeatureParentEnabled(override, type){
+    if(override?.enabled===false) return false;
+    if(type==='crosswalk') return override?.crosswalkEnabled!==false;
+    if(type==='stopBar') return override?.stopBarEnabled!==false;
+    if(type==='tactilePaver') return override?.tactilePaversEnabled!==false;
+    if(type==='curbGuide') return override?.curbGuideEnabled!==false;
+    return true;
+  }
+  function roadIntersectionFeatureLabel(type, feature, index){
+    const endpoint=feature.endpoint||feature.fromEndpoint||'arm';
+    if(type==='stopBar') return `Stop bar · ${endpoint}${feature.laneSide?` · ${feature.laneSide}`:''}`;
+    if(type==='crosswalk') return `Crosswalk · ${endpoint}`;
+    if(type==='tactilePaver') return `Tactile paver · ${endpoint}${feature.side?` · ${feature.side}`:` · ${index+1}`}`;
+    if(type==='curbGuide') return `Curb guide · ${endpoint}`;
+    return `Marking · ${endpoint}`;
+  }
+  function selectedRoadIntersectionFeatureRows(roadId){
+    const intersections=roadSystem.rawGeneratedRoadIntersections();
+    const rows=[];
+    const pushFeature=(intersection, type, feature, index)=>{
+      const armRoadId=feature.roadId||feature.fromRoadId;
+      const endpoint=feature.endpoint||feature.fromEndpoint;
+      if(armRoadId!==roadId) return;
+      const armKey=[armRoadId||'road',endpoint||'arm'].join(':');
+      const featureWithKind={...feature,kind:type};
+      const featureKey=intersectionFeatureKey(type,featureWithKind,index);
+      const override=intersectionArmOverride(intersection.overrideKey,armKey);
+      const parentEnabled=intersectionFeatureParentEnabled(override,type);
+      const disabled=(override?.disabledFeatureKeys||[]).includes(featureKey);
+      rows.push({
+        intersectionKey:intersection.overrideKey,
+        armKey,
+        featureKey,
+        label:roadIntersectionFeatureLabel(type,feature,index),
+        checked:parentEnabled && !disabled,
+        disabled:parentEnabled?'':'disabled',
+      });
+    };
+    intersections.forEach(intersection=>{
+      (intersection.crosswalks||[]).forEach((feature,index)=>pushFeature(intersection,'crosswalk',feature,index));
+      (intersection.stopBars||[]).forEach((feature,index)=>pushFeature(intersection,'stopBar',feature,index));
+      (intersection.tactilePavers||[]).forEach((feature,index)=>pushFeature(intersection,'tactilePaver',feature,index));
+      (intersection.curbReturns||[]).forEach((feature,index)=>pushFeature(intersection,'curbGuide',feature,index));
+    });
+    return rows;
+  }
+  function roadIntersectionFeatureControlsHtml(roadId){
+    const rows=selectedRoadIntersectionFeatureRows(roadId);
+    if(!rows.length) return '<div class="small muted" style="margin-top:8px">No individual generated markings touch this road yet.</div>';
+    return `<div class="small muted" style="margin-top:8px">Individual generated markings</div>
+      <div class="roadIntersectionFeatureList" style="display:grid;gap:5px;margin-top:5px">
+        ${rows.map(row=>`<label class="checkboxRow" style="display:flex;align-items:center;gap:8px"><input class="roadIntersectionFeatureToggle" type="checkbox" data-intersection-key="${escapeAttr(row.intersectionKey)}" data-arm-key="${escapeAttr(row.armKey)}" data-feature-key="${escapeAttr(row.featureKey)}" ${row.checked?'checked':''} ${row.disabled}> <span>${escapeHtml(row.label)}</span></label>`).join('')}
+      </div>`;
+  }
   function roadIntersectionArmControlsHtml(roadId){
     const s=selectedRoadIntersectionArmSettings(roadId);
     const disabled=s.count?'':'disabled';
@@ -420,6 +478,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:6px"><input id="roadIntersectionStopBars" type="checkbox" ${s.stopBarEnabled?'checked':''} ${disabled}> <span>Stop bars on this road</span></label>
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:6px"><input id="roadIntersectionTactile" type="checkbox" ${s.tactilePaversEnabled?'checked':''} ${disabled}> <span>Tactile pavers on this road</span></label>
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:6px"><input id="roadIntersectionCurbGuides" type="checkbox" ${s.curbGuideEnabled?'checked':''} ${disabled}> <span>Curb guide marks on this road</span></label>
+      ${roadIntersectionFeatureControlsHtml(roadId)}
       <button id="clearRoadIntersectionArmOverrides" class="secondary" type="button" style="margin-top:8px" ${disabled}>Reset selected-road overrides</button>
     </div>`;
   }
@@ -430,6 +489,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       roadSystem.setRoadIntersectionArmOverrides(roadId,{[key]:!!el.checked});
       syncAll();
     };
+  }
+  function bindRoadIntersectionFeatureToggles(){
+    document.querySelectorAll('.roadIntersectionFeatureToggle').forEach(el=>{
+      el.onchange=()=>{
+        roadSystem.setRoadIntersectionFeatureOverride(el.dataset.intersectionKey,el.dataset.armKey,el.dataset.featureKey,!!el.checked);
+        syncAll();
+      };
+    });
   }
   function selectedRoadFeature(){return roadSystem.selectedRoadFeature();}
   function clearRoadFeatureSelection(){return roadSystem.clearRoadFeatureSelection();}
@@ -810,6 +877,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function trackSwitchGeometrySite3D(item){
     return tomixTurnoutGeometry(state.pxPerMm ? 1 : trackSwitchPxPerMm(item));
   }
+  function trackSwitchEndpointDefinitions(item){
+    if(!item || !isTrackSwitchAccessoryKind(item.kind)) return [];
+    const geom=trackSwitchGeometryPx(item);
+    const dir=trackSwitchDirection(item.kind);
+    return [
+      {endpoint:'heel',label:'Heel',local:{x:-geom.halfLength,y:0},angleDeg:0},
+      {endpoint:'straight',label:'Straight',local:{x:geom.halfLength,y:0},angleDeg:0},
+      {endpoint:'diverging',label:'Diverging',local:{x:geom.halfLength,y:dir*geom.offset},angleDeg:dir*TOMIX_TURNOUT_ANGLE_DEG},
+    ];
+  }
   function trackSwitchCurvePoints(geom, dir, steps=18){
     const points=[];
     for(let i=0;i<=steps;i++){
@@ -833,14 +910,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function trackSwitchEndpointPoints(item){
     if(!item || !isTrackSwitchAccessoryKind(item.kind)) return [];
-    const geom=trackSwitchGeometryPx(item);
-    const dir=trackSwitchDirection(item.kind);
-    const endpoints=[
-      {endpoint:'heel',label:'Heel',local:{x:-geom.halfLength,y:0},angleDeg:0},
-      {endpoint:'straight',label:'Straight',local:{x:geom.halfLength,y:0},angleDeg:0},
-      {endpoint:'diverging',label:'Diverging',local:{x:geom.halfLength,y:dir*geom.offset},angleDeg:dir*TOMIX_TURNOUT_ANGLE_DEG},
-    ];
-    return endpoints.map(endpoint=>({
+    return trackSwitchEndpointDefinitions(item).map(endpoint=>({
       ...endpoint,
       point: transformTrackSwitchLocalPoint(item, endpoint.local),
       angleDeg: (Number(item.rotationDeg)||0)+endpoint.angleDeg,
@@ -854,6 +924,59 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       .map(normalizeTrackAccessory)
       .filter(item=>isTrackSwitchAccessoryKind(item.kind) && !item.hidden)
       .flatMap(trackSwitchEndpointPoints);
+  }
+  function nearestTrackSwitchEndpoint(p, excludeTrackAccessoryId=null){
+    let best=null;
+    allTrackSwitchConnectionPoints().forEach(endpoint=>{
+      if(excludeTrackAccessoryId && endpoint.trackAccessoryId===excludeTrackAccessoryId) return;
+      const distance=dist(p,endpoint.point);
+      if(!best || distance<best.distance) best={...endpoint,distance};
+    });
+    return best;
+  }
+  function rotatePoint(point, angleDeg){
+    const a=rad(angleDeg);
+    return {x:point.x*Math.cos(a)-point.y*Math.sin(a),y:point.x*Math.sin(a)+point.y*Math.cos(a)};
+  }
+  function alignTrackSwitchEndpointToTarget(item, sourceEndpointName, targetEndpoint){
+    const sourceDef=trackSwitchEndpointDefinitions(item).find(endpoint=>endpoint.endpoint===sourceEndpointName);
+    if(!sourceDef || !targetEndpoint?.point) return false;
+    const rotationDeg=(Number(targetEndpoint.angleDeg)||0)-sourceDef.angleDeg;
+    const rotatedLocal=rotatePoint(sourceDef.local,rotationDeg);
+    item.rotationDeg=rotationDeg;
+    item.x=targetEndpoint.point.x-rotatedLocal.x;
+    item.y=targetEndpoint.point.y-rotatedLocal.y;
+    item.trackId=null;
+    item.trackAnchor={
+      kind:'trackSwitchEndpoint',
+      trackAccessoryId:targetEndpoint.trackAccessoryId,
+      endpoint:targetEndpoint.endpoint,
+      sourceEndpoint:sourceEndpointName,
+    };
+    normalizeTrackAccessory(item);
+    syncTracksConnectedToTrackSwitch(item);
+    return true;
+  }
+  function nearestSwitchEndpointPair(item){
+    if(!item || !isTrackSwitchAccessoryKind(item.kind)) return null;
+    const sourceEndpoints=trackSwitchEndpointPoints(item);
+    const targetEndpoints=allTrackSwitchConnectionPoints().filter(endpoint=>endpoint.trackAccessoryId!==item.id);
+    let best=null;
+    sourceEndpoints.forEach(source=>{
+      targetEndpoints.forEach(target=>{
+        const distance=dist(source.point,target.point);
+        if(!best || distance<best.distance) best={source,target,distance};
+      });
+    });
+    return best;
+  }
+  function snapTrackSwitchToEndpoint(item){
+    const pair=nearestSwitchEndpointPair(item);
+    if(!pair || pair.distance>trackAccessorySnapDistance()) return false;
+    if(!alignTrackSwitchEndpointToTarget(item,pair.source.endpoint,pair.target)) return false;
+    const hint=$('statusHint');
+    if(hint) hint.textContent=`Switch ${pair.source.label.toLowerCase()} snapped to ${pair.target.label.toLowerCase()} endpoint and matched its turnout angle.`;
+    return true;
   }
   function resolveTrackSwitchConnection(connection){
     if(!connection || connection.kind!=='trackSwitchEndpoint' || !connection.trackAccessoryId) return null;
@@ -945,6 +1068,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         offsetPx: Number.isFinite(Number(raw.trackAnchor.offsetPx)) ? Number(raw.trackAnchor.offsetPx) : 0,
         endpointKey: raw.trackAnchor.endpointKey === 'start' || raw.trackAnchor.endpointKey === 'end' ? raw.trackAnchor.endpointKey : null,
         pointIndex: Number.isInteger(raw.trackAnchor.pointIndex) ? raw.trackAnchor.pointIndex : null,
+        kind: raw.trackAnchor.kind === 'trackSwitchEndpoint' ? 'trackSwitchEndpoint' : null,
+        trackAccessoryId: raw.trackAnchor.trackAccessoryId || null,
+        endpoint: raw.trackAnchor.endpoint || null,
+        sourceEndpoint: raw.trackAnchor.sourceEndpoint || null,
       };
     } else {
       raw.trackAnchor=null;
@@ -1197,8 +1324,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function placeTrackAccessory(p,kind){
     const preset=trackAccessoryPreset(kind);
-    const anchor=isTrackBufferAccessoryKind(kind) ? nearestTrackEndpointAnchor(p) : nearestTrackAccessoryAnchor(p);
     const maxSnap=trackAccessorySnapDistance();
+    const switchEndpointAnchor=isTrackSwitchAccessoryKind(kind) ? nearestTrackSwitchEndpoint(p) : null;
+    const switchEndpointSnapped=!!(switchEndpointAnchor && switchEndpointAnchor.distance<=maxSnap);
+    const anchor=switchEndpointSnapped ? switchEndpointAnchor : (isTrackBufferAccessoryKind(kind) ? nearestTrackEndpointAnchor(p) : nearestTrackAccessoryAnchor(p));
     const snapped=anchor && anchor.distance<=maxSnap;
     const point=snapped ? anchor.point : p;
     const accessory=normalizeTrackAccessory({
@@ -1214,13 +1343,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       catenaryEndTerminal:kind==='trackBufferTomix1428Catenary',
       notes:preset.defaultNotes,
     });
+    if(switchEndpointSnapped) alignTrackSwitchEndpointToTarget(accessory,'heel',switchEndpointAnchor);
     if(snapped && isCatenaryAccessoryKind(kind)) attachTrackAccessoryToAnchor(accessory,anchor);
     if(snapped && isTrackBufferAccessoryKind(kind)) accessory.trackAnchor={trackId:anchor.trackId,endpointKey:anchor.endpointKey,pointIndex:anchor.pointIndex,pathDistancePx:null,offsetPx:0};
     state.trackAccessories=state.trackAccessories||[];
     state.trackAccessories.push(accessory);
     selectTrackAccessory(accessory, {skipSync:true});
     syncAll();
-    $('statusHint').textContent=snapped ? `${preset.label} attached to nearest track endpoint.` : `${preset.label} placed.`;
+    $('statusHint').textContent=switchEndpointSnapped ? `${preset.label} heel snapped to switch endpoint and matched its turnout angle.` : (snapped ? `${preset.label} attached to nearest track endpoint.` : `${preset.label} placed.`);
     return accessory;
   }
   function hitTrackAccessory(p,pointerType='mouse'){
@@ -2974,10 +3104,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function buildSite3DTrackSwitchItem(item,bounds){
     refreshTrackAccessoryAnchor(item);
-    const selected=item.id===state.selectedTrackAccessoryId;
-    const railMat=new THREE.MeshStandardMaterial({color:selected?0xc8493a:0x34312b,roughness:.48,metalness:.12});
-    const tieMat=new THREE.MeshStandardMaterial({color:0x8a6f43,roughness:.84,metalness:0});
-    const baseMat=new THREE.MeshStandardMaterial({color:0xc7b084,roughness:.95,metalness:0});
+    const railMat=new THREE.MeshStandardMaterial({color:TRACK_PROFILE_DEFAULTS.railColor||'#3b3832',roughness:.48,metalness:.12});
+    const tieMat=new THREE.MeshStandardMaterial({color:TRACK_PROFILE_DEFAULTS.tieColor||'#8a6f43',roughness:.84,metalness:0});
+    const baseMat=new THREE.MeshStandardMaterial({color:TRACK_PROFILE_DEFAULTS.roadbedTopColor||TRACK_PROFILE_DEFAULTS.roadbedColor||'#c7b084',roughness:.95,metalness:0});
     const group=new THREE.Group();
     group.name=item.name||trackAccessoryLabel(item.kind);
     group.position.set(site3DScale(item.x)-bounds.cx,0,site3DScale(item.y)-bounds.cy);
@@ -2987,18 +3116,28 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const branch=trackSwitchCurvePoints(geom,dir,24);
     const branchRailA=offsetTrackPath(branch,geom.gauge/2);
     const branchRailB=offsetTrackPath(branch,-geom.gauge/2);
+    const addLocalSegment=(a,b,width,height,baseY,mat,name)=>{
+      const dx=b.x-a.x, dz=b.y-a.y;
+      const length=Math.hypot(dx,dz);
+      if(!(length>.01)) return null;
+      const mesh=site3DAddEdges(site3DBox(length,height,width,mat,(a.x+b.x)/2,baseY+height/2,(a.y+b.y)/2),0x5f5140,.18);
+      mesh.name=name;
+      mesh.rotation.y=-Math.atan2(dz,dx);
+      group.add(mesh);
+      return mesh;
+    };
     const addRailPath=(points,name)=>{
       for(let i=0;i<points.length-1;i++){
-        site3DBeam(group,{x:points[i].x,y:.86,z:points[i].y},{x:points[i+1].x,y:.86,z:points[i+1].y},Math.max(.1,geom.railWidth/2),railMat,name);
+        addLocalSegment(points[i],points[i+1],Math.max(.08,geom.railWidth),Math.max(.08,TRACK_PROFILE_DEFAULTS.railHeightMm||.45),.72,railMat,name);
       }
     };
     const addTie=(p,nx,ny,name)=>{
       const half=Math.max(geom.tieLength/2,geom.gauge/2+2);
-      site3DBeam(group,{x:p.x-nx*half,y:.45,z:p.y-ny*half},{x:p.x+nx*half,y:.45,z:p.y+ny*half},Math.max(.12,geom.tieWidth/2),tieMat,name);
+      addLocalSegment({x:p.x-nx*half,y:p.y-ny*half},{x:p.x+nx*half,y:p.y+ny*half},Math.max(.12,geom.tieWidth),.24,.34,tieMat,name);
     };
     group.add(site3DAddEdges(site3DBox(geom.length,.34,geom.roadbedWidth,baseMat,0,.12,0),0x8f7b55,.35));
     for(let i=0;i<branch.length-1;i++){
-      site3DBeam(group,{x:branch[i].x,y:.2,z:branch[i].y},{x:branch[i+1].x,y:.2,z:branch[i+1].y},Math.max(.8,geom.roadbedWidth/2),baseMat,'Tomix switch curved roadbed');
+      addLocalSegment(branch[i],branch[i+1],Math.max(.5,geom.roadbedWidth),.18,.05,baseMat,'Tomix switch curved roadbed');
     }
     for(let x=-geom.halfLength; x<=geom.halfLength+.01; x+=Math.max(geom.tieSpacing,2)){
       addTie({x,y:0},0,1,'Tomix switch straight tie');
@@ -3012,7 +3151,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     addRailPath([{x:-geom.halfLength,y:geom.gauge/2},{x:geom.halfLength,y:geom.gauge/2}],'Tomix switch straight rail B');
     addRailPath(branchRailA,'Tomix switch diverging rail A');
     addRailPath(branchRailB,'Tomix switch diverging rail B');
-    site3DBeam(group,{x:-geom.halfLength+geom.length*.34,y:.92,z:0},{x:-geom.halfLength+geom.length*.52,y:.92,z:dir*geom.offset*.42},Math.max(.08,geom.railWidth*.42),railMat,'Tomix switch point blade');
+    addLocalSegment({x:-geom.halfLength+geom.length*.34,y:0},{x:-geom.halfLength+geom.length*.52,y:dir*geom.offset*.42},Math.max(.08,geom.railWidth*.72),Math.max(.08,(TRACK_PROFILE_DEFAULTS.railHeightMm||.45)*.7),.78,railMat,'Tomix switch point blade');
     return tagSite3DTrackAccessory(group,item);
   }
   function buildSite3DTrackBufferItem(item,bounds){
@@ -4435,6 +4574,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       bindRoadIntersectionArmCheckbox('roadIntersectionStopBars',road.id,'stopBarEnabled');
       bindRoadIntersectionArmCheckbox('roadIntersectionTactile',road.id,'tactilePaversEnabled');
       bindRoadIntersectionArmCheckbox('roadIntersectionCurbGuides',road.id,'curbGuideEnabled');
+      bindRoadIntersectionFeatureToggles();
       const clearIntersectionOverrides=$('clearRoadIntersectionArmOverrides');
       if(clearIntersectionOverrides) clearIntersectionOverrides.onclick=()=>{roadSystem.clearRoadIntersectionArmOverrides(road.id); syncAll();};
       $('regenRoad').onclick=()=>syncAll(); $('deleteRoad').onclick=deleteSelectedRoad;
@@ -5228,7 +5368,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     else if(d.type==='roadCenterline'){d.end=p; d.preview=createRoadCenterline(d.start,p);}
     else if(d.type==='annotate'){addAnnotationPoint(e,p);}
     else if(d.type==='moveStreetlight'){const l=state.streetlights.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(l&&!l.locked){l.x=d.orig.x+dx; l.y=d.orig.y+dy;}}
-    else if(d.type==='moveTrackAccessory'){const item=(state.trackAccessories||[]).find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(item&&!item.locked){item.x=d.orig.x+dx; item.y=d.orig.y+dy; const anchor=nearestTrackAccessoryAnchor({x:item.x,y:item.y}); if(anchor && anchor.distance<=trackAccessorySnapDistance()){if(isCatenaryAccessoryKind(item.kind)) attachTrackAccessoryToAnchor(item,anchor); else item.trackId=anchor.trackId;} else if(isCatenaryAccessoryKind(item.kind)){item.trackId=null; item.trackAnchor=null; item.autoOrientToTrack=false;} normalizeTrackAccessory(item); if(isTrackSwitchAccessoryKind(item.kind)) syncTracksConnectedToTrackSwitch(item);}}
+    else if(d.type==='moveTrackAccessory'){const item=(state.trackAccessories||[]).find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(item&&!item.locked){item.x=d.orig.x+dx; item.y=d.orig.y+dy; if(isTrackSwitchAccessoryKind(item.kind)){if(!snapTrackSwitchToEndpoint(item)){item.trackAnchor=null; item.trackId=null; normalizeTrackAccessory(item); syncTracksConnectedToTrackSwitch(item);}} else {const anchor=nearestTrackAccessoryAnchor({x:item.x,y:item.y}); if(anchor && anchor.distance<=trackAccessorySnapDistance()){if(isCatenaryAccessoryKind(item.kind)) attachTrackAccessoryToAnchor(item,anchor); else item.trackId=anchor.trackId;} else if(isCatenaryAccessoryKind(item.kind)){item.trackId=null; item.trackAnchor=null; item.autoOrientToTrack=false;} normalizeTrackAccessory(item);}}}
     else if(d.type==='rotateTrackAccessory'){const item=(state.trackAccessories||[]).find(x=>x.id===d.orig.id); if(item&&!item.locked){const angleDelta=deg(Math.atan2(p.y-d.center.y,p.x-d.center.x)-(d.startAngle||0)); item.rotationDeg=(Number(d.origRotation)||0)+angleDelta; if(isCatenaryAccessoryKind(item.kind)){item.autoOrientToTrack=false; item.trackAnchor=null;} normalizeTrackAccessory(item); if(isTrackSwitchAccessoryKind(item.kind)) syncTracksConnectedToTrackSwitch(item);}}
     else if(d.type==='moveStlObject'){const obj=(state.stlObjects||[]).find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(obj&&!obj.locked){obj.x=d.orig.x+dx; obj.y=d.orig.y+dy; normalizeStlObject(obj);}}
     else if(d.type==='moveBenchwork'){const bw=state.benchworkOutlines.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(bw&&!bw.locked){bw.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); bw.curvesPx=(d.orig.curvesPx||[]).map(c=>c?{x:c.x+dx,y:c.y+dy}:null); normalizeBenchworkOutline(bw);}}

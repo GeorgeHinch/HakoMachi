@@ -455,6 +455,37 @@ test.describe('Site Planner module split contracts', () => {
     expect(westStop.corners.every(point => pointInPoly(point, westRoad.roadPolygonPx))).toBe(true);
   });
 
+  test('generated intersection markings can be disabled at individual feature level', async () => {
+    const { buildIntersectionNode } = await import('../js/site-planner/road-intersections.js');
+    const {
+      applyIntersectionOverrides,
+      intersectionFeatureKey,
+      setArmFeatureOverride,
+    } = await import('../js/site-planner/road-intersection-overrides.js');
+    const { serializeIntersectionStopBars } = await import('../js/site-planner/road-intersection-svg-export.js');
+    const cluster = {
+      center: { x: 0, y: 0 },
+      arms: [
+        { roadId: 'east-road', endpoint: 'start', point: { x: 0, y: 0 }, widthPx: 40, sidewalkWidthPx: 0, tangent: 0 },
+        { roadId: 'west-road', endpoint: 'end', point: { x: 0, y: 0 }, widthPx: 40, sidewalkWidthPx: 0, tangent: Math.PI },
+      ],
+    };
+    const node = buildIntersectionNode(cluster, 0, { drivingSide: 'left' });
+    const eastStop = node.stopBars.find(stopBar => stopBar.roadId === 'east-road');
+    const eastStopKey = intersectionFeatureKey('stopBar', eastStop, node.stopBars.indexOf(eastStop));
+
+    const overrides = setArmFeatureOverride({}, node, 'east-road:start', eastStopKey, false);
+    const [filtered] = applyIntersectionOverrides([node], overrides);
+
+    expect(filtered.stopBars.some(stopBar => stopBar.roadId === 'east-road')).toBe(false);
+    expect(filtered.stopBars.some(stopBar => stopBar.roadId === 'west-road')).toBe(true);
+    expect(serializeIntersectionStopBars(filtered).some(record => record.roadId === 'east-road')).toBe(false);
+
+    const restoredOverrides = setArmFeatureOverride(overrides, node, 'east-road:start', eastStopKey, true);
+    const [restored] = applyIntersectionOverrides([node], restoredOverrides);
+    expect(restored.stopBars.some(stopBar => stopBar.roadId === 'east-road')).toBe(true);
+  });
+
   test('generated tactile pavers stay on sidewalk-bearing road arms', async () => {
     const { buildIntersectionNode } = await import('../js/site-planner/road-intersections.js');
     const cluster = {
@@ -483,6 +514,18 @@ test.describe('Site Planner module split contracts', () => {
       expect(Math.abs(Math.abs(paver.center.y) - 28)).toBeLessThan(0.01);
       expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(Math.max(...ys) - Math.min(...ys));
     });
+  });
+
+  test('track switch 3D renderer uses flex-track colors and flat roadbed segments', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const start = source.indexOf('function buildSite3DTrackSwitchItem');
+    const end = source.indexOf('function buildSite3DTrackBufferItem');
+    const renderer = source.slice(start, end);
+
+    expect(renderer).toContain('TRACK_PROFILE_DEFAULTS.railColor');
+    expect(renderer).toContain('TRACK_PROFILE_DEFAULTS.tieColor');
+    expect(renderer).toContain('addLocalSegment(branch[i],branch[i+1]');
+    expect(renderer).not.toContain('geom.roadbedWidth/2');
   });
 
   test('benchwork outline behavior is wired through the benchwork controller', () => {

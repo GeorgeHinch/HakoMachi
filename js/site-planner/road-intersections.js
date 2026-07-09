@@ -353,6 +353,8 @@ export function buildTactilePavers(node, options = {}) {
       return {
         roadId: crosswalk.roadId,
         endpoint: crosswalk.endpoint,
+        side: sign < 0 ? 'leftEdge' : 'rightEdge',
+        sideSign: sign,
         center: edge,
         angle: crosswalk.angle,
         widthPx: width,

@@ -5,7 +5,7 @@ import { createRoadExportController } from './road-export.js';
 import { createRoadFeatureEditorController } from './road-feature-editor.js';
 import { hitRoadCenterlineSegment, hitRoadPoint } from './road-geometry.js';
 import { drawRoadIntersections } from './road-intersection-preview-renderer.js';
-import { applyIntersectionOverrides, intersectionOverrideStats, pruneStaleIntersectionOverrides, removeArmOverride, upsertArmOverride } from './road-intersection-overrides.js';
+import { applyIntersectionOverrides, intersectionOverrideKey, intersectionOverrideStats, pruneStaleIntersectionOverrides, removeArmOverride, setArmFeatureOverride, upsertArmOverride } from './road-intersection-overrides.js';
 import { serializeRoadIntersections } from './road-intersection-svg-export.js';
 import { buildRoadIntersections, intersectionSummary } from './road-intersections.js';
 import { createRoadModelController } from './road-model.js';
@@ -55,7 +55,7 @@ export function createRoadSystemController(deps) {
     syncAll: deps.syncAll,
   });
 
-  function generatedRoadIntersections(options = {}) {
+  function rawGeneratedRoadIntersections(options = {}) {
     if (deps.state.roadIntersectionDetails === false) {
       deps.state.generatedRoadIntersections = [];
       return [];
@@ -65,6 +65,15 @@ export function createRoadSystemController(deps) {
       drivingSide: deps.state.roadDrivingSide || 'left',
       ...options,
     });
+    return generated.map(intersection => ({ ...intersection, overrideKey: intersectionOverrideKey(intersection) }));
+  }
+
+  function generatedRoadIntersections(options = {}) {
+    if (deps.state.roadIntersectionDetails === false) {
+      deps.state.generatedRoadIntersections = [];
+      return [];
+    }
+    const generated = rawGeneratedRoadIntersections(options);
     deps.state.roadIntersectionOverrides = pruneStaleIntersectionOverrides(deps.state.roadIntersectionOverrides || {}, generated);
     const intersections = applyIntersectionOverrides(generated, deps.state.roadIntersectionOverrides);
     deps.state.generatedRoadIntersections = intersections;
@@ -107,6 +116,11 @@ export function createRoadSystemController(deps) {
     return overrides;
   }
 
+  function setRoadIntersectionFeatureOverride(intersectionKey, armKey, featureKey, enabled = true) {
+    deps.state.roadIntersectionOverrides = setArmFeatureOverride(deps.state.roadIntersectionOverrides || {}, intersectionKey, armKey, featureKey, enabled);
+    return deps.state.roadIntersectionOverrides;
+  }
+
   function roadIntersectionOverrideStats() {
     return intersectionOverrideStats(deps.state.roadIntersectionOverrides || {});
   }
@@ -122,9 +136,11 @@ export function createRoadSystemController(deps) {
     drawGeneratedRoadIntersections,
     generatedRoadIntersectionSvgRecords,
     generatedRoadIntersections,
+    rawGeneratedRoadIntersections,
     intersectionSummary,
     roadIntersectionOverrideStats,
     setRoadIntersectionArmOverrides,
     clearRoadIntersectionArmOverrides,
+    setRoadIntersectionFeatureOverride,
   };
 }

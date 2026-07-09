@@ -66,7 +66,60 @@ async function clickWorldPoint(page, point) {
 }
 
 test.describe('Site Planner object clipboard', () => {
+  test('canvas surface cancels native browser selection and drag selection', async ({ page }) => {
+    await loadProject(page, blankProject());
+
+    const styles = await page.locator('.canvasWrap').evaluate(wrap => {
+      const canvas = wrap.querySelector('#canvas');
+      const wrapStyle = getComputedStyle(wrap);
+      const canvasStyle = getComputedStyle(canvas);
+      return {
+        wrapUserSelect: wrapStyle.userSelect,
+        canvasUserSelect: canvasStyle.userSelect,
+        canvasDraggable: canvas.getAttribute('draggable'),
+      };
+    });
+    expect(styles.wrapUserSelect).toBe('none');
+    expect(styles.canvasUserSelect).toBe('none');
+    expect(styles.canvasDraggable).toBe('false');
+
+    const eventResults = await page.evaluate(() => {
+      const canvas = document.getElementById('canvas');
+      const selectEvent = new Event('selectstart', { bubbles: true, cancelable: true });
+      const dragEvent = new Event('dragstart', { bubbles: true, cancelable: true });
+      return {
+        selectCanceled: !canvas.dispatchEvent(selectEvent),
+        dragCanceled: !canvas.dispatchEvent(dragEvent),
+      };
+    });
+    expect(eventResults.selectCanceled).toBe(true);
+    expect(eventResults.dragCanceled).toBe(true);
+  });
+
+  test('generated rail crossings are selectable and expose rail arc controls', async ({ page }) => {
+    await loadProject(page, blankProject({
+      scale: { calibrated: true, pxPerMm: 2, calibrationLine: null, units: 'mm' },
+      roads: [
+        { id: 'road_1', name: 'Crossing road', mode: 'centerline', pointsPx: [{ x: 40, y: 140 }, { x: 260, y: 140 }], curvesPx: [], widthPx: 48, widthMm: 24 },
+      ],
+      tracks: [
+        { id: 'track_1', name: 'Main track', pointsPx: [{ x: 140, y: 40 }, { x: 140, y: 240 }], gaugeMm: 9, gaugePx: 18, railWidthPx: 1.6, tieSpacingPx: 8 },
+      ],
+    }));
+
+    await clickWorldPoint(page, { x: 140, y: 140 });
+    await expect(page.locator('#selectedPanel')).toContainText('Rail crossing selected');
+    await expect(page.locator('#selectedPanel')).toContainText('6.7');
+    await page.locator('#railCrossingArc').fill('2.5');
+
+    await page.waitForFunction(key => {
+      const payload = JSON.parse(localStorage.getItem(key) || '{}');
+      return Object.values(payload.railCrossingOverrides || {}).some(value => Math.abs((Number(value.railArcOffsetMm) || 0) - 2.5) < 0.01);
+    }, AUTOSAVE_KEY);
+  });
+
   test('selected placed objects copy and paste as fresh offset objects', async ({ page }) => {
+    test.setTimeout(90000);
     const cases = [
       {
         collection: 'roadFeatures',

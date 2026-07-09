@@ -465,11 +465,10 @@ body {
   background: #e8e8e0;
   overscroll-behavior: contain;
   touch-action: none;
-}
-
-.canvasWrap.view3d {
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 canvas {
@@ -478,6 +477,9 @@ canvas {
   height: 100%;
   cursor: crosshair;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
 }
 
 #canvas.panning { cursor: grabbing; }

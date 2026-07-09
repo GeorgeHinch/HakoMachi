@@ -39,6 +39,7 @@ import { serializeGrateInsertSheetsByMaterial } from './site-planner/road-grate-
 import { serializePaintStencilSheetsByMaterial } from './site-planner/road-paint-stencil-templates.js';
 import { createRoadPresetApplicationController } from './site-planner/road-preset-application-utils.js';
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
+import { RAIL_CROSSING_CENTER_CLEARANCE_MM, buildRailCrossingInfillPanels, buildRailCrossings, hitRailCrossing, normalizeRailCrossingOverride, railCrossingOverrideKey, railCrossingSvgRecords } from './site-planner/rail-crossing-generator.js';
 import { createScaleInputController } from './site-planner/scale-input-utils.js';
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
 import { createSidebarUiController } from './site-planner/sidebar-ui.js';
@@ -59,6 +60,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   const ctx = canvas.getContext('2d');
   const wrap = canvas.parentElement;
   const $ = id => document.getElementById(id);
+  canvas.setAttribute('draggable', 'false');
+  function clearCanvasBrowserSelection(){
+    try {
+      const selection=window.getSelection&&window.getSelection();
+      if(selection && !selection.isCollapsed) selection.removeAllRanges();
+    } catch (_err) {}
+  }
+  ['selectstart','dragstart'].forEach(type=>{
+    wrap.addEventListener(type, e=>{
+      e.preventDefault();
+      clearCanvasBrowserSelection();
+    });
+  });
   function ensureSite3dView(){
     let view = $('site3dView');
     if(view) return view;
@@ -723,6 +737,88 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       polys.forEach((polygon,pieceIndex)=>sidewalkPolygons.push({...sw, polygon, sourceIndex:idx, pieceIndex}));
     });
     return {roadPolygons, sidewalkPolygons};
+  }
+  function generatedRailCrossings(){
+    const crossings=buildRailCrossings({
+      roads:(state.roads||[]).map(normalizeRoad),
+      tracks:(state.tracks||[]).map(normalizeTrack),
+      roadCenterlineSamples,
+      trackPathSamples,
+      pxPerMm:state.pxPerMm,
+      overrides:state.railCrossingOverrides||{},
+    });
+    state.generatedRailCrossings=crossings;
+    return crossings;
+  }
+  function railCrossingInfillPanels(crossings=generatedRailCrossings()){
+    const roadWidthPxById={};
+    (state.roads||[]).forEach(raw=>{const road=normalizeRoad(raw); roadWidthPxById[road.id]=road.widthPx||24;});
+    return buildRailCrossingInfillPanels(crossings,{roadWidthPxById});
+  }
+  function selectedRailCrossing(){
+    const id=state.selectedRailCrossingId;
+    if(!id) return null;
+    if(state.selectedId || currentSelectedBuildingIds().length || state.selectedAnnotationId || state.selectedRoadFeatureId || state.selectedRoadId || state.selectedTrackId || state.selectedTrackAccessoryId || state.selectedBenchworkId || state.selectedStreetlightId || state.selectedFabricId || state.selectedStlObjectId) return null;
+    return generatedRailCrossings().find(crossing=>crossing.id===id || crossing.key===id) || null;
+  }
+  function selectRailCrossing(crossing){
+    if(!crossing) return false;
+    clearBuildingSelection();
+    state.selectedRoadId=null;
+    state.selectedRoadFeatureId=null;
+    state.selectedTrackId=null;
+    state.selectedTrackAccessoryId=null;
+    state.selectedBenchworkId=null;
+    state.selectedStreetlightId=null;
+    state.selectedAnnotationId=null;
+    state.selectedFabricId=null;
+    state.selectedStlObjectId=null;
+    state.selectedRailCrossingId=crossing.key||crossing.id;
+    renderList(); renderRoads(); renderStreetlights(); renderSelected(); draw();
+    return true;
+  }
+  function hitGeneratedRailCrossing(p,pointerType='mouse'){
+    const tol=(pointerType==='touch'?18:10)/state.view.scale;
+    return hitRailCrossing(p,generatedRailCrossings(),tol);
+  }
+  function drawRailCrossingPanel(panel,crossing,selected=false){
+    const pts=panel.polygon||[];
+    if(pts.length<3) return;
+    ctx.save();
+    ctx.fillStyle=selected?'rgba(200,74,58,.26)':'rgba(236,224,190,.76)';
+    ctx.strokeStyle=selected?'#c84a3a':'#8f7b55';
+    ctx.lineWidth=(selected?2:1)/state.view.scale;
+    ctx.beginPath();
+    pts.forEach((point,index)=>index?ctx.lineTo(point.x,point.y):ctx.moveTo(point.x,point.y));
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+  function drawGeneratedRailCrossings(){
+    const crossings=generatedRailCrossings();
+    const selectedId=state.selectedRailCrossingId;
+    const infill=railCrossingInfillPanels(crossings);
+    infill.forEach(panel=>drawRailCrossingPanel(panel,{id:panel.id},false));
+    crossings.forEach(crossing=>{
+      if(crossing.enabled===false) return;
+      const selected=selectedId && (selectedId===crossing.id || selectedId===crossing.key);
+      (crossing.panels||[]).forEach(panel=>drawRailCrossingPanel(panel,crossing,selected));
+      ctx.save();
+      ctx.strokeStyle=selected?'#c84a3a':'rgba(58,43,30,.42)';
+      ctx.lineWidth=.7/state.view.scale;
+      (crossing.engraves||[]).forEach(line=>{
+        ctx.beginPath(); ctx.moveTo(line.a.x,line.a.y); ctx.lineTo(line.b.x,line.b.y); ctx.stroke();
+      });
+      ctx.restore();
+      if(selected){
+        ctx.save();
+        ctx.fillStyle='#fff7ed'; ctx.strokeStyle='#c84a3a'; ctx.lineWidth=2/state.view.scale;
+        ctx.beginPath(); ctx.arc(crossing.point.x,crossing.point.y,5/state.view.scale,0,Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.restore();
+        drawLabel(`Rail crossing · ${crossing.trackName}`,{x:crossing.point.x+8/state.view.scale,y:crossing.point.y-8/state.view.scale});
+      }
+    });
   }
   function drawTrack(raw){
     const t=normalizeTrack(raw); if(!t || t.hidden || (t.pointsPx||[]).length<2) return;
@@ -2654,6 +2750,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.trackAccessories=(state.trackAccessories||[]).map(normalizeTrackAccessory);
     refreshAnchoredTrackAccessories();
     state.roadFeatures=(state.roadFeatures||[]).map(normalizeRoadFeature);
+    generatedRailCrossings();
     state.stlObjects=(state.stlObjects||[]).map(normalizeStlObject);
     state.benchworkOutlines.forEach(normalizeBenchworkOutline);
     state.fabricRegions.forEach(normalizeFabricRegion);
@@ -4016,6 +4113,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       roadDrivingSide: normalizeDrivingSide(state.roadDrivingSide),
       roadIntersectionDetails: state.roadIntersectionDetails,
       roadIntersectionOverrides: state.roadIntersectionOverrides||{},
+      railCrossingOverrides: state.railCrossingOverrides||{},
       stlObjects: state.stlObjects||[],
       benchworkOutlines: state.benchworkOutlines,
       fabricRegions: state.fabricRegions,
@@ -4024,6 +4122,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       selectedId: state.selectedId,
       selectedIds: state.selectedIds,
       selectedRoadId: state.selectedRoadId,
+      selectedRailCrossingId: state.selectedRailCrossingId,
       selectedTrackId: state.selectedTrackId,
       selectedTrackAccessoryId: state.selectedTrackAccessoryId,
       selectedStlObjectId: state.selectedStlObjectId,
@@ -4077,6 +4176,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.roadIntersectionDetails=data.roadIntersectionDetails!==false;
     state.roadIntersectionOverrides=data.roadIntersectionOverrides&&typeof data.roadIntersectionOverrides==='object'?structuredClone(data.roadIntersectionOverrides):{};
     state.generatedRoadIntersections=[];
+    state.railCrossingOverrides=data.railCrossingOverrides&&typeof data.railCrossingOverrides==='object'?structuredClone(data.railCrossingOverrides):{};
+    state.generatedRailCrossings=[];
     state.stlObjects=Array.isArray(data.stlObjects)?structuredClone(data.stlObjects):[];
     state.benchworkOutlines=Array.isArray(data.benchworkOutlines)?structuredClone(data.benchworkOutlines):[];
     state.fabricRegions=Array.isArray(data.fabricRegions)?structuredClone(data.fabricRegions):[];
@@ -4085,6 +4186,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedId=data.selectedId||null;
     state.selectedIds=Array.isArray(data.selectedIds)?data.selectedIds.slice():[];
     state.selectedRoadId=data.selectedRoadId||null;
+    state.selectedRailCrossingId=data.selectedRailCrossingId||null;
     state.selectedTrackId=data.selectedTrackId||null;
     state.selectedTrackAccessoryId=data.selectedTrackAccessoryId||null;
     state.selectedStlObjectId=data.selectedStlObjectId||null;
@@ -4166,6 +4268,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       roadDrivingSide:normalizeDrivingSide(state.roadDrivingSide),
       roadIntersectionDetails:state.roadIntersectionDetails!==false,
       roadIntersectionOverrides:state.roadIntersectionOverrides||{},
+      railCrossingOverrides:state.railCrossingOverrides||{},
       stlObjects:state.stlObjects||[],
       benchworkOutlines:state.benchworkOutlines,
       fabricRegions:state.fabricRegions,
@@ -4443,7 +4546,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       drawNow();
     });
   }
-  function drawNow(){const r=canvas.getBoundingClientRect(); const dpr=devicePixelRatio||1; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.benchworkOutlines.forEach(drawBenchwork); drawRoadLayer(); (state.tracks||[]).forEach(drawTrack); (state.trackAccessories||[]).forEach(drawTrackAccessory); (state.fabricRegions||[]).forEach(drawFabricRegion); state.buildings.forEach(drawBuilding); (state.stlObjects||[]).forEach(drawStlObject); state.streetlights.forEach(drawStreetlight); if(state.roadDraft.length){ctx.save();ctx.strokeStyle='#6f6a5e';ctx.fillStyle='rgba(111,106,94,.18)';ctx.lineWidth=3/state.view.scale;if(state.roadMode==='centerline'&&state.roadDraft.length>=2){const temp=createRoadCenterlineFromPoints(state.roadDraft); temp.id='road_draft'; drawRoad(temp);} else {ctx.beginPath();state.roadDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();}state.roadDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.trackDraft&&state.trackDraft.length){ctx.save();const temp=normalizeTrack({id:'track_draft',name:'Track preview',pointsPx:state.trackDraft.slice(),gaugeMm:9,tieSpacingMm:4,color:'#4b4438',tieColor:'#8a6f43'}); drawTrack(temp); ctx.fillStyle='rgba(75,68,56,.20)'; state.trackDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.benchworkDraft.length){ctx.save();ctx.strokeStyle='#2f6f4e';ctx.fillStyle='rgba(47,111,78,.12)';ctx.lineWidth=3/state.view.scale;ctx.setLineDash([8/state.view.scale,6/state.view.scale]);ctx.beginPath();state.benchworkDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.setLineDash([]);state.benchworkDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} drawFabricDraft(); if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview){ if(state.drag.type==='roadCenterline') drawRoad(state.drag.preview); else drawBuilding(state.drag.preview); } drawSelectionMarquee(); drawHoverPreview(); ctx.restore(); updateEmptyImageOverlay(); updateStatus();}
+  function drawNow(){const r=canvas.getBoundingClientRect(); const dpr=devicePixelRatio||1; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.benchworkOutlines.forEach(drawBenchwork); drawRoadLayer(); drawGeneratedRailCrossings(); (state.tracks||[]).forEach(drawTrack); (state.trackAccessories||[]).forEach(drawTrackAccessory); (state.fabricRegions||[]).forEach(drawFabricRegion); state.buildings.forEach(drawBuilding); (state.stlObjects||[]).forEach(drawStlObject); state.streetlights.forEach(drawStreetlight); if(state.roadDraft.length){ctx.save();ctx.strokeStyle='#6f6a5e';ctx.fillStyle='rgba(111,106,94,.18)';ctx.lineWidth=3/state.view.scale;if(state.roadMode==='centerline'&&state.roadDraft.length>=2){const temp=createRoadCenterlineFromPoints(state.roadDraft); temp.id='road_draft'; drawRoad(temp);} else {ctx.beginPath();state.roadDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();}state.roadDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.trackDraft&&state.trackDraft.length){ctx.save();const temp=normalizeTrack({id:'track_draft',name:'Track preview',pointsPx:state.trackDraft.slice(),gaugeMm:9,tieSpacingMm:4,color:'#4b4438',tieColor:'#8a6f43'}); drawTrack(temp); ctx.fillStyle='rgba(75,68,56,.20)'; state.trackDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.benchworkDraft.length){ctx.save();ctx.strokeStyle='#2f6f4e';ctx.fillStyle='rgba(47,111,78,.12)';ctx.lineWidth=3/state.view.scale;ctx.setLineDash([8/state.view.scale,6/state.view.scale]);ctx.beginPath();state.benchworkDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.setLineDash([]);state.benchworkDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} drawFabricDraft(); if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview){ if(state.drag.type==='roadCenterline') drawRoad(state.drag.preview); else drawBuilding(state.drag.preview); } drawSelectionMarquee(); drawHoverPreview(); ctx.restore(); updateEmptyImageOverlay(); updateStatus();}
   function fitImage(){const r=canvas.getBoundingClientRect(); if(!state.image){state.view={x:r.width/2,y:r.height/2,scale:1}; draw(); return;} const s=Math.min(r.width/state.image.width,r.height/state.image.height)*.9; state.view.scale=s; state.view.x=(r.width-state.image.width*s)/2; state.view.y=(r.height-state.image.height*s)/2; draw();}
 
   function sidebarObjectTypes(){
@@ -4485,6 +4588,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedFabricId=null;
     state.selectedAnnotationId=null;
     state.selectedStlObjectId=null;
+    state.selectedRailCrossingId=null;
   }
   function selectSidebarObject(type,id,ev=null){
     sidebarObjectType=type;
@@ -4648,7 +4752,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     installHakoImportDropzone(box);
   }
-  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const track=selectedTrack(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const fabric=selectedFabric(); const stl=selectedStlObject(); const selIds=currentSelectedBuildingIds(); const trackAccessory=(!b && !selIds.length && !note && !roadFeature && !road && !track && !bench && !light && !fabric && !stl) ? selectedTrackAccessory() : null; if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use keyboard shortcuts to copy/paste selected building footprints.</span><div class="buttons" style="margin-top:8px"><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(trackAccessory){normalizeTrackAccessory(trackAccessory); box.innerHTML=`
+  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const railCrossing=selectedRailCrossing(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const track=selectedTrack(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const fabric=selectedFabric(); const stl=selectedStlObject(); const selIds=currentSelectedBuildingIds(); const trackAccessory=(!b && !selIds.length && !note && !railCrossing && !roadFeature && !road && !track && !bench && !light && !fabric && !stl) ? selectedTrackAccessory() : null; if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use keyboard shortcuts to copy/paste selected building footprints.</span><div class="buttons" style="margin-top:8px"><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(trackAccessory){normalizeTrackAccessory(trackAccessory); box.innerHTML=`
       <b>Track item selected</b>
       <label>Name</label><input id="trackItemName" value="${escapeAttr(trackAccessory.name||trackAccessoryLabel(trackAccessory.kind))}">
       <label>Type</label><select id="trackItemKind"><option value="sensor">Under-track Sensor</option><option value="signal">Signal Location</option><option value="crossingArm">Crossing Arm</option><option value="intrusionDetector">Intrusion Detector</option><option value="occupancyLight">Blinking Occupancy Lights</option><option value="trackSwitchLeft">Left-hand Track Switch</option><option value="trackSwitchRight">Right-hand Track Switch</option><option value="trackBufferTomix1428">Tomix 1428 Buffer Stop</option><option value="trackBufferTomix1428Catenary">Tomix 1428 Buffer + Catenary Terminal</option><option value="catenarySingleSide">Single-side Catenary Pole</option><option value="catenaryDoublePortal">Double-track Catenary Portal</option></select>
@@ -4668,6 +4772,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       installAdaptiveDegreeStepping($('trackItemRot'));
       const snapBtn=$('trackItemSnap'); if(snapBtn) snapBtn.onclick=()=>{const anchor=isTrackBufferAccessoryKind(trackAccessory.kind)?nearestTrackEndpointAnchor({x:trackAccessory.x,y:trackAccessory.y}):nearestTrackAccessoryAnchor({x:trackAccessory.x,y:trackAccessory.y}); if(anchor){if(isCatenaryAccessoryKind(trackAccessory.kind)) attachTrackAccessoryToAnchor(trackAccessory,anchor); else {trackAccessory.x=anchor.point.x; trackAccessory.y=anchor.point.y; trackAccessory.rotationDeg=anchor.angleDeg; trackAccessory.trackId=anchor.trackId; if(isTrackBufferAccessoryKind(trackAccessory.kind)) trackAccessory.trackAnchor={trackId:anchor.trackId,endpointKey:anchor.endpointKey,pointIndex:anchor.pointIndex,pathDistancePx:null,offsetPx:0};} syncAll();}};
       $('deleteTrackItem').onclick=deleteSelectedTrackAccessory;
+      return;
+    } if(railCrossing){const overrideKey=railCrossingOverrideKey(railCrossing); const override=normalizeRailCrossingOverride((state.railCrossingOverrides||{})[overrideKey]); box.innerHTML=`
+      <b>Rail crossing selected</b>
+      <div class="small muted" style="margin:4px 0 8px">${escapeHtml(railCrossing.roadName)} crossing ${escapeHtml(railCrossing.trackName)}</div>
+      <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="railCrossingEnabled" type="checkbox" ${override.enabled?'checked':''}> <span>Generate crossing cut pieces</span></label>
+      <div class="row"><div><label>Rail arc offset mm</label><input id="railCrossingArc" type="number" step="0.1" value="${fmt(override.railArcOffsetMm||0)}"></div><div><label>Center clearance mm</label><input value="${fmt(RAIL_CROSSING_CENTER_CLEARANCE_MM)}" disabled></div></div>
+      <div class="small muted" style="margin-top:8px">Exports three retained crossing panels per detected track: a fixed 6.7 mm center insert between the rails and two narrow outside rail plates, each with engraved plating texture. The arc offset bends the crossing panel path to better match the physical rail through the road.</div>`;
+      const updateRailCrossingOverride=patch=>{state.railCrossingOverrides=state.railCrossingOverrides||{}; state.railCrossingOverrides[overrideKey]=normalizeRailCrossingOverride({...override,...(state.railCrossingOverrides[overrideKey]||{}),...patch}); state.selectedRailCrossingId=overrideKey; syncAll();};
+      const enabled=$('railCrossingEnabled'); if(enabled) enabled.onchange=()=>updateRailCrossingOverride({enabled:!!enabled.checked});
+      const arc=$('railCrossingArc'); if(arc) arc.oninput=()=>updateRailCrossingOverride({railArcOffsetMm:parseFloat(arc.value)||0});
       return;
     } if(roadFeature){normalizeRoadFeature(roadFeature); box.innerHTML=`
       <b>${roadFeature.kind==='manhole'?'Manhole / Hatch':'Japanese road marking'} selected</b>
@@ -5164,6 +5278,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(!roadFeatureHit.locked) state.drag={type:'moveRoadFeature',pointerId:e.pointerId,start:p,orig:structuredClone(roadFeatureHit)};
       return true;
     }
+    const railCrossingHit=hitGeneratedRailCrossing(p,e.pointerType);
+    if(railCrossingHit) return selectRailCrossing(railCrossingHit);
     const lightHit=hitStreetlight(p,e.pointerType);
     if(lightHit){
       state.selectedStreetlightId=lightHit.id;
@@ -5263,7 +5379,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
 
   canvas.addEventListener('pointerdown', e=>{
-    e.preventDefault(); hideContextMenu();
+    e.preventDefault(); clearCanvasBrowserSelection(); hideContextMenu();
     canvas.setPointerCapture(e.pointerId);
     state.pointers.set(e.pointerId,pointerSnapshot(e));
     if(e.button===2 || (e.buttons & 2)){
@@ -5280,6 +5396,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(state.githubBuildingPlacement && isGeometryPointer(e)){ placeGithubBuildingAt(p); return; }
     if(state.tool==='pan' || !isGeometryPointer(e)){startPanFromPointer(e); return;}
     if(state.tool==='road' && (state.roadMode==='manhole' || state.roadMode==='marking')){
+      const crossingHit=hitGeneratedRailCrossing(p,e.pointerType);
+      if(crossingHit){selectRailCrossing(crossingHit); return;}
       const featureHit=hitRoadFeature(p,e.pointerType);
       if(featureHit){state.selectedRoadFeatureId=featureHit.id; state.selectedRoadId=null; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null; renderSelected(); draw(); if(!featureHit.locked) state.drag={type:'moveRoadFeature',pointerId:e.pointerId,start:p,orig:structuredClone(featureHit)}; return;}
       if(placeRoadFeature(p,state.roadMode==='manhole'?'manhole':'marking')) return;
@@ -5619,6 +5737,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     draw();
   }, {passive:false});
   function finishPointer(e){
+    clearCanvasBrowserSelection();
     clearLongPress();
     state.pointers.delete(e.pointerId);
     if(state.drag?.type==='pinch'){state.pinch=null; state.drag=null; draw(); return;}
@@ -6837,6 +6956,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.roadIntersectionDetails=p.roadIntersectionDetails!==false;
     state.roadIntersectionOverrides=p.roadIntersectionOverrides&&typeof p.roadIntersectionOverrides==='object'?structuredClone(p.roadIntersectionOverrides):{};
     state.generatedRoadIntersections=[];
+    state.railCrossingOverrides=p.railCrossingOverrides&&typeof p.railCrossingOverrides==='object'?structuredClone(p.railCrossingOverrides):{};
+    state.generatedRailCrossings=[];
     const loadedStlObjects = Array.isArray(p.stlObjects) ? p.stlObjects : (Array.isArray(p.siteObjects) ? p.siteObjects.filter(o=>o&&(o.type==='stl'||o.type==='stlObject'||o.kind==='stl')) : (Array.isArray(p.siteConstraints) ? p.siteConstraints.filter(o=>o&&(o.type==='stlObject'||o.type==='stl'||o.kind==='stl')) : []));
     state.stlObjects=loadedStlObjects.map(normalizeStlObject);
     const loadedBenchworks = Array.isArray(p.benchworkOutlines) ? p.benchworkOutlines : (Array.isArray(p.siteConstraints) ? p.siteConstraints.filter(c=>c&&(c.type==='benchworkOutline'||c.type==='benchwork'||c.constraintType==='benchworkOutline')) : []);
@@ -6848,6 +6969,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedRoadId=null;
     state.selectedTrackId=null;
     state.selectedTrackAccessoryId=null;
+    state.selectedRailCrossingId=null;
     state.selectedStlObjectId=null;
     state.selectedBenchworkId=null;
     state.selectedStreetlightId=null;
@@ -6918,7 +7040,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function svgRoadAssetExport(){
     const data=generateRoadExportData();
     const w=state.image?.width||1200,h=state.image?.height||800;
-    return roadAssetSvgExport({data, roadFeatures:state.roadFeatures, generatedIntersectionRecords:roadSystem.generatedRoadIntersectionSvgRecords({includeCurbGuides:false}), width:w, height:h}, {JP_ROAD_MARKING_STANDARD_ID, SVG_OP, SVG_ENGRAVE, SVG_RETAINED_CUT, SVG_SCRAP_CUT, escapeAttr, escapeHtml, markingPresetByKey, normalizeRoadFeature, polygonCenter, svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly});
+    const crossings=generatedRailCrossings();
+    return roadAssetSvgExport({data, roadFeatures:state.roadFeatures, generatedIntersectionRecords:roadSystem.generatedRoadIntersectionSvgRecords({includeCurbGuides:false}), generatedRailCrossingRecords:railCrossingSvgRecords(crossings,{infillPanels:railCrossingInfillPanels(crossings)}), width:w, height:h}, {JP_ROAD_MARKING_STANDARD_ID, SVG_OP, SVG_ENGRAVE, SVG_RETAINED_CUT, SVG_SCRAP_CUT, escapeAttr, escapeHtml, markingPresetByKey, normalizeRoadFeature, polygonCenter, svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly});
   }
   async function downloadRoadAssetExport(){
     const roadSvg=svgRoadAssetExport();

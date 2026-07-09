@@ -633,4 +633,108 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('function generateFabricForRegion');
     expect(controller).toContain('function initFabricControls');
   });
+
+  test('rail crossings generate crossing panels, infill, and SVG export records', async () => {
+    const {
+      RAIL_CROSSING_CENTER_CLEARANCE_MM,
+      buildRailCrossingInfillPanels,
+      buildRailCrossings,
+      railCrossingSvgRecords,
+    } = await import('../js/site-planner/rail-crossing-generator.js');
+    const { roadCenterlineSamples } = await import('../js/site-planner/road-geometry.js');
+    const { createTrackController } = await import('../js/site-planner/track-controller.js');
+    const { roadAssetSvgExport } = await import('../js/site-planner/export-utils.js');
+    const { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } = await import('../js/site-planner/svg-export-utils.js');
+    const { polygonCenter } = await import('../js/site-planner/geometry.js');
+
+    const state = { view: { scale: 1 }, pxPerMm: 2, tracks: [] };
+    let idCount = 0;
+    const trackController = createTrackController({
+      state,
+      defaults: {
+        gaugeMm: 9,
+        railWidthMm: 0.8,
+        railHeightMm: 0.6,
+        tieSpacingMm: 4,
+        tieLengthMm: 18,
+        tieWidthMm: 2,
+        roadbedWidthMm: 19,
+        roadbedHeightMm: 2,
+        roadbedShoulderMm: 4,
+        railColor: '#4b4438',
+        tieColor: '#8a6f43',
+        roadbedColor: '#b8b2a1',
+        roadbedTopColor: '#d8d2bf',
+      },
+      uid: prefix => `${prefix}_${++idCount}`,
+      mmToPx: mm => mm * state.pxPerMm,
+      pxToMm: px => px / state.pxPerMm,
+      dist: (a, b) => Math.hypot(a.x - b.x, a.y - b.y),
+      distanceToSegment: () => 999,
+      closestPointOnSegment: () => null,
+      quadPoint: (a, c, b, t) => {
+        const mt = 1 - t;
+        return { x: mt * mt * a.x + 2 * mt * t * c.x + t * t * b.x, y: mt * mt * a.y + 2 * mt * t * c.y + t * t * b.y };
+      },
+      clearBuildingSelection: () => {},
+      syncAll: () => {},
+      getExternalTrackConnectionPoints: () => [],
+    });
+
+    const roads = [
+      { id: 'road_1', name: 'Crossing road', mode: 'centerline', pointsPx: [{ x: 0, y: 100 }, { x: 260, y: 100 }], curvesPx: [], widthPx: 48 },
+    ];
+    const tracks = [
+      trackController.normalizeTrack({ id: 'track_1', name: 'Track 1', pointsPx: [{ x: 100, y: 20 }, { x: 100, y: 180 }], gaugeMm: 9, gaugePx: 18, railWidthPx: 1.6 }),
+      trackController.normalizeTrack({ id: 'track_2', name: 'Track 2', pointsPx: [{ x: 145, y: 20 }, { x: 145, y: 180 }], gaugeMm: 9, gaugePx: 18, railWidthPx: 1.6 }),
+    ];
+
+    const crossings = buildRailCrossings({
+      roads,
+      tracks,
+      roadCenterlineSamples,
+      trackPathSamples: trackController.trackPathSamples,
+      pxPerMm: state.pxPerMm,
+      overrides: { 'road_1:track_1:100': { railArcOffsetMm: 1.5 } },
+    });
+
+    expect(crossings).toHaveLength(2);
+    expect(crossings[0].panels).toHaveLength(3);
+    expect(crossings[0].centerWidthPx).toBeCloseTo(RAIL_CROSSING_CENTER_CLEARANCE_MM * state.pxPerMm, 4);
+    expect(crossings[0].railArcOffsetMm).toBeCloseTo(1.5, 4);
+    expect(crossings[0].engraves.length).toBeGreaterThan(6);
+
+    const infill = buildRailCrossingInfillPanels(crossings, { roadWidthPxById: { road_1: 48 } });
+    expect(infill).toHaveLength(1);
+
+    const records = railCrossingSvgRecords(crossings, { infillPanels: infill });
+    expect(records.filter(record => record.layer === 'railCrossingCut')).toHaveLength(7);
+    expect(records.some(record => record.layer === 'railCrossingPlateEngrave')).toBe(true);
+
+    const svg = roadAssetSvgExport({
+      data: { roads: [{ ...roads[0], roadPolygonPx: [{ x: 0, y: 76 }, { x: 260, y: 76 }, { x: 260, y: 124 }, { x: 0, y: 124 }], sidewalkPolygonsPx: [] }], seams: [] },
+      roadFeatures: [],
+      generatedRailCrossingRecords: records,
+      width: 260,
+      height: 200,
+    }, {
+      JP_ROAD_MARKING_STANDARD_ID: 'jp-road-markings-v1',
+      SVG_OP: { CUT_RETAINED: 'cut-retained', CUT_SCRAP: 'cut-scrap', ENGRAVE: 'engrave' },
+      SVG_ENGRAVE: '#0000ff',
+      SVG_RETAINED_CUT: '#ff0000',
+      SVG_SCRAP_CUT: '#00aa00',
+      escapeAttr: value => String(value).replace(/"/g, '&quot;'),
+      escapeHtml: value => String(value),
+      normalizeRoadFeature: value => value,
+      polygonCenter,
+      svgFabricationAttrs,
+      svgFeatureTransform,
+      svgPathFromPoly,
+    });
+
+    expect(svg).toContain('id="railCrossingCut"');
+    expect(svg).toContain('id="railCrossingPlateEngrave"');
+    expect(svg).toContain('data-panel-kind="center"');
+    expect(svg).toContain('data-panel-kind="betweenTracks"');
+  });
 });

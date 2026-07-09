@@ -1138,25 +1138,39 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     });
     return {created, skipped, spacingPx, spacingModelMm:CATENARY_SPACING_MODEL_MM};
   }
-  function handleCatenaryAutoSectionClick(p){
-    const anchor=nearestTrackAccessoryAnchor(p);
+  function catenarySectionResultText(result){
+    return `Added ${result.created} catenary pole${result.created===1?'':'s'} at ${fmt(CATENARY_SPACING_MODEL_MM)} mm spacing (${CATENARY_PROTOTYPE_SPACING_M} m prototype at Japanese N scale).${result.skipped?` Skipped ${result.skipped} existing pole${result.skipped===1?'':'s'}.`:''}`;
+  }
+  function applyCatenaryToTrack(trackId,kind='catenarySingleSide'){
+    const t=(state.tracks||[]).map(normalizeTrack).find(track=>track.id===trackId);
+    if(!t || t.hidden || (t.pointsPx||[]).length<2) return {created:0, skipped:0};
+    const sampled=sampledTrackSegments(t,24);
+    if(!(sampled.total>1)) return {created:0, skipped:0};
+    const start=trackPointAtDistance(t.id,0);
+    const end=trackPointAtDistance(t.id,sampled.total);
+    return applyCatenarySection(start,end,kind);
+  }
+  function handleCatenaryAutoTrackClick(p,pointerType='mouse'){
+    const trackHit=hitTrack(p,pointerType);
+    const anchor=trackHit ? null : nearestTrackAccessoryAnchor(p);
+    const trackId=trackHit?.id || (anchor && anchor.distance<=trackAccessorySnapDistance() ? anchor.trackId : null);
     const hint=$('statusHint');
-    if(!anchor || anchor.distance>trackAccessorySnapDistance()){
-      if(hint) hint.textContent='Click directly on or near a track to start an auto catenary section.';
+    if(!trackId){
+      if(hint) hint.textContent='Click a track spline to auto place catenary along its full length.';
       return false;
     }
-    if(!state.catenarySectionDraft || state.catenarySectionDraft.trackId!==anchor.trackId){
-      state.catenarySectionDraft={trackId:anchor.trackId,startPathDistancePx:anchor.pathDistancePx,startPoint:anchor.point};
-      state.selectedTrackId=anchor.trackId;
-      if(hint) hint.textContent='Auto catenary section started. Click the end point on the same track.';
-      draw();
-      return true;
-    }
-    const start=trackPointAtDistance(state.catenarySectionDraft.trackId,state.catenarySectionDraft.startPathDistancePx);
-    const result=applyCatenarySection(start,anchor,'catenarySingleSide');
+    clearBuildingSelection();
+    state.selectedTrackId=trackId;
+    state.selectedRoadId=null;
+    state.selectedRoadFeatureId=null;
+    state.selectedBenchworkId=null;
+    state.selectedStreetlightId=null;
+    state.selectedAnnotationId=null;
+    state.selectedFabricId=null;
     state.catenarySectionDraft=null;
+    const result=applyCatenaryToTrack(trackId,'catenarySingleSide');
     syncAll();
-    if(hint) hint.textContent=`Added ${result.created} catenary pole${result.created===1?'':'s'} at ${fmt(CATENARY_SPACING_MODEL_MM)} mm spacing (${CATENARY_PROTOTYPE_SPACING_M} m prototype at Japanese N scale).${result.skipped?` Skipped ${result.skipped} existing pole${result.skipped===1?'':'s'}.`:''}`;
+    if(hint) hint.textContent=catenarySectionResultText(result);
     return true;
   }
   function beginTrackContinuationFromSnap(snap){
@@ -4967,7 +4981,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       return;
     }
     if(state.workspaceMode==='track' && isCatenaryAutoSectionAction(state.trackTask)){
-      handleCatenaryAutoSectionClick(p);
+      handleCatenaryAutoTrackClick(p,e.pointerType);
       return;
     }
     if(state.workspaceMode==='track' && isTrackAccessoryAction(state.trackTask)){

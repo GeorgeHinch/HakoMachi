@@ -319,7 +319,7 @@ test.describe('site planner track editing workspace', () => {
     expect(hasRenderedPixels).toBe(true);
   });
 
-  test('auto-fills a selected track section with scaled catenary poles', async ({ page }) => {
+  test('auto-fills a selected track spline with scaled catenary poles', async ({ page }) => {
     await page.goto('/site-planner.html', { waitUntil: 'domcontentloaded' });
     await importBlankPlan(page);
 
@@ -327,15 +327,13 @@ test.describe('site planner track editing workspace', () => {
     await page.click('#trackDrawModeBtn');
     await canvasClick(page, 90, 260);
     await canvasClick(page, 780, 260);
-    await canvasClick(page, 780, 260);
+    await page.keyboard.press('Enter');
 
     await page.click('#catenaryVariantBtn');
     await page.click('#catenaryToolMenu [data-catenary-kind="catenaryAutoSection"]');
     await expect(page.locator('#statusTool')).toContainText('Auto catenary section');
 
-    await canvasClick(page, 100, 260);
-    await expect(page.locator('#statusHint')).toContainText('started');
-    await canvasClick(page, 760, 260);
+    await canvasClick(page, 450, 260);
 
     await expect(page.locator('#selectedPanel')).toContainText('Track item selected');
     await expect(page.locator('#selectedPanel')).toContainText('Single-side Catenary Pole');

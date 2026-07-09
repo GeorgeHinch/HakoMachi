@@ -183,6 +183,15 @@ test.describe('site planner track editing workspace', () => {
     expect(Math.abs(rotated - initialRotation)).toBeGreaterThan(20);
     await expect(page.locator('#objectBrowser')).toContainText('Track Items');
 
+    await page.locator('#trackItemRot').fill('12');
+    await page.locator('#trackItemRot').focus();
+    await page.locator('#trackItemRot').evaluate(input => {
+      input.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, shiftKey: true }));
+      input.stepUp();
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await expect(page.locator('#trackItemRot')).toHaveValue('20');
+
     await page.click('#view3dCanvasBtn');
     await expect(page.locator('.canvasWrap')).toHaveClass(/view3d/);
     const site3dCanvas = page.locator('#site3dView canvas');

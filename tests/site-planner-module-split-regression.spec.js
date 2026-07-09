@@ -541,6 +541,9 @@ test.describe('Site Planner module split contracts', () => {
     expect(renderer).toContain('Japanese crossing striped barrier arm');
     expect(renderer).toContain('HB-type level crossing obstruction detector grey sensor housing');
     expect(renderer).toContain('HB-type intrusion detector obstruction detection beam');
+    expect(renderer).toContain('addDetectorHead();');
+    expect(renderer).not.toContain('addDetectorHead(-8,1)');
+    expect(renderer).not.toContain('addDetectorHead(8,-1)');
     expect(switchboard).toContain("item.kind==='signal' || item.kind==='occupancyLight'");
     expect(switchboard).toContain('buildSite3DCrossingSignalItem(item,bounds)');
     expect(switchboard).toContain("item.kind==='crossingArm'");

@@ -3626,7 +3626,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       group.add(mesh);
       return mesh;
     };
-    const addDetectorHead=(z,faceDir)=>{
+    const faceDir=-1;
+    const addDetectorHead=()=>{
+      const z=0;
       addBox(5.6,.45,4.4,0,.23,z,baseMat,0x4b4438).name='HB-type intrusion detector low concrete plinth';
       addBox(3.6,1.8,3.2,0,1.35,z,baseMat,0x4b4438).name='HB-type intrusion detector short grey pedestal';
       const body=addBox(5.2,3.4,3.8,0,3.9,z,housingMat,0x4b4438);
@@ -3645,19 +3647,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const rear=addBox(3.2,1.4,.24,0,3.9,z-(faceDir*2.03),darkMat,0x151719);
       rear.name='HB-type intrusion detector rear service panel';
     };
-    addDetectorHead(-8,1);
-    addDetectorHead(8,-1);
+    addDetectorHead();
     const beamGeo=new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0,4.05,-5.65),
-      new THREE.Vector3(0,4.05,5.65)
+      new THREE.Vector3(0,4.05,faceDir*2.55),
+      new THREE.Vector3(0,4.05,faceDir*14)
     ]);
     const beam=new THREE.Line(beamGeo,beamMat);
     beam.name='HB-type intrusion detector obstruction detection beam';
     group.add(beam);
-    [-8,8].forEach(z=>{
-      const cable=site3DBeam(group,{x:-2.15,y:.48,z},{x:-2.15,y:3.05,z},.08,darkMat,'HB-type intrusion detector conduit');
-      cable.name='HB-type intrusion detector conduit';
-    });
+    const cable=site3DBeam(group,{x:-2.15,y:.48,z:0},{x:-2.15,y:3.05,z:0},.08,darkMat,'HB-type intrusion detector conduit');
+    cable.name='HB-type intrusion detector conduit';
     return tagSite3DTrackAccessory(group,item);
   }
   function buildSite3DTrackAccessoryGroup(bounds){

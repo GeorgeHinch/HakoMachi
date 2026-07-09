@@ -1,5 +1,7 @@
 const { expect, test } = require('@playwright/test');
 
+const AUTOSAVE_KEY = 'hakomachiSitePlannerAutosave_v1';
+
 async function importBlankPlan(page) {
   await page.setInputFiles('#imageFile', {
     name: 'blank-plan.svg',
@@ -12,6 +14,11 @@ async function importBlankPlan(page) {
 async function canvasClick(page, relX, relY) {
   const box = await page.locator('#canvas').boundingBox();
   await page.mouse.click(box.x + relX, box.y + relY);
+}
+
+async function autosavePayload(page) {
+  await page.waitForFunction(key => !!localStorage.getItem(key), AUTOSAVE_KEY);
+  return page.evaluate(key => JSON.parse(localStorage.getItem(key)), AUTOSAVE_KEY);
 }
 
 test.describe('site planner track editing workspace', () => {
@@ -56,6 +63,7 @@ test.describe('site planner track editing workspace', () => {
     await expect(page.locator('#trackIntrusionDetectorModeBtn')).toBeVisible();
     await expect(page.locator('#trackOccupancyLightModeBtn')).toBeVisible();
     await expect(page.locator('#trackSwitchToolBtn')).toBeVisible();
+    await expect(page.locator('#trackBufferToolBtn')).toBeVisible();
     await expect(page.locator('#catenaryToolBtn')).toBeVisible();
 
     await page.click('#trackDrawModeBtn');
@@ -80,6 +88,13 @@ test.describe('site planner track editing workspace', () => {
     await expect(page.locator('#trackSwitchToolBtn')).toHaveClass(/active/);
     await expect(page.locator('#trackSwitchToolLabel')).toHaveText('Right Switch');
     await expect(page.locator('#statusTool')).toContainText('Right-hand track switch');
+
+    await page.click('#trackBufferVariantBtn');
+    await expect(page.locator('#trackBufferToolMenu')).toHaveClass(/open/);
+    await page.click('#trackBufferToolMenu [data-track-buffer-kind="trackBufferTomix1428Catenary"]');
+    await expect(page.locator('#trackBufferToolBtn')).toHaveClass(/active/);
+    await expect(page.locator('#trackBufferToolLabel')).toHaveText('Buffer + Terminal');
+    await expect(page.locator('#statusTool')).toContainText('Tomix 1428 catenary terminal buffer');
 
     await page.click('#catenaryVariantBtn');
     await expect(page.locator('#catenaryToolMenu')).toHaveClass(/open/);
@@ -122,7 +137,7 @@ test.describe('site planner track editing workspace', () => {
     await page.click('#trackDrawModeBtn');
     await canvasClick(page, 120, 140);
     await canvasClick(page, 260, 140);
-    await canvasClick(page, 260, 140);
+    await page.keyboard.press('Enter');
 
     const sidebarToggle = page.locator('#sidebarToggle[aria-expanded="true"]');
     if (await sidebarToggle.count()) await sidebarToggle.click();
@@ -143,7 +158,7 @@ test.describe('site planner track editing workspace', () => {
     await page.click('#trackDrawModeBtn');
     await canvasClick(page, 120, 140);
     await canvasClick(page, 260, 140);
-    await canvasClick(page, 260, 140);
+    await page.keyboard.press('Enter');
 
     const sidebarToggle = page.locator('#sidebarToggle[aria-expanded="true"]');
     if (await sidebarToggle.count() && await sidebarToggle.isVisible()) await sidebarToggle.click();
@@ -190,6 +205,69 @@ test.describe('site planner track editing workspace', () => {
       return false;
     });
     expect(hasRenderedPixels).toBe(true);
+  });
+
+  test('places a Tomix 1428 buffer stop with catenary terminal at a track endpoint', async ({ page }) => {
+    await page.goto('/site-planner.html', { waitUntil: 'domcontentloaded' });
+    await importBlankPlan(page);
+
+    await page.selectOption('#workspaceMode', 'track');
+    await page.click('#trackDrawModeBtn');
+    await canvasClick(page, 120, 140);
+    await canvasClick(page, 260, 140);
+    await page.keyboard.press('Enter');
+
+    const sidebarToggle = page.locator('#sidebarToggle[aria-expanded="true"]');
+    if (await sidebarToggle.count() && await sidebarToggle.isVisible()) await sidebarToggle.click();
+    await page.click('#trackBufferVariantBtn');
+    await page.click('#trackBufferToolMenu [data-track-buffer-kind="trackBufferTomix1428Catenary"]');
+    await expect(page.locator('#statusTool')).toContainText('Tomix 1428 catenary terminal buffer');
+    await canvasClick(page, 260, 140);
+
+    await expect(page.locator('#selectedPanel')).toContainText('Track item selected');
+    await expect(page.locator('#selectedPanel')).toContainText('Tomix 1428 Buffer');
+    await expect(page.locator('#trackItemKind')).toHaveValue('trackBufferTomix1428Catenary');
+    await expect(page.locator('#trackItemCatenaryTerminal')).toBeChecked();
+    const rotation = Number(await page.locator('#trackItemRot').inputValue());
+    expect(rotation).toBeCloseTo(0, 0);
+    await page.waitForFunction(key => {
+      const payload = JSON.parse(localStorage.getItem(key) || '{}');
+      return (payload.trackAccessories || []).some(item => item.kind === 'trackBufferTomix1428Catenary');
+    }, AUTOSAVE_KEY);
+    const payload = await autosavePayload(page);
+    const buffer = payload.trackAccessories.find(item => item.kind === 'trackBufferTomix1428' || item.kind === 'trackBufferTomix1428Catenary');
+    const track = payload.tracks[0];
+    const endpoint = track.pointsPx[track.pointsPx.length - 1];
+    expect(buffer.trackAnchor).toMatchObject({ endpointKey: 'end' });
+    expect(buffer.x).toBeCloseTo(endpoint.x, 1);
+    expect(buffer.y).toBeCloseTo(endpoint.y, 1);
+
+    await page.click('#view3dCanvasBtn');
+    await expect(page.locator('.canvasWrap')).toHaveClass(/view3d/);
+    const site3dCanvas = page.locator('#site3dView canvas');
+    await expect(site3dCanvas).toBeVisible();
+    await page.waitForTimeout(250);
+    const previewScreenshot = await site3dCanvas.screenshot();
+    expect(previewScreenshot.length).toBeGreaterThan(1000);
+    const hasRenderedPixels = await site3dCanvas.evaluate(canvas => {
+      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+      if (!gl || gl.drawingBufferWidth < 2 || gl.drawingBufferHeight < 2) return false;
+      const width = Math.min(80, gl.drawingBufferWidth);
+      const height = Math.min(80, gl.drawingBufferHeight);
+      const x = Math.max(0, Math.floor((gl.drawingBufferWidth - width) / 2));
+      const y = Math.max(0, Math.floor((gl.drawingBufferHeight - height) / 2));
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      for (let i = 0; i < pixels.length; i += 4) {
+        if (pixels[i + 3] && (pixels[i] !== 236 || pixels[i + 1] !== 236 || pixels[i + 2] !== 230)) return true;
+      }
+      return false;
+    });
+    expect(hasRenderedPixels).toBe(true);
+
+    await page.click('#view2dCanvasBtn');
+    await page.click('#trackItemCatenaryTerminal');
+    await expect(page.locator('#trackItemCatenaryTerminal')).not.toBeChecked();
   });
 
   test('places a double-track catenary portal and shows it in the 3D preview', async ({ page }) => {

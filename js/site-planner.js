@@ -92,6 +92,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   const TOMIX_TURNOUT_TIE_WIDTH_MM = 2;
   const TOMIX_TURNOUT_TIE_SPACING_MM = 8;
   const TOMIX_TURNOUT_RAIL_WIDTH_MM = 0.8;
+  const TOMIX_1428_BUFFER_LENGTH_MM = 22;
+  const TOMIX_1428_BUFFER_WIDTH_MM = 18.5;
+  const TOMIX_1428_BUFFER_TIE_SPACING_MM = 5;
+  const TOMIX_1428_BUFFER_TERMINAL_HEIGHT_MM = 48;
   const SVG_OP = SVG_FABRICATION_OPERATIONS;
   const SVG_RETAINED_CUT = svgFabricationColor(SVG_OP.CUT_RETAINED);
   const SVG_SCRAP_CUT = svgFabricationColor(SVG_OP.CUT_SCRAP);
@@ -104,6 +108,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     occupancyLight: { label: 'Blinking Occupancy Lights', color: '#c84a3a', defaultNotes: 'Blinking occupancy detection lights for level crossing status.' },
     trackSwitchLeft: { label: 'Left-hand Track Switch', color: '#4b4438', defaultNotes: 'Tomix PL541-15 style left-hand turnout marker: 541 mm radius, 15 degree diverging route.' },
     trackSwitchRight: { label: 'Right-hand Track Switch', color: '#4b4438', defaultNotes: 'Tomix PR541-15 style right-hand turnout marker: 541 mm radius, 15 degree diverging route.' },
+    trackBufferTomix1428: { label: 'Tomix 1428 Buffer Stop', color: '#6f6a5e', defaultNotes: 'Tomix 1428 style end-of-track buffer stop marker.' },
+    trackBufferTomix1428Catenary: { label: 'Tomix 1428 Buffer + Catenary Terminal', color: '#6f6a5e', defaultNotes: 'Tomix 1428 style buffer stop marker with catenary end terminal enabled.' },
     catenarySingleSide: { label: 'Single-side Catenary Pole', color: '#f2f0e8', defaultNotes: 'Single-track catenary pole with one side mast and outreach arm.' },
     catenaryDoublePortal: { label: 'Double-track Catenary Portal', color: '#f2f0e8', defaultNotes: 'Double-track catenary gantry with poles on both sides.' },
   });
@@ -736,6 +742,37 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function isTrackSwitchAccessoryKind(kind){
     return kind==='trackSwitchLeft' || kind==='trackSwitchRight';
   }
+  function isTrackBufferAccessoryKind(kind){
+    return kind==='trackBufferTomix1428' || kind==='trackBufferTomix1428Catenary';
+  }
+  function trackBufferHasCatenaryTerminal(item){
+    return item?.kind==='trackBufferTomix1428Catenary' || !!item?.catenaryEndTerminal;
+  }
+  function trackBufferPxPerMm(item){
+    if(state.pxPerMm) return state.pxPerMm;
+    const trackId=item?.trackId || item?.trackAnchor?.trackId;
+    const track=trackId ? (state.tracks||[]).map(normalizeTrack).find(t=>t.id===trackId) : null;
+    const gaugePx=Number(track?.gaugePx);
+    const gaugeMm=Number(track?.gaugeMm);
+    if(Number.isFinite(gaugePx) && gaugePx>0 && Number.isFinite(gaugeMm) && gaugeMm>0) return gaugePx/gaugeMm;
+    return 0.32;
+  }
+  function tomixBufferGeometry(scale=1){
+    return {
+      length:TOMIX_1428_BUFFER_LENGTH_MM*scale,
+      width:TOMIX_1428_BUFFER_WIDTH_MM*scale,
+      gauge:TOMIX_TURNOUT_GAUGE_MM*scale,
+      tieSpacing:TOMIX_1428_BUFFER_TIE_SPACING_MM*scale,
+      terminalHeight:TOMIX_1428_BUFFER_TERMINAL_HEIGHT_MM*scale,
+      railWidth:TOMIX_TURNOUT_RAIL_WIDTH_MM*scale,
+    };
+  }
+  function trackBufferGeometryPx(item){
+    return tomixBufferGeometry(trackBufferPxPerMm(item));
+  }
+  function trackBufferGeometrySite3D(item){
+    return tomixBufferGeometry(state.pxPerMm ? 1 : trackBufferPxPerMm(item));
+  }
   function trackSwitchDirection(kind){
     return kind==='trackSwitchLeft' ? -1 : 1;
   }
@@ -846,6 +883,46 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     moveTrackPointWithAdjacentCurves(track,index,endpoint.point);
     return true;
   }
+  function nearestTrackEndpointAnchor(p,options={}){
+    let best=null;
+    (state.tracks||[]).map(normalizeTrack).forEach(t=>{
+      if(options.trackId && t.id!==options.trackId) return;
+      if(t.hidden || (t.pointsPx||[]).length<2) return;
+      const endpoints=[
+        {endpointKey:'start',point:t.pointsPx[0],neighbor:t.pointsPx[1],pointIndex:0},
+        {endpointKey:'end',point:t.pointsPx[t.pointsPx.length-1],neighbor:t.pointsPx[t.pointsPx.length-2],pointIndex:t.pointsPx.length-1},
+      ];
+      endpoints.forEach(endpoint=>{
+        const distance=dist(p,endpoint.point);
+        if(!best || distance<best.distance){
+          best={
+            trackId:t.id,
+            point:{x:endpoint.point.x,y:endpoint.point.y},
+            distance,
+            endpointKey:endpoint.endpointKey,
+            pointIndex:endpoint.pointIndex,
+            angleDeg:deg(Math.atan2(endpoint.point.y-endpoint.neighbor.y,endpoint.point.x-endpoint.neighbor.x)),
+          };
+        }
+      });
+    });
+    return best;
+  }
+  function resolveTrackEndpointAnchor(trackId,endpointKey){
+    const t=(state.tracks||[]).map(normalizeTrack).find(track=>track.id===trackId);
+    if(!t || t.hidden || (t.pointsPx||[]).length<2) return null;
+    const start=endpointKey==='start';
+    const point=start ? t.pointsPx[0] : t.pointsPx[t.pointsPx.length-1];
+    const neighbor=start ? t.pointsPx[1] : t.pointsPx[t.pointsPx.length-2];
+    return {
+      trackId:t.id,
+      point:{x:point.x,y:point.y},
+      endpointKey:start?'start':'end',
+      pointIndex:start?0:t.pointsPx.length-1,
+      angleDeg:deg(Math.atan2(point.y-neighbor.y,point.x-neighbor.x)),
+      distance:0,
+    };
+  }
   function isCatenaryAutoSectionAction(action){
     return action==='catenaryAutoSection';
   }
@@ -866,11 +943,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         trackId: raw.trackAnchor.trackId || raw.trackId || null,
         pathDistancePx: Number.isFinite(Number(raw.trackAnchor.pathDistancePx)) ? Number(raw.trackAnchor.pathDistancePx) : null,
         offsetPx: Number.isFinite(Number(raw.trackAnchor.offsetPx)) ? Number(raw.trackAnchor.offsetPx) : 0,
+        endpointKey: raw.trackAnchor.endpointKey === 'start' || raw.trackAnchor.endpointKey === 'end' ? raw.trackAnchor.endpointKey : null,
+        pointIndex: Number.isInteger(raw.trackAnchor.pointIndex) ? raw.trackAnchor.pointIndex : null,
       };
     } else {
       raw.trackAnchor=null;
     }
     raw.color=raw.color||preset.color;
+    raw.catenaryEndTerminal=isTrackBufferAccessoryKind(kind) ? (kind==='trackBufferTomix1428Catenary' || !!raw.catenaryEndTerminal) : !!raw.catenaryEndTerminal;
     raw.locked=!!raw.locked;
     raw.hidden=!!raw.hidden;
     raw.notes=raw.notes||preset.defaultNotes||'';
@@ -974,6 +1054,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function refreshTrackAccessoryAnchor(item){
     normalizeTrackAccessory(item);
+    if(isTrackBufferAccessoryKind(item.kind) && item.trackAnchor?.trackId && item.trackAnchor?.endpointKey){
+      const endpoint=resolveTrackEndpointAnchor(item.trackAnchor.trackId,item.trackAnchor.endpointKey);
+      if(!endpoint) return false;
+      item.trackId=endpoint.trackId;
+      item.x=endpoint.point.x;
+      item.y=endpoint.point.y;
+      item.rotationDeg=endpoint.angleDeg;
+      item.trackAnchor={trackId:endpoint.trackId,endpointKey:endpoint.endpointKey,pointIndex:endpoint.pointIndex,pathDistancePx:null,offsetPx:0};
+      return true;
+    }
     const anchor=resolveTrackAccessoryAnchor(item);
     if(!anchor) return false;
     item.x=anchor.point.x;
@@ -1093,7 +1183,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function placeTrackAccessory(p,kind){
     const preset=trackAccessoryPreset(kind);
-    const anchor=nearestTrackAccessoryAnchor(p);
+    const anchor=isTrackBufferAccessoryKind(kind) ? nearestTrackEndpointAnchor(p) : nearestTrackAccessoryAnchor(p);
     const maxSnap=trackAccessorySnapDistance();
     const snapped=anchor && anchor.distance<=maxSnap;
     const point=snapped ? anchor.point : p;
@@ -1107,14 +1197,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       trackId:snapped ? anchor.trackId : null,
       autoOrientToTrack:snapped && isCatenaryAccessoryKind(kind),
       color:preset.color,
+      catenaryEndTerminal:kind==='trackBufferTomix1428Catenary',
       notes:preset.defaultNotes,
     });
     if(snapped && isCatenaryAccessoryKind(kind)) attachTrackAccessoryToAnchor(accessory,anchor);
+    if(snapped && isTrackBufferAccessoryKind(kind)) accessory.trackAnchor={trackId:anchor.trackId,endpointKey:anchor.endpointKey,pointIndex:anchor.pointIndex,pathDistancePx:null,offsetPx:0};
     state.trackAccessories=state.trackAccessories||[];
     state.trackAccessories.push(accessory);
     selectTrackAccessory(accessory, {skipSync:true});
     syncAll();
-    $('statusHint').textContent=snapped ? `${preset.label} attached to nearest track.` : `${preset.label} placed.`;
+    $('statusHint').textContent=snapped ? `${preset.label} attached to nearest track endpoint.` : `${preset.label} placed.`;
     return accessory;
   }
   function hitTrackAccessory(p,pointerType='mouse'){
@@ -1137,6 +1229,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         const yMax=item.kind==='trackSwitchLeft' ? -verticalMin : verticalMax;
         if(lx>=-geom.halfLength-tol && lx<=geom.halfLength+tol && ly>=yMin && ly<=yMax) d=0;
         itemTol=Math.max(tol,Math.min(36/state.view.scale,geom.length/4));
+      } else if(isTrackBufferAccessoryKind(item.kind)){
+        const geom=trackBufferGeometryPx(item);
+        const a=rad(-(Number(item.rotationDeg)||0));
+        const dx=p.x-item.x, dy=p.y-item.y;
+        const lx=dx*Math.cos(a)-dy*Math.sin(a);
+        const ly=dx*Math.sin(a)+dy*Math.cos(a);
+        if(lx>=-geom.length*.35-tol && lx<=geom.length+tol && Math.abs(ly)<=geom.width*.55+tol) d=0;
+        itemTol=Math.max(tol,Math.min(28/state.view.scale,geom.length));
       }
       if(d<=itemTol && (!best || d<best.distance)) best={...item,distance:d};
     });
@@ -1272,6 +1372,51 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       ctx.beginPath(); ctx.arc(geom.halfLength,0,2.8*scale,0,Math.PI*2); ctx.fill(); ctx.stroke();
       ctx.beginPath(); ctx.arc(branch[branch.length-1].x,branch[branch.length-1].y,2.8*scale,0,Math.PI*2); ctx.fill(); ctx.stroke();
       ctx.beginPath(); ctx.arc(-geom.halfLength,0,2.8*scale,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    } else if(isTrackBufferAccessoryKind(item.kind)){
+      const geom=trackBufferGeometryPx(item);
+      const halfW=geom.width/2;
+      ctx.save();
+      ctx.strokeStyle='rgba(199,176,132,.82)';
+      ctx.lineWidth=Math.max(geom.width,10*scale);
+      ctx.beginPath(); ctx.moveTo(-geom.length*.35,0); ctx.lineTo(geom.length,0); ctx.stroke();
+      ctx.strokeStyle='rgba(138,111,67,.85)';
+      ctx.lineWidth=Math.max(1.2*scale,geom.width*.08);
+      for(let x=-geom.length*.25; x<geom.length*.82; x+=Math.max(geom.tieSpacing,3*scale)){
+        ctx.beginPath(); ctx.moveTo(x,-halfW*.42); ctx.lineTo(x,halfW*.42); ctx.stroke();
+      }
+      ctx.strokeStyle='#4b4438';
+      ctx.lineWidth=Math.max(1.2*scale,geom.railWidth);
+      ctx.beginPath();
+      ctx.moveTo(-geom.length*.35,-geom.gauge/2); ctx.lineTo(geom.length*.8,-geom.gauge/2);
+      ctx.moveTo(-geom.length*.35,geom.gauge/2); ctx.lineTo(geom.length*.8,geom.gauge/2);
+      ctx.stroke();
+      ctx.strokeStyle=color;
+      ctx.lineWidth=Math.max(2*scale,geom.railWidth*1.8);
+      ctx.beginPath();
+      ctx.moveTo(geom.length*.78,-halfW*.48); ctx.lineTo(geom.length*.78,halfW*.48);
+      ctx.moveTo(geom.length*.96,-halfW*.5); ctx.lineTo(geom.length*.96,halfW*.5);
+      ctx.moveTo(geom.length*.78,-halfW*.48); ctx.lineTo(geom.length*.96,-halfW*.5);
+      ctx.moveTo(geom.length*.78,halfW*.48); ctx.lineTo(geom.length*.96,halfW*.5);
+      ctx.stroke();
+      ctx.fillStyle='rgba(255,250,240,.92)';
+      ctx.beginPath(); ctx.rect(geom.length*.72,-halfW*.56,geom.length*.3,halfW*1.12); ctx.fill(); ctx.stroke();
+      if(trackBufferHasCatenaryTerminal(item)){
+        const towerX=geom.length*.55;
+        const towerY=-halfW-7*scale;
+        const h=28*scale;
+        const w=6*scale;
+        ctx.strokeStyle='#6f6a5e';
+        ctx.lineWidth=1.6*scale;
+        ctx.beginPath();
+        ctx.rect(towerX-w/2,towerY-h,w,h);
+        ctx.moveTo(towerX-w/2,towerY-h*.78); ctx.lineTo(towerX+w/2,towerY-h*.58);
+        ctx.moveTo(towerX+w/2,towerY-h*.58); ctx.lineTo(towerX-w/2,towerY-h*.38);
+        ctx.moveTo(towerX-w/2,towerY-h*.38); ctx.lineTo(towerX+w/2,towerY-h*.18);
+        ctx.moveTo(towerX,towerY-h*.68); ctx.lineTo(towerX-10*scale,towerY-h*.62);
+        ctx.moveTo(towerX,towerY-h*.48); ctx.lineTo(towerX-10*scale,towerY-h*.42);
+        ctx.stroke();
+      }
+      ctx.restore();
     } else if(item.kind==='signal'){
       ctx.beginPath(); ctx.moveTo(0,10*scale); ctx.lineTo(0,-10*scale); ctx.stroke();
       ctx.beginPath(); ctx.arc(0,-12*scale,5*scale,0,Math.PI*2); ctx.fill(); ctx.stroke();
@@ -1302,6 +1447,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         const minY=dir<0 ? -geom.offset-geom.roadbedWidth/2 : -geom.roadbedWidth/2;
         const maxY=dir<0 ? geom.roadbedWidth/2 : geom.offset+geom.roadbedWidth/2;
         ctx.strokeRect(-geom.halfLength-4*scale,minY-4*scale,geom.length+8*scale,(maxY-minY)+8*scale);
+      } else if(isTrackBufferAccessoryKind(item.kind)){
+        const geom=trackBufferGeometryPx(item);
+        ctx.strokeRect(-geom.length*.35-4*scale,-geom.width*.58-4*scale,geom.length*1.4+8*scale,geom.width*1.16+8*scale);
       } else {
         const boxSize=36;
         ctx.strokeRect(-boxSize/2*scale,-boxSize/2*scale,boxSize*scale,boxSize*scale);
@@ -2853,6 +3001,51 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     site3DBeam(group,{x:-geom.halfLength+geom.length*.34,y:.92,z:0},{x:-geom.halfLength+geom.length*.52,y:.92,z:dir*geom.offset*.42},Math.max(.08,geom.railWidth*.42),railMat,'Tomix switch point blade');
     return tagSite3DTrackAccessory(group,item);
   }
+  function buildSite3DTrackBufferItem(item,bounds){
+    refreshTrackAccessoryAnchor(item);
+    const selected=item.id===state.selectedTrackAccessoryId;
+    const railMat=new THREE.MeshStandardMaterial({color:selected?0xc8493a:0x34312b,roughness:.48,metalness:.12});
+    const tieMat=new THREE.MeshStandardMaterial({color:0x8a6f43,roughness:.84,metalness:0});
+    const baseMat=new THREE.MeshStandardMaterial({color:0xc7b084,roughness:.95,metalness:0});
+    const bufferMat=new THREE.MeshStandardMaterial({color:selected?0xc8493a:0x6f6a5e,roughness:.76,metalness:.02});
+    const terminalMat=new THREE.MeshStandardMaterial({color:0x8a8a86,roughness:.72,metalness:.04});
+    const group=new THREE.Group();
+    group.name=item.name||trackAccessoryLabel(item.kind);
+    group.position.set(site3DScale(item.x)-bounds.cx,0,site3DScale(item.y)-bounds.cy);
+    group.rotation.y=-rad(item.rotationDeg||0);
+    const geom=trackBufferGeometrySite3D(item);
+    const halfW=geom.width/2;
+    group.add(site3DAddEdges(site3DBox(geom.length*1.35,.34,geom.width,baseMat,geom.length*.32,.12,0),0x8f7b55,.35));
+    for(let x=-geom.length*.25; x<geom.length*.82; x+=Math.max(geom.tieSpacing,2)){
+      group.add(site3DBox(Math.max(.35,geom.tieSpacing*.15),.34,geom.width*.86,tieMat,x,.45,0));
+    }
+    site3DBeam(group,{x:-geom.length*.35,y:.85,z:-geom.gauge/2},{x:geom.length*.78,y:.85,z:-geom.gauge/2},Math.max(.1,geom.railWidth/2),railMat,'Buffer rail A');
+    site3DBeam(group,{x:-geom.length*.35,y:.85,z:geom.gauge/2},{x:geom.length*.78,y:.85,z:geom.gauge/2},Math.max(.1,geom.railWidth/2),railMat,'Buffer rail B');
+    group.add(site3DAddEdges(site3DBox(geom.length*.22,2.4,geom.width*.88,bufferMat,geom.length*.88,1.4,0),0x4b4438,.4));
+    group.add(site3DAddEdges(site3DBox(geom.length*.34,.6,geom.width*.96,bufferMat,geom.length*.82,2.8,0),0x4b4438,.4));
+    group.add(site3DBox(geom.length*.22,.35,geom.width*.22,bufferMat,geom.length*.64,1.05,-geom.gauge/2));
+    group.add(site3DBox(geom.length*.22,.35,geom.width*.22,bufferMat,geom.length*.64,1.05,geom.gauge/2));
+    if(trackBufferHasCatenaryTerminal(item)){
+      const x=geom.length*.55;
+      const z=-halfW-4;
+      const h=Math.max(22,geom.terminalHeight);
+      const w=4.4;
+      const addTerminalBeam=(a,b,r=.16,name='Catenary terminal truss')=>site3DBeam(group,a,b,r,terminalMat,name);
+      group.add(site3DAddEdges(site3DBox(7,.65,5,terminalMat,x,.35,z),0x6f6a5e,.35));
+      addTerminalBeam({x:x-w/2,y:.8,z},{x:x-w/2,y:h,z},.22,'Terminal side post');
+      addTerminalBeam({x:x+w/2,y:.8,z},{x:x+w/2,y:h,z},.22,'Terminal side post');
+      addTerminalBeam({x:x-w/2,y:h,z},{x:x+w/2,y:h,z},.2,'Terminal top brace');
+      for(let y=6;y<h-4;y+=7){
+        addTerminalBeam({x:x-w/2,y,z},{x:x+w/2,y:y+4,z},.13,'Terminal diagonal brace');
+        addTerminalBeam({x:x+w/2,y:y+4,z},{x:x-w/2,y:y+8,z},.13,'Terminal diagonal brace');
+      }
+      addTerminalBeam({x,y:h*.72,z},{x:x-12,y:h*.68,z:z+1.5},.14,'Terminal wire arm');
+      addTerminalBeam({x,y:h*.52,z},{x:x-11,y:h*.48,z:z+1.5},.14,'Terminal wire arm');
+      group.add(site3DBox(.9,.9,.9,terminalMat,x-12,h*.68,z+1.5));
+      group.add(site3DBox(.9,.9,.9,terminalMat,x-11,h*.48,z+1.5));
+    }
+    return tagSite3DTrackAccessory(group,item);
+  }
   function buildSite3DTrackAccessoryGroup(bounds){
     const group=new THREE.Group();
     group.name='Site Planner track items';
@@ -2863,6 +3056,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         ? buildSite3DCatenaryItem(item,bounds)
         : isTrackSwitchAccessoryKind(item.kind)
         ? buildSite3DTrackSwitchItem(item,bounds)
+        : isTrackBufferAccessoryKind(item.kind)
+        ? buildSite3DTrackBufferItem(item,bounds)
         : null;
       if(accessory) group.add(accessory);
     });
@@ -4138,20 +4333,22 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const track=selectedTrack(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const fabric=selectedFabric(); const stl=selectedStlObject(); const selIds=currentSelectedBuildingIds(); const trackAccessory=(!b && !selIds.length && !note && !roadFeature && !road && !track && !bench && !light && !fabric && !stl) ? selectedTrackAccessory() : null; if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use keyboard shortcuts to copy/paste selected building footprints.</span><div class="buttons" style="margin-top:8px"><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(trackAccessory){normalizeTrackAccessory(trackAccessory); box.innerHTML=`
       <b>Track item selected</b>
       <label>Name</label><input id="trackItemName" value="${escapeAttr(trackAccessory.name||trackAccessoryLabel(trackAccessory.kind))}">
-      <label>Type</label><select id="trackItemKind"><option value="sensor">Under-track Sensor</option><option value="signal">Signal Location</option><option value="crossingArm">Crossing Arm</option><option value="intrusionDetector">Intrusion Detector</option><option value="occupancyLight">Blinking Occupancy Lights</option><option value="trackSwitchLeft">Left-hand Track Switch</option><option value="trackSwitchRight">Right-hand Track Switch</option><option value="catenarySingleSide">Single-side Catenary Pole</option><option value="catenaryDoublePortal">Double-track Catenary Portal</option></select>
+      <label>Type</label><select id="trackItemKind"><option value="sensor">Under-track Sensor</option><option value="signal">Signal Location</option><option value="crossingArm">Crossing Arm</option><option value="intrusionDetector">Intrusion Detector</option><option value="occupancyLight">Blinking Occupancy Lights</option><option value="trackSwitchLeft">Left-hand Track Switch</option><option value="trackSwitchRight">Right-hand Track Switch</option><option value="trackBufferTomix1428">Tomix 1428 Buffer Stop</option><option value="trackBufferTomix1428Catenary">Tomix 1428 Buffer + Catenary Terminal</option><option value="catenarySingleSide">Single-side Catenary Pole</option><option value="catenaryDoublePortal">Double-track Catenary Portal</option></select>
       <div class="row"><div><label>X px</label><input id="trackItemX" type="number" step="1" value="${fmt(trackAccessory.x||0)}"></div><div><label>Y px</label><input id="trackItemY" type="number" step="1" value="${fmt(trackAccessory.y||0)}"></div></div>
       <div class="row"><div><label>Rotation °</label><input id="trackItemRot" type="number" step="1" value="${fmt(trackAccessory.rotationDeg||0)}"></div><div><label>Color</label><input id="trackItemColor" type="color" value="${trackAccessory.color||trackAccessoryPreset(trackAccessory.kind).color}"></div></div>
       ${isCatenaryAccessoryKind(trackAccessory.kind)?`<label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="trackItemAutoOrient" type="checkbox" ${trackAccessory.autoOrientToTrack!==false&&trackAccessory.trackId?'checked':''}> <span>Attach and auto-orient to track</span></label>`:''}
+      ${isTrackBufferAccessoryKind(trackAccessory.kind)?`<label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="trackItemCatenaryTerminal" type="checkbox" ${trackBufferHasCatenaryTerminal(trackAccessory)?'checked':''}> <span>Show catenary end terminal</span></label>`:''}
       <label>Notes</label><textarea id="trackItemNotes" rows="3">${escapeHtml(trackAccessory.notes||'')}</textarea>
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="trackItemLocked" type="checkbox" ${trackAccessory.locked?'checked':''}> <span>Lock item</span></label>
       <div class="buttons" style="margin-top:8px"><button id="trackItemSnap">Snap to Nearest Track</button><button id="deleteTrackItem" class="danger">Delete Item</button></div>
-      <div class="small muted" style="margin-top:8px">Track items mark placement for sensors, signals, crossing arms, catenary poles, switches, and level crossing detection around physical track. Tomix-style switches expose heel, straight, and diverging endpoints for flex-track snapping. They are saved with the site plan but are not exported as track parts.</div>`;
-      const kind=$('trackItemKind'); if(kind){kind.value=trackAccessory.kind; kind.onchange=()=>{trackAccessory.kind=kind.value; const preset=trackAccessoryPreset(trackAccessory.kind); trackAccessory.color=trackAccessory.color||preset.color; trackAccessory.name=trackAccessory.name||preset.label; normalizeTrackAccessory(trackAccessory); if(isTrackSwitchAccessoryKind(trackAccessory.kind)) syncTracksConnectedToTrackSwitch(trackAccessory); syncAll();};}
+      <div class="small muted" style="margin-top:8px">Track items mark placement for sensors, signals, crossing arms, catenary poles, switches, buffer stops, and level crossing detection around physical track. Tomix-style switches expose heel, straight, and diverging endpoints for flex-track snapping. Buffer stops prefer track endpoints and can show a catenary terminal. They are saved with the site plan but are not exported as track parts.</div>`;
+      const kind=$('trackItemKind'); if(kind){kind.value=trackAccessory.kind; kind.onchange=()=>{trackAccessory.kind=kind.value; const preset=trackAccessoryPreset(trackAccessory.kind); trackAccessory.color=trackAccessory.color||preset.color; trackAccessory.name=trackAccessory.name||preset.label; if(trackAccessory.kind==='trackBufferTomix1428Catenary') trackAccessory.catenaryEndTerminal=true; normalizeTrackAccessory(trackAccessory); if(isTrackSwitchAccessoryKind(trackAccessory.kind)) syncTracksConnectedToTrackSwitch(trackAccessory); syncAll();};}
       const bindTrackItem=(id,fn)=>{const el=$(id); if(el) el.oninput=()=>{fn(el.type==='checkbox'?el.checked:el.value); normalizeTrackAccessory(trackAccessory); syncAll();};};
       bindTrackItem('trackItemName',v=>trackAccessory.name=v); bindTrackItem('trackItemX',v=>{trackAccessory.x=parseFloat(v)||0; trackAccessory.trackAnchor=null; if(isTrackSwitchAccessoryKind(trackAccessory.kind)) syncTracksConnectedToTrackSwitch(trackAccessory);}); bindTrackItem('trackItemY',v=>{trackAccessory.y=parseFloat(v)||0; trackAccessory.trackAnchor=null; if(isTrackSwitchAccessoryKind(trackAccessory.kind)) syncTracksConnectedToTrackSwitch(trackAccessory);}); bindTrackItem('trackItemRot',v=>{trackAccessory.rotationDeg=parseFloat(v)||0; trackAccessory.autoOrientToTrack=false; if(isTrackSwitchAccessoryKind(trackAccessory.kind)) syncTracksConnectedToTrackSwitch(trackAccessory);}); bindTrackItem('trackItemColor',v=>trackAccessory.color=v); bindTrackItem('trackItemNotes',v=>trackAccessory.notes=v); bindTrackItem('trackItemLocked',v=>trackAccessory.locked=!!v);
       bindTrackItem('trackItemAutoOrient',v=>{trackAccessory.autoOrientToTrack=!!v; if(trackAccessory.autoOrientToTrack){const anchor=nearestTrackAccessoryAnchor({x:trackAccessory.x,y:trackAccessory.y},{trackId:trackAccessory.trackId}); if(anchor) attachTrackAccessoryToAnchor(trackAccessory,anchor); else trackAccessory.autoOrientToTrack=false;}});
+      bindTrackItem('trackItemCatenaryTerminal',v=>{trackAccessory.catenaryEndTerminal=!!v; if(trackAccessory.kind==='trackBufferTomix1428Catenary' && !v) trackAccessory.kind='trackBufferTomix1428';});
       installAdaptiveDegreeStepping($('trackItemRot'));
-      const snapBtn=$('trackItemSnap'); if(snapBtn) snapBtn.onclick=()=>{const anchor=nearestTrackAccessoryAnchor({x:trackAccessory.x,y:trackAccessory.y}); if(anchor){if(isCatenaryAccessoryKind(trackAccessory.kind)) attachTrackAccessoryToAnchor(trackAccessory,anchor); else {trackAccessory.x=anchor.point.x; trackAccessory.y=anchor.point.y; trackAccessory.rotationDeg=anchor.angleDeg; trackAccessory.trackId=anchor.trackId;} syncAll();}};
+      const snapBtn=$('trackItemSnap'); if(snapBtn) snapBtn.onclick=()=>{const anchor=isTrackBufferAccessoryKind(trackAccessory.kind)?nearestTrackEndpointAnchor({x:trackAccessory.x,y:trackAccessory.y}):nearestTrackAccessoryAnchor({x:trackAccessory.x,y:trackAccessory.y}); if(anchor){if(isCatenaryAccessoryKind(trackAccessory.kind)) attachTrackAccessoryToAnchor(trackAccessory,anchor); else {trackAccessory.x=anchor.point.x; trackAccessory.y=anchor.point.y; trackAccessory.rotationDeg=anchor.angleDeg; trackAccessory.trackId=anchor.trackId; if(isTrackBufferAccessoryKind(trackAccessory.kind)) trackAccessory.trackAnchor={trackId:anchor.trackId,endpointKey:anchor.endpointKey,pointIndex:anchor.pointIndex,pathDistancePx:null,offsetPx:0};} syncAll();}};
       $('deleteTrackItem').onclick=deleteSelectedTrackAccessory;
       return;
     } if(roadFeature){normalizeRoadFeature(roadFeature); box.innerHTML=`
@@ -5264,6 +5461,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       btn.classList.toggle('active', active);
     });
     updateTrackSwitchToolButton();
+    updateTrackBufferToolButton();
     updateCatenaryToolButton();
     const previewBtn=$('roadCutPreviewModeBtn');
     if(previewBtn){
@@ -5510,6 +5708,36 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     beginTrackAccessoryPlacement(btn.dataset.trackSwitchKind||'trackSwitchLeft');
     hideToolFlyouts();
   });
+  function trackBufferToolTask(){
+    return state.trackTask==='trackBufferTomix1428Catenary' ? 'trackBufferTomix1428Catenary' : 'trackBufferTomix1428';
+  }
+  function updateTrackBufferToolButton(){
+    const task=trackBufferToolTask();
+    const terminal=task==='trackBufferTomix1428Catenary';
+    const icon=$('trackBufferToolIcon'), label=$('trackBufferToolLabel'), btn=$('trackBufferToolBtn');
+    const title=terminal?'Tomix 1428 buffer with catenary terminal':'Tomix 1428 buffer stop';
+    if(icon){ icon.dataset.icon=terminal?'trackBufferCatenary':'trackBuffer'; setIcon(icon, icon.dataset.icon); }
+    if(label) label.textContent=terminal?'Buffer + Terminal':'Buffer Stop';
+    if(btn){
+      btn.dataset.trackAction=task;
+      btn.title=title;
+      btn.setAttribute('aria-label', title);
+      btn.classList.toggle('active', state.workspaceMode==='track' && state.trackTask===task);
+    }
+    document.querySelectorAll('#trackBufferToolMenu button').forEach(b=>b.classList.toggle('active', b.dataset.trackBufferKind===task));
+  }
+  function showTrackBufferToolMenu(anchor=$('trackBufferToolGroup')||$('trackBufferToolBtn')){toggleToolFlyout('trackBufferToolMenu', anchor); updateTrackBufferToolButton();}
+  let trackBufferToolPressTimer=null;
+  $('trackBufferVariantBtn')?.addEventListener('click', e=>{e.preventDefault(); e.stopPropagation(); showTrackBufferToolMenu($('trackBufferToolGroup')||$('trackBufferVariantBtn'));});
+  $('trackBufferToolBtn')?.addEventListener('pointerdown', e=>{clearTimeout(trackBufferToolPressTimer); trackBufferToolPressTimer=setTimeout(()=>showTrackBufferToolMenu($('trackBufferToolGroup')||$('trackBufferToolBtn')), 420);});
+  $('trackBufferToolBtn')?.addEventListener('pointerup', ()=>clearTimeout(trackBufferToolPressTimer));
+  $('trackBufferToolBtn')?.addEventListener('pointercancel', ()=>clearTimeout(trackBufferToolPressTimer));
+  $('trackBufferToolBtn')?.addEventListener('contextmenu', e=>{e.preventDefault(); showTrackBufferToolMenu($('trackBufferToolGroup')||$('trackBufferVariantBtn'));});
+  document.querySelectorAll('#trackBufferToolMenu button').forEach(btn=>btn.onclick=e=>{
+    e.stopPropagation();
+    beginTrackAccessoryPlacement(btn.dataset.trackBufferKind||'trackBufferTomix1428');
+    hideToolFlyouts();
+  });
   function catenaryToolTask(){
     return state.trackTask==='catenaryAutoSection' ? 'catenaryAutoSection' : state.trackTask==='catenaryDoublePortal' ? 'catenaryDoublePortal' : 'catenarySingleSide';
   }
@@ -5549,6 +5777,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   installTooltips();
   updateStreetlightToolButton();
   updateTrackSwitchToolButton();
+  updateTrackBufferToolButton();
   updateCatenaryToolButton();
   async function loadReferenceImage(file){
     if(!file) return;

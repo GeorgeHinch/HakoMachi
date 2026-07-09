@@ -439,8 +439,10 @@ test.describe('site planner track editing workspace', () => {
     await expect(page.locator('#selectedPanel')).toContainText('Single-side Catenary Pole');
     await expect(page.locator('#trackItemAutoOrient')).toBeChecked();
     await expect(page.locator('#statusHint')).toContainText('Added');
+    await expect(page.locator('#statusHint')).toContainText('200.0 mm spacing');
+    await expect(page.locator('#statusHint')).toContainText('30 m prototype');
     const objectBrowserText = await page.locator('#objectBrowser').innerText();
-    expect(objectBrowserText).toMatch(/Track Items[\s\S]*[3-9]/);
+    expect(objectBrowserText).toMatch(/Track Items[\s\S]*[4-9]/);
 
     await page.click('#sidebarBackBtn');
     await expect(page.locator('#objectBrowserTitle')).toHaveText('Track Items');

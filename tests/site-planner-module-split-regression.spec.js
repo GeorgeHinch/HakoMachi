@@ -539,6 +539,10 @@ test.describe('Site Planner module split contracts', () => {
 
     expect(renderer).toContain('Japanese crossing buck diagonal plate A');
     expect(renderer).toContain('Japanese crossing striped barrier arm');
+    expect(renderer).toContain("crossA.rotation.z=rad(36)");
+    expect(renderer).toContain("crossB.rotation.z=rad(-36)");
+    expect(renderer).toContain('Crossing arm direction indicator panel');
+    expect(renderer).toContain("stripe.rotation.z=rad(-28)");
     expect(renderer).toContain('HB-type level crossing obstruction detector grey sensor housing');
     expect(renderer).toContain('HB-type intrusion detector obstruction detection beam');
     expect(renderer).toContain('addDetectorHead();');
@@ -567,10 +571,12 @@ test.describe('Site Planner module split contracts', () => {
     expect(source).toContain('tagSite3DTrackObject(site3DAddRaisedPolygon');
     expect(source).toContain('tagSite3DTrackObject(site3DAddBoxSegments');
     expect(picker).toContain("return {type:'trackAccessory'");
+    expect(picker).toContain("return {type:'roadFeature'");
     expect(picker).toContain("return {type:'stlObject'");
     expect(picker).toContain("return {type:'building'");
     expect(picker).toContain("return {type:'track'");
     expect(picker).toContain("return {type:'road'");
+    expect(picker).toContain('state.selectedRoadFeatureId=feature.id');
     expect(picker).toContain('updateSite3D({preserveCamera:true})');
   });
 

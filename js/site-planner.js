@@ -39,6 +39,7 @@ import { serializeGrateInsertSheetsByMaterial } from './site-planner/road-grate-
 import { serializePaintStencilSheetsByMaterial } from './site-planner/road-paint-stencil-templates.js';
 import { createRoadPresetApplicationController } from './site-planner/road-preset-application-utils.js';
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
+import { buildRoadMarkingShapes } from './site-planner/road-marking-shapes.js';
 import { RAIL_CROSSING_CENTER_CLEARANCE_MM, buildRailCrossingInfillPanels, buildRailCrossings, hitRailCrossing, normalizeRailCrossingOverride, railCrossingOverrideKey, railCrossingSvgRecords } from './site-planner/rail-crossing-generator.js';
 import { createScaleInputController } from './site-planner/scale-input-utils.js';
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
@@ -93,7 +94,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   const SITE3D_REFERENCE_IMAGE_Y_MM = 0.045;
   const SITE3D_REFERENCE_IMAGE_RENDER_ORDER = 20;
   const SITE3D_STL_MAX_TRIANGLES = 50000;
-  const CATENARY_PROTOTYPE_SPACING_M = 50;
+  const CATENARY_PROTOTYPE_SPACING_M = 30;
   const CATENARY_JAPANESE_N_SCALE = 150;
   const CATENARY_SPACING_MODEL_MM = CATENARY_PROTOTYPE_SPACING_M * 1000 / CATENARY_JAPANESE_N_SCALE;
   const TOMIX_TURNOUT_RADIUS_MM = 541;
@@ -738,6 +739,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       polys.forEach((polygon,pieceIndex)=>sidewalkPolygons.push({...sw, polygon, sourceIndex:idx, pieceIndex}));
     });
     return {roadPolygons, sidewalkPolygons};
+  }
+  function shouldClipRoadsToBenchwork(){
+    return state.workspaceMode!=='road';
   }
   function generatedRailCrossings(){
     const crossings=buildRailCrossings({
@@ -2882,7 +2886,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const r=normalizeRoad(raw);
       syncRoadMetrics(r);
       const add=pt=>{ xs.push(site3DScale(pt.x)); ys.push(site3DScale(pt.y)); };
-      const display=roadDisplayPolygons(r,{perCurve:32});
+      const display=roadDisplayPolygons(r,{perCurve:32,clipToBenchwork:shouldClipRoadsToBenchwork()});
       display.roadPolygons.forEach(poly=>poly.forEach(add));
       display.sidewalkPolygons.forEach(sw=>(sw.polygon||[]).forEach(add));
     });
@@ -3252,6 +3256,96 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     group.add(mesh);
     return mesh;
   }
+  function site3DRoadOverlayPolygons(polygons){
+    const valid=(polygons||[]).filter(poly=>Array.isArray(poly)&&poly.length>=3);
+    if(!shouldClipRoadsToBenchwork()) return valid;
+    return valid.flatMap(poly=>clipPolygonToBenchwork(poly,{perCurve:24}));
+  }
+  function site3DColorMaterial(color, fallback, options={}){
+    return new THREE.MeshBasicMaterial({
+      color:color||fallback,
+      side:THREE.DoubleSide,
+      transparent:false,
+      opacity:1,
+      depthTest:true,
+      depthWrite:false,
+      polygonOffset:true,
+      polygonOffsetFactor:options.polygonOffsetFactor ?? -6,
+      polygonOffsetUnits:options.polygonOffsetUnits ?? -6
+    });
+  }
+  function site3DLineMaterial(color, opacity=.96){
+    return new THREE.LineBasicMaterial({color:color||0xf7f2df,transparent:true,opacity,depthTest:true,depthWrite:false});
+  }
+  function roadFeatureWorldMarkingPolygons(feature){
+    const width=feature.widthPx||30;
+    const depth=feature.depthPx||6;
+    const preset={
+      ...markingPresetByKey(feature.markingPreset||feature.markingType),
+      ...feature,
+      widthMm:width,
+      depthMm:depth
+    };
+    return buildRoadMarkingShapes(preset,{x:feature.x,y:feature.y,angle:rad(feature.rotationDeg||0)})
+      .filter(shape=>shape.type!=='text')
+      .map(shape=>shape.points||[])
+      .filter(poly=>poly.length>=3);
+  }
+  function roadFeatureWorldFixturePolygons(feature){
+    if(feature.kind!=='manhole') return [];
+    const angle=rad(feature.rotationDeg||0);
+    const transformPoint=p=>{
+      const c=Math.cos(angle), s=Math.sin(angle);
+      return {x:feature.x+p.x*c-p.y*s,y:feature.y+p.x*s+p.y*c};
+    };
+    if(feature.hatchShape==='circle'){
+      const radius=(feature.diameterPx||feature.widthPx||18)/2;
+      return [Array.from({length:32},(_,i)=>{
+        const a=i/32*Math.PI*2;
+        return {x:feature.x+Math.cos(a)*radius,y:feature.y+Math.sin(a)*radius};
+      })];
+    }
+    const w=(feature.widthPx||24)/2;
+    const d=(feature.depthPx||18)/2;
+    return [[{x:-w,y:-d},{x:w,y:-d},{x:w,y:d},{x:-w,y:d}].map(transformPoint)];
+  }
+  function addSite3DRoadOverlayPolygons(group,polygons,mat,lineMat,name,y,tagFn){
+    site3DRoadOverlayPolygons(polygons).forEach((polygon,idx)=>{
+      const mesh=site3DAddFlatPolygon(group,polygon,mat,lineMat,`${name} ${idx+1}`,y);
+      tagFn?.(mesh);
+    });
+  }
+  function addSite3DRoadFeatures(group){
+    (state.roadFeatures||[]).forEach(raw=>{
+      const feature=normalizeRoadFeature(raw);
+      if(!feature || feature.hidden) return;
+      const selected=feature.id===state.selectedRoadFeatureId;
+      const color=selected?'#d95f24':(feature.color||(feature.kind==='manhole'?'#3a2b1e':'#f7f2df'));
+      const mat=site3DColorMaterial(color,feature.kind==='manhole'?0x3a2b1e:0xf7f2df);
+      const lineMat=site3DLineMaterial(selected?0xd95f24:(feature.kind==='manhole'?0x1d1712:0xf7f2df),selected?1:.92);
+      const polygons=feature.kind==='manhole' ? roadFeatureWorldFixturePolygons(feature) : roadFeatureWorldMarkingPolygons(feature);
+      addSite3DRoadOverlayPolygons(group,polygons,mat,lineMat,feature.name||'Road item',.17,mesh=>tagSite3DRoadFeatureObject(mesh,feature));
+    });
+  }
+  function addSite3DGeneratedRoadIntersections(group){
+    const whiteMat=site3DColorMaterial(0xf7f2df,0xf7f2df,{polygonOffsetFactor:-7,polygonOffsetUnits:-7});
+    const whiteLineMat=site3DLineMaterial(0xf7f2df,.96);
+    const tactileMat=site3DColorMaterial(0xd8b95a,0xd8b95a,{polygonOffsetFactor:-8,polygonOffsetUnits:-8});
+    const tactileLineMat=site3DLineMaterial(0x8c6a2f,.92);
+    roadSystem.generatedRoadIntersections().forEach(intersection=>{
+      (intersection.crosswalks||[]).forEach((crosswalk,crosswalkIndex)=>{
+        (crosswalk.stripes||[]).forEach((stripe,stripeIndex)=>{
+          addSite3DRoadOverlayPolygons(group,[stripe.corners||[]],whiteMat,whiteLineMat,`Generated crosswalk stripe ${crosswalkIndex+1}.${stripeIndex+1}`,.18);
+        });
+      });
+      (intersection.stopBars||[]).forEach((stopBar,idx)=>{
+        addSite3DRoadOverlayPolygons(group,[stopBar.corners||[]],whiteMat,whiteLineMat,`Generated stop bar ${idx+1}`,.181);
+      });
+      (intersection.tactilePavers||[]).forEach((paver,idx)=>{
+        addSite3DRoadOverlayPolygons(group,[paver.corners||[]],tactileMat,tactileLineMat,`Generated tactile paver ${idx+1}`,.19);
+      });
+    });
+  }
   function buildSite3DRoadGroup(bounds){
     const group=new THREE.Group();
     group.name='Site Planner roads';
@@ -3262,7 +3356,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.roads.forEach(raw=>{
       const r=normalizeRoad(raw);
       syncRoadMetrics(r);
-      const display=roadDisplayPolygons(r,{perCurve:32});
+      const display=roadDisplayPolygons(r,{perCurve:32,clipToBenchwork:shouldClipRoadsToBenchwork()});
       display.roadPolygons.forEach((polygon,idx)=>{
         tagSite3DRoadObject(site3DAddFlatPolygon(group,polygon,roadMat,roadLineMat,`${r.name||'Road'} surface ${idx+1}`,.08),r);
       });
@@ -3270,6 +3364,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         tagSite3DRoadObject(site3DAddFlatPolygon(group,sw.polygon||[],sidewalkMat,sidewalkLineMat,`${r.name||'Road'} sidewalk ${idx+1}`,.09),r);
       });
     });
+    addSite3DGeneratedRoadIntersections(group);
+    addSite3DRoadFeatures(group);
     return group.children.length ? group : null;
   }
   function buildSite3DTrackGroup(bounds){
@@ -3364,6 +3460,18 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       child.userData=child.userData||{};
       child.userData.sitePlannerTrackId=track.id;
       child.userData.sitePlannerTrackName=track.name||'Track';
+    });
+    return object;
+  }
+  function tagSite3DRoadFeatureObject(object,feature){
+    if(!object || !feature) return object;
+    object.userData=object.userData||{};
+    object.userData.sitePlannerRoadFeatureId=feature.id;
+    object.userData.sitePlannerRoadFeatureName=feature.name||'Road item';
+    object.traverse?.(child=>{
+      child.userData=child.userData||{};
+      child.userData.sitePlannerRoadFeatureId=feature.id;
+      child.userData.sitePlannerRoadFeatureName=feature.name||'Road item';
     });
     return object;
   }
@@ -3601,13 +3709,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       group.add(lamp);
       addBox(2.5,2.5,1.4,0,11.8,z,blackMat,0x1d1712);
     });
-    const crossA=addBox(2.2,.38,13,0,18.8,0,yellowMat,0x3a2b1e);
-    const crossB=addBox(2.2,.38,13,0,18.8,0,yellowMat,0x3a2b1e);
+    const crossA=addBox(13,.38,2.2,0,18.8,-1.72,yellowMat,0x3a2b1e);
+    const crossB=addBox(13,.38,2.2,0,18.8,-1.72,yellowMat,0x3a2b1e);
     crossA.name='Crossing arm crossbuck diagonal plate A';
     crossB.name='Crossing arm crossbuck diagonal plate B';
-    crossA.rotation.x=rad(36);
-    crossB.rotation.x=rad(-36);
-    [-4,0,4].forEach(z=>addBox(1,.08,4.6,0,19.05,z,blackMat,0x1d1712));
+    crossA.rotation.z=rad(36);
+    crossB.rotation.z=rad(-36);
+    const directionPanel=addBox(7.8,1.65,.32,0,16.55,-1.9,yellowMat,0x3a2b1e);
+    directionPanel.name='Crossing arm direction indicator panel';
+    [-1.6,1.6].forEach(x=>{
+      const stripe=addBox(3.4,.28,.36,x,16.55,-2.1,blackMat,0x1d1712);
+      stripe.name='Crossing arm direction indicator stripe';
+      stripe.rotation.z=rad(-28);
+    });
     return tagSite3DTrackAccessory(group,item);
   }
   function buildSite3DIntrusionDetectorItem(item,bounds){
@@ -4161,6 +4275,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const data=object?.userData||{};
     if(data.sitePlannerSelectionHelper || data.sitePlannerHoverHelper) return null;
     if(data.sitePlannerTrackAccessoryId) return {type:'trackAccessory',id:data.sitePlannerTrackAccessoryId};
+    if(data.sitePlannerRoadFeatureId) return {type:'roadFeature',id:data.sitePlannerRoadFeatureId};
     if(data.sitePlannerStlObjectId) return {type:'stlObject',id:data.sitePlannerStlObjectId};
     if(data.sitePlannerBuildingId) return {type:'building',id:data.sitePlannerBuildingId};
     if(data.sitePlannerTrackId) return {type:'track',id:data.sitePlannerTrackId};
@@ -4173,6 +4288,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const item=(state.trackAccessories||[]).find(accessory=>accessory.id===selection.id);
       if(!item) return false;
       selectTrackAccessory(item,{skipSync:true});
+    } else if(selection.type==='roadFeature'){
+      const feature=(state.roadFeatures||[]).find(item=>item.id===selection.id);
+      if(!feature) return false;
+      clearPlanObjectSelection();
+      state.selectedRoadFeatureId=feature.id;
     } else if(selection.type==='stlObject'){
       const obj=(state.stlObjects||[]).find(item=>item.id===selection.id);
       if(!obj) return false;

@@ -118,6 +118,47 @@ test.describe('Site Planner object clipboard', () => {
     }, AUTOSAVE_KEY);
   });
 
+  test('track item object browser filters by sub-object type', async ({ page }) => {
+    await loadProject(page, blankProject({
+      trackAccessories: [
+        { id: 'sensor_1', kind: 'sensor', name: 'Sensor A', x: 120, y: 120 },
+        { id: 'signal_1', kind: 'signal', name: 'Signal A', x: 160, y: 120 },
+        { id: 'occ_1', kind: 'occupancyLight', name: 'Occupancy Lights A', x: 200, y: 120 },
+        { id: 'cat_1', kind: 'catenarySingleSide', name: 'Catenary Pole A', x: 240, y: 120, trackId: 'track_1' },
+        { id: 'cat_2', kind: 'catenaryDoublePortal', name: 'Catenary Portal A', x: 280, y: 120, trackId: 'track_1' },
+        { id: 'switch_1', kind: 'trackSwitchRight', name: 'Switch A', x: 320, y: 120 },
+      ],
+    }));
+
+    await page.getByRole('button', { name: /Track Items/ }).click();
+    await expect(page.locator('#objectBrowserTitle')).toHaveText('Track Items');
+    await expect(page.locator('.objectBrowserToolbarRight')).toContainText('6 items');
+    await expect(page.locator('#objectBrowser')).toContainText('Sensor A');
+    await expect(page.locator('#objectBrowser')).toContainText('Catenary Pole A');
+
+    await page.click('#trackItemFilterBtn');
+    await page.click('[data-track-item-filter="catenary"]');
+    await expect(page.locator('.objectBrowserToolbarRight')).toContainText('2 of 6 items');
+    await expect(page.locator('#trackItemFilterBtn')).toHaveClass(/active/);
+    await expect(page.locator('#objectBrowser')).toContainText('Catenary Pole A');
+    await expect(page.locator('#objectBrowser')).toContainText('Catenary Portal A');
+    await expect(page.locator('#objectBrowser')).not.toContainText('Sensor A');
+    await page.getByText('Catenary Pole A').click();
+    await expect(page.locator('#selectedPanel')).toContainText('Track item selected');
+    await expect(page.locator('#trackItemKind')).toHaveValue('catenarySingleSide');
+
+    await page.click('#sidebarBackBtn');
+    await expect(page.locator('#objectBrowserTitle')).toHaveText('Track Items');
+    await expect(page.locator('#objectBrowser')).toContainText('Catenary Pole A');
+    await expect(page.locator('#objectBrowser')).not.toContainText('Sensor A');
+
+    await page.click('#trackItemFilterBtn');
+    await page.click('[data-track-item-filter="sensors"]');
+    await expect(page.locator('.objectBrowserToolbarRight')).toContainText('1 of 6 items');
+    await expect(page.locator('#objectBrowser')).toContainText('Sensor A');
+    await expect(page.locator('#objectBrowser')).not.toContainText('Catenary Pole A');
+  });
+
   test('selected placed objects copy and paste as fresh offset objects', async ({ page }) => {
     test.setTimeout(90000);
     const cases = [

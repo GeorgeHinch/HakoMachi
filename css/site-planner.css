@@ -859,6 +859,62 @@ canvas {
   margin: -2px 0 8px;
 }
 
+.objectBrowserToolbarRight {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.objectBrowserFilterWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.objectBrowserFilterBtn.active {
+  background: var(--panel-3);
+  color: var(--accent);
+}
+
+.objectBrowserFilterMenu {
+  top: calc(100% + 5px);
+  min-width: 210px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 12px 28px rgba(0,0,0,.14);
+  padding: 4px;
+  z-index: 95;
+}
+
+.objectBrowserFilterMenu button {
+  appearance: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  padding: 7px 8px;
+  min-height: 30px;
+  border-radius: 4px;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.objectBrowserFilterMenu button:hover,
+.objectBrowserFilterMenu button.active {
+  background: var(--panel-3);
+  color: var(--accent);
+  transform: none;
+  box-shadow: none;
+}
+
 .objectBrowserEmpty {
   border: 1px dashed var(--border);
   border-radius: 4px;

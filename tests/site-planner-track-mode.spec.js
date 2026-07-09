@@ -341,5 +341,10 @@ test.describe('site planner track editing workspace', () => {
     await expect(page.locator('#statusHint')).toContainText('Added');
     const objectBrowserText = await page.locator('#objectBrowser').innerText();
     expect(objectBrowserText).toMatch(/Track Items[\s\S]*[3-9]/);
+
+    await page.click('#sidebarBackBtn');
+    await expect(page.locator('#objectBrowserTitle')).toHaveText('Track Items');
+    await expect(page.locator('#objectBrowser')).toContainText('Single-side Catenary Pole');
+    await expect(page.locator('#selectedPanel')).toBeHidden();
   });
 });

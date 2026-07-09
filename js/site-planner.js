@@ -133,6 +133,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let renderQueued = false;
   let activeSidebarDetailKey = null;
   let sidebarObjectType = null;
+  let trackAccessoryObjectFilter = 'all';
   let roadSystem = null;
   let fabricController = null;
   const colors = ['#d79631','#b8672d','#0f766e','#7c5f3f','#8b5a2b','#5f7f54','#9b6b44','#496a78'];
@@ -895,6 +896,29 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function trackAccessoryLabel(kind){
     return trackAccessoryPreset(kind).label;
+  }
+  const TRACK_ACCESSORY_OBJECT_FILTERS = Object.freeze([
+    { key: 'all', label: 'All track items', kinds: null },
+    { key: 'sensors', label: 'Sensors', kinds: ['sensor'] },
+    { key: 'signals', label: 'Signals', kinds: ['signal', 'occupancyLight'] },
+    { key: 'crossings', label: 'Crossing equipment', kinds: ['crossingArm', 'intrusionDetector'] },
+    { key: 'catenary', label: 'Catenary', kinds: ['catenarySingleSide', 'catenaryDoublePortal'] },
+    { key: 'switches', label: 'Switches', kinds: ['trackSwitchLeft', 'trackSwitchRight'] },
+    { key: 'buffers', label: 'Buffer stops', kinds: ['trackBufferTomix1428', 'trackBufferTomix1428Catenary'] },
+  ]);
+  function trackAccessoryObjectFilterDefinition(key=trackAccessoryObjectFilter){
+    return TRACK_ACCESSORY_OBJECT_FILTERS.find(filter=>filter.key===key) || TRACK_ACCESSORY_OBJECT_FILTERS[0];
+  }
+  function trackAccessoryMatchesObjectFilter(item, filterKey=trackAccessoryObjectFilter){
+    const filter=trackAccessoryObjectFilterDefinition(filterKey);
+    return !filter.kinds || filter.kinds.includes(item?.kind);
+  }
+  function trackAccessoryFilterCounts(){
+    const items=(state.trackAccessories||[]).map(normalizeTrackAccessory);
+    return TRACK_ACCESSORY_OBJECT_FILTERS.map(filter=>({
+      ...filter,
+      count: filter.kinds ? items.filter(item=>filter.kinds.includes(item.kind)).length : items.length,
+    }));
   }
   function isTrackAccessoryAction(action){
     return !!TRACK_ACCESSORY_PRESETS[action];
@@ -4582,6 +4606,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     clearBuildingSelection();
     state.selectedRoadId=null;
     state.selectedRoadFeatureId=null;
+    state.selectedTrackId=null;
     state.selectedTrackAccessoryId=null;
     state.selectedBenchworkId=null;
     state.selectedStreetlightId=null;
@@ -4675,7 +4700,46 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return el;
   }
   function sidebarObjectsForType(type){
-    return objectsForSidebarType(state,type);
+    const objects=objectsForSidebarType(state,type);
+    if(type==='trackAccessories'){
+      return objects.map(normalizeTrackAccessory).filter(item=>trackAccessoryMatchesObjectFilter(item));
+    }
+    return objects;
+  }
+  function trackAccessoryObjectFilterSummary(total, visible){
+    if(trackAccessoryObjectFilter==='all') return `${total} item${total===1?'':'s'}`;
+    return `${visible} of ${total} item${total===1?'':'s'}`;
+  }
+  function closeTrackAccessoryFilterMenu(){
+    const menu=$('trackItemFilterMenu');
+    const wrap=$('trackItemFilterWrap');
+    const btn=$('trackItemFilterBtn');
+    menu?.classList.remove('open');
+    wrap?.classList.remove('menuOpen');
+    btn?.setAttribute('aria-expanded','false');
+  }
+  function bindTrackAccessoryFilterMenu(){
+    const btn=$('trackItemFilterBtn');
+    const menu=$('trackItemFilterMenu');
+    const wrap=$('trackItemFilterWrap');
+    if(!btn || !menu || !wrap) return;
+    btn.onclick=e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      const open=!menu.classList.contains('open');
+      closeTrackAccessoryFilterMenu();
+      menu.classList.toggle('open',open);
+      wrap.classList.toggle('menuOpen',open);
+      btn.setAttribute('aria-expanded',String(open));
+    };
+    menu.onclick=e=>e.stopPropagation();
+    menu.querySelectorAll('[data-track-item-filter]').forEach(option=>{
+      option.onclick=()=>{
+        trackAccessoryObjectFilter=option.dataset.trackItemFilter||'all';
+        closeTrackAccessoryFilterMenu();
+        renderObjectBrowser();
+      };
+    });
   }
   function renderObjectBrowser(){
     const box=$('objectBrowser');
@@ -4712,15 +4776,28 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(title) title.textContent=meta?.label || 'Plan Objects';
     const toolbar=document.createElement('div');
     toolbar.className='objectBrowserToolbar';
-    toolbar.innerHTML=`<button id="objectBrowserBackBtn" type="button" class="sidebarBackBtn"><span data-icon="arrowLeft"></span><span>Back</span></button><span class="small muted">${meta?.count||0} item${(meta?.count||0)===1?'':'s'}</span>`;
+    const objects=sidebarObjectsForType(sidebarObjectType);
+    const totalCount=meta?.count||0;
+    const visibleCount=objects.length;
+    const countText=sidebarObjectType==='trackAccessories'
+      ? trackAccessoryObjectFilterSummary(totalCount,visibleCount)
+      : `${totalCount} item${totalCount===1?'':'s'}`;
+    const filterControls=sidebarObjectType==='trackAccessories' ? `
+      <div id="trackItemFilterWrap" class="objectBrowserFilterWrap">
+        <button id="trackItemFilterBtn" type="button" class="sidebarOverflowBtn objectBrowserFilterBtn ${trackAccessoryObjectFilter==='all'?'':'active'}" aria-label="Filter track items" title="Filter track items" aria-haspopup="true" aria-expanded="false"><span data-icon="filter"></span></button>
+        <div id="trackItemFilterMenu" class="dropdownMenu right objectBrowserFilterMenu" role="menu">
+          ${trackAccessoryFilterCounts().map(filter=>`<button type="button" role="menuitemradio" aria-checked="${filter.key===trackAccessoryObjectFilter?'true':'false'}" class="${filter.key===trackAccessoryObjectFilter?'active':''}" data-track-item-filter="${filter.key}"><span>${escapeHtml(filter.label)}</span><span class="pill">${filter.count}</span></button>`).join('')}
+        </div>
+      </div>` : '';
+    toolbar.innerHTML=`<button id="objectBrowserBackBtn" type="button" class="sidebarBackBtn"><span data-icon="arrowLeft"></span><span>Back</span></button><div class="objectBrowserToolbarRight"><span class="small muted">${countText}</span>${filterControls}</div>`;
     box.appendChild(toolbar);
     const back=$('objectBrowserBackBtn');
-    if(back) back.onclick=()=>{sidebarObjectType=null; renderObjectBrowser();};
-    const objects=sidebarObjectsForType(sidebarObjectType);
+    if(back) back.onclick=()=>{closeTrackAccessoryFilterMenu(); sidebarObjectType=null; renderObjectBrowser();};
+    bindTrackAccessoryFilterMenu();
     if(!objects.length){
       const empty=document.createElement('div');
       empty.className='objectBrowserEmpty small muted';
-      empty.textContent='No items in this group.';
+      empty.textContent=sidebarObjectType==='trackAccessories' && trackAccessoryObjectFilter!=='all' ? 'No track items match this filter.' : 'No items in this group.';
       box.appendChild(empty);
     } else {
       objects.forEach(obj=>box.appendChild(makeObjectListRow(sidebarObjectType,obj)));
@@ -5020,14 +5097,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const returnType=sidebarTypeForDetailKind(activeSidebarDetailKind());
     if(returnType) sidebarObjectType=returnType;
     closeSidebarBuildingOverflow();
-    clearBuildingSelection();
-    state.selectedRoadId=null;
-    state.selectedRoadFeatureId=null;
-    state.selectedBenchworkId=null;
-    state.selectedStreetlightId=null;
-    state.selectedFabricId=null;
-    state.selectedStlObjectId=null;
-    state.selectedAnnotationId=null;
+    clearPlanObjectSelection();
     hideContextMenu();
     renderList();
     renderRoads();
@@ -5115,7 +5185,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(!detailSection) return;
     detailSection.dataset.detailPanel='true';
     const kind=activeSidebarDetailKind();
-    const detailKey=kind ? `${kind}:${state.selectedId||state.selectedRoadId||state.selectedRoadFeatureId||state.selectedBenchworkId||state.selectedStreetlightId||state.selectedStlObjectId||state.selectedAnnotationId||currentSelectedBuildingIds().join(',')}` : null;
+    const detailKey=kind ? `${kind}:${state.selectedId||state.selectedRoadId||state.selectedRoadFeatureId||state.selectedTrackId||state.selectedTrackAccessoryId||state.selectedBenchworkId||state.selectedStreetlightId||state.selectedFabricId||state.selectedStlObjectId||state.selectedAnnotationId||state.selectedRailCrossingId||currentSelectedBuildingIds().join(',')}` : null;
     const h3=detailSection.querySelector('h3');
     const existingToolbars=[...sidebar.querySelectorAll('#sidebarDetailToolbar, .sidebarDetailToolbar')];
     let toolbar=existingToolbars[0] || null;

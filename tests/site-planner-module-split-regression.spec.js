@@ -571,6 +571,21 @@ test.describe('Site Planner module split contracts', () => {
     expect(picker).toContain('updateSite3D({preserveCamera:true})');
   });
 
+  test('site planner 3D refreshes preserve camera during property syncs', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const syncStart = source.indexOf('function syncAll(opts = {})');
+    const syncEnd = source.indexOf('function syncSelectedBuildingLive');
+    const syncAll = source.slice(syncStart, syncEnd);
+    const updateStart = source.indexOf('function updateSite3D(options={})');
+    const updateEnd = source.indexOf('function setSite3DMode');
+    const updateSite3D = source.slice(updateStart, updateEnd);
+
+    expect(syncAll).toContain("if(state.viewMode==='3d') updateSite3D({preserveCamera:true})");
+    expect(syncAll).not.toContain('updateSite3D();');
+    expect(updateSite3D).toContain('const hadCamera=!!(site3d.initialized && site3d.camera)');
+    expect(updateSite3D).toContain('options.preserveCamera!==false && hadCamera');
+  });
+
   test('Tomix track accessories fall back to the flex-track gauge scale', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const start = source.indexOf('function defaultTrackAccessoryPxPerMm');

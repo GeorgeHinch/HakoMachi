@@ -2785,7 +2785,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     renderSelected();
     updateHandoff();
     draw();
-    updateSite3D();
+    if(state.viewMode==='3d') updateSite3D({preserveCamera:true});
     if(!opts.skipDirty) markDirty('project change');
   }
   function syncSelectedBuildingLive(b){
@@ -4223,8 +4223,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function updateSite3D(options={}){
     if(state.viewMode!=='3d') return;
+    const hadCamera=!!(site3d.initialized && site3d.camera);
     if(!initSite3D()) return;
-    const cameraSnapshot=options.preserveCamera ? site3DCameraSnapshot() : null;
+    const shouldPreserveCamera=options.preserveCamera===true || (options.preserveCamera!==false && hadCamera);
+    const cameraSnapshot=shouldPreserveCamera ? site3DCameraSnapshot() : null;
     clearSite3DHoverIndicator();
     while(site3d.root.children.length){ const child=site3d.root.children.pop(); disposeSite3DObject(child); }
     const bounds=site3DBounds();

@@ -1,4 +1,4 @@
-import { dist } from './geometry.js';
+import { distanceToSegment, dist, pointInPoly } from './geometry.js';
 import { nearestPointOnRoadPath, pointAtPathDistance, roadCenterlineSamples, roadHasSidewalk } from './road-geometry.js';
 
 const DEFAULTS = Object.freeze({
@@ -71,6 +71,21 @@ function stopBarLaneSide(scope, drivingSide) {
 
 function laneSideSign(laneSide) {
   return laneSide === 'right' ? -1 : 1;
+}
+
+function pointInOrOnPolygon(point, polygon = [], tolerance = 0.75) {
+  if (!finitePoint(point) || polygon.length < 3) return false;
+  if (pointInPoly(point, polygon)) return true;
+  for (let index = 0; index < polygon.length; index++) {
+    if (distanceToSegment(point, polygon[index], polygon[(index + 1) % polygon.length]) <= tolerance) return true;
+  }
+  return false;
+}
+
+function stopBarFitsRoad(stopBar, road) {
+  const polygon = road?.roadPolygonPx || [];
+  if (polygon.length < 3) return true;
+  return (stopBar.corners || []).every(corner => pointInOrOnPolygon(corner, polygon));
 }
 
 function add(point, vector, amount = 1) {
@@ -250,6 +265,8 @@ export function buildCrosswalks(node, options = {}) {
       endpoint: arm.endpoint,
       center,
       angle: arm.tangent,
+      roadWidthPx: arm.widthPx,
+      sidewalkWidthPx: arm.sidewalkWidthPx,
       widthPx: halfLength * 2,
       depthPx: depth,
       p1: add(center, side, -halfLength),
@@ -290,36 +307,49 @@ export function buildStopBars(node, options = {}) {
     const width = laneSide === 'both'
       ? fullWidth
       : Math.max(2, Math.min(fullWidth, arm.widthPx * opts.stopBarLaneWidthFactor));
-    const center = laneSide === 'both'
-      ? baseCenter
-      : add(baseCenter, side, laneSideSign(laneSide) * arm.widthPx * 0.25);
     const depth = Math.max(2, arm.widthPx * opts.stopBarDepthFactor);
-    return {
-      roadId: arm.roadId,
-      endpoint: arm.endpoint,
-      center,
-      angle: arm.tangent,
-      widthPx: width,
-      depthPx: depth,
-      laneScope,
-      laneSide,
-      drivingSide,
-      trafficDirection: 'inbound',
-      corners: rectangleCorners(center, side, forward, width, depth),
+    const makeStopBar = nextLaneSide => {
+      const center = nextLaneSide === 'both'
+        ? baseCenter
+        : add(baseCenter, side, laneSideSign(nextLaneSide) * arm.widthPx * 0.25);
+      return {
+        roadId: arm.roadId,
+        endpoint: arm.endpoint,
+        center,
+        angle: arm.tangent,
+        widthPx: width,
+        depthPx: depth,
+        laneScope,
+        laneSide: nextLaneSide,
+        drivingSide,
+        trafficDirection: 'inbound',
+        corners: rectangleCorners(center, side, forward, width, depth),
+      };
     };
-  });
+    const preferred = makeStopBar(laneSide);
+    if (stopBarFitsRoad(preferred, arm.road)) return preferred;
+    if (laneSide !== 'both') {
+      const alternate = makeStopBar(laneSide === 'left' ? 'right' : 'left');
+      if (stopBarFitsRoad(alternate, arm.road)) return alternate;
+    }
+    if ((arm.road?.roadPolygonPx || []).length >= 3) return null;
+    return preferred;
+  }).filter(Boolean);
 }
 
 export function buildTactilePavers(node, options = {}) {
   const opts = normalizeOptions(options);
-  if (!node.maxSidewalkWidthPx || !node.crosswalks?.length) return [];
+  if (!node.crosswalks?.length) return [];
   return node.crosswalks.flatMap(crosswalk => {
     const forward = unit(crosswalk.angle);
     const side = sideVector(crosswalk.angle);
-    const depth = Math.max(2, node.maxSidewalkWidthPx * opts.tactileDepthFactor);
-    const width = Math.min(crosswalk.widthPx * 0.38, node.maxSidewalkWidthPx * 2.4);
+    const sidewalkWidth = Math.max(0, Number(crosswalk.sidewalkWidthPx) || 0);
+    if (!sidewalkWidth) return [];
+    const roadWidth = Math.max(1, Number(crosswalk.roadWidthPx) || Math.max(1, crosswalk.widthPx - sidewalkWidth * 2));
+    const depth = Math.max(2, sidewalkWidth * opts.tactileDepthFactor);
+    const width = Math.max(3, Math.min(crosswalk.depthPx * 1.2, sidewalkWidth * 2.4));
     return [-1, 1].map(sign => {
-      const edge = add(crosswalk.center, side, sign * (crosswalk.widthPx / 2 + node.maxSidewalkWidthPx * 0.35));
+      const edge = add(crosswalk.center, side, sign * (roadWidth / 2 + sidewalkWidth / 2));
       return {
         roadId: crosswalk.roadId,
         endpoint: crosswalk.endpoint,
@@ -327,7 +357,7 @@ export function buildTactilePavers(node, options = {}) {
         angle: crosswalk.angle,
         widthPx: width,
         depthPx: depth,
-        corners: rectangleCorners(edge, side, forward, width, depth),
+        corners: rectangleCorners(edge, forward, side, width, depth),
       };
     });
   });

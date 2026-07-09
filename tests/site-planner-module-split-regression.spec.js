@@ -427,6 +427,64 @@ test.describe('Site Planner module split contracts', () => {
     expect(renderIntersectionSvgElements(records)).toContain('data-driving-side="left"');
   });
 
+  test('generated intersection stop bars stay inside their owning road polygon', async () => {
+    const { pointInPoly } = await import('../js/site-planner/geometry.js');
+    const { buildIntersectionNode } = await import('../js/site-planner/road-intersections.js');
+    const eastRoad = {
+      id: 'east-road',
+      roadPolygonPx: [{ x: 40, y: -20 }, { x: 92, y: -20 }, { x: 92, y: 0 }, { x: 40, y: 0 }],
+    };
+    const westRoad = {
+      id: 'west-road',
+      roadPolygonPx: [{ x: -92, y: -20 }, { x: -40, y: -20 }, { x: -40, y: 0 }, { x: -92, y: 0 }],
+    };
+    const cluster = {
+      center: { x: 0, y: 0 },
+      arms: [
+        { road: eastRoad, roadId: 'east-road', endpoint: 'start', point: { x: 0, y: 0 }, widthPx: 40, sidewalkWidthPx: 0, tangent: 0 },
+        { road: westRoad, roadId: 'west-road', endpoint: 'end', point: { x: 0, y: 0 }, widthPx: 40, sidewalkWidthPx: 0, tangent: Math.PI },
+      ],
+    };
+
+    const node = buildIntersectionNode(cluster, 0, { drivingSide: 'left' });
+    const eastStop = node.stopBars.find(stopBar => stopBar.roadId === 'east-road');
+    const westStop = node.stopBars.find(stopBar => stopBar.roadId === 'west-road');
+
+    expect(eastStop.laneSide).toBe('right');
+    expect(eastStop.corners.every(point => pointInPoly(point, eastRoad.roadPolygonPx))).toBe(true);
+    expect(westStop.corners.every(point => pointInPoly(point, westRoad.roadPolygonPx))).toBe(true);
+  });
+
+  test('generated tactile pavers stay on sidewalk-bearing road arms', async () => {
+    const { buildIntersectionNode } = await import('../js/site-planner/road-intersections.js');
+    const cluster = {
+      center: { x: 0, y: 0 },
+      arms: [
+        { roadId: 'east-sidewalk-road', endpoint: 'start', point: { x: 0, y: 0 }, widthPx: 40, sidewalkWidthPx: 16, tangent: 0 },
+        { roadId: 'west-sidewalk-road', endpoint: 'end', point: { x: 0, y: 0 }, widthPx: 40, sidewalkWidthPx: 16, tangent: Math.PI },
+        { roadId: 'north-no-sidewalk-road', endpoint: 'start', point: { x: 0, y: 0 }, widthPx: 40, sidewalkWidthPx: 0, tangent: Math.PI * 1.5 },
+      ],
+    };
+
+    const node = buildIntersectionNode(cluster, 0, { drivingSide: 'left' });
+    const paversByRoad = node.tactilePavers.reduce((counts, paver) => {
+      counts[paver.roadId] = (counts[paver.roadId] || 0) + 1;
+      return counts;
+    }, {});
+
+    expect(paversByRoad['east-sidewalk-road']).toBe(2);
+    expect(paversByRoad['west-sidewalk-road']).toBe(2);
+    expect(paversByRoad['north-no-sidewalk-road']).toBeUndefined();
+
+    const eastPavers = node.tactilePavers.filter(paver => paver.roadId === 'east-sidewalk-road');
+    eastPavers.forEach(paver => {
+      const xs = paver.corners.map(point => point.x);
+      const ys = paver.corners.map(point => point.y);
+      expect(Math.abs(Math.abs(paver.center.y) - 28)).toBeLessThan(0.01);
+      expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(Math.max(...ys) - Math.min(...ys));
+    });
+  });
+
   test('benchwork outline behavior is wired through the benchwork controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'benchwork-controller.js'), 'utf8');

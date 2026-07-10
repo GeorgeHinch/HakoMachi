@@ -1435,7 +1435,25 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(item&&!item.locked){
         item.x=orig.x+dx;
         item.y=orig.y+dy;
-        normalizeTrackAccessory(item);
+        if(isTrackSwitchAccessoryKind(item.kind)){
+          if(!snapTrackSwitchToEndpoint(item)){
+            item.trackAnchor=null;
+            item.trackId=null;
+            normalizeTrackAccessory(item);
+            syncTracksConnectedToTrackSwitch(item);
+          }
+        } else {
+          const anchor=nearestTrackAccessoryAnchor({x:item.x,y:item.y});
+          if(anchor && anchor.distance<=trackAccessorySnapDistance()){
+            if(isCatenaryAccessoryKind(item.kind)) attachTrackAccessoryToAnchor(item,anchor);
+            else item.trackId=anchor.trackId;
+          } else if(isCatenaryAccessoryKind(item.kind)){
+            item.trackId=null;
+            item.trackAnchor=null;
+            item.autoOrientToTrack=false;
+          }
+          normalizeTrackAccessory(item);
+        }
       }
       return;
     }

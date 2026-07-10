@@ -117,7 +117,7 @@ export function createFabricController(deps) {
     region = normalizeFabricRegion(region);
     if (!region.polygon.length) return;
     ctx.save();
-    const selected = region.id === state.selectedFabricId;
+    const selected = region.id === state.selectedFabricId || (state.selectedSiteObjects || []).some(sel => sel.type === 'fabric' && sel.id === region.id);
     ctx.lineWidth = (selected ? 3 : 2) / state.view.scale;
     ctx.strokeStyle = selected ? '#0f766e' : '#7c5f3f';
     ctx.fillStyle = 'rgba(124,95,63,.08)';

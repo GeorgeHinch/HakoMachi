@@ -52,7 +52,7 @@ async function copyPasteSelected(page, collectionName) {
   return page.evaluate(key => JSON.parse(localStorage.getItem(key)), AUTOSAVE_KEY);
 }
 
-async function clickWorldPoint(page, point) {
+async function clickWorldPoint(page, point, options = {}) {
   const box = await page.locator('#canvas').boundingBox();
   expect(box).not.toBeNull();
   const view = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).view || { x: 0, y: 0, scale: 1 }, AUTOSAVE_KEY);
@@ -62,7 +62,21 @@ async function clickWorldPoint(page, point) {
       x: (Number(view.x) || 0) + point.x * scale,
       y: (Number(view.y) || 0) + point.y * scale,
     },
+    ...options,
   });
+}
+
+async function dragWorldPoint(page, from, to, steps = 8) {
+  const box = await page.locator('#canvas').boundingBox();
+  expect(box).not.toBeNull();
+  const view = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).view || { x: 0, y: 0, scale: 1 }, AUTOSAVE_KEY);
+  const scale = Number(view.scale) || 1;
+  const sx = point => box.x + (Number(view.x) || 0) + point.x * scale;
+  const sy = point => box.y + (Number(view.y) || 0) + point.y * scale;
+  await page.mouse.move(sx(from), sy(from));
+  await page.mouse.down();
+  await page.mouse.move(sx(to), sy(to), { steps });
+  await page.mouse.up();
 }
 
 test.describe('Site Planner object clipboard', () => {
@@ -157,6 +171,36 @@ test.describe('Site Planner object clipboard', () => {
     await expect(page.locator('.objectBrowserToolbarRight')).toContainText('1 of 6 items');
     await expect(page.locator('#objectBrowser')).toContainText('Sensor A');
     await expect(page.locator('#objectBrowser')).not.toContainText('Catenary Pole A');
+  });
+
+  test('shift-selected canvas objects move together as a group', async ({ page }) => {
+    await loadProject(page, blankProject({
+      buildings: [
+        { id: 'building_1', name: 'Shop', padType: 'rect', x: 320, y: 220, widthPx: 60, depthPx: 40, color: '#d79631' },
+      ],
+      trackAccessories: [
+        { id: 'sensor_1', kind: 'sensor', name: 'Sensor A', x: 120, y: 140 },
+        { id: 'signal_1', kind: 'signal', name: 'Signal A', x: 200, y: 140 },
+      ],
+    }));
+
+    await clickWorldPoint(page, { x: 120, y: 140 }, { modifiers: ['Shift'] });
+    await clickWorldPoint(page, { x: 200, y: 140 }, { modifiers: ['Shift'] });
+    await clickWorldPoint(page, { x: 320, y: 220 }, { modifiers: ['Shift'] });
+    await dragWorldPoint(page, { x: 120, y: 140 }, { x: 150, y: 170 });
+
+    await page.waitForFunction(key => {
+      const payload = JSON.parse(localStorage.getItem(key) || '{}');
+      const sensor = (payload.trackAccessories || []).find(item => item.id === 'sensor_1');
+      const signal = (payload.trackAccessories || []).find(item => item.id === 'signal_1');
+      const building = (payload.buildings || []).find(item => item.id === 'building_1');
+      return Math.abs((sensor?.x || 0) - 150) < 0.5
+        && Math.abs((sensor?.y || 0) - 170) < 0.5
+        && Math.abs((signal?.x || 0) - 230) < 0.5
+        && Math.abs((signal?.y || 0) - 170) < 0.5
+        && Math.abs((building?.x || 0) - 350) < 0.5
+        && Math.abs((building?.y || 0) - 250) < 0.5;
+    }, AUTOSAVE_KEY);
   });
 
   test('selected placed objects copy and paste as fresh offset objects', async ({ page }) => {

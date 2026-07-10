@@ -84,7 +84,20 @@ export function sidebarObjectsForType(state, type) {
 }
 
 export function sidebarObjectSelected(state, type, id, isBuildingSelected) {
-  if (type === 'buildings') return isBuildingSelected(id);
+  const siteTypeBySidebarType = {
+    roads: 'road',
+    tracks: 'track',
+    trackAccessories: 'trackAccessory',
+    roadFeatures: 'roadFeature',
+    benchwork: 'benchwork',
+    streetlights: 'streetlight',
+    fabric: 'fabric',
+    annotations: 'annotation',
+    siteObjects: 'stlObject',
+  };
+  if (type === 'buildings') return isBuildingSelected(id) || (state.selectedSiteObjects || []).some(sel => sel.type === 'building' && sel.id === id);
+  const siteType = siteTypeBySidebarType[type];
+  if (siteType && (state.selectedSiteObjects || []).some(sel => sel.type === siteType && sel.id === id)) return true;
   if (type === 'roads') return state.selectedRoadId === id;
   if (type === 'tracks') return state.selectedTrackId === id;
   if (type === 'trackAccessories') return state.selectedTrackAccessoryId === id;

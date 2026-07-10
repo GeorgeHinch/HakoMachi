@@ -16,6 +16,7 @@ export function createInitialState() {
     buildings: [],
     selectedId: null,
     selectedIds: [],
+    selectedSiteObjects: [],
     hoverBuildingId: null,
     drag: null,
     hover: null,

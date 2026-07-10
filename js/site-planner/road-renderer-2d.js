@@ -87,7 +87,7 @@ export function createRoadRenderer2dController({
   function drawRoadFeature(rawFeature) {
     const feature = normalizeRoadFeature(rawFeature);
     if (!feature || feature.hidden) return;
-    const selected = feature.id === state.selectedRoadFeatureId;
+    const selected = feature.id === state.selectedRoadFeatureId || (state.selectedSiteObjects || []).some(sel => sel.type === 'roadFeature' && sel.id === feature.id);
     const hovered = feature.id === state.hoverRoadFeatureId;
     ctx.save();
     ctx.translate(feature.x, feature.y);
@@ -170,7 +170,7 @@ export function createRoadRenderer2dController({
   function drawRoad(rawRoad) {
     const road = normalizeRoad(rawRoad);
     if (!road || road.hidden) return;
-    const selected = road.id === state.selectedRoadId;
+    const selected = road.id === state.selectedRoadId || (state.selectedSiteObjects || []).some(sel => sel.type === 'road' && sel.id === road.id);
     const hovered = road.id === state.hoverRoadId;
     const roadPolygon = road.roadPolygonPx || [];
     ctx.save();

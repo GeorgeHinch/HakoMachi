@@ -3540,6 +3540,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const sleeperBase=roadbedHeight+.03;
     const railHeight=Math.max(.08,TRACK_PROFILE_DEFAULTS.railHeightMm||.8);
     const railBase=sleeperBase+sleeperHeight;
+    const scale=geom.gauge/Math.max(.1,TOMIX_TURNOUT_GAUGE_MM);
+    const switchTieSpacing=Math.max(1.5*scale,Math.min(geom.tieSpacing,(TRACK_PROFILE_DEFAULTS.tieSpacingMm||4)*scale));
     const branch=trackSwitchCurvePoints(geom,dir,24);
     const branchRailA=offsetTrackPath(branch,geom.gauge/2);
     const branchRailB=offsetTrackPath(branch,-geom.gauge/2);
@@ -3562,18 +3564,27 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const half=Math.max(geom.tieLength/2,geom.gauge/2+2);
       addLocalSegment({x:p.x-nx*half,y:p.y-ny*half},{x:p.x+nx*half,y:p.y+ny*half},Math.max(.12,geom.tieWidth),sleeperHeight,sleeperBase,tieMat,name);
     };
+    const addTiePathByDistance=(points,name,startOffset=0)=>{
+      let carry=startOffset;
+      for(let i=0;i<points.length-1;i++){
+        const a=points[i], b=points[i+1];
+        const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy);
+        if(!(len>.01)) continue;
+        let d=i===0 ? carry : switchTieSpacing-carry;
+        while(d<=len+.001){
+          const p={x:a.x+dx*(d/len),y:a.y+dy*(d/len)};
+          addTie(p,-dy/len,dx/len,name);
+          d+=switchTieSpacing;
+        }
+        carry=(len+carry)%switchTieSpacing;
+      }
+    };
     group.add(site3DAddEdges(site3DBox(geom.length,roadbedHeight,geom.roadbedWidth,baseMat,0,roadbedHeight/2,0),0x8f7b55,.35));
     for(let i=0;i<branch.length-1;i++){
       addLocalSegment(branch[i],branch[i+1],Math.max(.5,geom.roadbedWidth),roadbedHeight,0,baseMat,'Tomix switch curved roadbed');
     }
-    for(let x=-geom.halfLength; x<=geom.halfLength+.01; x+=Math.max(geom.tieSpacing,2)){
-      addTie({x,y:0},0,1,'Tomix switch straight tie');
-    }
-    for(let i=3;i<branch.length;i+=3){
-      const p=branch[i], prev=branch[Math.max(0,i-1)], next=branch[Math.min(branch.length-1,i+1)];
-      const dx=next.x-prev.x, dy=next.y-prev.y, len=Math.hypot(dx,dy)||1;
-      addTie(p,-dy/len,dx/len,'Tomix switch curve tie');
-    }
+    addTiePathByDistance([{x:-geom.halfLength,y:0},{x:geom.halfLength,y:0}],'Tomix switch straight tie');
+    addTiePathByDistance(branch,'Tomix switch curve tie',switchTieSpacing*.5);
     addRailPath([{x:-geom.halfLength,y:-geom.gauge/2},{x:geom.halfLength,y:-geom.gauge/2}],'Tomix switch straight rail A');
     addRailPath([{x:-geom.halfLength,y:geom.gauge/2},{x:geom.halfLength,y:geom.gauge/2}],'Tomix switch straight rail B');
     addRailPath(branchRailA,'Tomix switch diverging rail A');

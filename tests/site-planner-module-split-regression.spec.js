@@ -526,7 +526,12 @@ test.describe('Site Planner module split contracts', () => {
     expect(renderer).toContain('TRACK_PROFILE_DEFAULTS.tieColor');
     expect(renderer).toContain('TRACK_PROFILE_DEFAULTS.roadbedHeightMm');
     expect(renderer).toContain('const railBase=sleeperBase+sleeperHeight');
+    expect(renderer).toContain('const switchTieSpacing=');
+    expect(renderer).toContain('TRACK_PROFILE_DEFAULTS.tieSpacingMm');
+    expect(renderer).toContain('const addTiePathByDistance=');
+    expect(renderer).toContain("addTiePathByDistance(branch,'Tomix switch curve tie'");
     expect(renderer).toContain('addLocalSegment(branch[i],branch[i+1]');
+    expect(renderer).not.toContain('i+=3');
     expect(renderer).not.toContain('geom.roadbedWidth/2');
   });
 

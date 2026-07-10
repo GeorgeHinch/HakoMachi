@@ -3564,27 +3564,34 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const half=Math.max(geom.tieLength/2,geom.gauge/2+2);
       addLocalSegment({x:p.x-nx*half,y:p.y-ny*half},{x:p.x+nx*half,y:p.y+ny*half},Math.max(.12,geom.tieWidth),sleeperHeight,sleeperBase,tieMat,name);
     };
-    const addTiePathByDistance=(points,name,startOffset=0)=>{
-      let carry=startOffset;
-      for(let i=0;i<points.length-1;i++){
-        const a=points[i], b=points[i+1];
-        const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy);
-        if(!(len>.01)) continue;
-        let d=i===0 ? carry : switchTieSpacing-carry;
-        while(d<=len+.001){
-          const p={x:a.x+dx*(d/len),y:a.y+dy*(d/len)};
-          addTie(p,-dy/len,dx/len,name);
-          d+=switchTieSpacing;
-        }
-        carry=(len+carry)%switchTieSpacing;
+    const addStraightTieStations=(points,name)=>{
+      const a=points[0], b=points[1];
+      const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy);
+      if(!(len>.01)) return;
+      for(let d=0; d<=len+.001; d+=switchTieSpacing){
+        const p={x:a.x+dx*(d/len),y:a.y+dy*(d/len)};
+        addTie(p,-dy/len,dx/len,name);
+      }
+    };
+    const branchPointAtX=x=>{
+      const ratio=clamp((x+geom.halfLength)/Math.max(.1,geom.radius),0,Math.sin(geom.angleRad));
+      const a=Math.asin(ratio);
+      return {x,y:dir*geom.radius*(1-Math.cos(a))};
+    };
+    const addDivergingTurnoutTieStations=()=>{
+      const minSeparation=Math.max(geom.gauge*.42,2.4*scale);
+      for(let x=-geom.halfLength+switchTieSpacing*.5; x<=geom.halfLength+.001; x+=switchTieSpacing){
+        const p=branchPointAtX(x);
+        if(Math.abs(p.y)<minSeparation) continue;
+        addTie(p,0,1,'Tomix switch diverging turnout tie');
       }
     };
     group.add(site3DAddEdges(site3DBox(geom.length,roadbedHeight,geom.roadbedWidth,baseMat,0,roadbedHeight/2,0),0x8f7b55,.35));
     for(let i=0;i<branch.length-1;i++){
       addLocalSegment(branch[i],branch[i+1],Math.max(.5,geom.roadbedWidth),roadbedHeight,0,baseMat,'Tomix switch curved roadbed');
     }
-    addTiePathByDistance([{x:-geom.halfLength,y:0},{x:geom.halfLength,y:0}],'Tomix switch straight tie');
-    addTiePathByDistance(branch,'Tomix switch curve tie',switchTieSpacing*.5);
+    addStraightTieStations([{x:-geom.halfLength,y:0},{x:geom.halfLength,y:0}],'Tomix switch straight tie');
+    addDivergingTurnoutTieStations();
     addRailPath([{x:-geom.halfLength,y:-geom.gauge/2},{x:geom.halfLength,y:-geom.gauge/2}],'Tomix switch straight rail A');
     addRailPath([{x:-geom.halfLength,y:geom.gauge/2},{x:geom.halfLength,y:geom.gauge/2}],'Tomix switch straight rail B');
     addRailPath(branchRailA,'Tomix switch diverging rail A');

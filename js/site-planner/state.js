@@ -75,6 +75,7 @@ export function createInitialState() {
     siteObjectPasteOffsetCount: 0,
     objectClipboardType: null,
     inputMode: 'penDrawFingerPan',
+    shiftKeyDown: false,
     snapOn: false,
     pointers: new Map(),
     pinch: null,

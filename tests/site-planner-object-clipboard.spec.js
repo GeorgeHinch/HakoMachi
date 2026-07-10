@@ -203,6 +203,80 @@ test.describe('Site Planner object clipboard', () => {
     }, AUTOSAVE_KEY);
   });
 
+  test('shift-dragging a building corner scales the whole footprint proportionally', async ({ page }) => {
+    await loadProject(page, blankProject({
+      selectedId: 'building_poly',
+      selectedIds: ['building_poly'],
+      buildings: [
+        {
+          id: 'building_poly',
+          name: 'Polygon shop',
+          padType: 'polygon',
+          color: '#d79631',
+          pointsPx: [
+            { x: 100, y: 100 },
+            { x: 200, y: 100 },
+            { x: 200, y: 200 },
+            { x: 100, y: 200 },
+          ],
+        },
+      ],
+    }));
+
+    await clickWorldPoint(page, { x: 150, y: 150 });
+    await page.keyboard.down('Shift');
+    await dragWorldPoint(page, { x: 102, y: 102 }, { x: 50, y: 50 });
+    await page.keyboard.up('Shift');
+
+    await page.waitForFunction(key => {
+      const payload = JSON.parse(localStorage.getItem(key) || '{}');
+      const building = (payload.buildings || []).find(item => item.id === 'building_poly');
+      const pts = building?.pointsPx || [];
+      return Math.abs((pts[0]?.x || 0) - 50) < 0.75
+        && Math.abs((pts[0]?.y || 0) - 50) < 0.75
+        && Math.abs((pts[1]?.x || 0) - 250) < 0.75
+        && Math.abs((pts[1]?.y || 0) - 50) < 0.75
+        && Math.abs((pts[2]?.x || 0) - 250) < 0.75
+        && Math.abs((pts[2]?.y || 0) - 250) < 0.75
+        && Math.abs((pts[3]?.x || 0) - 50) < 0.75
+        && Math.abs((pts[3]?.y || 0) - 250) < 0.75;
+    }, AUTOSAVE_KEY);
+  });
+
+  test('shift-dragging a rectangular building corner preserves its aspect ratio', async ({ page }) => {
+    await loadProject(page, blankProject({
+      selectedId: 'building_rect',
+      selectedIds: ['building_rect'],
+      buildings: [
+        {
+          id: 'building_rect',
+          name: 'Rect shop',
+          padType: 'rect',
+          color: '#d79631',
+          x: 150,
+          y: 150,
+          widthPx: 100,
+          depthPx: 50,
+          rotationDeg: 0,
+        },
+      ],
+    }));
+
+    await clickWorldPoint(page, { x: 150, y: 150 });
+    await page.keyboard.down('Shift');
+    await dragWorldPoint(page, { x: 100, y: 125 }, { x: 50, y: 100 });
+    await page.keyboard.up('Shift');
+
+    await page.waitForFunction(key => {
+      const payload = JSON.parse(localStorage.getItem(key) || '{}');
+      const building = (payload.buildings || []).find(item => item.id === 'building_rect');
+      return Math.abs((building?.widthPx || 0) - 150) < 0.75
+        && Math.abs((building?.depthPx || 0) - 75) < 0.75
+        && Math.abs((building?.x || 0) - 125) < 0.75
+        && Math.abs((building?.y || 0) - 137.5) < 0.75;
+    }, AUTOSAVE_KEY);
+  });
+
   test('selected placed objects copy and paste as fresh offset objects', async ({ page }) => {
     test.setTimeout(90000);
     const cases = [

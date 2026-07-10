@@ -5786,7 +5786,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'rect',x:(start.x+p2.x)/2,y:(start.y+p2.y)/2,widthPx:Math.max(4,w),depthPx:Math.max(4,h),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,state:'notStarted',notes:'',hakoConfig:null,hakoFile:null,hakoFileId:null};
     syncBuildingMetrics(b); return b;
   }
-  function resizeRectFromCorner(b, orig, cornerIndex, worldPoint, square){
+  function resizeRectFromCorner(b, orig, cornerIndex, worldPoint, opts={}){
     const pts=transformedRect(orig);
     const anchor=pts[(cornerIndex+2)%4];
     const a=rad(orig.rotationDeg||0), ux={x:Math.cos(a),y:Math.sin(a)}, uy={x:-Math.sin(a),y:Math.cos(a)};
@@ -5794,9 +5794,27 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const dx=worldPoint.x-anchor.x, dy=worldPoint.y-anchor.y;
     let w=Math.max(4, sx*(dx*ux.x+dy*ux.y));
     let h=Math.max(4, sy*(dx*uy.x+dy*uy.y));
-    if(square || isNearSquare(w,h)){const side=Math.max(w,h); w=side; h=side;}
+    if(opts.proportional){
+      const ow=Math.max(4, Number(orig.widthPx)||w);
+      const oh=Math.max(4, Number(orig.depthPx)||h);
+      const scale=Math.max(w/ow,h/oh,4/ow,4/oh);
+      w=ow*scale;
+      h=oh*scale;
+    }
+    if(opts.square || (!opts.proportional && isNearSquare(w,h))){const side=Math.max(w,h); w=side; h=side;}
     const center={x:anchor.x + sx*ux.x*w/2 + sy*uy.x*h/2, y:anchor.y + sx*ux.y*w/2 + sy*uy.y*h/2};
     b.x=center.x; b.y=center.y; b.widthPx=w; b.depthPx=h; b.rotationDeg=orig.rotationDeg||0; syncBuildingMetrics(b);
+  }
+  function scalePolygonFromCornerDrag(b, orig, cornerIndex, worldPoint){
+    const pts=orig.pointsPx||[];
+    const source=pts[cornerIndex];
+    if(!source || pts.length<3){b.pointsPx=pts.map(q=>({...q})); syncBuildingMetrics(b); return;}
+    const center=polygonCenter(pts);
+    const base=dist(source,center);
+    if(!(base>.01)){b.pointsPx=pts.map(q=>({...q})); syncBuildingMetrics(b); return;}
+    const scale=Math.max(.05,dist(worldPoint,center)/base);
+    b.pointsPx=pts.map(q=>({x:center.x+(q.x-center.x)*scale,y:center.y+(q.y-center.y)*scale}));
+    syncBuildingMetrics(b);
   }
   function snapAngle(a){const snaps=[-180,-165,-150,-135,-120,-105,-90,-75,-60,-45,-30,-15,0,15,30,45,60,75,90,105,120,135,150,165,180]; return snaps.reduce((best,x)=>Math.abs(x-a)<Math.abs(best-a)?x:best,0);}
   function snapAngleStep(a, step=45){
@@ -5811,6 +5829,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(state.snapOn) return snapAngle(a);
     return a;
   }
+  function shiftScaleActive(e){return !!(e?.shiftKey || state.shiftKeyDown);}
   function snapActive(e){return !!(state.snapOn || (e && e.shiftKey));}
   function isGeometryPointer(e){
     if(state.workspaceMode==='track' && isTrackAccessoryAction(state.trackTask)) return true;
@@ -6279,8 +6298,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     else if(d.type==='marquee'){d.end=p;}
     else if(d.type==='moveMany'){const dx=p.x-d.start.x,dy=p.y-d.start.y; (d.origs||[]).forEach(orig=>{const b=state.buildings.find(x=>x.id===orig.id); if(b&&!b.locked){if(b.padType==='rect'){b.x=orig.x+dx; b.y=orig.y+dy;} else b.pointsPx=orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); syncBuildingMetrics(b);}});}
     else if(d.type==='move'){const b=state.buildings.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(b&&!b.locked){if(b.padType==='rect'){b.x=d.orig.x+dx; b.y=d.orig.y+dy;} else b.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); syncBuildingMetrics(b);}}
-    else if(d.type==='polyPoint'){const b=selected(); if(b&&!b.locked){b.pointsPx[d.index]=p; syncBuildingMetrics(b);}}
-    else if(d.type==='rectCorner'){const b=selected(), o=d.orig; if(b&&!b.locked){resizeRectFromCorner(b,o,d.index,p,snapActive(e));}}
+    else if(d.type==='polyPoint'){const b=selected(); if(b&&!b.locked){if(shiftScaleActive(e)) scalePolygonFromCornerDrag(b,d.orig,d.index,p); else {b.pointsPx[d.index]=p; syncBuildingMetrics(b);}}}
+    else if(d.type==='rectCorner'){const b=selected(), o=d.orig; if(b&&!b.locked){resizeRectFromCorner(b,o,d.index,p,{proportional:shiftScaleActive(e),square:!!state.snapOn});}}
     else if(d.type==='rotate'){
       const b=selected();
       if(b&&!b.locked){
@@ -6369,6 +6388,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return false;
   }
   window.addEventListener('keydown', e=>{
+    if(e.key==='Shift') state.shiftKeyDown=true;
     const target=e.target;
     if(target && target.matches && target.matches('input,textarea,select,[contenteditable="true"]')) return;
     if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){
@@ -6418,6 +6438,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(deleteCurrentSelection()) e.preventDefault();
     }
   });
+  window.addEventListener('keyup', e=>{
+    if(e.key==='Shift' || !e.shiftKey) state.shiftKeyDown=false;
+  });
+  window.addEventListener('blur', ()=>{state.shiftKeyDown=false;});
   function finishPolygon(){if(state.polygonDraft.length<3) return; const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'polygon',pointsPx:state.polygonDraft.slice(),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,state:'notStarted',notes:'',hakoConfig:null,hakoFile:null,hakoFileId:null}; syncBuildingMetrics(b); state.buildings.push(b); setBuildingSelection([b.id], b.id); state.polygonDraft=[]; syncAll();}
   function maybeFinishActiveRoadDraft(nextTool){
     if(state.tool !== 'road' || nextTool === 'road' || !Array.isArray(state.roadDraft) || state.roadDraft.length === 0) return;

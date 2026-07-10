@@ -1059,6 +1059,15 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     });
     return best;
   }
+  function draggedTrackSwitchEndpointName(item,p){
+    if(!item || !p || !isTrackSwitchAccessoryKind(item.kind)) return null;
+    let best=null;
+    trackSwitchEndpointPoints(item).forEach(endpoint=>{
+      const distance=dist(p,endpoint.point);
+      if(!best || distance<best.distance) best={endpoint,distance};
+    });
+    return best && best.distance<=trackAccessorySnapDistance() ? best.endpoint.endpoint : null;
+  }
   function rotatePoint(point, angleDeg){
     const a=rad(angleDeg);
     return {x:point.x*Math.cos(a)-point.y*Math.sin(a),y:point.x*Math.sin(a)+point.y*Math.cos(a)};
@@ -1082,21 +1091,31 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     syncTracksConnectedToTrackSwitch(item);
     return true;
   }
-  function nearestSwitchEndpointPair(item){
+  function nearestSwitchEndpointPair(item, pointerPoint=null, preferredSourceEndpoint=null){
     if(!item || !isTrackSwitchAccessoryKind(item.kind)) return null;
-    const sourceEndpoints=trackSwitchEndpointPoints(item);
+    let sourceEndpoints=trackSwitchEndpointPoints(item);
+    if(preferredSourceEndpoint){
+      const preferred=sourceEndpoints.find(endpoint=>endpoint.endpoint===preferredSourceEndpoint);
+      if(preferred) sourceEndpoints=[preferred];
+    }
     const targetEndpoints=allTrackSwitchConnectionPoints().filter(endpoint=>endpoint.trackAccessoryId!==item.id);
+    const snapDistance=trackAccessorySnapDistance();
     let best=null;
     sourceEndpoints.forEach(source=>{
       targetEndpoints.forEach(target=>{
         const distance=dist(source.point,target.point);
-        if(!best || distance<best.distance) best={source,target,distance};
+        const pointerDistance=pointerPoint ? dist(pointerPoint,target.point) : 0;
+        const candidate={source,target,distance,pointerDistance};
+        if(pointerPoint && distance>snapDistance) return;
+        if(!best
+          || (pointerPoint && (pointerDistance<best.pointerDistance || (Math.abs(pointerDistance-best.pointerDistance)<.001 && distance<best.distance)))
+          || (!pointerPoint && distance<best.distance)) best=candidate;
       });
     });
     return best;
   }
-  function snapTrackSwitchToEndpoint(item){
-    const pair=nearestSwitchEndpointPair(item);
+  function snapTrackSwitchToEndpoint(item, pointerPoint=null, preferredSourceEndpoint=null){
+    const pair=nearestSwitchEndpointPair(item,pointerPoint,preferredSourceEndpoint);
     if(!pair || pair.distance>trackAccessorySnapDistance()) return false;
     if(!alignTrackSwitchEndpointToTarget(item,pair.source.endpoint,pair.target)) return false;
     const hint=$('statusHint');
@@ -1414,7 +1433,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function pasteTrackAccessoryFromClipboard(){
     return state.siteObjectClipboard?.type==='trackAccessory' && pasteSiteObjectFromClipboard();
   }
-  function applySiteObjectMoveFromOrig(type,orig,dx,dy){
+  function applySiteObjectMoveFromOrig(type,orig,dx,dy,pointerPoint=null,preferredSourceEndpoint=null){
     if(!orig || !SITE_OBJECT_MOVE_TYPES.has(type)) return;
     if(type==='building'){
       const b=state.buildings.find(x=>x.id===orig.id);
@@ -1436,7 +1455,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         item.x=orig.x+dx;
         item.y=orig.y+dy;
         if(isTrackSwitchAccessoryKind(item.kind)){
-          if(!snapTrackSwitchToEndpoint(item)){
+          if(!snapTrackSwitchToEndpoint(item,pointerPoint,preferredSourceEndpoint)){
             item.trackAnchor=null;
             item.trackId=null;
             normalizeTrackAccessory(item);
@@ -1524,7 +1543,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const movable=currentSelectedMovableSiteObjects();
     const entries=(selected && movable.length>1 ? movable : [{type,item}])
       .filter(entry=>entry.item && !entry.item.locked)
-      .map(entry=>({type:entry.type,orig:structuredClone(entry.item)}));
+      .map(entry=>({
+        type:entry.type,
+        orig:structuredClone(entry.item),
+        dragOrigin:entry.type===type && entry.item.id===item.id,
+        snapSourceEndpoint:entry.type===type && entry.item.id===item.id ? draggedTrackSwitchEndpointName(entry.item,p) : null,
+      }));
     if(entries.length){
       state.drag={type:entries.length>1?'moveSiteObjects':'moveSiteObject',pointerId:e.pointerId,start:p,entries};
     }
@@ -6233,7 +6257,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     else if(d.type==='rect'){d.end=p; d.preview=addRectFromDrag(d.start,p,snapActive(e));}
     else if(d.type==='roadCenterline'){d.end=p; d.preview=createRoadCenterline(d.start,p);}
     else if(d.type==='annotate'){addAnnotationPoint(e,p);}
-    else if(d.type==='moveSiteObjects'||d.type==='moveSiteObject'){const dx=p.x-d.start.x,dy=p.y-d.start.y; (d.entries||[]).forEach(entry=>applySiteObjectMoveFromOrig(entry.type,entry.orig,dx,dy)); (d.entries||[]).forEach(entry=>finalizeMovedSiteObject(entry.type,entry.orig));}
+    else if(d.type==='moveSiteObjects'||d.type==='moveSiteObject'){const dx=p.x-d.start.x,dy=p.y-d.start.y; (d.entries||[]).forEach(entry=>applySiteObjectMoveFromOrig(entry.type,entry.orig,dx,dy,entry.dragOrigin?p:null,entry.snapSourceEndpoint)); (d.entries||[]).forEach(entry=>finalizeMovedSiteObject(entry.type,entry.orig));}
     else if(d.type==='moveStreetlight'){const l=state.streetlights.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(l&&!l.locked){l.x=d.orig.x+dx; l.y=d.orig.y+dy;}}
     else if(d.type==='moveTrackAccessory'){const item=(state.trackAccessories||[]).find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(item&&!item.locked){item.x=d.orig.x+dx; item.y=d.orig.y+dy; if(isTrackSwitchAccessoryKind(item.kind)){if(!snapTrackSwitchToEndpoint(item)){item.trackAnchor=null; item.trackId=null; normalizeTrackAccessory(item); syncTracksConnectedToTrackSwitch(item);}} else {const anchor=nearestTrackAccessoryAnchor({x:item.x,y:item.y}); if(anchor && anchor.distance<=trackAccessorySnapDistance()){if(isCatenaryAccessoryKind(item.kind)) attachTrackAccessoryToAnchor(item,anchor); else item.trackId=anchor.trackId;} else if(isCatenaryAccessoryKind(item.kind)){item.trackId=null; item.trackAnchor=null; item.autoOrientToTrack=false;} normalizeTrackAccessory(item);}}}
     else if(d.type==='rotateTrackAccessory'){const item=(state.trackAccessories||[]).find(x=>x.id===d.orig.id); if(item&&!item.locked){const angleDelta=deg(Math.atan2(p.y-d.center.y,p.x-d.center.x)-(d.startAngle||0)); item.rotationDeg=(Number(d.origRotation)||0)+angleDelta; if(isCatenaryAccessoryKind(item.kind)){item.autoOrientToTrack=false; item.trackAnchor=null;} normalizeTrackAccessory(item); if(isTrackSwitchAccessoryKind(item.kind)) syncTracksConnectedToTrackSwitch(item);}}

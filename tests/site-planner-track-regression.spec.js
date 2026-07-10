@@ -381,6 +381,34 @@ test.describe('Site Planner track regressions', () => {
     });
   });
 
+  test('switch snapping prefers the dragged leg closest to the cursor', async ({ page }) => {
+    const sourceEndpoints = tomixSwitchFixtureEndpoints();
+    const secondCenter = { x: 520, y: 260 };
+    const secondEndpoints = tomixSwitchFixtureEndpoints(secondCenter.x, secondCenter.y);
+    const project = blankTrackProject({
+      selectedTrackAccessoryId: 'switch_2',
+      trackAccessories: [
+        { id: 'switch_1', kind: 'trackSwitchRight', name: 'Source turnout', x: 300, y: 220, rotationDeg: 0 },
+        { id: 'switch_2', kind: 'trackSwitchRight', name: 'Dropped turnout', x: secondCenter.x, y: secondCenter.y, rotationDeg: 0 },
+      ],
+    });
+
+    await seedAutosave(page, project);
+    await loadPlanner(page);
+    await expect(page.locator('#emptyImageOverlay')).toBeHidden({ timeout: 10000 });
+
+    await dragWorldPoint(page, secondEndpoints.diverging, sourceEndpoints.diverging, 10);
+
+    await page.waitForFunction(({ key }) => {
+      const payload = JSON.parse(localStorage.getItem(key) || '{}');
+      const moved = (payload.trackAccessories || []).find(item => item.id === 'switch_2');
+      return moved?.trackAnchor?.kind === 'trackSwitchEndpoint'
+        && moved.trackAnchor.trackAccessoryId === 'switch_1'
+        && moved.trackAnchor.endpoint === 'diverging'
+        && moved.trackAnchor.sourceEndpoint === 'diverging';
+    }, { key: AUTOSAVE_KEY });
+  });
+
   test('selected track switches can be copied and pasted as fresh objects', async ({ page }) => {
     const project = blankTrackProject({
       selectedTrackAccessoryId: 'switch_1',

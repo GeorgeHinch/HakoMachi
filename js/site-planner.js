@@ -187,6 +187,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     activeSidebarDetailKind,
     initFabricControls,
   });
+  function showStatusHint(message, tone=''){
+    const hint=$('statusHint');
+    if(!hint) return;
+    hint.textContent=message||'';
+    if(tone) hint.dataset.tone=tone;
+    else delete hint.dataset.tone;
+  }
   const { currentScaleDivisor, modelKnownMm } = createScaleInputController({getElement:$});
   const {
     screenToWorld,
@@ -2646,6 +2653,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     renderSelected,
     updateHandoff,
     draw,
+    showStatusHint,
   });
   const {
     normalizeFabricRegion,
@@ -2721,7 +2729,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     drawPoly,
     drawGeneratedPath: drawRoadGeneratedPath,
     updateRoadExportBadge,
-    setStatusHint: () => {},
+    setStatusHint: showStatusHint,
     syncAll,
     dist,
   });
@@ -2805,7 +2813,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function createBuildingFromImportedHako(fileName, text, parsed){
     const derived=deriveFootprintFromHakoConfig(parsed||{});
     if(!derived){
-      alert('Could not find a footprint, width/depth, or polygon in that .hako file.');
+      showStatusHint('Could not find a footprint, width/depth, or polygon in that .hako file.', 'warning');
       return null;
     }
     const center=visibleWorldCenter();
@@ -2845,7 +2853,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
 
   function armGithubBuildingPlacement(record){
     const shape=githubRecordPlacementShape(record);
-    if(!shape){ alert('This library record does not include enough footprint data to place it.'); return; }
+    if(!shape){ showStatusHint('This library record does not include enough footprint data to place it.', 'warning'); return; }
     state.githubBuildingPlacement={
       record:structuredClone(record),
       derived:shape.derived,
@@ -6924,10 +6932,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   if($('imageLockBtn')) $('imageLockBtn').onclick=()=>{state.imageLocked=!state.imageLocked; $('imageLockBtn').textContent=state.imageLocked?'Locked':'Unlocked';};
   $('applyScaleBtn').onclick=()=>{
     const line=state.lastCalibrationLine||state.calibrationLine;
-    if(!line) return alert('Draw a calibration line first.');
+    if(!line) return showStatusHint('Draw a calibration line first.', 'warning');
     const known=modelKnownMm();
     const len=dist({x:line.x1,y:line.y1},{x:line.x2,y:line.y2});
-    if(known<=0||len<=0) return alert('Calibration length must be greater than zero.');
+    if(known<=0||len<=0) return showStatusHint('Calibration length must be greater than zero.', 'warning');
     const nextPxPerMm=len/known;
     if(state.pxPerMm && Math.abs(state.pxPerMm-nextPxPerMm)>1e-9){
       const ok=confirm('Change calibration?\n\nThis will update all real millimeter values derived from the image, including building dimensions, road widths, sidewalk widths, streetlight sizes, and exported coordinates. Pixel positions on the image will stay in place, but measured values will change.');
@@ -7030,7 +7038,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   installTopMenus({getElement:$, closeSidebarBuildingOverflow});
   function exportSelectedSeed(){
     const b=selected();
-    if(!b) return alert('Select a building first.');
+    if(!b) return showStatusHint('Select a building first.', 'warning');
     downloadText(JSON.stringify(makeSeed(b),null,2),`${slug(b.name)}-hakomachi-seed.json`,'application/json');
   }
   function openGithubSettings(){
@@ -7263,7 +7271,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       closeGithubModal();
     }catch(err){
       setGithubStatus('GitHub load failed: '+(err.message||err));
-      alert('GitHub load failed:\n\n'+(err.message||err));
+      showStatusHint('GitHub load failed: '+(err.message||err), 'warning');
     }
   }
   async function openGithubSitePlans(){
@@ -7398,7 +7406,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   if($('mobileSeedBtn')) $('mobileSeedBtn').onclick=exportSelectedSeed;
   function openBuildingInHakoMachi(building){
     const b=building || selected();
-    if(!b) return alert('Select a building first.');
+    if(!b) return showStatusHint('Select a building first.', 'warning');
     const seed=makeSeed(b);
     localStorage.setItem(SITE_PLANNER_SEED_KEY,JSON.stringify(seed));
     sessionStorage.setItem(SITE_PLANNER_SEED_KEY,JSON.stringify(seed));
@@ -7408,7 +7416,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   async function copyHakoSeedForBuilding(building){
     const b=building || selected();
-    if(!b) return alert('Select a building first.');
+    if(!b) return showStatusHint('Select a building first.', 'warning');
     const text=JSON.stringify(makeSeed(b),null,2);
     try{
       await navigator.clipboard.writeText(text);
@@ -7493,7 +7501,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   async function saveSitePlanBundle(){
     if(!window.JSZip){
-      alert('ZIP support is still loading. Try again in a moment.');
+      showStatusHint('ZIP support is still loading. Try again in a moment.', 'warning');
       return;
     }
     const bundleImage=buildLocalImageBundleAsset(state, {cachedImageAsset, imageAssetReference, imageAssetFileName, dataUrlInfo});

@@ -21,6 +21,7 @@ export function createFabricController(deps) {
     renderSelected,
     updateHandoff,
     draw,
+    showStatusHint = () => {},
   } = deps;
 
   function lcg(seed) {
@@ -245,11 +246,11 @@ export function createFabricController(deps) {
   }
 
   function generateFabricForRegion(region, opts = {}) {
-    if (!region) { alert('Draw or select a Fabric Fill region first.'); return; }
+    if (!region) { showStatusHint('Draw or select a Fabric Fill region first.', 'warning'); return; }
     region = normalizeFabricRegion(region);
     const rng = lcg(region.seed);
     const poly = region.polygon;
-    if (!Array.isArray(poly) || poly.length < 3) { alert('Fabric region needs at least three points.'); return; }
+    if (!Array.isArray(poly) || poly.length < 3) { showStatusHint('Fabric region needs at least three points.', 'warning'); return; }
     const existing = generatedPadsForRegion(region);
     if (existing.length) {
       const ok = !opts.confirmReplace || confirm(`Replace ${existing.length} generated pad${existing.length === 1 ? '' : 's'} for this fabric region?`);
@@ -309,7 +310,7 @@ export function createFabricController(deps) {
       }
       y += rowDepth;
     }
-    if (!created.length) { alert('No pads fit inside this region. Try a larger region, higher density, or smaller scale.'); return; }
+    if (!created.length) { showStatusHint('No pads fit inside this region. Try a larger region, higher density, or smaller scale.', 'warning'); return; }
     if (existing.length) removeGeneratedPadsForRegion(region);
     state.buildings.push(...created);
     region.generatedPadIds = created.map(building => building.id);
@@ -320,7 +321,7 @@ export function createFabricController(deps) {
   function generateFabricFromDraft() {
     let region = state.selectedFabricId ? state.fabricRegions.find(item => item.id === state.selectedFabricId) : null;
     if (state.fabricDraft.length >= 3) region = finishFabricRegion();
-    if (!region) { alert('Draw a Fabric Fill region first.'); return; }
+    if (!region) { showStatusHint('Draw a Fabric Fill region first.', 'warning'); return; }
     region = normalizeFabricRegion(region);
     region.density = fabricValue('fabricDensity', region.density);
     region.randomness = fabricValue('fabricRandomness', region.randomness);

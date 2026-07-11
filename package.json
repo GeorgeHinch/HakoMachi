@@ -4,7 +4,11 @@
   "private": true,
   "description": "Browser-based tools for Japanese N gauge streetscape planning and laser-cut building generation.",
   "scripts": {
+    "check": "node tools/check.js",
+    "check:full": "node tools/check.js --browser",
+    "check:syntax": "node tools/check.js --syntax-only",
     "check:runtime": "node tools/runtime_check.js",
+    "check:i18n": "node tools/i18n/check.js",
     "check:browser": "playwright test",
     "check:browser:install": "playwright install chromium"
   },

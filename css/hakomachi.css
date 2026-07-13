@@ -213,12 +213,54 @@
   .preview-section h2 { margin-top: 0; }
   .preview-section.preview-3d { margin-top: 40px; }
   .preview-section.preview-3d h2 { font-size: 16px; letter-spacing: 0.03em; text-transform: none; color: var(--fg); margin-bottom: 10px; }
+  .roof-overhang-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .roof-overhang-row input {
+    flex: 1;
+  }
+  .roof-overhang-labels {
+    display: flex;
+    gap: 4px;
+    margin-top: 2px;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .roof-overhang-labels span {
+    flex: 1;
+    text-align: center;
+  }
+  .roof-overhang-labels .roof-overhang-label-spacer {
+    width: 30px;
+    flex: 0 0 30px;
+  }
+  .three-preview-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .three-preview-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+  }
   #threePreview,
   #threePreview canvas {
     user-select: none;
     -webkit-user-select: none;
   }
   #threePreview {
+    width: 100%;
+    height: 500px;
+    background: #e9e9e3;
+    border: 1px solid #d4d4cc;
+    border-radius: 4px;
     overscroll-behavior: contain;
     touch-action: none;
   }

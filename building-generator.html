@@ -203,17 +203,17 @@
       </div>
       <div class="field" id="roofOverhangField" style="display:none">
         <label data-i18n="lbl_overhang">Roof overhang (mm)</label>
-        <div style="display:flex;gap:4px;align-items:center;">
-          <input type="number" id="roofOverhangFB" min="0" max="60" step="0.5" value="0" style="flex:1"
+        <div class="roof-overhang-row">
+          <input type="number" id="roofOverhangFB" min="0" max="60" step="0.5" value="0"
                  title="Front / back overhang">
           <button id="roofOverhangLinkBtn" class="icon-inline-btn" title="Link / unlink"><span data-icon="link"></span></button>
-          <input type="number" id="roofOverhangEW" min="0" max="60" step="0.5" value="0" style="flex:1"
+          <input type="number" id="roofOverhangEW" min="0" max="60" step="0.5" value="0"
                  title="East / west overhang">
         </div>
-        <div style="display:flex;gap:4px;font-size:10px;color:var(--muted);margin-top:2px;">
-          <span style="flex:1;text-align:center;" data-i18n="lbl_ohFB">Front / back</span>
-          <span style="width:30px;"></span>
-          <span style="flex:1;text-align:center;" data-i18n="lbl_ohEW">East / west</span>
+        <div class="roof-overhang-labels">
+          <span data-i18n="lbl_ohFB">Front / back</span>
+          <span class="roof-overhang-label-spacer"></span>
+          <span data-i18n="lbl_ohEW">East / west</span>
         </div>
       </div>
       <div class="field" id="soffitCladdingField" style="display:none">
@@ -521,14 +521,14 @@
 
 <div class="preview-section preview-3d">
   <h2>Live 3D Preview</h2>
-  <div style="display:flex;align-items:center;gap:10px;margin:0 0 6px;font-size:12px;color:var(--muted);">
-    <label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;">
+  <div class="three-preview-controls">
+    <label class="three-preview-toggle">
       <input type="checkbox" id="threePreviewUseStl">
       Show STL export overlay
     </label>
     <span id="threePreviewModeNote" class="small">Designed/material preview is shown by default. Enable overlay to compare preview_3d.stl geometry.</span>
   </div>
-  <div id="threePreview" style="width:100%;height:500px;background:#e9e9e3;border:1px solid #d4d4cc;border-radius:4px;"></div>
+  <div id="threePreview"></div>
 </div>
 
   </div>

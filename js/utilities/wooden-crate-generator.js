@@ -1,7 +1,9 @@
 import * as U from './shared.js';
 import { createUtility3dPreview } from './utility-3d-preview.js';
+import { createHakoMachiLogger } from '../shared/hakomachi-diagnostics.js';
 
 const $ = id => U.byId(id);
+const logger = createHakoMachiLogger('Wooden Crate Generator');
 const SVG_OP = U.SVG_FABRICATION_OPERATIONS;
 const COLOR_CUT = U.svgFabricationColor(SVG_OP.CUT_RETAINED);
 const COLOR_ENGRAVE = U.svgFabricationColor(SVG_OP.ENGRAVE);
@@ -562,7 +564,7 @@ function operationForClass(cls) {
     } catch (err) {
       $('svgHost').innerHTML = '<div class="readout bad">Preview render error: ' + U.escapeHtml(err.message || err) + '</div>';
       $('renderHost').innerHTML = '';
-      console.error(err);
+      logger.error('Preview render error:', err);
     }
   }
 

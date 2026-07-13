@@ -4,6 +4,9 @@ import {
   installBuildingPreviewGlobal,
   previewModules,
 } from './preview/index.js?v=shared-building-preview-31';
+import { createHakoMachiLogger } from '../shared/hakomachi-diagnostics.js';
+
+const logger = createHakoMachiLogger('Building Generator');
 
 window.HakoMachiBuildingGenerator = Object.freeze({
   ...(window.HakoMachiBuildingGenerator || {}),
@@ -27,7 +30,7 @@ function refreshBuildingPreview() {
     previewModules.threePreview?.setThreePreviewConfig?.(config);
     previewModules.threePreview?.updateThreePreview?.(config);
   } catch (err) {
-    console.error('3D preview refresh error:', err);
+    logger.error('3D preview refresh error:', err);
   }
 }
 

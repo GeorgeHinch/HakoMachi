@@ -4,8 +4,11 @@
    ===================================================================== */
 
 import { installThreeRenderCanvas } from '../../shared/browser-utils.js';
+import { createHakoMachiLogger } from '../../shared/hakomachi-diagnostics.js';
 import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=shared-building-preview-26';
 import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=shared-building-preview-31';
+
+const logger = createHakoMachiLogger('Building Generator 3D Preview');
 
 let threeScene, threeCamera, threeRenderer, threeControls, buildingMesh, threePreviewGrid;
 export let threePreviewConfig = null;
@@ -110,7 +113,7 @@ function scheduleThreePreviewConfigRefresh(attempt = 0) {
     threePreviewConfigRetryTimer = null;
     const cfg = getThreePreviewConfig();
     if (cfg) {
-      try { updateThreePreview(cfg); } catch (err) { console.error('3D preview refresh error:', err); }
+      try { updateThreePreview(cfg); } catch (err) { logger.error('3D preview refresh error:', err); }
       return;
     }
     if (attempt < 40) scheduleThreePreviewConfigRefresh(attempt + 1);
@@ -1221,7 +1224,7 @@ export function buildGeneratedStlPreviewGroup(cfg) {
       group.add(eqMesh);
     }
   } catch (e) {
-    console.warn('Equipment STL preview overlay failed:', e);
+    logger.warn('Equipment STL preview overlay failed:', e);
   }
 
   return group;
@@ -3414,7 +3417,7 @@ export function buildHakoMachiBuildingPreviewGroup(cfg, opts = {}) {
       stlOverlay.name = 'Generated STL Overlay';
       group.add(stlOverlay);
     } catch (e) {
-      console.warn('Generated STL overlay failed:', e);
+      logger.warn('Generated STL overlay failed:', e);
     }
   }
 
@@ -3618,7 +3621,7 @@ export function animateThree() {
     try {
       threeRenderer.render(threeScene, threeCamera);
     } catch(e) {
-      console.warn('Three.js render error — rebuilding preview:', e);
+      logger.warn('Three.js render error - rebuilding preview:', e);
       try { updateThreePreview(getThreePreviewConfig()); } catch(e2) { /* skip silently */ }
     }
   }
@@ -3668,7 +3671,7 @@ export function installThreePreviewLegacyBehavior({
       try {
         updateThreePreview(getThreePreviewConfig());
       } catch(e) {
-        console.error('3D preview error:', e);
+        logger.error('3D preview error:', e);
       }
       return result;
     };
@@ -3699,8 +3702,8 @@ export function installThreePreviewLegacyBehavior({
         });
       }
     } catch (_) {}
-    try { initThreePreview(); } catch(e) { console.error('initThreePreview threw:', e); return; }
-    try { updateThreePreview(getThreePreviewConfig()); } catch(e) { console.error('3D init error:', e); }
+    try { initThreePreview(); } catch(e) { logger.error('initThreePreview threw:', e); return; }
+    try { updateThreePreview(getThreePreviewConfig()); } catch(e) { logger.error('3D init error:', e); }
   }, delayMs);
 
   if (suppressCrossOriginScriptErrors) {

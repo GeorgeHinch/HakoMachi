@@ -2,6 +2,10 @@ function clone(value) {
   return typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
 }
 
+import { createHakoMachiLogger } from '../shared/hakomachi-diagnostics.js';
+
+const logger = createHakoMachiLogger('Site Planner');
+
 export function createHakoHandoffController({
   state,
   autosaveKey,
@@ -237,7 +241,7 @@ export function createHakoHandoffController({
       }
       return ok;
     } catch (err) {
-      console.warn('[HakoMachi Site Planner] Could not apply queued building update:', err);
+      logger.warn('Could not apply queued building update:', err);
       return false;
     }
   }

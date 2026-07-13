@@ -7,6 +7,10 @@
    compatibility wrappers so the rest of the code can migrate gradually.
    ===================================================================== */
 
+import { createHakoMachiLogger } from '../../shared/hakomachi-diagnostics.js';
+
+const logger = createHakoMachiLogger('Building Generator');
+
 export function sanitiseFolderName(raw) {
   return String(raw || 'misc')
     .replace(/[\\/:*?"<>|]+/g, '-')
@@ -528,10 +532,10 @@ export function addPartsToList(parts, maybePartOrList) {
 
       const errText = err && (err.message || String(err));
       setPreviewNote('3D preview fell back to massing view. Error: ' + (errText || 'unknown preview error'), true);
-      console.error('Live 3D preview failed; fallback massing view rendered:', err);
+      logger.error('Live 3D preview failed; fallback massing view rendered:', err);
     } catch (fallbackErr) {
       setPreviewNote('3D preview failed and fallback also failed: ' + (fallbackErr && (fallbackErr.message || String(fallbackErr))), true);
-      console.error('Live 3D preview fallback failed:', fallbackErr);
+      logger.error('Live 3D preview fallback failed:', fallbackErr);
     }
   }
 
@@ -542,7 +546,7 @@ export function addPartsToList(parts, maybePartOrList) {
           updateThreePreview(CONFIG);
         }
       } catch (err) {
-        console.warn('Post-install 3D preview rebuild failed:', err);
+        logger.warn('Post-install 3D preview rebuild failed:', err);
       }
     };
     setTimeout(rebuild, 0);
@@ -763,7 +767,7 @@ export function addPartsToList(parts, maybePartOrList) {
       try {
         adjust3DFixtureLayerThickness(cfg || (typeof CONFIG !== 'undefined' ? CONFIG : null));
       } catch (err) {
-        console.warn('3D fixture material-thickness adjustment failed:', err);
+        logger.warn('3D fixture material-thickness adjustment failed:', err);
       }
       return result;
     };
@@ -773,7 +777,7 @@ export function addPartsToList(parts, maybePartOrList) {
       try {
         if (typeof CONFIG !== 'undefined') updateThreePreview(CONFIG);
       } catch (err) {
-        console.warn('Post-install fixture material-thickness preview rebuild failed:', err);
+        logger.warn('Post-install fixture material-thickness preview rebuild failed:', err);
       }
     }, 100);
   }

@@ -1,5 +1,8 @@
 import * as HakoMachiUtils from './shared.js';
 import { createUtility3dPreview } from './utility-3d-preview.js';
+import { createHakoMachiLogger } from '../shared/hakomachi-diagnostics.js';
+
+const logger = createHakoMachiLogger('Safety Railing Generator');
 
 window.addEventListener('DOMContentLoaded', function(){
 'use strict';
@@ -711,7 +714,7 @@ function copySettings(){
 }
 function download(){var svg=regenerate(false); HakoMachiUtils.downloadText('<?xml version="1.0" encoding="UTF-8"?>\n'+svg,'safety_railing_flat_cutout_'+el('lengthMm').value+'mm.svg','image/svg+xml');}
 function copySvg(){var text='<?xml version="1.0" encoding="UTF-8"?>\n'+regenerate(false); HakoMachiUtils.copyText(text,{button:el('copyBtn'),successText:'Copied',resetText:'Copy flat SVG'}).then(function(ok){if(!ok)el('stats').textContent='Copy failed; use download instead.';});}
-function safeRegenerate(updateEditor){try{regenerate(updateEditor);}catch(err){el('stats').textContent='Render error: '+err.message; console.error(err);}}
+function safeRegenerate(updateEditor){try{regenerate(updateEditor);}catch(err){el('stats').textContent='Render error: '+err.message; logger.error('Render error:', err);}}
 function applyPastedLineFromText(showAlert){
   var text=el('pastedSvgLine').value.trim();
   if(!text){pathPoints=null; pathPointsRawSvgUnits=false; segmentSettings=[]; updateSegmentEditor(); safeRegenerate(false); return true;}
@@ -740,5 +743,5 @@ document.querySelectorAll('input,textarea,select').forEach(function(input){
   else if(input.id==='svgUnitScaleMm') input.addEventListener('input',function(){if(pathPointsRawSvgUnits)safeRegenerate(true); else if(el('pastedSvgLine').value.trim())applyPastedLineFromText(false); else safeRegenerate(true);});
   else input.addEventListener('input',function(){safeRegenerate(true);});
 });
-try{updateSegmentEditor(); regenerate(false);}catch(err){el('stats').textContent='Render error: '+err.message; console.error(err);}
+try{updateSegmentEditor(); regenerate(false);}catch(err){el('stats').textContent='Render error: '+err.message; logger.error('Render error:', err);}
 });

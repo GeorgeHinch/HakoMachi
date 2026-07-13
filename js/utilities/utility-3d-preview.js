@@ -1,3 +1,7 @@
+import { createHakoMachiLogger } from '../shared/hakomachi-diagnostics.js';
+
+const logger = createHakoMachiLogger('Utility 3D Preview');
+
 const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
 const ORBIT_URL = 'https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js';
 
@@ -229,7 +233,7 @@ export function createUtility3dPreview(host, options = {}) {
       setStatus(options.readyText || '3D preview ready.', 'ok');
     } catch (err) {
       setStatus(err?.message || '3D preview could not be rendered.', 'error');
-      console.error(err);
+      logger.error('3D preview could not be rendered.', err);
     }
   }
 

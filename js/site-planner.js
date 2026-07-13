@@ -1,5 +1,6 @@
 import githubData from './shared/github-data.js?v=site2d-layout-cut-clipping-4';
 import { base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, downloadText, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, textToBase64 } from './shared/browser-utils.js';
+import { createHakoMachiLogger } from './shared/hakomachi-diagnostics.js';
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fabrication-colors.js';
 import { createAutosaveUiController } from './site-planner/autosave-ui.js';
 import { createBuildingSelectionController } from './site-planner/building-selection-utils.js';
@@ -62,6 +63,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   const ctx = canvas.getContext('2d');
   const wrap = canvas.parentElement;
   const $ = id => document.getElementById(id);
+  const logger = createHakoMachiLogger('Site Planner');
   canvas.setAttribute('draggable', 'false');
   function clearCanvasBrowserSelection(){
     try {
@@ -4247,7 +4249,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         wrapper.updateMatrixWorld(true);
         sharedRenderer.applyLayoutCutClippingToGroup?.(group,cfg,group.matrixWorld);
         return wrapper;
-      }catch(err){ console.warn('[HakoMachi Site Planner] 3D generated building fallback:',err); }
+      }catch(err){ logger.warn('3D generated building fallback:',err); }
     }
     return buildSite3DMassing(b,bounds);
   }
@@ -4296,7 +4298,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       geo.computeBoundingSphere();
       return geo;
     }catch(err){
-      console.warn('[HakoMachi Site Planner] STL 3D mesh fallback:',err);
+      logger.warn('STL 3D mesh fallback:',err);
       return null;
     }
   }
@@ -4428,7 +4430,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function initSite3D(){
     if(site3d.initialized) return true;
     site3d.view=ensureSite3dView();
-    if(typeof THREE==='undefined'){ console.warn('[HakoMachi Site Planner] 3D view unavailable: Three.js did not load.'); return false; }
+    if(typeof THREE==='undefined'){ logger.warn('3D view unavailable: Three.js did not load.'); return false; }
     site3d.scene=new THREE.Scene();
     site3d.scene.background=new THREE.Color(0xecece6);
     site3d.camera=new THREE.PerspectiveCamera(45,1,.1,5000);
@@ -4757,7 +4759,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function applyHistorySnapshot(snap){
     let data;
-    try{ data=JSON.parse(snap); }catch(err){ console.warn('[HakoMachi Site Planner] Could not restore undo state:', err); return; }
+    try{ data=JSON.parse(snap); }catch(err){ logger.warn('Could not restore undo state:', err); return; }
     state.historySuppressed=true;
     const oldDataUrl=state.imageMeta?.dataUrl || null;
     const newDataUrl=data.imageMeta?.dataUrl || null;
@@ -4908,7 +4910,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       state.lastAutosaveAt=Date.now();
       if(!(payload.image && !payload.image.dataUrl && state.imageMeta?.dataUrl)) updateAutosaveStatus();
     }catch(err){
-      console.warn('[HakoMachi Site Planner] Autosave failed:', err);
+      logger.warn('Autosave failed:', err);
       updateAutosaveStatus('Autosave: failed');
     }
   }
@@ -6880,9 +6882,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       updateImagePortableStatus();
       updateEmptyImageOverlay();
       finishImportProgress('Reference image imported.',`${file.name||'Reference image'} is ready on the canvas.`);
-      console.info('[HakoMachi Site Planner] image loaded', state.imageMeta);
+      logger.info('Image loaded', state.imageMeta);
     }catch(err){
-      console.error('[HakoMachi Site Planner] image import failed', err);
+      logger.error('Image import failed', err);
       setImageStatus(err.message || 'Image import failed.', 'warning');
       failImportProgress('Image import failed.', err.message || 'The image could not be loaded.');
       URL.revokeObjectURL(objectUrl);
@@ -6976,7 +6978,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         await Promise.all(cacheNames.filter(name=>/hakomachi|hakoMachi|sitePlanner|site-planner/i.test(name)).map(name=>caches.delete(name)));
       }
     }catch(err){
-      console.warn('[HakoMachi Site Planner] Cache clearing was partially blocked:', err);
+      logger.warn('Cache clearing was partially blocked:', err);
     }
     state.tool='select';
     state.image=null;
@@ -7759,7 +7761,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       loadProject(payload, {fromAutosave:true, dirtySinceManualSave:!!meta.dirtySinceManualSave});
       return true;
     }catch(err){
-      console.warn('[HakoMachi Site Planner] Could not restore autosave:', err);
+      logger.warn('Could not restore autosave:', err);
       return false;
     }
   }
@@ -7795,7 +7797,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
           localStorage.removeItem(SITE_PLANNER_BUILDING_UPDATE_KEY);
         }
       }catch(err){
-        console.warn('[HakoMachi Site Planner] Could not apply building update from storage:', err);
+        logger.warn('Could not apply building update from storage:', err);
       }
     }
   });

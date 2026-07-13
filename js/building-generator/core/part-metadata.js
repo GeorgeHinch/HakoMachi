@@ -10,6 +10,10 @@
    New generators should prefer createPart({...}) directly.
    ===================================================================== */
 
+import { createHakoMachiLogger } from '../../shared/hakomachi-diagnostics.js';
+
+const logger = createHakoMachiLogger('Building Generator');
+
 export const PART_ROLE_LABELS = {
   core_wall: 'Core_Wall',
   exterior_cladding: 'Exterior_Cladding',
@@ -349,7 +353,7 @@ async function exportZip() {
   // Pre-flight: verify each tongue has a matching slot.
   const verify = verifyTongueSlotMatch(result.parts, result.plan.matT);
   if (verify.issues.length > 0) {
-    console.warn('[HakoMachi] Tongue/slot consistency check reported issues during export:', verify.issues);
+    logger.warn('Tongue/slot consistency check reported issues during export:', verify.issues);
   }
 
   result.parts = applySheetSplittingToParts(result.parts, CONFIG);
@@ -465,7 +469,7 @@ async function exportZip() {
       zip.file('preview_3d.stl', tris.toBinaryStl());
     }
   } catch (e) {
-    console.warn('STL generation failed, skipping:', e);
+    logger.warn('STL generation failed, skipping:', e);
   }
 
   const blob = await zip.generateAsync({ type: 'blob' });

@@ -1,3 +1,7 @@
+import { createHakoMachiLogger } from '../../shared/hakomachi-diagnostics.js';
+
+const logger = createHakoMachiLogger('Building Generator');
+
 /* =====================================================================
    INTERNAL WALL EDITOR
    Coordinate system: interior mm from building NW corner.
@@ -1748,7 +1752,7 @@ export function iwTrussColumnPreviewEtches() {
         y2: Math.max(0, Math.min(bD, e.y2)),
       }));
   } catch (err) {
-    console.warn('Unable to preview truss column footprints in floor editor', err);
+    logger.warn('Unable to preview truss column footprints in floor editor', err);
     return [];
   }
 }
@@ -3387,7 +3391,7 @@ export function regenerate() {
     renderMaterialsForm();   // keep cladding-style → material list current
   } catch (e) {
     document.getElementById('output').innerHTML = '<div class="warn">Error generating building: ' + e.message + '</div>';
-    console.error(e);
+    logger.error('Error generating building:', e);
     return;
   }
   result.parts = applySheetSplittingToParts(result.parts, CONFIG);

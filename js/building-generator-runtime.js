@@ -4,6 +4,9 @@
 
 /* ===== js/00-00-prelude.js ===== */
 import * as githubData from './shared/github-data.js';
+import { createHakoMachiLogger } from './shared/hakomachi-diagnostics.js';
+
+const logger = createHakoMachiLogger('Building Generator');
 
 window.HakoMachiGithubDataShared = githubData;
 globalThis.HakoMachiGithubDataShared = githubData;
@@ -13299,10 +13302,10 @@ function addPartsToList(parts, maybePartOrList) {
 
       const errText = err && (err.message || String(err));
       setPreviewNote('3D preview fell back to massing view. Error: ' + (errText || 'unknown preview error'), true);
-      console.error('Live 3D preview failed; fallback massing view rendered:', err);
+      logger.error('Live 3D preview failed; fallback massing view rendered:', err);
     } catch (fallbackErr) {
       setPreviewNote('3D preview failed and fallback also failed: ' + (fallbackErr && (fallbackErr.message || String(fallbackErr))), true);
-      console.error('Live 3D preview fallback failed:', fallbackErr);
+      logger.error('Live 3D preview fallback failed:', fallbackErr);
     }
   }
 
@@ -13313,7 +13316,7 @@ function addPartsToList(parts, maybePartOrList) {
           updateThreePreview(CONFIG);
         }
       } catch (err) {
-        console.warn('Post-install 3D preview rebuild failed:', err);
+        logger.warn('Post-install 3D preview rebuild failed:', err);
       }
     };
     setTimeout(rebuild, 0);
@@ -13534,7 +13537,7 @@ function addPartsToList(parts, maybePartOrList) {
       try {
         adjust3DFixtureLayerThickness(cfg || (typeof CONFIG !== 'undefined' ? CONFIG : null));
       } catch (err) {
-        console.warn('3D fixture material-thickness adjustment failed:', err);
+        logger.warn('3D fixture material-thickness adjustment failed:', err);
       }
       return result;
     };
@@ -13544,7 +13547,7 @@ function addPartsToList(parts, maybePartOrList) {
       try {
         if (typeof CONFIG !== 'undefined') updateThreePreview(CONFIG);
       } catch (err) {
-        console.warn('Post-install fixture material-thickness preview rebuild failed:', err);
+        logger.warn('Post-install fixture material-thickness preview rebuild failed:', err);
       }
     }, 100);
   }
@@ -23732,7 +23735,7 @@ function openAssemblyGuide() {
     renderAssemblyGuide();
     if (window.HakoMachiIcons) window.HakoMachiIcons.hydrate(document.getElementById('assemblyGuideModal'));
   } catch (err) {
-    console.error(err);
+    logger.error('Error generating building:', err);
     assemblyGuideState = {
       plan: { warnings: [{ message: 'The assembly guide could not be generated for the current building.' }] },
       sequence: { steps: [], warnings: [] },
@@ -25596,7 +25599,7 @@ function iwTrussColumnPreviewEtches() {
         y2: Math.max(0, Math.min(bD, e.y2)),
       }));
   } catch (err) {
-    console.warn('Unable to preview truss column footprints in floor editor', err);
+    logger.warn('Unable to preview truss column footprints in floor editor', err);
     return [];
   }
 }
@@ -27235,7 +27238,7 @@ function regenerate() {
     renderMaterialsForm();   // keep cladding-style → material list current
   } catch (e) {
     document.getElementById('output').innerHTML = '<div class="warn">Error generating building: ' + e.message + '</div>';
-    console.error(e);
+    logger.error('Error generating building:', e);
     return;
   }
   result.parts = applySheetSplittingToParts(result.parts, CONFIG);
@@ -28347,7 +28350,7 @@ async function exportZip() {
   // Pre-flight: verify each tongue has a matching slot.
   const verify = verifyTongueSlotMatch(result.parts, result.plan.matT);
   if (verify.issues.length > 0) {
-    console.warn('[HakoMachi] Tongue/slot consistency check reported issues during export:', verify.issues);
+    logger.warn('Tongue/slot consistency check reported issues during export:', verify.issues);
   }
 
   result.parts = applySheetSplittingToParts(result.parts, CONFIG);
@@ -28471,7 +28474,7 @@ async function exportZip() {
       zip.file('preview_3d.stl', tris.toBinaryStl());
     }
   } catch (e) {
-    console.warn('STL generation failed, skipping:', e);
+    logger.warn('STL generation failed, skipping:', e);
   }
 
   const blob = await zip.generateAsync({ type: 'blob' });
@@ -31443,7 +31446,7 @@ function startHakoMachiBuildingGeneratorRuntime() {
     document.documentElement.dataset.buildingGeneratorRuntimeError = message;
     const output = document.getElementById('output');
     if (output) output.innerHTML = '<div class="warn">Startup error: ' + message + '</div>';
-    console.error(err);
+    logger.error('Import or export operation failed:', err);
     throw err;
   }
   document.documentElement.dataset.buildingGeneratorRuntimeInitialized = '1';

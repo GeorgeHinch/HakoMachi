@@ -120,6 +120,22 @@ Missing permissions:
 Make sure the token is fine-grained for the datastore repository and has
 Contents read/write access.
 
+Slow saves or loads:
+Enable persistence diagnostics before reproducing the save/load. Add
+`?hmDebugPersistence=1` to the Site Planner URL, or run this once in the browser
+console:
+
+```js
+localStorage.setItem('hakomachiPersistenceDiagnostics', '1')
+```
+
+The Site Planner will write a grouped console report for local ZIP saves, local
+ZIP loads, GitHub saves, and GitHub loads. Reports include stage timings and the
+major known payload sizes: main site JSON, reference image asset, attached
+building `.hako` assets, STL/source assets, and generated ZIP size where
+available. Remove the local storage flag or set it to `0` to silence the
+diagnostics again.
+
 Disconnected account or expired token:
 Create a new token in GitHub, then replace the token in GitHub data settings.
 

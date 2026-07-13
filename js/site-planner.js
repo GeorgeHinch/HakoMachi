@@ -24,6 +24,7 @@ import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
 import { findSiteBundleProjectName, hydrateSiteBundleAssets } from './site-planner/project-bundle-utils.js';
 import { buildLocalHakoBundleAssets, buildLocalImageBundleAsset, buildLocalStlBundleAssets } from './site-planner/project-bundle-save-utils.js';
+import { byteLength as diagnosticByteLength, createPersistenceDiagnostics, summarizePersistenceAssets } from './site-planner/persistence-diagnostics.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
 import { bboxOverlaps, clamp, closestPointOnSegment, deg, dist, distanceToSegment, fmt, pointInPoly, polygonArea, polygonCenter, rad, rectLocal, selectionRectFromPoints, transformedRect, uid } from './site-planner/geometry.js';
 import { createImportProgressController } from './site-planner/import-progress-modal.js';
@@ -7197,6 +7198,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return project;
   }
   async function saveSitePlanToGithub(){
+    const diagnostics=createPersistenceDiagnostics('GitHub site save');
     try{
       const settings=getGithubSettings();
       try{requireGithubSettings(settings);}catch(err){openGithubSettings(); setGithubStatus(err.message); return;}
@@ -7209,11 +7211,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       setGithubProgress(1,8,'Preparing project...','Finalizing the site plan name and GitHub file path.');
       const id=(current && current.name===defaultName && current.id) ? current.id : slug(name);
       const path=(current && current.name===defaultName && current.path) ? current.path : githubData.cleanRepoPath(`${settings.sitePlansDir}/${id}.hako-site.json`);
-      const imageAsset=await saveGithubImageAsset(settings, id, name);
+      diagnostics.mark('save target selected', {name, path});
+      const imageAsset=await diagnostics.measure('write image asset', () => saveGithubImageAsset(settings, id, name));
       if(!imageAsset) setGithubProgress(2,8,'No reference image asset to write.','The site plan does not currently use a background image.');
-      const hakoAssets=await saveGithubHakoAssets(settings, id, name);
-      const stlAssets=await saveGithubStlAssets(settings, id, name);
+      const hakoAssets=await diagnostics.measure('write building assets', () => saveGithubHakoAssets(settings, id, name));
+      const stlAssets=await diagnostics.measure('write STL assets', () => saveGithubStlAssets(settings, id, name));
       const project=projectJson({includeImageDataUrl:false, imageAsset, hakoAssets, stlAssets});
+      const payloadText=JSON.stringify(project,null,2)+'\n';
+      diagnostics.mark('site plan payload serialized', {
+        ...summarizePersistenceAssets({imageAsset:imageAsset ? {asset:imageAsset} : null, hakoAssets, stlAssets, projectText:payloadText}),
+      });
       project.projectName=name;
       project.hakomachiCloud={
         schema:'hakomachi.cloud-ref',
@@ -7226,28 +7233,35 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         savedAt:new Date().toISOString()
       };
       setGithubProgress(5,8,'Writing site plan file...','Saving the current plan JSON with references to separate assets.');
-      await writeGithubFile(settings, path, JSON.stringify(project,null,2)+'\n', `Save HakoMachi site plan: ${name}`);
+      const projectText=JSON.stringify(project,null,2)+'\n';
+      diagnostics.mark('cloud metadata attached', {projectBytes:diagnosticByteLength(projectText)});
+      await diagnostics.measure('write site plan JSON', () => writeGithubFile(settings, path, projectText, `Save HakoMachi site plan: ${name}`), {bytes:diagnosticByteLength(projectText)});
       setGithubProgress(6,8,'Updating library index...','Loading the shared index so this plan appears in GitHub lists.');
-      const library=await loadGithubLibrary(settings);
+      const library=await diagnostics.measure('load library index', () => loadGithubLibrary(settings));
       upsertGithubSitePlan(library, githubSiteRecord(id, name, path, project));
       setGithubProgress(7,8,'Writing library index...','Saving the updated site plan list.');
-      await writeGithubFile(settings, settings.libraryPath, JSON.stringify(library,null,2)+'\n', `Update HakoMachi site plan library: ${name}`);
+      const libraryText=JSON.stringify(library,null,2)+'\n';
+      await diagnostics.measure('write library index', () => writeGithubFile(settings, settings.libraryPath, libraryText, `Update HakoMachi site plan library: ${name}`), {bytes:diagnosticByteLength(libraryText)});
       setCurrentGithubSite({id,name,path});
       markManualSaveComplete();
       setGithubProgress(8,8,'Save complete.','Saved '+path);
+      diagnostics.finish({status:'saved', name, path});
       setTimeout(()=>closeGithubModal(), 900);
     }catch(err){
+      diagnostics.finish({status:'failed', error:err?.message||String(err)});
       setGithubProgress(0,8,'GitHub save failed.', String(err.message||err));
     }
   }
   async function loadSitePlanFromGithub(record){
+    const diagnostics=createPersistenceDiagnostics('GitHub site load', {path:record?.path, name:record?.name});
     try{
       const settings=getGithubSettings();
       requireGithubSettings(settings);
       setGithubStatus('Loading '+record.path+'...');
-      const file=await readGithubFile(settings, record.path);
+      const file=await diagnostics.measure('read site plan JSON', () => readGithubFile(settings, record.path));
       if(!file) throw new Error('Missing file: '+record.path);
       const text=String(file.text||'');
+      diagnostics.mark('site plan JSON received', {bytes:diagnosticByteLength(text)});
       if(!text.trim()) throw new Error('GitHub file is empty or could not be read: '+record.path);
       let project;
       try{
@@ -7263,13 +7277,20 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       if(normalized.source!=='top-level'){
         setGithubStatus(`Loaded site-plan payload from ${normalized.source}.`);
       }
-      await resolveProjectImageFromGithub(project, settings);
-      await resolveProjectHakoAssetsFromGithub(project, settings);
-      await resolveProjectStlAssetsFromGithub(project, settings);
+      await diagnostics.measure('resolve image assets', () => resolveProjectImageFromGithub(project, settings));
+      await diagnostics.measure('resolve building assets', () => resolveProjectHakoAssetsFromGithub(project, settings));
+      await diagnostics.measure('resolve STL assets', () => resolveProjectStlAssetsFromGithub(project, settings));
+      diagnostics.mark('payload ready', {
+        buildings:(project.buildings||[]).length,
+        stlObjects:(project.stlObjects||[]).length,
+        manifestAssets:(project.assetManifest?.assets||[]).length,
+      });
       loadProject(project, {fromFile:true});
+      diagnostics.finish({status:'loaded'});
       setCurrentGithubSite({id:record.id, name:record.name, path:record.path});
       closeGithubModal();
     }catch(err){
+      diagnostics.finish({status:'failed', error:err?.message||String(err)});
       setGithubStatus('GitHub load failed: '+(err.message||err));
       showStatusHint('GitHub load failed: '+(err.message||err), 'warning');
     }
@@ -7504,12 +7525,20 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       showStatusHint('ZIP support is still loading. Try again in a moment.', 'warning');
       return;
     }
+    const diagnostics=createPersistenceDiagnostics('local ZIP save');
     const bundleImage=buildLocalImageBundleAsset(state, {cachedImageAsset, imageAssetReference, imageAssetFileName, dataUrlInfo});
     const hakoAssets=buildLocalHakoBundleAssets(state.buildings, {normalizeBuilding, hakoFileText, uniqueHakoAssetFileName, hakoFileAssetReference});
     const stlAssets=buildLocalStlBundleAssets(state.stlObjects, {normalizeStlObject, uniqueStlAssetFileName, stlAssetReference, uniqueStlSourceAssetFileName, stlSourceAssetReference});
     const project=projectJson({includeImageDataUrl:false,imageAsset:bundleImage?.asset||null,hakoAssets,stlAssets});
+    const projectText=JSON.stringify(project,null,2)+'\n';
+    diagnostics.mark('assets collected', summarizePersistenceAssets({
+      imageAsset:bundleImage,
+      hakoAssets,
+      stlAssets,
+      projectText,
+    }));
     const zip=new JSZip();
-    zip.file('hakomachi-site.hako-site.json', JSON.stringify(project,null,2)+'\n');
+    zip.file('hakomachi-site.hako-site.json', projectText);
     if(bundleImage?.asset && bundleImage?.info){
       if(bundleImage.info.isBase64) zip.file(bundleImage.asset.path, bundleImage.info.data, {base64:true});
       else zip.file(bundleImage.asset.path, decodeURIComponent(bundleImage.info.data));
@@ -7527,7 +7556,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       project:'hakomachi-site.hako-site.json',
       assets:[...(bundleImage?.asset ? [bundleImage.asset] : []), ...hakoAssets.map(entry=>entry.asset), ...stlAssets.map(entry=>entry.asset)]
     }, null, 2)+'\n');
-    const blob=await zip.generateAsync({type:'blob'});
+    const blob=await diagnostics.measure('generate ZIP blob', () => zip.generateAsync({type:'blob'}));
+    diagnostics.finish({status:'saved', zipBytes:blob.size});
     downloadBlob(blob,'hakomachi-site.zip');
     markManualSaveComplete();
   }
@@ -7538,15 +7568,24 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return payload;
   }
   async function loadSitePlanBundle(file){
+    const diagnostics=createPersistenceDiagnostics('local ZIP load', {fileName:file?.name, fileBytes:file?.size||0});
     if(!window.JSZip) throw new Error('ZIP support is still loading. Try again in a moment.');
-    const zip=await JSZip.loadAsync(file);
+    const zip=await diagnostics.measure('read ZIP file', () => JSZip.loadAsync(file));
     const projectName=findSiteBundleProjectName(zip);
     if(!projectName) throw new Error('No .hako-site.json project file was found in the ZIP.');
-    const project=JSON.parse(await zip.file(projectName).async('string'));
+    const projectText=await diagnostics.measure('read project JSON', () => zip.file(projectName).async('string'));
+    diagnostics.mark('project JSON received', {projectName, bytes:diagnosticByteLength(projectText)});
+    const project=JSON.parse(projectText);
     const normalized=normalizeLoadedSitePlanPayload(project);
     const payload=normalized.payload;
-    await hydrateSiteBundleAssets(payload, zip, {dataUrlFromBase64, cacheImageAsset, hakoFileText});
+    await diagnostics.measure('hydrate bundled assets', () => hydrateSiteBundleAssets(payload, zip, {dataUrlFromBase64, cacheImageAsset, hakoFileText}));
+    diagnostics.mark('payload ready', {
+      buildings:(payload.buildings||[]).length,
+      stlObjects:(payload.stlObjects||[]).length,
+      manifestAssets:(payload.assetManifest?.assets||[]).length,
+    });
     loadProject(payload, {fromFile:true});
+    diagnostics.finish({status:'loaded'});
     return payload;
   }
   function loadProject(p, opts={}){

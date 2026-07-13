@@ -10,11 +10,17 @@ export function createStatusUiController({
     if(el) el.textContent=text;
   }
 
+  function setSectionVisible(section, visible){
+    if(!section) return;
+    section.classList.toggle('is-hidden', !visible);
+    section.style.display = visible ? '' : 'none';
+  }
+
   function updateStatus(){
     const calibrationSection=getElement('calibrationSection');
-    if(calibrationSection) calibrationSection.style.display = state.tool==='calibrate' ? '' : 'none';
+    setSectionVisible(calibrationSection, state.tool==='calibrate');
     const fabricSection=getElement('fabricSection');
-    if(fabricSection) fabricSection.style.display = (state.tool==='fabric' && !activeSidebarDetailKind()) ? '' : 'none';
+    setSectionVisible(fabricSection, state.tool==='fabric' && !activeSidebarDetailKind());
     initFabricControls();
     const roadModeLabel = state.roadMode === 'outline' ? 'Road outline' : state.roadMode === 'manhole' ? 'Road detail cutout' : state.roadMode === 'marking' ? 'Road etching / marking' : 'Road centerline';
     const roadTaskLabel = state.roadTask === 'intersections' ? 'Intersection controls' : state.roadTask === 'exportPreview' ? 'Cut preview' : state.roadTask === 'exportAssets' ? 'Road asset export' : null;

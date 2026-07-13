@@ -19,6 +19,15 @@ body {
   background: var(--bg);
 }
 
+.sitePlannerApp .is-hidden {
+  display: none;
+}
+
+.sitePlannerApp .sectionActions,
+.sitePlannerApp .sectionHelp {
+  margin-top: 8px;
+}
+
 .app.sitePlannerApp,
 .sitePlannerApp {
   display: grid;

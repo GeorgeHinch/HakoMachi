@@ -78,6 +78,20 @@ export let iwClipboard = [];
 export const IW_ROOF = 'roof'; // sentinel value for the roof tab
 export const IW_TAB_SPACING = 35;     // mm between wall tongue tabs
 
+function showEditorMessage(message, kind = 'warn') {
+  const flash = globalThis.HakoMachiBuildingGeneratorRuntime?.flashMessage || globalThis.flashMessage;
+  if (typeof flash === 'function') {
+    flash(message, kind);
+    return;
+  }
+  const warnings = document.getElementById('warnings');
+  if (!warnings) return;
+  const div = document.createElement('div');
+  div.className = kind === 'err' ? 'warn' : kind === 'ok' ? 'ok-msg' : 'warn';
+  div.textContent = message;
+  warnings.replaceChildren(div);
+}
+
 /* Returns the object whose rooftopItems / skylights / roofHoles /
  * floorHoles the IW editor reads from and writes back to. Main mode
  * (iwWingIndex == null) returns the top-level CONFIG; wing mode
@@ -558,7 +572,7 @@ export function iwDistributeSelected(axis) {
 }
 
 export function openInternalWallEditor(startFloor, wingIndex) {
-  if (!lastPlan) { alert('Generate a building first.'); return; }
+  if (!lastPlan) { showEditorMessage('Generate a building first.', 'warn'); return; }
   // Wing mode: cache the wing's cfg and plan so iwBounds and downstream
   // helpers can return wing dimensions, and iwTarget routes per-wing
   // arrays. Cache is invalidated each open so changes to wing geometry

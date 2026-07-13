@@ -163,7 +163,7 @@ function pushCurrentBuildingToSitePlanner() {
   try {
     const payload = makeSitePlannerBuildingUpdate();
     if (!payload.targetPlannerBuildingId) {
-      window.alert('This building was not opened from a Site Planner footprint, so there is no planner building to update.');
+      showBridgeStatus('This building was not opened from a Site Planner footprint, so there is no planner building to update.', 'warn');
       return;
     }
     payload.returnToSitePlanner = true;

@@ -547,7 +547,7 @@ globalThis.HakoMachiGithubDataShared = githubData;
       if (options.reason === 'autosave') {
         flashMessage('Autosaved building to GitHub.', 'ok');
       } else if (promptForName) {
-        alert(`${tr('saved')}\n\n${s.repoFullName}\n${path}\n${s.libraryPath || DEFAULT_LIBRARY_PATH}`);
+        flashMessage(`${tr('saved')} ${path}`, 'ok');
       } else {
         flashMessage(`${tr('saved')} ${path}`, 'ok');
       }
@@ -558,7 +558,7 @@ globalThis.HakoMachiGithubDataShared = githubData;
       if (options.reason === 'autosave') {
         flashMessage('GitHub autosave failed: ' + msg, 'err');
       } else {
-        alert('GitHub save failed:\n\n' + msg);
+        flashMessage('GitHub save failed: ' + msg, 'err');
       }
       return { saved: false, error: err };
     }
@@ -24420,7 +24420,7 @@ function iwDistributeSelected(axis) {
 }
 
 function openInternalWallEditor(startFloor, wingIndex) {
-  if (!lastPlan) { alert('Generate a building first.'); return; }
+  if (!lastPlan) { flashMessage('Generate a building first.', 'warn'); return; }
   // Wing mode: cache the wing's cfg and plan so iwBounds and downstream
   // helpers can return wing dimensions, and iwTarget routes per-wing
   // arrays. Cache is invalidated each open so changes to wing geometry
@@ -40281,7 +40281,7 @@ Object.defineProperties(globalThis, {
 globalThis.HakoMachiBuildingGeneratorRuntime = Object.freeze({
   get CONFIG() { return CONFIG; },
   init, regenerate, readForm, writeForm, generateBuilding, createAssemblyPlan, createAssemblyPlanFromConfig, createAssemblySequence, createAssemblyStepIllustrations, createAssemblyManualHtml, generateBuildingWithWings, generateBuildingStl,
-  buildEdgePlans, upgradeConfigToCurrentStorage, serializableCurrentConfig,
+  buildEdgePlans, upgradeConfigToCurrentStorage, serializableCurrentConfig, flashMessage,
   start: startHakoMachiBuildingGeneratorRuntime,
 });
 document.documentElement.dataset.buildingGeneratorRuntime = 'ready';

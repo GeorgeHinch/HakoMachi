@@ -710,15 +710,14 @@ function copySettings(){
   HakoMachiUtils.copyText(text,{button:el('copySettingsBtn'),successText:'Settings copied',resetText:'Copy current settings',fallbackText:'Settings in box'});
 }
 function download(){var svg=regenerate(false); HakoMachiUtils.downloadText('<?xml version="1.0" encoding="UTF-8"?>\n'+svg,'safety_railing_flat_cutout_'+el('lengthMm').value+'mm.svg','image/svg+xml');}
-function copySvg(){var text='<?xml version="1.0" encoding="UTF-8"?>\n'+regenerate(false); HakoMachiUtils.copyText(text,{button:el('copyBtn'),successText:'Copied',resetText:'Copy flat SVG'}).then(function(ok){if(!ok)alert('Copy failed; use download instead.');});}
+function copySvg(){var text='<?xml version="1.0" encoding="UTF-8"?>\n'+regenerate(false); HakoMachiUtils.copyText(text,{button:el('copyBtn'),successText:'Copied',resetText:'Copy flat SVG'}).then(function(ok){if(!ok)el('stats').textContent='Copy failed; use download instead.';});}
 function safeRegenerate(updateEditor){try{regenerate(updateEditor);}catch(err){el('stats').textContent='Render error: '+err.message; console.error(err);}}
 function applyPastedLineFromText(showAlert){
   var text=el('pastedSvgLine').value.trim();
   if(!text){pathPoints=null; pathPointsRawSvgUnits=false; segmentSettings=[]; updateSegmentEditor(); safeRegenerate(false); return true;}
   var pts=parseSvgLine(text);
   if(!pts||pts.length<2){
-    if(showAlert)alert('Could not read a usable SVG line/polyline/path.');
-    el('stats').textContent='Waiting for a valid pasted SVG line/path...';
+    el('stats').textContent=showAlert ? 'Could not read a usable SVG line/polyline/path.' : 'Waiting for a valid pasted SVG line/path...';
     return false;
   }
   var changed=!pathPoints || pts.length!==pathPoints.length || pts.some(function(p,i){return Math.abs(p.x-pathPoints[i].x)>0.0001 || Math.abs(p.y-pathPoints[i].y)>0.0001;});

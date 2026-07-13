@@ -7,6 +7,7 @@ import { installThreeRenderCanvas } from '../../shared/browser-utils.js';
 import { createHakoMachiLogger } from '../../shared/hakomachi-diagnostics.js';
 import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=shared-building-preview-26';
 import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=shared-building-preview-31';
+import { createPreviewMaterialHelpers } from './material-helpers.js?v=shared-building-preview-31';
 
 const logger = createHakoMachiLogger('Building Generator 3D Preview');
 
@@ -172,77 +173,19 @@ export function initThreePreview() {
   scheduleThreePreviewConfigRefresh();
 }
 
-/**
- * Build a canvas texture that renders the cladding pattern as engraved grooves
- * over the wall base colour.  Returns a THREE.CanvasTexture or null if no style.
- *
- * @param {Object} cfg        - building config
- * @param {number} wallW      - wall face width  in mm
- * @param {number} wallH      - wall face height in mm
- * @param {Array}  openings   - [{x,y,w,h}] in wall-local 2D coords (y=0 top)
- * @param {boolean} flipX     - true for walls whose shape was built with mirrorX
- */
-export function normaliseHexColour(raw, fallback = '#cccccc') {
-  if (!raw || typeof raw !== 'string') return fallback;
-  let s = raw.trim();
-  if (!s) return fallback;
-  if (s[0] !== '#') s = '#' + s;
-  if (/^#[0-9a-f]{3}$/i.test(s)) {
-    return '#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3];
-  }
-  if (/^#[0-9a-f]{6}$/i.test(s)) return s;
-  return fallback;
-}
+const previewMaterialHelpers = createPreviewMaterialHelpers(getThreePreviewConfig);
 
-// Compatibility wrappers around MaterialRegistry. Prefer calling the
-// registry directly in new code.
-export function materialDefinitionForId(cfg, materialId) {
-  return MaterialRegistry.get(materialId, getThreePreviewConfig(cfg), false);
-}
-
-export function materialColourHex(cfg, materialId, fallback = '#cccccc') {
-  return MaterialRegistry.colorHex(materialId, getThreePreviewConfig(cfg), fallback);
-}
-
-export function materialColourNumber(cfg, materialId, fallback = 0xcccccc) {
-  return MaterialRegistry.colorNumber(materialId, getThreePreviewConfig(cfg), fallback);
-}
-
-export function claddingMaterialIdForStyle(cfg, styleKey) {
-  return MaterialRegistry.claddingMaterialId(styleKey, getThreePreviewConfig(cfg));
-}
-
-export function claddingColourHexForStyle(cfg, styleKey, fallback = '#cbbfa3') {
-  return MaterialRegistry.claddingColorHex(styleKey, getThreePreviewConfig(cfg), fallback);
-}
-
-export function shadeHexColour(hex, factor = 0.75) {
-  const h = normaliseHexColour(hex, '#cccccc').slice(1);
-  const r = Math.max(0, Math.min(255, Math.round(parseInt(h.slice(0, 2), 16) * factor)));
-  const g = Math.max(0, Math.min(255, Math.round(parseInt(h.slice(2, 4), 16) * factor)));
-  const b = Math.max(0, Math.min(255, Math.round(parseInt(h.slice(4, 6), 16) * factor)));
-  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
-}
-
-export function rgbaFromHex(hex, alpha = 1) {
-  const h = normaliseHexColour(hex, '#000000').slice(1);
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
-export function material3DForId(cfg, materialId, opts = {}, fallback = 0xcccccc) {
-  return MaterialRegistry.threeMaterial(materialId, getThreePreviewConfig(cfg), opts, fallback);
-}
-
-export function svgDataUri(svg) {
-  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
-    .replace(/%20/g, ' ')
-    .replace(/%3D/g, '=')
-    .replace(/%3A/g, ':')
-    .replace(/%2F/g, '/');
-}
+// Compatibility exports. New preview code should import from material-helpers.js.
+export const normaliseHexColour = previewMaterialHelpers.normaliseHexColour;
+export const materialDefinitionForId = previewMaterialHelpers.materialDefinitionForId;
+export const materialColourHex = previewMaterialHelpers.materialColourHex;
+export const materialColourNumber = previewMaterialHelpers.materialColourNumber;
+export const claddingMaterialIdForStyle = previewMaterialHelpers.claddingMaterialIdForStyle;
+export const claddingColourHexForStyle = previewMaterialHelpers.claddingColourHexForStyle;
+export const shadeHexColour = previewMaterialHelpers.shadeHexColour;
+export const rgbaFromHex = previewMaterialHelpers.rgbaFromHex;
+export const material3DForId = previewMaterialHelpers.material3DForId;
+export const svgDataUri = previewMaterialHelpers.svgDataUri;
 
 export const _printedItemTextureCache3D = new Map();
 
@@ -288,7 +231,16 @@ export function printedItemTexture3D(styleKey, w, h) {
   return tex;
 }
 
-
+/**
+ * Build a canvas texture that renders the cladding pattern as engraved grooves
+ * over the wall base colour. Returns a THREE.CanvasTexture or null if no style.
+ *
+ * @param {Object} cfg        - building config
+ * @param {number} wallW      - wall face width  in mm
+ * @param {number} wallH      - wall face height in mm
+ * @param {Array}  openings   - [{x,y,w,h}] in wall-local 2D coords (y=0 top)
+ * @param {boolean} flipX     - true for walls whose shape was built with mirrorX
+ */
 export function buildWallTexture(cfg, wallW, wallH, baseH, openings, flipX, styleKeyOverride) {
   const styleKey = styleKeyOverride || cfg.claddingStyle;
   const styleSpec = CLADDING_STYLES[styleKey];

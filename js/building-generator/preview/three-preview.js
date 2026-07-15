@@ -9,6 +9,7 @@ import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../
 import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=shared-building-preview-31';
 import { collectPreviewLayoutCuts, previewLayoutCutsActive } from './layout-cut-helpers.js?v=shared-building-preview-31';
 import { createPreviewMaterialHelpers } from './material-helpers.js?v=shared-building-preview-31';
+import { get3DWallProfileForFace, getPreviewEffectiveRidgeDir, isPreviewGabledRoofStyle } from './wall-profile-helpers.js?v=shared-building-preview-31';
 
 const logger = createHakoMachiLogger('Building Generator 3D Preview');
 
@@ -308,85 +309,7 @@ export function buildWallTexture(cfg, wallW, wallH, baseH, openings, flipX, styl
 }
 
 /* ---- helpers ---- */
-
-function isPreviewGabledRoofStyle(roofStyle) {
-  return roofStyle === 'gabled' || roofStyle === 'parapet_gable';
-}
-
-function getPreviewEffectiveRidgeDir(cfg) {
-  if ((cfg?.roofStyle || '') === 'parapet_gable') {
-    const sides = cfg.parapetSides || 'all';
-    if (sides === 'fb') return 'ns';
-    if (sides === 'ew') return 'ew';
-  }
-  return cfg?.roofRidgeDirection || 'ew';
-}
-
-/**
- * Collect window + door rects for one wall face in 2D wall-local coords
- * (x=0 left, y=0 top), pulling from manualOpenings or re-computing auto placement.
- */
-export function get3DWallProfileForFace(cfg, plan, face) {
-  const H = plan.H;
-  const roofStyle = cfg.roofStyle || 'parapet';
-  const isFrontBack = (face === 'front' || face === 'back');
-  const isSide = (face === 'east' || face === 'west');
-
-  const isGabled  = isPreviewGabledRoofStyle(roofStyle);
-  const isSlanted = roofStyle === 'slanted';
-  const ewRidge   = getPreviewEffectiveRidgeDir(cfg) === 'ew';
-  const pitch     = cfg.roofPitch || 10;
-  const slopeDir  = cfg.roofSlopeDirection || 'back';
-  const sltNsAxis = (slopeDir === 'back' || slopeDir === 'front');
-
-  // Same meaning as buildWallMesh3D args:
-  //   wallH      = rectangular eave/base height of this face
-  //   gablePitch = triangular peak on this face, if it is a gable end
-  //   slantPitch = trapezoid top delta; >0 means right side is higher
-  let wallH = H;
-  let gablePitch = 0;
-  let slantPitch = 0;
-
-  if (isGabled) {
-    if (isFrontBack && !ewRidge) gablePitch = pitch; // NS ridge → front/back gable ends
-    if (isSide && ewRidge)       gablePitch = pitch; // EW ridge → side gable ends
-  }
-
-  if (isSlanted) {
-    if (isFrontBack) {
-      if (sltNsAxis) {
-        if ((face === 'front' && slopeDir === 'front') ||
-            (face === 'back'  && slopeDir === 'back')) {
-          wallH = H + pitch;
-        }
-      } else {
-        // Front/back walls are trapezoids when the slope runs east/west.
-        // Local wall x runs west→east; >0 means east/right is higher.
-        slantPitch = (slopeDir === 'east') ? +pitch : -pitch;
-      }
-    } else if (isSide) {
-      if (!sltNsAxis) {
-        if ((face === 'east' && slopeDir === 'east') ||
-            (face === 'west' && slopeDir === 'west')) {
-          wallH = H + pitch;
-        }
-      } else {
-        // Side walls are trapezoids when the slope runs front/back.
-        // East side local x = north→south; West side local x = south→north.
-        if (face === 'east') slantPitch = (slopeDir === 'back') ? -pitch : +pitch;
-        if (face === 'west') slantPitch = (slopeDir === 'back') ? +pitch : -pitch;
-      }
-    }
-  }
-
-  return {
-    wallH,
-    baseH: H,
-    gablePitch,
-    slantPitch,
-    texH: wallH + gablePitch + Math.abs(slantPitch),
-  };
-}
+export { get3DWallProfileForFace };
 
 export function doorOpeningAs3DBayDoor(op, fallbackStyle) {
   const styleKey = (op && op.style) || fallbackStyle;

@@ -713,6 +713,35 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('function initFabricControls');
   });
 
+  test('road asset export review packaging is wired through its controller', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'road-asset-export-controller.js'), 'utf8');
+    const {
+      generatedRoadRecordIncludedForExport,
+      reviewedRoadExportIds,
+      roadFeatureIncludedForExport,
+    } = await import('../js/site-planner/road-asset-export-controller.js');
+
+    expect(source).toContain("import { createRoadAssetExportController } from './site-planner/road-asset-export-controller.js';");
+    expect(source).toContain('roadAssetExporter = createRoadAssetExportController({');
+    expect(source).toContain('onExport: review => roadAssetExporter.downloadRoadAssetExport(review),');
+    expect(source).not.toContain('function svgRoadAssetExport(review={})');
+    expect(source).not.toContain('function downloadRoadAssetExport(review={})');
+
+    expect(controller).toContain('export function createRoadAssetExportController');
+    expect(controller).toContain('function svgRoadAssetExport(review = {})');
+    expect(controller).toContain('async function downloadRoadAssetExport(review = {})');
+
+    const selectedIds = reviewedRoadExportIds({ includedRoadIds: ['road_keep', 'missing'] }, {
+      roads: [{ id: 'road_keep' }, { id: 'road_skip' }],
+    });
+    expect(Array.from(selectedIds)).toEqual(['road_keep']);
+    expect(roadFeatureIncludedForExport({ roadId: 'road_keep' }, selectedIds)).toBe(true);
+    expect(roadFeatureIncludedForExport({ roadId: 'road_skip' }, selectedIds)).toBe(false);
+    expect(roadFeatureIncludedForExport({ type: 'floating-label' }, selectedIds)).toBe(true);
+    expect(generatedRoadRecordIncludedForExport({ roadId: 'road_skip' }, selectedIds)).toBe(false);
+  });
+
   test('rail crossings generate crossing panels, infill, and SVG export records', async () => {
     const {
       RAIL_CROSSING_CENTER_CLEARANCE_MM,

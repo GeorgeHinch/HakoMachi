@@ -5,7 +5,7 @@ import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fa
 import { createAutosaveUiController } from './site-planner/autosave-ui.js';
 import { createBuildingSelectionController } from './site-planner/building-selection-utils.js';
 import { createContextMenuController } from './site-planner/context-menu-controller.js';
-import { buildingCsvExport, roadAssetSvgExport, sitePlanSvgExport } from './site-planner/export-utils.js';
+import { buildingCsvExport, sitePlanSvgExport } from './site-planner/export-utils.js';
 import { createAnnotationController } from './site-planner/annotation-controller.js';
 import { createFabricController } from './site-planner/fabric-controller.js';
 import { dataTransferHasFile, isSupportedImageFile, pageHakoImportFileFromDataTransfer, readFileAsDataURL } from './site-planner/file-import-utils.js';
@@ -35,11 +35,9 @@ import { createReferenceImageUiController } from './site-planner/reference-image
 import { drainageGrateFamilyOptions, grateFamilyPresetByKey } from './site-planner/road-drainage-grate-inserts.js';
 import { intersectionFeatureKey } from './site-planner/road-intersection-overrides.js';
 import { createRoadSystemController } from './site-planner/road-system-controller.js';
-import { createRoadExportReviewController, filterRoadExportDataByRoadIds, roadExportContentBounds, roadExportTransformForMedia } from './site-planner/road-export-review-panel.js';
-import { paintStencilExportSpecs, physicalGrateExportSpecs } from './site-planner/road-asset-export-specs.js';
+import { createRoadAssetExportController } from './site-planner/road-asset-export-controller.js';
+import { createRoadExportReviewController } from './site-planner/road-export-review-panel.js';
 import { migrateRoadFeatures } from './site-planner/road-feature-migration.js';
-import { serializeGrateInsertSheetsByMaterial } from './site-planner/road-grate-sheet-serializer.js';
-import { serializePaintStencilSheetsByMaterial } from './site-planner/road-paint-stencil-templates.js';
 import { createRoadPresetApplicationController } from './site-planner/road-preset-application-utils.js';
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
 import { buildRoadMarkingShapes } from './site-planner/road-marking-shapes.js';
@@ -140,6 +138,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let sidebarObjectType = null;
   let trackAccessoryObjectFilter = 'all';
   let roadSystem = null;
+  let roadAssetExporter = null;
   let roadExportReview = null;
   let fabricController = null;
   const colors = ['#d79631','#b8672d','#0f766e','#7c5f3f','#8b5a2b','#5f7f54','#9b6b44','#496a78'];
@@ -2745,11 +2744,39 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     syncAll,
     dist,
   });
+  roadAssetExporter = createRoadAssetExportController({
+    state,
+    generateRoadExportData,
+    generatedRailCrossings,
+    railCrossingInfillPanels,
+    roadSystem,
+    railCrossingSvgRecords,
+    fabricationDeps: {
+      JP_ROAD_MARKING_STANDARD_ID,
+      SVG_OP,
+      SVG_ENGRAVE,
+      SVG_RETAINED_CUT,
+      SVG_SCRAP_CUT,
+      escapeAttr,
+      escapeHtml,
+      markingPresetByKey,
+      normalizeRoadFeature,
+      polygonCenter,
+      svgFabricationAttrs,
+      svgFeatureTransform,
+      svgPathFromPoly,
+    },
+    normalizeRoadFeature,
+    markingPresetByKey,
+    downloadText,
+    downloadBlob,
+    slugify: value => slug(value),
+  });
   roadExportReview = createRoadExportReviewController({
     state,
     canvasWrap: wrap,
     generateRoadExportData,
-    onExport: downloadRoadAssetExport,
+    onExport: review => roadAssetExporter.downloadRoadAssetExport(review),
     setStatusHint: showStatusHint,
   });
 
@@ -7713,80 +7740,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function csvExport(){syncAll(); return buildingCsvExport(state.buildings, {normalizeBuilding});}
 
-  function reviewedRoadExportIds(reviewSettings, data){
-    const ids=(data?.roads||[]).map(road=>road.id).filter(Boolean);
-    const allowed=new Set(ids);
-    const selected=Array.isArray(reviewSettings?.includedRoadIds)
-      ? reviewSettings.includedRoadIds.filter(id=>allowed.has(id))
-      : ids;
-    return new Set(selected);
-  }
-  function roadFeatureIncludedForExport(feature, includedRoadIds){
-    if(!includedRoadIds || !includedRoadIds.size) return true;
-    return !feature?.roadId || includedRoadIds.has(feature.roadId);
-  }
-  function generatedRoadRecordIncludedForExport(record, includedRoadIds){
-    if(!includedRoadIds || !includedRoadIds.size) return true;
-    return !record?.roadId || includedRoadIds.has(record.roadId);
-  }
-  function svgRoadAssetExport(review={}){
-    const rawData=generateRoadExportData();
-    const includedRoadIds=reviewedRoadExportIds(review.settings, rawData);
-    const data=filterRoadExportDataByRoadIds(rawData, Array.from(includedRoadIds));
-    const filteredRoadFeatures=(state.roadFeatures||[]).filter(feature=>roadFeatureIncludedForExport(feature,includedRoadIds));
-    const crossings=generatedRailCrossings();
-    const generatedIntersectionRecords=roadSystem.generatedRoadIntersectionSvgRecords({includeCurbGuides:false}).filter(record=>generatedRoadRecordIncludedForExport(record,includedRoadIds));
-    const generatedRailCrossingRecords=railCrossingSvgRecords(crossings,{infillPanels:railCrossingInfillPanels(crossings)}).filter(record=>generatedRoadRecordIncludedForExport(record,includedRoadIds));
-    let w=state.image?.width||1200,h=state.image?.height||800,contentTransform='';
-    if(review.media){
-      w=review.media.widthMm;
-      h=review.media.heightMm;
-      const bounds=roadExportContentBounds(data,filteredRoadFeatures);
-      contentTransform=roadExportTransformForMedia({bounds,media:review.media,pxPerMm:state.pxPerMm}).transform;
-    }
-    return roadAssetSvgExport({data, roadFeatures:filteredRoadFeatures, generatedIntersectionRecords, generatedRailCrossingRecords, width:w, height:h, contentTransform}, {JP_ROAD_MARKING_STANDARD_ID, SVG_OP, SVG_ENGRAVE, SVG_RETAINED_CUT, SVG_SCRAP_CUT, escapeAttr, escapeHtml, markingPresetByKey, normalizeRoadFeature, polygonCenter, svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly});
-  }
-  async function downloadRoadAssetExport(review={}){
-    const rawData=generateRoadExportData();
-    const includedRoadIds=reviewedRoadExportIds(review.settings, rawData);
-    const roadFeaturesForExport=(state.roadFeatures||[]).filter(feature=>roadFeatureIncludedForExport(feature,includedRoadIds));
-    const roadSvg=svgRoadAssetExport(review);
-    const exportDeps={normalizeRoadFeature, markingPresetByKey, pxPerMm:state.pxPerMm};
-    const grates=physicalGrateExportSpecs(roadFeaturesForExport, exportDeps);
-    const stencils=paintStencilExportSpecs(roadFeaturesForExport, exportDeps);
-    if(!grates.length && !stencils.length){
-      downloadText(roadSvg,'hakomachi-road-assets.svg','image/svg+xml');
-      return;
-    }
-    if(!window.JSZip){
-      downloadText(roadSvg,'hakomachi-road-assets.svg','image/svg+xml');
-      return;
-    }
-    const zip=new JSZip();
-    zip.file('hakomachi-road-assets.svg',roadSvg);
-    serializeGrateInsertSheetsByMaterial(grates).forEach((sheet,index)=>{
-      const materialId=slug(sheet.materialId||`grate-material-${index+1}`);
-      zip.file(`road-grate-inserts/${materialId}.svg`,sheet.svg);
-    });
-    serializePaintStencilSheetsByMaterial(stencils,{includeGuides:true}).forEach((sheet,index)=>{
-      const materialId=slug(sheet.materialId||`stencil-material-${index+1}`);
-      zip.file(`road-paint-stencils/${materialId}.svg`,sheet.svg);
-    });
-    zip.file('road-grate-inserts/manifest.json',JSON.stringify({
-      schema:'hakomachi.road-asset-export',
-      schemaVersion:1,
-      roadDeck:'hakomachi-road-assets.svg',
-      physicalGrates:grates.map(spec=>({id:spec.id,label:spec.label,key:spec.key,widthMm:spec.widthMm,depthMm:spec.depthMm,shape:spec.shape||'rect'})),
-    },null,2)+'\n');
-    zip.file('road-paint-stencils/manifest.json',JSON.stringify({
-      schema:'hakomachi.road-paint-stencils',
-      schemaVersion:1,
-      roadDeck:'hakomachi-road-assets.svg',
-      paintStencils:stencils.map(spec=>({id:spec.id,label:spec.label,preset:spec.preset?.key,materialId:spec.materialId,widthMm:spec.preset?.widthMm,depthMm:spec.preset?.depthMm,rotationDeg:spec.rotationDeg,marginMm:spec.options?.marginMm??2,bridgeMm:spec.options?.bridgeMm??0.35})),
-    },null,2)+'\n');
-    const blob=await zip.generateAsync({type:'blob'});
-    downloadBlob(blob,'hakomachi-road-assets.zip');
-  }
   function svgExport(){
     syncAll();
     const w=state.image?.width||1200,h=state.image?.height||800;

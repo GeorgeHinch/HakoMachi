@@ -84,6 +84,79 @@ test.describe('Site Planner module split contracts', () => {
     expect(classNames.has('visible')).toBe(false);
   });
 
+  test('toolbar variant buttons are wired through the variant controller', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'tool-variant-controller.js'), 'utf8');
+    const { createToolVariantController, roadModeLabel } = await import('../js/site-planner/tool-variant-controller.js');
+
+    expect(source).toContain("import { createToolVariantController } from './site-planner/tool-variant-controller.js';");
+    expect(source).toContain('const toolVariantController = createToolVariantController({');
+    expect(source).toContain('toolVariantController.installToolVariantControls();');
+    expect(source).not.toContain('function updateRoadToolButton()');
+    expect(source).not.toContain('function trackSwitchToolTask()');
+
+    expect(controllerSource).toContain('export function createToolVariantController');
+    expect(controllerSource).toContain('function updateRoadToolButton()');
+    expect(controllerSource).toContain('function installToolVariantControls()');
+    expect(roadModeLabel('marking')).toBe('Road Marking');
+    expect(roadModeLabel('outline')).toBe('Road Outline');
+
+    const classNames = new Set();
+    const makeElement = () => ({
+      dataset: {},
+      textContent: '',
+      title: '',
+      attrs: {},
+      listeners: {},
+      classList: {
+        toggle: (name, on) => (on ? classNames.add(name) : classNames.delete(name)),
+      },
+      setAttribute(name, value) {
+        this.attrs[name] = value;
+      },
+      addEventListener(type, handler) {
+        this.listeners[type] = handler;
+      },
+    });
+    const elements = {
+      roadToolBtn: makeElement(),
+      roadToolIcon: makeElement(),
+      roadToolLabel: makeElement(),
+    };
+    const roadMenuButton = makeElement();
+    roadMenuButton.dataset.roadMode = 'marking';
+    const state = { roadMode: 'marking', workspaceMode: 'road', trackTask: null };
+    let iconName = '';
+    let workspaceUpdates = 0;
+    const controller = createToolVariantController({
+      state,
+      getElement: id => elements[id] || null,
+      doc: {
+        querySelectorAll: selector => (selector === '#roadToolMenu button' ? [roadMenuButton] : []),
+        addEventListener: () => {},
+      },
+      win: { addEventListener: () => {} },
+      setIcon: (_el, name) => { iconName = name; },
+      hydrateIcons: () => {},
+      toggleToolFlyout: () => {},
+      hideToolFlyouts: () => {},
+      setActiveTool: () => {},
+      beginTrackAccessoryPlacement: () => {},
+      beginCatenaryAutoSection: () => {},
+      isCatenaryAutoSectionAction: action => action === 'catenaryAutoSection',
+      updateWorkspaceModeUi: () => { workspaceUpdates += 1; },
+    });
+
+    controller.updateRoadToolButton();
+
+    expect(elements.roadToolLabel.textContent).toBe('Road Marking');
+    expect(elements.roadToolBtn.attrs['aria-label']).toBe('Road Marking');
+    expect(elements.roadToolIcon.dataset.icon).toBe('roadMarking');
+    expect(iconName).toBe('roadMarking');
+    expect(classNames.has('active')).toBe(true);
+    expect(workspaceUpdates).toBe(1);
+  });
+
   test('building generator handoff behavior is wired through the handoff controller', async () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'hako-handoff-controller.js'), 'utf8');

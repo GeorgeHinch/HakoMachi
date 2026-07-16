@@ -55,6 +55,7 @@ import { installTopMenus } from './site-planner/top-menu-utils.js';
 import { createTrackController } from './site-planner/track-controller.js';
 import { createToolFlyoutController } from './site-planner/tool-flyout-utils.js';
 import { createToolTooltipController } from './site-planner/tool-tooltip-controller.js';
+import { createToolVariantController } from './site-planner/tool-variant-controller.js';
 import { createViewTransformController } from './site-planner/view-transform-utils.js';
 import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geometry.js?v=shared-building-preview-26';
 
@@ -141,6 +142,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let roadSystem = null;
   let roadAssetExporter = null;
   let roadExportReview = null;
+  let updateRoadToolButton = () => {};
+  let updateStreetlightToolButton = () => {};
+  let updateTrackSwitchToolButton = () => {};
+  let updateTrackBufferToolButton = () => {};
+  let updateCatenaryToolButton = () => {};
   let fabricController = null;
   const colors = ['#d79631','#b8672d','#0f766e','#7c5f3f','#8b5a2b','#5f7f54','#9b6b44','#496a78'];
   function initFabricControls(){
@@ -6540,9 +6546,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(state.trackDraft.length >= 2) finishTrack();
     else { state.trackDraft = []; state.trackDraftConnections=[]; state.trackDraftExtension=null; }
   }
-  function roadModeLabel(mode=state.roadMode){
-    return mode==='outline' ? 'Road Outline' : mode==='manhole' ? 'Manhole / Hatch' : mode==='marking' ? 'Road Marking' : 'Road Centerline';
-  }
   function normalizeWorkspaceMode(mode){
     return mode === 'road' || mode === 'track' ? mode : 'layout';
   }
@@ -6699,143 +6702,28 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
   });
 
-  let roadToolPressTimer=null;
-  function updateRoadToolButton(){
-    const btn=$('roadToolBtn'), icon=$('roadToolIcon'), label=$('roadToolLabel');
-    const title=roadModeLabel();
-    if(label) label.textContent=title;
-    if(btn){btn.title=title; btn.setAttribute('aria-label', title);}
-    if(icon){icon.dataset.icon=state.roadMode==='manhole'?'manhole':state.roadMode==='marking'?'roadMarking':'road'; setIcon(icon,icon.dataset.icon);}
-    document.querySelectorAll('#roadToolMenu button').forEach(b=>b.classList.toggle('active', b.dataset.roadMode===state.roadMode));
-    updateWorkspaceModeUi();
-  }
-  function showRoadToolMenu(anchor=$('roadToolGroup')||$('roadToolBtn')){toggleToolFlyout('roadToolMenu', anchor); updateRoadToolButton();}
-  $('roadVariantBtn')?.addEventListener('click', e=>{e.preventDefault(); e.stopPropagation(); showRoadToolMenu($('roadToolGroup')||$('roadVariantBtn'));});
-  $('roadToolBtn')?.addEventListener('pointerdown', e=>{clearTimeout(roadToolPressTimer); roadToolPressTimer=setTimeout(()=>showRoadToolMenu($('roadToolGroup')||$('roadToolBtn')), 420);});
-  $('roadToolBtn')?.addEventListener('pointerup', ()=>clearTimeout(roadToolPressTimer));
-  $('roadToolBtn')?.addEventListener('pointerleave', ()=>clearTimeout(roadToolPressTimer));
-  $('roadToolBtn')?.addEventListener('contextmenu', e=>{e.preventDefault(); showRoadToolMenu($('roadToolGroup')||$('roadVariantBtn'));});
-  document.querySelectorAll('#roadToolMenu button').forEach(btn=>btn.onclick=e=>{e.stopPropagation(); state.roadMode=btn.dataset.roadMode||'centerline'; updateRoadToolButton(); setActiveTool('road');});
-  hydrateIcons();
-  updateRoadToolButton();
-
-  function updateStreetlightToolButton(){
-    const icon=$('streetlightToolIcon'), label=$('streetlightToolLabel'), btn=$('streetlightToolBtn');
-    const anchored=state.streetlightMode==='anchored';
-    if(icon){ icon.dataset.icon=anchored?'lampAnchored':'lamp'; setIcon(icon, icon.dataset.icon); }
-    if(label) label.textContent=anchored?'Anchored Streetlight':'Streetlight';
-    if(btn){btn.title=anchored?'Anchored Streetlight':'Streetlight'; btn.setAttribute('aria-label', anchored?'Anchored Streetlight':'Streetlight');}
-    document.querySelectorAll('#streetlightToolMenu button').forEach(b=>b.classList.toggle('active', b.dataset.streetlightMode===state.streetlightMode));
-  }
-  function showStreetlightToolMenu(anchor=$('streetlightToolGroup')||$('streetlightToolBtn')){toggleToolFlyout('streetlightToolMenu', anchor); updateStreetlightToolButton();}
-  $('streetlightVariantBtn')?.addEventListener('click', e=>{e.preventDefault(); e.stopPropagation(); showStreetlightToolMenu($('streetlightToolGroup')||$('streetlightVariantBtn'));});
-  let streetlightToolPressTimer=null;
-  $('streetlightToolBtn')?.addEventListener('pointerdown', e=>{clearTimeout(streetlightToolPressTimer); streetlightToolPressTimer=setTimeout(()=>showStreetlightToolMenu($('streetlightToolGroup')||$('streetlightToolBtn')), 420);});
-  $('streetlightToolBtn')?.addEventListener('pointerup', ()=>clearTimeout(streetlightToolPressTimer));
-  $('streetlightToolBtn')?.addEventListener('pointercancel', ()=>clearTimeout(streetlightToolPressTimer));
-  $('streetlightToolBtn')?.addEventListener('contextmenu', e=>{e.preventDefault(); showStreetlightToolMenu($('streetlightToolGroup')||$('streetlightVariantBtn'));});
-  document.querySelectorAll('#streetlightToolMenu button').forEach(btn=>btn.onclick=e=>{e.stopPropagation(); state.streetlightMode=btn.dataset.streetlightMode||'free'; updateStreetlightToolButton(); setActiveTool('streetlight');});
-  function trackSwitchToolTask(){
-    return state.trackTask==='trackSwitchRight' ? 'trackSwitchRight' : 'trackSwitchLeft';
-  }
-  function updateTrackSwitchToolButton(){
-    const task=trackSwitchToolTask();
-    const right=task==='trackSwitchRight';
-    const icon=$('trackSwitchToolIcon'), label=$('trackSwitchToolLabel'), btn=$('trackSwitchToolBtn');
-    const title=right?'Right-hand track switch':'Left-hand track switch';
-    if(icon){ icon.dataset.icon=right?'trackSwitchRight':'trackSwitchLeft'; setIcon(icon, icon.dataset.icon); }
-    if(label) label.textContent=right?'Right Switch':'Left Switch';
-    if(btn){
-      btn.dataset.trackAction=task;
-      btn.title=title;
-      btn.setAttribute('aria-label', title);
-      btn.classList.toggle('active', state.workspaceMode==='track' && state.trackTask===task);
-    }
-    document.querySelectorAll('#trackSwitchToolMenu button').forEach(b=>b.classList.toggle('active', b.dataset.trackSwitchKind===task));
-  }
-  function showTrackSwitchToolMenu(anchor=$('trackSwitchToolGroup')||$('trackSwitchToolBtn')){toggleToolFlyout('trackSwitchToolMenu', anchor); updateTrackSwitchToolButton();}
-  let trackSwitchToolPressTimer=null;
-  $('trackSwitchVariantBtn')?.addEventListener('click', e=>{e.preventDefault(); e.stopPropagation(); showTrackSwitchToolMenu($('trackSwitchToolGroup')||$('trackSwitchVariantBtn'));});
-  $('trackSwitchToolBtn')?.addEventListener('pointerdown', e=>{clearTimeout(trackSwitchToolPressTimer); trackSwitchToolPressTimer=setTimeout(()=>showTrackSwitchToolMenu($('trackSwitchToolGroup')||$('trackSwitchToolBtn')), 420);});
-  $('trackSwitchToolBtn')?.addEventListener('pointerup', ()=>clearTimeout(trackSwitchToolPressTimer));
-  $('trackSwitchToolBtn')?.addEventListener('pointercancel', ()=>clearTimeout(trackSwitchToolPressTimer));
-  $('trackSwitchToolBtn')?.addEventListener('contextmenu', e=>{e.preventDefault(); showTrackSwitchToolMenu($('trackSwitchToolGroup')||$('trackSwitchVariantBtn'));});
-  document.querySelectorAll('#trackSwitchToolMenu button').forEach(btn=>btn.onclick=e=>{
-    e.stopPropagation();
-    beginTrackAccessoryPlacement(btn.dataset.trackSwitchKind||'trackSwitchLeft');
-    hideToolFlyouts();
+  const toolVariantController = createToolVariantController({
+    state,
+    getElement: $,
+    setIcon,
+    hydrateIcons,
+    toggleToolFlyout,
+    hideToolFlyouts,
+    setActiveTool,
+    beginTrackAccessoryPlacement,
+    beginCatenaryAutoSection,
+    isCatenaryAutoSectionAction,
+    updateWorkspaceModeUi,
   });
-  function trackBufferToolTask(){
-    return state.trackTask==='trackBufferTomix1428Catenary' ? 'trackBufferTomix1428Catenary' : 'trackBufferTomix1428';
-  }
-  function updateTrackBufferToolButton(){
-    const task=trackBufferToolTask();
-    const terminal=task==='trackBufferTomix1428Catenary';
-    const icon=$('trackBufferToolIcon'), label=$('trackBufferToolLabel'), btn=$('trackBufferToolBtn');
-    const title=terminal?'Tomix 1428 buffer with catenary terminal':'Tomix 1428 buffer stop';
-    if(icon){ icon.dataset.icon=terminal?'trackBufferCatenary':'trackBuffer'; setIcon(icon, icon.dataset.icon); }
-    if(label) label.textContent=terminal?'Buffer + Terminal':'Buffer Stop';
-    if(btn){
-      btn.dataset.trackAction=task;
-      btn.title=title;
-      btn.setAttribute('aria-label', title);
-      btn.classList.toggle('active', state.workspaceMode==='track' && state.trackTask===task);
-    }
-    document.querySelectorAll('#trackBufferToolMenu button').forEach(b=>b.classList.toggle('active', b.dataset.trackBufferKind===task));
-  }
-  function showTrackBufferToolMenu(anchor=$('trackBufferToolGroup')||$('trackBufferToolBtn')){toggleToolFlyout('trackBufferToolMenu', anchor); updateTrackBufferToolButton();}
-  let trackBufferToolPressTimer=null;
-  $('trackBufferVariantBtn')?.addEventListener('click', e=>{e.preventDefault(); e.stopPropagation(); showTrackBufferToolMenu($('trackBufferToolGroup')||$('trackBufferVariantBtn'));});
-  $('trackBufferToolBtn')?.addEventListener('pointerdown', e=>{clearTimeout(trackBufferToolPressTimer); trackBufferToolPressTimer=setTimeout(()=>showTrackBufferToolMenu($('trackBufferToolGroup')||$('trackBufferToolBtn')), 420);});
-  $('trackBufferToolBtn')?.addEventListener('pointerup', ()=>clearTimeout(trackBufferToolPressTimer));
-  $('trackBufferToolBtn')?.addEventListener('pointercancel', ()=>clearTimeout(trackBufferToolPressTimer));
-  $('trackBufferToolBtn')?.addEventListener('contextmenu', e=>{e.preventDefault(); showTrackBufferToolMenu($('trackBufferToolGroup')||$('trackBufferVariantBtn'));});
-  document.querySelectorAll('#trackBufferToolMenu button').forEach(btn=>btn.onclick=e=>{
-    e.stopPropagation();
-    beginTrackAccessoryPlacement(btn.dataset.trackBufferKind||'trackBufferTomix1428');
-    hideToolFlyouts();
-  });
-  function catenaryToolTask(){
-    return state.trackTask==='catenaryAutoSection' ? 'catenaryAutoSection' : state.trackTask==='catenaryDoublePortal' ? 'catenaryDoublePortal' : 'catenarySingleSide';
-  }
-  function updateCatenaryToolButton(){
-    const task=catenaryToolTask();
-    const icon=$('catenaryToolIcon'), label=$('catenaryToolLabel'), btn=$('catenaryToolBtn');
-    const portal=task==='catenaryDoublePortal';
-    const auto=task==='catenaryAutoSection';
-    const title=auto?'Auto catenary section':portal?'Double-track catenary portal':'Single-side catenary pole';
-    if(icon){ icon.dataset.icon=auto||portal?'catenaryPortal':'catenarySingle'; setIcon(icon, icon.dataset.icon); }
-    if(label) label.textContent=auto?'Auto Catenary':portal?'Catenary Portal':'Catenary Pole';
-    if(btn){
-      btn.dataset.trackAction=task;
-      btn.title=title;
-      btn.setAttribute('aria-label', title);
-      btn.classList.toggle('active', state.workspaceMode==='track' && state.trackTask===task);
-    }
-    document.querySelectorAll('#catenaryToolMenu button').forEach(b=>b.classList.toggle('active', b.dataset.catenaryKind===task));
-  }
-  function showCatenaryToolMenu(anchor=$('catenaryToolGroup')||$('catenaryToolBtn')){toggleToolFlyout('catenaryToolMenu', anchor); updateCatenaryToolButton();}
-  let catenaryToolPressTimer=null;
-  $('catenaryVariantBtn')?.addEventListener('click', e=>{e.preventDefault(); e.stopPropagation(); showCatenaryToolMenu($('catenaryToolGroup')||$('catenaryVariantBtn'));});
-  $('catenaryToolBtn')?.addEventListener('pointerdown', e=>{clearTimeout(catenaryToolPressTimer); catenaryToolPressTimer=setTimeout(()=>showCatenaryToolMenu($('catenaryToolGroup')||$('catenaryToolBtn')), 420);});
-  $('catenaryToolBtn')?.addEventListener('pointerup', ()=>clearTimeout(catenaryToolPressTimer));
-  $('catenaryToolBtn')?.addEventListener('pointercancel', ()=>clearTimeout(catenaryToolPressTimer));
-  $('catenaryToolBtn')?.addEventListener('contextmenu', e=>{e.preventDefault(); showCatenaryToolMenu($('catenaryToolGroup')||$('catenaryVariantBtn'));});
-  document.querySelectorAll('#catenaryToolMenu button').forEach(btn=>btn.onclick=e=>{
-    e.stopPropagation();
-    const action=btn.dataset.catenaryKind||'catenarySingleSide';
-    if(isCatenaryAutoSectionAction(action)) beginCatenaryAutoSection();
-    else beginTrackAccessoryPlacement(action);
-    hideToolFlyouts();
-  });
-  document.addEventListener('pointerdown', e=>{if(!e.target.closest('.toolGroup') && !e.target.closest('.toolFlyout')) hideToolFlyouts();});
-  window.addEventListener('resize', hideToolFlyouts);
-  window.addEventListener('scroll', hideToolFlyouts, true);
+  ({
+    updateRoadToolButton,
+    updateStreetlightToolButton,
+    updateTrackSwitchToolButton,
+    updateTrackBufferToolButton,
+    updateCatenaryToolButton,
+  } = toolVariantController);
+  toolVariantController.installToolVariantControls();
   installTooltips();
-  updateStreetlightToolButton();
-  updateTrackSwitchToolButton();
-  updateTrackBufferToolButton();
-  updateCatenaryToolButton();
   async function loadReferenceImage(file){
     if(!file) return;
     openImportProgressModal('Import reference image','Reading image...',`Loading ${file.name||'reference image'}.`);

@@ -2057,9 +2057,10 @@ function findBayOnFace(cfg, face) {
  * ALONE doesn't mean the user has taken over window/door layout. Without this
  * distinction, dropping a bay would silently disable the auto window pattern.
  *
- * Returns the filtered array of window+door manual ops, or null when none
- * exist. Use structuralWallFeaturesForFace(...) when iterating structural ops
- * INCLUDING the bay.
+ * Returns the filtered array of manual structural ops, or null when the face
+ * has never been manually controlled. Bay entries are included so side-wall
+ * generators can cut loading openings, while front/back generators still
+ * handle plan-level bays through their dedicated perimeter path.
  */
 function manualStructuralOps(cfg, face) {
   if (!cfg) return null;
@@ -2077,7 +2078,7 @@ function manualStructuralOps(cfg, face) {
   // but no windows still generated auto window holes. Return the filtered
   // structural list even when empty so auto windows/doors stay suppressed.
   if (Array.isArray(wf[face])) {
-    return wf[face].filter(op => op && (op.type === 'window' || op.type === 'door'));
+    return wf[face].filter(op => op && (op.type === 'window' || op.type === 'door' || op.type === 'bay'));
   }
 
   // null means the face has never been manually controlled and may use the
@@ -8472,7 +8473,12 @@ function generateSideWall(cfg, plan, side) {
   const _earlySideDoorStyle = cfg.doorStyle;
   const _earlySideDoorCount = cfg.sideDoorCount || 0;
   const _earlySideManualKey = side === 'E' ? 'east' : 'west';
-  const _earlySideManualOps = (cfg.manualOpenings || {})[_earlySideManualKey] || null;
+  const _sideMirrorX = (side === 'E');
+  const _earlySideManualOps = manualStructuralOps(cfg, _earlySideManualKey);
+  const _earlySideBay = _earlySideManualOps ? _earlySideManualOps.find(op => op && op.type === 'bay') : null;
+  const _earlySideBayX = _earlySideBay
+    ? (_sideMirrorX ? (sideLen - _earlySideBay.x - _earlySideBay.w) : _earlySideBay.x)
+    : null;
   let _earlySideDoors;
   if (_earlySideManualOps) {
     _earlySideDoors = _earlySideManualOps.filter(op => op.type === 'door');
@@ -8481,7 +8487,10 @@ function generateSideWall(cfg, plan, side) {
   } else {
     _earlySideDoors = [];
   }
-  const _sideDoorForbidden = bottomTongueForbiddenZones(_earlySideDoors, cfg, H);
+  const _sideBottomObstacles = _earlySideBay
+    ? _earlySideDoors.concat([{ ..._earlySideBay, x: _earlySideBayX }])
+    : _earlySideDoors;
+  const _sideDoorForbidden = bottomTongueForbiddenZones(_sideBottomObstacles, cfg, H);
   const bottomTongues = applyWallAssemblyKeyToTongues(
     placeTongues(sideLen, tw, margin, _sideDoorForbidden, 3, tw / 2),
     sideLen, cfg, _earlySideManualKey, _sideDoorForbidden, matT, tw, margin
@@ -8509,6 +8518,8 @@ function generateSideWall(cfg, plan, side) {
   // Build perimeter path (from buildWallPath)
   const wallSpec = {
     width: sideLen, height: H, matT, kerf: cfg.kerfComp,
+    bayXStart: _earlySideBay ? _earlySideBayX : 0,
+    bayXEnd: _earlySideBay ? _earlySideBayX + _earlySideBay.w : 0,
     edges: {
       top: { tongues: topTongues, openings: [] },
       right: { tongues: rightTongues, openings: [] },
@@ -8548,6 +8559,30 @@ function generateSideWall(cfg, plan, side) {
     perimeter = buildGableWallPath(sideLen, H, sPitch, wallSpec, sideSlopeTabSpec);
   } else {
     perimeter = buildWallPath(wallSpec);
+  }
+  if (_earlySideBay) {
+    const sideBayPlan = {
+      ...plan,
+      bayXStart: _earlySideBayX,
+      bayXEnd: _earlySideBayX + _earlySideBay.w,
+      bayHeight: _earlySideBay.h,
+    };
+    if (isParapetGable && hasParapetHere) {
+      wallSpec.topExtension = sPitch + (parapetH || 0);
+      delete wallSpec.gablePitch;
+      delete wallSpec.gableSlopeTabSpec;
+      perimeter = buildFBWallWithBay(wallSpec, sideBayPlan);
+    } else if (isSideGableEnd) {
+      wallSpec.gablePitch = sPitch;
+      wallSpec.gableSlopeTabSpec = sideSlopeTabSpec;
+      delete wallSpec.topExtension;
+      perimeter = buildFBWallWithBay(wallSpec, sideBayPlan);
+    } else if (!isSlantedRoof || !slantNsAxis) {
+      delete wallSpec.topExtension;
+      delete wallSpec.gablePitch;
+      delete wallSpec.gableSlopeTabSpec;
+      perimeter = buildFBWallWithBay(wallSpec, sideBayPlan);
+    }
   }
 
   // Interior cuts: roof slots, bay ceiling slots, window holes
@@ -8600,14 +8635,10 @@ function generateSideWall(cfg, plan, side) {
   let sideWindowsToDraw = [], sideDoors = [];
   const _sideManualKey = side === 'E' ? 'east' : 'west';
   const _sideManualOps = manualStructuralOps(cfg, _sideManualKey);
-  // East wall laser panel uses the internal-view convention (north on right
-  // of panel) to match the openings editor's east display via `oeMirrorX`.
-  // Storage keeps x=0=NORTH; flip op.x at the cut layer so a feature placed
-  // near the wing side (right in display) cuts at the right end of the panel.
-  const _sideMirrorX = (side === 'E');
   if (_sideManualOps) {
-    // Manual mode: use editor-placed openings directly. Only window and door
-    // entries cut here; bays cannot live on side walls and other types
+    // Manual mode: use editor-placed openings directly. Window and door
+    // entries cut here; side-wall bays are integrated into the perimeter
+    // above so they open cleanly through the bottom edge. Other types
     // (awning/balcony/fixture/cladding_override/printed_item) don't cut.
     for (const op of _sideManualOps) {
       const opXBase = _sideMirrorX ? (sideLen - op.x - op.w) : op.x;
@@ -8625,7 +8656,7 @@ function generateSideWall(cfg, plan, side) {
           sideWindowsToDraw.push(op);
         }
       }
-      // All other types are no-ops in this loop.
+      // Bays and all surface-only types are no-ops in this loop.
     }
   } else {
     // Auto mode
@@ -35830,8 +35861,8 @@ function oeToolboxPopulateImpl() {
   }
 
   // ---- Bay card ----
-  // Bays are unique: only one per building, bottom-anchored to the ground
-  // floor, and 'through' style auto-pairs the back wall when placed on the
+  // Bays are bottom-anchored to the ground floor. 'Side' bays can live on
+  // any wall; 'through' style auto-pairs the back wall when placed on the
   // front. Card visualises a U-cut (wall with door-sized notch) for 'side'
   // and a tunnel (two flanking pillars) for 'through'.
   function buildBayCard(key, style) {
@@ -35845,7 +35876,7 @@ function oeToolboxPopulateImpl() {
 
     const card = document.createElement('div');
     card.className = 'oe-toolbox-item oe-draggable';
-    card.title = `${style.label} \u2014 ${style.description} \u2014 drag onto front or back wall`;
+    card.title = `${style.label} \u2014 ${style.description} \u2014 drag onto a wall`;
     // Preview: a wall slab with the bay opening cut at the bottom. For
     // 'through' a second wall slab is drawn behind to suggest the tunnel.
     const wallW = 50, wallH = 36, bayW = 16, bayH = 18;
@@ -36396,22 +36427,20 @@ function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
       style: styleKey,
     });
   } else if (type === 'bay') {
-    // Bays are restricted: front/back walls only, single instance per
-    // building, bottom-anchored to the ground (y = H - h). 'through' style
-    // creates LINKED twin entries on both walls so the user can see, drag,
-    // resize, or delete the bay from either side of the building — the two
-    // entries stay in sync via the standard drag/resize/delete commit path.
-    if (oeWall !== 'front' && oeWall !== 'back') {
-      flashMessage('Bays can only be placed on the front or back wall.', 'warn');
-      return;
-    }
-    if (styleKey === 'through' && oeWall === 'back') {
+    // Bays are bottom-anchored to the ground (y = H - h). Side bays can be
+    // placed on any wall, including east/west loading faces. 'through' style
+    // remains a front-to-back special case: it creates LINKED twin entries on
+    // front/back so the user can see, drag, resize, or delete the bay from
+    // either side of the building.
+    if (styleKey === 'through' && oeWall !== 'front') {
       flashMessage('A through-bay must be placed on the front wall.', 'warn');
       return;
     }
-    // Remove any existing bay (single-bay rule). We check both walls so
-    // that switching the bay's home face works cleanly.
-    for (const face of ['front', 'back']) {
+    // Keep one bay per affected wall. Through bays replace both linked
+    // front/back entries; ordinary side bays only replace the active wall's
+    // bay and do not disturb loading bays on other faces.
+    const affectedBayFaces = styleKey === 'through' ? ['front', 'back'] : [oeWall];
+    for (const face of affectedBayFaces) {
       oeEnsureWallFeatureWorkingArray(face);
       oeOpenings[face] = oeOpenings[face].filter(op => op.type !== 'bay');
     }
@@ -36457,14 +36486,13 @@ function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
 
   oeSelectedSet = new Set([oeOpenings[oeWall].length - 1]);
   oeCommit();
-  // Bay drops touch both front and back oeOpenings arrays (single-bay rule
-  // clears any pre-existing bay regardless of where it lived). Since the
-  // unified wallFeatures model is now authoritative, commit BOTH affected
-  // walls through setWallFeaturesForFace while preserving non-structural
-  // surface features on those walls.
+  // Bay drops can touch multiple working arrays. Since the unified
+  // wallFeatures model is authoritative, commit every affected wall through
+  // setWallFeaturesForFace while preserving non-structural surface features.
   if (type === 'bay') {
     const target = oeEditTarget();
-    for (const face of ['front', 'back']) {
+    const affectedBayFaces = styleKey === 'through' ? ['front', 'back'] : [oeWall];
+    for (const face of affectedBayFaces) {
       if (Array.isArray(oeOpenings[face])) {
         setWallFeaturesForFace(target, face, oeOpenings[face]);
       }
@@ -38358,38 +38386,38 @@ function oeCanvasRenderImpl() {
   // Bay opening — drawn as part of the editor's interactive layer so it
   // selects, drags, resizes, and deletes through the SAME code paths as
   // every other opening. Sourced from the bay entry in oeOpenings (where
-  // the user's drag-in-progress mutations live).
-  if (oeWall === 'front' || oeWall === 'back') {
-    const opsArrBay = oeOpenings[oeWall] || [];
-    const bayEntry  = opsArrBay.find(op => op && op.type === 'bay');
-    if (bayEntry) {
-      const bayIdx   = opsArrBay.indexOf(bayEntry);
-      const bayX     = bayEntry.x;
-      const bayY     = bayEntry.y;
-      const bayW     = bayEntry.w;
-      const bayH     = bayEntry.h;
-      const bayStyle = bayEntry.style;
-      const isSel     = oeSelectedSet.has(bayIdx);
-      const isPrimary = isSel && [...oeSelectedSet][0] === bayIdx;
-      const rx = ox + bayX * s;
-      const ry = oy + bayY * s;
-      const rw = bayW * s;
-      const rh = bayH * s;
-      const stroke = isSel ? '#f70' : '#555';
-      const sw     = isSel ? 2.5   : 1.0;
-      const idxAttr = (bayIdx >= 0) ? ` data-oe-idx="${bayIdx}"` : '';
-      const linkLabel = (bayStyle === 'through') ? ' (⇔ linked)' : '';
-      html += `<rect x="${rx.toFixed(1)}" y="${ry.toFixed(1)}" width="${rw.toFixed(1)}" height="${rh.toFixed(1)}"`
-            + ` fill="#9a9088" stroke="${stroke}" stroke-width="${sw}"`
-            + ` data-oe-bay="1"${idxAttr} style="cursor:move"/>`;
-      html += `<text x="${(rx + rw / 2).toFixed(1)}" y="${(ry + rh / 2 + 4).toFixed(1)}" font-size="9" fill="#eee"`
-            + ` text-anchor="middle" font-family="system-ui" pointer-events="none">bay${linkLabel}</text>`;
-      if (isPrimary) {
-        const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
-        const styleLbl = (bayStyle === 'through') ? 'through' : 'side';
-        html += `<text x="${(rx + rw / 2).toFixed(1)}" y="${(ry - 4).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${styleLbl} bay ${bayW.toFixed(1)}×${bayH.toFixed(1)}${cntLabel}</text>`;
-        html += oeResizeHandles(rx, ry, rw, rh, bayIdx, 'bay');
-      }
+  // the user's drag-in-progress mutations live). Side-wall bays are ordinary
+  // wall features, so draw them from the entry instead of relying only on
+  // front/back plan-level bay state.
+  const opsArrBay = oeOpenings[oeWall] || [];
+  const bayEntry  = opsArrBay.find(op => op && op.type === 'bay');
+  if (bayEntry) {
+    const bayIdx   = opsArrBay.indexOf(bayEntry);
+    const bayX     = bayEntry.x;
+    const bayY     = bayEntry.y;
+    const bayW     = bayEntry.w;
+    const bayH     = bayEntry.h;
+    const bayStyle = bayEntry.style;
+    const isSel     = oeSelectedSet.has(bayIdx);
+    const isPrimary = isSel && [...oeSelectedSet][0] === bayIdx;
+    const rx = ox + oeMirrorX(bayX, bayW) * s;
+    const ry = oy + bayY * s;
+    const rw = bayW * s;
+    const rh = bayH * s;
+    const stroke = isSel ? '#f70' : '#555';
+    const sw     = isSel ? 2.5   : 1.0;
+    const idxAttr = (bayIdx >= 0) ? ` data-oe-idx="${bayIdx}"` : '';
+    const linkLabel = (bayStyle === 'through') ? ' (⇔ linked)' : '';
+    html += `<rect x="${rx.toFixed(1)}" y="${ry.toFixed(1)}" width="${rw.toFixed(1)}" height="${rh.toFixed(1)}"`
+          + ` fill="#9a9088" stroke="${stroke}" stroke-width="${sw}"`
+          + ` data-oe-bay="1"${idxAttr} style="cursor:move"/>`;
+    html += `<text x="${(rx + rw / 2).toFixed(1)}" y="${(ry + rh / 2 + 4).toFixed(1)}" font-size="9" fill="#eee"`
+          + ` text-anchor="middle" font-family="system-ui" pointer-events="none">bay${linkLabel}</text>`;
+    if (isPrimary) {
+      const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
+      const styleLbl = (bayStyle === 'through') ? 'through' : 'side';
+      html += `<text x="${(rx + rw / 2).toFixed(1)}" y="${(ry - 4).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${styleLbl} bay ${bayW.toFixed(1)}×${bayH.toFixed(1)}${cntLabel}</text>`;
+      html += oeResizeHandles(rx, ry, rw, rh, bayIdx, 'bay');
     }
   }
 

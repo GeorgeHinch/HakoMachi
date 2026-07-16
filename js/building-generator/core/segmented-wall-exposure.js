@@ -725,7 +725,12 @@ export function generateSideWall(cfg, plan, side) {
   const _earlySideDoorStyle = cfg.doorStyle;
   const _earlySideDoorCount = cfg.sideDoorCount || 0;
   const _earlySideManualKey = side === 'E' ? 'east' : 'west';
-  const _earlySideManualOps = (cfg.manualOpenings || {})[_earlySideManualKey] || null;
+  const _sideMirrorX = (side === 'E');
+  const _earlySideManualOps = manualStructuralOps(cfg, _earlySideManualKey);
+  const _earlySideBay = _earlySideManualOps ? _earlySideManualOps.find(op => op && op.type === 'bay') : null;
+  const _earlySideBayX = _earlySideBay
+    ? (_sideMirrorX ? (sideLen - _earlySideBay.x - _earlySideBay.w) : _earlySideBay.x)
+    : null;
   let _earlySideDoors;
   if (_earlySideManualOps) {
     _earlySideDoors = _earlySideManualOps.filter(op => op.type === 'door');
@@ -734,7 +739,10 @@ export function generateSideWall(cfg, plan, side) {
   } else {
     _earlySideDoors = [];
   }
-  const _sideDoorForbidden = bottomTongueForbiddenZones(_earlySideDoors, cfg, H);
+  const _sideBottomObstacles = _earlySideBay
+    ? _earlySideDoors.concat([{ ..._earlySideBay, x: _earlySideBayX }])
+    : _earlySideDoors;
+  const _sideDoorForbidden = bottomTongueForbiddenZones(_sideBottomObstacles, cfg, H);
   const bottomTongues = applyWallAssemblyKeyToTongues(
     placeTongues(sideLen, tw, margin, _sideDoorForbidden, 3, tw / 2),
     sideLen, cfg, _earlySideManualKey, _sideDoorForbidden, matT, tw, margin
@@ -762,6 +770,8 @@ export function generateSideWall(cfg, plan, side) {
   // Build perimeter path (from buildWallPath)
   const wallSpec = {
     width: sideLen, height: H, matT, kerf: cfg.kerfComp,
+    bayXStart: _earlySideBay ? _earlySideBayX : 0,
+    bayXEnd: _earlySideBay ? _earlySideBayX + _earlySideBay.w : 0,
     edges: {
       top: { tongues: topTongues, openings: [] },
       right: { tongues: rightTongues, openings: [] },
@@ -802,6 +812,30 @@ export function generateSideWall(cfg, plan, side) {
     perimeter = buildGableWallPath(sideLen, H, sPitch, wallSpec, sideSlopeTabSpec);
   } else {
     perimeter = buildWallPath(wallSpec);
+  }
+  if (_earlySideBay) {
+    const sideBayPlan = {
+      ...plan,
+      bayXStart: _earlySideBayX,
+      bayXEnd: _earlySideBayX + _earlySideBay.w,
+      bayHeight: _earlySideBay.h,
+    };
+    if (isParapetGable && hasParapetHere) {
+      wallSpec.topExtension = sPitch + (parapetH || 0);
+      delete wallSpec.gablePitch;
+      delete wallSpec.gableSlopeTabSpec;
+      perimeter = buildFBWallWithBay(wallSpec, sideBayPlan);
+    } else if (isSideGableEnd) {
+      wallSpec.gablePitch = sPitch;
+      wallSpec.gableSlopeTabSpec = sideSlopeTabSpec;
+      delete wallSpec.topExtension;
+      perimeter = buildFBWallWithBay(wallSpec, sideBayPlan);
+    } else if (!isSlantedRoof || !slantNsAxis) {
+      delete wallSpec.topExtension;
+      delete wallSpec.gablePitch;
+      delete wallSpec.gableSlopeTabSpec;
+      perimeter = buildFBWallWithBay(wallSpec, sideBayPlan);
+    }
   }
 
   // Interior cuts: roof slots, bay ceiling slots, window holes
@@ -854,14 +888,10 @@ export function generateSideWall(cfg, plan, side) {
   let sideWindowsToDraw = [], sideDoors = [];
   const _sideManualKey = side === 'E' ? 'east' : 'west';
   const _sideManualOps = manualStructuralOps(cfg, _sideManualKey);
-  // East wall laser panel uses the internal-view convention (north on right
-  // of panel) to match the openings editor's east display via `oeMirrorX`.
-  // Storage keeps x=0=NORTH; flip op.x at the cut layer so a feature placed
-  // near the wing side (right in display) cuts at the right end of the panel.
-  const _sideMirrorX = (side === 'E');
   if (_sideManualOps) {
-    // Manual mode: use editor-placed openings directly. Only window and door
-    // entries cut here; bays cannot live on side walls and other types
+    // Manual mode: use editor-placed openings directly. Window and door
+    // entries cut here; side-wall bays are integrated into the perimeter
+    // above so they open cleanly through the bottom edge. Other types
     // (awning/balcony/fixture/cladding_override/printed_item) don't cut.
     for (const op of _sideManualOps) {
       const opXBase = _sideMirrorX ? (sideLen - op.x - op.w) : op.x;
@@ -879,7 +909,7 @@ export function generateSideWall(cfg, plan, side) {
           sideWindowsToDraw.push(op);
         }
       }
-      // All other types are no-ops in this loop.
+      // Bays and all surface-only types are no-ops in this loop.
     }
   } else {
     // Auto mode

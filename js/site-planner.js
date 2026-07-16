@@ -35,6 +35,7 @@ import { createReferenceImageUiController } from './site-planner/reference-image
 import { drainageGrateFamilyOptions, grateFamilyPresetByKey } from './site-planner/road-drainage-grate-inserts.js';
 import { intersectionFeatureKey } from './site-planner/road-intersection-overrides.js';
 import { createRoadSystemController } from './site-planner/road-system-controller.js';
+import { createRoadExportReviewController, filterRoadExportDataByRoadIds, roadExportContentBounds, roadExportTransformForMedia } from './site-planner/road-export-review-panel.js';
 import { paintStencilExportSpecs, physicalGrateExportSpecs } from './site-planner/road-asset-export-specs.js';
 import { migrateRoadFeatures } from './site-planner/road-feature-migration.js';
 import { serializeGrateInsertSheetsByMaterial } from './site-planner/road-grate-sheet-serializer.js';
@@ -139,6 +140,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let sidebarObjectType = null;
   let trackAccessoryObjectFilter = 'all';
   let roadSystem = null;
+  let roadExportReview = null;
   let fabricController = null;
   const colors = ['#d79631','#b8672d','#0f766e','#7c5f3f','#8b5a2b','#5f7f54','#9b6b44','#496a78'];
   function initFabricControls(){
@@ -637,6 +639,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     updateWorkspaceModeUi();
     draw();
   }
+  function openRoadExportReview(){
+    state.roadTask='exportAssets';
+    setWorkspaceMode('road', {preserveRoadTask: true});
+    updateWorkspaceModeUi();
+    roadExportReview?.open();
+  }
   function drawRoadJunctions(){
     return roadSystem.drawRoadJunctions();
   }
@@ -1125,7 +1133,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return best;
   }
   function snapTrackSwitchToEndpoint(item, pointerPoint=null, preferredSourceEndpoint=null){
-    const pair=nearestSwitchEndpointPair(item,pointerPoint,preferredSourceEndpoint);
+    const pointerSourceEndpoint=draggedTrackSwitchEndpointName(item,pointerPoint);
+    const pair=nearestSwitchEndpointPair(item,pointerPoint,pointerSourceEndpoint||preferredSourceEndpoint);
     if(!pair || pair.distance>trackAccessorySnapDistance()) return false;
     if(!alignTrackSwitchEndpointToTarget(item,pair.source.endpoint,pair.target)) return false;
     const hint=$('statusHint');
@@ -2735,6 +2744,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     setStatusHint: showStatusHint,
     syncAll,
     dist,
+  });
+  roadExportReview = createRoadExportReviewController({
+    state,
+    canvasWrap: wrap,
+    generateRoadExportData,
+    onExport: downloadRoadAssetExport,
+    setStatusHint: showStatusHint,
   });
 
   const {
@@ -6270,7 +6286,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     else if(d.type==='annotate'){addAnnotationPoint(e,p);}
     else if(d.type==='moveSiteObjects'||d.type==='moveSiteObject'){const dx=p.x-d.start.x,dy=p.y-d.start.y; (d.entries||[]).forEach(entry=>applySiteObjectMoveFromOrig(entry.type,entry.orig,dx,dy,entry.dragOrigin?p:null,entry.snapSourceEndpoint)); (d.entries||[]).forEach(entry=>finalizeMovedSiteObject(entry.type,entry.orig));}
     else if(d.type==='moveStreetlight'){const l=state.streetlights.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(l&&!l.locked){l.x=d.orig.x+dx; l.y=d.orig.y+dy;}}
-    else if(d.type==='moveTrackAccessory'){const item=(state.trackAccessories||[]).find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(item&&!item.locked){item.x=d.orig.x+dx; item.y=d.orig.y+dy; if(isTrackSwitchAccessoryKind(item.kind)){if(!snapTrackSwitchToEndpoint(item)){item.trackAnchor=null; item.trackId=null; normalizeTrackAccessory(item); syncTracksConnectedToTrackSwitch(item);}} else {const anchor=nearestTrackAccessoryAnchor({x:item.x,y:item.y}); if(anchor && anchor.distance<=trackAccessorySnapDistance()){if(isCatenaryAccessoryKind(item.kind)) attachTrackAccessoryToAnchor(item,anchor); else item.trackId=anchor.trackId;} else if(isCatenaryAccessoryKind(item.kind)){item.trackId=null; item.trackAnchor=null; item.autoOrientToTrack=false;} normalizeTrackAccessory(item);}}}
+    else if(d.type==='moveTrackAccessory'){const item=(state.trackAccessories||[]).find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(item&&!item.locked){item.x=d.orig.x+dx; item.y=d.orig.y+dy; if(isTrackSwitchAccessoryKind(item.kind)){if(!snapTrackSwitchToEndpoint(item,p)){item.trackAnchor=null; item.trackId=null; normalizeTrackAccessory(item); syncTracksConnectedToTrackSwitch(item);}} else {const anchor=nearestTrackAccessoryAnchor({x:item.x,y:item.y}); if(anchor && anchor.distance<=trackAccessorySnapDistance()){if(isCatenaryAccessoryKind(item.kind)) attachTrackAccessoryToAnchor(item,anchor); else item.trackId=anchor.trackId;} else if(isCatenaryAccessoryKind(item.kind)){item.trackId=null; item.trackAnchor=null; item.autoOrientToTrack=false;} normalizeTrackAccessory(item);}}}
     else if(d.type==='rotateTrackAccessory'){const item=(state.trackAccessories||[]).find(x=>x.id===d.orig.id); if(item&&!item.locked){const angleDelta=deg(Math.atan2(p.y-d.center.y,p.x-d.center.x)-(d.startAngle||0)); item.rotationDeg=(Number(d.origRotation)||0)+angleDelta; if(isCatenaryAccessoryKind(item.kind)){item.autoOrientToTrack=false; item.trackAnchor=null;} normalizeTrackAccessory(item); if(isTrackSwitchAccessoryKind(item.kind)) syncTracksConnectedToTrackSwitch(item);}}
     else if(d.type==='moveStlObject'){const obj=(state.stlObjects||[]).find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(obj&&!obj.locked){obj.x=d.orig.x+dx; obj.y=d.orig.y+dy; normalizeStlObject(obj);}}
     else if(d.type==='moveBenchwork'){const bw=state.benchworkOutlines.find(x=>x.id===d.orig.id); const dx=p.x-d.start.x,dy=p.y-d.start.y; if(bw&&!bw.locked){bw.pointsPx=d.orig.pointsPx.map(q=>({x:q.x+dx,y:q.y+dy})); bw.curvesPx=(d.orig.curvesPx||[]).map(c=>c?{x:c.x+dx,y:c.y+dy}:null); normalizeBenchworkOutline(bw);}}
@@ -6644,9 +6660,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       return;
     }
     if(action==='exportAssets'){
-      state.roadTask='exportAssets';
-      updateWorkspaceModeUi();
-      downloadRoadAssetExport();
+      openRoadExportReview();
     }
   });
   function beginTrackAccessoryPlacement(action){
@@ -7419,8 +7433,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   });
   if($('roadExportPreviewBtn')) $('roadExportPreviewBtn').onclick=()=>setRoadExportPreview(!state.roadExportPreview);
   if($('mobileRoadExportPreviewBtn')) $('mobileRoadExportPreviewBtn').onclick=()=>setRoadExportPreview(!state.roadExportPreview);
-  if($('roadAssetSvgBtn')) $('roadAssetSvgBtn').onclick=downloadRoadAssetExport;
-  if($('mobileRoadAssetSvgBtn')) $('mobileRoadAssetSvgBtn').onclick=downloadRoadAssetExport;
+  if($('roadAssetSvgBtn')) $('roadAssetSvgBtn').onclick=openRoadExportReview;
+  if($('mobileRoadAssetSvgBtn')) $('mobileRoadAssetSvgBtn').onclick=openRoadExportReview;
   $('csvBtn').onclick=()=>downloadText(csvExport(),'hakomachi-building-pads.csv','text/csv');
   $('svgBtn').onclick=()=>downloadText(svgExport(),'hakomachi-site.svg','image/svg+xml');
   $('seedBtn').onclick=exportSelectedSeed;
@@ -7699,17 +7713,47 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function csvExport(){syncAll(); return buildingCsvExport(state.buildings, {normalizeBuilding});}
 
-  function svgRoadAssetExport(){
-    const data=generateRoadExportData();
-    const w=state.image?.width||1200,h=state.image?.height||800;
-    const crossings=generatedRailCrossings();
-    return roadAssetSvgExport({data, roadFeatures:state.roadFeatures, generatedIntersectionRecords:roadSystem.generatedRoadIntersectionSvgRecords({includeCurbGuides:false}), generatedRailCrossingRecords:railCrossingSvgRecords(crossings,{infillPanels:railCrossingInfillPanels(crossings)}), width:w, height:h}, {JP_ROAD_MARKING_STANDARD_ID, SVG_OP, SVG_ENGRAVE, SVG_RETAINED_CUT, SVG_SCRAP_CUT, escapeAttr, escapeHtml, markingPresetByKey, normalizeRoadFeature, polygonCenter, svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly});
+  function reviewedRoadExportIds(reviewSettings, data){
+    const ids=(data?.roads||[]).map(road=>road.id).filter(Boolean);
+    const allowed=new Set(ids);
+    const selected=Array.isArray(reviewSettings?.includedRoadIds)
+      ? reviewSettings.includedRoadIds.filter(id=>allowed.has(id))
+      : ids;
+    return new Set(selected);
   }
-  async function downloadRoadAssetExport(){
-    const roadSvg=svgRoadAssetExport();
+  function roadFeatureIncludedForExport(feature, includedRoadIds){
+    if(!includedRoadIds || !includedRoadIds.size) return true;
+    return !feature?.roadId || includedRoadIds.has(feature.roadId);
+  }
+  function generatedRoadRecordIncludedForExport(record, includedRoadIds){
+    if(!includedRoadIds || !includedRoadIds.size) return true;
+    return !record?.roadId || includedRoadIds.has(record.roadId);
+  }
+  function svgRoadAssetExport(review={}){
+    const rawData=generateRoadExportData();
+    const includedRoadIds=reviewedRoadExportIds(review.settings, rawData);
+    const data=filterRoadExportDataByRoadIds(rawData, Array.from(includedRoadIds));
+    const filteredRoadFeatures=(state.roadFeatures||[]).filter(feature=>roadFeatureIncludedForExport(feature,includedRoadIds));
+    const crossings=generatedRailCrossings();
+    const generatedIntersectionRecords=roadSystem.generatedRoadIntersectionSvgRecords({includeCurbGuides:false}).filter(record=>generatedRoadRecordIncludedForExport(record,includedRoadIds));
+    const generatedRailCrossingRecords=railCrossingSvgRecords(crossings,{infillPanels:railCrossingInfillPanels(crossings)}).filter(record=>generatedRoadRecordIncludedForExport(record,includedRoadIds));
+    let w=state.image?.width||1200,h=state.image?.height||800,contentTransform='';
+    if(review.media){
+      w=review.media.widthMm;
+      h=review.media.heightMm;
+      const bounds=roadExportContentBounds(data,filteredRoadFeatures);
+      contentTransform=roadExportTransformForMedia({bounds,media:review.media,pxPerMm:state.pxPerMm}).transform;
+    }
+    return roadAssetSvgExport({data, roadFeatures:filteredRoadFeatures, generatedIntersectionRecords, generatedRailCrossingRecords, width:w, height:h, contentTransform}, {JP_ROAD_MARKING_STANDARD_ID, SVG_OP, SVG_ENGRAVE, SVG_RETAINED_CUT, SVG_SCRAP_CUT, escapeAttr, escapeHtml, markingPresetByKey, normalizeRoadFeature, polygonCenter, svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly});
+  }
+  async function downloadRoadAssetExport(review={}){
+    const rawData=generateRoadExportData();
+    const includedRoadIds=reviewedRoadExportIds(review.settings, rawData);
+    const roadFeaturesForExport=(state.roadFeatures||[]).filter(feature=>roadFeatureIncludedForExport(feature,includedRoadIds));
+    const roadSvg=svgRoadAssetExport(review);
     const exportDeps={normalizeRoadFeature, markingPresetByKey, pxPerMm:state.pxPerMm};
-    const grates=physicalGrateExportSpecs(state.roadFeatures, exportDeps);
-    const stencils=paintStencilExportSpecs(state.roadFeatures, exportDeps);
+    const grates=physicalGrateExportSpecs(roadFeaturesForExport, exportDeps);
+    const stencils=paintStencilExportSpecs(roadFeaturesForExport, exportDeps);
     if(!grates.length && !stencils.length){
       downloadText(roadSvg,'hakomachi-road-assets.svg','image/svg+xml');
       return;

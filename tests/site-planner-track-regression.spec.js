@@ -340,6 +340,13 @@ test.describe('Site Planner track regressions', () => {
     });
   });
 
+  test('switch endpoint snapping uses the live cursor point to choose the source leg', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    expect(source).toContain('const pointerSourceEndpoint=draggedTrackSwitchEndpointName(item,pointerPoint);');
+    expect(source).toContain('nearestSwitchEndpointPair(item,pointerPoint,pointerSourceEndpoint||preferredSourceEndpoint)');
+    expect(source).toContain('snapTrackSwitchToEndpoint(item,p)');
+  });
+
   test('dragged switch endpoint snaps to another switch endpoint and matches its turnout angle', async ({ page }) => {
     const sourceEndpoints = tomixSwitchFixtureEndpoints();
     const secondCenter = { x: 520, y: 250 };

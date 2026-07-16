@@ -1,4 +1,5 @@
 const { expect, test } = require('@playwright/test');
+const fs = require('fs');
 
 const AUTOSAVE_KEY = 'hakomachiSitePlannerAutosave_v1';
 const AUTOSAVE_META_KEY = 'hakomachiSitePlannerAutosaveMeta_v1';
@@ -96,5 +97,74 @@ test.describe('site planner road editing workspace', () => {
     const outsideRoadMode = await canvasPixel(page, 95, 150);
     expect(channelDistance(outsideRoadMode, outsideLayout)).toBeGreaterThan(20);
     expect(channelDistance(outsideRoadMode, insideLayout)).toBeLessThan(60);
+  });
+
+  test('opens road export review panel with media controls before exporting', async ({ page }) => {
+    const project = {
+      app: 'HakoMachi Site Planner',
+      version: 82,
+      portableProject: true,
+      savedAt: new Date().toISOString(),
+      coordinateSystem: { type: 'imagePixels', origin: 'topLeft', imageWidthPx: 520, imageHeightPx: 300 },
+      image: null,
+      imageMeta: { naturalWidthPx: 520, naturalHeightPx: 300, mimeType: 'image/svg+xml' },
+      view: { x: 0, y: 0, scale: 1 },
+      scale: { calibrated: true, pxPerMm: 2, calibrationLine: null, units: 'mm' },
+      buildings: [],
+      roads: [
+        {
+          id: 'road-export-main',
+          name: 'Export Avenue',
+          mode: 'centerline',
+          pointsPx: [{ x: 70, y: 140 }, { x: 430, y: 140 }],
+          widthPx: 38,
+          sidewalkSide: 'both',
+          sidewalkWidthPx: 12,
+          color: '#6f6a5e',
+        },
+      ],
+      tracks: [],
+      trackAccessories: [],
+      benchworkOutlines: [],
+      roadFeatures: [],
+      stlObjects: [],
+      fabricRegions: [],
+      streetlights: [],
+      annotations: [],
+    };
+
+    await page.addInitScript(({ key, metaKey, value }) => {
+      localStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(metaKey, JSON.stringify({ savedAt: value.savedAt, dirtySinceManualSave: true }));
+    }, { key: AUTOSAVE_KEY, metaKey: AUTOSAVE_META_KEY, value: project });
+
+    await page.goto('/site-planner.html', { waitUntil: 'networkidle' });
+    await page.selectOption('#workspaceMode', 'road');
+    await page.click('#roadExportModeBtn');
+
+    const panel = page.locator('#roadExportReviewPanel');
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText('Road Export Review');
+    await expect(panel.locator('.roadExportCard')).toHaveCount(1);
+    await expect(panel).toContainText('Export Avenue');
+    await expect(panel.locator('.roadExportPrimary')).toBeEnabled();
+
+    await page.selectOption('#roadExportMediaPreset', '12x12');
+    await expect(panel.locator('.roadExportReviewSummary')).toContainText('304.8 x 304.8 mm');
+
+    await panel.locator('[data-road-export-include="road-export-main"]').uncheck();
+    await expect(panel.locator('.roadExportPrimary')).toBeDisabled();
+    await panel.locator('[data-road-export-include="road-export-main"]').check();
+
+    const downloadPromise = page.waitForEvent('download');
+    await panel.locator('.roadExportPrimary').click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe('hakomachi-road-assets.svg');
+    const filePath = await download.path();
+    const svg = fs.readFileSync(filePath, 'utf8');
+    expect(svg).toContain('width="304.8mm"');
+    expect(svg).toContain('height="304.8mm"');
+    expect(svg).toContain('roadExportMediaLayout');
+    await expect(panel).toBeHidden();
   });
 });

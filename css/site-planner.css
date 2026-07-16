@@ -1261,6 +1261,256 @@ canvas {
   margin-bottom: 2px;
 }
 
+.roadExportReviewPanel {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 18px;
+  z-index: 20;
+  display: none;
+  max-height: min(62vh, 560px);
+  color: var(--text);
+  user-select: text;
+  -webkit-user-select: text;
+  touch-action: pan-y;
+}
+
+.roadExportReviewPanel.open {
+  display: block;
+}
+
+.roadExportReviewBackdrop {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(142,130,105,.42);
+  border-radius: 8px;
+  background: rgba(246,244,235,.76);
+  backdrop-filter: blur(18px) saturate(1.14);
+  -webkit-backdrop-filter: blur(18px) saturate(1.14);
+  box-shadow: 0 18px 48px rgba(42,36,28,.22);
+}
+
+.roadExportReviewContent {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0,1fr) auto;
+  gap: 10px;
+  max-height: min(62vh, 560px);
+  padding: 14px;
+  overflow: hidden;
+}
+
+.roadExportReviewHeader,
+.roadExportReviewFooter,
+.roadExportMediaControls,
+.roadExportReviewSummary {
+  position: relative;
+  z-index: 1;
+}
+
+.roadExportReviewHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.roadExportReviewHeader h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text);
+  letter-spacing: 0;
+}
+
+.roadExportReviewHeader p {
+  margin: 3px 0 0;
+  max-width: 760px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.roadExportClose {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 22px;
+  line-height: 1;
+  background: rgba(255,255,255,.86);
+  color: var(--text);
+}
+
+.roadExportMediaControls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.roadExportMediaControls label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.roadExportMediaControls select,
+.roadExportMediaControls input {
+  width: 100%;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgba(255,255,255,.92);
+  color: var(--text);
+  padding: 0 8px;
+}
+
+.roadExportMediaControls .mutedControl {
+  opacity: .55;
+}
+
+.roadExportReviewSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid rgba(142,130,105,.36);
+  border-radius: 6px;
+  background: rgba(255,255,255,.62);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.roadExportReviewSummary b {
+  color: var(--text);
+}
+
+.roadExportWarning {
+  position: relative;
+  z-index: 1;
+  padding: 8px 10px;
+  border: 1px solid #d8b15d;
+  border-radius: 6px;
+  background: rgba(255,248,218,.9);
+  color: #6f4b12;
+  font-size: 12px;
+}
+
+.roadExportCardGrid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.roadExportCard {
+  position: relative;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  min-height: 126px;
+  border: 1px solid rgba(142,130,105,.36);
+  border-radius: 6px;
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 6px 18px rgba(42,36,28,.1);
+  padding: 12px;
+}
+
+.roadExportCardToggle {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.roadExportThumb {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d9d1bd;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #efeadc, #ffffff);
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.roadExportCardBody {
+  min-width: 0;
+  padding-right: 68px;
+}
+
+.roadExportCardBody h4 {
+  margin: 0 0 5px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.roadExportMeta {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.roadExportFit {
+  margin-top: 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.roadExportFit.ok {
+  color: #0f766e;
+}
+
+.roadExportFit.warning {
+  color: #9a5d00;
+}
+
+.roadExportEmpty {
+  padding: 18px;
+  border: 1px solid rgba(142,130,105,.36);
+  border-radius: 6px;
+  background: rgba(255,255,255,.9);
+  color: var(--muted);
+}
+
+.roadExportReviewFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.roadExportSecondary,
+.roadExportPrimary {
+  min-width: 108px;
+}
+
+.roadExportPrimary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent-dark);
+}
+
+.roadExportPrimary:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+}
+
 .githubDataModal {
   position: fixed;
   inset: 0;
@@ -1472,6 +1722,27 @@ canvas {
   .splitExport #svgBtn { padding: 7px 9px !important; max-width: 132px; overflow: hidden; text-overflow: ellipsis; }
   .splitExport #exportMenuBtn { width: 34px !important; min-width: 34px !important; max-width: 34px !important; flex-basis: 34px !important; }
   .splitExport #exportMenu { position: absolute !important; top: calc(100% + 4px) !important; left: 0 !important; right: auto !important; max-width: min(280px, calc(100vw - 16px)); }
+  .roadExportReviewPanel {
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    max-height: min(68vh, 560px);
+  }
+  .roadExportReviewContent {
+    max-height: min(68vh, 560px);
+    padding: 10px;
+  }
+  .roadExportMediaControls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .roadExportReviewSummary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .roadExportCardGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media(max-width:560px){
@@ -1492,4 +1763,19 @@ canvas {
   .emptyImageCard { width: 100%; padding: 18px; }
   .splitExport #svgBtn { max-width: 105px; }
   .splitExport #exportMenuBtn { width: 34px !important; min-width: 34px !important; max-width: 34px !important; flex-basis: 34px !important; }
+  .roadExportMediaControls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .roadExportCard {
+    grid-template-columns: 42px minmax(0, 1fr);
+    padding: 10px;
+  }
+  .roadExportThumb {
+    width: 42px;
+    height: 42px;
+  }
+  .roadExportCardBody {
+    padding-right: 0;
+    padding-top: 22px;
+  }
 }

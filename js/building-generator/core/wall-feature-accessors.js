@@ -124,7 +124,7 @@ export function manualStructuralOps(cfg, face) {
   if (!cfg) return null;
   const wf = ensureWallFeatureMap(cfg);
   if (Array.isArray(wf[face])) {
-    return wf[face].filter(op => op && (op.type === 'window' || op.type === 'door'));
+    return wf[face].filter(op => op && (op.type === 'window' || op.type === 'door' || op.type === 'bay'));
   }
   return null;
 }

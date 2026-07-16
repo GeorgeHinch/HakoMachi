@@ -616,8 +616,8 @@ export function oeToolboxPopulateImpl() {
   }
 
   // ---- Bay card ----
-  // Bays are unique: only one per building, bottom-anchored to the ground
-  // floor, and 'through' style auto-pairs the back wall when placed on the
+  // Bays are bottom-anchored to the ground floor. 'Side' bays can live on
+  // any wall; 'through' style auto-pairs the back wall when placed on the
   // front. Card visualises a U-cut (wall with door-sized notch) for 'side'
   // and a tunnel (two flanking pillars) for 'through'.
   function buildBayCard(key, style) {
@@ -631,7 +631,7 @@ export function oeToolboxPopulateImpl() {
 
     const card = document.createElement('div');
     card.className = 'oe-toolbox-item oe-draggable';
-    card.title = `${style.label} \u2014 ${style.description} \u2014 drag onto front or back wall`;
+    card.title = `${style.label} \u2014 ${style.description} \u2014 drag onto a wall`;
     // Preview: a wall slab with the bay opening cut at the bottom. For
     // 'through' a second wall slab is drawn behind to suggest the tunnel.
     const wallW = 50, wallH = 36, bayW = 16, bayH = 18;
@@ -1182,22 +1182,20 @@ export function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
       style: styleKey,
     });
   } else if (type === 'bay') {
-    // Bays are restricted: front/back walls only, single instance per
-    // building, bottom-anchored to the ground (y = H - h). 'through' style
-    // creates LINKED twin entries on both walls so the user can see, drag,
-    // resize, or delete the bay from either side of the building — the two
-    // entries stay in sync via the standard drag/resize/delete commit path.
-    if (oeWall !== 'front' && oeWall !== 'back') {
-      flashMessage('Bays can only be placed on the front or back wall.', 'warn');
-      return;
-    }
-    if (styleKey === 'through' && oeWall === 'back') {
+    // Bays are bottom-anchored to the ground (y = H - h). Side bays can be
+    // placed on any wall, including east/west loading faces. 'through' style
+    // remains a front-to-back special case: it creates LINKED twin entries on
+    // front/back so the user can see, drag, resize, or delete the bay from
+    // either side of the building.
+    if (styleKey === 'through' && oeWall !== 'front') {
       flashMessage('A through-bay must be placed on the front wall.', 'warn');
       return;
     }
-    // Remove any existing bay (single-bay rule). We check both walls so
-    // that switching the bay's home face works cleanly.
-    for (const face of ['front', 'back']) {
+    // Keep one bay per affected wall. Through bays replace both linked
+    // front/back entries; ordinary side bays only replace the active wall's
+    // bay and do not disturb loading bays on other faces.
+    const affectedBayFaces = styleKey === 'through' ? ['front', 'back'] : [oeWall];
+    for (const face of affectedBayFaces) {
       oeEnsureWallFeatureWorkingArray(face);
       oeOpenings[face] = oeOpenings[face].filter(op => op.type !== 'bay');
     }
@@ -1243,14 +1241,13 @@ export function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
 
   oeSelectedSet = new Set([oeOpenings[oeWall].length - 1]);
   oeCommit();
-  // Bay drops touch both front and back oeOpenings arrays (single-bay rule
-  // clears any pre-existing bay regardless of where it lived). Since the
-  // unified wallFeatures model is now authoritative, commit BOTH affected
-  // walls through setWallFeaturesForFace while preserving non-structural
-  // surface features on those walls.
+  // Bay drops can touch multiple working arrays. Since the unified
+  // wallFeatures model is authoritative, commit every affected wall through
+  // setWallFeaturesForFace while preserving non-structural surface features.
   if (type === 'bay') {
     const target = oeEditTarget();
-    for (const face of ['front', 'back']) {
+    const affectedBayFaces = styleKey === 'through' ? ['front', 'back'] : [oeWall];
+    for (const face of affectedBayFaces) {
       if (Array.isArray(oeOpenings[face])) {
         setWallFeaturesForFace(target, face, oeOpenings[face]);
       }

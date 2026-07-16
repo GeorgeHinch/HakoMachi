@@ -671,38 +671,38 @@ export function oeCanvasRenderImpl() {
   // Bay opening — drawn as part of the editor's interactive layer so it
   // selects, drags, resizes, and deletes through the SAME code paths as
   // every other opening. Sourced from the bay entry in oeOpenings (where
-  // the user's drag-in-progress mutations live).
-  if (oeWall === 'front' || oeWall === 'back') {
-    const opsArrBay = oeOpenings[oeWall] || [];
-    const bayEntry  = opsArrBay.find(op => op && op.type === 'bay');
-    if (bayEntry) {
-      const bayIdx   = opsArrBay.indexOf(bayEntry);
-      const bayX     = bayEntry.x;
-      const bayY     = bayEntry.y;
-      const bayW     = bayEntry.w;
-      const bayH     = bayEntry.h;
-      const bayStyle = bayEntry.style;
-      const isSel     = oeSelectedSet.has(bayIdx);
-      const isPrimary = isSel && [...oeSelectedSet][0] === bayIdx;
-      const rx = ox + bayX * s;
-      const ry = oy + bayY * s;
-      const rw = bayW * s;
-      const rh = bayH * s;
-      const stroke = isSel ? '#f70' : '#555';
-      const sw     = isSel ? 2.5   : 1.0;
-      const idxAttr = (bayIdx >= 0) ? ` data-oe-idx="${bayIdx}"` : '';
-      const linkLabel = (bayStyle === 'through') ? ' (⇔ linked)' : '';
-      html += `<rect x="${rx.toFixed(1)}" y="${ry.toFixed(1)}" width="${rw.toFixed(1)}" height="${rh.toFixed(1)}"`
-            + ` fill="#9a9088" stroke="${stroke}" stroke-width="${sw}"`
-            + ` data-oe-bay="1"${idxAttr} style="cursor:move"/>`;
-      html += `<text x="${(rx + rw / 2).toFixed(1)}" y="${(ry + rh / 2 + 4).toFixed(1)}" font-size="9" fill="#eee"`
-            + ` text-anchor="middle" font-family="system-ui" pointer-events="none">bay${linkLabel}</text>`;
-      if (isPrimary) {
-        const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
-        const styleLbl = (bayStyle === 'through') ? 'through' : 'side';
-        html += `<text x="${(rx + rw / 2).toFixed(1)}" y="${(ry - 4).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${styleLbl} bay ${bayW.toFixed(1)}×${bayH.toFixed(1)}${cntLabel}</text>`;
-        html += oeResizeHandles(rx, ry, rw, rh, bayIdx, 'bay');
-      }
+  // the user's drag-in-progress mutations live). Side-wall bays are ordinary
+  // wall features, so draw them from the entry instead of relying only on
+  // front/back plan-level bay state.
+  const opsArrBay = oeOpenings[oeWall] || [];
+  const bayEntry  = opsArrBay.find(op => op && op.type === 'bay');
+  if (bayEntry) {
+    const bayIdx   = opsArrBay.indexOf(bayEntry);
+    const bayX     = bayEntry.x;
+    const bayY     = bayEntry.y;
+    const bayW     = bayEntry.w;
+    const bayH     = bayEntry.h;
+    const bayStyle = bayEntry.style;
+    const isSel     = oeSelectedSet.has(bayIdx);
+    const isPrimary = isSel && [...oeSelectedSet][0] === bayIdx;
+    const rx = ox + oeMirrorX(bayX, bayW) * s;
+    const ry = oy + bayY * s;
+    const rw = bayW * s;
+    const rh = bayH * s;
+    const stroke = isSel ? '#f70' : '#555';
+    const sw     = isSel ? 2.5   : 1.0;
+    const idxAttr = (bayIdx >= 0) ? ` data-oe-idx="${bayIdx}"` : '';
+    const linkLabel = (bayStyle === 'through') ? ' (⇔ linked)' : '';
+    html += `<rect x="${rx.toFixed(1)}" y="${ry.toFixed(1)}" width="${rw.toFixed(1)}" height="${rh.toFixed(1)}"`
+          + ` fill="#9a9088" stroke="${stroke}" stroke-width="${sw}"`
+          + ` data-oe-bay="1"${idxAttr} style="cursor:move"/>`;
+    html += `<text x="${(rx + rw / 2).toFixed(1)}" y="${(ry + rh / 2 + 4).toFixed(1)}" font-size="9" fill="#eee"`
+          + ` text-anchor="middle" font-family="system-ui" pointer-events="none">bay${linkLabel}</text>`;
+    if (isPrimary) {
+      const cntLabel = oeSelectedSet.size > 1 ? ` [${oeSelectedSet.size}]` : '';
+      const styleLbl = (bayStyle === 'through') ? 'through' : 'side';
+      html += `<text x="${(rx + rw / 2).toFixed(1)}" y="${(ry - 4).toFixed(1)}" font-size="9" fill="#f70" text-anchor="middle" font-family="system-ui" font-weight="600">${styleLbl} bay ${bayW.toFixed(1)}×${bayH.toFixed(1)}${cntLabel}</text>`;
+      html += oeResizeHandles(rx, ry, rw, rh, bayIdx, 'bay');
     }
   }
 

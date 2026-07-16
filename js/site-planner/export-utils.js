@@ -38,7 +38,7 @@ export function svgRoadMarkingFeature(f, deps){
   }).join('');
 }
 
-export function roadAssetSvgExport({data, roadFeatures, generatedIntersectionRecords = [], generatedRailCrossingRecords = [], width, height}, deps){
+export function roadAssetSvgExport({data, roadFeatures, generatedIntersectionRecords = [], generatedRailCrossingRecords = [], width, height, contentTransform = ''}, deps){
   const {JP_ROAD_MARKING_STANDARD_ID, SVG_OP, SVG_ENGRAVE, SVG_RETAINED_CUT, SVG_SCRAP_CUT, escapeAttr, escapeHtml, normalizeRoadFeature, polygonCenter, svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly}=deps;
   const roadSurfaces=[], sidewalkSurfaces=[], seamCuts=[], curbEtches=[], markingEtches=[], hatchCuts=[], railCrossingCuts=[], railCrossingEtches=[], labels=[];
   data.roads.forEach((r,ri)=>{
@@ -67,7 +67,11 @@ export function roadAssetSvgExport({data, roadFeatures, generatedIntersectionRec
   });
   data.seams.forEach((s,i)=>{seamCuts.push(`<line id="seam_${i+1}" x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}" stroke="${SVG_RETAINED_CUT}" stroke-width="0.1" ${svgFabricationAttrs(SVG_OP.CUT_RETAINED,'seamCut')}/>`); labels.push(`<text x="${s.x+3}" y="${s.y-3}" font-size="6" fill="${SVG_ENGRAVE}" ${svgFabricationAttrs(SVG_OP.ENGRAVE,'labels')}>S-${i+1}</text>`);});
   const style=`<style>\n.svg-cut-retained{stroke:${SVG_RETAINED_CUT};fill:none}.svg-cut-scrap{stroke:${SVG_SCRAP_CUT};fill:none}.svg-engrave{stroke:${SVG_ENGRAVE};fill:none}\n</style>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}mm" height="${height}mm" viewBox="0 0 ${width} ${height}">\n<title>HakoMachi Road Asset Export</title>\n<desc>Road surfaces, sidewalk surfaces, rail crossing inserts, seam cuts, hatch cuts, Japanese road-marking etches, curb etches, and labels. Red is retained through-cut, green is scrap through-cut, and blue is engrave/score. Units follow Site Planner image-pixel coordinate space; use the project calibration for model-mm conversion.</desc>\n${style}\n<g id="roadSurfaceCut">${roadSurfaces.join('\n')}</g>\n<g id="sidewalkSurfaceCut">${sidewalkSurfaces.join('\n')}</g>\n<g id="railCrossingCut">${railCrossingCuts.join('\n')}</g>\n<g id="roadHatchCut">${hatchCuts.join('\n')}</g>\n<g id="roadMarkingEtch" data-standard="${JP_ROAD_MARKING_STANDARD_ID}">${markingEtches.join('\n')}</g>\n<g id="railCrossingPlateEngrave">${railCrossingEtches.join('\n')}</g>\n<g id="seamCut">${seamCuts.join('\n')}</g>\n<g id="curbEtch">${curbEtches.join('\n')}</g>\n<g id="labels">${labels.join('\n')}</g>\n</svg>`;
+  const body = `<g id="roadSurfaceCut">${roadSurfaces.join('\n')}</g>\n<g id="sidewalkSurfaceCut">${sidewalkSurfaces.join('\n')}</g>\n<g id="railCrossingCut">${railCrossingCuts.join('\n')}</g>\n<g id="roadHatchCut">${hatchCuts.join('\n')}</g>\n<g id="roadMarkingEtch" data-standard="${JP_ROAD_MARKING_STANDARD_ID}">${markingEtches.join('\n')}</g>\n<g id="railCrossingPlateEngrave">${railCrossingEtches.join('\n')}</g>\n<g id="seamCut">${seamCuts.join('\n')}</g>\n<g id="curbEtch">${curbEtches.join('\n')}</g>\n<g id="labels">${labels.join('\n')}</g>`;
+  const transformedBody = contentTransform
+    ? `<g id="roadExportMediaLayout" transform="${escapeAttr(contentTransform)}">${body}</g>`
+    : body;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}mm" height="${height}mm" viewBox="0 0 ${width} ${height}">\n<title>HakoMachi Road Asset Export</title>\n<desc>Road surfaces, sidewalk surfaces, rail crossing inserts, seam cuts, hatch cuts, Japanese road-marking etches, curb etches, and labels. Red is retained through-cut, green is scrap through-cut, and blue is engrave/score. Units follow Site Planner image-pixel coordinate space; use the project calibration for model-mm conversion.</desc>\n${style}\n${transformedBody}\n</svg>`;
 }
 
 export function trackSvgExport(tracks, deps){

@@ -65,6 +65,8 @@ export function createInitialState() {
     hoverStlObjectId: null,
     roadExportPreview: false,
     roadExportSettings: { maxPieceMm: 120, avoidJunctionMm: 18, minPieceMm: 35 },
+    roadExportReviewOpen: false,
+    roadExportReviewSettings: null,
     streetlights: [],
     selectedStreetlightId: null,
     hoverStreetlightId: null,

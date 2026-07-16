@@ -3,6 +3,87 @@ const fs = require('fs');
 const path = require('path');
 
 test.describe('Site Planner module split contracts', () => {
+  test('toolbar tooltip behavior is wired through the tooltip controller', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'tool-tooltip-controller.js'), 'utf8');
+    const { createToolTooltipController } = await import('../js/site-planner/tool-tooltip-controller.js');
+
+    expect(source).toContain("import { createToolTooltipController } from './site-planner/tool-tooltip-controller.js';");
+    expect(source).toContain('} = createToolTooltipController({clamp});');
+    expect(source).not.toContain('function ensureToolTooltip()');
+    expect(source).not.toContain('function showToolTooltip(el, opts={})');
+
+    expect(controllerSource).toContain('export function createToolTooltipController');
+    expect(controllerSource).toContain('function installTooltips()');
+
+    const listeners = {};
+    const classNames = new Set();
+    const tooltip = {
+      id: '',
+      className: '',
+      textContent: '',
+      offsetWidth: 80,
+      offsetHeight: 20,
+      style: {},
+      attrs: {},
+      classList: {
+        add: value => classNames.add(value),
+        remove: value => classNames.delete(value),
+        contains: value => classNames.has(value),
+      },
+      setAttribute(name, value) {
+        this.attrs[name] = value;
+      },
+    };
+    const button = {
+      title: '',
+      textContent: '',
+      attrs: { 'aria-label': 'Select tool' },
+      listeners,
+      getAttribute(name) {
+        return this.attrs[name];
+      },
+      addEventListener(type, handler) {
+        this.listeners[type] = handler;
+      },
+      getBoundingClientRect() {
+        return { right: 20, top: 10, height: 24 };
+      },
+    };
+    const doc = {
+      body: { appendChild: el => { doc.appended = el; } },
+      appended: null,
+      createElement: () => tooltip,
+      querySelectorAll: selector => (selector === '.toolbar button[aria-label]' ? [button] : []),
+    };
+    const win = {
+      innerWidth: 300,
+      innerHeight: 200,
+      addEventListener(type, handler) {
+        listeners[`window:${type}`] = handler;
+      },
+    };
+
+    const controller = createToolTooltipController({
+      doc,
+      win,
+      clamp: (value, min, max) => Math.max(min, Math.min(max, value)),
+    });
+    controller.installTooltips();
+    listeners.pointerenter();
+
+    expect(doc.appended).toBe(tooltip);
+    expect(tooltip.id).toBe('toolTooltip');
+    expect(tooltip.textContent).toBe('Select tool');
+    expect(tooltip.attrs['aria-hidden']).toBe('false');
+    expect(classNames.has('visible')).toBe(true);
+    expect(tooltip.style.left).toBe('28px');
+
+    listeners.pointerleave();
+    expect(tooltip.attrs['aria-hidden']).toBe('true');
+    expect(classNames.has('visible')).toBe(false);
+  });
+
   test('building generator handoff behavior is wired through the handoff controller', async () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'hako-handoff-controller.js'), 'utf8');

@@ -54,6 +54,7 @@ import { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } from './sit
 import { installTopMenus } from './site-planner/top-menu-utils.js';
 import { createTrackController } from './site-planner/track-controller.js';
 import { createToolFlyoutController } from './site-planner/tool-flyout-utils.js';
+import { createToolTooltipController } from './site-planner/tool-tooltip-controller.js';
 import { createViewTransformController } from './site-planner/view-transform-utils.js';
 import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geometry.js?v=shared-building-preview-26';
 
@@ -174,6 +175,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     hideToolFlyouts,
     toggleToolFlyout,
   } = createToolFlyoutController({getElement:$, clamp});
+  const {
+    installTooltips,
+  } = createToolTooltipController({clamp});
   const {
     updateEmptyImageOverlay,
     setImageStatus,
@@ -6603,58 +6607,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       b.classList.toggle('active', b.dataset.tool===tool);
     });
     state.drag=null; hideToolFlyouts(); updateWorkspaceModeUi(); syncAll();
-  }
-  let toolTooltip=null;
-  let toolTooltipTimer=null;
-  function ensureToolTooltip(){
-    if(toolTooltip) return toolTooltip;
-    toolTooltip=document.createElement('div');
-    toolTooltip.id='toolTooltip';
-    toolTooltip.className='toolTooltip';
-    toolTooltip.setAttribute('role','tooltip');
-    toolTooltip.setAttribute('aria-hidden','true');
-    document.body.appendChild(toolTooltip);
-    return toolTooltip;
-  }
-  function toolTooltipText(el){
-    return el?.getAttribute('aria-label') || el?.title || el?.textContent?.trim() || '';
-  }
-  function showToolTooltip(el, opts={}){
-    if(!el) return;
-    const text=toolTooltipText(el);
-    if(!text) return;
-    const tip=ensureToolTooltip();
-    clearTimeout(toolTooltipTimer);
-    tip.textContent=text;
-    tip.setAttribute('aria-hidden','false');
-    tip.classList.add('visible');
-    const rect=el.getBoundingClientRect();
-    const margin=8;
-    const left=Math.min(window.innerWidth-margin-tip.offsetWidth, rect.right+8);
-    const top=clamp(rect.top+rect.height/2, margin+tip.offsetHeight/2, window.innerHeight-margin-tip.offsetHeight/2);
-    tip.style.left=Math.max(margin,left)+'px';
-    tip.style.top=top+'px';
-    if(opts.autoHideMs) toolTooltipTimer=setTimeout(hideToolTooltip, opts.autoHideMs);
-  }
-  function hideToolTooltip(){
-    clearTimeout(toolTooltipTimer);
-    if(!toolTooltip) return;
-    toolTooltip.classList.remove('visible');
-    toolTooltip.setAttribute('aria-hidden','true');
-  }
-  function installTooltips(){
-    document.querySelectorAll('.toolbar button[aria-label]').forEach(btn=>{
-      btn.addEventListener('pointerenter',()=>showToolTooltip(btn));
-      btn.addEventListener('pointerleave',hideToolTooltip);
-      btn.addEventListener('focus',()=>showToolTooltip(btn));
-      btn.addEventListener('blur',hideToolTooltip);
-      btn.addEventListener('pointerdown',e=>{
-        if(e.pointerType==='touch' || e.pointerType==='pen') showToolTooltip(btn,{autoHideMs:1600});
-      });
-      btn.addEventListener('contextmenu',hideToolTooltip);
-    });
-    window.addEventListener('resize',hideToolTooltip);
-    window.addEventListener('scroll',hideToolTooltip,true);
   }
   document.querySelectorAll('.toolbtn[data-tool]:not([data-road-mode-tool]):not([data-track-action])').forEach(btn=>btn.onclick=()=>setActiveTool(btn.dataset.tool));
   $('workspaceMode')?.addEventListener('change', e=>setWorkspaceMode(e.target.value));

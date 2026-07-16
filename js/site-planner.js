@@ -57,6 +57,7 @@ import { createToolFlyoutController } from './site-planner/tool-flyout-utils.js'
 import { createToolTooltipController } from './site-planner/tool-tooltip-controller.js';
 import { createToolVariantController } from './site-planner/tool-variant-controller.js';
 import { createViewTransformController } from './site-planner/view-transform-utils.js';
+import { createWorkspaceModeController } from './site-planner/workspace-mode-controller.js';
 import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geometry.js?v=shared-building-preview-26';
 
 (() => {
@@ -147,6 +148,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let updateTrackSwitchToolButton = () => {};
   let updateTrackBufferToolButton = () => {};
   let updateCatenaryToolButton = () => {};
+  let updateWorkspaceModeUi = () => {};
+  let setWorkspaceMode = () => {};
+  let setActiveTool = () => {};
   let fabricController = null;
   const colors = ['#d79631','#b8672d','#0f766e','#7c5f3f','#8b5a2b','#5f7f54','#9b6b44','#496a78'];
   function initFabricControls(){
@@ -6531,86 +6535,26 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   });
   window.addEventListener('blur', ()=>{state.shiftKeyDown=false;});
   function finishPolygon(){if(state.polygonDraft.length<3) return; const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'polygon',pointsPx:state.polygonDraft.slice(),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,state:'notStarted',notes:'',hakoConfig:null,hakoFile:null,hakoFileId:null}; syncBuildingMetrics(b); state.buildings.push(b); setBuildingSelection([b.id], b.id); state.polygonDraft=[]; syncAll();}
-  function maybeFinishActiveRoadDraft(nextTool){
-    if(state.tool !== 'road' || nextTool === 'road' || !Array.isArray(state.roadDraft) || state.roadDraft.length === 0) return;
-    if(state.roadMode === 'outline'){
-      if(state.roadDraft.length >= 3) finishRoadOutline();
-      else state.roadDraft = [];
-    } else {
-      if(state.roadDraft.length >= 2) finishRoadCenterline();
-      else state.roadDraft = [];
-    }
-  }
-  function maybeFinishActiveTrackDraft(nextTool){
-    if(state.tool !== 'track' || nextTool === 'track' || !Array.isArray(state.trackDraft) || state.trackDraft.length === 0) return;
-    if(state.trackDraft.length >= 2) finishTrack();
-    else { state.trackDraft = []; state.trackDraftConnections=[]; state.trackDraftExtension=null; }
-  }
-  function normalizeWorkspaceMode(mode){
-    return mode === 'road' || mode === 'track' ? mode : 'layout';
-  }
-  function updateWorkspaceModeUi(){
-    const mode=normalizeWorkspaceMode(state.workspaceMode);
-    state.workspaceMode=mode;
-    const app=document.querySelector('.sitePlannerApp');
-    if(app){
-      app.classList.toggle('roadWorkspace', mode==='road');
-      app.classList.toggle('trackWorkspace', mode==='track');
-    }
-    const picker=$('workspaceMode');
-    if(picker && picker.value!==mode) picker.value=mode;
-    document.querySelectorAll('[data-road-mode-tool]').forEach(btn=>{
-      btn.classList.toggle('active', mode==='road' && state.tool==='road' && state.roadMode===btn.dataset.roadModeTool);
-    });
-    document.querySelectorAll('[data-road-action]').forEach(btn=>{
-      const action=btn.dataset.roadAction;
-      const active=(action==='intersections' && mode==='road' && state.roadTask==='intersections') || (action==='exportPreview' && state.roadExportPreview);
-      btn.classList.toggle('active', active);
-      btn.classList.toggle('roadActionActive', active && action==='exportPreview');
-    });
-    document.querySelectorAll('[data-track-action]').forEach(btn=>{
-      const action=btn.dataset.trackAction;
-      const active=(action==='draw' && mode==='track' && state.tool==='track' && !state.trackTask) ||
-        (mode==='track' && state.trackTask===action);
-      btn.classList.toggle('active', active);
-    });
-    updateTrackSwitchToolButton();
-    updateTrackBufferToolButton();
-    updateCatenaryToolButton();
-    const previewBtn=$('roadCutPreviewModeBtn');
-    if(previewBtn){
-      const label='Cut preview '+(state.roadExportPreview?'on':'off');
-      previewBtn.title=label;
-      previewBtn.setAttribute('aria-label', label);
-    }
-  }
-  function setWorkspaceMode(mode, opts={}){
-    state.workspaceMode=normalizeWorkspaceMode(mode);
-    if(state.workspaceMode==='road' && !['select','pan','road'].includes(state.tool)){
-      setActiveTool('select', {preserveRoadTask: true});
-    } else if(state.workspaceMode==='track' && !['select','pan','track'].includes(state.tool)){
-      setActiveTool('select', {preserveTrackTask: true});
-    } else if(!opts.preserveRoadTask && state.workspaceMode!=='road'){
-      state.roadTask=null;
-    }
-    if(!opts.preserveTrackTask && state.workspaceMode!=='track'){ state.trackTask=null; state.catenarySectionDraft=null; }
-    updateWorkspaceModeUi();
-    updateStatus();
-    draw();
-  }
-  function setActiveTool(tool, opts={}){
-    if(!tool) return;
-    maybeFinishActiveRoadDraft(tool);
-    maybeFinishActiveTrackDraft(tool);
-    state.tool=tool;
-    if(!opts.preserveRoadTask) state.roadTask=null;
-    if(!opts.preserveTrackTask){ state.trackTask=null; state.catenarySectionDraft=null; }
-    document.querySelectorAll('.toolbtn').forEach(b=>{
-      if(b.dataset.roadModeTool || b.dataset.roadAction || b.dataset.trackAction) return;
-      b.classList.toggle('active', b.dataset.tool===tool);
-    });
-    state.drag=null; hideToolFlyouts(); updateWorkspaceModeUi(); syncAll();
-  }
+  ({
+    setActiveTool,
+    setWorkspaceMode,
+    updateWorkspaceModeUi,
+  } = createWorkspaceModeController({
+    state,
+    getElement: $,
+    finishRoadCenterline,
+    finishRoadOutline,
+    finishTrack,
+    hideToolFlyouts,
+    updateToolButtons: {
+      updateTrackSwitchToolButton: () => updateTrackSwitchToolButton(),
+      updateTrackBufferToolButton: () => updateTrackBufferToolButton(),
+      updateCatenaryToolButton: () => updateCatenaryToolButton(),
+    },
+    updateStatus,
+    draw,
+    syncAll,
+  }));
   document.querySelectorAll('.toolbtn[data-tool]:not([data-road-mode-tool]):not([data-track-action])').forEach(btn=>btn.onclick=()=>setActiveTool(btn.dataset.tool));
   $('workspaceMode')?.addEventListener('change', e=>setWorkspaceMode(e.target.value));
   document.querySelectorAll('[data-road-mode-tool]').forEach(btn=>btn.onclick=()=>{

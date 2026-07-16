@@ -157,6 +157,104 @@ test.describe('Site Planner module split contracts', () => {
     expect(workspaceUpdates).toBe(1);
   });
 
+  test('workspace mode and active tool behavior is wired through its controller', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'workspace-mode-controller.js'), 'utf8');
+    const {
+      createWorkspaceModeController,
+      normalizeWorkspaceMode,
+    } = await import('../js/site-planner/workspace-mode-controller.js');
+
+    expect(source).toContain("import { createWorkspaceModeController } from './site-planner/workspace-mode-controller.js';");
+    expect(source).toContain('} = createWorkspaceModeController({');
+    expect(source).not.toContain('function maybeFinishActiveRoadDraft');
+    expect(source).not.toContain('function setWorkspaceMode(mode, opts={})');
+
+    expect(controllerSource).toContain('export function createWorkspaceModeController');
+    expect(controllerSource).toContain('function setActiveTool(tool, opts = {})');
+    expect(normalizeWorkspaceMode('road')).toBe('road');
+    expect(normalizeWorkspaceMode('track')).toBe('track');
+    expect(normalizeWorkspaceMode('bogus')).toBe('layout');
+
+    const classNames = new Map();
+    const makeButton = dataset => ({
+      dataset,
+      classList: {
+        toggle(name, on) {
+          classNames.set(`${dataset.tool || dataset.roadModeTool || dataset.roadAction || dataset.trackAction}:${name}`, !!on);
+        },
+      },
+    });
+    const selectButton = makeButton({ tool: 'select' });
+    const roadButton = makeButton({ roadModeTool: 'centerline' });
+    const exportPreviewButton = makeButton({ roadAction: 'exportPreview' });
+    const trackDrawButton = makeButton({ trackAction: 'draw' });
+    const appClasses = new Map();
+    const app = { classList: { toggle: (name, on) => appClasses.set(name, !!on) } };
+    const picker = { value: 'layout' };
+    const previewBtn = { title: '', attrs: {}, setAttribute(name, value) { this.attrs[name] = value; } };
+    const doc = {
+      querySelector: selector => (selector === '.sitePlannerApp' ? app : null),
+      querySelectorAll: selector => {
+        if (selector === '.toolbtn') return [selectButton, roadButton, exportPreviewButton, trackDrawButton];
+        if (selector === '[data-road-mode-tool]') return [roadButton];
+        if (selector === '[data-road-action]') return [exportPreviewButton];
+        if (selector === '[data-track-action]') return [trackDrawButton];
+        return [];
+      },
+    };
+    const state = {
+      tool: 'road',
+      workspaceMode: 'road',
+      roadMode: 'centerline',
+      roadTask: 'intersections',
+      roadDraft: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+      trackTask: 'draw',
+      trackDraft: [],
+      roadExportPreview: true,
+      catenarySectionDraft: { active: true },
+      drag: { type: 'move' },
+    };
+    let finishedRoad = 0;
+    let hiddenFlyouts = 0;
+    let synced = 0;
+    const controller = createWorkspaceModeController({
+      state,
+      getElement: id => (id === 'workspaceMode' ? picker : id === 'roadCutPreviewModeBtn' ? previewBtn : null),
+      doc,
+      finishRoadCenterline: () => { finishedRoad += 1; state.roadDraft = []; },
+      finishRoadOutline: () => {},
+      finishTrack: () => {},
+      hideToolFlyouts: () => { hiddenFlyouts += 1; },
+      updateToolButtons: {
+        updateTrackSwitchToolButton: () => {},
+        updateTrackBufferToolButton: () => {},
+        updateCatenaryToolButton: () => {},
+      },
+      updateStatus: () => {},
+      draw: () => {},
+      syncAll: () => { synced += 1; },
+    });
+
+    controller.setActiveTool('select');
+
+    expect(finishedRoad).toBe(1);
+    expect(state.tool).toBe('select');
+    expect(state.roadTask).toBe(null);
+    expect(state.trackTask).toBe(null);
+    expect(state.catenarySectionDraft).toBe(null);
+    expect(state.drag).toBe(null);
+    expect(hiddenFlyouts).toBe(1);
+    expect(synced).toBe(1);
+    expect(classNames.get('select:active')).toBe(true);
+
+    controller.setWorkspaceMode('track', { preserveTrackTask: true });
+    expect(state.workspaceMode).toBe('track');
+    expect(picker.value).toBe('track');
+    expect(appClasses.get('trackWorkspace')).toBe(true);
+    expect(previewBtn.attrs['aria-label']).toBe('Cut preview on');
+  });
+
   test('building generator handoff behavior is wired through the handoff controller', async () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'hako-handoff-controller.js'), 'utf8');

@@ -1156,6 +1156,7 @@ test.describe('Site Planner module split contracts', () => {
 
   test('site planner 3D objects carry selection tags and route clicks to property panes', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const roadRenderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-road-renderer.js'), 'utf8');
     const tagsStart = source.indexOf('function tagSite3DBuilding');
     const tagsEnd = source.indexOf('function buildSite3DCatenaryItem');
     const tagHelpers = source.slice(tagsStart, tagsEnd);
@@ -1165,7 +1166,7 @@ test.describe('Site Planner module split contracts', () => {
 
     expect(tagHelpers).toContain('sitePlannerRoadId');
     expect(tagHelpers).toContain('sitePlannerTrackId');
-    expect(source).toContain('tagSite3DRoadObject(site3DAddFlatPolygon');
+    expect(roadRenderer).toContain('tagSite3DRoadObject(site3DAddFlatPolygon');
     expect(source).toContain('tagSite3DTrackObject(site3DAddRaisedPolygon');
     expect(source).toContain('tagSite3DTrackObject(site3DAddBoxSegments');
     expect(picker).toContain("return {type:'trackAccessory'");

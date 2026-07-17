@@ -36,32 +36,34 @@ test.describe('3D material depth regression contracts', () => {
 
   test('Site Planner 3D road meshes use mode-aware benchwork-clipped display polygons', () => {
     const source = readRepoFile('js/site-planner.js');
-    const roadGroup = source.match(/function buildSite3DRoadGroup\(bounds\)\{([\s\S]+?)function buildSite3DTrackGroup/);
+    const roadRenderer = readRepoFile('js/site-planner/site-3d-road-renderer.js');
     const bounds = source.match(/function site3DBounds\(\)\{([\s\S]+?)function disposeSite3DObject/);
 
-    expect(roadGroup, '3D road group builder exists').not.toBeNull();
+    expect(source).toContain("import { createSite3DRoadRenderer } from './site-planner/site-3d-road-renderer.js';");
+    expect(source).toContain('function buildSite3DRoadGroup(bounds)');
+    expect(source).toContain('createSite3DRoadRenderer({');
     expect(bounds, '3D bounds builder exists').not.toBeNull();
     expect(source).toContain("function shouldClipRoadsToBenchwork()");
     expect(source).toContain("return state.workspaceMode!=='road'");
-    expect(roadGroup[1]).toContain('roadDisplayPolygons(r,{perCurve:32,clipToBenchwork:shouldClipRoadsToBenchwork()})');
-    expect(roadGroup[1]).not.toContain('site3DAddFlatPolygon(group,r.roadPolygonPx||[]');
+    expect(roadRenderer).toContain('roadDisplayPolygons(road, { perCurve: 32, clipToBenchwork: shouldClipRoadsToBenchwork() })');
+    expect(roadRenderer).not.toContain('site3DAddFlatPolygon(group,r.roadPolygonPx||[]');
     expect(bounds[1]).toContain('roadDisplayPolygons(r,{perCurve:32,clipToBenchwork:shouldClipRoadsToBenchwork()})');
   });
 
   test('Site Planner 3D road markings and fixtures render above road surfaces', () => {
     const source = readRepoFile('js/site-planner.js');
-    const roadGroup = source.match(/function buildSite3DRoadGroup\(bounds\)\{([\s\S]+?)function buildSite3DTrackGroup/);
-    const overlayMaterial = source.match(/function site3DColorMaterial\(color, fallback, options=\{\}\)\{([\s\S]+?)function site3DLineMaterial/);
+    const roadRenderer = readRepoFile('js/site-planner/site-3d-road-renderer.js');
+    const overlayMaterial = roadRenderer.match(/function roadOverlayMaterial\(color, fallback, options = \{\}\) \{([\s\S]+?)function roadOverlayLineMaterial/);
 
-    expect(roadGroup, '3D road group builder exists').not.toBeNull();
+    expect(source).toContain("import { createSite3DRoadRenderer } from './site-planner/site-3d-road-renderer.js';");
     expect(overlayMaterial, '3D road overlay material helper exists').not.toBeNull();
-    expect(source).toContain("import { buildRoadMarkingShapes } from './site-planner/road-marking-shapes.js';");
-    expect(roadGroup[1]).toContain('addSite3DGeneratedRoadIntersections(group)');
-    expect(roadGroup[1]).toContain('addSite3DRoadFeatures(group)');
-    expect(source).toContain('buildRoadMarkingShapes(preset,{x:feature.x,y:feature.y,angle:rad(feature.rotationDeg||0)})');
-    expect(source).toContain('tagSite3DRoadFeatureObject(mesh,feature)');
-    expect(overlayMaterial[1]).toContain('depthWrite:false');
-    expect(overlayMaterial[1]).toContain('polygonOffset:true');
+    expect(roadRenderer).toContain("import { buildRoadMarkingShapes } from './road-marking-shapes.js';");
+    expect(roadRenderer).toContain('addGeneratedRoadIntersections(group)');
+    expect(roadRenderer).toContain('addRoadFeatures(group)');
+    expect(roadRenderer).toContain('buildRoadMarkingShapes(preset, { x: feature.x, y: feature.y, angle: rad(feature.rotationDeg || 0) })');
+    expect(roadRenderer).toContain('tagSite3DRoadFeatureObject(mesh, feature)');
+    expect(overlayMaterial[1]).toContain('depthWrite: false');
+    expect(overlayMaterial[1]).toContain('polygonOffset: true');
   });
 
   test('3D preview cameras derive near and far planes from scene bounds', () => {

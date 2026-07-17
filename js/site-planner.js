@@ -2391,6 +2391,78 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     return b;
   }
+  function cloneSitePlannerValue(value){
+    return typeof structuredClone==='function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
+  }
+  function buildingHasProtectedWork(b){
+    if(!b) return false;
+    if(b.hakoFile || b.completedHakoFile || b.hakoFileId || b.hakoConfig || b.linkedHakoConfig) return true;
+    if(b.githubLibraryRecord || b.hakomachiHandoff || b.sitePlannerHandoff) return true;
+    if(b.hakoSeed && Object.keys(b.hakoSeed).length) return true;
+    return !!(b.state && b.state!=='notStarted');
+  }
+  function buildingResizeProtectionSummary(b){
+    if(b?.hakoFile?.fileName) return `attached file ${b.hakoFile.fileName}`;
+    if(b?.hakoFileId) return `linked file ${b.hakoFileId}`;
+    if(b?.githubLibraryRecord?.path) return `GitHub library file ${b.githubLibraryRecord.path}`;
+    if(b?.hakoConfig || b?.linkedHakoConfig) return 'existing generated building settings';
+    if(b?.hakoSeed) return 'existing generated building seed';
+    if(b?.state && b.state!=='notStarted') return `status ${buildingStateLabel(b.state)}`;
+    return 'existing building work';
+  }
+  function buildingFootprintChanged(before, after){
+    if(!before || !after) return false;
+    if(before.padType!==after.padType) return true;
+    if(before.padType==='rect'){
+      const bw=Number(before.widthPx)||0, bd=Number(before.depthPx)||0;
+      const aw=Number(after.widthPx)||0, ad=Number(after.depthPx)||0;
+      return Math.abs(bw-aw)>.01 || Math.abs(bd-ad)>.01;
+    }
+    const a=Array.isArray(before.pointsPx)?before.pointsPx:[];
+    const b=Array.isArray(after.pointsPx)?after.pointsPx:[];
+    if(a.length!==b.length) return true;
+    return a.some((p,i)=>Math.abs((Number(p.x)||0)-(Number(b[i].x)||0))>.01 || Math.abs((Number(p.y)||0)-(Number(b[i].y)||0))>.01);
+  }
+  function restoreBuildingSnapshot(target, snapshot){
+    if(!target || !snapshot) return;
+    Object.keys(target).forEach(key=>delete target[key]);
+    Object.assign(target, cloneSitePlannerValue(snapshot));
+    normalizeBuilding(target);
+    syncBuildingMetrics(target);
+  }
+  function formatFootprintSize(size){
+    return size && Number(size.widthMm)>0 && Number(size.depthMm)>0
+      ? `${fmt(size.widthMm)} x ${fmt(size.depthMm)} mm`
+      : 'unknown size';
+  }
+  function confirmProtectedBuildingResize(b, opts={}){
+    if(!buildingHasProtectedWork(b)) return true;
+    if(opts.before && opts.after && !buildingFootprintChanged(opts.before, opts.after)) return true;
+    const currentText=opts.currentSize ? formatFootprintSize(opts.currentSize) : null;
+    const incomingText=opts.incomingSize ? formatFootprintSize(opts.incomingSize) : null;
+    const sizeLine=currentText && incomingText ? `\n\nCurrent footprint: ${currentText}\nNew footprint: ${incomingText}` : '';
+    const fileLine=opts.fileName ? `\n\nFile to replace: ${opts.fileName}` : '';
+    const ok=confirm(`Resize "${b.name||'building'}"?\n\nThis building has ${buildingResizeProtectionSummary(b)}. Resizing will replace or regenerate the existing building geometry for this footprint.${sizeLine}${fileLine}\n\nClick OK to replace the existing file/geometry.\nClick Cancel to keep the current footprint unchanged.`);
+    if(!ok) showStatusHint(`Resize canceled for ${b.name||'building'}.`, 'warning');
+    return ok;
+  }
+  function applySelectedBuildingDimensionInput(b, dimension, rawValue, inputEl){
+    if(!b || b.padType!=='rect' || !state.pxPerMm) return;
+    const before=cloneSitePlannerValue(b);
+    const after=cloneSitePlannerValue(b);
+    const mm=Math.max(.1,parseFloat(rawValue)||.1);
+    if(dimension==='width') after.widthPx=mmToPx(mm);
+    else after.depthPx=mmToPx(mm);
+    syncBuildingMetrics(after);
+    if(!confirmProtectedBuildingResize(b,{before,after})){
+      if(inputEl) inputEl.value=fmt(dimension==='width'?b.widthMm:b.depthMm);
+      syncAll({skipDirty:true});
+      return;
+    }
+    if(dimension==='width') b.widthPx=after.widthPx;
+    else b.depthPx=after.depthPx;
+    syncSelectedBuildingLive(b);
+  }
   function pointFromAny(raw){
     if(!raw) return null;
     if(Array.isArray(raw) && raw.length>=2){
@@ -2587,6 +2659,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     setBuildingSelection,
     syncAll,
     statusHintElement: () => $('statusHint'),
+    confirmBuildingResize: (building, details={}) => confirmProtectedBuildingResize(building,{...details,changed:true}),
   });
   const {
     normalizeBenchworkOutline,
@@ -5706,7 +5779,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     bind('selName',v=>{b.name=v; renameAttachedHakoFileForBuilding(b);}); bind('selCat',v=>b.category=v); bind('selColor',v=>b.color=v); bind('selRot',v=>b.rotationDeg=parseFloat(v)||0); bind('sel3dHeight',v=>b.plannerHeightMm=Math.max(.1,parseFloat(v)||.1)); bind('sel3dElevation',v=>b.baseElevationMm=parseFloat(v)||0); bind('selNotes',v=>b.notes=v);
     installAdaptiveDegreeStepping($('selRot'));
     const stateSel=$('selState'); if(stateSel){stateSel.value=b.state||'notStarted'; stateSel.onchange=e=>{b.state=e.target.value; syncAll();};}
-    bind('selW',v=>{if(state.pxPerMm)b.widthPx=mmToPx(Math.max(.1,parseFloat(v)||1));}); bind('selD',v=>{if(state.pxPerMm)b.depthPx=mmToPx(Math.max(.1,parseFloat(v)||1));});
+    const selW=$('selW'), selD=$('selD');
+    if(selW) selW.onchange=()=>applySelectedBuildingDimensionInput(b,'width',selW.value,selW);
+    if(selD) selD.onchange=()=>applySelectedBuildingDimensionInput(b,'depth',selD.value,selD);
     const hakoInput=$('hakoFileInput');
     if(hakoInput) hakoInput.onchange=e=>{const f=e.target.files&&e.target.files[0]; if(f) attachHakoFileToSelectedBuilding(f,{source:'selected-building-picker'}); e.target.value='';};
     if($('downloadHakoB')) $('downloadHakoB').onclick=()=>{const text=hakoFileText(b); if(!text)return; downloadText(text, b.hakoFile?.fileName||`${slug(b.name)}.hako`, b.hakoFile?.mimeType||'application/json');};
@@ -6426,6 +6501,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(d.type==='marquee'){const r=selectionRectFromPoints(d.start,d.end||d.start); if(Math.max(r.w,r.h)>5/state.view.scale){const hits=buildingsInSelectionRect(r); const ids=d.additive?[...new Set([...(d.baseIds||[]),...hits])]:hits; setBuildingSelection(ids, ids.length===1?ids[0]:null); setSelectedSiteObjects(ids.map(id=>({type:'building',id})));} else if(!d.additive){clearBuildingSelection(); clearSelectedSiteObjects(); state.selectedAnnotationId=null; state.selectedStreetlightId=null; state.selectedRoadId=null; state.selectedBenchworkId=null; state.selectedFabricId=null; state.selectedStlObjectId=null;} renderList(); renderSelected(); updateHandoff();}
     if(d.type==='roadCenterline'&&d.preview&&dist(d.start,d.end)>4){state.roads.push(d.preview); state.selectedRoadId=d.preview.id; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null; renderRoads(); renderSelected();}
     if(d.type==='pan' && d.rightButtonPan && d.moved){state.suppressNextContextMenu=true;}
+    if(d.type==='rectCorner' || d.type==='polyPoint'){
+      const b=selected();
+      if(b && d.orig && buildingFootprintChanged(d.orig,b) && !confirmProtectedBuildingResize(b,{before:d.orig,after:cloneSitePlannerValue(b)})){
+        restoreBuildingSnapshot(b,d.orig);
+        canvas.classList.remove('panning');
+        state.drag=null;
+        syncAll({skipDirty:true});
+        return;
+      }
+    }
     canvas.classList.remove('panning');
     state.drag=null; syncAll();
   }

@@ -334,6 +334,9 @@ test.describe('Site Planner module split contracts', () => {
     expect(source).toContain("import { createHakoHandoffController } from './site-planner/hako-handoff-controller.js';");
     expect(source).toContain('} = createHakoHandoffController({');
     expect(source).toContain('applySitePlannerBuildingUpdate(payload)');
+    expect(source).toContain('confirmBuildingResize: (building, details={}) => confirmProtectedBuildingResize');
+    expect(source).toContain("selW.onchange=()=>applySelectedBuildingDimensionInput(b,'width',selW.value,selW)");
+    expect(source).toContain("d.type==='rectCorner' || d.type==='polyPoint'");
     expect(source).not.toContain('function sitePlannerBuildingUpdatePayload(data)');
 
     expect(controllerSource).toContain('export function createHakoHandoffController');
@@ -400,6 +403,89 @@ test.describe('Site Planner module split contracts', () => {
     expect(state.buildings[0].depthPx).toBe(140);
     expect(selectedIds).toEqual(['b1']);
     expect(statusHint.textContent).toBe('Updated Corner Shop from Building Generator.');
+  });
+
+  test('building generator handoff can cancel resizing an attached building', async () => {
+    const { createHakoHandoffController } = await import('../js/site-planner/hako-handoff-controller.js');
+    const makeState = () => ({
+      projectName: 'Akiba Module',
+      buildings: [{
+        id: 'b1',
+        name: 'Corner Shop',
+        padType: 'rect',
+        category: 'commercial',
+        state: 'inProgress',
+        x: 100,
+        y: 120,
+        widthMm: 20,
+        depthMm: 12,
+        widthPx: 200,
+        depthPx: 120,
+        rotationDeg: 0,
+        hakoFile: {
+          fileName: 'corner-shop.hako',
+          parsedConfig: { buildingName: 'Corner Shop', width: 20, depth: 12 },
+        },
+        hakoFileId: 'corner-shop.hako',
+      }],
+    });
+    const makeController = (state, confirmBuildingResize, statusHint = { textContent: '' }) => createHakoHandoffController({
+      state,
+      autosaveKey: 'autosave-key',
+      buildingUpdateKey: 'building-update-key',
+      getElement: () => null,
+      selected: () => state.buildings[0],
+      normalizeBuilding: building => building,
+      syncBuildingMetrics: building => {
+        building.widthMm = building.widthPx / 10;
+        building.depthMm = building.depthPx / 10;
+        return building;
+      },
+      deriveFootprintFromHakoConfig: cfg => ({ padType: 'rect', widthMm: cfg.width, depthMm: cfg.depth }),
+      buildingCenter: building => ({ x: building.x, y: building.y }),
+      mmToPx: value => value * 10,
+      rad: degrees => degrees * Math.PI / 180,
+      slug: value => String(value).toLowerCase().replace(/\s+/g, '-'),
+      setBuildingSelection: () => {},
+      syncAll: () => {},
+      statusHintElement: () => statusHint,
+      confirmBuildingResize,
+    });
+    const updatePayload = {
+      schema: 'hakomachi.building-update',
+      buildingId: 'b1',
+      buildingName: 'Updated Corner Shop',
+      hakoConfig: { buildingName: 'Updated Corner Shop', width: 30, depth: 18 },
+      updatedAt: '2026-07-06T00:00:00.000Z',
+    };
+
+    const canceledStatus = { textContent: '' };
+    const canceledState = makeState();
+    const canceledCalls = [];
+    const canceled = makeController(canceledState, (_building, details) => {
+      canceledCalls.push(details);
+      return false;
+    }, canceledStatus).applySitePlannerBuildingUpdate(updatePayload);
+
+    expect(canceled).toBe(false);
+    expect(canceledCalls).toHaveLength(1);
+    expect(canceledCalls[0]).toMatchObject({
+      source: 'building-generator-update',
+      fileName: 'updated-corner-shop.hako',
+      currentSize: { widthMm: 20, depthMm: 12 },
+      incomingSize: { widthMm: 30, depthMm: 18 },
+    });
+    expect(canceledState.buildings[0].hakoFile.fileName).toBe('corner-shop.hako');
+    expect(canceledState.buildings[0].widthPx).toBe(200);
+    expect(canceledState.buildings[0].depthPx).toBe(120);
+    expect(canceledStatus.textContent).toBe('Canceled update for Corner Shop.');
+
+    const confirmedState = makeState();
+    const confirmed = makeController(confirmedState, () => true).applySitePlannerBuildingUpdate(updatePayload);
+    expect(confirmed).toEqual({ buildingId: 'b1', buildingName: 'Corner Shop' });
+    expect(confirmedState.buildings[0].hakoFile.fileName).toBe('updated-corner-shop.hako');
+    expect(confirmedState.buildings[0].widthPx).toBe(300);
+    expect(confirmedState.buildings[0].depthPx).toBe(180);
   });
 
   test('road paint stencil specs preserve custom feature dimensions and stay off the road-deck engrave layer', async () => {

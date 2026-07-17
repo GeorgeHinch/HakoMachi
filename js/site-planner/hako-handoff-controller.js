@@ -22,6 +22,7 @@ export function createHakoHandoffController({
   setBuildingSelection,
   syncAll,
   statusHintElement = () => null,
+  confirmBuildingResize = null,
 }) {
   function plannerHandoffForBuilding(b) {
     return {
@@ -188,6 +189,25 @@ export function createHakoHandoffController({
     const updatedAt = payload.updatedAt || new Date().toISOString();
     const name = payload.buildingName || cfg.buildingName || b.name || 'building';
     const fileName = `${slug(name)}.hako`;
+    const currentSize = currentBuildingFootprintSizeMm(b);
+    const incomingSize = hakoConfigFootprintSizeMm(cfg);
+    if (currentSize && incomingSize && !footprintSizesMatch(currentSize, incomingSize)) {
+      const ok = typeof confirmBuildingResize === 'function'
+        ? confirmBuildingResize(b, {
+          source: 'building-generator-update',
+          fileName,
+          currentSize,
+          incomingSize,
+          buildingName: name,
+          payload,
+        })
+        : true;
+      if (!ok) {
+        const statusHint = statusHintElement();
+        if (statusHint) statusHint.textContent = `Canceled update for ${b.name || name || 'building'}.`;
+        return false;
+      }
+    }
     const dataText = JSON.stringify(cfg, null, 2);
     b.hakoConfig = clone(cfg);
     b.hakoFile = {
@@ -211,6 +231,44 @@ export function createHakoHandoffController({
     const statusHint = statusHintElement();
     if (statusHint) statusHint.textContent = `Updated ${b.name || 'building'} from Building Generator.`;
     return { buildingId: b.id, buildingName: b.name || name || 'building' };
+  }
+
+  function currentBuildingFootprintSizeMm(b) {
+    if (!b) return null;
+    syncBuildingMetrics(b);
+    if (b.padType === 'rect') {
+      const widthMm = Number(b.widthMm);
+      const depthMm = Number(b.depthMm);
+      return widthMm > 0 && depthMm > 0 ? { widthMm, depthMm, source: 'current footprint' } : null;
+    }
+    const derived = b.derived || {};
+    const widthMm = Number(derived.boundingWidthMm);
+    const depthMm = Number(derived.boundingDepthMm);
+    return widthMm > 0 && depthMm > 0 ? { widthMm, depthMm, source: 'current footprint bounds' } : null;
+  }
+
+  function hakoConfigFootprintSizeMm(cfg) {
+    const derived = deriveFootprintFromHakoConfig(cfg || {});
+    if (!derived) return null;
+    if (derived.widthMm && derived.depthMm) {
+      return { widthMm: Number(derived.widthMm), depthMm: Number(derived.depthMm), source: derived.source || 'hako config' };
+    }
+    if (Array.isArray(derived.pointsMm) && derived.pointsMm.length >= 3) {
+      const xs = derived.pointsMm.map(p => Number(p.x)).filter(Number.isFinite);
+      const ys = derived.pointsMm.map(p => Number(p.y)).filter(Number.isFinite);
+      if (xs.length && ys.length) {
+        return { widthMm: Math.max(...xs) - Math.min(...xs), depthMm: Math.max(...ys) - Math.min(...ys), source: derived.source || 'hako footprint bounds' };
+      }
+    }
+    return null;
+  }
+
+  function footprintSizesMatch(a, b) {
+    if (!a || !b) return true;
+    const widthTol = Math.max(0.5, Math.max(Number(a.widthMm) || 0, Number(b.widthMm) || 0) * 0.01);
+    const depthTol = Math.max(0.5, Math.max(Number(a.depthMm) || 0, Number(b.depthMm) || 0) * 0.01);
+    return Math.abs((Number(a.widthMm) || 0) - (Number(b.widthMm) || 0)) <= widthTol
+      && Math.abs((Number(a.depthMm) || 0) - (Number(b.depthMm) || 0)) <= depthTol;
   }
 
   function acknowledgeSitePlannerBuildingUpdate(sourceWindow, origin, result) {

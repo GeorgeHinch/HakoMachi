@@ -3,6 +3,80 @@ const fs = require('fs');
 const path = require('path');
 
 test.describe('Site Planner module split contracts', () => {
+  test('generated intersection marking controls live outside the site planner monolith', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'road-intersection-marking-controls.js'), 'utf8');
+    const { createRoadIntersectionMarkingControls } = await import('../js/site-planner/road-intersection-marking-controls.js');
+
+    expect(source).toContain("import { createRoadIntersectionMarkingControls } from './site-planner/road-intersection-marking-controls.js';");
+    expect(source).toContain('roadIntersectionMarkingControls = createRoadIntersectionMarkingControls({');
+    expect(source).not.toContain('function selectedRoadIntersectionArmSettings');
+    expect(source).not.toContain('function roadIntersectionFeatureControlsHtml');
+    expect(controllerSource).toContain('export function createRoadIntersectionMarkingControls');
+    expect(controllerSource).toContain('function selectedRoadIntersectionFeatureRows');
+
+    const generated = [{
+      overrideKey: 'node:a',
+      arms: [{ roadId: 'road_1', endpoint: 'start' }],
+      stopBars: [{ roadId: 'road_1', endpoint: 'start', laneSide: 'left' }],
+      tactilePavers: [{ roadId: 'road_1', endpoint: 'start', side: 'near' }],
+      crosswalks: [{ roadId: 'road_1', endpoint: 'start' }],
+      curbReturns: [],
+    }];
+    const patches = [];
+    const featureToggles = [];
+    let syncCount = 0;
+    const elements = {
+      roadIntersectionStopBars: { checked: false, onchange: null },
+      clearRoadIntersectionArmOverrides: { onclick: null },
+    };
+    const featureToggle = {
+      checked: false,
+      dataset: {
+        intersectionKey: 'node:a',
+        armKey: 'road_1:start',
+        featureKey: 'stopBar:road_1:start:left',
+      },
+      onchange: null,
+    };
+    const controller = createRoadIntersectionMarkingControls({
+      state: { roadIntersectionOverrides: {} },
+      roadSystem: {
+        generatedRoadIntersections: () => generated,
+        rawGeneratedRoadIntersections: () => generated,
+        setRoadIntersectionArmOverrides: (roadId, patch) => patches.push({ roadId, patch }),
+        setRoadIntersectionFeatureOverride: (...args) => featureToggles.push(args),
+        clearRoadIntersectionArmOverrides: roadId => patches.push({ roadId, clear: true }),
+      },
+      escapeAttr: value => String(value).replace(/"/g, '&quot;'),
+      escapeHtml: value => String(value).replace(/</g, '&lt;'),
+      syncAll: () => { syncCount += 1; },
+      doc: {
+        getElementById: id => elements[id] || null,
+        querySelectorAll: selector => (selector === '.roadIntersectionFeatureToggle' ? [featureToggle] : []),
+      },
+    });
+
+    const html = controller.controlsHtml('road_1');
+    expect(html).toContain('Intersection markings');
+    expect(html).toContain('Stop bars on this road');
+    expect(html).toContain('data-feature-key="stopBar:road_1:start:left"');
+
+    controller.bindArmCheckbox('roadIntersectionStopBars', 'road_1', 'stopBarEnabled');
+    elements.roadIntersectionStopBars.onchange();
+    controller.bindFeatureToggles();
+    featureToggle.onchange();
+    controller.bindClearArmOverrides('road_1');
+    elements.clearRoadIntersectionArmOverrides.onclick();
+
+    expect(patches).toEqual([
+      { roadId: 'road_1', patch: { stopBarEnabled: false } },
+      { roadId: 'road_1', clear: true },
+    ]);
+    expect(featureToggles).toEqual([['node:a', 'road_1:start', 'stopBar:road_1:start:left', false]]);
+    expect(syncCount).toBe(3);
+  });
+
   test('toolbar tooltip behavior is wired through the tooltip controller', async () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'tool-tooltip-controller.js'), 'utf8');

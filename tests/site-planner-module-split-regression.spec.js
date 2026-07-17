@@ -1107,6 +1107,19 @@ test.describe('Site Planner module split contracts', () => {
     expect(drawHelper).not.toContain('drawLabel(item.name||trackAccessoryLabel(item.kind),{x:item.x+12*scale,y:item.y-12*scale})');
   });
 
+  test('track switch diverging ties are spaced by curve distance', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const drawStart = source.indexOf('function drawTrackAccessory');
+    const drawEnd = source.indexOf('function renderRoads');
+    const drawHelper = source.slice(drawStart, drawEnd);
+
+    expect(source).toContain('function pointAtPolylineDistance');
+    expect(source).toContain('function polylineLength');
+    expect(drawHelper).toContain('const branchLength=polylineLength(branch)');
+    expect(drawHelper).toContain('const station=pointAtPolylineDistance(branch,d)');
+    expect(drawHelper).not.toContain('for(let i=3;i<branch.length;i+=3)');
+  });
+
   test('benchwork outline behavior is wired through the benchwork controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'benchwork-controller.js'), 'utf8');

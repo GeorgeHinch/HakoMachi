@@ -1137,6 +1137,32 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     return points;
   }
+  function pointAtPolylineDistance(path,distance){
+    const clean=(path||[]).filter(point=>point&&Number.isFinite(point.x)&&Number.isFinite(point.y));
+    if(!clean.length) return null;
+    let remaining=Math.max(0,Number(distance)||0);
+    for(let i=1;i<clean.length;i++){
+      const a=clean[i-1], b=clean[i];
+      const dx=b.x-a.x, dy=b.y-a.y;
+      const len=Math.hypot(dx,dy);
+      if(len<=.001) continue;
+      if(remaining<=len){
+        const t=remaining/len;
+        return {point:{x:a.x+dx*t,y:a.y+dy*t},tangent:{x:dx/len,y:dy/len},distance};
+      }
+      remaining-=len;
+    }
+    const prev=clean[Math.max(0,clean.length-2)], last=clean[clean.length-1];
+    const dx=last.x-prev.x, dy=last.y-prev.y, len=Math.hypot(dx,dy)||1;
+    return {point:last,tangent:{x:dx/len,y:dy/len},distance};
+  }
+  function polylineLength(path){
+    return (path||[]).reduce((total,point,index,arr)=>{
+      if(!index) return total;
+      const prev=arr[index-1];
+      return total+dist(prev,point);
+    },0);
+  }
   function drawTrackSwitchPolyline(points){
     if(!points || !points.length) return;
     ctx.beginPath();
@@ -2103,13 +2129,15 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       ctx.strokeStyle='rgba(138,111,67,.82)';
       ctx.lineWidth=Math.max(geom.tieWidth,1.2*scale);
       const tieHalf=Math.max(geom.tieLength/2,geom.gauge/2+3*scale);
-      for(let x=-geom.halfLength; x<=geom.halfLength+.01; x+=Math.max(geom.tieSpacing,3*scale)){
+      const switchTieSpacing=Math.max(geom.tieSpacing,3*scale);
+      for(let x=-geom.halfLength; x<=geom.halfLength+.01; x+=switchTieSpacing){
         ctx.beginPath(); ctx.moveTo(x,-tieHalf); ctx.lineTo(x,tieHalf); ctx.stroke();
       }
-      for(let i=3;i<branch.length;i+=3){
-        const p=branch[i], prev=branch[Math.max(0,i-1)], next=branch[Math.min(branch.length-1,i+1)];
-        const dx=next.x-prev.x, dy=next.y-prev.y, len=Math.hypot(dx,dy)||1;
-        const nx=-dy/len, ny=dx/len;
+      const branchLength=polylineLength(branch);
+      for(let d=switchTieSpacing*1.25; d<=branchLength-switchTieSpacing*.35; d+=switchTieSpacing){
+        const station=pointAtPolylineDistance(branch,d);
+        if(!station) continue;
+        const p=station.point, nx=-station.tangent.y, ny=station.tangent.x;
         ctx.beginPath();
         ctx.moveTo(p.x-nx*tieHalf,p.y-ny*tieHalf);
         ctx.lineTo(p.x+nx*tieHalf,p.y+ny*tieHalf);

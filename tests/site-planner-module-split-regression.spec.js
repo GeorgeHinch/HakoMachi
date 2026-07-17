@@ -1133,7 +1133,7 @@ test.describe('Site Planner module split contracts', () => {
     const end = source.indexOf('function buildSite3DTrackAccessoryGroup');
     const renderer = source.slice(start, end);
     const switchboardStart = source.indexOf('function buildSite3DTrackAccessoryFallbackItem');
-    const switchboard = source.slice(switchboardStart, source.indexOf('function site3DWindowColumns'));
+    const switchboard = source.slice(switchboardStart, source.indexOf('function site3DStlGeometry'));
 
     expect(renderer).toContain('Japanese crossing buck diagonal plate A');
     expect(renderer).toContain('Japanese crossing striped barrier arm');
@@ -1152,6 +1152,23 @@ test.describe('Site Planner module split contracts', () => {
     expect(switchboard).toContain('buildSite3DCrossingArmItem(item,bounds)');
     expect(switchboard).toContain("item.kind==='intrusionDetector'");
     expect(switchboard).toContain('buildSite3DIntrusionDetectorItem(item,bounds)');
+  });
+
+  test('site planner 3D building rendering is wired through its renderer module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-building-renderer.js'), 'utf8');
+
+    expect(source).toContain("import { createSite3DBuildingRenderer } from './site-planner/site-3d-building-renderer.js';");
+    expect(source).toContain('site3DBuildingRenderer=createSite3DBuildingRenderer({');
+    expect(source).toContain('function buildSite3DSelectionHelper(b,bounds,opts={})');
+    expect(source).toContain('function buildSite3DBuildingGroup(b,bounds)');
+    expect(source).not.toContain('function site3DWindowColumns');
+    expect(source).not.toContain('function addSite3DFacadeDetails');
+    expect(source).not.toContain('function buildSite3DMassing');
+    expect(renderer).toContain('export function createSite3DBuildingRenderer');
+    expect(renderer).toContain('function buildMassing');
+    expect(renderer).toContain('function addFacadeDetails');
+    expect(renderer).toContain('sharedRenderer.buildBuildingPreviewGroup');
   });
 
   test('site planner 3D objects carry selection tags and route clicks to property panes', () => {

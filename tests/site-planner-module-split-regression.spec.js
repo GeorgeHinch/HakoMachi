@@ -1107,21 +1107,20 @@ test.describe('Site Planner module split contracts', () => {
 
   test('track switch 3D renderer uses flex-track colors and flat roadbed segments', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
-    const start = source.indexOf('function buildSite3DTrackSwitchItem');
-    const end = source.indexOf('function buildSite3DTrackBufferItem');
-    const renderer = source.slice(start, end);
+    const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-track-accessory-renderer.js'), 'utf8');
 
-    expect(renderer).toContain('TRACK_PROFILE_DEFAULTS.railColor');
-    expect(renderer).toContain('TRACK_PROFILE_DEFAULTS.tieColor');
-    expect(renderer).toContain('TRACK_PROFILE_DEFAULTS.roadbedHeightMm');
-    expect(renderer).toContain('const railBase=sleeperBase+sleeperHeight');
-    expect(renderer).toContain('const switchTieSpacing=');
-    expect(renderer).toContain('TRACK_PROFILE_DEFAULTS.tieSpacingMm');
-    expect(renderer).toContain('const addStraightTieStations=');
-    expect(renderer).toContain('const branchPointAtX=');
-    expect(renderer).toContain('const addDivergingTurnoutTieStations=');
+    expect(source).toContain("import { createSite3DTrackAccessoryRenderer } from './site-planner/site-3d-track-accessory-renderer.js';");
+    expect(renderer).toContain('trackProfileDefaults.railColor');
+    expect(renderer).toContain('trackProfileDefaults.tieColor');
+    expect(renderer).toContain('trackProfileDefaults.roadbedHeightMm');
+    expect(renderer).toContain('const railBase = sleeperBase + sleeperHeight');
+    expect(renderer).toContain('const switchTieSpacing =');
+    expect(renderer).toContain('trackProfileDefaults.tieSpacingMm');
+    expect(renderer).toContain('const addStraightTieStations =');
+    expect(renderer).toContain('const branchPointAtX =');
+    expect(renderer).toContain('const addDivergingTurnoutTieStations =');
     expect(renderer).toContain('Tomix switch diverging turnout tie');
-    expect(renderer).toContain('addLocalSegment(branch[i],branch[i+1]');
+    expect(renderer).toContain('addLocalSegment(branch[i], branch[i + 1]');
     expect(renderer).not.toContain('addTiePathByDistance(branch');
     expect(renderer).not.toContain('Tomix switch curve tie');
     expect(renderer).not.toContain('i+=3');
@@ -1133,7 +1132,8 @@ test.describe('Site Planner module split contracts', () => {
     const start = source.indexOf('function buildSite3DCrossingSignalItem');
     const end = source.indexOf('function buildSite3DTrackAccessoryGroup');
     const renderer = source.slice(start, end);
-    const switchboard = source.slice(end, source.indexOf('function site3DWindowColumns'));
+    const switchboardStart = source.indexOf('function buildSite3DTrackAccessoryFallbackItem');
+    const switchboard = source.slice(switchboardStart, source.indexOf('function site3DWindowColumns'));
 
     expect(renderer).toContain('Japanese crossing buck diagonal plate A');
     expect(renderer).toContain('Japanese crossing striped barrier arm');
@@ -1201,41 +1201,36 @@ test.describe('Site Planner module split contracts', () => {
 
   test('Tomix track accessories fall back to the flex-track gauge scale', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
-    const start = source.indexOf('function defaultTrackAccessoryPxPerMm');
-    const end = source.indexOf('function tomixBufferGeometry');
-    const scaleHelpers = source.slice(start, end);
+    const scaleHelpers = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-geometry.js'), 'utf8');
 
-    expect(scaleHelpers).toContain('TRACK_PROFILE_DEFAULTS.gaugeMm');
+    expect(source).toContain("import { createTrackAccessoryGeometry } from './site-planner/track-accessory-geometry.js';");
+    expect(scaleHelpers).toContain('trackProfileDefaults.gaugeMm');
     expect(scaleHelpers).toContain('return 10 /');
     expect(scaleHelpers).not.toContain('return 0.32');
   });
 
   test('track switch labels are anchored away from the rotation handle', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const renderer2d = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-renderer-2d.js'), 'utf8');
     const labelStart = source.indexOf('function trackAccessoryLabelPoint');
     const labelEnd = source.indexOf('function selectTrackAccessory');
     const labelHelper = source.slice(labelStart, labelEnd);
-    const drawStart = source.indexOf('function drawTrackAccessory');
-    const drawEnd = source.indexOf('function renderRoads');
-    const drawHelper = source.slice(drawStart, drawEnd);
 
     expect(labelHelper).toContain('isTrackSwitchAccessoryKind');
     expect(labelHelper).toContain('maxY+24*scale');
-    expect(drawHelper).toContain('drawLabel(item.name||trackAccessoryLabel(item.kind),trackAccessoryLabelPoint(item))');
-    expect(drawHelper).not.toContain('drawLabel(item.name||trackAccessoryLabel(item.kind),{x:item.x+12*scale,y:item.y-12*scale})');
+    expect(renderer2d).toContain('drawLabel(item.name || trackAccessoryLabel(item.kind), trackAccessoryLabelPoint(item))');
+    expect(renderer2d).not.toContain('drawLabel(item.name||trackAccessoryLabel(item.kind),{x:item.x+12*scale,y:item.y-12*scale})');
   });
 
   test('track switch diverging ties are spaced by curve distance', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
-    const drawStart = source.indexOf('function drawTrackAccessory');
-    const drawEnd = source.indexOf('function renderRoads');
-    const drawHelper = source.slice(drawStart, drawEnd);
+    const renderer2d = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-renderer-2d.js'), 'utf8');
 
     expect(source).toContain('function pointAtPolylineDistance');
     expect(source).toContain('function polylineLength');
-    expect(drawHelper).toContain('const branchLength=polylineLength(branch)');
-    expect(drawHelper).toContain('const station=pointAtPolylineDistance(branch,d)');
-    expect(drawHelper).not.toContain('for(let i=3;i<branch.length;i+=3)');
+    expect(renderer2d).toContain('const branchLength = polylineLength(branch)');
+    expect(renderer2d).toContain('const station = pointAtPolylineDistance(branch, d)');
+    expect(renderer2d).not.toContain('for(let i=3;i<branch.length;i+=3)');
   });
 
   test('benchwork outline behavior is wired through the benchwork controller', () => {

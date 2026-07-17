@@ -1199,6 +1199,21 @@ test.describe('Site Planner module split contracts', () => {
     expect(updateSite3D).toContain('options.preserveCamera!==false && hadCamera');
   });
 
+  test('site object selection and clipboard behavior is wired through its controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-object-selection-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createSiteObjectSelectionController } from './site-planner/site-object-selection-controller.js';");
+    expect(source).toContain('siteObjectSelectionController=createSiteObjectSelectionController({');
+    expect(source).toContain('function handleSiteObjectPointerHit(type,item,e,p){return ensureSiteObjectSelectionController().handleSiteObjectPointerHit(type,item,e,p);}');
+    expect(controller).toContain('export const SITE_OBJECT_CLIPBOARD_TYPES');
+    expect(controller).toContain('function copySelectedSiteObject()');
+    expect(controller).toContain('function pasteSiteObjectFromClipboard()');
+    expect(controller).toContain('function applySiteObjectMoveFromOrig(type, orig, dx, dy');
+    expect(controller).toContain('function handleSiteObjectPointerHit(type, item, e, p)');
+    expect(source).not.toContain('const SITE_OBJECT_MOVE_TYPES = new Set');
+  });
+
   test('Tomix track accessories fall back to the flex-track gauge scale', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const scaleHelpers = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-geometry.js'), 'utf8');

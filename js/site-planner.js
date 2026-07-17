@@ -895,6 +895,32 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     ctx.stroke();
     ctx.restore();
   }
+  function drawRailCrossingIndicator(crossing,selected=false){
+    if(!crossing?.point) return;
+    const radius=Math.max((selected?5:3)/state.view.scale,Math.min((selected?16:12)/state.view.scale,(crossing.roadWidthPx||24)*(selected?0.18:0.12)));
+    const roadHalf=Math.max(radius*1.45,8/state.view.scale);
+    const trackHalf=Math.max(radius*1.25,7/state.view.scale);
+    ctx.save();
+    ctx.fillStyle=selected?'rgba(255,247,237,.94)':'rgba(200,74,58,.22)';
+    ctx.strokeStyle=selected?'#c84a3a':'rgba(200,74,58,.75)';
+    ctx.lineWidth=(selected?2:1.2)/state.view.scale;
+    ctx.beginPath();
+    ctx.arc(crossing.point.x,crossing.point.y,radius,0,Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.lineCap='round';
+    ctx.strokeStyle=selected?'#6f3f2f':'rgba(58,43,30,.7)';
+    ctx.lineWidth=1.1/state.view.scale;
+    const roadVector=crossing.roadVector||{x:1,y:0};
+    const trackVector=crossing.trackVector||{x:0,y:1};
+    ctx.beginPath();
+    ctx.moveTo(crossing.point.x-roadVector.x*roadHalf,crossing.point.y-roadVector.y*roadHalf);
+    ctx.lineTo(crossing.point.x+roadVector.x*roadHalf,crossing.point.y+roadVector.y*roadHalf);
+    ctx.moveTo(crossing.point.x-trackVector.x*trackHalf,crossing.point.y-trackVector.y*trackHalf);
+    ctx.lineTo(crossing.point.x+trackVector.x*trackHalf,crossing.point.y+trackVector.y*trackHalf);
+    ctx.stroke();
+    ctx.restore();
+  }
   function drawGeneratedRailCrossings(){
     const crossings=generatedRailCrossings();
     const selectedId=state.selectedRailCrossingId;
@@ -911,11 +937,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         ctx.beginPath(); ctx.moveTo(line.a.x,line.a.y); ctx.lineTo(line.b.x,line.b.y); ctx.stroke();
       });
       ctx.restore();
+      drawRailCrossingIndicator(crossing,selected);
       if(selected){
-        ctx.save();
-        ctx.fillStyle='#fff7ed'; ctx.strokeStyle='#c84a3a'; ctx.lineWidth=2/state.view.scale;
-        ctx.beginPath(); ctx.arc(crossing.point.x,crossing.point.y,5/state.view.scale,0,Math.PI*2); ctx.fill(); ctx.stroke();
-        ctx.restore();
         drawLabel(`Rail crossing · ${crossing.trackName}`,{x:crossing.point.x+8/state.view.scale,y:crossing.point.y-8/state.view.scale});
       }
     });

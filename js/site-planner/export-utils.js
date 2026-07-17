@@ -40,7 +40,7 @@ export function svgRoadMarkingFeature(f, deps){
 
 export function roadAssetSvgExport({data, roadFeatures, generatedIntersectionRecords = [], generatedRailCrossingRecords = [], width, height, contentTransform = ''}, deps){
   const {JP_ROAD_MARKING_STANDARD_ID, SVG_OP, SVG_ENGRAVE, SVG_RETAINED_CUT, SVG_SCRAP_CUT, escapeAttr, escapeHtml, normalizeRoadFeature, polygonCenter, svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly}=deps;
-  const roadSurfaces=[], sidewalkSurfaces=[], seamCuts=[], curbEtches=[], markingEtches=[], hatchCuts=[], railCrossingCuts=[], railCrossingEtches=[], labels=[];
+  const roadSurfaces=[], sidewalkSurfaces=[], seamCuts=[], curbEtches=[], markingEtches=[], hatchCuts=[], railCrossingCuts=[], railCrossingEtches=[], railCrossingSurveyCuts=[], railCrossingSurveySlotCuts=[], railCrossingSurveyEtches=[], labels=[];
   data.roads.forEach((r,ri)=>{
     if((r.roadPolygonPx||[]).length) roadSurfaces.push(`<polygon id="${escapeAttr(r.id)}_surface" points="${svgPathFromPoly(r.roadPolygonPx)}" fill="none" stroke="${SVG_RETAINED_CUT}" stroke-width="0.1" ${svgFabricationAttrs(SVG_OP.CUT_RETAINED,'roadSurfaceCut')}/>`);
     (r.sidewalkPolygonsPx||[]).forEach((sw,si)=>{ if((sw.polygon||[]).length) sidewalkSurfaces.push(`<polygon id="${escapeAttr(r.id)}_sidewalk_${si}" points="${svgPathFromPoly(sw.polygon)}" fill="none" stroke="${SVG_RETAINED_CUT}" stroke-width="0.1" ${svgFabricationAttrs(SVG_OP.CUT_RETAINED,'sidewalkSurfaceCut')}/>`); });
@@ -56,18 +56,31 @@ export function roadAssetSvgExport({data, roadFeatures, generatedIntersectionRec
     target.push(`<path d="${escapeAttr(record.d)}" fill="none" stroke="${SVG_ENGRAVE}" stroke-width="0.1" ${attrs}/>`);
   });
   generatedRailCrossingRecords.forEach((record,index)=>{
-    if(!record?.d) return;
+    if(!record?.d && !record?.text) return;
     const layer=record.layer||'railCrossingCut';
-    const isCut=record.operation==='cutRetained' || layer==='railCrossingCut';
-    const op=isCut?SVG_OP.CUT_RETAINED:SVG_OP.ENGRAVE;
-    const stroke=isCut?SVG_RETAINED_CUT:SVG_ENGRAVE;
+    const isRetainedCut=record.operation==='cutRetained' || layer==='railCrossingCut' || layer==='railCrossingSurveyCut';
+    const isScrapCut=record.operation==='cutScrap' || layer==='railCrossingSurveySlotCut';
+    const isCut=isRetainedCut || isScrapCut;
+    const op=isScrapCut?SVG_OP.CUT_SCRAP:(isRetainedCut?SVG_OP.CUT_RETAINED:SVG_OP.ENGRAVE);
+    const stroke=isScrapCut?SVG_SCRAP_CUT:(isRetainedCut?SVG_RETAINED_CUT:SVG_ENGRAVE);
     const attrs=svgFabricationAttrs(op,layer,`data-crossing-id="${escapeAttr(record.crossingId||'')}" data-crossing-key="${escapeAttr(record.crossingKey||'')}" data-road-id="${escapeAttr(record.roadId||'')}" data-track-id="${escapeAttr(record.trackId||'')}" data-panel-kind="${escapeAttr(record.panelKind||'')}" data-feature-type="${escapeAttr(record.type||'railCrossing')}" data-generated-index="${index}"`);
-    const target=isCut?railCrossingCuts:railCrossingEtches;
-    target.push(`<path d="${escapeAttr(record.d)}" fill="none" stroke="${stroke}" stroke-width="${isCut?'0.1':'0.08'}" ${attrs}/>`);
+    const element = record.text
+      ? `<text x="${record.x || 0}" y="${record.y || 0}" font-size="5" fill="${stroke}" text-anchor="middle" dominant-baseline="middle" ${attrs}>${escapeHtml(record.text)}</text>`
+      : `<path d="${escapeAttr(record.d)}" fill="none" stroke="${stroke}" stroke-width="${isCut?'0.1':'0.08'}" ${attrs}/>`;
+    const target=layer==='railCrossingSurveyCut'
+      ? railCrossingSurveyCuts
+      : layer==='railCrossingSurveySlotCut'
+        ? railCrossingSurveySlotCuts
+        : layer==='railCrossingSurveyEngrave'
+          ? railCrossingSurveyEtches
+          : isCut
+            ? railCrossingCuts
+            : railCrossingEtches;
+    target.push(element);
   });
   data.seams.forEach((s,i)=>{seamCuts.push(`<line id="seam_${i+1}" x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}" stroke="${SVG_RETAINED_CUT}" stroke-width="0.1" ${svgFabricationAttrs(SVG_OP.CUT_RETAINED,'seamCut')}/>`); labels.push(`<text x="${s.x+3}" y="${s.y-3}" font-size="6" fill="${SVG_ENGRAVE}" ${svgFabricationAttrs(SVG_OP.ENGRAVE,'labels')}>S-${i+1}</text>`);});
   const style=`<style>\n.svg-cut-retained{stroke:${SVG_RETAINED_CUT};fill:none}.svg-cut-scrap{stroke:${SVG_SCRAP_CUT};fill:none}.svg-engrave{stroke:${SVG_ENGRAVE};fill:none}\n</style>`;
-  const body = `<g id="roadSurfaceCut">${roadSurfaces.join('\n')}</g>\n<g id="sidewalkSurfaceCut">${sidewalkSurfaces.join('\n')}</g>\n<g id="railCrossingCut">${railCrossingCuts.join('\n')}</g>\n<g id="roadHatchCut">${hatchCuts.join('\n')}</g>\n<g id="roadMarkingEtch" data-standard="${JP_ROAD_MARKING_STANDARD_ID}">${markingEtches.join('\n')}</g>\n<g id="railCrossingPlateEngrave">${railCrossingEtches.join('\n')}</g>\n<g id="seamCut">${seamCuts.join('\n')}</g>\n<g id="curbEtch">${curbEtches.join('\n')}</g>\n<g id="labels">${labels.join('\n')}</g>`;
+  const body = `<g id="roadSurfaceCut">${roadSurfaces.join('\n')}</g>\n<g id="sidewalkSurfaceCut">${sidewalkSurfaces.join('\n')}</g>\n<g id="railCrossingCut">${railCrossingCuts.join('\n')}</g>\n<g id="railCrossingSurveyCut">${railCrossingSurveyCuts.join('\n')}</g>\n<g id="railCrossingSurveySlotCut">${railCrossingSurveySlotCuts.join('\n')}</g>\n<g id="roadHatchCut">${hatchCuts.join('\n')}</g>\n<g id="roadMarkingEtch" data-standard="${JP_ROAD_MARKING_STANDARD_ID}">${markingEtches.join('\n')}</g>\n<g id="railCrossingPlateEngrave">${railCrossingEtches.join('\n')}</g>\n<g id="railCrossingSurveyEngrave">${railCrossingSurveyEtches.join('\n')}</g>\n<g id="seamCut">${seamCuts.join('\n')}</g>\n<g id="curbEtch">${curbEtches.join('\n')}</g>\n<g id="labels">${labels.join('\n')}</g>`;
   const transformedBody = contentTransform
     ? `<g id="roadExportMediaLayout" transform="${escapeAttr(contentTransform)}">${body}</g>`
     : body;

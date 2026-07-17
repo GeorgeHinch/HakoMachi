@@ -4,6 +4,8 @@ import { lineIntersection } from './road-geometry.js';
 const DEFAULT_CENTER_CLEARANCE_MM = 6.7;
 const DEFAULT_OUTER_PLATE_MM = 2.6;
 const DEFAULT_EDGE_MARGIN_MM = 2;
+const DEFAULT_FLANGEWAY_MM = 1.2;
+const DEFAULT_TEMPLATE_MARGIN_MM = 4;
 
 function finitePoint(point) {
   return point && Number.isFinite(Number(point.x)) && Number.isFinite(Number(point.y));
@@ -27,6 +29,16 @@ function normalOf(vector) {
 
 function dot(a, b) {
   return a.x * b.x + a.y * b.y;
+}
+
+function angleOffsetRadians(deg) {
+  return (Number(deg) || 0) * Math.PI / 180;
+}
+
+function normalizedAngleDeltaDeg(a, b) {
+  let deg = Math.abs(((a - b) * 180 / Math.PI) % 180);
+  if (deg > 90) deg = 180 - deg;
+  return Number(deg.toFixed(2));
 }
 
 function polygonPath(points = []) {
@@ -103,6 +115,37 @@ function straightPanelPolygon(center, along, across, lengthPx, widthPx) {
   ];
 }
 
+function orientedRect(center, along, across, lengthPx, widthPx) {
+  const a = add(center, along, -lengthPx / 2);
+  const b = add(center, along, lengthPx / 2);
+  return [
+    add(a, across, -widthPx / 2),
+    add(b, across, -widthPx / 2),
+    add(b, across, widthPx / 2),
+    add(a, across, widthPx / 2),
+  ];
+}
+
+function linePath(a, b) {
+  return finitePoint(a) && finitePoint(b) ? `M ${fmt(a.x)} ${fmt(a.y)} L ${fmt(b.x)} ${fmt(b.y)}` : '';
+}
+
+function pushLine(records, crossing, layer, type, a, b, extra = {}) {
+  const d = linePath(a, b);
+  if (!d) return;
+  records.push({
+    type,
+    layer,
+    operation: 'engrave',
+    crossingId: crossing.id,
+    crossingKey: crossing.key,
+    roadId: crossing.roadId,
+    trackId: crossing.trackId,
+    d,
+    ...extra,
+  });
+}
+
 function platingLinesForPanel(crossing, lateralOffsetPx, widthPx, lengthPx, arcOffsetPx = 0) {
   const lines = [];
   const along = crossing.trackVector;
@@ -131,6 +174,14 @@ export function normalizeRailCrossingOverride(raw = {}) {
   return {
     enabled: raw.enabled !== false,
     railArcOffsetMm: Number.isFinite(Number(raw.railArcOffsetMm)) ? Number(raw.railArcOffsetMm) : 0,
+    surveyTemplateEnabled: raw.surveyTemplateEnabled === true,
+    roadAngleOffsetDeg: Number.isFinite(Number(raw.roadAngleOffsetDeg)) ? Number(raw.roadAngleOffsetDeg) : 0,
+    trackAngleOffsetDeg: Number.isFinite(Number(raw.trackAngleOffsetDeg)) ? Number(raw.trackAngleOffsetDeg) : 0,
+    crossingOffsetMm: Number.isFinite(Number(raw.crossingOffsetMm)) ? Number(raw.crossingOffsetMm) : 0,
+    roadWidthMm: Number.isFinite(Number(raw.roadWidthMm)) && Number(raw.roadWidthMm) > 0 ? Number(raw.roadWidthMm) : null,
+    flangewayMm: Number.isFinite(Number(raw.flangewayMm)) && Number(raw.flangewayMm) > 0 ? Number(raw.flangewayMm) : DEFAULT_FLANGEWAY_MM,
+    trimGuideEnabled: raw.trimGuideEnabled !== false,
+    registrationMarksEnabled: raw.registrationMarksEnabled !== false,
   };
 }
 
@@ -154,8 +205,13 @@ export function buildRailCrossings({ roads = [], tracks = [], roadCenterlineSamp
           const tb = trackPath[ti + 1];
           const hit = lineIntersection(ra, rb, ta, tb);
           if (!hit) continue;
-          const roadAngle = Math.atan2(rb.y - ra.y, rb.x - ra.x);
-          const trackAngle = Math.atan2(tb.y - ta.y, tb.x - ta.x);
+          const roadDistancePx = segmentPathDistance(roadPath, ri, hit);
+          const key = crossingOverrideKey(road.id, track.id, roadDistancePx);
+          const override = normalizeRailCrossingOverride(overrides[key]);
+          const baseRoadAngle = Math.atan2(rb.y - ra.y, rb.x - ra.x);
+          const baseTrackAngle = Math.atan2(tb.y - ta.y, tb.x - ta.x);
+          const roadAngle = baseRoadAngle + angleOffsetRadians(override.roadAngleOffsetDeg);
+          const trackAngle = baseTrackAngle + angleOffsetRadians(override.trackAngleOffsetDeg);
           const trackVector = unitFromAngle(trackAngle);
           const roadVector = unitFromAngle(roadAngle);
           const trackNormal = normalOf(trackVector);
@@ -168,10 +224,9 @@ export function buildRailCrossings({ roads = [], tracks = [], roadCenterlineSamp
           const outerWidthPx = mmToPx(DEFAULT_OUTER_PLATE_MM, context);
           const marginPx = mmToPx(DEFAULT_EDGE_MARGIN_MM, context);
           const projection = Math.max(0.18, Math.abs(dot(trackVector, roadNormal)));
-          const crossingLengthPx = Math.min(Math.max(road.widthPx || 24, (road.widthPx || 24) / projection + marginPx * 2), (road.widthPx || 24) * 3.5);
-          const roadDistancePx = segmentPathDistance(roadPath, ri, hit);
-          const key = crossingOverrideKey(road.id, track.id, roadDistancePx);
-          const override = normalizeRailCrossingOverride(overrides[key]);
+          const roadWidthPx = override.roadWidthMm ? mmToPx(override.roadWidthMm, context) : (road.widthPx || 24);
+          const crossingPoint = add(hit, roadNormal, mmToPx(override.crossingOffsetMm, context));
+          const crossingLengthPx = Math.min(Math.max(roadWidthPx, roadWidthPx / projection + marginPx * 2), roadWidthPx * 3.5);
           const railArcOffsetPx = mmToPx(override.railArcOffsetMm, context);
           const crossing = {
             id: `rail_crossing_${crossings.length + 1}`,
@@ -181,22 +236,35 @@ export function buildRailCrossings({ roads = [], tracks = [], roadCenterlineSamp
             roadName: road.name || 'Road',
             trackId: track.id,
             trackName: track.name || 'Track',
-            point: hit,
+            point: crossingPoint,
             roadDistancePx,
             trackDistancePx: segmentPathDistance(trackPath, ti, hit),
+            baseRoadAngle,
+            baseTrackAngle,
             roadAngle,
             trackAngle,
+            crossingAngleDeg: normalizedAngleDeltaDeg(roadAngle, trackAngle),
             roadVector,
             roadNormal,
             trackVector,
             trackNormal,
             crossingLengthPx,
+            roadWidthPx,
+            roadWidthMm: pxToMm(roadWidthPx, context),
             centerClearanceMm: DEFAULT_CENTER_CLEARANCE_MM,
             centerWidthPx,
             outerWidthPx,
             railWidthPx,
             gaugePx,
             gaugeMm,
+            flangewayMm: override.flangewayMm,
+            flangewayPx: mmToPx(override.flangewayMm, context),
+            crossingOffsetMm: override.crossingOffsetMm,
+            roadAngleOffsetDeg: override.roadAngleOffsetDeg,
+            trackAngleOffsetDeg: override.trackAngleOffsetDeg,
+            surveyTemplateEnabled: override.surveyTemplateEnabled,
+            trimGuideEnabled: override.trimGuideEnabled,
+            registrationMarksEnabled: override.registrationMarksEnabled,
             railArcOffsetMm: override.railArcOffsetMm,
             railArcOffsetPx,
             panels: [],
@@ -218,6 +286,125 @@ export function buildRailCrossings({ roads = [], tracks = [], roadCenterlineSamp
     });
   });
   return crossings.filter((crossing, index, all) => index === all.findIndex(other => other.roadId === crossing.roadId && other.trackId === crossing.trackId && dist(other.point, crossing.point) < 8));
+}
+
+export function railCrossingSurveyTemplateRecords(crossings = []) {
+  const records = [];
+  crossings.filter(crossing => crossing && crossing.surveyTemplateEnabled && crossing.enabled !== false).forEach(crossing => {
+    const context = { gaugePx: crossing.gaugePx, gaugeMm: crossing.gaugeMm };
+    const marginPx = mmToPx(DEFAULT_TEMPLATE_MARGIN_MM, context);
+    const flangewayPx = Number(crossing.flangewayPx) || mmToPx(DEFAULT_FLANGEWAY_MM, context);
+    const railSlotWidthPx = Math.max(0.6, (Number(crossing.railWidthPx) || mmToPx(0.8, context)) + flangewayPx * 2);
+    const templateRoadWidthPx = Math.max(8, Number(crossing.roadWidthPx) || crossing.crossingLengthPx * 0.6);
+    const templateLengthPx = Math.max(crossing.gaugePx + railSlotWidthPx * 2 + marginPx * 3, mmToPx(32, context));
+    const slotLengthPx = Math.max(templateRoadWidthPx + marginPx * 2, crossing.crossingLengthPx);
+    const templatePoly = orientedRect(crossing.point, crossing.roadVector, crossing.roadNormal, templateLengthPx, templateRoadWidthPx + marginPx * 2);
+
+    records.push({
+      type: 'railCrossingSurveyTemplateOutline',
+      layer: 'railCrossingSurveyCut',
+      operation: 'cutRetained',
+      crossingId: crossing.id,
+      crossingKey: crossing.key,
+      roadId: crossing.roadId,
+      trackId: crossing.trackId,
+      panelKind: 'surveyTemplate',
+      d: polygonPath(templatePoly),
+    });
+
+    [-1, 1].forEach(side => {
+      const railCenter = add(crossing.point, crossing.trackNormal, side * crossing.gaugePx / 2);
+      records.push({
+        type: 'railCrossingSurveyRailSlot',
+        layer: 'railCrossingSurveySlotCut',
+        operation: 'cutScrap',
+        crossingId: crossing.id,
+        crossingKey: crossing.key,
+        roadId: crossing.roadId,
+        trackId: crossing.trackId,
+        panelKind: side < 0 ? 'railSlotLeft' : 'railSlotRight',
+        d: polygonPath(orientedRect(railCenter, crossing.trackVector, crossing.trackNormal, slotLengthPx, railSlotWidthPx)),
+      });
+    });
+
+    pushLine(records, crossing, 'railCrossingSurveyEngrave', 'railCrossingSurveyTrackCenterline',
+      add(crossing.point, crossing.trackVector, -slotLengthPx / 2),
+      add(crossing.point, crossing.trackVector, slotLengthPx / 2),
+      { panelKind: 'trackCenterline' });
+    pushLine(records, crossing, 'railCrossingSurveyEngrave', 'railCrossingSurveyRoadCenterline',
+      add(crossing.point, crossing.roadVector, -templateLengthPx / 2),
+      add(crossing.point, crossing.roadVector, templateLengthPx / 2),
+      { panelKind: 'roadCenterline' });
+
+    [-1, 1].forEach(side => {
+      const roadEdgeCenter = add(crossing.point, crossing.roadNormal, side * templateRoadWidthPx / 2);
+      pushLine(records, crossing, 'railCrossingSurveyEngrave', 'railCrossingSurveyRoadEdge',
+        add(roadEdgeCenter, crossing.roadVector, -templateLengthPx / 2),
+        add(roadEdgeCenter, crossing.roadVector, templateLengthPx / 2),
+        { panelKind: side < 0 ? 'roadEdgeLeft' : 'roadEdgeRight' });
+
+      const flangewayCenter = add(crossing.point, crossing.trackNormal, side * (crossing.gaugePx / 2 + flangewayPx));
+      pushLine(records, crossing, 'railCrossingSurveyEngrave', 'railCrossingSurveyFlangewayGuide',
+        add(flangewayCenter, crossing.trackVector, -slotLengthPx / 2),
+        add(flangewayCenter, crossing.trackVector, slotLengthPx / 2),
+        { panelKind: side < 0 ? 'flangewayLeft' : 'flangewayRight' });
+    });
+
+    const tickLengthPx = mmToPx(2, context);
+    [-1, 1].forEach(side => {
+      const tickCenter = add(crossing.point, crossing.trackVector, side * templateLengthPx * 0.32);
+      pushLine(records, crossing, 'railCrossingSurveyEngrave', 'railCrossingSurveyReferenceTick',
+        add(tickCenter, crossing.trackNormal, -tickLengthPx),
+        add(tickCenter, crossing.trackNormal, tickLengthPx),
+        { panelKind: 'referenceTick' });
+    });
+
+    if (crossing.trimGuideEnabled !== false) {
+      [-1, 1].forEach(sign => {
+        [0.5, 1].forEach(mm => {
+          const center = add(crossing.point, crossing.roadNormal, sign * mmToPx(mm, context));
+          pushLine(records, crossing, 'railCrossingSurveyEngrave', 'railCrossingSurveyTrimGuide',
+            add(center, crossing.roadVector, -templateLengthPx / 2),
+            add(center, crossing.roadVector, templateLengthPx / 2),
+            { panelKind: `trim${sign > 0 ? 'Plus' : 'Minus'}${mm}` });
+        });
+      });
+    }
+
+    if (crossing.registrationMarksEnabled !== false) {
+      const regOffset = Math.min(templateLengthPx, templateRoadWidthPx) * 0.35;
+      [
+        add(add(crossing.point, crossing.roadVector, -regOffset), crossing.roadNormal, -regOffset),
+        add(add(crossing.point, crossing.roadVector, regOffset), crossing.roadNormal, -regOffset),
+        add(add(crossing.point, crossing.roadVector, -regOffset), crossing.roadNormal, regOffset),
+        add(add(crossing.point, crossing.roadVector, regOffset), crossing.roadNormal, regOffset),
+      ].forEach((mark, index) => {
+        pushLine(records, crossing, 'railCrossingSurveyEngrave', 'railCrossingSurveyRegistrationMark',
+          add(mark, crossing.roadVector, -tickLengthPx),
+          add(mark, crossing.roadVector, tickLengthPx),
+          { panelKind: 'registrationMark', index });
+        pushLine(records, crossing, 'railCrossingSurveyEngrave', 'railCrossingSurveyRegistrationMark',
+          add(mark, crossing.roadNormal, -tickLengthPx),
+          add(mark, crossing.roadNormal, tickLengthPx),
+          { panelKind: 'registrationMark', index });
+      });
+    }
+
+    records.push({
+      type: 'railCrossingSurveyAngleLabel',
+      layer: 'railCrossingSurveyEngrave',
+      operation: 'engrave',
+      crossingId: crossing.id,
+      crossingKey: crossing.key,
+      roadId: crossing.roadId,
+      trackId: crossing.trackId,
+      panelKind: 'angleLabel',
+      text: `${fmt(crossing.crossingAngleDeg, 1)} deg`,
+      x: add(crossing.point, crossing.roadVector, templateLengthPx * 0.28).x,
+      y: add(crossing.point, crossing.roadVector, templateLengthPx * 0.28).y,
+    });
+  });
+  return records.filter(record => record.d || record.text);
 }
 
 export function buildRailCrossingInfillPanels(crossings = [], options = {}) {
@@ -259,7 +446,7 @@ export function hitRailCrossing(point, crossings = [], tolerancePx = 8) {
 }
 
 export function railCrossingSvgRecords(crossings = [], options = {}) {
-  const records = [];
+  const records = railCrossingSurveyTemplateRecords(crossings);
   crossings.filter(crossing => crossing.enabled !== false).forEach(crossing => {
     (crossing.panels || []).forEach((panel, index) => {
       records.push({
@@ -302,7 +489,7 @@ export function railCrossingSvgRecords(crossings = [], options = {}) {
       d: polygonPath(panel.polygon || []),
     });
   });
-  return records.filter(record => record.d);
+  return records.filter(record => record.d || record.text);
 }
 
 export function railCrossingSummary(crossings = []) {

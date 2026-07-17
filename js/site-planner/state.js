@@ -48,6 +48,7 @@ export function createInitialState() {
     roadIntersectionDetails: true,
     roadIntersectionOverrides: {},
     generatedRoadIntersections: [],
+    selectedRoadIntersectionId: null,
     generatedRailCrossings: [],
     railCrossingOverrides: {},
     selectedRailCrossingId: null,

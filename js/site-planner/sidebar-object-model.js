@@ -18,6 +18,7 @@ const DETAIL_KIND_TO_TYPE = Object.freeze({
   track: 'tracks',
   trackAccessory: 'trackAccessories',
   roadFeature: 'roadFeatures',
+  roadIntersection: null,
   railCrossing: null,
   benchwork: 'benchwork',
   streetlight: 'streetlights',
@@ -35,6 +36,7 @@ const DETAIL_TITLES = Object.freeze({
   track: 'Track',
   trackAccessory: 'Track Item',
   roadFeature: 'Road Item',
+  roadIntersection: 'Road Intersection',
   railCrossing: 'Rail Crossing',
   streetlight: 'Streetlight',
   fabric: 'Fabric Region',
@@ -118,6 +120,7 @@ export function activeSidebarDetailKindForState(state, selectedBuildingIds) {
   if (state.selectedTrackId) return 'track';
   if (state.selectedTrackAccessoryId) return 'trackAccessory';
   if (state.selectedRoadFeatureId) return 'roadFeature';
+  if (state.selectedRoadIntersectionId) return 'roadIntersection';
   if (state.selectedRailCrossingId) return 'railCrossing';
   if (state.selectedStreetlightId) return 'streetlight';
   if (state.selectedFabricId) return 'fabric';

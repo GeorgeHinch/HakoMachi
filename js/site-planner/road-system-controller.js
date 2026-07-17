@@ -5,7 +5,7 @@ import { createRoadExportController } from './road-export.js';
 import { createRoadFeatureEditorController } from './road-feature-editor.js';
 import { hitRoadCenterlineSegment, hitRoadPoint } from './road-geometry.js';
 import { drawRoadIntersections } from './road-intersection-preview-renderer.js';
-import { applyIntersectionOverrides, intersectionOverrideKey, intersectionOverrideStats, pruneStaleIntersectionOverrides, removeArmOverride, setArmFeatureOverride, upsertArmOverride } from './road-intersection-overrides.js';
+import { applyIntersectionOverrides, intersectionOverrideKey, intersectionOverrideStats, pruneStaleIntersectionOverrides, removeArmOverride, removeIntersectionOverride, setArmFeatureOverride, upsertArmOverride, upsertIntersectionOverride } from './road-intersection-overrides.js';
 import { serializeRoadIntersections } from './road-intersection-svg-export.js';
 import { buildRoadIntersections, intersectionSummary } from './road-intersections.js';
 import { createRoadModelController } from './road-model.js';
@@ -121,6 +121,17 @@ export function createRoadSystemController(deps) {
     return deps.state.roadIntersectionOverrides;
   }
 
+  function setRoadIntersectionOverride(intersection, patch = {}) {
+    if (!intersection) return deps.state.roadIntersectionOverrides || {};
+    deps.state.roadIntersectionOverrides = upsertIntersectionOverride(deps.state.roadIntersectionOverrides || {}, intersection, patch);
+    return deps.state.roadIntersectionOverrides;
+  }
+
+  function clearRoadIntersectionOverride(intersectionOrKey) {
+    deps.state.roadIntersectionOverrides = removeIntersectionOverride(deps.state.roadIntersectionOverrides || {}, intersectionOrKey);
+    return deps.state.roadIntersectionOverrides;
+  }
+
   function roadIntersectionOverrideStats() {
     return intersectionOverrideStats(deps.state.roadIntersectionOverrides || {});
   }
@@ -142,5 +153,7 @@ export function createRoadSystemController(deps) {
     setRoadIntersectionArmOverrides,
     clearRoadIntersectionArmOverrides,
     setRoadIntersectionFeatureOverride,
+    setRoadIntersectionOverride,
+    clearRoadIntersectionOverride,
   };
 }

@@ -34,7 +34,7 @@ import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_WIDT
 import { loadAlignmentMessage, restoreProjectView, savedImageDimensions, scaleLoadedPixelGeometry } from './site-planner/project-load-utils.js';
 import { createReferenceImageUiController } from './site-planner/reference-image-ui.js';
 import { drainageGrateFamilyOptions, grateFamilyPresetByKey } from './site-planner/road-drainage-grate-inserts.js';
-import { intersectionFeatureKey } from './site-planner/road-intersection-overrides.js';
+import { intersectionFeatureKey, normalizeIntersectionOverride, roadArmKey } from './site-planner/road-intersection-overrides.js';
 import { createRoadSystemController } from './site-planner/road-system-controller.js';
 import { createRoadAssetExportController } from './site-planner/road-asset-export-controller.js';
 import { createRoadExportReviewController } from './site-planner/road-export-review-panel.js';
@@ -680,7 +680,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return roadSystem.drawRoadJunctions();
   }
   function drawGeneratedRoadIntersections(){
-    return roadSystem.drawGeneratedRoadIntersections();
+    return roadSystem.drawGeneratedRoadIntersections({selectedIntersectionKey:state.selectedRoadIntersectionId});
   }
   function drawRoad(r){
     return roadSystem.drawRoad(r);
@@ -809,10 +809,54 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     (state.roads||[]).forEach(raw=>{const road=normalizeRoad(raw); roadWidthPxById[road.id]=road.widthPx||24;});
     return buildRailCrossingInfillPanels(crossings,{roadWidthPxById});
   }
+  function roadIntersectionKey(intersection){
+    return intersection?.overrideKey || intersection?.id || '';
+  }
+  function generatedRoadIntersections(){
+    return roadSystem.generatedRoadIntersections();
+  }
+  function selectedRoadIntersection(){
+    const id=state.selectedRoadIntersectionId;
+    if(!id) return null;
+    if(selectedSiteObjectCount() || state.selectedId || currentSelectedBuildingIds().length || state.selectedAnnotationId || state.selectedRoadFeatureId || state.selectedRoadId || state.selectedTrackId || state.selectedTrackAccessoryId || state.selectedBenchworkId || state.selectedStreetlightId || state.selectedFabricId || state.selectedStlObjectId || state.selectedRailCrossingId) return null;
+    return generatedRoadIntersections().find(intersection=>roadIntersectionKey(intersection)===id) || null;
+  }
+  function selectRoadIntersection(intersection){
+    if(!intersection) return false;
+    clearBuildingSelection();
+    clearSelectedSiteObjects();
+    state.selectedRoadId=null;
+    state.selectedRoadFeatureId=null;
+    state.selectedTrackId=null;
+    state.selectedTrackAccessoryId=null;
+    state.selectedBenchworkId=null;
+    state.selectedStreetlightId=null;
+    state.selectedAnnotationId=null;
+    state.selectedFabricId=null;
+    state.selectedStlObjectId=null;
+    state.selectedRailCrossingId=null;
+    state.selectedRoadIntersectionId=roadIntersectionKey(intersection);
+    renderList(); renderRoads(); renderStreetlights(); renderSelected(); draw();
+    return true;
+  }
+  function hitGeneratedRoadIntersection(p,pointerType='mouse'){
+    if(state.roadIntersectionDetails===false) return null;
+    const coarse=pointerType==='touch';
+    const baseTol=(coarse?18:10)/state.view.scale;
+    let best=null;
+    generatedRoadIntersections().forEach(intersection=>{
+      const center=intersection.center||intersection;
+      if(!center) return;
+      const tol=Math.max(baseTol, Math.min(24/state.view.scale, (intersection.maxRoadWidthPx||24)*.32));
+      const distance=dist(p,center);
+      if(distance<=tol && (!best || distance<best.distance)) best={intersection,distance};
+    });
+    return best?.intersection || null;
+  }
   function selectedRailCrossing(){
     const id=state.selectedRailCrossingId;
     if(!id) return null;
-    if(selectedSiteObjectCount() || state.selectedId || currentSelectedBuildingIds().length || state.selectedAnnotationId || state.selectedRoadFeatureId || state.selectedRoadId || state.selectedTrackId || state.selectedTrackAccessoryId || state.selectedBenchworkId || state.selectedStreetlightId || state.selectedFabricId || state.selectedStlObjectId) return null;
+    if(selectedSiteObjectCount() || state.selectedId || currentSelectedBuildingIds().length || state.selectedAnnotationId || state.selectedRoadFeatureId || state.selectedRoadId || state.selectedTrackId || state.selectedTrackAccessoryId || state.selectedBenchworkId || state.selectedStreetlightId || state.selectedFabricId || state.selectedStlObjectId || state.selectedRoadIntersectionId) return null;
     return generatedRailCrossings().find(crossing=>crossing.id===id || crossing.key===id) || null;
   }
   function selectRailCrossing(crossing){
@@ -828,6 +872,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedAnnotationId=null;
     state.selectedFabricId=null;
     state.selectedStlObjectId=null;
+    state.selectedRoadIntersectionId=null;
     state.selectedRailCrossingId=crossing.key||crossing.id;
     renderList(); renderRoads(); renderStreetlights(); renderSelected(); draw();
     return true;
@@ -1343,6 +1388,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(!preserveGroup) clearSelectedSiteObjects();
     if(type!=='building') clearBuildingSelection();
     Object.values(SITE_OBJECT_CLIPBOARD_TYPES).forEach(meta=>{ state[meta.selectedId]=null; });
+    state.selectedRoadIntersectionId=null;
     state.selectedRailCrossingId=null;
     if(type==='building') setBuildingSelection([id],id);
     else {
@@ -3205,7 +3251,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function syncAll(opts = {}){
     state.buildings.forEach(syncBuildingMetrics);
     state.roads.forEach(syncRoadMetrics);
-    roadSystem.generatedRoadIntersections();
+    const intersections=roadSystem.generatedRoadIntersections();
+    if(state.selectedRoadIntersectionId && !intersections.some(intersection=>roadIntersectionKey(intersection)===state.selectedRoadIntersectionId)) state.selectedRoadIntersectionId=null;
     state.tracks=(state.tracks||[]).map(syncTrackMetrics);
     state.trackAccessories=(state.trackAccessories||[]).map(normalizeTrackAccessory);
     refreshAnchoredTrackAccessories();
@@ -4924,6 +4971,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       selectedIds: state.selectedIds,
       selectedSiteObjects: state.selectedSiteObjects||[],
       selectedRoadId: state.selectedRoadId,
+      selectedRoadIntersectionId: state.selectedRoadIntersectionId,
       selectedRailCrossingId: state.selectedRailCrossingId,
       selectedTrackId: state.selectedTrackId,
       selectedTrackAccessoryId: state.selectedTrackAccessoryId,
@@ -4989,6 +5037,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedIds=Array.isArray(data.selectedIds)?data.selectedIds.slice():[];
     state.selectedSiteObjects=Array.isArray(data.selectedSiteObjects)?data.selectedSiteObjects.map(sel=>({type:sel.type,id:sel.id})).filter(sel=>sel.type&&sel.id):[];
     state.selectedRoadId=data.selectedRoadId||null;
+    state.selectedRoadIntersectionId=data.selectedRoadIntersectionId||null;
     state.selectedRailCrossingId=data.selectedRailCrossingId||null;
     state.selectedTrackId=data.selectedTrackId||null;
     state.selectedTrackAccessoryId=data.selectedTrackAccessoryId||null;
@@ -5382,6 +5431,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedFabricId=null;
     state.selectedAnnotationId=null;
     state.selectedStlObjectId=null;
+    state.selectedRoadIntersectionId=null;
     state.selectedRailCrossingId=null;
   }
   function selectSidebarObject(type,id,ev=null){
@@ -5594,7 +5644,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     installHakoImportDropzone(box);
   }
-  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const railCrossing=selectedRailCrossing(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const track=selectedTrack(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const fabric=selectedFabric(); const stl=selectedStlObject(); const selIds=currentSelectedBuildingIds(); const trackAccessory=(!b && !selIds.length && !note && !railCrossing && !roadFeature && !road && !track && !bench && !light && !fabric && !stl) ? selectedTrackAccessory() : null; if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use keyboard shortcuts to copy/paste selected building footprints.</span><div class="buttons" style="margin-top:8px"><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(trackAccessory){normalizeTrackAccessory(trackAccessory); box.innerHTML=`
+  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadIntersection=selectedRoadIntersection(); const railCrossing=selectedRailCrossing(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const track=selectedTrack(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const fabric=selectedFabric(); const stl=selectedStlObject(); const selIds=currentSelectedBuildingIds(); const trackAccessory=(!b && !selIds.length && !note && !roadIntersection && !railCrossing && !roadFeature && !road && !track && !bench && !light && !fabric && !stl) ? selectedTrackAccessory() : null; if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use keyboard shortcuts to copy/paste selected building footprints.</span><div class="buttons" style="margin-top:8px"><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(trackAccessory){normalizeTrackAccessory(trackAccessory); box.innerHTML=`
       <b>Track item selected</b>
       <label>Name</label><input id="trackItemName" value="${escapeAttr(trackAccessory.name||trackAccessoryLabel(trackAccessory.kind))}">
       <label>Type</label><select id="trackItemKind"><option value="sensor">Under-track Sensor</option><option value="signal">Signal Location</option><option value="crossingArm">Crossing Arm</option><option value="intrusionDetector">Intrusion Detector</option><option value="occupancyLight">Blinking Occupancy Lights</option><option value="trackSwitchLeft">Left-hand Track Switch</option><option value="trackSwitchRight">Right-hand Track Switch</option><option value="trackBufferTomix1428">Tomix 1428 Buffer Stop</option><option value="trackBufferTomix1428Catenary">Tomix 1428 Buffer + Catenary Terminal</option><option value="catenarySingleSide">Single-side Catenary Pole</option><option value="catenaryDoublePortal">Double-track Catenary Portal</option></select>
@@ -5614,6 +5664,42 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       installAdaptiveDegreeStepping($('trackItemRot'));
       const snapBtn=$('trackItemSnap'); if(snapBtn) snapBtn.onclick=()=>{const anchor=isTrackBufferAccessoryKind(trackAccessory.kind)?nearestTrackEndpointAnchor({x:trackAccessory.x,y:trackAccessory.y}):nearestTrackAccessoryAnchor({x:trackAccessory.x,y:trackAccessory.y}); if(anchor){if(isCatenaryAccessoryKind(trackAccessory.kind)) attachTrackAccessoryToAnchor(trackAccessory,anchor); else {trackAccessory.x=anchor.point.x; trackAccessory.y=anchor.point.y; trackAccessory.rotationDeg=anchor.angleDeg; trackAccessory.trackId=anchor.trackId; if(isTrackBufferAccessoryKind(trackAccessory.kind)) trackAccessory.trackAnchor={trackId:anchor.trackId,endpointKey:anchor.endpointKey,pointIndex:anchor.pointIndex,pathDistancePx:null,offsetPx:0};} syncAll();}};
       $('deleteTrackItem').onclick=deleteSelectedTrackAccessory;
+      return;
+    } if(roadIntersection){const intersectionKey=roadIntersectionKey(roadIntersection); const override=normalizeIntersectionOverride((state.roadIntersectionOverrides||{})[intersectionKey]); const generatedType=roadIntersection.type||'intersection'; const arms=(roadIntersection.arms||[]).map(arm=>`${roadArmKey(arm)}${arm.roadName?` · ${arm.roadName}`:''}`); box.innerHTML=`
+      <b>Road intersection selected</b>
+      <div class="small muted" style="margin:4px 0 8px">${escapeHtml(generatedType)} · ${(roadIntersection.arms||[]).length} connected arm${(roadIntersection.arms||[]).length===1?'':'s'}</div>
+      <label>Name</label><input id="roadIntersectionName" value="${escapeAttr(override.label||roadIntersection.label||'')}">
+      <label>Type hint</label><select id="roadIntersectionType"><option value="auto">Auto generated</option><option value="corner">Corner</option><option value="t-junction">T-junction</option><option value="cross-junction">Cross junction</option><option value="multi-junction">Multi junction</option><option value="straight-join">Straight join</option><option value="service">Service road</option><option value="driveway">Driveway</option></select>
+      <label>Merge mode</label><select id="roadIntersectionMerge"><option value="auto">Auto blend</option><option value="blend">Blend corners</option><option value="miter">Miter corners</option><option value="keep-arms">Keep road arms separate</option></select>
+      <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="roadIntersectionEnabled" type="checkbox" ${override.enabled?'checked':''}> <span>Generate intersection geometry and markings</span></label>
+      <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="roadIntersectionLocked" type="checkbox" ${override.locked?'checked':''}> <span>Lock generated settings</span></label>
+      <div class="row"><div><label>Corner radius px</label><input id="roadIntersectionCurbRadius" type="number" step="1" value="${override.curbRadiusPx==null?'':fmt(override.curbRadiusPx)}"></div><div><label>Sidewalk bulb px</label><input id="roadIntersectionSidewalkRadius" type="number" step="1" value="${override.sidewalkBulbRadiusPx==null?'':fmt(override.sidewalkBulbRadiusPx)}"></div></div>
+      <div class="section" style="margin-top:10px">
+        <h3 style="margin:0 0 4px">Generated markings</h3>
+        <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:6px"><input id="roadIntersectionCrosswalksAll" type="checkbox" ${override.crosswalksEnabled?'checked':''}> <span>Crosswalks</span></label>
+        <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:6px"><input id="roadIntersectionStopBarsAll" type="checkbox" ${override.stopBarsEnabled?'checked':''}> <span>Stop bars</span></label>
+        <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:6px"><input id="roadIntersectionTactileAll" type="checkbox" ${override.tactilePaversEnabled?'checked':''}> <span>Tactile pavers</span></label>
+        <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:6px"><input id="roadIntersectionCurbGuidesAll" type="checkbox" ${override.curbGuidesEnabled?'checked':''}> <span>Curb guides</span></label>
+      </div>
+      <label>Connected arms</label><div class="small muted" style="display:grid;gap:3px">${arms.length?arms.map(label=>`<span>${escapeHtml(label)}</span>`).join(''):'<span>No connected road arms.</span>'}</div>
+      <label>Notes</label><textarea id="roadIntersectionNotes" rows="3">${escapeHtml(override.notes||'')}</textarea>
+      <div class="buttons" style="margin-top:8px"><button id="resetRoadIntersectionOverride" type="button">Reset Intersection</button></div>
+      <div class="small muted" style="margin-top:8px">Intersection nodes are generated from connected road endpoints. Use this panel to keep the generated node but adjust the markings and output behavior for this specific junction.</div>`;
+      const updateRoadIntersectionOverride=patch=>{roadSystem.setRoadIntersectionOverride(roadIntersection,patch); state.selectedRoadIntersectionId=intersectionKey; syncAll();};
+      const bindIntersection=(id,fn)=>{const el=$(id); if(el) el.oninput=()=>updateRoadIntersectionOverride(fn(el));};
+      const type=$('roadIntersectionType'); if(type){type.value=override.intersectionType||'auto'; type.onchange=()=>updateRoadIntersectionOverride({intersectionType:type.value});}
+      const merge=$('roadIntersectionMerge'); if(merge){merge.value=override.mergeMode||'auto'; merge.onchange=()=>updateRoadIntersectionOverride({mergeMode:merge.value});}
+      bindIntersection('roadIntersectionName',el=>({label:el.value}));
+      bindIntersection('roadIntersectionEnabled',el=>({enabled:!!el.checked}));
+      bindIntersection('roadIntersectionLocked',el=>({locked:!!el.checked}));
+      bindIntersection('roadIntersectionCrosswalksAll',el=>({crosswalksEnabled:!!el.checked}));
+      bindIntersection('roadIntersectionStopBarsAll',el=>({stopBarsEnabled:!!el.checked}));
+      bindIntersection('roadIntersectionTactileAll',el=>({tactilePaversEnabled:!!el.checked}));
+      bindIntersection('roadIntersectionCurbGuidesAll',el=>({curbGuidesEnabled:!!el.checked}));
+      bindIntersection('roadIntersectionCurbRadius',el=>({curbRadiusPx:el.value===''?null:Math.max(0,parseFloat(el.value)||0)}));
+      bindIntersection('roadIntersectionSidewalkRadius',el=>({sidewalkBulbRadiusPx:el.value===''?null:Math.max(0,parseFloat(el.value)||0)}));
+      bindIntersection('roadIntersectionNotes',el=>({notes:el.value}));
+      const reset=$('resetRoadIntersectionOverride'); if(reset) reset.onclick=()=>{roadSystem.clearRoadIntersectionOverride(roadIntersection); state.selectedRoadIntersectionId=intersectionKey; syncAll();};
       return;
     } if(railCrossing){const overrideKey=railCrossingOverrideKey(railCrossing); const override=normalizeRailCrossingOverride((state.railCrossingOverrides||{})[overrideKey]); box.innerHTML=`
       <b>Rail crossing selected</b>
@@ -5952,7 +6038,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(!detailSection) return;
     detailSection.dataset.detailPanel='true';
     const kind=activeSidebarDetailKind();
-    const detailKey=kind ? `${kind}:${state.selectedId||state.selectedRoadId||state.selectedRoadFeatureId||state.selectedTrackId||state.selectedTrackAccessoryId||state.selectedBenchworkId||state.selectedStreetlightId||state.selectedFabricId||state.selectedStlObjectId||state.selectedAnnotationId||state.selectedRailCrossingId||currentSelectedBuildingIds().join(',')}` : null;
+    const detailKey=kind ? `${kind}:${state.selectedId||state.selectedRoadId||state.selectedRoadFeatureId||state.selectedRoadIntersectionId||state.selectedTrackId||state.selectedTrackAccessoryId||state.selectedBenchworkId||state.selectedStreetlightId||state.selectedFabricId||state.selectedStlObjectId||state.selectedAnnotationId||state.selectedRailCrossingId||currentSelectedBuildingIds().join(',')}` : null;
     const h3=detailSection.querySelector('h3');
     const existingToolbars=[...sidebar.querySelectorAll('#sidebarDetailToolbar, .sidebarDetailToolbar')];
     let toolbar=existingToolbars[0] || null;
@@ -6140,6 +6226,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(roadPointHit){ const r=srForRoadEdit; if(r&&!r.locked){ state.drag={type:'roadPoint',pointerId:e.pointerId,start:p,orig:structuredClone(r),pointIndex:roadPointHit.index}; } return true; }
     const roadCurveHit=srForRoadEdit ? (srForRoadEdit.mode==='outline' ? (roadOutlineEditing ? hitRoadOutlineSegment(p, srForRoadEdit, e.pointerType) : null) : hitRoadCenterlineSegment(p, srForRoadEdit, e.pointerType)) : null;
     if(roadCurveHit){ const r=srForRoadEdit; if(r&&!r.locked){ state.drag={type:'roadCurve',pointerId:e.pointerId,start:p,orig:structuredClone(r),segmentIndex:roadCurveHit.index}; } return true; }
+    const roadIntersectionHit=hitGeneratedRoadIntersection(p,e.pointerType);
+    if(roadIntersectionHit) return selectRoadIntersection(roadIntersectionHit);
     const roadHit=hitRoad(p,e.pointerType);
     if(roadHit){
       if(roadHit.mode!=='outline') state.roadOutlineEditId=null;
@@ -7605,6 +7693,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.annotations=p.annotations||[];
     clearBuildingSelection();
     state.selectedRoadId=null;
+    state.selectedRoadIntersectionId=null;
     state.selectedTrackId=null;
     state.selectedTrackAccessoryId=null;
     state.selectedRailCrossingId=null;

@@ -2,6 +2,12 @@ const OVERRIDE_SCHEMA_VERSION = 1;
 
 const DEFAULT_INTERSECTION_OVERRIDE = Object.freeze({
   enabled: true,
+  label: '',
+  intersectionType: 'auto',
+  mergeMode: 'auto',
+  laneBreakMode: 'auto',
+  manualOverride: false,
+  locked: false,
   crosswalksEnabled: true,
   stopBarsEnabled: true,
   tactilePaversEnabled: true,
@@ -52,6 +58,11 @@ function bool(value, fallback = true) {
   return typeof value === 'boolean' ? value : fallback;
 }
 
+function option(value, allowed, fallback = 'auto') {
+  const clean = cleanKey(value);
+  return allowed.includes(clean) ? clean : fallback;
+}
+
 export function roadArmKey(arm) {
   if (!arm) return '';
   return [arm.roadId || 'road', arm.endpoint || 'arm'].join(':');
@@ -88,6 +99,12 @@ export function normalizeIntersectionOverride(override = {}) {
     schemaVersion: OVERRIDE_SCHEMA_VERSION,
     key: String(override.key || ''),
     enabled: bool(override.enabled, DEFAULT_INTERSECTION_OVERRIDE.enabled),
+    label: cleanText(override.label || override.name),
+    intersectionType: option(override.intersectionType || override.type, ['auto', 'corner', 't-junction', 'cross-junction', 'multi-junction', 'straight-join', 'service', 'driveway']),
+    mergeMode: option(override.mergeMode, ['auto', 'blend', 'miter', 'keep-arms']),
+    laneBreakMode: option(override.laneBreakMode, ['auto', 'continuous', 'break-at-node']),
+    manualOverride: bool(override.manualOverride, DEFAULT_INTERSECTION_OVERRIDE.manualOverride),
+    locked: bool(override.locked, DEFAULT_INTERSECTION_OVERRIDE.locked),
     crosswalksEnabled: bool(override.crosswalksEnabled, DEFAULT_INTERSECTION_OVERRIDE.crosswalksEnabled),
     stopBarsEnabled: bool(override.stopBarsEnabled, DEFAULT_INTERSECTION_OVERRIDE.stopBarsEnabled),
     tactilePaversEnabled: bool(override.tactilePaversEnabled, DEFAULT_INTERSECTION_OVERRIDE.tactilePaversEnabled),
@@ -204,6 +221,12 @@ export function applyIntersectionOverride(intersection, overrides = {}) {
       ...intersection,
       overrideKey: key,
       override,
+      label: override.label || intersection.label || '',
+      displayType: override.intersectionType !== 'auto' ? override.intersectionType : intersection.type,
+      mergeMode: override.mergeMode,
+      laneBreakMode: override.laneBreakMode,
+      manualOverride: override.manualOverride,
+      locked: override.locked,
       disabled: true,
       curbReturns: [],
       crosswalks: [],
@@ -215,6 +238,12 @@ export function applyIntersectionOverride(intersection, overrides = {}) {
     ...intersection,
     overrideKey: key,
     override,
+    label: override.label || intersection.label || '',
+    displayType: override.intersectionType !== 'auto' ? override.intersectionType : intersection.type,
+    mergeMode: override.mergeMode,
+    laneBreakMode: override.laneBreakMode,
+    manualOverride: override.manualOverride,
+    locked: override.locked,
     curbRadiusPx: override.curbRadiusPx ?? intersection.curbRadiusPx,
     sidewalkBulbRadiusPx: override.sidewalkBulbRadiusPx ?? intersection.sidewalkBulbRadiusPx,
   };

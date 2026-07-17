@@ -8,6 +8,8 @@ const DEFAULT_STYLES = Object.freeze({
   curbGuideStroke: 'rgba(138, 118, 95, 0.75)',
   nodeFill: 'rgba(200, 74, 58, 0.22)',
   nodeStroke: 'rgba(200, 74, 58, 0.75)',
+  selectedNodeFill: 'rgba(255, 247, 237, 0.92)',
+  selectedNodeStroke: '#c84a3a',
   labelFill: 'rgba(255, 253, 247, 0.92)',
   labelStroke: 'rgba(112, 96, 72, 0.38)',
   labelText: '#3d3024',
@@ -26,6 +28,7 @@ function mergedOptions(options = {}) {
     showCrosswalks: true,
     showStopBars: true,
     showTactilePavers: true,
+    selectedIntersectionKey: null,
     styles: {},
     ...options,
   };
@@ -66,6 +69,15 @@ function drawCircle(ctx, center, radius, fill, stroke, lineWidth = 1) {
     ctx.lineWidth = lineWidth;
     ctx.stroke();
   }
+}
+
+function roadIntersectionKey(intersection) {
+  return intersection?.overrideKey || intersection?.id || '';
+}
+
+function isSelectedIntersection(intersection, options) {
+  const selectedKey = options.selectedIntersectionKey || '';
+  return !!selectedKey && selectedKey === roadIntersectionKey(intersection);
 }
 
 function drawCurbGuide(ctx, guide, style, viewScale) {
@@ -136,17 +148,20 @@ export function drawIntersectionNode(ctx, intersection, options = {}) {
   const opts = mergedOptions(options);
   if (!opts.showNodes) return 0;
   const style = styles(opts);
-  const radius = Math.max(3 / opts.viewScale, Math.min(12 / opts.viewScale, (intersection.maxRoadWidthPx || 24) * 0.12));
-  drawCircle(ctx, intersection.center || intersection, radius, style.nodeFill, style.nodeStroke, 1.2 / opts.viewScale);
+  const selected = isSelectedIntersection(intersection, opts);
+  const radius = Math.max((selected ? 5 : 3) / opts.viewScale, Math.min((selected ? 16 : 12) / opts.viewScale, (intersection.maxRoadWidthPx || 24) * (selected ? 0.18 : 0.12)));
+  drawCircle(ctx, intersection.center || intersection, radius, selected ? style.selectedNodeFill : style.nodeFill, selected ? style.selectedNodeStroke : style.nodeStroke, (selected ? 2 : 1.2) / opts.viewScale);
   return 1;
 }
 
 export function drawIntersectionLabel(ctx, intersection, options = {}) {
   const opts = mergedOptions(options);
-  if (!opts.showLabels || !finitePoint(intersection.center || intersection)) return 0;
+  const selected = isSelectedIntersection(intersection, opts);
+  if ((!opts.showLabels && !selected) || !finitePoint(intersection.center || intersection)) return 0;
   const style = styles(opts);
   const center = intersection.center || intersection;
-  const text = `${intersection.type || 'intersection'} · ${(intersection.arms || []).length} arms`;
+  const name = intersection.label || intersection.override?.label || intersection.displayType || intersection.type || 'intersection';
+  const text = `${name} · ${(intersection.arms || []).length} arms`;
   ctx.save();
   ctx.font = `${Math.max(10, 12 / opts.viewScale)}px system-ui, sans-serif`;
   const paddingX = 5 / opts.viewScale;

@@ -897,6 +897,67 @@ test.describe('Site Planner module split contracts', () => {
     expect(restored.stopBars.some(stopBar => stopBar.roadId === 'east-road')).toBe(true);
   });
 
+  test('generated intersection nodes preserve editable object-level overrides', async () => {
+    const { buildIntersectionNode } = await import('../js/site-planner/road-intersections.js');
+    const {
+      applyIntersectionOverrides,
+      normalizeIntersectionOverride,
+      removeIntersectionOverride,
+      upsertIntersectionOverride,
+    } = await import('../js/site-planner/road-intersection-overrides.js');
+    const cluster = {
+      center: { x: 0, y: 0 },
+      arms: [
+        { roadId: 'east-road', endpoint: 'start', point: { x: 0, y: 0 }, widthPx: 40, sidewalkWidthPx: 12, tangent: 0 },
+        { roadId: 'west-road', endpoint: 'end', point: { x: 0, y: 0 }, widthPx: 40, sidewalkWidthPx: 12, tangent: Math.PI },
+        { roadId: 'north-road', endpoint: 'start', point: { x: 0, y: 0 }, widthPx: 32, sidewalkWidthPx: 10, tangent: Math.PI * 1.5 },
+      ],
+    };
+    const node = buildIntersectionNode(cluster, 0, { drivingSide: 'left' });
+
+    const overrides = upsertIntersectionOverride({}, node, {
+      label: 'Ekimae junction',
+      intersectionType: 't-junction',
+      mergeMode: 'keep-arms',
+      laneBreakMode: 'break-at-node',
+      locked: true,
+      manualOverride: true,
+      crosswalksEnabled: false,
+      stopBarsEnabled: false,
+      curbRadiusPx: 18,
+      notes: 'Disable markings near rail crossing.',
+    });
+    const normalized = normalizeIntersectionOverride(Object.values(overrides)[0]);
+    const [filtered] = applyIntersectionOverrides([node], overrides);
+
+    expect(normalized.label).toBe('Ekimae junction');
+    expect(normalized.intersectionType).toBe('t-junction');
+    expect(normalized.mergeMode).toBe('keep-arms');
+    expect(normalized.locked).toBe(true);
+    expect(filtered.label).toBe('Ekimae junction');
+    expect(filtered.displayType).toBe('t-junction');
+    expect(filtered.curbRadiusPx).toBe(18);
+    expect(filtered.crosswalks).toHaveLength(0);
+    expect(filtered.stopBars).toHaveLength(0);
+    expect(filtered.tactilePavers.length).toBeGreaterThan(0);
+    expect(Object.keys(removeIntersectionOverride(overrides, node))).toHaveLength(0);
+  });
+
+  test('site planner exposes generated road intersections as selectable right-pane details', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const sidebarSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-object-model.js'), 'utf8');
+    const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'road-intersection-preview-renderer.js'), 'utf8');
+
+    expect(source).toContain('function selectedRoadIntersection()');
+    expect(source).toContain('function hitGeneratedRoadIntersection');
+    expect(source).toContain('Road intersection selected');
+    expect(source).toContain('roadSystem.setRoadIntersectionOverride');
+    expect(source).toContain('roadSystem.clearRoadIntersectionOverride');
+    expect(source).toContain('selectedIntersectionKey:state.selectedRoadIntersectionId');
+    expect(sidebarSource).toContain("roadIntersection: 'Road Intersection'");
+    expect(rendererSource).toContain('selectedNodeFill');
+  });
+
   test('generated tactile pavers stay on sidewalk-bearing road arms', async () => {
     const { buildIntersectionNode } = await import('../js/site-planner/road-intersections.js');
     const cluster = {

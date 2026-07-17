@@ -48,7 +48,7 @@ function cardForTool(tool, headingLevel = 2) {
   description.className = 'small';
   const descriptionKey = DESCRIPTION_I18N_KEYS[tool.key];
   if (descriptionKey) description.dataset.i18n = descriptionKey;
-  description.textContent = tool.description;
+  description.textContent = tool.shortDescription || tool.description || '';
 
   link.append(heading, description);
   return link;

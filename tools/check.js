@@ -14,6 +14,7 @@ const SKIPPED_DIRS = new Set([
   'playwright-report',
   'test-results',
 ]);
+const CACHE_VERSION_SKIPPED_DIRS = new Set([...SKIPPED_DIRS, 'docs', 'tools', 'tests']);
 
 function relative(filePath) {
   return path.relative(root, filePath).replace(/\\/g, '/');
@@ -30,6 +31,21 @@ function collectJavaScriptFiles(dir, files = []) {
     if (entry.isFile() && entry.name.endsWith('.js')) {
       files.push(path.join(dir, entry.name));
     }
+  }
+  return files;
+}
+
+function collectCacheVersionFiles(dir, files = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (CACHE_VERSION_SKIPPED_DIRS.has(entry.name)) continue;
+      collectCacheVersionFiles(path.join(dir, entry.name), files);
+      continue;
+    }
+
+    if (!entry.isFile()) continue;
+    const ext = path.extname(entry.name).toLowerCase();
+    if (ext === '.html' || ext === '.js') files.push(path.join(dir, entry.name));
   }
   return files;
 }
@@ -52,6 +68,37 @@ function run(label, command, commandArgs, options = {}) {
     process.stderr.write(`${label} failed with exit code ${result.status}.\n`);
     return false;
   }
+  return true;
+}
+
+function runCacheVersionCheck() {
+  process.stdout.write('\n== cache-busting versions ==\n');
+  const found = new Map();
+  for (const file of collectCacheVersionFiles(root)) {
+    const text = fs.readFileSync(file, 'utf8');
+    const matches = text.matchAll(/\?v=([A-Za-z0-9._-]+)/g);
+    for (const match of matches) {
+      const version = match[1];
+      if (!found.has(version)) found.set(version, []);
+      found.get(version).push(relative(file));
+    }
+  }
+
+  if (!found.size) {
+    process.stdout.write('No cache-busting query strings found.\n');
+    return true;
+  }
+  if (found.size > 1) {
+    process.stderr.write('Expected one shared ?v= token across runtime HTML and JS files.\n');
+    for (const [version, files] of found.entries()) {
+      process.stderr.write(`  ${version}: ${[...new Set(files)].join(', ')}\n`);
+    }
+    process.stderr.write('Run: node tools/update-cache-version.js <version-token>\n');
+    return false;
+  }
+
+  const [version] = found.keys();
+  process.stdout.write(`Shared asset version: ${version}\n`);
   return true;
 }
 
@@ -82,6 +129,10 @@ function runSyntaxChecks() {
 }
 
 let ok = runSyntaxChecks();
+
+if (ok && !syntaxOnly) {
+  ok = runCacheVersionCheck();
+}
 
 if (ok && !syntaxOnly) {
   ok = run('i18n checks', process.execPath, [path.join('tools', 'i18n', 'check.js')]);

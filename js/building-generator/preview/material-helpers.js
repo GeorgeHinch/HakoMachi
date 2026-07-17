@@ -1,4 +1,4 @@
-import { MaterialRegistry, normaliseHexColour as normaliseMaterialHexColour } from '../core/material-registry.js?v=shared-building-preview-26';
+import { MaterialRegistry, normaliseHexColour as normaliseMaterialHexColour } from '../core/material-registry.js?v=hm-assets-20260717-1';
 
 export function normaliseHexColour(raw, fallback = '#cccccc') {
   return normaliseMaterialHexColour(raw, fallback);

@@ -1,3 +1,3 @@
 'use strict';
 
-import '../site-planner.js?v=github-datastore-guide-1';
+import '../site-planner.js?v=hm-assets-20260717-1';

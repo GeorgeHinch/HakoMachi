@@ -2,8 +2,8 @@
    WALL FEATURE ACCESSORS — CURRENT MODEL
    ===================================================================== */
 
-import { wallBodyHeightFromConfig } from './legacy-hako-import.js?v=shared-building-preview-26';
-import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg } from './layout-cut-geometry.js?v=shared-building-preview-26';
+import { wallBodyHeightFromConfig } from './legacy-hako-import.js?v=hm-assets-20260717-1';
+import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg } from './layout-cut-geometry.js?v=hm-assets-20260717-1';
 
 export function wallFeaturesForFace(cfg, face, opts = {}) {
   if (!cfg) return [];

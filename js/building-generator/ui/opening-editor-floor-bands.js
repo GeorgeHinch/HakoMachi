@@ -1,7 +1,7 @@
 /* =====================================================================
    FLOOR BANDS
    ===================================================================== */
-import { clipPolygonByLayoutCuts, layoutCutsActive } from '../core/layout-cut-geometry.js?v=shared-building-preview-26';
+import { clipPolygonByLayoutCuts, layoutCutsActive } from '../core/layout-cut-geometry.js?v=hm-assets-20260717-1';
 
 export function oeWallHasParapetBand(cfg, wall) {
   if (!cfg) return false;

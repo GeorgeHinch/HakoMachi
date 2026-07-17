@@ -2435,18 +2435,82 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       ? `${fmt(size.widthMm)} x ${fmt(size.depthMm)} mm`
       : 'unknown size';
   }
-  function confirmProtectedBuildingResize(b, opts={}){
+  function ensureBuildingResizeConfirmModal(){
+    let modal=document.getElementById('buildingResizeConfirmModal');
+    if(modal) return modal;
+    modal=document.createElement('div');
+    modal.id='buildingResizeConfirmModal';
+    modal.className='hakoProgressModal buildingResizeConfirmModal';
+    modal.setAttribute('role','dialog');
+    modal.setAttribute('aria-modal','true');
+    modal.setAttribute('aria-labelledby','buildingResizeConfirmTitle');
+    modal.innerHTML=`
+      <div class="hakoProgressCard buildingResizeConfirmCard" tabindex="-1">
+        <h2 id="buildingResizeConfirmTitle">Replace building geometry?</h2>
+        <p id="buildingResizeConfirmSummary" class="buildingResizeConfirmSummary"></p>
+        <div id="buildingResizeConfirmDetails" class="buildingResizeConfirmDetails"></div>
+        <div class="githubDataActions buildingResizeConfirmActions">
+          <button type="button" id="buildingResizeCancel">Cancel</button>
+          <button type="button" id="buildingResizeReplace" class="primary">Replace</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    return modal;
+  }
+  function showBuildingResizeConfirmModal({title, summary, detailsHtml}){
+    const modal=ensureBuildingResizeConfirmModal();
+    const card=modal.querySelector('.buildingResizeConfirmCard');
+    const titleEl=modal.querySelector('#buildingResizeConfirmTitle');
+    const summaryEl=modal.querySelector('#buildingResizeConfirmSummary');
+    const detailsEl=modal.querySelector('#buildingResizeConfirmDetails');
+    const cancelBtn=modal.querySelector('#buildingResizeCancel');
+    const replaceBtn=modal.querySelector('#buildingResizeReplace');
+    if(titleEl) titleEl.textContent=title || 'Replace building geometry?';
+    if(summaryEl) summaryEl.textContent=summary || '';
+    if(detailsEl) detailsEl.innerHTML=detailsHtml || '';
+    modal.classList.add('open');
+    return new Promise(resolve=>{
+      let settled=false;
+      const cleanup=(value)=>{
+        if(settled) return;
+        settled=true;
+        modal.classList.remove('open');
+        cancelBtn?.removeEventListener('click',onCancel);
+        replaceBtn?.removeEventListener('click',onReplace);
+        modal.removeEventListener('click',onOverlay);
+        document.removeEventListener('keydown',onKey);
+        resolve(value);
+      };
+      const onCancel=()=>cleanup(false);
+      const onReplace=()=>cleanup(true);
+      const onOverlay=ev=>{ if(ev.target===modal) cleanup(false); };
+      const onKey=ev=>{ if(ev.key==='Escape') cleanup(false); };
+      cancelBtn?.addEventListener('click',onCancel);
+      replaceBtn?.addEventListener('click',onReplace);
+      modal.addEventListener('click',onOverlay);
+      document.addEventListener('keydown',onKey);
+      setTimeout(()=>replaceBtn?.focus?.() || card?.focus?.(),0);
+    });
+  }
+  async function confirmProtectedBuildingResize(b, opts={}){
     if(!buildingHasProtectedWork(b)) return true;
     if(opts.before && opts.after && !buildingFootprintChanged(opts.before, opts.after)) return true;
     const currentText=opts.currentSize ? formatFootprintSize(opts.currentSize) : null;
     const incomingText=opts.incomingSize ? formatFootprintSize(opts.incomingSize) : null;
-    const sizeLine=currentText && incomingText ? `\n\nCurrent footprint: ${currentText}\nNew footprint: ${incomingText}` : '';
-    const fileLine=opts.fileName ? `\n\nFile to replace: ${opts.fileName}` : '';
-    const ok=confirm(`Resize "${b.name||'building'}"?\n\nThis building has ${buildingResizeProtectionSummary(b)}. Resizing will replace or regenerate the existing building geometry for this footprint.${sizeLine}${fileLine}\n\nClick OK to replace the existing file/geometry.\nClick Cancel to keep the current footprint unchanged.`);
+    let detailsHtml='';
+    if(currentText && incomingText){
+      detailsHtml+=`<dl><div><dt>Current footprint</dt><dd>${escapeHtml(currentText)}</dd></div><div><dt>New footprint</dt><dd>${escapeHtml(incomingText)}</dd></div></dl>`;
+    }
+    if(opts.fileName) detailsHtml+=`<div class="small muted">File to replace: ${escapeHtml(opts.fileName)}</div>`;
+    const ok=await showBuildingResizeConfirmModal({
+      title:`Resize ${b.name||'building'}?`,
+      summary:`This building has ${buildingResizeProtectionSummary(b)}. Replacing will update the existing file or generated geometry for this footprint.`,
+      detailsHtml,
+    });
     if(!ok) showStatusHint(`Resize canceled for ${b.name||'building'}.`, 'warning');
     return ok;
   }
-  function applySelectedBuildingDimensionInput(b, dimension, rawValue, inputEl){
+  async function applySelectedBuildingDimensionInput(b, dimension, rawValue, inputEl){
     if(!b || b.padType!=='rect' || !state.pxPerMm) return;
     const before=cloneSitePlannerValue(b);
     const after=cloneSitePlannerValue(b);
@@ -2454,7 +2518,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(dimension==='width') after.widthPx=mmToPx(mm);
     else after.depthPx=mmToPx(mm);
     syncBuildingMetrics(after);
-    if(!confirmProtectedBuildingResize(b,{before,after})){
+    if(!await confirmProtectedBuildingResize(b,{before,after})){
       if(inputEl) inputEl.value=fmt(dimension==='width'?b.widthMm:b.depthMm);
       syncAll({skipDirty:true});
       return;
@@ -6489,7 +6553,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     draw();
   }, {passive:false});
-  function finishPointer(e){
+  async function finishPointer(e){
     clearCanvasBrowserSelection();
     clearLongPress();
     state.pointers.delete(e.pointerId);
@@ -6503,7 +6567,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(d.type==='pan' && d.rightButtonPan && d.moved){state.suppressNextContextMenu=true;}
     if(d.type==='rectCorner' || d.type==='polyPoint'){
       const b=selected();
-      if(b && d.orig && buildingFootprintChanged(d.orig,b) && !confirmProtectedBuildingResize(b,{before:d.orig,after:cloneSitePlannerValue(b)})){
+      if(b && d.orig && buildingFootprintChanged(d.orig,b) && !await confirmProtectedBuildingResize(b,{before:d.orig,after:cloneSitePlannerValue(b)})){
         restoreBuildingSnapshot(b,d.orig);
         canvas.classList.remove('panning');
         state.drag=null;
@@ -7642,10 +7706,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
   });
 
-  window.addEventListener('message', e=>{
+  window.addEventListener('message', async e=>{
     if(e.origin && e.origin !== window.location.origin) return;
     const payload=sitePlannerBuildingUpdatePayload(e.data);
-    const result=applySitePlannerBuildingUpdate(payload);
+    const result=await applySitePlannerBuildingUpdate(payload);
     if(result){
       try{
         localStorage.removeItem(SITE_PLANNER_BUILDING_UPDATE_KEY);
@@ -7657,11 +7721,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       }
     }
   });
-  window.addEventListener('storage', e=>{
+  window.addEventListener('storage', async e=>{
     if(e.key===SITE_PLANNER_BUILDING_UPDATE_KEY && e.newValue){
       try{
         const payload=JSON.parse(e.newValue);
-        if(applySitePlannerBuildingUpdate(payload)){
+        if(await applySitePlannerBuildingUpdate(payload)){
           localStorage.removeItem(SITE_PLANNER_BUILDING_UPDATE_KEY);
         }
       }catch(err){
@@ -7678,5 +7742,5 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   state.autosaveReady=true;
   if(!restored){syncAll({skipDirty:true}); fitImage(); resetHistory('initial'); writeAutosave();}
   else { updateHistoryButtons(); }
-  setTimeout(processQueuedSitePlannerBuildingUpdate, 0);
+  setTimeout(()=>{ processQueuedSitePlannerBuildingUpdate(); }, 0);
 })();

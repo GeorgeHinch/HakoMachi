@@ -333,16 +333,18 @@ test.describe('Site Planner module split contracts', () => {
 
     expect(source).toContain("import { createHakoHandoffController } from './site-planner/hako-handoff-controller.js';");
     expect(source).toContain('} = createHakoHandoffController({');
-    expect(source).toContain('applySitePlannerBuildingUpdate(payload)');
+    expect(source).toContain('await applySitePlannerBuildingUpdate(payload)');
     expect(source).toContain('confirmBuildingResize: (building, details={}) => confirmProtectedBuildingResize');
+    expect(source).toContain('<button type="button" id="buildingResizeCancel">Cancel</button>');
+    expect(source).toContain('<button type="button" id="buildingResizeReplace" class="primary">Replace</button>');
     expect(source).toContain("selW.onchange=()=>applySelectedBuildingDimensionInput(b,'width',selW.value,selW)");
     expect(source).toContain("d.type==='rectCorner' || d.type==='polyPoint'");
     expect(source).not.toContain('function sitePlannerBuildingUpdatePayload(data)');
 
     expect(controllerSource).toContain('export function createHakoHandoffController');
     expect(controllerSource).toContain('function makeSeed(b)');
-    expect(controllerSource).toContain('function applySitePlannerBuildingUpdate(raw, opts = {})');
-    expect(controllerSource).toContain('function processQueuedSitePlannerBuildingUpdate()');
+    expect(controllerSource).toContain('async function applySitePlannerBuildingUpdate(raw, opts = {})');
+    expect(controllerSource).toContain('async function processQueuedSitePlannerBuildingUpdate()');
 
     const state = {
       projectName: 'Akiba Module',
@@ -386,7 +388,7 @@ test.describe('Site Planner module split contracts', () => {
     expect(seed.sitePlannerHandoff.building.plannerId).toBe('b1');
     expect(seed.footprint).toEqual({ type: 'rect', widthMm: 20, depthMm: 12, rotationDeg: 0 });
 
-    const result = controller.applySitePlannerBuildingUpdate({
+    const result = await controller.applySitePlannerBuildingUpdate({
       payload: {
         schema: 'hakomachi.building-update',
         buildingId: 'b1',
@@ -462,7 +464,7 @@ test.describe('Site Planner module split contracts', () => {
     const canceledStatus = { textContent: '' };
     const canceledState = makeState();
     const canceledCalls = [];
-    const canceled = makeController(canceledState, (_building, details) => {
+    const canceled = await makeController(canceledState, (_building, details) => {
       canceledCalls.push(details);
       return false;
     }, canceledStatus).applySitePlannerBuildingUpdate(updatePayload);
@@ -481,7 +483,7 @@ test.describe('Site Planner module split contracts', () => {
     expect(canceledStatus.textContent).toBe('Canceled update for Corner Shop.');
 
     const confirmedState = makeState();
-    const confirmed = makeController(confirmedState, () => true).applySitePlannerBuildingUpdate(updatePayload);
+    const confirmed = await makeController(confirmedState, () => true).applySitePlannerBuildingUpdate(updatePayload);
     expect(confirmed).toEqual({ buildingId: 'b1', buildingName: 'Corner Shop' });
     expect(confirmedState.buildings[0].hakoFile.fileName).toBe('updated-corner-shop.hako');
     expect(confirmedState.buildings[0].widthPx).toBe(300);

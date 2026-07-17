@@ -178,7 +178,7 @@ export function createHakoHandoffController({
     }
   }
 
-  function applySitePlannerBuildingUpdate(raw, opts = {}) {
+  async function applySitePlannerBuildingUpdate(raw, opts = {}) {
     const payload = sitePlannerBuildingUpdatePayload(raw);
     if (!payload) return false;
     const cfg = payload.hakoConfig || payload.config || payload.buildingConfig || payload.hako;
@@ -193,7 +193,7 @@ export function createHakoHandoffController({
     const incomingSize = hakoConfigFootprintSizeMm(cfg);
     if (currentSize && incomingSize && !footprintSizesMatch(currentSize, incomingSize)) {
       const ok = typeof confirmBuildingResize === 'function'
-        ? confirmBuildingResize(b, {
+        ? await confirmBuildingResize(b, {
           source: 'building-generator-update',
           fileName,
           currentSize,
@@ -286,13 +286,13 @@ export function createHakoHandoffController({
     } catch (_err) {}
   }
 
-  function processQueuedSitePlannerBuildingUpdate() {
+  async function processQueuedSitePlannerBuildingUpdate() {
     let raw = null;
     try { raw = localStorage.getItem(buildingUpdateKey) || sessionStorage.getItem(buildingUpdateKey); } catch (_err) {}
     if (!raw) return false;
     try {
       const payload = JSON.parse(raw);
-      const ok = applySitePlannerBuildingUpdate(payload);
+      const ok = await applySitePlannerBuildingUpdate(payload);
       if (ok) {
         localStorage.removeItem(buildingUpdateKey);
         sessionStorage.removeItem(buildingUpdateKey);

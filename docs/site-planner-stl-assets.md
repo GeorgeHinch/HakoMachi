@@ -33,7 +33,7 @@ when the referenced STL asset cannot be loaded.
 ## Renderable STL Asset
 
 The renderable STL file is stored under `asset` on the placement record. When
-saved to GitHub or a local ZIP bundle, large binary data is moved out of the main
+saved to GitHub or a local `.hako-site` package, large binary data is moved out of the main
 site JSON and represented with a reference shaped by `stlAssetReference`.
 
 Asset fields:
@@ -78,7 +78,7 @@ Source asset fields:
 
 ## Save Formats
 
-Local ZIP bundles store:
+Local `.hako-site` packages store:
 
 - `hakomachi-site.hako-site.json`
 - `assets/stl/*.stl`

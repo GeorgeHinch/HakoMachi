@@ -12,6 +12,14 @@ export function findSiteBundleProjectName(zip){
     || null;
 }
 
+export function isSiteBundlePackageFile(file){
+  const name=String(file?.name || '');
+  const type=String(file?.type || '');
+  return /\.hako-site$/i.test(name)
+    || /\.zip$/i.test(name)
+    || /zip/i.test(type);
+}
+
 export async function hydrateBundledImageAsset(payload, zip, {dataUrlFromBase64, cacheImageAsset}){
   const asset=payload.image?.asset;
   if(!asset?.path || payload.image?.dataUrl) return;

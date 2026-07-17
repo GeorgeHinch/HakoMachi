@@ -42,12 +42,12 @@
       </select>
     </label>
     <input id="imageFile" class="hiddenFile" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp,.svg"/>
-    <input id="loadFile" class="hiddenFile" type="file" accept="application/json,application/zip,.json,.hako-site.json,.zip,.stl,model/stl"/>
+    <input id="loadFile" class="hiddenFile" type="file" accept="application/json,application/zip,.json,.hako-site,.hako-site.json,.zip,.stl,model/stl"/>
     <div class="topActions">
       <label id="imageBtn" class="fileButton" for="imageFile">Import Image</label>
       <button id="undoBtn" class="iconBtn" title="Undo" aria-label="Undo" disabled><span class="topIcon" data-icon="undo"></span></button>
       <button id="redoBtn" class="iconBtn" title="Redo" aria-label="Redo" disabled><span class="topIcon" data-icon="redo"></span></button>
-      <button id="saveBtn" class="desktopAction">Save .zip</button>
+      <button id="saveBtn" class="desktopAction">Save .hako-site</button>
       <label id="loadBtn" class="fileButton desktopAction" for="loadFile">Load</label>
       <div class="menuWrap splitExport">
         <button id="svgBtn" title="Export simplified site SVG">Export SVG</button>
@@ -97,7 +97,7 @@
       <div class="menuWrap mobileOnly">
         <button id="overflowBtn" class="iconBtn" title="More actions" aria-label="More actions">⋯</button>
         <div id="overflowMenu" class="dropdownMenu right">
-          <button id="mobileSaveBtn">Save .zip</button>
+          <button id="mobileSaveBtn">Save .hako-site</button>
           <label id="mobileLoadBtn" class="menuItem" for="loadFile">Load</label>
           <button id="mobileUndoBtn" disabled>Undo</button>
           <button id="mobileRedoBtn" disabled>Redo</button>

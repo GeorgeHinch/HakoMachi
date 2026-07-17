@@ -3,7 +3,7 @@
 HakoMachi can use a GitHub repository as a private datastore for Site Planner
 projects, building files, reference images, and site-local assets. This gives a
 layout project a durable history outside the browser cache while still allowing
-local ZIP downloads when you want an offline package.
+local `.hako-site` downloads when you want an offline package.
 
 ## Why Use A Datastore Repository
 
@@ -87,10 +87,10 @@ the UI has enough metadata to do so.
 Local browser autosave is separate. It protects in-progress edits in the current
 browser, but it is not the same as publishing the project back to GitHub.
 
-## Local Files And ZIPs
+## Local Files And Packages
 
-The local Save button downloads a ZIP package. The package mirrors the GitHub
-asset split:
+The local Save button downloads a `.hako-site` package. The package is still a
+standard ZIP container internally, and it mirrors the GitHub asset split:
 
 - `hakomachi-site.hako-site.json`
 - `assets/`
@@ -99,8 +99,9 @@ asset split:
 - `assets/stl/sources/`
 - `manifest.json`
 
-Use this ZIP when you want a portable snapshot. Use GitHub save when you want
-the shared datastore and version history updated.
+Use this `.hako-site` package when you want a portable snapshot. Legacy `.zip`
+packages can still be loaded for backwards compatibility. Use GitHub save when
+you want the shared datastore and version history updated.
 
 ## Naming And Version History
 
@@ -129,10 +130,10 @@ console:
 localStorage.setItem('hakomachiPersistenceDiagnostics', '1')
 ```
 
-The Site Planner will write a grouped console report for local ZIP saves, local
-ZIP loads, GitHub saves, and GitHub loads. Reports include stage timings and the
+The Site Planner will write a grouped console report for local package saves,
+local package loads, GitHub saves, and GitHub loads. Reports include stage timings and the
 major known payload sizes: main site JSON, reference image asset, attached
-building `.hako` assets, STL/source assets, and generated ZIP size where
+building `.hako` assets, STL/source assets, and generated package size where
 available. Remove the local storage flag or set it to `0` to silence the
 diagnostics again.
 

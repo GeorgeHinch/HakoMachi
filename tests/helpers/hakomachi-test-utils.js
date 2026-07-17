@@ -64,10 +64,16 @@ async function downloadText(download) {
   return fs.readFileSync(filePath, 'utf8');
 }
 
+async function downloadBuffer(download) {
+  const filePath = await download.path();
+  return fs.readFileSync(filePath);
+}
+
 module.exports = {
   SITE_AUTOSAVE_KEY,
   SITE_AUTOSAVE_META_KEY,
   blankSitePlannerProject,
+  downloadBuffer,
   downloadText,
   expectNoConsoleErrors,
   installConsoleErrorTracker,

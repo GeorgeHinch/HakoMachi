@@ -25,7 +25,7 @@ import { createHakoFileController } from './site-planner/hako-file-utils.js';
 import { createHakoImportController } from './site-planner/hako-import-controller.js';
 import { hydrateIcons, setIcon } from './site-planner/icons.js';
 import { installAdaptiveDegreeStepping } from './site-planner/input-stepping.js';
-import { findSiteBundleProjectName, hydrateSiteBundleAssets } from './site-planner/project-bundle-utils.js';
+import { findSiteBundleProjectName, hydrateSiteBundleAssets, isSiteBundlePackageFile } from './site-planner/project-bundle-utils.js';
 import { buildLocalHakoBundleAssets, buildLocalImageBundleAsset, buildLocalStlBundleAssets } from './site-planner/project-bundle-save-utils.js';
 import { byteLength as diagnosticByteLength, createPersistenceDiagnostics, summarizePersistenceAssets } from './site-planner/persistence-diagnostics.js';
 import { AUTOSAVE_KEY, AUTOSAVE_META_KEY, GITHUB_CURRENT_KEY, createInitialState } from './site-planner/state.js';
@@ -6963,7 +6963,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   async function handleEmptyImageDrop(file){
     if(!file) return;
     if(!isSupportedImageFile(file)){
-      failImportProgress('Unsupported image type.','Drop a PNG, JPG, SVG, or WEBP image here. Use Load for .hako-site.json project files.');
+      failImportProgress('Unsupported image type.','Drop a PNG, JPG, SVG, or WEBP image here. Use Load for .hako-site package or .hako-site.json project files.');
       return;
     }
     await loadReferenceImage(file);
@@ -7022,7 +7022,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   };
 
   async function clearCacheAndReset(){
-    const ok = confirm('Clear HakoMachi Site Planner cache and reset to the default blank state?\n\nThis clears the current in-memory project, the HakoMachi handoff seed, and planner-related browser storage. Download/save your .hako-site.json first if you want to keep it.');
+    const ok = confirm('Clear HakoMachi Site Planner cache and reset to the default blank state?\n\nThis clears the current in-memory project, the HakoMachi handoff seed, and planner-related browser storage. Download/save your .hako-site package first if you want to keep it.');
     if(!ok) return;
     try{
       const keysToRemove=[];
@@ -7465,10 +7465,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     openImportProgressModal('Import site plan','Reading file...',`Reading ${f.name||'site plan file'}.`);
     try{
-      const isZip=/\.zip$/i.test(f.name||'') || /zip/i.test(f.type||'');
+      const isPackage=isSiteBundlePackageFile(f);
       setImportProgress(2,4,'Validating site plan...','Checking the project JSON and save format.');
-      if(isZip){
-        setImportProgress(3,4,'Applying bundle...','Restoring the site plan and bundled reference image assets.');
+      if(isPackage){
+        setImportProgress(3,4,'Applying package...','Restoring the site plan and bundled reference image assets.');
         await loadSitePlanBundle(f);
       } else {
         const text=await f.text();
@@ -7588,10 +7588,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   async function saveSitePlanBundle(){
     if(!window.JSZip){
-      showStatusHint('ZIP support is still loading. Try again in a moment.', 'warning');
+      showStatusHint('HakoMachi package support is still loading. Try again in a moment.', 'warning');
       return;
     }
-    const diagnostics=createPersistenceDiagnostics('local ZIP save');
+    const diagnostics=createPersistenceDiagnostics('local HakoMachi site package save');
     const bundleImage=buildLocalImageBundleAsset(state, {cachedImageAsset, imageAssetReference, imageAssetFileName, dataUrlInfo});
     const hakoAssets=buildLocalHakoBundleAssets(state.buildings, {normalizeBuilding, hakoFileText, uniqueHakoAssetFileName, hakoFileAssetReference});
     const stlAssets=buildLocalStlBundleAssets(state.stlObjects, {normalizeStlObject, uniqueStlAssetFileName, stlAssetReference, uniqueStlSourceAssetFileName, stlSourceAssetReference});
@@ -7622,9 +7622,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       project:'hakomachi-site.hako-site.json',
       assets:[...(bundleImage?.asset ? [bundleImage.asset] : []), ...hakoAssets.map(entry=>entry.asset), ...stlAssets.map(entry=>entry.asset)]
     }, null, 2)+'\n');
-    const blob=await diagnostics.measure('generate ZIP blob', () => zip.generateAsync({type:'blob'}));
-    diagnostics.finish({status:'saved', zipBytes:blob.size});
-    downloadBlob(blob,'hakomachi-site.zip');
+    const blob=await diagnostics.measure('generate package blob', () => zip.generateAsync({type:'blob'}));
+    diagnostics.finish({status:'saved', packageBytes:blob.size});
+    downloadBlob(blob,'hakomachi-site.hako-site');
     markManualSaveComplete();
   }
   async function loadProjectJsonObject(project, opts={}){
@@ -7634,11 +7634,11 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return payload;
   }
   async function loadSitePlanBundle(file){
-    const diagnostics=createPersistenceDiagnostics('local ZIP load', {fileName:file?.name, fileBytes:file?.size||0});
-    if(!window.JSZip) throw new Error('ZIP support is still loading. Try again in a moment.');
-    const zip=await diagnostics.measure('read ZIP file', () => JSZip.loadAsync(file));
+    const diagnostics=createPersistenceDiagnostics('local HakoMachi site package load', {fileName:file?.name, fileBytes:file?.size||0});
+    if(!window.JSZip) throw new Error('HakoMachi package support is still loading. Try again in a moment.');
+    const zip=await diagnostics.measure('read package file', () => JSZip.loadAsync(file));
     const projectName=findSiteBundleProjectName(zip);
-    if(!projectName) throw new Error('No .hako-site.json project file was found in the ZIP.');
+    if(!projectName) throw new Error('No .hako-site.json project file was found in the package.');
     const projectText=await diagnostics.measure('read project JSON', () => zip.file(projectName).async('string'));
     diagnostics.mark('project JSON received', {projectName, bytes:diagnosticByteLength(projectText)});
     const project=JSON.parse(projectText);

@@ -32,7 +32,7 @@ browser cache.
   intrusion detector markers.
 - 2D and 3D preview modes for checking the site plan, reference image,
   buildings, roads, tracks, placed objects, and benchwork context.
-- Local ZIP saves and GitHub datastore saves for site plans, reference images,
+- Local `.hako-site` saves and GitHub datastore saves for site plans, reference images,
   attached `.hako` files, imported STL files, and STL source files.
 
 The Site Planner is still under active development. Some behaviors, especially
@@ -99,7 +99,7 @@ source-of-truth rules and SVG metadata guidance.
 
 HakoMachi has two save directions:
 
-- Local downloads: ZIP packages for portable snapshots and fabrication files.
+- Local downloads: `.hako-site` packages for portable site snapshots and ZIP packages for fabrication files.
 - GitHub datastore saves: project data stored in a separate GitHub repository
   with version history and separate asset files.
 

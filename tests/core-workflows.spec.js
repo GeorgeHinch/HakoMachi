@@ -1,6 +1,7 @@
 const { expect, test } = require('@playwright/test');
 const {
   blankSitePlannerProject,
+  downloadBuffer,
   downloadText,
   expectNoConsoleErrors,
   installConsoleErrorTracker,
@@ -91,7 +92,29 @@ test.describe('core HakoMachi workflows', () => {
       const zipDownloadPromise = page.waitForEvent('download');
       await page.locator('#saveBtn').click();
       const zipDownload = await zipDownloadPromise;
-      expect(zipDownload.suggestedFilename()).toBe('hakomachi-site.zip');
+      expect(zipDownload.suggestedFilename()).toBe('hakomachi-site.hako-site');
+      const packageBuffer = await downloadBuffer(zipDownload);
+      expect(packageBuffer.length).toBeGreaterThan(0);
+
+      for (const fileName of ['roundtrip.hako-site', 'legacy-roundtrip.zip']) {
+        await page.evaluate(({ key, metaKey }) => {
+          localStorage.removeItem(key);
+          localStorage.removeItem(metaKey);
+        }, {
+          key: 'hakomachiSitePlannerAutosave_v1',
+          metaKey: 'hakomachiSitePlannerAutosaveMeta_v1',
+        });
+        await page.reload({ waitUntil: 'networkidle' });
+        await page.locator('#loadFile').setInputFiles({
+          name: fileName,
+          mimeType: 'application/octet-stream',
+          buffer: packageBuffer,
+        });
+        await page.waitForFunction(key => {
+          const saved = JSON.parse(localStorage.getItem(key) || '{}');
+          return (saved.buildings || []).some(building => building.name === 'Core Workflow Building');
+        }, 'hakomachiSitePlannerAutosave_v1');
+      }
     }
 
     await page.locator('#view3dCanvasBtn').click();

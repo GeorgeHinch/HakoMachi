@@ -329,22 +329,28 @@ test.describe('Site Planner module split contracts', () => {
   test('building generator handoff behavior is wired through the handoff controller', async () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'hako-handoff-controller.js'), 'utf8');
+    const resizeProtectionSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'building-resize-protection.js'), 'utf8');
     const { createHakoHandoffController } = await import('../js/site-planner/hako-handoff-controller.js');
 
     expect(source).toContain("import { createHakoHandoffController } from './site-planner/hako-handoff-controller.js';");
+    expect(source).toContain("import { createBuildingResizeProtectionController } from './site-planner/building-resize-protection.js';");
     expect(source).toContain('} = createHakoHandoffController({');
+    expect(source).toContain('} = createBuildingResizeProtectionController({');
     expect(source).toContain('await applySitePlannerBuildingUpdate(payload)');
     expect(source).toContain('confirmBuildingResize: (building, details={}) => confirmProtectedBuildingResize');
-    expect(source).toContain('<button type="button" id="buildingResizeCancel">Cancel</button>');
-    expect(source).toContain('<button type="button" id="buildingResizeReplace" class="primary">Replace</button>');
     expect(source).toContain("selW.onchange=()=>applySelectedBuildingDimensionInput(b,'width',selW.value,selW)");
     expect(source).toContain("d.type==='rectCorner' || d.type==='polyPoint'");
     expect(source).not.toContain('function sitePlannerBuildingUpdatePayload(data)');
+    expect(source).not.toContain('function ensureBuildingResizeConfirmModal');
 
     expect(controllerSource).toContain('export function createHakoHandoffController');
     expect(controllerSource).toContain('function makeSeed(b)');
     expect(controllerSource).toContain('async function applySitePlannerBuildingUpdate(raw, opts = {})');
     expect(controllerSource).toContain('async function processQueuedSitePlannerBuildingUpdate()');
+    expect(resizeProtectionSource).toContain('export function createBuildingResizeProtectionController');
+    expect(resizeProtectionSource).toContain('<button type="button" id="buildingResizeCancel">Cancel</button>');
+    expect(resizeProtectionSource).toContain('<button type="button" id="buildingResizeReplace" class="primary">Replace</button>');
+    expect(resizeProtectionSource).toContain('async function confirmProtectedBuildingResize');
 
     const state = {
       projectName: 'Akiba Module',

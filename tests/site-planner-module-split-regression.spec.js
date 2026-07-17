@@ -1231,6 +1231,26 @@ test.describe('Site Planner module split contracts', () => {
     expect(source).not.toContain('const SITE_OBJECT_MOVE_TYPES = new Set');
   });
 
+  test('site planner object browser and list rows are wired through a sidebar controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-object-browser-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createSidebarObjectBrowserController } from './site-planner/sidebar-object-browser-controller.js';");
+    expect(source).toContain('sidebarObjectBrowserController=createSidebarObjectBrowserController({');
+    expect(source).toContain('function renderObjectBrowser(){');
+    expect(source).toContain('function renderStreetlights(){');
+    expect(source).toContain('function renderList(){');
+    expect(source).not.toContain('function makeObjectListRow');
+    expect(source).not.toContain('function bindTrackAccessoryFilterMenu');
+    expect(source).not.toContain('function closeTrackAccessoryFilterMenu');
+    expect(controller).toContain('export function createSidebarObjectBrowserController');
+    expect(controller).toContain('function makeObjectListRow');
+    expect(controller).toContain('function renderObjectBrowser');
+    expect(controller).toContain('function bindTrackAccessoryFilterMenu');
+    expect(controller).toContain('trackAccessoryMatchesObjectFilter(item, trackAccessoryFilter)');
+    expect(controller).toContain('renderSelected();');
+  });
+
   test('Tomix track accessories fall back to the flex-track gauge scale', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const scaleHelpers = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-geometry.js'), 'utf8');

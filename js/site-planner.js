@@ -45,7 +45,8 @@ import { createRoadPresetApplicationController } from './site-planner/road-prese
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
 import { RAIL_CROSSING_CENTER_CLEARANCE_MM, buildRailCrossingInfillPanels, buildRailCrossings, hitRailCrossing, normalizeRailCrossingOverride, railCrossingOverrideKey, railCrossingSvgRecords } from './site-planner/rail-crossing-generator.js';
 import { createScaleInputController } from './site-planner/scale-input-utils.js';
-import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarObjectsForType as objectsForSidebarType, sidebarObjectSelected, sidebarObjectTypeMetaForState, sidebarObjectTypesForState, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
+import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
+import { createSidebarObjectBrowserController } from './site-planner/sidebar-object-browser-controller.js';
 import { createSite3DTrackAccessoryRenderer } from './site-planner/site-3d-track-accessory-renderer.js';
 import { createSite3DBuildingRenderer } from './site-planner/site-3d-building-renderer.js';
 import { createSite3DRoadRenderer } from './site-planner/site-3d-road-renderer.js';
@@ -146,8 +147,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let autosaveSuppressed = false;
   let renderQueued = false;
   let activeSidebarDetailKey = null;
-  let sidebarObjectType = null;
-  let trackAccessoryObjectFilter = 'all';
   let roadSystem = null;
   let roadAssetExporter = null;
   let roadExportReview = null;
@@ -157,6 +156,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let site3DTrackAccessoryRenderer = null;
   let site3DBuildingRenderer = null;
   let siteObjectSelectionController = null;
+  let sidebarObjectBrowserController = null;
   let updateRoadToolButton = () => {};
   let updateStreetlightToolButton = () => {};
   let updateTrackSwitchToolButton = () => {};
@@ -967,10 +967,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     { key: 'switches', label: 'Switches', kinds: ['trackSwitchLeft', 'trackSwitchRight'] },
     { key: 'buffers', label: 'Buffer stops', kinds: ['trackBufferTomix1428', 'trackBufferTomix1428Catenary'] },
   ]);
-  function trackAccessoryObjectFilterDefinition(key=trackAccessoryObjectFilter){
+  function trackAccessoryObjectFilterDefinition(key='all'){
     return TRACK_ACCESSORY_OBJECT_FILTERS.find(filter=>filter.key===key) || TRACK_ACCESSORY_OBJECT_FILTERS[0];
   }
-  function trackAccessoryMatchesObjectFilter(item, filterKey=trackAccessoryObjectFilter){
+  function trackAccessoryMatchesObjectFilter(item, filterKey='all'){
     const filter=trackAccessoryObjectFilterDefinition(filterKey);
     return !filter.kinds || filter.kinds.includes(item?.kind);
   }
@@ -2612,7 +2612,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     visibleWorldCenter,
     normalizeStlObject,
     clearPlanObjectSelection,
-    setSidebarObjectType: value=>{sidebarObjectType=value;},
+    setSidebarObjectType,
     syncAll,
     openImportProgressModal,
     setImportProgress,
@@ -4382,12 +4382,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function drawNow(){const r=canvas.getBoundingClientRect(); const dpr=devicePixelRatio||1; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,r.width,r.height); ctx.save(); ctx.translate(state.view.x,state.view.y); ctx.scale(state.view.scale,state.view.scale); drawGrid(); if(state.image){ctx.save();ctx.globalAlpha=state.imageOpacity;ctx.drawImage(state.image,0,0);ctx.restore();} drawAnnotations(); const calLabel=(state.calibrationLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.calibrationLine.x1,y:state.calibrationLine.y1},{x:state.calibrationLine.x2,y:state.calibrationLine.y2})))} mm`:'calibration'; drawLine(state.calibrationLine,'#b8672d',calLabel); const measureLabel=(state.measureLine&&state.pxPerMm)?`${fmt(pxToMm(dist({x:state.measureLine.x1,y:state.measureLine.y1},{x:state.measureLine.x2,y:state.measureLine.y2})))} mm`:'measure'; drawLine(state.measureLine,'#3f7a50',measureLabel); state.benchworkOutlines.forEach(drawBenchwork); drawRoadLayer(); (state.tracks||[]).forEach(drawTrack); drawGeneratedRailCrossings(); (state.trackAccessories||[]).forEach(drawTrackAccessory); (state.fabricRegions||[]).forEach(drawFabricRegion); state.buildings.forEach(drawBuilding); (state.stlObjects||[]).forEach(drawStlObject); state.streetlights.forEach(drawStreetlight); if(state.roadDraft.length){ctx.save();ctx.strokeStyle='#6f6a5e';ctx.fillStyle='rgba(111,106,94,.18)';ctx.lineWidth=3/state.view.scale;if(state.roadMode==='centerline'&&state.roadDraft.length>=2){const temp=createRoadCenterlineFromPoints(state.roadDraft); temp.id='road_draft'; drawRoad(temp);} else {ctx.beginPath();state.roadDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();}state.roadDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.trackDraft&&state.trackDraft.length){ctx.save();const temp=normalizeTrack({id:'track_draft',name:'Track preview',pointsPx:state.trackDraft.slice(),gaugeMm:9,tieSpacingMm:4,color:'#4b4438',tieColor:'#8a6f43'}); drawTrack(temp); ctx.fillStyle='rgba(75,68,56,.20)'; state.trackDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.benchworkDraft.length){ctx.save();ctx.strokeStyle='#2f6f4e';ctx.fillStyle='rgba(47,111,78,.12)';ctx.lineWidth=3/state.view.scale;ctx.setLineDash([8/state.view.scale,6/state.view.scale]);ctx.beginPath();state.benchworkDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.setLineDash([]);state.benchworkDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} drawFabricDraft(); if(state.polygonDraft.length){ctx.save();ctx.strokeStyle='#7c5f3f';ctx.fillStyle='rgba(124,95,63,.20)';ctx.lineWidth=3/state.view.scale;ctx.beginPath();state.polygonDraft.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();state.polygonDraft.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()});ctx.restore();} if(state.drag&&state.drag.preview){ if(state.drag.type==='roadCenterline') drawRoad(state.drag.preview); else drawBuilding(state.drag.preview); } drawSelectionMarquee(); drawHoverPreview(); ctx.restore(); updateEmptyImageOverlay(); updateStatus();}
   function fitImage(){const r=canvas.getBoundingClientRect(); if(!state.image){state.view={x:r.width/2,y:r.height/2,scale:1}; draw(); return;} const s=Math.min(r.width/state.image.width,r.height/state.image.height)*.9; state.view.scale=s; state.view.x=(r.width-state.image.width*s)/2; state.view.y=(r.height-state.image.height*s)/2; draw();}
 
-  function sidebarObjectTypes(){
-    return sidebarObjectTypesForState(state);
-  }
-  function sidebarObjectTypeMeta(type){
-    return sidebarObjectTypes().find(t=>t.key===type) || sidebarObjectTypeMetaForState(state,type);
-  }
   function installHakoImportDropzone(box){
     if(!box) return;
     const actions=document.createElement('div');
@@ -4426,215 +4420,53 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.selectedRoadIntersectionId=null;
     state.selectedRailCrossingId=null;
   }
-  function selectSidebarObject(type,id,ev=null){
-    sidebarObjectType=type;
-    const siteTypeBySidebarType={roads:'road',tracks:'track',trackAccessories:'trackAccessory',roadFeatures:'roadFeature',benchwork:'benchwork',streetlights:'streetlight',fabric:'fabric',annotations:'annotation',siteObjects:'stlObject'};
-    if(type==='buildings'){
-      if(ev && (ev.shiftKey || ev.metaKey || ev.ctrlKey)) toggleSiteObjectSelection('building',id);
-      else setSingleSiteObjectSelection('building',id);
-    } else {
-      const siteType=siteTypeBySidebarType[type];
-      if(siteType){
-        if(ev && (ev.shiftKey || ev.metaKey || ev.ctrlKey)) toggleSiteObjectSelection(siteType,id);
-        else setSingleSiteObjectSelection(siteType,id);
-      }
+  function ensureSidebarObjectBrowserController(){
+    if(!sidebarObjectBrowserController){
+      sidebarObjectBrowserController=createSidebarObjectBrowserController({
+        state,
+        getElement:$,
+        escapeHtml,
+        escapeAttr,
+        fmt,
+        hydrateIcons,
+        installHakoImportDropzone,
+        normalizeBuilding,
+        normalizeRoad,
+        normalizeTrack,
+        normalizeTrackAccessory,
+        normalizeRoadFeature,
+        normalizeBenchworkOutline,
+        normalizeStreetlight,
+        normalizeFabricRegion,
+        normalizeStlObject,
+        buildingStateLabel,
+        trackAccessoryPreset,
+        trackAccessoryLabel,
+        trackAccessoryFilterCounts,
+        trackAccessoryMatchesObjectFilter,
+        isBuildingSelected,
+        setSingleSiteObjectSelection,
+        toggleSiteObjectSelection,
+        updateSite3DHoverIndicator,
+        renderSelected,
+        updateHandoff,
+        draw,
+        fabricPresets:FABRIC_PRESETS,
+      });
     }
-    renderObjectBrowser();
-    renderSelected();
-    updateHandoff();
-    draw();
+    return sidebarObjectBrowserController;
   }
-  function objectRowSelected(type,id){
-    return sidebarObjectSelected(state,type,id,isBuildingSelected);
-  }
-  function makeObjectListRow(type,raw){
-    const el=document.createElement('div');
-    const selectedClass=objectRowSelected(type,raw.id)?'selected':'';
-    el.className='buildingItem '+selectedClass;
-    el.tabIndex=0;
-    if(type==='buildings'){
-      const b=normalizeBuilding(raw);
-      const hakoBadge=b.hakoFile?'<span class="pill buildingFileBadge">.hako</span>':'';
-      const metric=b.padType==='rect'?`${fmt(b.widthMm)}×${fmt(b.depthMm)}`:fmt(b.derived?.areaMm2||0)+' mm²';
-      el.innerHTML=`<span class="swatch" style="background:${b.color}"></span><div class="buildingInfo"><span class="buildingName" title="${escapeAttr(b.name||'Building')}">${escapeHtml(b.name||'Building')}</span><span class="small muted buildingMeta">${buildingStateLabel(b.state)} · ${b.padType}${b.hidden?' · hidden':''}${b.locked?' · locked':''}</span></div><span class="pill buildingMetric" title="${escapeAttr(metric)}">${metric}</span>${hakoBadge}`;
-      const setCardHover=on=>{
-        state.hoverBuildingId=on ? b.id : (state.hoverBuildingId===b.id ? null : state.hoverBuildingId);
-        el.classList.toggle('sidebarHover',on);
-        draw();
-        updateSite3DHoverIndicator();
-      };
-      el.onmouseenter=()=>setCardHover(true);
-      el.onmouseleave=()=>setCardHover(false);
-      el.onfocus=()=>setCardHover(true);
-      el.onblur=()=>setCardHover(false);
-      el.onclick=ev=>selectSidebarObject('buildings',b.id,ev);
-      el.onkeydown=ev=>{ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); selectSidebarObject('buildings',b.id,ev); } };
-      return el;
-    }
-    if(type==='roads'){
-      const r=normalizeRoad(raw);
-      el.innerHTML=`<span class="swatch" style="background:${r.color||'#6f6a5e'}"></span><div><b>${escapeHtml(r.name||'Road')}</b><br><span class="small muted">${r.mode==='outline'?'outline':'centerline'}${r.sidewalkSide&&r.sidewalkSide!=='none'?' · sidewalk '+r.sidewalkSide:''}${r.locked?' · locked':''}</span></div><span class="pill">${r.mode==='centerline'?fmt(r.widthMm||0)+'mm':'poly'}</span>`;
-    } else if(type==='tracks'){
-      const t=normalizeTrack(raw);
-      el.innerHTML=`<span class="swatch" style="background:${t.color||'#4b4438'}"></span><div><b>${escapeHtml(t.name||'Track')}</b><br><span class="small muted">${(t.pointsPx||[]).length} points${t.locked?' · locked':''}</span></div><span class="pill">${fmt(t.gaugeMm||9)}mm</span>`;
-    } else if(type==='trackAccessories'){
-      const item=normalizeTrackAccessory(raw);
-      el.innerHTML=`<span class="swatch" style="background:${item.color||trackAccessoryPreset(item.kind).color}"></span><div><b>${escapeHtml(item.name||trackAccessoryLabel(item.kind))}</b><br><span class="small muted">${escapeHtml(trackAccessoryLabel(item.kind))}${item.trackId?' · track attached':''}${item.autoOrientToTrack?' · auto-oriented':''}${item.locked?' · locked':''}</span></div><span class="pill">marker</span>`;
-    } else if(type==='roadFeatures'){
-      const f=normalizeRoadFeature(raw);
-      const title=f.name || (f.kind==='manhole'?'Manhole / Hatch':'Road marking');
-      const metric=f.kind==='manhole'?(f.hatchShape==='circle'?fmt(f.diameterMm||0)+'mm':`${fmt(f.widthMm||0)}×${fmt(f.depthMm||0)}`):`${fmt(f.widthMm||0)}×${fmt(f.depthMm||0)}`;
-      el.innerHTML=`<span class="swatch" style="background:${f.color||'#3a2b1e'}"></span><div><b>${escapeHtml(title)}</b><br><span class="small muted">${f.kind==='manhole'?'hatch':'marking'}${f.locked?' · locked':''}</span></div><span class="pill">${metric}</span>`;
-    } else if(type==='benchwork'){
-      const bw=normalizeBenchworkOutline(raw);
-      el.innerHTML=`<span class="swatch" style="background:${bw.color||'#2f6f4e'}"></span><div><b>${escapeHtml(bw.name||'Benchwork Outline')}</b><br><span class="small muted">${(bw.pointsPx||[]).length} points${bw.locked?' · locked':''}</span></div><span class="pill">outline</span>`;
-    } else if(type==='streetlights'){
-      const l=normalizeStreetlight(raw);
-      el.innerHTML=`<span class="streetlight-swatch" style="background:${l.color||'#c84a3a'}"></span><div><b>${escapeHtml(l.name||'Streetlight')}</b><br><span class="small muted">${l.mode==='anchored'?'anchored · ':''}${l.type||'singleArm'}${l.locked?' · locked':''}</span></div><span class="pill">${fmt(l.heightMm||0)}mm</span>`;
-    } else if(type==='fabric'){
-      const f=normalizeFabricRegion(raw);
-      const generated=state.buildings.filter(b=>b.fabricRegionId===f.id).length;
-      el.innerHTML=`<span class="swatch" style="background:${f.color||'#7c5f3f'}"></span><div><b>${escapeHtml(f.name||'Fabric Region')}</b><br><span class="small muted">${escapeHtml(FABRIC_PRESETS[f.fabricType]?.label||f.fabricType||'fabric')} · ${generated} pad${generated===1?'':'s'}</span></div><span class="pill">${(f.polygon||[]).length} pts</span>`;
-    } else if(type==='annotations'){
-      const note=raw;
-      el.innerHTML=`<span class="swatch" style="background:${note.color||'#6f4326'}"></span><div><b>${escapeHtml(note.name||'Annotation')}</b><br><span class="small muted">${(note.points||[]).length} points</span></div><span class="pill">note</span>`;
-    } else if(type==='siteObjects'){
-      const obj=normalizeStlObject(raw);
-      el.innerHTML=`<span class="swatch" style="background:${obj.color||'#496a78'}"></span><div><b>${escapeHtml(obj.name||'STL Object')}</b><br><span class="small muted">${escapeHtml(obj.asset?.fileName||'STL asset')}${obj.locked?' · locked':''}${obj.hidden?' · hidden':''}</span></div><span class="pill">${fmt(obj.widthMm*obj.scale)}×${fmt(obj.depthMm*obj.scale)}mm</span>`;
-    }
-    el.onclick=ev=>selectSidebarObject(type,raw.id,ev);
-    el.onkeydown=ev=>{ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); selectSidebarObject(type,raw.id,ev); } };
-    return el;
-  }
-  function sidebarObjectsForType(type){
-    const objects=objectsForSidebarType(state,type);
-    if(type==='trackAccessories'){
-      return objects.map(normalizeTrackAccessory).filter(item=>trackAccessoryMatchesObjectFilter(item));
-    }
-    return objects;
-  }
-  function trackAccessoryObjectFilterSummary(total, visible){
-    if(trackAccessoryObjectFilter==='all') return `${total} item${total===1?'':'s'}`;
-    return `${visible} of ${total} item${total===1?'':'s'}`;
-  }
-  function closeTrackAccessoryFilterMenu(){
-    const menu=$('trackItemFilterMenu');
-    const wrap=$('trackItemFilterWrap');
-    const btn=$('trackItemFilterBtn');
-    menu?.classList.remove('open');
-    wrap?.classList.remove('menuOpen');
-    btn?.setAttribute('aria-expanded','false');
-  }
-  function bindTrackAccessoryFilterMenu(){
-    const btn=$('trackItemFilterBtn');
-    const menu=$('trackItemFilterMenu');
-    const wrap=$('trackItemFilterWrap');
-    if(!btn || !menu || !wrap) return;
-    btn.onclick=e=>{
-      e.preventDefault();
-      e.stopPropagation();
-      const open=!menu.classList.contains('open');
-      closeTrackAccessoryFilterMenu();
-      menu.classList.toggle('open',open);
-      wrap.classList.toggle('menuOpen',open);
-      btn.setAttribute('aria-expanded',String(open));
-    };
-    menu.onclick=e=>e.stopPropagation();
-    menu.querySelectorAll('[data-track-item-filter]').forEach(option=>{
-      option.onclick=()=>{
-        trackAccessoryObjectFilter=option.dataset.trackItemFilter||'all';
-        closeTrackAccessoryFilterMenu();
-        renderObjectBrowser();
-      };
-    });
+  function setSidebarObjectType(value){
+    ensureSidebarObjectBrowserController().setActiveType(value);
   }
   function renderObjectBrowser(){
-    const box=$('objectBrowser');
-    if(!box) return;
-    const title=$('objectBrowserTitle');
-    box.innerHTML='';
-    const activeTypes=sidebarObjectTypes();
-    if(sidebarObjectType && !sidebarObjectTypeMeta(sidebarObjectType)?.count) sidebarObjectType=null;
-    if(!sidebarObjectType){
-      if(title) title.textContent='Plan Objects';
-      if(!activeTypes.length){
-        const empty=document.createElement('div');
-        empty.className='objectBrowserEmpty small muted';
-        empty.textContent='No plan objects yet.';
-        box.appendChild(empty);
-        installHakoImportDropzone(box);
-        return;
-      }
-      const grid=document.createElement('div');
-      grid.className='objectTypeGrid';
-      activeTypes.forEach(type=>{
-        const card=document.createElement('button');
-        card.type='button';
-        card.className='objectTypeCard';
-        card.innerHTML=`<span class="objectTypeSwatch" style="background:${type.color}"></span><span class="objectTypeText"><b>${escapeHtml(type.label)}</b><span>${escapeHtml(type.hint)}</span></span><span class="pill">${type.count}</span>`;
-        card.onclick=()=>{sidebarObjectType=type.key; renderObjectBrowser();};
-        grid.appendChild(card);
-      });
-      box.appendChild(grid);
-      if(!state.buildings.length) installHakoImportDropzone(box);
-      return;
-    }
-    const meta=sidebarObjectTypeMeta(sidebarObjectType);
-    if(title) title.textContent=meta?.label || 'Plan Objects';
-    const toolbar=document.createElement('div');
-    toolbar.className='objectBrowserToolbar';
-    const objects=sidebarObjectsForType(sidebarObjectType);
-    const totalCount=meta?.count||0;
-    const visibleCount=objects.length;
-    const countText=sidebarObjectType==='trackAccessories'
-      ? trackAccessoryObjectFilterSummary(totalCount,visibleCount)
-      : `${totalCount} item${totalCount===1?'':'s'}`;
-    const filterControls=sidebarObjectType==='trackAccessories' ? `
-      <div id="trackItemFilterWrap" class="objectBrowserFilterWrap">
-        <button id="trackItemFilterBtn" type="button" class="sidebarOverflowBtn objectBrowserFilterBtn ${trackAccessoryObjectFilter==='all'?'':'active'}" aria-label="Filter track items" title="Filter track items" aria-haspopup="true" aria-expanded="false"><span data-icon="filter"></span></button>
-        <div id="trackItemFilterMenu" class="dropdownMenu right objectBrowserFilterMenu" role="menu">
-          ${trackAccessoryFilterCounts().map(filter=>`<button type="button" role="menuitemradio" aria-checked="${filter.key===trackAccessoryObjectFilter?'true':'false'}" class="${filter.key===trackAccessoryObjectFilter?'active':''}" data-track-item-filter="${filter.key}"><span>${escapeHtml(filter.label)}</span><span class="pill">${filter.count}</span></button>`).join('')}
-        </div>
-      </div>` : '';
-    toolbar.innerHTML=`<button id="objectBrowserBackBtn" type="button" class="sidebarBackBtn"><span data-icon="arrowLeft"></span><span>Back</span></button><div class="objectBrowserToolbarRight"><span class="small muted">${countText}</span>${filterControls}</div>`;
-    box.appendChild(toolbar);
-    const back=$('objectBrowserBackBtn');
-    if(back) back.onclick=()=>{closeTrackAccessoryFilterMenu(); sidebarObjectType=null; renderObjectBrowser();};
-    bindTrackAccessoryFilterMenu();
-    if(!objects.length){
-      const empty=document.createElement('div');
-      empty.className='objectBrowserEmpty small muted';
-      empty.textContent=sidebarObjectType==='trackAccessories' && trackAccessoryObjectFilter!=='all' ? 'No track items match this filter.' : 'No items in this group.';
-      box.appendChild(empty);
-    } else {
-      objects.forEach(obj=>box.appendChild(makeObjectListRow(sidebarObjectType,obj)));
-    }
-    if(sidebarObjectType==='buildings') installHakoImportDropzone(box);
-    hydrateIcons(box);
+    ensureSidebarObjectBrowserController().renderObjectBrowser();
   }
-
   function renderStreetlights(){
-    renderObjectBrowser();
-    const box=$('streetlightList'); if(!box) return;
-    if(!state.streetlights.length){box.innerHTML='<div class="small muted">No streetlights yet.</div>'; return;}
-    box.innerHTML='';
-    state.streetlights.forEach(raw=>{const l=normalizeStreetlight(raw); const el=document.createElement('div'); el.className='buildingItem '+(l.id===state.selectedStreetlightId?'selected':''); el.innerHTML=`<span class="streetlight-swatch" style="background:${l.color||'#c84a3a'}"></span><div><b>${escapeHtml(l.name||'Streetlight')}</b><br><span class="small muted">${l.mode==='anchored'?'anchored · ':''}${l.type||'singleArm'}${l.locked?' · locked':''}</span></div><span class="pill">${fmt(l.heightMm||0)}mm</span>`; el.onclick=()=>{state.selectedStreetlightId=l.id; clearBuildingSelection(); state.selectedAnnotationId=null; renderList(); renderStreetlights(); renderSelected(); updateHandoff(); draw();}; box.appendChild(el);});
+    ensureSidebarObjectBrowserController().renderStreetlights();
   }
-
   function renderList(){
-    renderObjectBrowser();
-    const box=$('buildingList');
-    if(!box) return;
-    box.innerHTML='';
-    if(!state.buildings.length){
-      const empty=document.createElement('div');
-      empty.className='small muted';
-      empty.textContent='No building pads yet.';
-      box.appendChild(empty);
-    } else {
-      state.buildings.forEach(raw=>box.appendChild(makeObjectListRow('buildings',raw)));
-    }
-    installHakoImportDropzone(box);
+    ensureSidebarObjectBrowserController().renderList();
   }
   function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadIntersection=selectedRoadIntersection(); const railCrossing=selectedRailCrossing(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const track=selectedTrack(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const fabric=selectedFabric(); const stl=selectedStlObject(); const selIds=currentSelectedBuildingIds(); const trackAccessory=(!b && !selIds.length && !note && !roadIntersection && !railCrossing && !roadFeature && !road && !track && !bench && !light && !fabric && !stl) ? selectedTrackAccessory() : null; if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use keyboard shortcuts to copy/paste selected building footprints.</span><div class="buttons" style="margin-top:8px"><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(trackAccessory){normalizeTrackAccessory(trackAccessory); box.innerHTML=`
       <b>Track item selected</b>
@@ -4961,7 +4793,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function clearSidebarDetailSelection(){
     const returnType=sidebarTypeForDetailKind(activeSidebarDetailKind());
-    if(returnType) sidebarObjectType=returnType;
+    if(returnType) setSidebarObjectType(returnType);
     closeSidebarBuildingOverflow();
     clearPlanObjectSelection();
     hideContextMenu();

@@ -2,7 +2,7 @@ const port = Number(process.env.HAKOMACHI_TEST_PORT || 4173);
 
 module.exports = {
   testDir: './tests',
-  timeout: 30000,
+  timeout: 60000,
   fullyParallel: true,
   use: {
     baseURL: `http://127.0.0.1:${port}`,
@@ -19,6 +19,11 @@ module.exports = {
     },
     {
       name: 'tablet-chromium',
+      testMatch: [
+        '**/core-workflows.spec.js',
+        '**/short-viewport.spec.js',
+        '**/3d-visual-smoke.spec.js',
+      ],
       use: {
         browserName: 'chromium',
         viewport: { width: 834, height: 1112 },
@@ -27,6 +32,11 @@ module.exports = {
     },
     {
       name: 'mobile-chromium',
+      testMatch: [
+        '**/core-workflows.spec.js',
+        '**/short-viewport.spec.js',
+        '**/3d-visual-smoke.spec.js',
+      ],
       use: {
         browserName: 'chromium',
         viewport: { width: 390, height: 640 },

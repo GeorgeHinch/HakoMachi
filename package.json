@@ -10,6 +10,7 @@
     "check:runtime": "node tools/runtime_check.js",
     "check:i18n": "node tools/i18n/check.js",
     "check:browser": "playwright test",
+    "check:browser:ci": "playwright test --reporter=line",
     "check:browser:install": "playwright install chromium",
     "cache:version": "node tools/update-cache-version.js"
   },

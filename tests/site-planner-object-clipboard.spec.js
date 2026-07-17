@@ -123,7 +123,7 @@ test.describe('Site Planner object clipboard', () => {
 
     await clickWorldPoint(page, { x: 140, y: 140 });
     await expect(page.locator('#selectedPanel')).toContainText('Rail crossing selected');
-    await expect(page.locator('#selectedPanel')).toContainText('6.7');
+    await expect(page.locator('#selectedPanel input[disabled]').first()).toHaveValue('6.70');
     await page.locator('#railCrossingArc').fill('2.5');
 
     await page.waitForFunction(key => {

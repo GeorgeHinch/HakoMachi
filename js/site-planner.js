@@ -881,17 +881,48 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const tol=(pointerType==='touch'?18:10)/state.view.scale;
     return hitRailCrossing(p,generatedRailCrossings(),tol);
   }
+  function traceRailCrossingPanelPath(pts){
+    ctx.beginPath();
+    pts.forEach((point,index)=>index?ctx.lineTo(point.x,point.y):ctx.moveTo(point.x,point.y));
+    ctx.closePath();
+  }
+  function drawRailCrossingPanelTexture(pts,selected=false){
+    const xs=pts.map(point=>point.x), ys=pts.map(point=>point.y);
+    const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
+    const span=Math.max(maxX-minX,maxY-minY,1);
+    const spacing=Math.max(4/state.view.scale,span*.12);
+    ctx.save();
+    traceRailCrossingPanelPath(pts);
+    ctx.clip();
+    ctx.strokeStyle=selected?'rgba(255,247,237,.34)':'rgba(220,229,232,.25)';
+    ctx.lineWidth=.75/state.view.scale;
+    for(let x=minX-span; x<=maxX+span; x+=spacing){
+      ctx.beginPath();
+      ctx.moveTo(x,maxY+spacing);
+      ctx.lineTo(x+span+spacing,minY-spacing);
+      ctx.stroke();
+    }
+    ctx.strokeStyle=selected?'rgba(95,34,26,.45)':'rgba(31,39,45,.42)';
+    ctx.lineWidth=.45/state.view.scale;
+    for(let x=minX-span+spacing*.5; x<=maxX+span; x+=spacing*2){
+      ctx.beginPath();
+      ctx.moveTo(x,minY-spacing);
+      ctx.lineTo(x+span+spacing,maxY+spacing);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
   function drawRailCrossingPanel(panel,crossing,selected=false){
     const pts=panel.polygon||[];
     if(pts.length<3) return;
     ctx.save();
-    ctx.fillStyle=selected?'rgba(200,74,58,.26)':'rgba(236,224,190,.76)';
-    ctx.strokeStyle=selected?'#c84a3a':'#8f7b55';
+    ctx.fillStyle=selected?'rgba(95,77,72,.92)':'rgba(73,83,91,.88)';
+    ctx.strokeStyle=selected?'#c84a3a':'#29333a';
     ctx.lineWidth=(selected?2:1)/state.view.scale;
-    ctx.beginPath();
-    pts.forEach((point,index)=>index?ctx.lineTo(point.x,point.y):ctx.moveTo(point.x,point.y));
-    ctx.closePath();
+    traceRailCrossingPanelPath(pts);
     ctx.fill();
+    drawRailCrossingPanelTexture(pts,selected);
+    traceRailCrossingPanelPath(pts);
     ctx.stroke();
     ctx.restore();
   }
@@ -931,7 +962,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const selected=selectedId && (selectedId===crossing.id || selectedId===crossing.key);
       (crossing.panels||[]).forEach(panel=>drawRailCrossingPanel(panel,crossing,selected));
       ctx.save();
-      ctx.strokeStyle=selected?'#c84a3a':'rgba(58,43,30,.42)';
+      ctx.strokeStyle=selected?'#fff7ed':'rgba(222,231,234,.62)';
       ctx.lineWidth=.7/state.view.scale;
       (crossing.engraves||[]).forEach(line=>{
         ctx.beginPath(); ctx.moveTo(line.a.x,line.a.y); ctx.lineTo(line.b.x,line.b.y); ctx.stroke();

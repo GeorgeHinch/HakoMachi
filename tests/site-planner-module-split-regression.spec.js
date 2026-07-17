@@ -1373,6 +1373,22 @@ test.describe('Site Planner module split contracts', () => {
     expect(accessoryLayerIndex).toBeGreaterThan(railCrossingIndex);
   });
 
+  test('rail crossing panels use gunmetal preview styling with clipped texture', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const helperStart = source.indexOf('function drawRailCrossingPanelTexture');
+    const drawStart = source.indexOf('function drawRailCrossingPanel(panel', helperStart);
+    const drawEnd = source.indexOf('function drawRailCrossingIndicator', drawStart);
+    const textureHelper = source.slice(helperStart, drawStart);
+    const drawPanel = source.slice(drawStart, drawEnd);
+
+    expect(textureHelper).toContain('ctx.clip()');
+    expect(textureHelper).toContain("rgba(220,229,232,.25)");
+    expect(textureHelper).toContain("rgba(31,39,45,.42)");
+    expect(drawPanel).toContain("rgba(73,83,91,.88)");
+    expect(drawPanel).toContain("'#29333a'");
+    expect(drawPanel).not.toContain("rgba(236,224,190,.76)");
+  });
+
   test('rail crossing survey templates export fit-check guides and reuse measured geometry', async () => {
     const {
       buildRailCrossings,

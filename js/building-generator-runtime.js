@@ -2309,6 +2309,24 @@ const TRANSLATIONS = {
     lbl_parapetH: 'Parapet height (mm)',
     lbl_parapetInner: 'Add inner parapet top-wrap cladding',
     hlp_parapetInner: 'Four foldable cladding strips that wrap over the parapet wall top and continue down the inside face to the roof deck, hiding both the exposed top edge and the inner parapet face.',
+    lbl_trussesEnabled: 'Enable roof trusses',
+    hlp_trussesEnabled: 'Adds internal roof truss parts. The style is selected from the roof shape; direction can stay automatic or be set manually.',
+    lbl_trussSpacing: 'Truss spacing (mm)',
+    lbl_trussAxis: 'Truss direction',
+    opt_trussAxisAuto: 'Auto',
+    opt_trussAxisNS: 'N-S (trusses run north-south)',
+    opt_trussAxisEW: 'E-W (trusses run east-west)',
+    lbl_trussMemberWidth: 'Member width (mm)',
+    lbl_trussXBrace: 'Add wall X-bracing between trusses',
+    hlp_trussXBrace: 'Automatically places connected X braces on the truss-bearing walls for the selected direction.',
+    lbl_trussXBraceW: 'Wall X-brace width (mm)',
+    lbl_trussSupports: 'Add vertical support columns',
+    hlp_trussSupports: 'Adds core-material support-column parts at each truss bearing point, plus etched floor footprints for assembly.',
+    lbl_trussSupportType: 'Column cross-section',
+    opt_trussSupportI: 'I-beam - back + web + end cap',
+    opt_trussSupportT: 'T-beam - back + web only',
+    lbl_trussSupportDepth: 'Web depth (mm)',
+    lbl_trussSupportFlange: 'Flange width (mm)',
     lbl_pitch: 'Roof pitch (mm rise)',
     lbl_roofOverhangAll: 'Roof overhang on all sides (mm)',
     hlp_roofOverhangAll: 'How far the roof projects past the walls on every side. The cladding above will extend to cover the full overhang.',
@@ -2528,6 +2546,24 @@ const TRANSLATIONS = {
     lbl_parapetH: 'パラペット高さ（mm）',
     lbl_parapetInner: 'パラペット上端回り込み内側壁材を追加',
     hlp_parapetInner: 'パラペット壁の上端を回り込み、屋根面まで内側に下がる折り曲げ式の壁材4枚です。露出する上端と内側面の両方を隠します。',
+    lbl_trussesEnabled: '屋根トラスを有効化',
+    hlp_trussesEnabled: '内部屋根トラス部品を追加します。形状は屋根形状から選ばれ、方向は自動または手動で指定できます。',
+    lbl_trussSpacing: 'トラス間隔（mm）',
+    lbl_trussAxis: 'トラス方向',
+    opt_trussAxisAuto: '自動',
+    opt_trussAxisNS: '南北（トラスが南北方向）',
+    opt_trussAxisEW: '東西（トラスが東西方向）',
+    lbl_trussMemberWidth: '部材幅（mm）',
+    lbl_trussXBrace: 'トラス間の壁Xブレースを追加',
+    hlp_trussXBrace: '選択した方向のトラス支持壁に連続したXブレースを自動配置します。',
+    lbl_trussXBraceW: '壁Xブレース幅（mm）',
+    lbl_trussSupports: '垂直支持柱を追加',
+    hlp_trussSupports: '各トラス支持点に芯材の支持柱部品を追加し、床には組立用の足跡を彫刻します。',
+    lbl_trussSupportType: '柱断面',
+    opt_trussSupportI: 'I形 - 背板 + ウェブ + 端板',
+    opt_trussSupportT: 'T形 - 背板 + ウェブのみ',
+    lbl_trussSupportDepth: 'ウェブ奥行き（mm）',
+    lbl_trussSupportFlange: 'フランジ幅（mm）',
     lbl_pitch: '屋根勾配・立ち上がり（mm）',
     lbl_roofOverhangAll: '四方の軒の出（mm）',
     hlp_roofOverhangAll: '屋根が壁より外側にどれだけ張り出すか。上に貼る外装材も張り出し全体を覆います。',
@@ -22931,6 +22967,60 @@ function syncHeightFloorModeFields({ writeComputed = true } = {}) {
   floorHEl.classList.toggle('readonly-derived', floorHEl.readOnly);
 }
 
+function defaultTrussSettings(seed = {}) {
+  return {
+    enabled: false,
+    spacing: 30,
+    axis: null,
+    chordW: 2,
+    xBraceEnabled: false,
+    xBraceW: 1,
+    xBraceWalls: [],
+    supports: false,
+    supportColumnType: 'i',
+    supportDepth: 4,
+    supportFlangeW: 4,
+    ...seed,
+  };
+}
+
+function readTrussFormSettings() {
+  const current = defaultTrussSettings(CONFIG.trusses || {});
+  const axis = val('trussAxis') || null;
+  return defaultTrussSettings({
+    ...current,
+    enabled: !!document.getElementById('trussesEnabled')?.checked,
+    spacing: Math.max(5, num('trussSpacing') || current.spacing || 30),
+    axis: (axis === 'ns' || axis === 'ew') ? axis : null,
+    chordW: Math.max(0.5, num('trussChordW') || current.chordW || 2),
+    xBraceEnabled: !!document.getElementById('trussXBraceEnabled')?.checked,
+    xBraceW: Math.max(0.3, num('trussXBraceW') || current.xBraceW || 1),
+    xBraceWalls: [],
+    supports: !!document.getElementById('trussSupportsEnabled')?.checked,
+    supportColumnType: val('trussSupportColumnType') === 't' ? 't' : 'i',
+    supportDepth: Math.max(1, num('trussSupportDepth') || current.supportDepth || 4),
+    supportFlangeW: Math.max(2, num('trussSupportFlangeW') || current.supportFlangeW || 4),
+  });
+}
+
+function writeTrussFormSettings() {
+  const t = defaultTrussSettings(CONFIG.trusses || {});
+  const enabledEl = document.getElementById('trussesEnabled');
+  if (!enabledEl) return;
+  enabledEl.checked = !!t.enabled;
+  set('trussSpacing', t.spacing ?? 30);
+  set('trussAxis', t.axis || '');
+  set('trussChordW', t.chordW ?? 2);
+  const xbEl = document.getElementById('trussXBraceEnabled');
+  if (xbEl) xbEl.checked = !!(t.xBraceEnabled || (Array.isArray(t.xBraceWalls) && t.xBraceWalls.length > 0));
+  set('trussXBraceW', t.xBraceW ?? 1);
+  const supportEl = document.getElementById('trussSupportsEnabled');
+  if (supportEl) supportEl.checked = !!t.supports;
+  set('trussSupportColumnType', t.supportColumnType === 't' ? 't' : 'i');
+  set('trussSupportDepth', t.supportDepth ?? 4);
+  set('trussSupportFlangeW', t.supportFlangeW ?? 4);
+}
+
 /* Read the form into CONFIG */
 function readForm() {
   CONFIG.buildingType = val('buildingType');
@@ -22971,6 +23061,7 @@ function readForm() {
   CONFIG.roofOverhangFB = num('roofOverhangFB') || 0;
   CONFIG.roofOverhangEW = num('roofOverhangEW') || 0;
   CONFIG.roofOverhang = num('roofOverhangAll') || 5;
+  CONFIG.trusses = readTrussFormSettings();
   CONFIG.claddingStyle = val('claddingStyle');
   CONFIG.roofCladdingStyle = val('roofCladdingStyle') || CONFIG.claddingStyle;
   CONFIG.claddingExtendsToFloorBottom = !!document.getElementById('claddingExtendsToFloorBottom')?.checked;
@@ -23130,6 +23221,7 @@ function writeForm() {
   set('roofOverhangEW', CONFIG.roofOverhangEW || 0);
   set('roofOverhangAll', CONFIG.roofOverhang || 5);
   updateOverhangLinkBtn();
+  writeTrussFormSettings();
   set('claddingStyle', CONFIG.claddingStyle);
   set('roofCladdingStyle', CONFIG.roofCladdingStyle || CONFIG.claddingStyle);
   const floorBottomCladEl = document.getElementById('claddingExtendsToFloorBottom');
@@ -23289,6 +23381,17 @@ function updateConditionalFields() {
   document.getElementById('roofRidgeDirectionField').style.display = showRidge ? '' : 'none';
   document.getElementById('roofSlopeDirectionField').style.display = (roofStyle === 'slanted') ? '' : 'none';
   document.getElementById('roofOverhangField').style.display = (roofStyle === 'slanted' || roofStyle === 'gabled') ? '' : 'none';
+  const trussesOn = !!document.getElementById('trussesEnabled')?.checked;
+  const trussControls = document.getElementById('trussControls');
+  if (trussControls) trussControls.style.display = trussesOn ? '' : 'none';
+  const trussXBraceControls = document.getElementById('trussXBraceControls');
+  if (trussXBraceControls) {
+    trussXBraceControls.style.display = (trussesOn && !!document.getElementById('trussXBraceEnabled')?.checked) ? '' : 'none';
+  }
+  const trussSupportControls = document.getElementById('trussSupportControls');
+  if (trussSupportControls) {
+    trussSupportControls.style.display = (trussesOn && !!document.getElementById('trussSupportsEnabled')?.checked) ? '' : 'none';
+  }
   // Rooftop shield sub-fields
   const shieldOn = !!document.getElementById('rooftopShieldEnabled')?.checked;
   const shieldFields = document.getElementById('rooftopShieldFields');
@@ -30679,9 +30782,10 @@ function init() {
   // Regeneration is triggered manually by the "Generate Preview" button.
   const conditionalFieldUpdaters = ['heightMode', 'roofStyle', 'claddingStyle', 'roofCladdingStyle',
                                     'windowStyle', 'doorStyle',
-                                    'firstFloorHeightEnabled', 'firstFloorWindowStyleEnabled',
+                                    'firstFloorHeightEnabled', 'firstFloorWindowStyleEnabled', 
                                     'firstFloorCladdingStyleEnabled', 'groundFloorOffsetEnabled',
-                                    'claddingExtendsToFloorBottom', 'floorOutlineOpening', 'rooftopMechRoom', 'interiorCladding'];
+                                    'claddingExtendsToFloorBottom', 'floorOutlineOpening', 'rooftopMechRoom', 'interiorCladding',
+                                    'trussesEnabled', 'trussXBraceEnabled', 'trussSupportsEnabled'];
   for (const id of conditionalFieldUpdaters) {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', updateConditionalFields);
@@ -37712,9 +37816,26 @@ function oeDistributeVertical() {
 /* =====================================================================
    FLOOR BANDS
    ===================================================================== */
+function oeWallHasParapetBand(cfg, wall) {
+  if (!cfg) return false;
+  if (cfg.roofStyle === 'parapet') return true;
+  if (cfg.roofStyle !== 'parapet_gable') return false;
+  const sides = cfg.parapetSides || 'all';
+  if (sides === 'all') return true;
+  if (sides === 'fb') return wall === 'front' || wall === 'back';
+  if (sides === 'ew') return wall === 'east' || wall === 'west';
+  return false;
+}
+
+function oeWallParapetHeight(plan, cfg, wall) {
+  if (!oeWallHasParapetBand(cfg, wall)) return 0;
+  return Math.max(0, Number((plan && plan.parapetH != null) ? plan.parapetH : cfg.parapetHeight) || 0);
+}
+
 function oeGetFloorBands(wall) {
   const plan = oeActivePlan();
   if (!plan) return [];
+  const cfg = oeActiveCfg();
   const { H, matT, parapetH, visualFloorYs, hasFrontBay, hasBackBay, bayCeilingY } = plan;
 
   // Bottom of the usable wall (bay ceiling for a walled bay, otherwise floor)
@@ -37725,7 +37846,8 @@ function oeGetFloorBands(wall) {
   // Only reserve a top parapet/roof-clearance band when this roof style
   // actually has a parapet.  A stale non-zero cfg.parapetHeight should not
   // create an empty, hatched-looking band on flat/gabled/slanted walls.
-  const topBound = parapetH > 0 ? (parapetH + matT + 3) : 0;
+  const wallParapetH = oeWallParapetHeight(plan, cfg, wall);
+  const topBound = wallParapetH > 0 ? (wallParapetH + matT + 3) : 0;
 
   // Rebuild the same deduplicated boundary list as buildEdgePlans for the
   // active edit target. This is critical for wing walls whose explicit
@@ -38200,6 +38322,7 @@ function oeCanvasRenderImpl() {
   const wallH   = si.wallH;
   const activePlan = oeActivePlan();
   const activeCfg  = oeActiveCfg();
+  const wallParapetH = oeWallParapetHeight(activePlan, activeCfg, oeWall);
   const peakAbove = Math.max(pitchL, pitchR, gable);
 
   // ---- Coplanar wing extensions (joined / L-shaped walls) ----
@@ -38379,10 +38502,14 @@ function oeCanvasRenderImpl() {
   }
 
   // Parapet zone (extends across L-shape — clip path crops to wing's parapet height too)
-  if (activePlan && activePlan.parapetH > 0) {
-    const ph = activePlan.parapetH * s;
-    html += `<rect x="${wxStart.toFixed(1)}" y="${oy}" width="${wxW.toFixed(1)}" height="${ph}" fill="url(#oe-hatch)" opacity="0.55" pointer-events="none"/>`;
-    html += `<text x="${ox+4}" y="${oy+ph-3}" font-size="9" fill="#666" font-family="system-ui" pointer-events="none">parapet</text>`;
+  if (wallParapetH > 0) {
+    const ph = wallParapetH * s;
+    const roofLineY = oy + ph;
+    html += `<rect data-oe-parapet-band="true" data-parapet-mm="${wallParapetH.toFixed(3)}" x="${wxStart.toFixed(1)}" y="${oy}" width="${wxW.toFixed(1)}" height="${ph.toFixed(1)}" fill="url(#oe-hatch)" opacity="0.55" pointer-events="none"/>`;
+    html += `<line data-oe-roof-line="true" x1="${wxStart.toFixed(1)}" y1="${roofLineY.toFixed(1)}" x2="${wxEnd.toFixed(1)}" y2="${roofLineY.toFixed(1)}" stroke="rgba(80,80,80,0.45)" stroke-width="0.9" stroke-dasharray="4 3" pointer-events="none"/>`;
+    if (ph >= 10) {
+      html += `<text x="${ox+4}" y="${oy+ph-3}" font-size="9" fill="#666" font-family="system-ui" pointer-events="none">parapet</text>`;
+    }
   }
 
   // Bay opening — drawn as part of the editor's interactive layer so it

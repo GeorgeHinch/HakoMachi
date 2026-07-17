@@ -185,6 +185,68 @@
         <select id="roofCladdingStyle"></select>
         <div class="small" id="roofCladdingDescription"></div>
       </div>
+      <div class="field" id="trussesEnabledField">
+        <label style="display:flex; align-items:center; gap:6px;">
+          <input type="checkbox" id="trussesEnabled">
+          <span data-i18n="lbl_trussesEnabled">Enable roof trusses</span>
+        </label>
+        <div class="small" data-i18n="hlp_trussesEnabled">Adds internal roof truss parts. The style is selected from the roof shape; direction can stay automatic or be set manually.</div>
+      </div>
+      <div id="trussControls" style="display:none;">
+        <div class="field">
+          <label data-i18n="lbl_trussSpacing">Truss spacing (mm)</label>
+          <input type="number" id="trussSpacing" min="5" max="200" step="1" value="30">
+        </div>
+        <div class="field">
+          <label data-i18n="lbl_trussAxis">Truss direction</label>
+          <select id="trussAxis">
+            <option value="" data-i18n-opt="opt_trussAxisAuto">Auto</option>
+            <option value="ns" data-i18n-opt="opt_trussAxisNS">N-S (trusses run north-south)</option>
+            <option value="ew" data-i18n-opt="opt_trussAxisEW">E-W (trusses run east-west)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-i18n="lbl_trussMemberWidth">Member width (mm)</label>
+          <input type="number" id="trussChordW" min="0.5" max="10" step="0.5" value="2">
+        </div>
+        <div class="field">
+          <label style="display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" id="trussXBraceEnabled">
+            <span data-i18n="lbl_trussXBrace">Add wall X-bracing between trusses</span>
+          </label>
+          <div class="small" data-i18n="hlp_trussXBrace">Automatically places connected X braces on the truss-bearing walls for the selected direction.</div>
+        </div>
+        <div id="trussXBraceControls" style="display:none;">
+          <div class="field">
+            <label data-i18n="lbl_trussXBraceW">Wall X-brace width (mm)</label>
+            <input type="number" id="trussXBraceW" min="0.3" max="10" step="0.1" value="1">
+          </div>
+        </div>
+        <div class="field">
+          <label style="display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" id="trussSupportsEnabled">
+            <span data-i18n="lbl_trussSupports">Add vertical support columns</span>
+          </label>
+          <div class="small" data-i18n="hlp_trussSupports">Adds core-material support-column parts at each truss bearing point, plus etched floor footprints for assembly.</div>
+        </div>
+        <div id="trussSupportControls" style="display:none;">
+          <div class="field">
+            <label data-i18n="lbl_trussSupportType">Column cross-section</label>
+            <select id="trussSupportColumnType">
+              <option value="i" data-i18n-opt="opt_trussSupportI">I-beam - back + web + end cap</option>
+              <option value="t" data-i18n-opt="opt_trussSupportT">T-beam - back + web only</option>
+            </select>
+          </div>
+          <div class="field">
+            <label data-i18n="lbl_trussSupportDepth">Web depth (mm)</label>
+            <input type="number" id="trussSupportDepth" min="1" max="20" step="0.5" value="4">
+          </div>
+          <div class="field">
+            <label data-i18n="lbl_trussSupportFlange">Flange width (mm)</label>
+            <input type="number" id="trussSupportFlangeW" min="2" max="20" step="0.5" value="4">
+          </div>
+        </div>
+      </div>
       <div class="field" id="roofRidgeDirectionField" style="display:none">
         <label data-i18n="lbl_ridge">Ridge direction</label>
         <select id="roofRidgeDirection">

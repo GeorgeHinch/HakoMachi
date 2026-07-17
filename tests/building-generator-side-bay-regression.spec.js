@@ -131,4 +131,118 @@ test.describe('building generator side bay regressions', () => {
       }
     }
   });
+
+  test('opening editor draws parapet bands at the configured wall height only on parapeted faces', async ({ page }) => {
+    await page.goto('/building-generator.html', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.HakoMachiBuildingGeneratorRuntime?.generateBuilding);
+
+    async function openEditorFor(configPatch, wall = 'front') {
+      await page.evaluate(({ configPatch }) => {
+        const runtime = window.HakoMachiBuildingGeneratorRuntime;
+        Object.assign(runtime.CONFIG, {
+          floors: 2,
+          width: 84,
+          depth: 52,
+          height: 64,
+          parapetHeight: 3,
+          wallFeatures: { front: [], back: [], east: [], west: [] },
+          ...configPatch,
+        });
+        runtime.writeForm?.();
+        runtime.regenerate?.();
+      }, { configPatch });
+      const modalVisible = await page.locator('#openingEditorModal').evaluate(modal => {
+        return !!modal && getComputedStyle(modal).display !== 'none';
+      }).catch(() => false);
+      if (!modalVisible) {
+        await page.click('#openingEditorBtn');
+      } else {
+        await page.evaluate(() => {
+          if (typeof window.oeRender === 'function') window.oeRender();
+        });
+      }
+      await page.click(`[data-oe-wall="${wall}"]`);
+      await page.waitForSelector('#openingEditorSvg');
+      await page.waitForTimeout(80);
+    }
+
+    await openEditorFor({ roofStyle: 'parapet', parapetHeight: 3 }, 'front');
+    const parapetBand = await page.evaluate(() => {
+      const rect = document.querySelector('#openingEditorSvg [data-oe-parapet-band="true"]');
+      const line = document.querySelector('#openingEditorSvg [data-oe-roof-line="true"]');
+      return {
+        mm: Number(rect?.getAttribute('data-parapet-mm')),
+        y: Number(rect?.getAttribute('y')),
+        h: Number(rect?.getAttribute('height')),
+        lineY: Number(line?.getAttribute('y1')),
+      };
+    });
+    expect(parapetBand.mm).toBeCloseTo(3, 3);
+    expect(parapetBand.lineY - parapetBand.y).toBeCloseTo(parapetBand.h, 1);
+
+    await openEditorFor({ roofStyle: 'parapet_gable', parapetHeight: 5, parapetSides: 'fb' }, 'east');
+    const eastHasBand = await page.locator('#openingEditorSvg [data-oe-parapet-band="true"]').count();
+    expect(eastHasBand).toBe(0);
+
+    await openEditorFor({ roofStyle: 'parapet_gable', parapetHeight: 5, parapetSides: 'fb' }, 'front');
+    const frontBandMm = await page.evaluate(() =>
+      Number(document.querySelector('#openingEditorSvg [data-oe-parapet-band="true"]')?.getAttribute('data-parapet-mm'))
+    );
+    expect(frontBandMm).toBeCloseTo(5, 3);
+
+    await openEditorFor({ roofStyle: 'flat', parapetHeight: 8 }, 'front');
+    const flatHasBand = await page.locator('#openingEditorSvg [data-oe-parapet-band="true"]').count();
+    expect(flatHasBand).toBe(0);
+  });
+
+  test('main roof truss controls persist and generate vertical support columns', async ({ page }) => {
+    await page.goto('/building-generator.html', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.HakoMachiBuildingGeneratorRuntime?.generateBuilding);
+    await page.evaluate(() => {
+      let node = document.getElementById('trussesEnabled');
+      while (node) {
+        if (node.tagName === 'DETAILS') node.open = true;
+        node = node.parentElement;
+      }
+    });
+
+    await expect(page.locator('#trussControls')).toBeHidden();
+    await page.check('#trussesEnabled');
+    await expect(page.locator('#trussControls')).toBeVisible();
+    await expect(page.locator('#trussSupportControls')).toBeHidden();
+    await page.selectOption('#trussAxis', 'ns');
+    await page.fill('#trussSpacing', '24');
+    await page.fill('#trussChordW', '2.5');
+    await page.check('#trussSupportsEnabled');
+    await expect(page.locator('#trussSupportControls')).toBeVisible();
+    await page.selectOption('#trussSupportColumnType', 't');
+    await page.fill('#trussSupportDepth', '5');
+    await page.fill('#trussSupportFlangeW', '4.5');
+
+    const result = await page.evaluate(() => {
+      const runtime = window.HakoMachiBuildingGeneratorRuntime;
+      runtime.readForm();
+      const generated = runtime.generateBuilding(runtime.CONFIG);
+      const supportParts = generated.parts.filter(part => /Column T-beam/.test(part.name || ''));
+      const floor = generated.parts.find(part => part.id === 'floor');
+      return {
+        trusses: runtime.CONFIG.trusses,
+        supportCount: supportParts.length,
+        floorEtches: (floor?.lines || []).filter(line => line.type === 'etch').length,
+      };
+    });
+
+    expect(result.trusses).toMatchObject({
+      enabled: true,
+      spacing: 24,
+      axis: 'ns',
+      chordW: 2.5,
+      supports: true,
+      supportColumnType: 't',
+      supportDepth: 5,
+      supportFlangeW: 4.5,
+    });
+    expect(result.supportCount).toBeGreaterThan(0);
+    expect(result.floorEtches).toBeGreaterThan(0);
+  });
 });

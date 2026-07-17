@@ -211,6 +211,60 @@ export function syncHeightFloorModeFields({ writeComputed = true } = {}) {
   floorHEl.classList.toggle('readonly-derived', floorHEl.readOnly);
 }
 
+function defaultTrussSettings(seed = {}) {
+  return {
+    enabled: false,
+    spacing: 30,
+    axis: null,
+    chordW: 2,
+    xBraceEnabled: false,
+    xBraceW: 1,
+    xBraceWalls: [],
+    supports: false,
+    supportColumnType: 'i',
+    supportDepth: 4,
+    supportFlangeW: 4,
+    ...seed,
+  };
+}
+
+function readTrussFormSettings() {
+  const current = defaultTrussSettings(CONFIG.trusses || {});
+  const axis = val('trussAxis') || null;
+  return defaultTrussSettings({
+    ...current,
+    enabled: !!document.getElementById('trussesEnabled')?.checked,
+    spacing: Math.max(5, num('trussSpacing') || current.spacing || 30),
+    axis: (axis === 'ns' || axis === 'ew') ? axis : null,
+    chordW: Math.max(0.5, num('trussChordW') || current.chordW || 2),
+    xBraceEnabled: !!document.getElementById('trussXBraceEnabled')?.checked,
+    xBraceW: Math.max(0.3, num('trussXBraceW') || current.xBraceW || 1),
+    xBraceWalls: [],
+    supports: !!document.getElementById('trussSupportsEnabled')?.checked,
+    supportColumnType: val('trussSupportColumnType') === 't' ? 't' : 'i',
+    supportDepth: Math.max(1, num('trussSupportDepth') || current.supportDepth || 4),
+    supportFlangeW: Math.max(2, num('trussSupportFlangeW') || current.supportFlangeW || 4),
+  });
+}
+
+function writeTrussFormSettings() {
+  const t = defaultTrussSettings(CONFIG.trusses || {});
+  const enabledEl = document.getElementById('trussesEnabled');
+  if (!enabledEl) return;
+  enabledEl.checked = !!t.enabled;
+  set('trussSpacing', t.spacing ?? 30);
+  set('trussAxis', t.axis || '');
+  set('trussChordW', t.chordW ?? 2);
+  const xbEl = document.getElementById('trussXBraceEnabled');
+  if (xbEl) xbEl.checked = !!(t.xBraceEnabled || (Array.isArray(t.xBraceWalls) && t.xBraceWalls.length > 0));
+  set('trussXBraceW', t.xBraceW ?? 1);
+  const supportEl = document.getElementById('trussSupportsEnabled');
+  if (supportEl) supportEl.checked = !!t.supports;
+  set('trussSupportColumnType', t.supportColumnType === 't' ? 't' : 'i');
+  set('trussSupportDepth', t.supportDepth ?? 4);
+  set('trussSupportFlangeW', t.supportFlangeW ?? 4);
+}
+
 /* Read the form into CONFIG */
 export function readForm() {
   CONFIG.buildingType = val('buildingType');
@@ -251,6 +305,7 @@ export function readForm() {
   CONFIG.roofOverhangFB = num('roofOverhangFB') || 0;
   CONFIG.roofOverhangEW = num('roofOverhangEW') || 0;
   CONFIG.roofOverhang = num('roofOverhangAll') || 5;
+  CONFIG.trusses = readTrussFormSettings();
   CONFIG.claddingStyle = val('claddingStyle');
   CONFIG.roofCladdingStyle = val('roofCladdingStyle') || CONFIG.claddingStyle;
   CONFIG.claddingExtendsToFloorBottom = !!document.getElementById('claddingExtendsToFloorBottom')?.checked;
@@ -410,6 +465,7 @@ export function writeForm() {
   set('roofOverhangEW', CONFIG.roofOverhangEW || 0);
   set('roofOverhangAll', CONFIG.roofOverhang || 5);
   updateOverhangLinkBtn();
+  writeTrussFormSettings();
   set('claddingStyle', CONFIG.claddingStyle);
   set('roofCladdingStyle', CONFIG.roofCladdingStyle || CONFIG.claddingStyle);
   const floorBottomCladEl = document.getElementById('claddingExtendsToFloorBottom');
@@ -569,6 +625,17 @@ export function updateConditionalFields() {
   document.getElementById('roofRidgeDirectionField').style.display = showRidge ? '' : 'none';
   document.getElementById('roofSlopeDirectionField').style.display = (roofStyle === 'slanted') ? '' : 'none';
   document.getElementById('roofOverhangField').style.display = (roofStyle === 'slanted' || roofStyle === 'gabled') ? '' : 'none';
+  const trussesOn = !!document.getElementById('trussesEnabled')?.checked;
+  const trussControls = document.getElementById('trussControls');
+  if (trussControls) trussControls.style.display = trussesOn ? '' : 'none';
+  const trussXBraceControls = document.getElementById('trussXBraceControls');
+  if (trussXBraceControls) {
+    trussXBraceControls.style.display = (trussesOn && !!document.getElementById('trussXBraceEnabled')?.checked) ? '' : 'none';
+  }
+  const trussSupportControls = document.getElementById('trussSupportControls');
+  if (trussSupportControls) {
+    trussSupportControls.style.display = (trussesOn && !!document.getElementById('trussSupportsEnabled')?.checked) ? '' : 'none';
+  }
   // Rooftop shield sub-fields
   const shieldOn = !!document.getElementById('rooftopShieldEnabled')?.checked;
   const shieldFields = document.getElementById('rooftopShieldFields');

@@ -3,9 +3,26 @@
    ===================================================================== */
 import { clipPolygonByLayoutCuts, layoutCutsActive } from '../core/layout-cut-geometry.js?v=shared-building-preview-26';
 
+export function oeWallHasParapetBand(cfg, wall) {
+  if (!cfg) return false;
+  if (cfg.roofStyle === 'parapet') return true;
+  if (cfg.roofStyle !== 'parapet_gable') return false;
+  const sides = cfg.parapetSides || 'all';
+  if (sides === 'all') return true;
+  if (sides === 'fb') return wall === 'front' || wall === 'back';
+  if (sides === 'ew') return wall === 'east' || wall === 'west';
+  return false;
+}
+
+export function oeWallParapetHeight(plan, cfg, wall) {
+  if (!oeWallHasParapetBand(cfg, wall)) return 0;
+  return Math.max(0, Number((plan && plan.parapetH != null) ? plan.parapetH : cfg.parapetHeight) || 0);
+}
+
 export function oeGetFloorBands(wall) {
   const plan = oeActivePlan();
   if (!plan) return [];
+  const cfg = oeActiveCfg();
   const { H, matT, parapetH, visualFloorYs, hasFrontBay, hasBackBay, bayCeilingY } = plan;
 
   // Bottom of the usable wall (bay ceiling for a walled bay, otherwise floor)
@@ -16,7 +33,8 @@ export function oeGetFloorBands(wall) {
   // Only reserve a top parapet/roof-clearance band when this roof style
   // actually has a parapet.  A stale non-zero cfg.parapetHeight should not
   // create an empty, hatched-looking band on flat/gabled/slanted walls.
-  const topBound = parapetH > 0 ? (parapetH + matT + 3) : 0;
+  const wallParapetH = oeWallParapetHeight(plan, cfg, wall);
+  const topBound = wallParapetH > 0 ? (wallParapetH + matT + 3) : 0;
 
   // Rebuild the same deduplicated boundary list as buildEdgePlans for the
   // active edit target. This is critical for wing walls whose explicit
@@ -483,6 +501,7 @@ export function oeCanvasRenderImpl() {
   const wallH   = si.wallH;
   const activePlan = oeActivePlan();
   const activeCfg  = oeActiveCfg();
+  const wallParapetH = oeWallParapetHeight(activePlan, activeCfg, oeWall);
   const peakAbove = Math.max(pitchL, pitchR, gable);
 
   // ---- Coplanar wing extensions (joined / L-shaped walls) ----
@@ -662,10 +681,14 @@ export function oeCanvasRenderImpl() {
   }
 
   // Parapet zone (extends across L-shape — clip path crops to wing's parapet height too)
-  if (activePlan && activePlan.parapetH > 0) {
-    const ph = activePlan.parapetH * s;
-    html += `<rect x="${wxStart.toFixed(1)}" y="${oy}" width="${wxW.toFixed(1)}" height="${ph}" fill="url(#oe-hatch)" opacity="0.55" pointer-events="none"/>`;
-    html += `<text x="${ox+4}" y="${oy+ph-3}" font-size="9" fill="#666" font-family="system-ui" pointer-events="none">parapet</text>`;
+  if (wallParapetH > 0) {
+    const ph = wallParapetH * s;
+    const roofLineY = oy + ph;
+    html += `<rect data-oe-parapet-band="true" data-parapet-mm="${wallParapetH.toFixed(3)}" x="${wxStart.toFixed(1)}" y="${oy}" width="${wxW.toFixed(1)}" height="${ph.toFixed(1)}" fill="url(#oe-hatch)" opacity="0.55" pointer-events="none"/>`;
+    html += `<line data-oe-roof-line="true" x1="${wxStart.toFixed(1)}" y1="${roofLineY.toFixed(1)}" x2="${wxEnd.toFixed(1)}" y2="${roofLineY.toFixed(1)}" stroke="rgba(80,80,80,0.45)" stroke-width="0.9" stroke-dasharray="4 3" pointer-events="none"/>`;
+    if (ph >= 10) {
+      html += `<text x="${ox+4}" y="${oy+ph-3}" font-size="9" fill="#666" font-family="system-ui" pointer-events="none">parapet</text>`;
+    }
   }
 
   // Bay opening — drawn as part of the editor's interactive layer so it

@@ -191,7 +191,8 @@ export function createHakoHandoffController({
     const fileName = `${slug(name)}.hako`;
     const currentSize = currentBuildingFootprintSizeMm(b);
     const incomingSize = hakoConfigFootprintSizeMm(cfg);
-    if (currentSize && incomingSize && !footprintSizesMatch(currentSize, incomingSize)) {
+    const isIntentionalGeneratorReturn = payload.returnToSitePlanner === true;
+    if (!isIntentionalGeneratorReturn && currentSize && incomingSize && !footprintSizesMatch(currentSize, incomingSize)) {
       const ok = typeof confirmBuildingResize === 'function'
         ? await confirmBuildingResize(b, {
           source: 'building-generator-update',

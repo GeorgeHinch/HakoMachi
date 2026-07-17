@@ -488,6 +488,18 @@ test.describe('Site Planner module split contracts', () => {
     expect(confirmedState.buildings[0].hakoFile.fileName).toBe('updated-corner-shop.hako');
     expect(confirmedState.buildings[0].widthPx).toBe(300);
     expect(confirmedState.buildings[0].depthPx).toBe(180);
+
+    const returnedState = makeState();
+    const returnedCalls = [];
+    const returned = await makeController(returnedState, (_building, details) => {
+      returnedCalls.push(details);
+      return false;
+    }).applySitePlannerBuildingUpdate({ ...updatePayload, returnToSitePlanner: true });
+    expect(returned).toEqual({ buildingId: 'b1', buildingName: 'Corner Shop' });
+    expect(returnedCalls).toHaveLength(0);
+    expect(returnedState.buildings[0].hakoFile.fileName).toBe('updated-corner-shop.hako');
+    expect(returnedState.buildings[0].widthPx).toBe(300);
+    expect(returnedState.buildings[0].depthPx).toBe(180);
   });
 
   test('road paint stencil specs preserve custom feature dimensions and stay off the road-deck engrave layer', async () => {

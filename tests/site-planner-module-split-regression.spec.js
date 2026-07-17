@@ -1331,6 +1331,23 @@ test.describe('Site Planner module split contracts', () => {
     expect(svg).toContain('data-panel-kind="betweenTracks"');
   });
 
+  test('rail crossing inserts render above normal track in the 2D planner', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const drawStart = source.indexOf('function drawNow');
+    const drawEnd = source.indexOf('function fitImage', drawStart);
+    const drawNow = source.slice(drawStart, drawEnd);
+
+    const roadLayerIndex = drawNow.indexOf('drawRoadLayer()');
+    const trackLayerIndex = drawNow.indexOf('(state.tracks||[]).forEach(drawTrack)');
+    const railCrossingIndex = drawNow.indexOf('drawGeneratedRailCrossings()');
+    const accessoryLayerIndex = drawNow.indexOf('(state.trackAccessories||[]).forEach(drawTrackAccessory)');
+
+    expect(roadLayerIndex).toBeGreaterThanOrEqual(0);
+    expect(trackLayerIndex).toBeGreaterThan(roadLayerIndex);
+    expect(railCrossingIndex).toBeGreaterThan(trackLayerIndex);
+    expect(accessoryLayerIndex).toBeGreaterThan(railCrossingIndex);
+  });
+
   test('rail crossing survey templates export fit-check guides and reuse measured geometry', async () => {
     const {
       buildRailCrossings,

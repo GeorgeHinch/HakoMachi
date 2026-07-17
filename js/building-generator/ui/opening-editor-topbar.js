@@ -327,7 +327,7 @@ export function oeTopbarPopulateImpl() {
 
         const styleBtn = document.createElement('button');
         styleBtn.className = 'oe-tb-btn';
-        styleBtn.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:2px 8px;';
+        styleBtn.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:2px 8px;max-width:150px;';
         styleBtn.disabled = !primaryOp.hasShutters;
         styleBtn.title = 'Choose shutter style';
 
@@ -336,7 +336,7 @@ export function oeTopbarPopulateImpl() {
           const curStyle = SHUTTER_STYLES[curKey] || SHUTTER_STYLES.louvered;
           const previewW = 14, previewH = 22;
           styleBtn.innerHTML = `<svg width="${previewW}" height="${previewH}" viewBox="0 0 4 6" style="display:block">${buildShutterSvgBody(curStyle, 4, 6, { strokeWidth: 0.25 })}</svg>`
-                            + `<span style="font-size:10px;">${curStyle.label}</span>`
+                            + `<span class="oe-dropdown-label" style="font-size:10px;">${curStyle.label}</span>`
                             + `<span style="font-size:9px;color:var(--muted);">▼</span>`;
         }
         refreshStyleBtn();
@@ -415,7 +415,7 @@ export function oeTopbarPopulateImpl() {
 
         const cladBtn = document.createElement('button');
         cladBtn.className = 'oe-tb-btn';
-        cladBtn.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:2px 8px;max-width:240px;';
+        cladBtn.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:2px 8px;max-width:180px;';
         cladBtn.title = 'Choose secondary cladding style for this region';
 
         function refreshCladBtn() {
@@ -445,7 +445,7 @@ export function oeTopbarPopulateImpl() {
           swatch += `<rect x="0" y="0" width="20" height="16" fill="none" stroke="#5a4a32" stroke-width="0.6"/>`;
           const labelText = (curStyle ? curStyle.label : curKey).replace(/\(.*?\)/g, '').trim();
           cladBtn.innerHTML = `<svg width="${previewW}" height="${previewH}" viewBox="0 0 20 16" style="display:block;flex-shrink:0;">${swatch}</svg>`
-                          + `<span style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${labelText}</span>`
+                          + `<span class="oe-dropdown-label" style="font-size:10px;">${labelText}</span>`
                           + `<span style="font-size:9px;color:var(--muted);">▼</span>`;
         }
         refreshCladBtn();
@@ -719,6 +719,7 @@ export function oeTopbarPopulateImpl() {
           const opt = document.createElement('option');
           opt.value = key;
           opt.textContent = st.label;
+          opt.title = st.label;
           styleSel.appendChild(opt);
         }
         styleSel.value = primaryOp.doorStyle || 'none';

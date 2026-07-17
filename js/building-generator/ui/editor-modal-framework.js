@@ -221,6 +221,7 @@ export function editorAddGridControls(bar, opts) {
       const opt = document.createElement('option');
       opt.value = option.value;
       opt.textContent = option.label;
+      opt.title = option.label;
       sel.appendChild(opt);
     }
     sel.value = opts.anchor.value;

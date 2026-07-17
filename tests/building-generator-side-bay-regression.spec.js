@@ -4,6 +4,7 @@ test.describe('building generator side bay regressions', () => {
   test('west gable walls can carry a bay opening through the bottom edge', async ({ page }) => {
     await page.goto('/building-generator.html', { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.HakoMachiBuildingGeneratorRuntime?.generateBuilding);
+    await page.waitForFunction(() => !!window.get3DWallOpenings);
 
     const result = await page.evaluate(() => {
       const runtime = window.HakoMachiBuildingGeneratorRuntime;
@@ -41,17 +42,22 @@ test.describe('building generator side bay regressions', () => {
       });
       runtime.upgradeConfigToCurrentStorage(cfg);
       const manual = window.manualStructuralOps(cfg, 'west');
+      const plan = runtime.buildEdgePlans(cfg);
+      const previewBay = window.get3DWallOpenings(cfg, plan, 'west')
+        .find(op => op.type === 'bay');
       const generated = runtime.generateBuilding(cfg);
       const west = generated.parts.find(part => part.id === 'side_wall_west');
       const d = west?.paths?.map(path => path.d || '').join(' ') || '';
       return {
         manualTypes: manual.map(op => op.type),
+        previewBay,
         hasWestWall: !!west,
         pathData: d,
       };
     });
 
     expect(result.manualTypes).toContain('bay');
+    expect(result.previewBay).toMatchObject({ type: 'bay', x: 12, y: 10, w: 32, h: 24 });
     expect(result.hasWestWall).toBe(true);
     expect(result.pathData).toMatch(/L\s+44(?:\.0+)?,10(?:\.0+)?\s+L\s+12(?:\.0+)?,10(?:\.0+)?\s+L\s+12(?:\.0+)?,34(?:\.0+)?/);
   });

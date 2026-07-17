@@ -468,6 +468,23 @@ export function get3DWallOpenings(cfg, plan, face) {
       doorStyle: bayDoorSrc.doorStyle || 'none',
       doorPercentOpen: Number(bayDoorSrc.doorPercentOpen) || 0,
     });
+  } else if (!isChamferFace) {
+    const faceBay = findBayOnFace(cfg, face);
+    if (faceBay) {
+      const bw = Math.max(0, Math.min(wallW, Number(faceBay.w) || 0));
+      const bh = Math.max(0, Math.min(H, Number(faceBay.h) || 0));
+      if (bw > 0 && bh > 0) {
+        bayHoles.push({
+          x: Math.max(0, Math.min(wallW - bw, Number(faceBay.x) || 0)),
+          y: Math.max(0, H - bh),
+          w: bw,
+          h: bh,
+          type: 'bay',
+          doorStyle: faceBay.doorStyle || 'none',
+          doorPercentOpen: Number(faceBay.doorPercentOpen) || 0,
+        });
+      }
+    }
   }
 
   // Wing connection holes — punch openings where a wing attaches

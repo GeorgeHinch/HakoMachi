@@ -145,6 +145,18 @@ test.describe('site planner road editing workspace', () => {
     const panel = page.locator('#roadExportReviewPanel');
     await expect(panel).toBeVisible();
     await expect(panel).toContainText('Road Export Review');
+    const reviewLayout = await page.evaluate(() => {
+      const panelRect = document.getElementById('roadExportReviewPanel')?.getBoundingClientRect();
+      const headerRect = document.querySelector('.top')?.getBoundingClientRect();
+      return {
+        panelTop: panelRect?.top || 0,
+        panelBottom: panelRect?.bottom || 0,
+        headerBottom: headerRect?.bottom || 0,
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(Math.abs(reviewLayout.panelTop - reviewLayout.headerBottom)).toBeLessThanOrEqual(2);
+    expect(reviewLayout.panelBottom).toBeGreaterThanOrEqual(reviewLayout.viewportHeight - 2);
     await expect(panel.locator('.roadExportCard')).toHaveCount(1);
     await expect(panel).toContainText('Export Avenue');
     await expect(panel.locator('.roadExportPrimary')).toBeEnabled();

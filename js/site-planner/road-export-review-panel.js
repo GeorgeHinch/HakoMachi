@@ -194,6 +194,13 @@ export function createRoadExportReviewController({
     state.roadExportReviewOpen = false;
   }
 
+  function updatePanelBounds() {
+    if (!panel) return;
+    const header = document.querySelector('.top, .sitePlannerTop');
+    const top = Math.max(0, header?.getBoundingClientRect?.().bottom || 0);
+    panel.style.setProperty('--road-export-review-top', `${top}px`);
+  }
+
   function ensurePanel() {
     if (panel) return panel;
     panel = document.createElement('section');
@@ -203,6 +210,7 @@ export function createRoadExportReviewController({
     panel.addEventListener('pointerdown', event => event.stopPropagation());
     panel.addEventListener('wheel', event => event.stopPropagation(), { passive: true });
     (canvasWrap || document.body).appendChild(panel);
+    window.addEventListener('resize', updatePanelBounds);
     return panel;
   }
 
@@ -216,6 +224,7 @@ export function createRoadExportReviewController({
 
   function render(data = generateRoadExportData()) {
     const el = ensurePanel();
+    updatePanelBounds();
     const current = settings(data);
     const media = resolveRoadExportMedia(current);
     const included = new Set(current.includedRoadIds || []);
@@ -312,6 +321,7 @@ export function createRoadExportReviewController({
   function open() {
     state.roadExportReviewOpen = true;
     render(generateRoadExportData());
+    updatePanelBounds();
     ensurePanel().classList.add('open');
     setStatusHint('Review road export sections, media size, and fit warnings before exporting.');
   }

@@ -1262,13 +1262,13 @@ canvas {
 }
 
 .roadExportReviewPanel {
-  position: absolute;
-  left: 18px;
-  right: 18px;
-  bottom: 18px;
-  z-index: 20;
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--road-export-review-top, 56px);
+  bottom: 0;
+  z-index: 105;
   display: none;
-  max-height: min(62vh, 560px);
   color: var(--text);
   user-select: text;
   -webkit-user-select: text;
@@ -1282,12 +1282,11 @@ canvas {
 .roadExportReviewBackdrop {
   position: absolute;
   inset: 0;
-  border: 1px solid rgba(142,130,105,.42);
-  border-radius: 8px;
-  background: rgba(246,244,235,.76);
+  border-top: 1px solid rgba(142,130,105,.42);
+  background: rgba(246,244,235,.82);
   backdrop-filter: blur(18px) saturate(1.14);
   -webkit-backdrop-filter: blur(18px) saturate(1.14);
-  box-shadow: 0 18px 48px rgba(42,36,28,.22);
+  box-shadow: 0 -8px 40px rgba(42,36,28,.18);
 }
 
 .roadExportReviewContent {
@@ -1295,8 +1294,10 @@ canvas {
   display: grid;
   grid-template-rows: auto auto auto auto minmax(0,1fr) auto;
   gap: 10px;
-  max-height: min(62vh, 560px);
-  padding: 14px;
+  height: 100%;
+  min-height: 0;
+  padding: 16px 18px;
+  box-sizing: border-box;
   overflow: hidden;
 }
 
@@ -1758,13 +1759,11 @@ canvas {
   .splitExport #exportMenuBtn { width: 34px !important; min-width: 34px !important; max-width: 34px !important; flex-basis: 34px !important; }
   .splitExport #exportMenu { position: absolute !important; top: calc(100% + 4px) !important; left: 0 !important; right: auto !important; max-width: min(280px, calc(100vw - 16px)); }
   .roadExportReviewPanel {
-    left: 8px;
-    right: 8px;
-    bottom: 8px;
-    max-height: min(68vh, 560px);
+    left: 0;
+    right: 0;
+    bottom: 0;
   }
   .roadExportReviewContent {
-    max-height: min(68vh, 560px);
     padding: 10px;
   }
   .roadExportMediaControls {

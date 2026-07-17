@@ -255,6 +255,77 @@ test.describe('Site Planner module split contracts', () => {
     expect(previewBtn.attrs['aria-label']).toBe('Cut preview on');
   });
 
+  test('generic canvas drawing helpers are wired through the drawing controller', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'canvas-drawing-utils.js'), 'utf8');
+    const { createCanvasDrawingController } = await import('../js/site-planner/canvas-drawing-utils.js');
+
+    expect(source).toContain("import { createCanvasDrawingController } from './site-planner/canvas-drawing-utils.js';");
+    expect(source).toContain('} = createCanvasDrawingController({');
+    expect(source).not.toContain('function drawGrid()');
+    expect(source).not.toContain('function drawSelectionMarquee()');
+
+    expect(controllerSource).toContain('export function createCanvasDrawingController');
+    expect(controllerSource).toContain('function drawGrid()');
+    expect(controllerSource).toContain('function drawLine(line, color, label)');
+
+    const calls = [];
+    const ctx = {
+      save: () => calls.push(['save']),
+      restore: () => calls.push(['restore']),
+      beginPath: () => calls.push(['beginPath']),
+      moveTo: (x, y) => calls.push(['moveTo', x, y]),
+      lineTo: (x, y) => calls.push(['lineTo', x, y]),
+      stroke: () => calls.push(['stroke']),
+      fill: () => calls.push(['fill']),
+      fillRect: (x, y, w, h) => calls.push(['fillRect', x, y, w, h]),
+      strokeRect: (x, y, w, h) => calls.push(['strokeRect', x, y, w, h]),
+      fillText: (text, x, y) => calls.push(['fillText', text, x, y]),
+      arc: (x, y, r) => calls.push(['arc', x, y, r]),
+      setLineDash: value => calls.push(['setLineDash', value]),
+      measureText: text => ({ width: text.length * 6 }),
+      set font(value) { calls.push(['font', value]); },
+      set fillStyle(value) { calls.push(['fillStyle', value]); },
+      set strokeStyle(value) { calls.push(['strokeStyle', value]); },
+      set lineWidth(value) { calls.push(['lineWidth', value]); },
+    };
+    const canvas = {
+      getBoundingClientRect: () => ({ left: 0, top: 0, right: 100, bottom: 80 }),
+    };
+    const state = {
+      pxPerMm: 2,
+      view: { scale: 1 },
+      drag: { type: 'marquee', start: { x: 5, y: 4 }, end: { x: 25, y: 14 } },
+    };
+    const controller = createCanvasDrawingController({
+      canvas,
+      ctx,
+      state,
+      mmToPx: mm => mm * state.pxPerMm,
+      screenToWorld: event => ({ x: event.clientX, y: event.clientY }),
+      selectionRectFromPoints: (a, b) => ({
+        x: Math.min(a.x, b.x),
+        y: Math.min(a.y, b.y),
+        w: Math.abs(a.x - b.x),
+        h: Math.abs(a.y - b.y),
+      }),
+    });
+
+    controller.drawLabel('Depot', { x: 10, y: 20 });
+    controller.drawLine({ x1: 0, y1: 0, x2: 20, y2: 10 }, '#123456', 'measure');
+    controller.drawSelectionMarquee();
+    controller.drawGrid();
+
+    expect(calls).toEqual(expect.arrayContaining([
+      ['fillText', 'Depot', 14, 15],
+      ['moveTo', 0, 0],
+      ['lineTo', 20, 10],
+      ['strokeRect', 5, 4, 20, 10],
+    ]));
+    expect(calls.some(call => call[0] === 'setLineDash')).toBe(true);
+    expect(calls.filter(call => call[0] === 'stroke').length).toBeGreaterThan(1);
+  });
+
   test('building generator handoff behavior is wired through the handoff controller', async () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'hako-handoff-controller.js'), 'utf8');

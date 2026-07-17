@@ -4,6 +4,7 @@ import { createHakoMachiLogger } from './shared/hakomachi-diagnostics.js';
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fabrication-colors.js';
 import { createAutosaveUiController } from './site-planner/autosave-ui.js';
 import { createBuildingSelectionController } from './site-planner/building-selection-utils.js';
+import { createCanvasDrawingController } from './site-planner/canvas-drawing-utils.js';
 import { createContextMenuController } from './site-planner/context-menu-controller.js';
 import { buildingCsvExport, sitePlanSvgExport } from './site-planner/export-utils.js';
 import { createAnnotationController } from './site-planner/annotation-controller.js';
@@ -151,6 +152,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let updateWorkspaceModeUi = () => {};
   let setWorkspaceMode = () => {};
   let setActiveTool = () => {};
+  let drawGrid = () => {};
+  let drawLabel = () => {};
+  let drawLine = () => {};
+  let drawSelectionMarquee = () => {};
   let fabricController = null;
   const colors = ['#d79631','#b8672d','#0f766e','#7c5f3f','#8b5a2b','#5f7f54','#9b6b44','#496a78'];
   function initFabricControls(){
@@ -218,6 +223,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     setCanvasZoomAtClientPoint,
     zoomCanvasAtClientPoint,
   } = createViewTransformController({canvas, state, clamp, draw:()=>draw()});
+  ({
+    drawGrid,
+    drawLabel,
+    drawLine,
+    drawSelectionMarquee,
+  } = createCanvasDrawingController({
+    canvas,
+    ctx,
+    state,
+    mmToPx,
+    screenToWorld,
+    selectionRectFromPoints,
+  }));
   const {
     setSidebarOpen,
     installSidebarToggle,
@@ -3030,18 +3048,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   });
 
   function selectedStlObject(){return (state.stlObjects||[]).find(obj=>obj.id===state.selectedStlObjectId)||null;}
-  function drawSelectionMarquee(){
-    if(!state.drag || state.drag.type!=='marquee') return;
-    const r=selectionRectFromPoints(state.drag.start,state.drag.end||state.drag.start);
-    ctx.save();
-    ctx.fillStyle='rgba(42,100,170,.12)';
-    ctx.strokeStyle='#2a64aa';
-    ctx.lineWidth=1.5/state.view.scale;
-    ctx.setLineDash([6/state.view.scale,4/state.view.scale]);
-    ctx.fillRect(r.x,r.y,r.w,r.h);
-    ctx.strokeRect(r.x,r.y,r.w,r.h);
-    ctx.restore();
-  }
   const {
     copySelectedFootprint,
     pasteFootprintFromClipboard,
@@ -5008,8 +5014,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     ctx.restore();
   }
 
-  function drawGrid(){if(!state.pxPerMm) return; const stepMm = state.view.scale*state.pxPerMm>30?10: state.view.scale*state.pxPerMm>8?25:50; const step=mmToPx(stepMm); const r=canvas.getBoundingClientRect(); const min=screenToWorld({clientX:r.left,clientY:r.top}), max=screenToWorld({clientX:r.right,clientY:r.bottom}); ctx.save(); ctx.strokeStyle='rgba(107,81,57,.18)'; ctx.lineWidth=1/state.view.scale; for(let x=Math.floor(min.x/step)*step;x<max.x;x+=step){ctx.beginPath();ctx.moveTo(x,min.y);ctx.lineTo(x,max.y);ctx.stroke()} for(let y=Math.floor(min.y/step)*step;y<max.y;y+=step){ctx.beginPath();ctx.moveTo(min.x,y);ctx.lineTo(max.x,y);ctx.stroke()} ctx.restore();}
-  function drawLabel(text,p){ctx.save(); ctx.font=`${12/state.view.scale}px system-ui`; const w=ctx.measureText(text).width+8/state.view.scale; const h=18/state.view.scale; ctx.fillStyle='rgba(49,35,24,.88)'; ctx.fillRect(p.x,p.y-h,w,h); ctx.fillStyle='#fff7ed'; ctx.fillText(text,p.x+4/state.view.scale,p.y-5/state.view.scale); ctx.restore();}
   function drawRotateAffordance(b,pts){
     const c=buildingCenter(b);
     const rot=rotateHandlePoint(b);
@@ -5139,8 +5143,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     ctx.restore();
     if(selected||hovered) drawLabel(`${obj.name||'STL Object'} · ${fmt(obj.widthMm*obj.scale)}×${fmt(obj.depthMm*obj.scale)}mm`,{x:obj.x+8/state.view.scale,y:obj.y-8/state.view.scale});
   }
-  function drawLine(line,color,label){ if(!line) return; ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=3/state.view.scale; ctx.beginPath();ctx.moveTo(line.x1,line.y1);ctx.lineTo(line.x2,line.y2);ctx.stroke(); ctx.fillStyle=color; [{x:line.x1,y:line.y1},{x:line.x2,y:line.y2}].forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/state.view.scale,0,Math.PI*2);ctx.fill()}); if(label) drawLabel(label,{x:(line.x1+line.x2)/2,y:(line.y1+line.y2)/2}); ctx.restore();}
-
   function drawStreetlight(l){
     l=normalizeStreetlight(l);
     const selected=l.id===state.selectedStreetlightId || isSiteObjectSelected('streetlight',l.id), hovered=l.id===state.hoverStreetlightId;

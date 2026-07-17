@@ -5792,6 +5792,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         <label>Stencil stock material ID</label><input id="rfStencilMaterialId" value="${escapeAttr(roadFeature.stencilMaterialId||'stencil-stock')}">
         <div class="row"><div><label>Frame margin mm</label><input id="rfStencilMargin" type="number" min="0" step="0.1" value="${fmt(roadFeature.stencilSpec?.marginMm??2)}"></div><div><label>Bridge guide mm</label><input id="rfStencilBridge" type="number" min="0" step="0.05" value="${fmt(roadFeature.stencilSpec?.bridgeMm??0.35)}"></div></div>
       </div>
+      <label>Orientation mode</label><select id="rfOrientationMode"><option value="parallel">Parallel to road</option><option value="perpendicular">Perpendicular to road</option><option value="directional">Directional marking</option><option value="fixed">Fixed angle</option><option value="manual">Manual override</option></select>
       <div class="row"><div><label>Width mm</label><input id="rfW" type="number" step="0.1" value="${fmt(roadFeature.widthMm||0)}"></div><div><label>Depth mm</label><input id="rfD" type="number" step="0.1" value="${fmt(roadFeature.depthMm||0)}"></div></div>
       <div class="row"><div><label>Rotation °</label><input id="rfRot" type="number" step="1" value="${fmt(roadFeature.rotationDeg||0)}"></div><div><label>Color</label><input id="rfColor" type="color" value="${roadFeature.color||'#f7f2df'}"></div></div>
       <div class="buttons" style="margin-top:8px"><button id="realignRoadMarking" type="button">Realign to Road</button><button id="fitRoadMarking" type="button">Fit to Road</button></div>
@@ -5799,7 +5800,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="rfLocked" type="checkbox" ${roadFeature.locked?'checked':''}> <span>Lock item</span></label>
       <div class="buttons" style="margin-top:8px"><button id="deleteRoadFeature" class="danger">Delete Item</button></div>`;
       const bindRF=(id,fn)=>{const el=$(id); if(el) el.oninput=()=>{fn(el.type==='checkbox'?el.checked:el.value); normalizeRoadFeature(roadFeature); syncAll();};};
-      bindRF('rfName',v=>roadFeature.name=v); bindRF('rfRot',v=>roadFeature.rotationDeg=parseFloat(v)||0); bindRF('rfLocked',v=>roadFeature.locked=!!v); bindRF('rfColor',v=>roadFeature.color=v);
+      bindRF('rfName',v=>roadFeature.name=v); bindRF('rfRot',v=>{roadFeature.rotationDeg=parseFloat(v)||0; if(roadFeature.kind==='marking'){roadFeature.orientationMode='manual'; roadFeature.autoAlignedToRoad=false;}}); bindRF('rfLocked',v=>roadFeature.locked=!!v); bindRF('rfColor',v=>roadFeature.color=v);
       installAdaptiveDegreeStepping($('rfRot'));
       bindRF('rfDia',v=>{roadFeature.diameterMm=parseFloat(v)||0; roadFeature.diameterPx=state.pxPerMm?mmToPx(roadFeature.diameterMm):roadFeature.diameterPx; syncPhysicalGrateSpecDimensions(roadFeature);});
       bindRF('rfW',v=>{roadFeature.widthMm=parseFloat(v)||0; roadFeature.widthPx=state.pxPerMm?mmToPx(roadFeature.widthMm):roadFeature.widthPx; syncPhysicalGrateSpecDimensions(roadFeature);});
@@ -5809,7 +5810,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const pi=$('rfPhysicalInsert'); if(pi){pi.value=roadFeature.physicalInsert||''; pi.onchange=()=>{setPhysicalGrateMode(roadFeature,!!pi.value); syncAll();};}
       const gf=$('rfGrateFamily'); if(gf){gf.disabled=!roadFeature.physicalInsert; gf.onchange=()=>{applyPhysicalGrateFamily(roadFeature,gf.value); syncAll();};}
       const mp=$('rfMarkingPreset'); if(mp) mp.onchange=()=>{state.lastRoadMarkingPreset=mp.value; applyRoadMarkingPreset(roadFeature,mp.value,roadPresetScaleContext()); fitRoadMarkingToRoad(roadFeature); alignRoadMarkingToRoad(roadFeature); syncAll();};
-      const realign=$('realignRoadMarking'); if(realign) realign.onclick=()=>{if(alignRoadMarkingToRoad(roadFeature)) syncAll();};
+      const orientation=$('rfOrientationMode'); if(orientation){orientation.value=roadFeature.orientationMode||markingPresetByKey(roadFeature.markingPreset||roadFeature.markingType).orientationMode||'parallel'; orientation.onchange=()=>{roadFeature.orientationMode=orientation.value; if(orientation.value!=='manual'&&orientation.value!=='fixed') alignRoadMarkingToRoad(roadFeature); syncAll();};}
+      const realign=$('realignRoadMarking'); if(realign) realign.onclick=()=>{if(alignRoadMarkingToRoad(roadFeature,{force:true})) syncAll();};
       const fitMarking=$('fitRoadMarking'); if(fitMarking) fitMarking.onclick=()=>{if(fitRoadMarkingToRoad(roadFeature)) syncAll();};
       const mo=$('rfMarkingOutput'); if(mo){mo.value=roadFeature.outputMode==='paintStencil'?'paintStencil':'etch'; mo.onchange=()=>{setRoadMarkingOutputMode(roadFeature,mo.value); syncAll();};}
       bindRF('rfStencilMaterialId',v=>{roadFeature.stencilMaterialId=v||'stencil-stock'; setRoadMarkingOutputMode(roadFeature,'paintStencil');});
@@ -5817,7 +5819,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       bindRF('rfStencilBridge',v=>{roadFeature.stencilSpec={...(roadFeature.stencilSpec||{}),bridgeMm:Math.max(0,parseFloat(v)||0)}; setRoadMarkingOutputMode(roadFeature,'paintStencil');});
       $('deleteRoadFeature').onclick=deleteSelectedRoadFeature;
       return;
-    } if(road){normalizeRoad(road); const roadPresetKey=road.roadWidthPreset||'custom'; const sidewalkPresetKey=road.sidewalkWidthPreset||'custom'; const showRoadOverride=road.mode!=='outline' && roadPresetKey==='custom'; const showSidewalkOverride=road.mode!=='outline' && sidewalkPresetKey==='custom'; box.innerHTML=`
+    } if(road){normalizeRoad(road); const roadPresetKey=road.roadWidthPreset||'custom'; const sidewalkPresetKey=road.sidewalkWidthPreset||'custom'; const showRoadOverride=road.mode!=='outline' && roadPresetKey==='custom'; const showSidewalkOverride=road.mode!=='outline' && sidewalkPresetKey==='custom'; const roadMarkingCount=(state.roadFeatures||[]).filter(feature=>feature?.kind==='marking'&&feature.roadId===road.id).length; box.innerHTML=`
       <b>${road.mode==='outline'?'Road outline':'Road centerline'} selected</b>
       <label>Name</label><input id="roadName" value="${escapeAttr(road.name||'Road')}">
       <label>Road width preset</label><select id="roadWidthPreset" ${road.mode==='outline'?'disabled':''}>${presetOptionsHtml(ROAD_WIDTH_PRESETS, roadPresetKey, currentScaleDivisor())}</select>
@@ -5829,6 +5831,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="roadIntersectionDetails" type="checkbox" ${state.roadIntersectionDetails!==false?'checked':''}> <span>Show automatic intersection markings</span></label>
       <label>Driving side</label><select id="roadDrivingSide"><option value="left">Left-hand traffic (Japan)</option><option value="right">Right-hand traffic</option></select>
       ${roadIntersectionArmControlsHtml(road.id)}
+      <div class="buttons" style="margin-top:8px"><button id="realignRoadMarkingsForRoad" type="button" ${roadMarkingCount?'':'disabled'}>Realign Road Markings</button><button id="fitRoadMarkingsForRoad" type="button" ${roadMarkingCount?'':'disabled'}>Fit Road Markings</button></div>
+      <div class="small muted">${roadMarkingCount} road marking${roadMarkingCount===1?'':'s'} attached to this road.</div>
       <div class="buttons" style="margin-top:8px"><button id="regenRoad">Regenerate road geometry</button><button id="deleteRoad" class="danger">Delete Road</button></div>
       <div class="small muted" style="margin-top:8px">Presets are common real-world widths converted to physical output millimeters using the calibration scale divisor. Choose <b>Custom / override</b> to show manual width fields. Centerlines can be polyline paths; hover a selected segment and drag to bend it into a curve. Laser-cut road export is not enabled yet.</div>`;
       const sel=$('roadSidewalk'); if(sel) sel.value=road.sidewalkSide||'none';
@@ -5847,6 +5851,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       bindRoadIntersectionArmCheckbox('roadIntersectionTactile',road.id,'tactilePaversEnabled');
       bindRoadIntersectionArmCheckbox('roadIntersectionCurbGuides',road.id,'curbGuideEnabled');
       bindRoadIntersectionFeatureToggles();
+      const realignRoadMarkings=$('realignRoadMarkingsForRoad');
+      if(realignRoadMarkings) realignRoadMarkings.onclick=()=>{const updated=roadSystem.realignRoadMarkingsForRoad(road.id); showStatusHint(`Realigned ${updated} road marking${updated===1?'':'s'} on ${road.name||'road'}.`); syncAll();};
+      const fitRoadMarkings=$('fitRoadMarkingsForRoad');
+      if(fitRoadMarkings) fitRoadMarkings.onclick=()=>{const updated=roadSystem.fitRoadMarkingsForRoad(road.id); showStatusHint(`Fit ${updated} road marking${updated===1?'':'s'} to ${road.name||'road'} bounds.`); syncAll();};
       const clearIntersectionOverrides=$('clearRoadIntersectionArmOverrides');
       if(clearIntersectionOverrides) clearIntersectionOverrides.onclick=()=>{roadSystem.clearRoadIntersectionArmOverrides(road.id); syncAll();};
       $('regenRoad').onclick=()=>syncAll(); $('deleteRoad').onclick=deleteSelectedRoad;

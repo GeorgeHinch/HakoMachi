@@ -99,6 +99,12 @@ export function createRoadFeatureEditorController({
     return normalizeAngleDeg(tangentDeg);
   }
 
+  function roadMarkingUsesAutoOrientation(feature) {
+    const preset = markingPresetByKey(feature?.markingPreset || feature?.markingType);
+    const mode = feature?.orientationMode || preset.orientationMode || 'parallel';
+    return mode !== 'fixed' && mode !== 'manual';
+  }
+
   function positiveNumber(...values) {
     for (const value of values) {
       const n = Number(value);
@@ -145,16 +151,51 @@ export function createRoadFeatureEditorController({
     return true;
   }
 
-  function alignRoadMarkingToRoad(feature) {
+  function alignRoadMarkingToRoad(feature, options = {}) {
     if (!feature || feature.kind !== 'marking') return false;
     const road = state.roads.find(item => item.id === feature.roadId) || roadSurfaceAtPoint(feature, state.roads, { normalizeRoad });
     if (!road) return false;
     const nearest = nearestPointOnRoadPath(feature, normalizeRoad(road), false);
     if (!nearest || !Number.isFinite(Number(nearest.tangent))) return false;
+    if (options.force === true && !roadMarkingUsesAutoOrientation(feature)) {
+      feature.orientationMode = markingPresetByKey(feature.markingPreset || feature.markingType).orientationMode || 'parallel';
+    }
     feature.rotationDeg = roadMarkingRotationFromTangent(feature, nearest.tangent);
     feature.autoAlignedToRoad = true;
     feature.roadAlignmentMode = feature.orientationMode || markingPresetByKey(feature.markingPreset || feature.markingType).orientationMode || 'parallel';
     return true;
+  }
+
+  function updateRoadMarkingRoadAttachment(feature, options = {}) {
+    if (!feature || feature.kind !== 'marking') return false;
+    const road = roadSurfaceAtPoint(feature, state.roads, { normalizeRoad }) || state.roads.find(item => item.id === feature.roadId);
+    if (!road) return false;
+    feature.roadId = road.id;
+    normalizeRoad(road);
+    let changed = false;
+    if (options.fit !== false) changed = fitRoadMarkingToRoad(feature) || changed;
+    if (options.align !== false && roadMarkingUsesAutoOrientation(feature)) changed = alignRoadMarkingToRoad(feature) || changed;
+    return changed;
+  }
+
+  function roadMarkingsForRoad(roadId) {
+    return (state.roadFeatures || []).filter(feature => feature?.kind === 'marking' && feature.roadId === roadId);
+  }
+
+  function fitRoadMarkingsForRoad(roadId) {
+    let updated = 0;
+    roadMarkingsForRoad(roadId).forEach(feature => {
+      if (fitRoadMarkingToRoad(feature)) updated += 1;
+    });
+    return updated;
+  }
+
+  function realignRoadMarkingsForRoad(roadId) {
+    let updated = 0;
+    roadMarkingsForRoad(roadId).forEach(feature => {
+      if (alignRoadMarkingToRoad(feature, { force: true })) updated += 1;
+    });
+    return updated;
   }
 
   function selectedRoadFeature() {
@@ -217,6 +258,7 @@ export function createRoadFeatureEditorController({
     feature.x += dx;
     feature.y += dy;
     normalizeRoadFeature(feature);
+    updateRoadMarkingRoadAttachment(feature);
   }
 
   function deleteSelectedRoadFeature() {
@@ -233,9 +275,12 @@ export function createRoadFeatureEditorController({
     hitRoadFeature,
     alignRoadMarkingToRoad,
     fitRoadMarkingToRoad,
+    fitRoadMarkingsForRoad,
     moveRoadFeature,
     normalizeRoadFeature,
     placeRoadFeature,
+    realignRoadMarkingsForRoad,
     selectedRoadFeature,
+    updateRoadMarkingRoadAttachment,
   };
 }

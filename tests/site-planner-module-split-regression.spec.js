@@ -561,12 +561,17 @@ test.describe('Site Planner module split contracts', () => {
         mode: 'centerline',
         pointsPx: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
         widthPx: 30,
+      }, {
+        id: 'road-2',
+        mode: 'centerline',
+        pointsPx: [{ x: 160, y: 0 }, { x: 160, y: 100 }],
+        widthPx: 30,
       }],
       roadFeatures: [],
       lastRoadMarkingPreset: 'stopLine',
     };
     const normalizeRoad = road => rebuildRoadGeometry(road);
-    normalizeRoad(state.roads[0]);
+    state.roads.forEach(normalizeRoad);
     const controller = createRoadFeatureEditorController({
       state,
       uid: prefix => `${prefix}-${state.roadFeatures.length + 1}`,
@@ -597,6 +602,18 @@ test.describe('Site Planner module split contracts', () => {
     laneLine.x = 0;
     laneLine.y = 60;
     expect(controller.alignRoadMarkingToRoad(laneLine)).toBe(true);
+    expect(laneLine.rotationDeg).toBe(90);
+
+    laneLine.x = 150;
+    laneLine.y = 40;
+    laneLine.orientationMode = 'manual';
+    laneLine.rotationDeg = 17;
+    controller.moveRoadFeature(laneLine, 10, 0);
+    expect(laneLine.roadId).toBe('road-2');
+    expect(laneLine.rotationDeg).toBe(17);
+    expect(laneLine.orientationMode).toBe('manual');
+    expect(controller.alignRoadMarkingToRoad(laneLine, { force: true })).toBe(true);
+    expect(laneLine.orientationMode).toBe('parallel');
     expect(laneLine.rotationDeg).toBe(90);
   });
 
@@ -658,6 +675,14 @@ test.describe('Site Planner module split contracts', () => {
     expect(laneDash.depthMm).toBeCloseTo(1.52, 5);
     expect(laneDash.depthPx).toBeCloseTo(15.2, 5);
     expect(laneDash.roadFitAxis).toBe('depth');
+
+    stopLine.widthMm = 9;
+    stopLine.widthPx = 90;
+    expect(controller.fitRoadMarkingsForRoad('narrow-road')).toBe(1);
+    expect(stopLine.widthMm).toBeCloseTo(3.6, 5);
+    stopLine.rotationDeg = 0;
+    expect(controller.realignRoadMarkingsForRoad('narrow-road')).toBe(2);
+    expect(stopLine.rotationDeg).toBe(90);
   });
 
   test('sidewalk polygons are segmented away from crossing road surfaces', async () => {

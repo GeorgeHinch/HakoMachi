@@ -1079,6 +1079,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function rotatePoint(point, angleDeg){
     return trackAccessoryGeometry.rotatePoint(point, angleDeg);
   }
+  function normalizeAngleDeltaDeg(value){
+    let out=((Number(value)||0)+180)%360;
+    if(out<0) out+=360;
+    return out-180;
+  }
+  function trackSwitchSnapRotationDeg(item,sourceEndpointName,targetEndpoint){
+    const sourceDef=trackSwitchEndpointDefinitions(item).find(endpoint=>endpoint.endpoint===sourceEndpointName);
+    if(!sourceDef || !targetEndpoint) return null;
+    return (Number(targetEndpoint.angleDeg)||0)-sourceDef.angleDeg;
+  }
   function alignTrackSwitchEndpointToTarget(item, sourceEndpointName, targetEndpoint){
     const sourceDef=trackSwitchEndpointDefinitions(item).find(endpoint=>endpoint.endpoint===sourceEndpointName);
     if(!sourceDef || !targetEndpoint?.point) return false;
@@ -1108,22 +1118,33 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const targetEndpoints=allTrackSwitchConnectionPoints().filter(endpoint=>endpoint.trackAccessoryId!==item.id);
     const snapDistance=trackAccessorySnapDistance();
     let best=null;
+    const currentAnchor=item.trackAnchor?.kind==='trackSwitchEndpoint' ? item.trackAnchor : null;
     sourceEndpoints.forEach(source=>{
       targetEndpoints.forEach(target=>{
         const distance=dist(source.point,target.point);
         const pointerDistance=pointerPoint ? dist(pointerPoint,target.point) : 0;
-        const candidate={source,target,distance,pointerDistance};
+        const snapRotation=trackSwitchSnapRotationDeg(item,source.endpoint,target);
+        const currentRotation=Number(item.rotationDeg)||0;
+        const rotationDelta=Math.abs(normalizeAngleDeltaDeg((snapRotation ?? currentRotation)-currentRotation));
+        if(rotationDelta>135) return;
+        const sameAnchor=currentAnchor
+          && currentAnchor.sourceEndpoint===source.endpoint
+          && currentAnchor.trackAccessoryId===target.trackAccessoryId
+          && currentAnchor.endpoint===target.endpoint;
+        const score=distance
+          + (pointerPoint ? pointerDistance*.15 : 0)
+          + rotationDelta*.18
+          - (sameAnchor ? snapDistance*.35 : 0);
+        const candidate={source,target,distance,pointerDistance,rotationDelta,score};
         if(pointerPoint && distance>snapDistance) return;
-        if(!best
-          || (pointerPoint && (pointerDistance<best.pointerDistance || (Math.abs(pointerDistance-best.pointerDistance)<.001 && distance<best.distance)))
-          || (!pointerPoint && distance<best.distance)) best=candidate;
+        if(!best || candidate.score<best.score || (Math.abs(candidate.score-best.score)<.001 && distance<best.distance)) best=candidate;
       });
     });
     return best;
   }
   function snapTrackSwitchToEndpoint(item, pointerPoint=null, preferredSourceEndpoint=null){
     const pointerSourceEndpoint=draggedTrackSwitchEndpointName(item,pointerPoint);
-    const pair=nearestSwitchEndpointPair(item,pointerPoint,pointerSourceEndpoint||preferredSourceEndpoint);
+    const pair=nearestSwitchEndpointPair(item,pointerPoint,preferredSourceEndpoint||pointerSourceEndpoint);
     if(!pair || pair.distance>trackAccessorySnapDistance()) return false;
     if(!alignTrackSwitchEndpointToTarget(item,pair.source.endpoint,pair.target)) return false;
     const hint=$('statusHint');

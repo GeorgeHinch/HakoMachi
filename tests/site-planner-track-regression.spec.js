@@ -340,11 +340,14 @@ test.describe('Site Planner track regressions', () => {
     });
   });
 
-  test('switch endpoint snapping uses the live cursor point to choose the source leg', () => {
+  test('switch endpoint snapping keeps the drag-start source leg stable', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     expect(source).toContain('const pointerSourceEndpoint=draggedTrackSwitchEndpointName(item,pointerPoint);');
-    expect(source).toContain('nearestSwitchEndpointPair(item,pointerPoint,pointerSourceEndpoint||preferredSourceEndpoint)');
-    expect(source).toContain('snapTrackSwitchToEndpoint(item,p)');
+    expect(source).toContain('nearestSwitchEndpointPair(item,pointerPoint,preferredSourceEndpoint||pointerSourceEndpoint)');
+    expect(source).toContain('rotationDelta>135');
+    const objectSelection = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-object-selection-controller.js'), 'utf8');
+    expect(objectSelection).toContain('snapSourceEndpoint: entry.type === type && entry.item.id === item.id ? draggedTrackSwitchEndpointName(entry.item, p) : null');
+    expect(objectSelection).toContain('snapTrackSwitchToEndpoint(item, pointerPoint, preferredSourceEndpoint)');
   });
 
   test('dragged switch endpoint snaps to another switch endpoint and matches its turnout angle', async ({ page }) => {

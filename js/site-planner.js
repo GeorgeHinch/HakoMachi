@@ -1090,17 +1090,25 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(out<0) out+=360;
     return out-180;
   }
+  function trackSwitchEndpointOutwardAngleDeg(endpointName, angleDeg){
+    const base=Number(angleDeg)||0;
+    return endpointName==='heel' ? base+180 : base;
+  }
   function trackSwitchSnapRotationDeg(item,sourceEndpointName,targetEndpoint){
     const sourceDef=trackSwitchEndpointDefinitions(item).find(endpoint=>endpoint.endpoint===sourceEndpointName);
     if(!sourceDef || !targetEndpoint) return null;
-    return (Number(targetEndpoint.angleDeg)||0)-sourceDef.angleDeg;
+    const sourceOutward=trackSwitchEndpointOutwardAngleDeg(sourceDef.endpoint,sourceDef.angleDeg);
+    const targetOutward=trackSwitchEndpointOutwardAngleDeg(targetEndpoint.endpoint,targetEndpoint.angleDeg);
+    return targetOutward+180-sourceOutward;
   }
   function alignTrackSwitchEndpointToTarget(item, sourceEndpointName, targetEndpoint){
     const sourceDef=trackSwitchEndpointDefinitions(item).find(endpoint=>endpoint.endpoint===sourceEndpointName);
     if(!sourceDef || !targetEndpoint?.point) return false;
-    const rotationDeg=(Number(targetEndpoint.angleDeg)||0)-sourceDef.angleDeg;
-    const rotatedLocal=rotatePoint(sourceDef.local,rotationDeg);
-    item.rotationDeg=rotationDeg;
+    const rotationDeg=trackSwitchSnapRotationDeg(item,sourceEndpointName,targetEndpoint);
+    if(!Number.isFinite(rotationDeg)) return false;
+    const normalizedRotationDeg=normalizeAngleDeltaDeg(rotationDeg);
+    const rotatedLocal=rotatePoint(sourceDef.local,normalizedRotationDeg);
+    item.rotationDeg=normalizedRotationDeg;
     item.x=targetEndpoint.point.x-rotatedLocal.x;
     item.y=targetEndpoint.point.y-rotatedLocal.y;
     item.trackId=null;

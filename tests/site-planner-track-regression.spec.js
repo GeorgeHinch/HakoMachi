@@ -362,6 +362,7 @@ test.describe('Site Planner track regressions', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     expect(source).toContain('const pointerSourceEndpoint=draggedTrackSwitchEndpointName(item,pointerPoint);');
     expect(source).toContain('nearestSwitchEndpointPair(item,pointerPoint,preferredSourceEndpoint||pointerSourceEndpoint)');
+    expect(source).toContain('function trackSwitchEndpointOutwardAngleDeg');
     expect(source).toContain('rotationDelta*.18');
     const objectSelection = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-object-selection-controller.js'), 'utf8');
     expect(objectSelection).toContain('snapSourceEndpoint: entry.type === type && entry.item.id === item.id ? draggedTrackSwitchEndpointName(entry.item, p) : null');
@@ -431,7 +432,7 @@ test.describe('Site Planner track regressions', () => {
     await page.waitForFunction(({ key }) => {
       const payload = JSON.parse(localStorage.getItem(key) || '{}');
       const moved = (payload.trackAccessories || []).find(item => item.id === 'switch_2');
-      return moved && Math.abs(Math.abs((Number(moved.rotationDeg) || 0)) - 180) < 0.75
+      return moved && Math.abs(Number(moved.rotationDeg) || 0) < 0.75
         && moved.trackAnchor?.kind === 'trackSwitchEndpoint'
         && moved.trackAnchor?.trackAccessoryId === 'switch_1'
         && moved.trackAnchor?.endpoint === 'straight'
@@ -440,7 +441,7 @@ test.describe('Site Planner track regressions', () => {
 
     const payload = await autosavePayload(page);
     const moved = payload.trackAccessories.find(item => item.id === 'switch_2');
-    expect(Math.abs(moved.rotationDeg)).toBeCloseTo(180, 0);
+    expect(moved.rotationDeg).toBeCloseTo(0, 0);
     expect(moved.trackAnchor).toMatchObject({
       kind: 'trackSwitchEndpoint',
       trackAccessoryId: 'switch_1',

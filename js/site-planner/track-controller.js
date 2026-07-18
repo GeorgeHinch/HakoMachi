@@ -319,6 +319,167 @@ export function createTrackController(deps) {
     if (!state.selectedTrackId) return false;
     state.tracks = (state.tracks || []).filter(t => t.id !== state.selectedTrackId);
     state.selectedTrackId = null;
+    state.selectedTrackPointIndex = null;
+    syncAll();
+    return true;
+  }
+
+  function trackLengthThroughPoint(t, pointIndex) {
+    normalizeTrack(t);
+    const cappedIndex = Math.max(0, Math.min(Number(pointIndex) || 0, (t.pointsPx || []).length - 1));
+    let total = 0;
+    for (let i = 0; i < cappedIndex; i++) {
+      const a = t.pointsPx[i], b = t.pointsPx[i + 1], c = t.curvesPx?.[i];
+      if (!a || !b) continue;
+      if (c) {
+        let prev = a;
+        for (let step = 1; step <= 20; step++) {
+          const cur = quadPoint(a, c, b, step / 20);
+          total += dist(prev, cur);
+          prev = cur;
+        }
+      } else {
+        total += dist(a, b);
+      }
+    }
+    return total;
+  }
+
+  function updateTrackReference(oldTrackId, oldKind, nextConnection) {
+    (state.tracks || []).forEach(track => {
+      if (!track || track.id === oldTrackId) return;
+      normalizeTrack(track);
+      ['start', 'end'].forEach(key => {
+        const connection = track.endpointConnections?.[key];
+        if (!connection || connection.trackId !== oldTrackId || connection.kind !== oldKind) return;
+        track.endpointConnections = track.endpointConnections || {};
+        if (nextConnection) track.endpointConnections[key] = { ...nextConnection };
+        else delete track.endpointConnections[key];
+      });
+      syncTrackMetrics(track);
+    });
+  }
+
+  function updateEndpointAnchoredTrackAccessories(oldTrackId, endpointKey, nextAnchor) {
+    (state.trackAccessories || []).forEach(item => {
+      if (!item || item.trackId !== oldTrackId || item.trackAnchor?.trackId !== oldTrackId || item.trackAnchor?.endpointKey !== endpointKey) return;
+      if (nextAnchor) {
+        item.trackId = nextAnchor.trackId;
+        item.trackAnchor = { ...item.trackAnchor, ...nextAnchor, pathDistancePx: null, offsetPx: 0 };
+      } else {
+        item.trackId = null;
+        item.trackAnchor = null;
+        if ('autoOrientToTrack' in item) item.autoOrientToTrack = false;
+      }
+    });
+  }
+
+  function migrateAnchoredTrackAccessories(oldTrackId, splitDistance, newTrackId = null) {
+    (state.trackAccessories || []).forEach(item => {
+      if (!item || item.trackId !== oldTrackId) return;
+      const distance = Number(item.trackAnchor?.pathDistancePx);
+      if (!Number.isFinite(distance)) return;
+      if (newTrackId && distance >= splitDistance) {
+        item.trackId = newTrackId;
+        item.trackAnchor = { ...item.trackAnchor, trackId: newTrackId, pathDistancePx: Math.max(0, distance - splitDistance) };
+      } else if (!newTrackId && distance > splitDistance) {
+        item.trackId = null;
+        item.trackAnchor = null;
+        if ('autoOrientToTrack' in item) item.autoOrientToTrack = false;
+      }
+    });
+  }
+
+  function trimAnchoredTrackAccessoriesStart(trackId, removedDistance) {
+    (state.trackAccessories || []).forEach(item => {
+      if (!item || item.trackId !== trackId) return;
+      const distance = Number(item.trackAnchor?.pathDistancePx);
+      if (!Number.isFinite(distance)) return;
+      if (distance < removedDistance) {
+        item.trackId = null;
+        item.trackAnchor = null;
+        if ('autoOrientToTrack' in item) item.autoOrientToTrack = false;
+      } else {
+        item.trackAnchor = { ...item.trackAnchor, pathDistancePx: Math.max(0, distance - removedDistance) };
+      }
+    });
+  }
+
+  function trimAnchoredTrackAccessoriesEnd(trackId, remainingDistance) {
+    (state.trackAccessories || []).forEach(item => {
+      if (!item || item.trackId !== trackId) return;
+      const distance = Number(item.trackAnchor?.pathDistancePx);
+      if (!Number.isFinite(distance) || distance <= remainingDistance) return;
+      item.trackId = null;
+      item.trackAnchor = null;
+      if ('autoOrientToTrack' in item) item.autoOrientToTrack = false;
+    });
+  }
+
+  function deleteSelectedTrackPoint() {
+    const t = selectedTrack();
+    const index = state.selectedTrackPointIndex;
+    if (!t || t.locked || !Number.isInteger(index)) return false;
+    normalizeTrack(t);
+    const points = t.pointsPx || [];
+    if (index < 0 || index >= points.length) {
+      state.selectedTrackPointIndex = null;
+      syncAll();
+      return false;
+    }
+    if (points.length <= 2) return deleteSelectedTrack();
+
+    const splitDistance = trackLengthThroughPoint(t, index);
+    t.endpointConnections = t.endpointConnections || {};
+    if (index === 0) {
+      const removedDistance = trackLengthThroughPoint(t, 1);
+      updateTrackReference(t.id, 'endpointStart', null);
+      updateEndpointAnchoredTrackAccessories(t.id, 'start', null);
+      t.pointsPx = points.slice(1);
+      t.curvesPx = (t.curvesPx || []).slice(1);
+      delete t.endpointConnections.start;
+      trimAnchoredTrackAccessoriesStart(t.id, removedDistance);
+      updateEndpointAnchoredTrackAccessories(t.id, 'end', { trackId: t.id, endpointKey: 'end', pointIndex: t.pointsPx.length - 1 });
+      state.selectedTrackPointIndex = 0;
+      syncTrackMetrics(t);
+      syncAll();
+      return true;
+    }
+    if (index === points.length - 1) {
+      const remainingDistance = trackLengthThroughPoint(t, index - 1);
+      updateTrackReference(t.id, 'endpointEnd', null);
+      updateEndpointAnchoredTrackAccessories(t.id, 'end', null);
+      t.pointsPx = points.slice(0, -1);
+      t.curvesPx = (t.curvesPx || []).slice(0, -1);
+      delete t.endpointConnections.end;
+      trimAnchoredTrackAccessoriesEnd(t.id, remainingDistance);
+      state.selectedTrackPointIndex = t.pointsPx.length - 1;
+      syncTrackMetrics(t);
+      syncAll();
+      return true;
+    }
+
+    const originalEndConnection = t.endpointConnections.end ? { ...t.endpointConnections.end } : null;
+    const second = normalizeTrack({
+      ...structuredClone(t),
+      id: uid('track'),
+      name: `${t.name || 'Track'} split`,
+      pointsPx: points.slice(index),
+      curvesPx: (t.curvesPx || []).slice(index),
+      endpointConnections: originalEndConnection ? { end: originalEndConnection } : {},
+    });
+    t.pointsPx = points.slice(0, index + 1);
+    t.curvesPx = (t.curvesPx || []).slice(0, index);
+    t.endpointConnections = t.endpointConnections.start ? { start: { ...t.endpointConnections.start } } : {};
+    syncTrackMetrics(t);
+    syncTrackMetrics(second);
+    const insertAt = Math.max(0, (state.tracks || []).findIndex(track => track.id === t.id)) + 1;
+    state.tracks.splice(insertAt, 0, second);
+    updateTrackReference(t.id, 'endpointEnd', originalEndConnection ? { trackId: second.id, kind: 'endpointEnd', pointIndex: second.pointsPx.length - 1 } : null);
+    updateEndpointAnchoredTrackAccessories(t.id, 'end', { trackId: second.id, endpointKey: 'end', pointIndex: second.pointsPx.length - 1 });
+    migrateAnchoredTrackAccessories(t.id, splitDistance, second.id);
+    state.selectedTrackId = second.id;
+    state.selectedTrackPointIndex = 0;
     syncAll();
     return true;
   }
@@ -355,6 +516,7 @@ export function createTrackController(deps) {
         state.selectedAnnotationId = null;
         state.selectedFabricId = null;
         state.selectedTrackId = existing.id;
+        state.selectedTrackPointIndex = null;
         state.trackDraft = [];
         state.trackDraftConnections = [];
         state.trackDraftExtension = null;
@@ -388,6 +550,7 @@ export function createTrackController(deps) {
     state.selectedAnnotationId = null;
     state.selectedFabricId = null;
     state.selectedTrackId = t.id;
+    state.selectedTrackPointIndex = null;
     state.trackDraft = [];
     state.trackDraftConnections = [];
     state.trackDraftExtension = null;
@@ -416,6 +579,7 @@ export function createTrackController(deps) {
     hitTrack,
     moveTrack,
     deleteSelectedTrack,
+    deleteSelectedTrackPoint,
     finishTrack,
   };
 }

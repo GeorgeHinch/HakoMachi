@@ -98,9 +98,11 @@ export function createSitePointerInteractionController({
     const trackHit = hitTrack(p, e.pointerType);
     const selectedTrackForEdit = state.selectedTrackId ? selectedTrack() : null;
     if (state.tool === 'track' && !selectedTrackForEdit) return false;
-    const trackPointHit = selectedTrackForEdit && !trackHit?.locked ? hitTrackPoint(p, selectedTrackForEdit, e.pointerType) : null;
+    const trackPointHit = selectedTrackForEdit ? hitTrackPoint(p, selectedTrackForEdit, e.pointerType) : null;
     if (trackPointHit) {
       const t = selectedTrackForEdit;
+      state.selectedTrackPointIndex = trackPointHit.index;
+      renderSelected();
       if (t && !t.locked) state.drag = { type: 'trackPoint', pointerId: e.pointerId, start: p, orig: structuredClone(t), pointIndex: trackPointHit.index };
       return true;
     }

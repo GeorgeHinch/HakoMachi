@@ -116,6 +116,7 @@ export function createSiteObjectSelectionController(deps) {
     if (!preserveGroup) clearSelectedSiteObjects();
     if (type !== 'building') clearBuildingSelection();
     Object.values(SITE_OBJECT_CLIPBOARD_TYPES).forEach(meta => { state[meta.selectedId] = null; });
+    state.selectedTrackPointIndex = null;
     state.selectedRoadIntersectionId = null;
     state.selectedRailCrossingId = null;
     if (type === 'building') setBuildingSelection([id], id);

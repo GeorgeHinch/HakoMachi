@@ -41,6 +41,7 @@ export function createSiteProjectPersistenceController({
       selectedRoadIntersectionId: state.selectedRoadIntersectionId,
       selectedRailCrossingId: state.selectedRailCrossingId,
       selectedTrackId: state.selectedTrackId,
+      selectedTrackPointIndex: state.selectedTrackPointIndex,
       selectedTrackAccessoryId: state.selectedTrackAccessoryId,
       selectedStlObjectId: state.selectedStlObjectId,
       selectedBenchworkId: state.selectedBenchworkId,

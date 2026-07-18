@@ -692,6 +692,82 @@ test.describe('Site Planner track regressions', () => {
     await expect(page.locator('#selectedPanel')).toContainText('Track selected');
   });
 
+  test('selected flex track endpoint deletion truncates the spline', async ({ page }) => {
+    const project = blankTrackProject({
+      selectedTrackId: 'track_trim',
+      selectedTrackPointIndex: null,
+      tracks: [
+        {
+          id: 'track_trim',
+          name: 'Trimmable track',
+          pointsPx: [{ x: 160, y: 220 }, { x: 260, y: 220 }, { x: 360, y: 260 }],
+          curvesPx: [null, null],
+          gaugeMm: 9,
+          roadbedWidthMm: 19,
+          tieSpacingMm: 4,
+        },
+      ],
+    });
+
+    await seedAutosave(page, project);
+    await loadPlanner(page);
+    await expect(page.locator('#emptyImageOverlay')).toBeHidden({ timeout: 10000 });
+
+    await clickWorldPoint(page, { x: 260, y: 220 });
+    await expect(page.locator('#selectedPanel')).toContainText('Track selected');
+    await clickWorldPoint(page, { x: 160, y: 220 });
+    await expect(page.locator('#selectedPanel')).toContainText('Point 1 of 3 selected');
+    await page.keyboard.press('Delete');
+
+    await page.waitForFunction(({ key }) => {
+      const payload = JSON.parse(localStorage.getItem(key) || '{}');
+      const track = (payload.tracks || []).find(item => item.id === 'track_trim');
+      return track?.pointsPx?.length === 2
+        && Math.abs(track.pointsPx[0].x - 260) < 0.75
+        && Math.abs(track.pointsPx[0].y - 220) < 0.75;
+    }, { key: AUTOSAVE_KEY });
+  });
+
+  test('selected flex track middle point deletion splits the spline', async ({ page }) => {
+    const project = blankTrackProject({
+      selectedTrackId: 'track_split',
+      selectedTrackPointIndex: null,
+      tracks: [
+        {
+          id: 'track_split',
+          name: 'Splittable track',
+          pointsPx: [{ x: 160, y: 220 }, { x: 260, y: 220 }, { x: 360, y: 260 }, { x: 460, y: 260 }],
+          curvesPx: [null, null, null],
+          gaugeMm: 9,
+          roadbedWidthMm: 19,
+          tieSpacingMm: 4,
+        },
+      ],
+    });
+
+    await seedAutosave(page, project);
+    await loadPlanner(page);
+    await expect(page.locator('#emptyImageOverlay')).toBeHidden({ timeout: 10000 });
+
+    await clickWorldPoint(page, { x: 360, y: 260 });
+    await expect(page.locator('#selectedPanel')).toContainText('Track selected');
+    await clickWorldPoint(page, { x: 260, y: 220 });
+    await expect(page.locator('#selectedPanel')).toContainText('Point 2 of 4 selected');
+    await page.keyboard.press('Delete');
+
+    await page.waitForFunction(({ key }) => {
+      const payload = JSON.parse(localStorage.getItem(key) || '{}');
+      const tracks = payload.tracks || [];
+      const first = tracks.find(item => item.id === 'track_split');
+      const second = tracks.find(item => item.id !== 'track_split' && item.name === 'Splittable track split');
+      return tracks.length === 2
+        && first?.pointsPx?.length === 2
+        && second?.pointsPx?.length === 3
+        && Math.abs(first.pointsPx[1].x - 260) < 0.75
+        && Math.abs(second.pointsPx[0].x - 260) < 0.75;
+    }, { key: AUTOSAVE_KEY });
+  });
+
   test('joined endpoint follows connected track move through undo and redo', async ({ page }) => {
     const svgDataUrl = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600"><rect width="900" height="600" fill="#f7f4ec"/></svg>').toString('base64');
     const project = {

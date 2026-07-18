@@ -1116,9 +1116,13 @@ test.describe('Site Planner module split contracts', () => {
     expect(renderer).toContain('const railBase = sleeperBase + sleeperHeight');
     expect(renderer).toContain('const switchTieSpacing =');
     expect(renderer).toContain('trackProfileDefaults.tieSpacingMm');
-    expect(renderer).toContain('const addStraightTieStations =');
-    expect(renderer).toContain('const branchPointAtX =');
+    expect(renderer).toContain('trackSwitchMainPathPoints');
+    expect(renderer).toContain('const addMainTieStations =');
+    expect(renderer).toContain('const branchLength = polylineLength(branch)');
+    expect(renderer).toContain('const station = pointAtPolylineDistance(branch, d)');
     expect(renderer).toContain('const addDivergingTurnoutTieStations =');
+    expect(renderer).toContain('Tomix switch main roadbed');
+    expect(renderer).toContain('Tomix switch main tie');
     expect(renderer).toContain('Tomix switch diverging turnout tie');
     expect(renderer).toContain('addLocalSegment(branch[i], branch[i + 1]');
     expect(renderer).not.toContain('addTiePathByDistance(branch');

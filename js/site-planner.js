@@ -5966,6 +5966,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     state.dirty=false;
     state.dirtySinceManualSave=false;
     state.autosaveRestored=false;
+    rememberGithubSiteSource(null);
     resetHistory('reset');
     setImageStatus('Cache cleared. Planner reset to default blank state.', 'okText');
     syncAll({skipDirty:true});
@@ -6000,6 +6001,38 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       {label:'Datastore guide', onClick:()=>window.open('docs/github-datastore.md','_blank','noopener')},
       {label:'Close', onClick:closeGithubModal}
     ]);
+  }
+  function githubSiteSourceFromProject(project){
+    const cloud=project?.hakomachiCloud;
+    if(!cloud || cloud.kind!=='sitePlan' || !cloud.path) return null;
+    return {
+      id:cloud.id || slug(cloud.name || project.projectName || 'site-plan'),
+      name:cloud.name || project.projectName || githubProjectName(project),
+      path:cloud.path,
+    };
+  }
+  function activeGithubSiteSource(){
+    const current=getCurrentGithubSite();
+    if(!current?.path || !current?.id || !current?.name) return null;
+    return current;
+  }
+  function rememberGithubSiteSource(source){
+    setCurrentGithubSite(source || null);
+    updatePrimarySaveUi();
+  }
+  function updatePrimarySaveUi(){
+    const source=activeGithubSiteSource();
+    const label=source ? 'Save to GitHub' : 'Save .hako-site';
+    const title=source
+      ? `Save changes back to ${source.path}`
+      : 'Download the current site plan as a .hako-site package.';
+    ['saveBtn','mobileSaveBtn'].forEach(id=>{
+      const btn=$(id);
+      if(!btn) return;
+      btn.textContent=label;
+      btn.title=title;
+      btn.dataset.saveSource=source ? 'github' : 'local-package';
+    });
   }
   async function saveGithubImageAsset(settings, siteId, siteName){
     const dataUrl=state.imageMeta?.dataUrl;
@@ -6133,7 +6166,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     return project;
   }
-  async function saveSitePlanToGithub(){
+  async function saveSitePlanToGithub(options={}){
     const diagnostics=createPersistenceDiagnostics('GitHub site save');
     try{
       const settings=getGithubSettings();
@@ -6141,12 +6174,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       const current=getCurrentGithubSite();
       const projectForName=projectJson({includeImageDataUrl:false});
       const defaultName=current?.name || githubProjectName(projectForName);
-      const name=prompt('Site plan name for GitHub save', defaultName);
+      const reuseCurrent=!!(options.reuseCurrent && current?.id && current?.name && current?.path);
+      const name=reuseCurrent ? current.name : prompt('Site plan name for GitHub save', defaultName);
       if(!name) return;
       openGithubSaveProgressModal();
-      setGithubProgress(1,8,'Preparing project...','Finalizing the site plan name and GitHub file path.');
-      const id=(current && current.name===defaultName && current.id) ? current.id : slug(name);
-      const path=(current && current.name===defaultName && current.path) ? current.path : githubData.cleanRepoPath(`${settings.sitePlansDir}/${id}.hako-site.json`);
+      setGithubProgress(1,8,'Preparing project...',reuseCurrent ? `Saving back to ${current.path}.` : 'Finalizing the site plan name and GitHub file path.');
+      const id=reuseCurrent ? current.id : ((current && current.name===defaultName && current.id) ? current.id : slug(name));
+      const path=reuseCurrent ? current.path : ((current && current.name===defaultName && current.path) ? current.path : githubData.cleanRepoPath(`${settings.sitePlansDir}/${id}.hako-site.json`));
       diagnostics.mark('save target selected', {name, path});
       const imageAsset=await diagnostics.measure('write image asset', () => saveGithubImageAsset(settings, id, name));
       if(!imageAsset) setGithubProgress(2,8,'No reference image asset to write.','The site plan does not currently use a background image.');
@@ -6178,7 +6212,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       setGithubProgress(7,8,'Writing library index...','Saving the updated site plan list.');
       const libraryText=JSON.stringify(library,null,2)+'\n';
       await diagnostics.measure('write library index', () => writeGithubFile(settings, settings.libraryPath, libraryText, `Update HakoMachi site plan library: ${name}`), {bytes:diagnosticByteLength(libraryText)});
-      setCurrentGithubSite({id,name,path});
+      rememberGithubSiteSource({id,name,path});
       markManualSaveComplete();
       setGithubProgress(8,8,'Save complete.','Saved '+path);
       diagnostics.finish({status:'saved', name, path});
@@ -6223,7 +6257,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       });
       loadProject(project, {fromFile:true});
       diagnostics.finish({status:'loaded'});
-      setCurrentGithubSite({id:record.id, name:record.name, path:record.path});
+      rememberGithubSiteSource({id:record.id, name:record.name, path:record.path});
       closeGithubModal();
     }catch(err){
       diagnostics.finish({status:'failed', error:err?.message||String(err)});
@@ -6312,15 +6346,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   $('deleteAnnotationBtn').onclick=deleteSelectedAnnotation;
   $('clearAnnotationsBtn').onclick=()=>{if(state.annotations.length && !confirm('Clear all freehand annotation notes?')) return; state.annotations=[]; state.selectedAnnotationId=null; renderSelected(); draw(); markDirty('annotations cleared');};
   $('fitBtn').onclick=()=>{fitImage(); markDirty('view changed', {history:false});}; $('resetBtn').onclick=()=>{state.view={x:40,y:40,scale:1}; draw(); markDirty('view changed', {history:false});}; $('clearCacheBtn').onclick=clearCacheAndReset; if($('clearCachePanelBtn')) $('clearCachePanelBtn').onclick=clearCacheAndReset;
+  function saveCurrentSitePlan(){
+    if(activeGithubSiteSource()) return saveSitePlanToGithub({reuseCurrent:true});
+    return saveSitePlanBundle();
+  }
   $('githubSettingsBtn').onclick=openGithubSettings;
-  $('githubSaveBtn').onclick=saveSitePlanToGithub;
+  $('githubSaveBtn').onclick=()=>saveSitePlanToGithub({reuseCurrent:true});
   $('githubLoadBtn').onclick=openGithubSitePlans;
   $('githubBuildingsBtn').onclick=openGithubBuildings;
   if($('mobileGithubSettingsBtn')) $('mobileGithubSettingsBtn').onclick=openGithubSettings;
-  if($('mobileGithubSaveBtn')) $('mobileGithubSaveBtn').onclick=saveSitePlanToGithub;
+  if($('mobileGithubSaveBtn')) $('mobileGithubSaveBtn').onclick=()=>saveSitePlanToGithub({reuseCurrent:true});
   if($('mobileGithubLoadBtn')) $('mobileGithubLoadBtn').onclick=openGithubSitePlans;
   if($('mobileGithubBuildingsBtn')) $('mobileGithubBuildingsBtn').onclick=openGithubBuildings;
-  $('saveBtn').onclick=()=>saveSitePlanBundle();
+  $('saveBtn').onclick=()=>saveCurrentSitePlan();
   if($('undoBtn')) $('undoBtn').onclick=()=>undo();
   if($('redoBtn')) $('redoBtn').onclick=()=>redo();
   if($('mobileUndoBtn')) $('mobileUndoBtn').onclick=()=>undo();
@@ -6358,9 +6396,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   $('csvBtn').onclick=()=>downloadText(csvExport(),'hakomachi-building-pads.csv','text/csv');
   $('svgBtn').onclick=()=>downloadText(svgExport(),'hakomachi-site.svg','image/svg+xml');
   $('seedBtn').onclick=exportSelectedSeed;
-  if($('mobileSaveBtn')) $('mobileSaveBtn').onclick=()=>saveSitePlanBundle();
+  if($('mobileSaveBtn')) $('mobileSaveBtn').onclick=()=>saveCurrentSitePlan();
   if($('mobileCsvBtn')) $('mobileCsvBtn').onclick=()=>downloadText(csvExport(),'hakomachi-building-pads.csv','text/csv');
   if($('mobileSeedBtn')) $('mobileSeedBtn').onclick=exportSelectedSeed;
+  updatePrimarySaveUi();
   function openBuildingInHakoMachi(building){
     const b=building || selected();
     if(!b) return showStatusHint('Select a building first.', 'warning');
@@ -6432,6 +6471,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const normalized=normalizeLoadedSitePlanPayload(project);
     const payload=normalized.payload;
     loadProject(payload, opts);
+    if(!opts.fromAutosave && !opts.preserveGithubSource) rememberGithubSiteSource(githubSiteSourceFromProject(payload));
     return payload;
   }
   async function loadSitePlanBundle(file){
@@ -6452,6 +6492,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       manifestAssets:(payload.assetManifest?.assets||[]).length,
     });
     loadProject(payload, {fromFile:true});
+    rememberGithubSiteSource(githubSiteSourceFromProject(payload));
     diagnostics.finish({status:'loaded'});
     return payload;
   }
@@ -6631,7 +6672,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   resize();
   const restored=restoreAutosaveIfAvailable();
   state.autosaveReady=true;
-  if(!restored){syncAll({skipDirty:true}); fitImage(); resetHistory('initial'); writeAutosave();}
+  if(!restored){rememberGithubSiteSource(null); syncAll({skipDirty:true}); fitImage(); resetHistory('initial'); writeAutosave();}
   else { updateHistoryButtons(); }
   setTimeout(()=>{ processQueuedSitePlannerBuildingUpdate(); }, 0);
 })();

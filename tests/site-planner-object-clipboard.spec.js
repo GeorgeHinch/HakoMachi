@@ -203,6 +203,31 @@ test.describe('Site Planner object clipboard', () => {
     }, AUTOSAVE_KEY);
   });
 
+  test('shift-selected canvas objects rotate together as a group', async ({ page }) => {
+    await loadProject(page, blankProject({
+      trackAccessories: [
+        { id: 'sensor_1', kind: 'sensor', name: 'Sensor A', x: 120, y: 140, rotationDeg: 0 },
+        { id: 'signal_1', kind: 'signal', name: 'Signal A', x: 200, y: 140, rotationDeg: 0 },
+      ],
+    }));
+
+    await clickWorldPoint(page, { x: 120, y: 140 }, { modifiers: ['Shift'] });
+    await clickWorldPoint(page, { x: 200, y: 140 }, { modifiers: ['Shift'] });
+    await dragWorldPoint(page, { x: 160, y: 100 }, { x: 200, y: 140 });
+
+    await page.waitForFunction(key => {
+      const payload = JSON.parse(localStorage.getItem(key) || '{}');
+      const sensor = (payload.trackAccessories || []).find(item => item.id === 'sensor_1');
+      const signal = (payload.trackAccessories || []).find(item => item.id === 'signal_1');
+      return Math.abs((sensor?.x || 0) - 160) < 0.75
+        && Math.abs((sensor?.y || 0) - 100) < 0.75
+        && Math.abs((signal?.x || 0) - 160) < 0.75
+        && Math.abs((signal?.y || 0) - 180) < 0.75
+        && Math.abs((sensor?.rotationDeg || 0) - 90) < 0.75
+        && Math.abs((signal?.rotationDeg || 0) - 90) < 0.75;
+    }, AUTOSAVE_KEY);
+  });
+
   test('shift-dragging a building corner scales the whole footprint proportionally', async ({ page }) => {
     await loadProject(page, blankProject({
       selectedId: 'building_poly',

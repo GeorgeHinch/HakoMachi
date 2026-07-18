@@ -363,6 +363,129 @@ export function createSiteObjectSelectionController(deps) {
     }
   }
 
+  function rotateSiteObjectPoint(point, center, angleRad) {
+    const x = Number(point?.x);
+    const y = Number(point?.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return point ? { ...point } : point;
+    const dx = x - center.x;
+    const dy = y - center.y;
+    const ca = Math.cos(angleRad);
+    const sa = Math.sin(angleRad);
+    return { ...point, x: center.x + dx * ca - dy * sa, y: center.y + dx * sa + dy * ca };
+  }
+
+  function rotateSiteObjectPointArray(points, center, angleRad) {
+    return (points || []).map(point => point ? rotateSiteObjectPoint(point, center, angleRad) : point);
+  }
+
+  function applySiteObjectRotationFromOrig(type, orig, center, deltaDeg) {
+    if (!orig || !center || !SITE_OBJECT_MOVE_TYPES.has(type)) return;
+    const angleRad = Number(deltaDeg) * Math.PI / 180;
+    if (!Number.isFinite(angleRad)) return;
+    const nextRotation = (Number(orig.rotationDeg) || 0) + Number(deltaDeg);
+    if (type === 'building') {
+      const b = state.buildings.find(x => x.id === orig.id);
+      if (b && !b.locked) {
+        if (b.padType === 'rect') {
+          const p = rotateSiteObjectPoint({ x: orig.x, y: orig.y }, center, angleRad);
+          b.x = p.x;
+          b.y = p.y;
+        } else {
+          b.pointsPx = rotateSiteObjectPointArray(orig.pointsPx, center, angleRad);
+        }
+        b.rotationDeg = nextRotation;
+        syncBuildingMetrics(b);
+      }
+      return;
+    }
+    if (type === 'streetlight') {
+      const l = state.streetlights.find(x => x.id === orig.id);
+      if (l && !l.locked) {
+        const p = rotateSiteObjectPoint({ x: orig.x, y: orig.y }, center, angleRad);
+        l.x = p.x;
+        l.y = p.y;
+        l.rotationDeg = nextRotation;
+        if (l.anchor) l.anchor = { ...l.anchor, lockToRoadEdge: false };
+        normalizeStreetlight(l);
+      }
+      return;
+    }
+    if (type === 'trackAccessory') {
+      const item = (state.trackAccessories || []).find(x => x.id === orig.id);
+      if (item && !item.locked) {
+        const p = rotateSiteObjectPoint({ x: orig.x, y: orig.y }, center, angleRad);
+        item.x = p.x;
+        item.y = p.y;
+        item.rotationDeg = nextRotation;
+        item.trackId = null;
+        item.trackAnchor = null;
+        if (isCatenaryAccessoryKind(item.kind)) item.autoOrientToTrack = false;
+        normalizeTrackAccessory(item);
+        if (isTrackSwitchAccessoryKind(item.kind)) syncTracksConnectedToTrackSwitch(item);
+      }
+      return;
+    }
+    if (type === 'stlObject') {
+      const obj = (state.stlObjects || []).find(x => x.id === orig.id);
+      if (obj && !obj.locked) {
+        const p = rotateSiteObjectPoint({ x: orig.x, y: orig.y }, center, angleRad);
+        obj.x = p.x;
+        obj.y = p.y;
+        obj.rotationDeg = nextRotation;
+        normalizeStlObject(obj);
+      }
+      return;
+    }
+    if (type === 'benchwork') {
+      const bw = state.benchworkOutlines.find(x => x.id === orig.id);
+      if (bw && !bw.locked) {
+        bw.pointsPx = rotateSiteObjectPointArray(orig.pointsPx, center, angleRad);
+        bw.curvesPx = rotateSiteObjectPointArray(orig.curvesPx, center, angleRad);
+        normalizeBenchworkOutline(bw);
+      }
+      return;
+    }
+    if (type === 'road') {
+      const r = state.roads.find(x => x.id === orig.id);
+      if (r && !r.locked) {
+        r.pointsPx = rotateSiteObjectPointArray(orig.pointsPx, center, angleRad);
+        r.curvesPx = rotateSiteObjectPointArray(orig.curvesPx, center, angleRad);
+        syncRoadMetrics(r);
+      }
+      return;
+    }
+    if (type === 'track') {
+      const t = (state.tracks || []).find(x => x.id === orig.id);
+      if (t && !t.locked) {
+        t.pointsPx = rotateSiteObjectPointArray(orig.pointsPx, center, angleRad);
+        t.curvesPx = rotateSiteObjectPointArray(orig.curvesPx, center, angleRad);
+        syncTrackMetrics(t);
+      }
+      return;
+    }
+    if (type === 'roadFeature') {
+      const f = (state.roadFeatures || []).find(x => x.id === orig.id);
+      if (f && !f.locked) {
+        const p = rotateSiteObjectPoint({ x: orig.x, y: orig.y }, center, angleRad);
+        f.x = p.x;
+        f.y = p.y;
+        f.rotationDeg = nextRotation;
+        f.autoAlignedToRoad = false;
+        f.orientationMode = 'manual';
+        normalizeRoadFeature(f);
+      }
+      return;
+    }
+    if (type === 'fabric') {
+      const fabric = (state.fabricRegions || []).find(x => x.id === orig.id);
+      if (fabric && !fabric.locked) {
+        fabric.pointsPx = rotateSiteObjectPointArray(orig.pointsPx, center, angleRad);
+        fabric.curvesPx = rotateSiteObjectPointArray(orig.curvesPx, center, angleRad);
+        normalizeFabricRegion(fabric);
+      }
+    }
+  }
+
   function finalizeMovedSiteObject(type, orig) {
     if (type === 'track') {
       const t = (state.tracks || []).find(x => x.id === orig.id);
@@ -412,6 +535,7 @@ export function createSiteObjectSelectionController(deps) {
   return {
     applyPrimarySiteObjectSelection,
     applySiteObjectMoveFromOrig,
+    applySiteObjectRotationFromOrig,
     clearCopiedSiteObjectRelationships,
     clearSelectedSiteObjects,
     copySelectedSiteObject,

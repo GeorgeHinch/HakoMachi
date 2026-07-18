@@ -292,6 +292,7 @@ export function createSiteObjectSelectionController(deps) {
       if (item && !item.locked) {
         item.x = orig.x + dx;
         item.y = orig.y + dy;
+        if (Number.isFinite(Number(orig.rotationDeg))) item.rotationDeg = Number(orig.rotationDeg);
         if (isTrackSwitchAccessoryKind(item.kind)) {
           if (!snapTrackSwitchToEndpoint(item, pointerPoint, preferredSourceEndpoint)) {
             item.trackAnchor = null;

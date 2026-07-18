@@ -97,6 +97,22 @@ function tomixSwitchFixtureEndpoints(x = 300, y = 220) {
   };
 }
 
+function rotatedPoint(center, point, rotationDeg) {
+  const angle = rotationDeg * Math.PI / 180;
+  const dx = point.x - center.x;
+  const dy = point.y - center.y;
+  return {
+    x: center.x + dx * Math.cos(angle) - dy * Math.sin(angle),
+    y: center.y + dx * Math.sin(angle) + dy * Math.cos(angle),
+  };
+}
+
+function tomixSwitchFixtureEndpointsRotated(x = 300, y = 220, rotationDeg = 0) {
+  const endpoints = tomixSwitchFixtureEndpoints(x, y);
+  const center = { x, y };
+  return Object.fromEntries(Object.entries(endpoints).map(([key, point]) => [key, rotatedPoint(center, point, rotationDeg)]));
+}
+
 function blankTrackProject(overrides = {}) {
   const svgDataUrl = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600"><rect width="900" height="600" fill="#f7f4ec"/></svg>').toString('base64');
   return {
@@ -346,7 +362,7 @@ test.describe('Site Planner track regressions', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     expect(source).toContain('const pointerSourceEndpoint=draggedTrackSwitchEndpointName(item,pointerPoint);');
     expect(source).toContain('nearestSwitchEndpointPair(item,pointerPoint,preferredSourceEndpoint||pointerSourceEndpoint)');
-    expect(source).toContain('rotationDelta>135');
+    expect(source).toContain('rotationDelta*.18');
     const objectSelection = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-object-selection-controller.js'), 'utf8');
     expect(objectSelection).toContain('snapSourceEndpoint: entry.type === type && entry.item.id === item.id ? draggedTrackSwitchEndpointName(entry.item, p) : null');
     expect(objectSelection).toContain('snapTrackSwitchToEndpoint(item, pointerPoint, preferredSourceEndpoint)');
@@ -390,6 +406,46 @@ test.describe('Site Planner track regressions', () => {
       trackAccessoryId: 'switch_1',
       endpoint: 'diverging',
       sourceEndpoint: 'heel',
+    });
+  });
+
+  test('switch snapping allows any endpoint to connect to any other switch endpoint', async ({ page }) => {
+    const targetCenter = { x: 300, y: 220 };
+    const sourceCenter = { x: 560, y: 220 };
+    const targetEndpoints = tomixSwitchFixtureEndpointsRotated(targetCenter.x, targetCenter.y, 180);
+    const sourceEndpoints = tomixSwitchFixtureEndpoints(sourceCenter.x, sourceCenter.y);
+    const project = blankTrackProject({
+      selectedTrackAccessoryId: 'switch_2',
+      trackAccessories: [
+        { id: 'switch_1', kind: 'trackSwitchRight', name: 'Target turnout', x: targetCenter.x, y: targetCenter.y, rotationDeg: 180 },
+        { id: 'switch_2', kind: 'trackSwitchRight', name: 'Dropped turnout', x: sourceCenter.x, y: sourceCenter.y, rotationDeg: 0 },
+      ],
+    });
+
+    await seedAutosave(page, project);
+    await loadPlanner(page);
+    await expect(page.locator('#emptyImageOverlay')).toBeHidden({ timeout: 10000 });
+
+    await dragWorldPoint(page, sourceEndpoints.straight, targetEndpoints.straight, 10);
+
+    await page.waitForFunction(({ key }) => {
+      const payload = JSON.parse(localStorage.getItem(key) || '{}');
+      const moved = (payload.trackAccessories || []).find(item => item.id === 'switch_2');
+      return moved && Math.abs(Math.abs((Number(moved.rotationDeg) || 0)) - 180) < 0.75
+        && moved.trackAnchor?.kind === 'trackSwitchEndpoint'
+        && moved.trackAnchor?.trackAccessoryId === 'switch_1'
+        && moved.trackAnchor?.endpoint === 'straight'
+        && moved.trackAnchor?.sourceEndpoint === 'straight';
+    }, { key: AUTOSAVE_KEY });
+
+    const payload = await autosavePayload(page);
+    const moved = payload.trackAccessories.find(item => item.id === 'switch_2');
+    expect(Math.abs(moved.rotationDeg)).toBeCloseTo(180, 0);
+    expect(moved.trackAnchor).toMatchObject({
+      kind: 'trackSwitchEndpoint',
+      trackAccessoryId: 'switch_1',
+      endpoint: 'straight',
+      sourceEndpoint: 'straight',
     });
   });
 

@@ -1251,6 +1251,23 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('renderSelected();');
   });
 
+  test('site planner existing-object pointer hit sequence is wired through its controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-pointer-interaction-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createSitePointerInteractionController } from './site-planner/site-pointer-interaction-controller.js';");
+    expect(source).toContain('sitePointerInteractionController=createSitePointerInteractionController({');
+    expect(source).toContain('function startExistingObjectInteraction(e,p){');
+    expect(source).not.toContain('function hasActivePointDraft');
+    expect(source).not.toContain("const railCrossingHit=hitGeneratedRailCrossing(p,e.pointerType)");
+    expect(controller).toContain('export function createSitePointerInteractionController');
+    expect(controller).toContain('function hasActivePointDraft');
+    expect(controller).toContain('function startExistingObjectInteraction');
+    expect(controller).toContain("return handleSiteObjectPointerHit('trackAccessory'");
+    expect(controller).toContain("return handleSiteObjectPointerHit('building'");
+    expect(controller).toContain('const fabricHit = hitFabricRegion(p)');
+  });
+
   test('Tomix track accessories fall back to the flex-track gauge scale', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const scaleHelpers = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-geometry.js'), 'utf8');

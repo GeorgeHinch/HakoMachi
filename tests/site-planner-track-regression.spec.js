@@ -136,10 +136,12 @@ test.describe('Site Planner track regressions', () => {
   test('history snapshots include track geometry through the track controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-controller.js'), 'utf8');
+    const persistenceController = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-project-persistence-controller.js'), 'utf8');
     expect(source).toContain("import { createTrackController } from './site-planner/track-controller.js';");
     expect(source).toContain('} = createTrackController({');
-    expect(source).toContain('tracks: state.tracks||[]');
-    expect(source).toContain('selectedTrackId: state.selectedTrackId');
+    expect(source).toContain('createSiteProjectPersistenceController({');
+    expect(persistenceController).toContain('tracks: state.tracks || []');
+    expect(persistenceController).toContain('selectedTrackId: state.selectedTrackId');
     expect(source).toContain('state.tracks=(Array.isArray(data.tracks)?structuredClone(data.tracks):[]).map(normalizeTrack);');
     expect(source).toContain('state.selectedTrackId=data.selectedTrackId||null;');
     expect(controller).toContain('export function createTrackController');

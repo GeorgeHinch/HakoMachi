@@ -1268,6 +1268,25 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('const fabricHit = hitFabricRegion(p)');
   });
 
+  test('site planner project serialization is wired through its persistence controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-project-persistence-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createSiteProjectPersistenceController } from './site-planner/site-project-persistence-controller.js';");
+    expect(source).toContain('siteProjectPersistenceController=createSiteProjectPersistenceController({');
+    expect(source).toContain('function historySnapshot(){');
+    expect(source).toContain('function makeProjectPayload(opts={}){');
+    expect(source).toContain('function projectJson(opts={}){');
+    expect(source).not.toContain("app:'HakoMachi Site Planner'");
+    expect(source).not.toContain('const manifestAssetPaths=new Set');
+    expect(controller).toContain('export function createSiteProjectPersistenceController');
+    expect(controller).toContain('function historySnapshot()');
+    expect(controller).toContain('function makeProjectPayload');
+    expect(controller).toContain('function projectJson');
+    expect(controller).toContain("schema: 'hakomachi.site-assets'");
+    expect(controller).toContain('imageMetaForProject(state.imageMeta');
+  });
+
   test('Tomix track accessories fall back to the flex-track gauge scale', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const scaleHelpers = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-geometry.js'), 'utf8');

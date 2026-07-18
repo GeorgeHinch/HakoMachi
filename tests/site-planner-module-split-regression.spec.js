@@ -1133,29 +1133,29 @@ test.describe('Site Planner module split contracts', () => {
 
   test('crossing equipment track items route to dedicated 3D model builders', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
-    const start = source.indexOf('function buildSite3DCrossingSignalItem');
-    const end = source.indexOf('function buildSite3DTrackAccessoryGroup');
-    const renderer = source.slice(start, end);
-    const switchboardStart = source.indexOf('function buildSite3DTrackAccessoryFallbackItem');
-    const switchboard = source.slice(switchboardStart, source.indexOf('function site3DStlGeometry'));
+    const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-track-accessory-renderer.js'), 'utf8');
 
+    expect(source).not.toContain('function buildSite3DCrossingSignalItem');
+    expect(source).not.toContain('function buildSite3DCrossingArmItem');
+    expect(source).not.toContain('function buildSite3DIntrusionDetectorItem');
+    expect(source).not.toContain('buildFallbackTrackAccessoryItem');
     expect(renderer).toContain('Japanese crossing buck diagonal plate A');
     expect(renderer).toContain('Japanese crossing striped barrier arm');
-    expect(renderer).toContain("crossA.rotation.z=rad(36)");
-    expect(renderer).toContain("crossB.rotation.z=rad(-36)");
+    expect(renderer).toContain("crossA.rotation.z = rad(36)");
+    expect(renderer).toContain("crossB.rotation.z = rad(-36)");
     expect(renderer).toContain('Crossing arm direction indicator panel');
-    expect(renderer).toContain("stripe.rotation.z=rad(-28)");
+    expect(renderer).toContain("stripe.rotation.z = rad(-28)");
     expect(renderer).toContain('HB-type level crossing obstruction detector grey sensor housing');
     expect(renderer).toContain('HB-type intrusion detector obstruction detection beam');
     expect(renderer).toContain('addDetectorHead();');
     expect(renderer).not.toContain('addDetectorHead(-8,1)');
     expect(renderer).not.toContain('addDetectorHead(8,-1)');
-    expect(switchboard).toContain("item.kind==='signal' || item.kind==='occupancyLight'");
-    expect(switchboard).toContain('buildSite3DCrossingSignalItem(item,bounds)');
-    expect(switchboard).toContain("item.kind==='crossingArm'");
-    expect(switchboard).toContain('buildSite3DCrossingArmItem(item,bounds)');
-    expect(switchboard).toContain("item.kind==='intrusionDetector'");
-    expect(switchboard).toContain('buildSite3DIntrusionDetectorItem(item,bounds)');
+    expect(renderer).toContain("item.kind === 'signal' || item.kind === 'occupancyLight'");
+    expect(renderer).toContain('buildCrossingSignalItem(item, bounds)');
+    expect(renderer).toContain("item.kind === 'crossingArm'");
+    expect(renderer).toContain('buildCrossingArmItem(item, bounds)');
+    expect(renderer).toContain("item.kind === 'intrusionDetector'");
+    expect(renderer).toContain('buildIntrusionDetectorItem(item, bounds)');
   });
 
   test('site planner 3D building rendering is wired through its renderer module', () => {

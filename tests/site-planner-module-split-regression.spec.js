@@ -1200,6 +1200,23 @@ test.describe('Site Planner module split contracts', () => {
     expect(picker).toContain('updateSite3D({preserveCamera:true})');
   });
 
+  test('site planner STL 3D object rendering is wired through its renderer module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-stl-renderer.js'), 'utf8');
+
+    expect(source).toContain("import { createSite3DStlRenderer } from './site-planner/site-3d-stl-renderer.js';");
+    expect(source).toContain('function ensureSite3DStlRenderer()');
+    expect(source).toContain('return ensureSite3DStlRenderer().buildSite3DStlObjectGroup(raw,bounds)');
+    expect(source).not.toContain('function site3DStlGeometry(obj, targetW, targetH, targetD)');
+    expect(source).not.toContain('mesh.userData.sitePlannerStlActualMesh=true');
+    expect(renderer).toContain('function site3DStlGeometry(obj, targetW, targetH, targetD)');
+    expect(renderer).toContain("obj.asset.renderFallbackReason = 'mesh-too-large'");
+    expect(renderer).toContain("obj.asset.renderFallbackReason = 'parse-failed'");
+    expect(renderer).toContain('mesh.userData.sitePlannerStlActualMesh = true');
+    expect(renderer).toContain("group.name = obj.name || 'STL site object proxy'");
+    expect(renderer).toContain('return tagSite3DStlObject(group, obj)');
+  });
+
   test('site planner 3D refreshes preserve camera during property syncs', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const syncStart = source.indexOf('function syncAll(opts = {})');

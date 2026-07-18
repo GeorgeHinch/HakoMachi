@@ -20,6 +20,9 @@ export function createSite3DTrackAccessoryRenderer({
   trackSwitchDirection,
   trackSwitchGeometrySite3D,
   trackSwitchCurvePoints,
+  trackSwitchMainPathPoints,
+  polylineLength,
+  pointAtPolylineDistance,
   offsetTrackPath,
   trackBufferGeometrySite3D,
   buildFallbackTrackAccessoryItem = null,
@@ -92,7 +95,10 @@ export function createSite3DTrackAccessoryRenderer({
     const railBase = sleeperBase + sleeperHeight;
     const scale = geom.gauge / Math.max(.1, 9);
     const switchTieSpacing = Math.max(1.5 * scale, Math.min(geom.tieSpacing, (trackProfileDefaults.tieSpacingMm || 4) * scale));
+    const mainPath = trackSwitchMainPathPoints(geom, dir, 24);
     const branch = trackSwitchCurvePoints(geom, dir, 24);
+    const mainRailA = offsetTrackPath(mainPath, geom.gauge / 2);
+    const mainRailB = offsetTrackPath(mainPath, -geom.gauge / 2);
     const branchRailA = offsetTrackPath(branch, geom.gauge / 2);
     const branchRailB = offsetTrackPath(branch, -geom.gauge / 2);
     const addLocalSegment = (a, b, width, height, baseY, mat, name) => {
@@ -114,36 +120,36 @@ export function createSite3DTrackAccessoryRenderer({
       const half = Math.max(geom.tieLength / 2, geom.gauge / 2 + 2);
       addLocalSegment({ x: p.x - nx * half, y: p.y - ny * half }, { x: p.x + nx * half, y: p.y + ny * half }, Math.max(.12, geom.tieWidth), sleeperHeight, sleeperBase, tieMat, name);
     };
-    const addStraightTieStations = (points, name) => {
-      const a = points[0], b = points[1];
-      const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
-      if (!(len > .01)) return;
-      for (let d = 0; d <= len + .001; d += switchTieSpacing) {
-        const p = { x: a.x + dx * (d / len), y: a.y + dy * (d / len) };
-        addTie(p, -dy / len, dx / len, name);
+    const addMainTieStations = (points, name) => {
+      const length = polylineLength(points);
+      if (!(length > .01)) return;
+      for (let d = 0; d <= length + .001; d += switchTieSpacing) {
+        const station = pointAtPolylineDistance(points, d);
+        if (!station) continue;
+        addTie(station.point, -station.tangent.y, station.tangent.x, name);
       }
-    };
-    const branchPointAtX = x => {
-      const ratio = clamp((x + geom.halfLength) / Math.max(.1, geom.radius), 0, Math.sin(geom.angleRad));
-      const a = Math.asin(ratio);
-      return { x, y: dir * geom.radius * (1 - Math.cos(a)) };
     };
     const addDivergingTurnoutTieStations = () => {
       const minSeparation = Math.max(geom.gauge * .42, 2.4 * scale);
-      for (let x = -geom.halfLength + switchTieSpacing * .5; x <= geom.halfLength + .001; x += switchTieSpacing) {
-        const p = branchPointAtX(x);
+      const branchLength = polylineLength(branch);
+      for (let d = switchTieSpacing * .5; d <= branchLength + .001; d += switchTieSpacing) {
+        const station = pointAtPolylineDistance(branch, d);
+        if (!station) continue;
+        const p = station.point;
         if (Math.abs(p.y) < minSeparation) continue;
-        addTie(p, 0, 1, 'Tomix switch diverging turnout tie');
+        addTie(p, -station.tangent.y, station.tangent.x, 'Tomix switch diverging turnout tie');
       }
     };
-    group.add(site3DAddEdges(site3DBox(geom.length, roadbedHeight, geom.roadbedWidth, baseMat, 0, roadbedHeight / 2, 0), 0x8f7b55, .35));
+    for (let i = 0; i < mainPath.length - 1; i++) {
+      addLocalSegment(mainPath[i], mainPath[i + 1], Math.max(.5, geom.roadbedWidth), roadbedHeight, 0, baseMat, 'Tomix switch main roadbed');
+    }
     for (let i = 0; i < branch.length - 1; i++) {
       addLocalSegment(branch[i], branch[i + 1], Math.max(.5, geom.roadbedWidth), roadbedHeight, 0, baseMat, 'Tomix switch curved roadbed');
     }
-    addStraightTieStations([{ x: -geom.halfLength, y: 0 }, { x: geom.halfLength, y: 0 }], 'Tomix switch straight tie');
+    addMainTieStations(mainPath, 'Tomix switch main tie');
     addDivergingTurnoutTieStations();
-    addRailPath([{ x: -geom.halfLength, y: -geom.gauge / 2 }, { x: geom.halfLength, y: -geom.gauge / 2 }], 'Tomix switch straight rail A');
-    addRailPath([{ x: -geom.halfLength, y: geom.gauge / 2 }, { x: geom.halfLength, y: geom.gauge / 2 }], 'Tomix switch straight rail B');
+    addRailPath(mainRailA, 'Tomix switch main rail A');
+    addRailPath(mainRailB, 'Tomix switch main rail B');
     addRailPath(branchRailA, 'Tomix switch diverging rail A');
     addRailPath(branchRailB, 'Tomix switch diverging rail B');
     addLocalSegment({ x: -geom.halfLength + geom.length * .34, y: 0 }, { x: -geom.halfLength + geom.length * .52, y: dir * geom.offset * .42 }, Math.max(.08, geom.railWidth * .72), Math.max(.08, railHeight * .7), railBase, railMat, 'Tomix switch point blade');

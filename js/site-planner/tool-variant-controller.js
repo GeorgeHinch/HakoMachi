@@ -80,25 +80,35 @@ export function createToolVariantController({
   }
 
   function trackSwitchToolTask() {
-    return state.trackTask === 'trackSwitchRight' ? 'trackSwitchRight' : 'trackSwitchLeft';
+    return [
+      'trackSwitchLeft',
+      'trackSwitchRight',
+      'trackSwitchTomix1279Left',
+      'trackSwitchTomix1278Right',
+    ].includes(state.trackTask) ? state.trackTask : 'trackSwitchLeft';
   }
 
   function updateTrackSwitchToolButton() {
     const task = trackSwitchToolTask();
-    const right = task === 'trackSwitchRight';
+    const options = {
+      trackSwitchLeft: { icon: 'trackSwitchLeft', label: 'Left Switch', title: 'Left-hand track switch' },
+      trackSwitchRight: { icon: 'trackSwitchRight', label: 'Right Switch', title: 'Right-hand track switch' },
+      trackSwitchTomix1279Left: { icon: 'trackSwitchLeft', label: '1279 Curve', title: 'Tomix 1279 left curved switch' },
+      trackSwitchTomix1278Right: { icon: 'trackSwitchRight', label: '1278 Curve', title: 'Tomix 1278 right curved switch' },
+    };
+    const option = options[task] || options.trackSwitchLeft;
     const icon = $('trackSwitchToolIcon');
     const label = $('trackSwitchToolLabel');
     const btn = $('trackSwitchToolBtn');
-    const title = right ? 'Right-hand track switch' : 'Left-hand track switch';
     if (icon) {
-      icon.dataset.icon = right ? 'trackSwitchRight' : 'trackSwitchLeft';
+      icon.dataset.icon = option.icon;
       setIcon(icon, icon.dataset.icon);
     }
-    if (label) label.textContent = right ? 'Right Switch' : 'Left Switch';
+    if (label) label.textContent = option.label;
     if (btn) {
       btn.dataset.trackAction = task;
-      btn.title = title;
-      btn.setAttribute('aria-label', title);
+      btn.title = option.title;
+      btn.setAttribute('aria-label', option.title);
       btn.classList.toggle('active', state.workspaceMode === 'track' && state.trackTask === task);
     }
     doc.querySelectorAll('#trackSwitchToolMenu button').forEach(button => {

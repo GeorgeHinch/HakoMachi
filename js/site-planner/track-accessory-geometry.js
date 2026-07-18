@@ -21,6 +21,10 @@ export function createTrackAccessoryGeometry({
     TOMIX_TURNOUT_TIE_WIDTH_MM,
     TOMIX_TURNOUT_TIE_SPACING_MM,
     TOMIX_TURNOUT_RAIL_WIDTH_MM,
+    TOMIX_CURVED_TURNOUT_OUTER_RADIUS_MM,
+    TOMIX_CURVED_TURNOUT_INNER_RADIUS_MM,
+    TOMIX_CURVED_TURNOUT_ANGLE_DEG,
+    TOMIX_CURVED_TURNOUT_ANGLE_RAD,
     TOMIX_1428_BUFFER_LENGTH_MM,
     TOMIX_1428_BUFFER_WIDTH_MM,
     TOMIX_1428_BUFFER_TIE_SPACING_MM,
@@ -44,7 +48,10 @@ export function createTrackAccessoryGeometry({
   }
 
   function isTrackSwitchAccessoryKind(kind) {
-    return kind === 'trackSwitchLeft' || kind === 'trackSwitchRight';
+    return kind === 'trackSwitchLeft'
+      || kind === 'trackSwitchRight'
+      || kind === 'trackSwitchTomix1279Left'
+      || kind === 'trackSwitchTomix1278Right';
   }
 
   function isTrackBufferAccessoryKind(kind) {
@@ -93,24 +100,58 @@ export function createTrackAccessoryGeometry({
   }
 
   function trackSwitchDirection(kind) {
-    return kind === 'trackSwitchLeft' ? -1 : 1;
+    return kind === 'trackSwitchLeft' || kind === 'trackSwitchTomix1279Left' ? -1 : 1;
   }
 
   function trackSwitchPxPerMm(item) {
     return trackAccessoryPxPerMm(item);
   }
 
-  function tomixTurnoutGeometry(scale = 1) {
-    const length = TOMIX_TURNOUT_LENGTH_MM * scale;
-    const radius = TOMIX_TURNOUT_RADIUS_MM * scale;
-    const offset = TOMIX_TURNOUT_OFFSET_MM * scale;
+  function trackSwitchGeometrySpec(kind) {
+    if (kind === 'trackSwitchTomix1279Left' || kind === 'trackSwitchTomix1278Right') {
+      const outerRadius = TOMIX_CURVED_TURNOUT_OUTER_RADIUS_MM || 317;
+      const innerRadius = TOMIX_CURVED_TURNOUT_INNER_RADIUS_MM || 280;
+      const angleDeg = TOMIX_CURVED_TURNOUT_ANGLE_DEG || 45;
+      const angleRad = TOMIX_CURVED_TURNOUT_ANGLE_RAD || angleDeg * Math.PI / 180;
+      return {
+        family: 'curved',
+        angleDeg,
+        angleRad,
+        radius: innerRadius,
+        mainRadius: outerRadius,
+        product: kind === 'trackSwitchTomix1279Left' ? '1279' : '1278',
+      };
+    }
     return {
-      radius,
+      family: 'straight',
       angleDeg: TOMIX_TURNOUT_ANGLE_DEG,
       angleRad: TOMIX_TURNOUT_ANGLE_RAD,
+      radius: TOMIX_TURNOUT_RADIUS_MM,
+      mainRadius: null,
+      product: kind === 'trackSwitchLeft' ? 'PL541-15' : 'PR541-15',
+    };
+  }
+
+  function tomixTurnoutGeometry(scale = 1, kind = 'trackSwitchRight') {
+    const spec = trackSwitchGeometrySpec(kind);
+    const radius = spec.radius * scale;
+    const mainRadius = spec.mainRadius ? spec.mainRadius * scale : null;
+    const length = (mainRadius || radius) * Math.sin(spec.angleRad);
+    const branchLength = radius * Math.sin(spec.angleRad);
+    const offset = radius * (1 - Math.cos(spec.angleRad));
+    const mainOffset = mainRadius ? mainRadius * (1 - Math.cos(spec.angleRad)) : 0;
+    return {
+      family: spec.family,
+      product: spec.product,
+      radius,
+      mainRadius,
+      angleDeg: spec.angleDeg,
+      angleRad: spec.angleRad,
       length,
+      branchLength,
       halfLength: length / 2,
       offset,
+      mainOffset,
       gauge: TOMIX_TURNOUT_GAUGE_MM * scale,
       roadbedWidth: TOMIX_TURNOUT_ROADBED_WIDTH_MM * scale,
       tieLength: TOMIX_TURNOUT_TIE_LENGTH_MM * scale,
@@ -121,21 +162,25 @@ export function createTrackAccessoryGeometry({
   }
 
   function trackSwitchGeometryPx(item) {
-    return tomixTurnoutGeometry(trackSwitchPxPerMm(item));
+    return tomixTurnoutGeometry(trackSwitchPxPerMm(item), item?.kind);
   }
 
   function trackSwitchGeometrySite3D(item) {
-    return tomixTurnoutGeometry(state.pxPerMm ? 1 : trackSwitchPxPerMm(item));
+    return tomixTurnoutGeometry(state.pxPerMm ? 1 : trackSwitchPxPerMm(item), item?.kind);
   }
 
   function trackSwitchEndpointDefinitions(item) {
     if (!item || !isTrackSwitchAccessoryKind(item.kind)) return [];
     const geom = trackSwitchGeometryPx(item);
     const dir = trackSwitchDirection(item.kind);
+    const mainEnd = geom.family === 'curved'
+      ? { x: geom.halfLength, y: dir * geom.mainOffset }
+      : { x: geom.halfLength, y: 0 };
+    const branchEnd = { x: -geom.halfLength + geom.branchLength, y: dir * geom.offset };
     return [
       { endpoint: 'heel', label: 'Heel', local: { x: -geom.halfLength, y: 0 }, angleDeg: 0 },
-      { endpoint: 'straight', label: 'Straight', local: { x: geom.halfLength, y: 0 }, angleDeg: 0 },
-      { endpoint: 'diverging', label: 'Diverging', local: { x: geom.halfLength, y: dir * geom.offset }, angleDeg: dir * TOMIX_TURNOUT_ANGLE_DEG },
+      { endpoint: 'straight', label: geom.family === 'curved' ? 'Outer curve' : 'Straight', local: mainEnd, angleDeg: geom.family === 'curved' ? dir * geom.angleDeg : 0 },
+      { endpoint: 'diverging', label: geom.family === 'curved' ? 'Inner curve' : 'Diverging', local: branchEnd, angleDeg: dir * geom.angleDeg },
     ];
   }
 
@@ -144,6 +189,17 @@ export function createTrackAccessoryGeometry({
     for (let i = 0; i <= steps; i++) {
       const a = geom.angleRad * i / steps;
       points.push({ x: -geom.halfLength + geom.radius * Math.sin(a), y: dir * geom.radius * (1 - Math.cos(a)) });
+    }
+    return points;
+  }
+
+  function trackSwitchMainPathPoints(geom, dir, steps = 18) {
+    if (geom.family !== 'curved') return [{ x: -geom.halfLength, y: 0 }, { x: geom.halfLength, y: 0 }];
+    const points = [];
+    const radius = geom.mainRadius || geom.radius;
+    for (let i = 0; i <= steps; i++) {
+      const a = geom.angleRad * i / steps;
+      points.push({ x: -geom.halfLength + radius * Math.sin(a), y: dir * radius * (1 - Math.cos(a)) });
     }
     return points;
   }
@@ -259,6 +315,8 @@ export function createTrackAccessoryGeometry({
     trackSwitchEndpointPoints,
     trackSwitchGeometryPx,
     trackSwitchGeometrySite3D,
+    trackSwitchGeometrySpec,
+    trackSwitchMainPathPoints,
     trackSwitchPxPerMm,
     tomixBufferGeometry,
     tomixTurnoutGeometry,

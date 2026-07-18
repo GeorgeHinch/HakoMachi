@@ -1,6 +1,7 @@
 const { expect, test } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
+const { pathToFileURL } = require('url');
 
 const AUTOSAVE_KEY = 'hakomachiSitePlannerAutosave_v1';
 const AUTOSAVE_META_KEY = 'hakomachiSitePlannerAutosaveMeta_v1';
@@ -97,6 +98,48 @@ function tomixSwitchFixtureEndpoints(x = 300, y = 220) {
   };
 }
 
+async function createTrackAccessoryGeometryForTest() {
+  const moduleUrl = pathToFileURL(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-geometry.js')).href;
+  const { createTrackAccessoryGeometry } = await import(moduleUrl);
+  return createTrackAccessoryGeometry({
+    state: { pxPerMm: 1, tracks: [] },
+    presets: {
+      sensor: { label: 'Sensor', color: '#000' },
+      trackSwitchLeft: { label: 'Left', color: '#000' },
+      trackSwitchRight: { label: 'Right', color: '#000' },
+      trackSwitchTomix1279Left: { label: 'Tomix 1279 Left', color: '#000' },
+      trackSwitchTomix1278Right: { label: 'Tomix 1278 Right', color: '#000' },
+    },
+    trackProfileDefaults: { gaugeMm: 9 },
+    constants: {
+      TOMIX_TURNOUT_RADIUS_MM: 541,
+      TOMIX_TURNOUT_ANGLE_DEG: 15,
+      TOMIX_TURNOUT_ANGLE_RAD: 15 * Math.PI / 180,
+      TOMIX_TURNOUT_LENGTH_MM: 541 * Math.sin(15 * Math.PI / 180),
+      TOMIX_TURNOUT_OFFSET_MM: 541 * (1 - Math.cos(15 * Math.PI / 180)),
+      TOMIX_TURNOUT_GAUGE_MM: 9,
+      TOMIX_TURNOUT_ROADBED_WIDTH_MM: 18.5,
+      TOMIX_TURNOUT_TIE_LENGTH_MM: 18,
+      TOMIX_TURNOUT_TIE_WIDTH_MM: 2,
+      TOMIX_TURNOUT_TIE_SPACING_MM: 8,
+      TOMIX_TURNOUT_RAIL_WIDTH_MM: 0.8,
+      TOMIX_CURVED_TURNOUT_OUTER_RADIUS_MM: 317,
+      TOMIX_CURVED_TURNOUT_INNER_RADIUS_MM: 280,
+      TOMIX_CURVED_TURNOUT_ANGLE_DEG: 45,
+      TOMIX_CURVED_TURNOUT_ANGLE_RAD: 45 * Math.PI / 180,
+      TOMIX_1428_BUFFER_LENGTH_MM: 22,
+      TOMIX_1428_BUFFER_WIDTH_MM: 18.5,
+      TOMIX_1428_BUFFER_TIE_SPACING_MM: 5,
+      TOMIX_1428_BUFFER_TERMINAL_HEIGHT_MM: 48,
+    },
+    normalizeTrack: item => item,
+    dist: (a, b) => Math.hypot(a.x - b.x, a.y - b.y),
+    rad: deg => deg * Math.PI / 180,
+    deg: rad => rad * 180 / Math.PI,
+    uid: prefix => `${prefix}_test`,
+  });
+}
+
 function rotatedPoint(center, point, rotationDeg) {
   const angle = rotationDeg * Math.PI / 180;
   const dx = point.x - center.x;
@@ -149,6 +192,31 @@ async function seedAutosave(page, project) {
 }
 
 test.describe('Site Planner track regressions', () => {
+  test('Tomix 1278 and 1279 curved switches use 317/280-45 endpoint geometry', async () => {
+    const geometry = await createTrackAccessoryGeometryForTest();
+    const right = geometry.normalizeTrackAccessory({ kind: 'trackSwitchTomix1278Right', x: 0, y: 0 });
+    const left = geometry.normalizeTrackAccessory({ kind: 'trackSwitchTomix1279Left', x: 0, y: 0 });
+    const rightGeom = geometry.trackSwitchGeometryPx(right);
+    const rightEndpoints = geometry.trackSwitchEndpointDefinitions(right);
+    const leftEndpoints = geometry.trackSwitchEndpointDefinitions(left);
+    const outerLength = 317 * Math.sin(45 * Math.PI / 180);
+    const innerLength = 280 * Math.sin(45 * Math.PI / 180);
+    const outerOffset = 317 * (1 - Math.cos(45 * Math.PI / 180));
+    const innerOffset = 280 * (1 - Math.cos(45 * Math.PI / 180));
+
+    expect(rightGeom.family).toBe('curved');
+    expect(rightGeom.mainRadius).toBeCloseTo(317, 3);
+    expect(rightGeom.radius).toBeCloseTo(280, 3);
+    expect(rightGeom.angleDeg).toBe(45);
+    expect(rightEndpoints.find(endpoint => endpoint.endpoint === 'heel').local.x).toBeCloseTo(-outerLength / 2, 3);
+    expect(rightEndpoints.find(endpoint => endpoint.endpoint === 'straight').local.x).toBeCloseTo(outerLength / 2, 3);
+    expect(rightEndpoints.find(endpoint => endpoint.endpoint === 'straight').local.y).toBeCloseTo(outerOffset, 3);
+    expect(rightEndpoints.find(endpoint => endpoint.endpoint === 'diverging').local.x).toBeCloseTo(-outerLength / 2 + innerLength, 3);
+    expect(rightEndpoints.find(endpoint => endpoint.endpoint === 'diverging').local.y).toBeCloseTo(innerOffset, 3);
+    expect(leftEndpoints.find(endpoint => endpoint.endpoint === 'straight').local.y).toBeCloseTo(-outerOffset, 3);
+    expect(leftEndpoints.find(endpoint => endpoint.endpoint === 'diverging').local.y).toBeCloseTo(-innerOffset, 3);
+  });
+
   test('history snapshots include track geometry through the track controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-controller.js'), 'utf8');

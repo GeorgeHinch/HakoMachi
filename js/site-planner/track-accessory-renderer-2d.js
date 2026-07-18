@@ -13,6 +13,7 @@ export function createTrackAccessoryRenderer2D({
   trackSwitchDirection,
   trackSwitchGeometryPx,
   trackSwitchCurvePoints,
+  trackSwitchMainPathPoints,
   offsetTrackPath,
   polylineLength,
   pointAtPolylineDistance,
@@ -74,20 +75,30 @@ export function createTrackAccessoryRenderer2D({
     } else if (isTrackSwitchAccessoryKind(item.kind)) {
       const dir = trackSwitchDirection(item.kind);
       const geom = trackSwitchGeometryPx(item);
+      const mainPath = trackSwitchMainPathPoints(geom, dir, 22);
       const branch = trackSwitchCurvePoints(geom, dir, 22);
+      const mainRailA = offsetTrackPath(mainPath, geom.gauge / 2);
+      const mainRailB = offsetTrackPath(mainPath, -geom.gauge / 2);
       const branchRailA = offsetTrackPath(branch, geom.gauge / 2);
       const branchRailB = offsetTrackPath(branch, -geom.gauge / 2);
       ctx.save();
       ctx.strokeStyle = 'rgba(199,176,132,.72)';
       ctx.lineWidth = Math.max(geom.roadbedWidth, 10 * scale);
-      drawTrackSwitchPolyline([{ x: -geom.halfLength, y: 0 }, { x: geom.halfLength, y: 0 }]);
+      drawTrackSwitchPolyline(mainPath);
       drawTrackSwitchPolyline(branch);
       ctx.strokeStyle = 'rgba(138,111,67,.82)';
       ctx.lineWidth = Math.max(geom.tieWidth, 1.2 * scale);
       const tieHalf = Math.max(geom.tieLength / 2, geom.gauge / 2 + 3 * scale);
       const switchTieSpacing = Math.max(geom.tieSpacing, 3 * scale);
-      for (let x = -geom.halfLength; x <= geom.halfLength + .01; x += switchTieSpacing) {
-        ctx.beginPath(); ctx.moveTo(x, -tieHalf); ctx.lineTo(x, tieHalf); ctx.stroke();
+      const mainLength = polylineLength(mainPath);
+      for (let d = 0; d <= mainLength + switchTieSpacing * .25; d += switchTieSpacing) {
+        const station = pointAtPolylineDistance(mainPath, d);
+        if (!station) continue;
+        const p = station.point, nx = -station.tangent.y, ny = station.tangent.x;
+        ctx.beginPath();
+        ctx.moveTo(p.x - nx * tieHalf, p.y - ny * tieHalf);
+        ctx.lineTo(p.x + nx * tieHalf, p.y + ny * tieHalf);
+        ctx.stroke();
       }
       const branchLength = polylineLength(branch);
       for (let d = switchTieSpacing * 1.25; d <= branchLength - switchTieSpacing * .35; d += switchTieSpacing) {
@@ -101,8 +112,8 @@ export function createTrackAccessoryRenderer2D({
       }
       ctx.strokeStyle = '#4b4438';
       ctx.lineWidth = Math.max(geom.railWidth, 1.2 * scale);
-      drawTrackSwitchPolyline([{ x: -geom.halfLength, y: -geom.gauge / 2 }, { x: geom.halfLength, y: -geom.gauge / 2 }]);
-      drawTrackSwitchPolyline([{ x: -geom.halfLength, y: geom.gauge / 2 }, { x: geom.halfLength, y: geom.gauge / 2 }]);
+      drawTrackSwitchPolyline(mainRailA);
+      drawTrackSwitchPolyline(mainRailB);
       drawTrackSwitchPolyline(branchRailA);
       drawTrackSwitchPolyline(branchRailB);
       ctx.strokeStyle = color;
@@ -112,7 +123,8 @@ export function createTrackAccessoryRenderer2D({
       ctx.lineTo(-geom.halfLength + geom.length * .52, dir * geom.offset * .42);
       ctx.stroke();
       ctx.restore();
-      ctx.beginPath(); ctx.arc(geom.halfLength, 0, 2.8 * scale, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      const mainEndpoint = mainPath[mainPath.length - 1];
+      ctx.beginPath(); ctx.arc(mainEndpoint.x, mainEndpoint.y, 2.8 * scale, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       ctx.beginPath(); ctx.arc(branch[branch.length - 1].x, branch[branch.length - 1].y, 2.8 * scale, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       ctx.beginPath(); ctx.arc(-geom.halfLength, 0, 2.8 * scale, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     } else if (isTrackBufferAccessoryKind(item.kind)) {
@@ -187,8 +199,9 @@ export function createTrackAccessoryRenderer2D({
       if (isTrackSwitchAccessoryKind(item.kind)) {
         const geom = trackSwitchGeometryPx(item);
         const dir = trackSwitchDirection(item.kind);
-        const minY = dir < 0 ? -geom.offset - geom.roadbedWidth / 2 : -geom.roadbedWidth / 2;
-        const maxY = dir < 0 ? geom.roadbedWidth / 2 : geom.offset + geom.roadbedWidth / 2;
+        const maxOffset = Math.max(Math.abs(geom.offset || 0), Math.abs(geom.mainOffset || 0));
+        const minY = dir < 0 ? -maxOffset - geom.roadbedWidth / 2 : -geom.roadbedWidth / 2;
+        const maxY = dir < 0 ? geom.roadbedWidth / 2 : maxOffset + geom.roadbedWidth / 2;
         ctx.strokeRect(-geom.halfLength - 4 * scale, minY - 4 * scale, geom.length + 8 * scale, (maxY - minY) + 8 * scale);
       } else if (isTrackBufferAccessoryKind(item.kind)) {
         const geom = trackBufferGeometryPx(item);

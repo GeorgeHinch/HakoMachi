@@ -118,6 +118,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   const TOMIX_TURNOUT_ANGLE_RAD = TOMIX_TURNOUT_ANGLE_DEG * Math.PI / 180;
   const TOMIX_TURNOUT_LENGTH_MM = TOMIX_TURNOUT_RADIUS_MM * Math.sin(TOMIX_TURNOUT_ANGLE_RAD);
   const TOMIX_TURNOUT_OFFSET_MM = TOMIX_TURNOUT_RADIUS_MM * (1 - Math.cos(TOMIX_TURNOUT_ANGLE_RAD));
+  const TOMIX_CURVED_TURNOUT_OUTER_RADIUS_MM = 317;
+  const TOMIX_CURVED_TURNOUT_INNER_RADIUS_MM = 280;
+  const TOMIX_CURVED_TURNOUT_ANGLE_DEG = 45;
+  const TOMIX_CURVED_TURNOUT_ANGLE_RAD = TOMIX_CURVED_TURNOUT_ANGLE_DEG * Math.PI / 180;
   const TOMIX_TURNOUT_GAUGE_MM = 9;
   const TOMIX_TURNOUT_ROADBED_WIDTH_MM = 18.5;
   const TOMIX_TURNOUT_TIE_LENGTH_MM = 18;
@@ -140,6 +144,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     occupancyLight: { label: 'Blinking Occupancy Lights', color: '#c84a3a', defaultNotes: 'Blinking occupancy detection lights for level crossing status.' },
     trackSwitchLeft: { label: 'Left-hand Track Switch', color: '#4b4438', defaultNotes: 'Tomix PL541-15 style left-hand turnout marker: 541 mm radius, 15 degree diverging route.' },
     trackSwitchRight: { label: 'Right-hand Track Switch', color: '#4b4438', defaultNotes: 'Tomix PR541-15 style right-hand turnout marker: 541 mm radius, 15 degree diverging route.' },
+    trackSwitchTomix1279Left: { label: 'Tomix 1279 Left Curved Switch', color: '#4b4438', defaultNotes: 'Tomix 1279 N-CPL317/280-45 left curved turnout marker: 317 mm outer curve, 280 mm inner diverging curve, 45 degree routes.' },
+    trackSwitchTomix1278Right: { label: 'Tomix 1278 Right Curved Switch', color: '#4b4438', defaultNotes: 'Tomix 1278 N-CPR317/280-45 right curved turnout marker: 317 mm outer curve, 280 mm inner diverging curve, 45 degree routes.' },
     trackBufferTomix1428: { label: 'Tomix 1428 Buffer Stop', color: '#6f6a5e', defaultNotes: 'Tomix 1428 style end-of-track buffer stop marker.' },
     trackBufferTomix1428Catenary: { label: 'Tomix 1428 Buffer + Catenary Terminal', color: '#6f6a5e', defaultNotes: 'Tomix 1428 style buffer stop marker with catenary end terminal enabled.' },
     catenarySingleSide: { label: 'Single-side Catenary Pole', color: '#f2f0e8', defaultNotes: 'Single-track catenary pole with one side mast and outreach arm.' },
@@ -978,7 +984,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     { key: 'signals', label: 'Signals', kinds: ['signal', 'occupancyLight'] },
     { key: 'crossings', label: 'Crossing equipment', kinds: ['crossingArm', 'intrusionDetector'] },
     { key: 'catenary', label: 'Catenary', kinds: ['catenarySingleSide', 'catenaryDoublePortal'] },
-    { key: 'switches', label: 'Switches', kinds: ['trackSwitchLeft', 'trackSwitchRight'] },
+    { key: 'switches', label: 'Switches', kinds: ['trackSwitchLeft', 'trackSwitchRight', 'trackSwitchTomix1279Left', 'trackSwitchTomix1278Right'] },
     { key: 'buffers', label: 'Buffer stops', kinds: ['trackBufferTomix1428', 'trackBufferTomix1428Catenary'] },
   ]);
   function trackAccessoryObjectFilterDefinition(key='all'){
@@ -1048,6 +1054,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function trackSwitchCurvePoints(geom, dir, steps=18){
     return trackAccessoryGeometry.trackSwitchCurvePoints(geom, dir, steps);
+  }
+  function trackSwitchMainPathPoints(geom, dir, steps=18){
+    return trackAccessoryGeometry.trackSwitchMainPathPoints(geom, dir, steps);
   }
   function pointAtPolylineDistance(path,distance){
     return trackAccessoryGeometry.pointAtPolylineDistance(path, distance);
@@ -1608,10 +1617,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         const dx=p.x-item.x, dy=p.y-item.y;
         const lx=dx*Math.cos(a)-dy*Math.sin(a);
         const ly=dx*Math.sin(a)+dy*Math.cos(a);
+        const maxOffset=Math.max(Math.abs(geom.offset||0),Math.abs(geom.mainOffset||0));
         const verticalMin=-geom.roadbedWidth/2-tol;
-        const verticalMax=geom.offset+geom.roadbedWidth/2+tol;
-        const yMin=item.kind==='trackSwitchLeft' ? -verticalMax : verticalMin;
-        const yMax=item.kind==='trackSwitchLeft' ? -verticalMin : verticalMax;
+        const verticalMax=maxOffset+geom.roadbedWidth/2+tol;
+        const dir=trackSwitchDirection(item.kind);
+        const yMin=dir<0 ? -verticalMax : verticalMin;
+        const yMax=dir<0 ? -verticalMin : verticalMax;
         if(lx>=-geom.halfLength-tol && lx<=geom.halfLength+tol && ly>=yMin && ly<=yMax) d=0;
         itemTol=Math.max(tol,Math.min(36/state.view.scale,geom.length/4));
       } else if(isTrackBufferAccessoryKind(item.kind)){
@@ -1641,7 +1652,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(isTrackSwitchAccessoryKind(item?.kind)){
       const geom=trackSwitchGeometryPx(item);
       const dir=trackSwitchDirection(item.kind);
-      const minY=dir<0 ? -geom.offset-geom.roadbedWidth/2 : -geom.roadbedWidth/2;
+      const maxOffset=Math.max(Math.abs(geom.offset||0),Math.abs(geom.mainOffset||0));
+      const minY=dir<0 ? -maxOffset-geom.roadbedWidth/2 : -geom.roadbedWidth/2;
       return {x:0,y:minY-28*scale};
     }
     return {x:0,y:-34*scale};
@@ -1659,7 +1671,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(!isTrackSwitchAccessoryKind(item?.kind)) return {x:item.x+12*scale,y:item.y-12*scale};
     const geom=trackSwitchGeometryPx(item);
     const dir=trackSwitchDirection(item.kind);
-    const maxY=dir<0 ? geom.roadbedWidth/2 : geom.offset+geom.roadbedWidth/2;
+    const maxOffset=Math.max(Math.abs(geom.offset||0),Math.abs(geom.mainOffset||0));
+    const maxY=dir<0 ? geom.roadbedWidth/2 : maxOffset+geom.roadbedWidth/2;
     const local={x:-geom.halfLength,y:maxY+24*scale};
     const a=rad(Number(item.rotationDeg)||0);
     return {
@@ -2318,6 +2331,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       TOMIX_TURNOUT_TIE_WIDTH_MM,
       TOMIX_TURNOUT_TIE_SPACING_MM,
       TOMIX_TURNOUT_RAIL_WIDTH_MM,
+      TOMIX_CURVED_TURNOUT_OUTER_RADIUS_MM,
+      TOMIX_CURVED_TURNOUT_INNER_RADIUS_MM,
+      TOMIX_CURVED_TURNOUT_ANGLE_DEG,
+      TOMIX_CURVED_TURNOUT_ANGLE_RAD,
       TOMIX_1428_BUFFER_LENGTH_MM,
       TOMIX_1428_BUFFER_WIDTH_MM,
       TOMIX_1428_BUFFER_TIE_SPACING_MM,
@@ -2344,6 +2361,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     trackSwitchDirection,
     trackSwitchGeometryPx,
     trackSwitchCurvePoints,
+    trackSwitchMainPathPoints,
     offsetTrackPath,
     polylineLength,
     pointAtPolylineDistance,
@@ -3346,6 +3364,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         trackSwitchDirection,
         trackSwitchGeometrySite3D,
         trackSwitchCurvePoints,
+        trackSwitchMainPathPoints,
+        polylineLength,
+        pointAtPolylineDistance,
         offsetTrackPath,
         trackBufferGeometrySite3D,
         buildFallbackTrackAccessoryItem: buildSite3DTrackAccessoryFallbackItem,
@@ -4512,7 +4533,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadIntersection=selectedRoadIntersection(); const railCrossing=selectedRailCrossing(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const track=selectedTrack(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const fabric=selectedFabric(); const stl=selectedStlObject(); const selIds=currentSelectedBuildingIds(); const trackAccessory=(!b && !selIds.length && !note && !roadIntersection && !railCrossing && !roadFeature && !road && !track && !bench && !light && !fabric && !stl) ? selectedTrackAccessory() : null; if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use keyboard shortcuts to copy/paste selected building footprints.</span><div class="buttons" style="margin-top:8px"><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(trackAccessory){normalizeTrackAccessory(trackAccessory); box.innerHTML=`
       <b>Track item selected</b>
       <label>Name</label><input id="trackItemName" value="${escapeAttr(trackAccessory.name||trackAccessoryLabel(trackAccessory.kind))}">
-      <label>Type</label><select id="trackItemKind"><option value="sensor">Under-track Sensor</option><option value="signal">Signal Location</option><option value="crossingArm">Crossing Arm</option><option value="intrusionDetector">Intrusion Detector</option><option value="occupancyLight">Blinking Occupancy Lights</option><option value="trackSwitchLeft">Left-hand Track Switch</option><option value="trackSwitchRight">Right-hand Track Switch</option><option value="trackBufferTomix1428">Tomix 1428 Buffer Stop</option><option value="trackBufferTomix1428Catenary">Tomix 1428 Buffer + Catenary Terminal</option><option value="catenarySingleSide">Single-side Catenary Pole</option><option value="catenaryDoublePortal">Double-track Catenary Portal</option></select>
+      <label>Type</label><select id="trackItemKind"><option value="sensor">Under-track Sensor</option><option value="signal">Signal Location</option><option value="crossingArm">Crossing Arm</option><option value="intrusionDetector">Intrusion Detector</option><option value="occupancyLight">Blinking Occupancy Lights</option><option value="trackSwitchLeft">Left-hand Track Switch</option><option value="trackSwitchRight">Right-hand Track Switch</option><option value="trackSwitchTomix1279Left">Tomix 1279 Left Curved Switch</option><option value="trackSwitchTomix1278Right">Tomix 1278 Right Curved Switch</option><option value="trackBufferTomix1428">Tomix 1428 Buffer Stop</option><option value="trackBufferTomix1428Catenary">Tomix 1428 Buffer + Catenary Terminal</option><option value="catenarySingleSide">Single-side Catenary Pole</option><option value="catenaryDoublePortal">Double-track Catenary Portal</option></select>
       <div class="row"><div><label>X px</label><input id="trackItemX" type="number" step="1" value="${fmt(trackAccessory.x||0)}"></div><div><label>Y px</label><input id="trackItemY" type="number" step="1" value="${fmt(trackAccessory.y||0)}"></div></div>
       <div class="row"><div><label>Rotation °</label><input id="trackItemRot" type="number" step="1" value="${fmt(trackAccessory.rotationDeg||0)}"></div><div><label>Color</label><input id="trackItemColor" type="color" value="${trackAccessory.color||trackAccessoryPreset(trackAccessory.kind).color}"></div></div>
       ${isCatenaryAccessoryKind(trackAccessory.kind)?`<label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="trackItemAutoOrient" type="checkbox" ${trackAccessory.autoOrientToTrack!==false&&trackAccessory.trackId?'checked':''}> <span>Attach and auto-orient to track</span></label>`:''}

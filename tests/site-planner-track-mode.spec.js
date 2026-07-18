@@ -89,6 +89,12 @@ test.describe('site planner track editing workspace', () => {
     await expect(page.locator('#trackSwitchToolLabel')).toHaveText('Right Switch');
     await expect(page.locator('#statusTool')).toContainText('Right-hand track switch');
 
+    await page.click('#trackSwitchVariantBtn');
+    await page.click('#trackSwitchToolMenu [data-track-switch-kind="trackSwitchTomix1279Left"]');
+    await expect(page.locator('#trackSwitchToolBtn')).toHaveClass(/active/);
+    await expect(page.locator('#trackSwitchToolLabel')).toHaveText('1279 Curve');
+    await expect(page.locator('#statusTool')).toContainText('Tomix 1279 left curved switch');
+
     await page.click('#trackBufferVariantBtn');
     await expect(page.locator('#trackBufferToolMenu')).toHaveClass(/open/);
     await page.click('#trackBufferToolMenu [data-track-buffer-kind="trackBufferTomix1428Catenary"]');
@@ -214,6 +220,33 @@ test.describe('site planner track editing workspace', () => {
       return false;
     });
     expect(hasRenderedPixels).toBe(true);
+  });
+
+  test('places Tomix 1278 curved switch marker from the switch flyout', async ({ page }) => {
+    await page.goto('/site-planner.html', { waitUntil: 'domcontentloaded' });
+    await importBlankPlan(page);
+
+    await page.selectOption('#workspaceMode', 'track');
+    const sidebarToggle = page.locator('#sidebarToggle[aria-expanded="true"]');
+    if (await sidebarToggle.count() && await sidebarToggle.isVisible()) await sidebarToggle.click();
+    await page.click('#trackSwitchVariantBtn');
+    await page.click('#trackSwitchToolMenu [data-track-switch-kind="trackSwitchTomix1278Right"]');
+    await expect(page.locator('#trackSwitchToolLabel')).toHaveText('1278 Curve');
+    await expect(page.locator('#statusTool')).toContainText('Tomix 1278 right curved switch');
+    await canvasClick(page, 210, 160);
+
+    await expect(page.locator('#selectedPanel')).toContainText('Track item selected');
+    await expect(page.locator('#selectedPanel')).toContainText('Tomix 1278 Right Curved Switch');
+    await expect(page.locator('#trackItemKind')).toHaveValue('trackSwitchTomix1278Right');
+    await expect(page.locator('#trackItemNotes')).toHaveValue(/N-CPR317\/280-45/);
+    await page.waitForFunction(key => {
+      const payload = JSON.parse(localStorage.getItem(key) || '{}');
+      return (payload.trackAccessories || []).some(entry => entry.kind === 'trackSwitchTomix1278Right');
+    }, AUTOSAVE_KEY);
+    const payload = await autosavePayload(page);
+    const item = (payload.trackAccessories || []).find(entry => entry.kind === 'trackSwitchTomix1278Right');
+    expect(item).toBeTruthy();
+    expect(item.name).toContain('Tomix 1278 Right Curved Switch');
   });
 
   test('places a Tomix 1428 buffer stop with catenary terminal at a track endpoint', async ({ page }) => {

@@ -1464,12 +1464,13 @@ test.describe('Site Planner module split contracts', () => {
   test('streetlight model behavior is wired through the streetlight controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'streetlight-controller.js'), 'utf8');
+    const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-canvas-renderer.js'), 'utf8');
 
     expect(source).toContain("import { createStreetlightController } from './site-planner/streetlight-controller.js';");
     expect(source).toContain('} = createStreetlightController({');
     expect(source).toContain('normalizeStreetlight,');
     expect(source).toContain('placeStreetlight,');
-    expect(source).toContain('state.streetlights.forEach(drawStreetlight);');
+    expect(renderer).toContain('state.streetlights.forEach(drawStreetlight);');
 
     expect(controller).toContain('export function createStreetlightController');
     expect(controller).toContain('function normalizeStreetlight(l)');
@@ -1642,14 +1643,18 @@ test.describe('Site Planner module split contracts', () => {
 
   test('rail crossing inserts render above normal track in the 2D planner', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
-    const drawStart = source.indexOf('function drawNow');
-    const drawEnd = source.indexOf('function fitImage', drawStart);
-    const drawNow = source.slice(drawStart, drawEnd);
+    const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-canvas-renderer.js'), 'utf8');
+    const drawStart = renderer.indexOf('function drawNow');
+    const drawEnd = renderer.indexOf('function fitImage', drawStart);
+    const drawNow = renderer.slice(drawStart, drawEnd);
 
+    expect(source).toContain("import { createSiteCanvasRenderer } from './site-planner/site-canvas-renderer.js';");
+    expect(source).toContain('const { drawNow, fitImage } = createSiteCanvasRenderer({');
+    expect(source).not.toContain('function drawNow()');
     const roadLayerIndex = drawNow.indexOf('drawRoadLayer()');
-    const trackLayerIndex = drawNow.indexOf('(state.tracks||[]).forEach(drawTrack)');
+    const trackLayerIndex = drawNow.indexOf('(state.tracks || []).forEach(drawTrack)');
     const railCrossingIndex = drawNow.indexOf('drawGeneratedRailCrossings()');
-    const accessoryLayerIndex = drawNow.indexOf('(state.trackAccessories||[]).forEach(drawTrackAccessory)');
+    const accessoryLayerIndex = drawNow.indexOf('(state.trackAccessories || []).forEach(drawTrackAccessory)');
 
     expect(roadLayerIndex).toBeGreaterThanOrEqual(0);
     expect(trackLayerIndex).toBeGreaterThan(roadLayerIndex);

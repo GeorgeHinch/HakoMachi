@@ -100,6 +100,18 @@ test.describe('Site Planner module split contracts', () => {
     expect(detail).toContain('attachSourceFileToStlObject(stlObject, file)');
   });
 
+  test('road feature detail controls are wired through their sidebar module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-road-feature-detail.js'), 'utf8');
+
+    expect(source).toContain("import { renderRoadFeatureDetail } from './site-planner/sidebar-road-feature-detail.js';");
+    expect(source).toContain('} if(roadFeature){renderRoadFeatureDetail({');
+    expect(detail).toContain('export function renderRoadFeatureDetail');
+    expect(detail).toContain('applyRoadMarkingPreset(roadFeature');
+    expect(detail).toContain('setPhysicalGrateMode(roadFeature');
+    expect(detail).toContain('setRoadMarkingOutputMode(roadFeature');
+  });
+
   test('sidebar input binding stays shared across standard object panels', async () => {
     const binder = await import('../js/site-planner/sidebar-input-binding.js');
     const files = ['sidebar-benchwork-detail.js', 'sidebar-fabric-detail.js', 'sidebar-stl-detail.js', 'sidebar-streetlight-detail.js', 'sidebar-track-detail.js'];

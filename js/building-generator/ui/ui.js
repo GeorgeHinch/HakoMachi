@@ -575,8 +575,13 @@ export function updateConditionalFields() {
   document.getElementById('firstFloorCladdingStyleField').style.display = ffcOn ? '' : 'none';
   // Interior cladding style picker only when the feature is enabled.
   const intCladOn = !!document.getElementById('interiorCladding')?.checked;
+  const setClassBackedVisibility = (element, visible) => {
+    if (!element) return;
+    element.classList.toggle('building-generator-hidden-field', !visible);
+    element.style.display = visible ? '' : 'none';
+  };
   const intCladField = document.getElementById('interiorCladdingStyleField');
-  if (intCladField) intCladField.style.display = intCladOn ? '' : 'none';
+  setClassBackedVisibility(intCladField, intCladOn);
   // Ground-floor depth offset field only when checkbox is checked
   const gfoOn = !!document.getElementById('groundFloorOffsetEnabled').checked;
   document.getElementById('groundFloorOffsetField').style.display = gfoOn ? '' : 'none';
@@ -595,15 +600,15 @@ export function updateConditionalFields() {
   // overhang per ohFB/ohEW). For roofs without overhangs (flat,
   // parapet, parapet_gable, slanted) we hide it — generateSoffit
   // would return [] anyway, but hiding keeps the UI tidy.
-  document.getElementById('soffitCladdingField').style.display = (roofStyle === 'flat_overhang' || roofStyle === 'gabled' || roofStyle === 'slanted') ? '' : 'none';
+  setClassBackedVisibility(document.getElementById('soffitCladdingField'), roofStyle === 'flat_overhang' || roofStyle === 'gabled' || roofStyle === 'slanted');
   // Fascia trim: 3 mm trim strips along the roof perimeter. Applies
   // to gabled (chevron + eave cap) and slanted (parallelogram) only;
   // flat_overhang doesn't get this trim feature (its eave edges are
   // covered by the soffit cladding above).
-  document.getElementById('roofFasciaTrimField').style.display = (roofStyle === 'gabled' || roofStyle === 'slanted') ? '' : 'none';
-  document.getElementById('parapetSidesField').style.display = (roofStyle === 'parapet_gable') ? '' : 'none';
-  document.getElementById('roofPitchField').style.display = (roofStyle === 'slanted' || roofStyle === 'gabled' || roofStyle === 'parapet_gable') ? '' : 'none';
-  document.getElementById('roofOverhangAllField').style.display = (roofStyle === 'flat_overhang') ? '' : 'none';
+  setClassBackedVisibility(document.getElementById('roofFasciaTrimField'), roofStyle === 'gabled' || roofStyle === 'slanted');
+  setClassBackedVisibility(document.getElementById('parapetSidesField'), roofStyle === 'parapet_gable');
+  setClassBackedVisibility(document.getElementById('roofPitchField'), roofStyle === 'slanted' || roofStyle === 'gabled' || roofStyle === 'parapet_gable');
+  setClassBackedVisibility(document.getElementById('roofOverhangAllField'), roofStyle === 'flat_overhang');
   // Roof cladding style only matters for slanted / gabled roofs — parapet
   // and flat roofs don't emit a cladding panel and reuse the wall texture
   // via 3D wrapping. Mirror the same visibility test the cladding panel
@@ -622,20 +627,16 @@ export function updateConditionalFields() {
   const showRidge = (roofStyle === 'gabled') ||
                     (roofStyle === 'parapet_gable' &&
                      (document.getElementById('parapetSides')?.value || 'all') === 'all');
-  document.getElementById('roofRidgeDirectionField').style.display = showRidge ? '' : 'none';
-  document.getElementById('roofSlopeDirectionField').style.display = (roofStyle === 'slanted') ? '' : 'none';
-  document.getElementById('roofOverhangField').style.display = (roofStyle === 'slanted' || roofStyle === 'gabled') ? '' : 'none';
+  setClassBackedVisibility(document.getElementById('roofRidgeDirectionField'), showRidge);
+  setClassBackedVisibility(document.getElementById('roofSlopeDirectionField'), roofStyle === 'slanted');
+  setClassBackedVisibility(document.getElementById('roofOverhangField'), roofStyle === 'slanted' || roofStyle === 'gabled');
   const trussesOn = !!document.getElementById('trussesEnabled')?.checked;
   const trussControls = document.getElementById('trussControls');
-  if (trussControls) trussControls.style.display = trussesOn ? '' : 'none';
+  setClassBackedVisibility(trussControls, trussesOn);
   const trussXBraceControls = document.getElementById('trussXBraceControls');
-  if (trussXBraceControls) {
-    trussXBraceControls.style.display = (trussesOn && !!document.getElementById('trussXBraceEnabled')?.checked) ? '' : 'none';
-  }
+  setClassBackedVisibility(trussXBraceControls, trussesOn && !!document.getElementById('trussXBraceEnabled')?.checked);
   const trussSupportControls = document.getElementById('trussSupportControls');
-  if (trussSupportControls) {
-    trussSupportControls.style.display = (trussesOn && !!document.getElementById('trussSupportsEnabled')?.checked) ? '' : 'none';
-  }
+  setClassBackedVisibility(trussSupportControls, trussesOn && !!document.getElementById('trussSupportsEnabled')?.checked);
   // Rooftop shield sub-fields
   const shieldOn = !!document.getElementById('rooftopShieldEnabled')?.checked;
   const shieldFields = document.getElementById('rooftopShieldFields');

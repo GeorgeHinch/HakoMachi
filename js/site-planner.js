@@ -23,6 +23,7 @@ import { createFootprintClipboardController } from './site-planner/footprint-cli
 import { cacheImageAsset, cachedImageAsset, githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, hakoFileAssetReference, imageAssetFileName, imageAssetReference, imageMetaForProject, stlAssetReference, stlSourceAssetReference, uniqueHakoAssetFileName, uniqueStlAssetFileName, uniqueStlSourceAssetFileName } from './site-planner/github-asset-paths.js';
 import { createBenchworkController } from './site-planner/benchwork-controller.js';
 import { createGithubDataAccess } from './site-planner/github-access-utils.js';
+import { createGithubSiteSourceController } from './site-planner/github-site-source-controller.js';
 import { githubPlacementPreviewPolygon, githubRecordPlacementShape } from './site-planner/github-building-placement-utils.js';
 import { createGithubBuildingPreviewRenderer } from './site-planner/github-building-preview-renderer.js';
 import { createGithubModalController } from './site-planner/github-modal-utils.js';
@@ -240,6 +241,18 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     writeGithubBase64File,
     loadGithubLibrary,
   } = createGithubDataAccess(githubData, GITHUB_CURRENT_KEY);
+  const {
+    activeGithubSiteSource,
+    githubSiteSourceFromProject,
+    rememberGithubSiteSource,
+    updatePrimarySaveUi,
+  } = createGithubSiteSourceController({
+    getCurrentGithubSite,
+    setCurrentGithubSite,
+    getElement:$,
+    slug,
+    githubProjectName,
+  });
   const {
     openGithubModal,
     closeGithubModal,
@@ -4103,38 +4116,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       {label:'Datastore guide', onClick:()=>window.open('docs/github-datastore.md','_blank','noopener')},
       {label:'Close', onClick:closeGithubModal}
     ]);
-  }
-  function githubSiteSourceFromProject(project){
-    const cloud=project?.hakomachiCloud;
-    if(!cloud || cloud.kind!=='sitePlan' || !cloud.path) return null;
-    return {
-      id:cloud.id || slug(cloud.name || project.projectName || 'site-plan'),
-      name:cloud.name || project.projectName || githubProjectName(project),
-      path:cloud.path,
-    };
-  }
-  function activeGithubSiteSource(){
-    const current=getCurrentGithubSite();
-    if(!current?.path || !current?.id || !current?.name) return null;
-    return current;
-  }
-  function rememberGithubSiteSource(source){
-    setCurrentGithubSite(source || null);
-    updatePrimarySaveUi();
-  }
-  function updatePrimarySaveUi(){
-    const source=activeGithubSiteSource();
-    const label=source ? 'Save to GitHub' : 'Save .hako-site';
-    const title=source
-      ? `Save changes back to ${source.path}`
-      : 'Download the current site plan as a .hako-site package.';
-    ['saveBtn','mobileSaveBtn'].forEach(id=>{
-      const btn=$(id);
-      if(!btn) return;
-      btn.textContent=label;
-      btn.title=title;
-      btn.dataset.saveSource=source ? 'github' : 'local-package';
-    });
   }
   async function saveGithubImageAsset(settings, siteId, siteName){
     const dataUrl=state.imageMeta?.dataUrl;

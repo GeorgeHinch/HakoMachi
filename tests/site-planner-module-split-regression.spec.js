@@ -1731,6 +1731,19 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain("markDirty('3d reference image opacity',{history:false});");
   });
 
+  test('GitHub save-source state is wired through its Site Planner controller', () => {
+    const source=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'github-site-source-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createGithubSiteSourceController } from './site-planner/github-site-source-controller.js';");
+    expect(source).toContain('} = createGithubSiteSourceController({');
+    expect(source).not.toContain('function activeGithubSiteSource(){');
+    expect(source).not.toContain('function updatePrimarySaveUi(){');
+    expect(controller).toContain('export function createGithubSiteSourceController');
+    expect(controller).toContain("button.dataset.saveSource=source?'github':'local-package';");
+    expect(controller).toContain('function githubSiteSourceFromProject(project){');
+  });
+
   test('Tomix track accessories fall back to the flex-track gauge scale', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const scaleHelpers = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-geometry.js'), 'utf8');

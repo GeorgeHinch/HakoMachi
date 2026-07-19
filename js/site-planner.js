@@ -56,6 +56,7 @@ import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDet
 import { createSidebarObjectBrowserController } from './site-planner/sidebar-object-browser-controller.js';
 import { renderRailCrossingDetail } from './site-planner/sidebar-rail-crossing-detail.js';
 import { renderBenchworkDetail } from './site-planner/sidebar-benchwork-detail.js';
+import { renderStreetlightDetail } from './site-planner/sidebar-streetlight-detail.js';
 import { renderTrackDetail } from './site-planner/sidebar-track-detail.js';
 import { createSite3DBaseRenderer } from './site-planner/site-3d-base-renderer.js';
 import { createSite3DBuildingConfigController } from './site-planner/site-3d-building-config.js';
@@ -3328,28 +3329,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       deleteSelectedBenchwork,
     });
       return;
-    } if(light){normalizeStreetlight(light); box.innerHTML=`
-      <b>${light.mode==='anchored'?'Anchored Streetlight':'Streetlight'} selected</b>
-      <label>Name</label><input id="slName" value="${escapeAttr(light.name||'')}">
-      <div class="row"><div><label>Type</label><select id="slType"><option value="singleArm">Single arm</option><option value="doubleArm">Double arm</option><option value="poleOnly">Pole only</option></select></div><div><label>Color</label><input id="slColor" type="color" value="${light.color||'#c84a3a'}"></div></div>
-      <div class="row"><div><label>Height mm</label><input id="slHeight" type="number" step="0.1" value="${fmt(light.heightMm)}"></div><div><label>Arm mm</label><input id="slArm" type="number" step="0.1" value="${fmt(light.armLengthMm)}"></div></div>
-      <div class="row"><div><label>Rotation °</label><input id="slRot" type="number" step="1" value="${fmt(light.rotationDeg||0)}"></div><div><label>Light radius mm</label><input id="slRadius" type="number" step="0.1" value="${fmt(light.lightRadiusMm)}"></div></div>
-      ${light.mode==='anchored'?`<h3 style="margin-top:10px">Anchor / future export</h3>
-      <label>Mount mode</label><select id="slMount"><option value="sidewalkCutHole">Sidewalk cut-through hole</option><option value="roadEdgeBulbMount">Street-edge bulb mount</option><option value="auto">Auto-detect later</option></select>
-      <div class="row"><div><label>Cut hole Ø mm</label><input id="slCutDia" type="number" step="0.1" value="${fmt(light.anchor.cutHoleDiameterMm)}"></div><div><label>Bulb Ø mm</label><input id="slBulbDia" type="number" step="0.1" value="${fmt(light.anchor.bulbMountDiameterMm)}"></div></div>
-      <div class="row"><div><label>Edge offset mm</label><input id="slEdgeOffset" type="number" step="0.1" value="${fmt(light.anchor.edgeOffsetMm)}"></div><div><label>Sidewalk side</label><select id="slSide"><option value="auto">Auto</option><option value="left">Left</option><option value="right">Right</option></select></div></div>
-      <label style="display:flex;align-items:center;gap:6px;margin-top:6px"><input id="slLockEdge" type="checkbox" ${light.anchor.lockToRoadEdge?'checked':''}> Lock to road edge when road geometry is available</label>
-      <div class="small muted" style="margin-top:6px">Sidewalk mode is intended to export as a through-hole in the sidewalk layer. Street-edge mode stores a bulb mount for roads without sidewalks.</div>`:''}
-      <label>Notes</label><textarea id="slNotes" rows="3">${escapeHtml(light.notes||'')}</textarea>
-      <div class="buttons" style="margin-top:8px"><button id="dupSl">Duplicate</button><button id="lockSl">${light.locked?'Unlock':'Lock'}</button><button id="delSl" class="danger">Delete</button></div>`;
-      const bind=(id,fn)=>{const e=$(id); if(e)e.oninput=()=>{fn(e.type==='checkbox'?e.checked:e.value); syncAll();};};
-      bind('slName',v=>light.name=v); bind('slColor',v=>light.color=v); bind('slHeight',v=>light.heightMm=parseFloat(v)||0); bind('slArm',v=>light.armLengthMm=parseFloat(v)||0); bind('slRot',v=>light.rotationDeg=parseFloat(v)||0); bind('slRadius',v=>light.lightRadiusMm=parseFloat(v)||0); bind('slNotes',v=>light.notes=v);
-      installAdaptiveDegreeStepping($('slRot'));
-      const slType=$('slType'); if(slType){slType.value=light.type; slType.onchange=e=>{light.type=e.target.value; syncAll();};}
-      const slMount=$('slMount'); if(slMount){slMount.value=light.anchor.mountMode; slMount.onchange=e=>{light.anchor.mountMode=e.target.value; syncAll();};}
-      const slSide=$('slSide'); if(slSide){slSide.value=light.anchor.sidewalkSide; slSide.onchange=e=>{light.anchor.sidewalkSide=e.target.value; syncAll();};}
-      bind('slCutDia',v=>light.anchor.cutHoleDiameterMm=parseFloat(v)||0); bind('slBulbDia',v=>light.anchor.bulbMountDiameterMm=parseFloat(v)||0); bind('slEdgeOffset',v=>light.anchor.edgeOffsetMm=parseFloat(v)||0); bind('slLockEdge',v=>light.anchor.lockToRoadEdge=!!v);
-      $('dupSl').onclick=()=>{duplicateStreetlight(light); syncAll();}; $('lockSl').onclick=()=>{light.locked=!light.locked; syncAll();}; $('delSl').onclick=deleteSelectedStreetlight;
+    } if(light){renderStreetlightDetail({
+      streetlight: light,
+      panel: box,
+      getElement: $,
+      fmt,
+      escapeAttr,
+      escapeHtml,
+      syncAll,
+      normalizeStreetlight,
+      installAdaptiveDegreeStepping,
+      duplicateStreetlight,
+      deleteSelectedStreetlight,
+    });
     } else if(fabric){normalizeFabricRegion(fabric); const presetOptions=Object.entries(FABRIC_PRESETS).map(([key,p])=>`<option value="${key}" ${key===fabric.fabricType?'selected':''}>${escapeHtml(p.label)}</option>`).join(''); const padCount=state.buildings.filter(x=>x.fabricRegionId===fabric.id).length; box.innerHTML=`
       <b>${escapeHtml(fabric.name||'Fabric Region')} selected</b>
       <label>Name</label><input id="fabricNameSel" value="${escapeAttr(fabric.name||'')}">

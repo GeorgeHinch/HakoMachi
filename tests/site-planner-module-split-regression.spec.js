@@ -64,6 +64,18 @@ test.describe('Site Planner module split contracts', () => {
     expect(detail).toContain("getElement('deleteBench').onclick");
   });
 
+  test('streetlight detail controls are wired through their sidebar module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-streetlight-detail.js'), 'utf8');
+
+    expect(source).toContain("import { renderStreetlightDetail } from './site-planner/sidebar-streetlight-detail.js';");
+    expect(source).toContain('} if(light){renderStreetlightDetail({');
+    expect(source).not.toContain("$('dupSl').onclick=()=>");
+    expect(detail).toContain('export function renderStreetlightDetail');
+    expect(detail).toContain("installAdaptiveDegreeStepping(getElement('slRot'))");
+    expect(detail).toContain("getElement('dupSl').onclick");
+  });
+
   test('flex-track 2D rendering is wired through its renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-renderer-2d.js'), 'utf8');

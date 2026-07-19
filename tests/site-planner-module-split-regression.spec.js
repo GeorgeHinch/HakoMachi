@@ -1175,6 +1175,25 @@ test.describe('Site Planner module split contracts', () => {
     expect(renderer).toContain('sharedRenderer.buildBuildingPreviewGroup');
   });
 
+  test('site planner 3D base and reference image rendering is wired through its renderer module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-base-renderer.js'), 'utf8');
+
+    expect(source).toContain("import { createSite3DBaseRenderer } from './site-planner/site-3d-base-renderer.js';");
+    expect(source).toContain('function ensureSite3DBaseRenderer()');
+    expect(source).toContain('return ensureSite3DBaseRenderer().buildSite3DBase(bounds,baseT)');
+    expect(source).toContain('return ensureSite3DBaseRenderer().buildSite3DReferenceImage(bounds)');
+    expect(source).not.toContain('function site3DReferenceImageMaskPaths()');
+    expect(source).not.toContain('function buildSite3DReferenceTexture(w,h)');
+    expect(renderer).toContain('Negative-thickness rectangular site base');
+    expect(renderer).toContain('Negative-thickness benchwork site base');
+    expect(renderer).toContain('function site3DReferenceImageMaskPaths()');
+    expect(renderer).toContain('function buildSite3DReferenceTexture(w, h)');
+    expect(renderer).toContain('ctx.clip()');
+    expect(renderer).toContain("mesh.name = '3D reference image plane'");
+    expect(renderer).toContain('mesh.renderOrder = referenceImageRenderOrder');
+  });
+
   test('site planner 3D objects carry selection tags and route clicks to property panes', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const roadRenderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-road-renderer.js'), 'utf8');

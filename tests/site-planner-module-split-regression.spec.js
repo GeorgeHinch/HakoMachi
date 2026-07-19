@@ -196,6 +196,21 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('return { applySidebarDrillIn, closeBuildingOverflow };');
   });
 
+  test('canvas drag geometry and gesture helpers are wired through their controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-canvas-gesture-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createSiteCanvasGestureController } from './site-planner/site-canvas-gesture-controller.js';");
+    expect(source).toContain('} = createSiteCanvasGestureController({');
+    expect(source).not.toContain('function resizeRectFromCorner(');
+    expect(source).not.toContain('function startPinchIfNeeded()');
+    expect(controller).toContain('export function createSiteCanvasGestureController');
+    expect(controller).toContain('function resizeRectFromCorner(');
+    expect(controller).toContain('function scalePolygonFromCornerDrag(');
+    expect(controller).toContain('function startPinchIfNeeded()');
+    expect(controller).toContain('function updatePinch()');
+  });
+
   test('sidebar input binding stays shared across standard object panels', async () => {
     const binder = await import('../js/site-planner/sidebar-input-binding.js');
     const files = ['sidebar-benchwork-detail.js', 'sidebar-fabric-detail.js', 'sidebar-stl-detail.js', 'sidebar-streetlight-detail.js', 'sidebar-track-detail.js'];

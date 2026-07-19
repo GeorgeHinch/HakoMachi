@@ -10,6 +10,7 @@ import { createCanvasHoverPreviewRenderer } from './site-planner/canvas-hover-pr
 import { createGroupSelectionController } from './site-planner/group-selection-controller.js';
 import { createSiteBuildingRenderer2D } from './site-planner/site-building-renderer-2d.js';
 import { createSiteCanvasRenderer } from './site-planner/site-canvas-renderer.js';
+import { createSiteCanvasGestureController } from './site-planner/site-canvas-gesture-controller.js';
 import { createContextMenuController } from './site-planner/context-menu-controller.js';
 import { buildingCsvExport, sitePlanSvgExport } from './site-planner/export-utils.js';
 import { createAnnotationController } from './site-planner/annotation-controller.js';
@@ -3431,94 +3432,31 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     sidebarDetailController?.applySidebarDrillIn();
   }
 
-  function isNearSquare(w,h){const m=Math.max(w,h); return m>0 && Math.abs(w-h)/m<0.06;}
-  function signedSquareCorner(start,end){const dx=end.x-start.x, dy=end.y-start.y; const side=Math.max(Math.abs(dx),Math.abs(dy),4); return {x:start.x+(dx<0?-side:side), y:start.y+(dy<0?-side:side)};}
-  function addRectFromDrag(start,end,shift){
-    let p2=end;
-    let w=Math.abs(p2.x-start.x), h=Math.abs(p2.y-start.y);
-    if(shift || isNearSquare(w,h)){p2=signedSquareCorner(start,end); w=Math.abs(p2.x-start.x); h=Math.abs(p2.y-start.y);}
-    const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'rect',x:(start.x+p2.x)/2,y:(start.y+p2.y)/2,widthPx:Math.max(4,w),depthPx:Math.max(4,h),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,state:'notStarted',notes:'',hakoConfig:null,hakoFile:null,hakoFileId:null};
-    syncBuildingMetrics(b); return b;
-  }
-  function resizeRectFromCorner(b, orig, cornerIndex, worldPoint, opts={}){
-    const pts=transformedRect(orig);
-    const anchor=pts[(cornerIndex+2)%4];
-    const a=rad(orig.rotationDeg||0), ux={x:Math.cos(a),y:Math.sin(a)}, uy={x:-Math.sin(a),y:Math.cos(a)};
-    const sx=[-1,1,1,-1][cornerIndex], sy=[-1,-1,1,1][cornerIndex];
-    const dx=worldPoint.x-anchor.x, dy=worldPoint.y-anchor.y;
-    let w=Math.max(4, sx*(dx*ux.x+dy*ux.y));
-    let h=Math.max(4, sy*(dx*uy.x+dy*uy.y));
-    if(opts.proportional){
-      const ow=Math.max(4, Number(orig.widthPx)||w);
-      const oh=Math.max(4, Number(orig.depthPx)||h);
-      const scale=Math.max(w/ow,h/oh,4/ow,4/oh);
-      w=ow*scale;
-      h=oh*scale;
-    }
-    if(opts.square || (!opts.proportional && isNearSquare(w,h))){const side=Math.max(w,h); w=side; h=side;}
-    const center={x:anchor.x + sx*ux.x*w/2 + sy*uy.x*h/2, y:anchor.y + sx*ux.y*w/2 + sy*uy.y*h/2};
-    b.x=center.x; b.y=center.y; b.widthPx=w; b.depthPx=h; b.rotationDeg=orig.rotationDeg||0; syncBuildingMetrics(b);
-  }
-  function scalePolygonFromCornerDrag(b, orig, cornerIndex, worldPoint){
-    const pts=orig.pointsPx||[];
-    const source=pts[cornerIndex];
-    if(!source || pts.length<3){b.pointsPx=pts.map(q=>({...q})); syncBuildingMetrics(b); return;}
-    const center=polygonCenter(pts);
-    const base=dist(source,center);
-    if(!(base>.01)){b.pointsPx=pts.map(q=>({...q})); syncBuildingMetrics(b); return;}
-    const scale=Math.max(.05,dist(worldPoint,center)/base);
-    b.pointsPx=pts.map(q=>({x:center.x+(q.x-center.x)*scale,y:center.y+(q.y-center.y)*scale}));
-    syncBuildingMetrics(b);
-  }
-  function snapAngle(a){const snaps=[-180,-165,-150,-135,-120,-105,-90,-75,-60,-45,-30,-15,0,15,30,45,60,75,90,105,120,135,150,165,180]; return snaps.reduce((best,x)=>Math.abs(x-a)<Math.abs(best-a)?x:best,0);}
-  function snapAngleStep(a, step=45){
-    const n=((a%360)+360)%360;
-    let snapped=Math.round(n/step)*step;
-    if(snapped>180) snapped-=360;
-    if(snapped===180 && a<0) snapped=-180;
-    return snapped;
-  }
-  function rotationSnapAngle(a,e){
-    if(e && e.shiftKey) return snapAngleStep(a,45);
-    if(state.snapOn) return snapAngle(a);
-    return a;
-  }
-  function shiftScaleActive(e){return !!(e?.shiftKey || state.shiftKeyDown);}
-  function snapActive(e){return !!(state.snapOn || (e && e.shiftKey));}
-  function isGeometryPointer(e){
-    if(state.workspaceMode==='track' && isTrackAccessoryAction(state.trackTask)) return true;
-    if(state.inputMode==='penDrawFingerPan') return e.pointerType!=='touch';
-    if(state.inputMode==='penOnly') return e.pointerType==='pen' || e.pointerType==='mouse';
-    if(state.inputMode==='touchDraw') return true;
-    if(state.inputMode==='mouseTrackpad') return e.pointerType==='mouse';
-    return true;
-  }
-  function startPanFromPointer(e){state.drag={type:'pan',pointerId:e.pointerId,sx:e.clientX,sy:e.clientY,vx:state.view.x,vy:state.view.y};}
-  function pointerSnapshot(e){return {id:e.pointerId,x:e.clientX,y:e.clientY,type:e.pointerType};}
-  function activeTouchPointers(){return [...state.pointers.values()].filter(p=>p.type==='touch');}
-  function startPinchIfNeeded(){
-    const touches=activeTouchPointers();
-    if(touches.length<2) return false;
-    const a=touches[0], b=touches[1];
-    const cx=(a.x+b.x)/2, cy=(a.y+b.y)/2;
-    const r=canvas.getBoundingClientRect();
-    const world={x:(cx-r.left-state.view.x)/state.view.scale,y:(cy-r.top-state.view.y)/state.view.scale};
-    state.pinch={ids:[a.id,b.id],startDist:Math.hypot(a.x-b.x,a.y-b.y),startScale:state.view.scale,startView:{...state.view},center:{x:cx,y:cy},world};
-    state.drag={type:'pinch'};
-    return true;
-  }
-  function updatePinch(){
-    if(!state.pinch) return false;
-    const a=state.pointers.get(state.pinch.ids[0]), b=state.pointers.get(state.pinch.ids[1]);
-    if(!a||!b) return false;
-    const cx=(a.x+b.x)/2, cy=(a.y+b.y)/2;
-    const d=Math.max(1,Math.hypot(a.x-b.x,a.y-b.y));
-    state.view.scale=clamp(state.pinch.startScale*(d/Math.max(1,state.pinch.startDist)),.05,20);
-    const r=canvas.getBoundingClientRect();
-    state.view.x=(cx-r.left)-state.pinch.world.x*state.view.scale;
-    state.view.y=(cy-r.top)-state.pinch.world.y*state.view.scale;
-    return true;
-  }
+  const {
+    addRectFromDrag,
+    resizeRectFromCorner,
+    scalePolygonFromCornerDrag,
+    rotationSnapAngle,
+    shiftScaleActive,
+    snapActive,
+    isGeometryPointer,
+    startPanFromPointer,
+    pointerSnapshot,
+    startPinchIfNeeded,
+    updatePinch,
+  } = createSiteCanvasGestureController({
+    state,
+    canvas,
+    uid,
+    colors,
+    transformedRect,
+    rad,
+    polygonCenter,
+    dist,
+    clamp,
+    syncBuildingMetrics,
+    isTrackAccessoryAction,
+  });
 
   function ensureSitePointerInteractionController(){
     if(!sitePointerInteractionController){

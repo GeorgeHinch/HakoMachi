@@ -11,6 +11,7 @@ import { createGroupSelectionController } from './site-planner/group-selection-c
 import { createSiteBuildingRenderer2D } from './site-planner/site-building-renderer-2d.js';
 import { createSiteCanvasRenderer } from './site-planner/site-canvas-renderer.js';
 import { createSiteCanvasGestureController } from './site-planner/site-canvas-gesture-controller.js';
+import { createSiteHistoryController } from './site-planner/site-history-controller.js';
 import { createContextMenuController } from './site-planner/context-menu-controller.js';
 import { buildingCsvExport, sitePlanSvgExport } from './site-planner/export-utils.js';
 import { createAnnotationController } from './site-planner/annotation-controller.js';
@@ -2862,102 +2863,26 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function historySnapshot(){
     return ensureSiteProjectPersistenceController().historySnapshot();
   }
-  function updateHistoryButtons(){
-    const canUndo=state.historyIndex>0;
-    const canRedo=state.historyIndex>=0 && state.historyIndex<state.history.length-1;
-    ['undoBtn','mobileUndoBtn'].forEach(id=>{const b=$(id); if(b){b.disabled=!canUndo; b.setAttribute('aria-disabled', String(!canUndo));}});
-    ['redoBtn','mobileRedoBtn'].forEach(id=>{const b=$(id); if(b){b.disabled=!canRedo; b.setAttribute('aria-disabled', String(!canRedo));}});
-  }
-  function pushHistorySnapshot(_label=''){
-    if(state.historySuppressed) return;
-    const snap=historySnapshot();
-    if(state.historyIndex>=0 && state.history[state.historyIndex]===snap){ updateHistoryButtons(); return; }
-    if(state.historyIndex<state.history.length-1) state.history=state.history.slice(0,state.historyIndex+1);
-    state.history.push(snap);
-    const max=80;
-    if(state.history.length>max) state.history.splice(0,state.history.length-max);
-    state.historyIndex=state.history.length-1;
-    updateHistoryButtons();
-  }
-  function resetHistory(_label=''){
-    state.history=[];
-    state.historyIndex=-1;
-    pushHistorySnapshot(_label);
-  }
-  function applyHistorySnapshot(snap){
-    let data;
-    try{ data=JSON.parse(snap); }catch(err){ logger.warn('Could not restore undo state:', err); return; }
-    state.historySuppressed=true;
-    const oldDataUrl=state.imageMeta?.dataUrl || null;
-    const newDataUrl=data.imageMeta?.dataUrl || null;
-    state.imageMeta=data.imageMeta||null;
-    state.imageOpacity=Number.isFinite(Number(data.imageOpacity))?Number(data.imageOpacity):.75;
-    state.imageLocked=data.imageLocked!==false;
-    state.pxPerMm=data.pxPerMm||null;
-    state.calibrationLine=data.calibrationLine||null;
-    state.lastCalibrationLine=data.lastCalibrationLine||state.calibrationLine||null;
-    state.buildings=Array.isArray(data.buildings)?structuredClone(data.buildings):[];
-    state.roads=Array.isArray(data.roads)?structuredClone(data.roads):[];
-    state.tracks=(Array.isArray(data.tracks)?structuredClone(data.tracks):[]).map(normalizeTrack);
-    state.trackAccessories=(Array.isArray(data.trackAccessories)?structuredClone(data.trackAccessories):[]).map(normalizeTrackAccessory);
-    state.roadFeatures=migrateLoadedRoadFeatures(data.roadFeatures);
-    state.roadDrivingSide=normalizeDrivingSide(data.roadDrivingSide);
-    state.roadIntersectionDetails=data.roadIntersectionDetails!==false;
-    state.roadIntersectionOverrides=data.roadIntersectionOverrides&&typeof data.roadIntersectionOverrides==='object'?structuredClone(data.roadIntersectionOverrides):{};
-    state.generatedRoadIntersections=[];
-    state.railCrossingOverrides=data.railCrossingOverrides&&typeof data.railCrossingOverrides==='object'?structuredClone(data.railCrossingOverrides):{};
-    state.generatedRailCrossings=[];
-    state.stlObjects=Array.isArray(data.stlObjects)?structuredClone(data.stlObjects):[];
-    state.benchworkOutlines=Array.isArray(data.benchworkOutlines)?structuredClone(data.benchworkOutlines):[];
-    state.fabricRegions=Array.isArray(data.fabricRegions)?structuredClone(data.fabricRegions):[];
-    state.streetlights=Array.isArray(data.streetlights)?structuredClone(data.streetlights):[];
-    state.annotations=Array.isArray(data.annotations)?structuredClone(data.annotations):[];
-    state.selectedId=data.selectedId||null;
-    state.selectedIds=Array.isArray(data.selectedIds)?data.selectedIds.slice():[];
-    state.selectedSiteObjects=Array.isArray(data.selectedSiteObjects)?data.selectedSiteObjects.map(sel=>({type:sel.type,id:sel.id})).filter(sel=>sel.type&&sel.id):[];
-    state.selectedRoadId=data.selectedRoadId||null;
-    state.selectedRoadIntersectionId=data.selectedRoadIntersectionId||null;
-    state.selectedRailCrossingId=data.selectedRailCrossingId||null;
-    state.selectedTrackId=data.selectedTrackId||null;
-    state.selectedTrackPointIndex=Number.isInteger(data.selectedTrackPointIndex)?data.selectedTrackPointIndex:null;
-    state.selectedTrackAccessoryId=data.selectedTrackAccessoryId||null;
-    state.selectedStlObjectId=data.selectedStlObjectId||null;
-    state.selectedBenchworkId=data.selectedBenchworkId||null;
-    state.selectedFabricId=data.selectedFabricId||null;
-    state.selectedStreetlightId=data.selectedStreetlightId||null;
-    state.selectedAnnotationId=data.selectedAnnotationId||null;
-    state.measureLine=data.measureLine||null;
-    if($('opacity')) $('opacity').value=String(state.imageOpacity);
-    if($('imageLockBtn')) $('imageLockBtn').textContent=state.imageLocked?'Locked':'Unlocked';
-    const finish=()=>{
-      syncAll({skipDirty:true});
-      updateImagePortableStatus();
-      updateHistoryButtons();
-      state.historySuppressed=false;
-      markDirty('undo redo', {history:false});
-    };
-    if(newDataUrl && newDataUrl!==oldDataUrl){
-      const img=new Image();
-      img.onload=()=>{state.image=img; finish();};
-      img.onerror=()=>{state.image=null; setImageStatus('Undo/redo restored image metadata, but the embedded image could not be decoded.', 'warning'); finish();};
-      img.src=newDataUrl;
-    } else {
-      if(!newDataUrl) state.image=null;
-      finish();
-    }
-  }
-  function undo(){
-    if(state.historyIndex<=0) return false;
-    state.historyIndex--;
-    applyHistorySnapshot(state.history[state.historyIndex]);
-    return true;
-  }
-  function redo(){
-    if(state.historyIndex<0 || state.historyIndex>=state.history.length-1) return false;
-    state.historyIndex++;
-    applyHistorySnapshot(state.history[state.historyIndex]);
-    return true;
-  }
+  const {
+    updateHistoryButtons,
+    pushHistorySnapshot,
+    resetHistory,
+    undo,
+    redo,
+  } = createSiteHistoryController({
+    state,
+    getElement:$,
+    logger,
+    historySnapshot,
+    normalizeTrack,
+    normalizeTrackAccessory,
+    migrateLoadedRoadFeatures,
+    normalizeDrivingSide,
+    syncAll,
+    updateImagePortableStatus,
+    setImageStatus,
+    markDirty,
+  });
 
   function markDirty(_reason='', opts={}){
     if(opts.history!==false && !state.historySuppressed) pushHistorySnapshot(_reason);

@@ -1657,10 +1657,13 @@ test.describe('Site Planner module split contracts', () => {
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-project-persistence-controller.js'), 'utf8');
 
     expect(source).toContain("import { createSiteProjectPersistenceController } from './site-planner/site-project-persistence-controller.js';");
+    expect(source).toContain("import { createSiteHistoryController } from './site-planner/site-history-controller.js';");
     expect(source).toContain('siteProjectPersistenceController=createSiteProjectPersistenceController({');
     expect(source).toContain('function historySnapshot(){');
+    expect(source).toContain('} = createSiteHistoryController({');
     expect(source).toContain('function makeProjectPayload(opts={}){');
     expect(source).toContain('function projectJson(opts={}){');
+    expect(source).not.toContain('function applyHistorySnapshot(');
     expect(source).not.toContain("app:'HakoMachi Site Planner'");
     expect(source).not.toContain('const manifestAssetPaths=new Set');
     expect(controller).toContain('export function createSiteProjectPersistenceController');
@@ -1669,6 +1672,12 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('function projectJson');
     expect(controller).toContain("schema: 'hakomachi.site-assets'");
     expect(controller).toContain('imageMetaForProject(state.imageMeta');
+
+    const historyController = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-history-controller.js'), 'utf8');
+    expect(historyController).toContain('export function createSiteHistoryController');
+    expect(historyController).toContain('function applyHistorySnapshot(');
+    expect(historyController).toContain('function undo()');
+    expect(historyController).toContain('function redo()');
   });
 
   test('Tomix track accessories fall back to the flex-track gauge scale', () => {

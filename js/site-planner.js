@@ -279,16 +279,28 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     normalizeStlObject,
     stlObjectRect,
     hitStlObject,
+    selectedStlObject,
+    drawStlObject,
+    deleteSelectedStlObject,
+    selectStlObject,
   } = createStlObjectModelController({
     state,
     uid,
     slug,
+    rad,
+    ctx,
+    fmt,
     mmToPx,
     visibleWorldCenter,
     transformedRect,
     pointInPoly,
     polyEdgeDistance,
     lockedHitTolerance,
+    isSiteObjectSelected,
+    setSingleSiteObjectSelection,
+    drawLabel: (...args) => drawLabel(...args),
+    refreshSelection: () => {renderList(); renderRoads(); renderStreetlights(); renderSelected(); updateHandoff(); draw();},
+    syncAll,
   });
   function resize(){const r=wrap.getBoundingClientRect(); const dpr=devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(r.width*dpr)); canvas.height=Math.max(1,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); resizeSite3D();}
   window.addEventListener('resize', resize);
@@ -2554,7 +2566,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     failImportProgress,
   });
 
-  function selectedStlObject(){return (state.stlObjects||[]).find(obj=>obj.id===state.selectedStlObjectId)||null;}
   const {
     copySelectedFootprint,
     pasteFootprintFromClipboard,
@@ -3696,33 +3707,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(isSelected || isHovered){ const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(pts); const trimCount=hakoDisplayTrimPolylinesMm(b).length; const trimNote=trimCount?` · ${trimCount} trim line${trimCount===1?'':'s'}`:''; drawLabel(`${b.name||'Building'} ${b.padType==='rect'&&state.pxPerMm?`${fmt(b.widthMm)}×${fmt(b.depthMm)}mm`:''}${trimNote}`,{x:c.x+6/state.view.scale,y:c.y-6/state.view.scale}); }
     if(isSelected && currentSelectedBuildingIds().length===1 && !b.locked){ ctx.fillStyle='#0f766e'; pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,5/state.view.scale,0,Math.PI*2);ctx.fill()}); drawRotateAffordance(b,pts); }
     ctx.restore(); }
-  function drawStlObject(raw){
-    const obj=normalizeStlObject(raw);
-    if(!obj || obj.hidden) return;
-    const selected=obj.id===state.selectedStlObjectId || isSiteObjectSelected('stlObject',obj.id), hovered=obj.id===state.hoverStlObjectId;
-    const pts=stlObjectRect(obj);
-    ctx.save();
-    ctx.lineWidth=(selected?3:(hovered?3:2))/state.view.scale;
-    ctx.strokeStyle=selected?'#0f766e':(hovered?'#2a64aa':obj.color||'#496a78');
-    ctx.fillStyle=hovered&&!selected?'rgba(42,100,170,.16)':((obj.color||'#496a78')+'2b');
-    ctx.setLineDash([8/state.view.scale,5/state.view.scale]);
-    ctx.beginPath();
-    pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.translate(obj.x,obj.y);
-    ctx.rotate(rad(obj.rotationDeg||0));
-    ctx.strokeStyle='rgba(73,106,120,.65)';
-    ctx.lineWidth=1.2/state.view.scale;
-    ctx.beginPath();
-    ctx.moveTo(-obj.widthPx*.35,0); ctx.lineTo(obj.widthPx*.35,0);
-    ctx.moveTo(0,-obj.depthPx*.35); ctx.lineTo(0,obj.depthPx*.35);
-    ctx.stroke();
-    ctx.restore();
-    if(selected||hovered) drawLabel(`${obj.name||'STL Object'} · ${fmt(obj.widthMm*obj.scale)}×${fmt(obj.depthMm*obj.scale)}mm`,{x:obj.x+8/state.view.scale,y:obj.y-8/state.view.scale});
-  }
   function drawStreetlight(l){
     l=normalizeStreetlight(l);
     const selected=l.id===state.selectedStreetlightId || isSiteObjectSelected('streetlight',l.id), hovered=l.id===state.hoverStreetlightId;
@@ -3757,20 +3741,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(selected||hovered){ctx.strokeStyle='rgba(15,118,110,.9)'; ctx.lineWidth=1.25/state.view.scale; ctx.strokeRect(-12/state.view.scale,-armPx*1.2-9/state.view.scale,Math.max(24/state.view.scale,armPx+18/state.view.scale),armPx*1.2+20/state.view.scale);}
     ctx.restore();
     if(selected||hovered) drawLabel(`${l.name||'Streetlight'}${l.mode==='anchored'?' · anchored':''}`,{x:l.x+8/state.view.scale,y:l.y-8/state.view.scale});
-  }
-  function deleteSelectedStlObject(){
-    const id=state.selectedStlObjectId;
-    if(!id) return false;
-    state.stlObjects=(state.stlObjects||[]).filter(obj=>obj.id!==id);
-    state.selectedStlObjectId=null;
-    syncAll();
-    return true;
-  }
-  function selectStlObject(obj){
-    if(!obj) return false;
-    setSingleSiteObjectSelection('stlObject',obj.id);
-    renderList(); renderRoads(); renderStreetlights(); renderSelected(); updateHandoff(); draw();
-    return true;
   }
   function draw(){
     if(renderQueued) return;

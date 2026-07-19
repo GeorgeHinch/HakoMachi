@@ -2,12 +2,20 @@ export function createStlObjectModelController({
   state,
   uid,
   slug,
+  rad,
+  ctx,
+  fmt,
   mmToPx,
   visibleWorldCenter,
   transformedRect,
   pointInPoly,
   polyEdgeDistance,
   lockedHitTolerance,
+  isSiteObjectSelected,
+  setSingleSiteObjectSelection,
+  drawLabel,
+  refreshSelection,
+  syncAll,
 }){
   function normalizeStlObject(obj){
     if(!obj) return obj;
@@ -65,10 +73,63 @@ export function createStlObjectModelController({
     return null;
   }
 
+  function selectedStlObject(){
+    return (state.stlObjects||[]).find(obj=>obj.id===state.selectedStlObjectId)||null;
+  }
+
+  function drawStlObject(raw){
+    const obj=normalizeStlObject(raw);
+    if(!obj || obj.hidden || !ctx) return;
+    const selected=obj.id===state.selectedStlObjectId || isSiteObjectSelected('stlObject',obj.id);
+    const hovered=obj.id===state.hoverStlObjectId;
+    const pts=stlObjectRect(obj);
+    ctx.save();
+    ctx.lineWidth=(selected?3:(hovered?3:2))/state.view.scale;
+    ctx.strokeStyle=selected?'#0f766e':(hovered?'#2a64aa':obj.color||'#496a78');
+    ctx.fillStyle=hovered&&!selected?'rgba(42,100,170,.16)':((obj.color||'#496a78')+'2b');
+    ctx.setLineDash([8/state.view.scale,5/state.view.scale]);
+    ctx.beginPath();
+    pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.translate(obj.x,obj.y);
+    ctx.rotate(rad(obj.rotationDeg||0));
+    ctx.strokeStyle='rgba(73,106,120,.65)';
+    ctx.lineWidth=1.2/state.view.scale;
+    ctx.beginPath();
+    ctx.moveTo(-obj.widthPx*.35,0); ctx.lineTo(obj.widthPx*.35,0);
+    ctx.moveTo(0,-obj.depthPx*.35); ctx.lineTo(0,obj.depthPx*.35);
+    ctx.stroke();
+    ctx.restore();
+    if(selected||hovered) drawLabel(`${obj.name||'STL Object'} · ${fmt(obj.widthMm*obj.scale)}×${fmt(obj.depthMm*obj.scale)}mm`,{x:obj.x+8/state.view.scale,y:obj.y-8/state.view.scale});
+  }
+
+  function deleteSelectedStlObject(){
+    const id=state.selectedStlObjectId;
+    if(!id) return false;
+    state.stlObjects=(state.stlObjects||[]).filter(obj=>obj.id!==id);
+    state.selectedStlObjectId=null;
+    syncAll();
+    return true;
+  }
+
+  function selectStlObject(obj){
+    if(!obj) return false;
+    setSingleSiteObjectSelection('stlObject',obj.id);
+    refreshSelection();
+    return true;
+  }
+
   return {
     normalizeStlObject,
     stlObjectRect,
     pointInStlObject,
     hitStlObject,
+    selectedStlObject,
+    drawStlObject,
+    deleteSelectedStlObject,
+    selectStlObject,
   };
 }

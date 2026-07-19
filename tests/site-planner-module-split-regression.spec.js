@@ -1434,6 +1434,17 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('function finishBenchworkOutline');
   });
 
+  test('Hako import drop zones are wired through the Hako drop controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'hako-drop-ui.js'), 'utf8');
+
+    expect(source).toContain("import { createHakoDropController } from './site-planner/hako-drop-ui.js';");
+    expect(source).toContain('installHakoImportDropzone,');
+    expect(source).not.toContain('function installHakoImportDropzone(box)');
+    expect(controller).toContain('function installHakoImportDropzone(box)');
+    expect(controller).toContain("class=\"hakoImportDropzone\"");
+  });
+
   test('freehand annotation behavior is wired through the annotation controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'annotation-controller.js'), 'utf8');

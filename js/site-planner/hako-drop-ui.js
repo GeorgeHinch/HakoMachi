@@ -87,8 +87,38 @@ export function createHakoDropController({
     });
   }
 
+  function installHakoImportDropzone(box){
+    if(!box) return;
+    const actions=document.createElement('div');
+    actions.className='buildingListActions';
+    actions.innerHTML=`
+      <div id="importHakoAsBuildingDropzone" class="hakoImportDropzone" role="button" tabindex="0" title="Click to choose a .hako file, or drag one here to create a draggable footprint.">
+        <b>Import existing .hako as footprint</b>
+        <span class="small muted">Click or drop .hako / .json here</span>
+        <input id="importHakoBuildingFile" class="hiddenFile" type="file" accept=".hako,.hakoseed,.hakoplan,.json,application/json">
+      </div>`;
+    box.appendChild(actions);
+    const drop=document.getElementById('importHakoAsBuildingDropzone');
+    const input=document.getElementById('importHakoBuildingFile');
+    if(!drop || !input) return;
+    const pick=()=>input.click();
+    drop.onclick=ev=>{ if(ev.target!==input) pick(); };
+    drop.onkeydown=ev=>{ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); pick(); } };
+    input.onchange=e=>{const f=e.target.files&&e.target.files[0]; if(f) importHakoAsBuilding(f); e.target.value='';};
+    ['dragenter','dragover'].forEach(type=>drop.addEventListener(type, ev=>{ev.preventDefault(); ev.stopPropagation(); drop.classList.add('dragover');}));
+    ['dragleave','drop'].forEach(type=>drop.addEventListener(type, ev=>{ev.preventDefault(); ev.stopPropagation(); if(type==='dragleave' && drop.contains(ev.relatedTarget)) return; drop.classList.remove('dragover');}));
+    drop.addEventListener('drop', ev=>{
+      const files=Array.from(ev.dataTransfer&&ev.dataTransfer.files||[]);
+      const f=files.find(file=>/\.(hako|hakoseed|hakoplan|json)$/i.test(file.name||''))||files[0];
+      if(!f) return;
+      if(selected() && currentSelectedBuildingIds().length===1) attachHakoFileToSelectedBuilding(f,{source:'selected-building-drop'});
+      else importHakoAsBuilding(f);
+    });
+  }
+
   return {
     installWholePageHakoDrop,
     installSelectedHakoSidebarDrop,
+    installHakoImportDropzone,
   };
 }

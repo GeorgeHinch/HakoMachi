@@ -135,6 +135,17 @@ test.describe('Site Planner module split contracts', () => {
     expect(detail).toContain('syncTracksConnectedToTrackSwitch(trackAccessory)');
   });
 
+  test('road intersection detail controls are wired through their sidebar module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-road-intersection-detail.js'), 'utf8');
+
+    expect(source).toContain("import { renderRoadIntersectionDetail } from './site-planner/sidebar-road-intersection-detail.js';");
+    expect(source).toContain('} if(roadIntersection){renderRoadIntersectionDetail({');
+    expect(detail).toContain('export function renderRoadIntersectionDetail');
+    expect(detail).toContain('roadSystem.setRoadIntersectionOverride');
+    expect(detail).toContain('roadSystem.clearRoadIntersectionOverride');
+  });
+
   test('sidebar input binding stays shared across standard object panels', async () => {
     const binder = await import('../js/site-planner/sidebar-input-binding.js');
     const files = ['sidebar-benchwork-detail.js', 'sidebar-fabric-detail.js', 'sidebar-stl-detail.js', 'sidebar-streetlight-detail.js', 'sidebar-track-detail.js'];
@@ -1266,12 +1277,15 @@ test.describe('Site Planner module split contracts', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const sidebarSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-object-model.js'), 'utf8');
     const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'road-intersection-preview-renderer.js'), 'utf8');
+    const detailSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-road-intersection-detail.js'), 'utf8');
 
     expect(source).toContain('function selectedRoadIntersection()');
     expect(source).toContain('function hitGeneratedRoadIntersection');
-    expect(source).toContain('Road intersection selected');
-    expect(source).toContain('roadSystem.setRoadIntersectionOverride');
-    expect(source).toContain('roadSystem.clearRoadIntersectionOverride');
+    expect(source).toContain("import { renderRoadIntersectionDetail } from './site-planner/sidebar-road-intersection-detail.js';");
+    expect(source).toContain('} if(roadIntersection){renderRoadIntersectionDetail({');
+    expect(detailSource).toContain('Road intersection selected');
+    expect(detailSource).toContain('roadSystem.setRoadIntersectionOverride');
+    expect(detailSource).toContain('roadSystem.clearRoadIntersectionOverride');
     expect(source).toContain('selectedIntersectionKey:state.selectedRoadIntersectionId');
     expect(sidebarSource).toContain("roadIntersection: 'Road Intersection'");
     expect(rendererSource).toContain('selectedNodeFill');

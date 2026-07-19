@@ -15,6 +15,19 @@ test.describe('Site Planner module split contracts', () => {
     expect(renderer).toContain('const hoverPreview = state.hoverPreview;');
   });
 
+  test('group selection affordances are wired through their controller module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'group-selection-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createGroupSelectionController } from './site-planner/group-selection-controller.js';");
+    expect(source).toContain('} = createGroupSelectionController({');
+    expect(source).not.toContain('function groupSelectionPointCloud(');
+    expect(source).not.toContain('function drawGroupSelectionAffordance(){');
+    expect(controller).toContain('export function createGroupSelectionController');
+    expect(controller).toContain('function hitGroupRotationHandle');
+    expect(controller).toContain('function drawGroupSelectionAffordance');
+  });
+
   test('flex-track 2D rendering is wired through its renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-renderer-2d.js'), 'utf8');

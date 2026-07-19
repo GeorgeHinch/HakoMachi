@@ -56,6 +56,7 @@ import { createSite3DBuildingConfigController } from './site-planner/site-3d-bui
 import { createSite3DTrackAccessoryRenderer } from './site-planner/site-3d-track-accessory-renderer.js';
 import { createSite3DBuildingRenderer } from './site-planner/site-3d-building-renderer.js';
 import { createSite3DRoadRenderer } from './site-planner/site-3d-road-renderer.js';
+import { createSite3DTrackRenderer } from './site-planner/site-3d-track-renderer.js';
 import { createSite3DStlRenderer } from './site-planner/site-3d-stl-renderer.js';
 import { createSiteObjectSelectionController } from './site-planner/site-object-selection-controller.js';
 import { createSitePointerInteractionController } from './site-planner/site-pointer-interaction-controller.js';
@@ -2816,16 +2817,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(outlineMat) site3DAddEdges(mesh,outlineMat.color?.getHex?.() ?? 0x8f7b55,outlineMat.opacity ?? .45);
     return mesh;
   }
-  function site3DTrackProfileMm(t,profile){
-    return {
-      gauge:Math.max(.1,site3DScale(profile.gauge)),
-      railWidth:Math.max(.08,site3DScale(profile.railWidth)),
-      railHeight:Math.max(.08,positiveNumber(t.railHeightMm,TRACK_PROFILE_DEFAULTS.railHeightMm) || TRACK_PROFILE_DEFAULTS.railHeightMm),
-      tieLength:Math.max(.5,site3DScale(profile.tieLength)),
-      tieWidth:Math.max(.12,site3DScale(profile.tieWidth)),
-      roadbedHeight:Math.max(.12,positiveNumber(t.roadbedHeightMm,TRACK_PROFILE_DEFAULTS.roadbedHeightMm) || TRACK_PROFILE_DEFAULTS.roadbedHeightMm)
-    };
-  }
   function site3DAddBoxSegments(group,segments,mat,name,width,height,baseY,bounds){
     const valid=(segments||[]).filter(seg=>seg?.a&&seg?.b&&dist(seg.a,seg.b)>0);
     if(!valid.length) return null;
@@ -2872,34 +2863,22 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }).buildSite3DRoadGroup(bounds);
   }
   function buildSite3DTrackGroup(bounds){
-    const group=new THREE.Group();
-    group.name='Site Planner tracks';
-    const roadbedMat=new THREE.MeshStandardMaterial({color:0xc7b084,roughness:.96,metalness:0,transparent:false,opacity:1,depthTest:true,depthWrite:true,side:THREE.DoubleSide});
-    const roadbedLineMat=new THREE.LineBasicMaterial({color:0x8f7b55,transparent:true,opacity:.62});
-    const railMat=new THREE.MeshStandardMaterial({color:0x34312b,roughness:.42,metalness:.18,transparent:false,opacity:1,depthTest:true,depthWrite:true});
-    const tieMat=new THREE.MeshStandardMaterial({color:0x8a6f43,roughness:.82,metalness:0,transparent:false,opacity:1,depthTest:true,depthWrite:true});
-    (state.tracks||[]).forEach(raw=>{
-      const t=normalizeTrack(raw);
-      if(t.hidden || (t.pointsPx||[]).length<2) return;
-      const path=trackPathSamples(t,18);
-      const profile=trackProfilePx(t);
-      const profileMm=site3DTrackProfileMm(t,profile);
-      const railOffset=profile.gauge/2;
-      const roadbedPoly=offsetPathPolygon(path,profile.roadbedWidth/2);
-      const roadbedTop=profileMm.roadbedHeight;
-      const sleeperBase=roadbedTop+.03;
-      const sleeperHeight=Math.max(.08,Math.min(.32,profileMm.roadbedHeight*.16));
-      const railBase=sleeperBase+sleeperHeight;
-      tagSite3DTrackObject(site3DAddRaisedPolygon(group,roadbedPoly,roadbedMat,roadbedLineMat,`${t.name||'Track'} raised cork roadbed`,roadbedTop,profileMm.roadbedHeight),t);
-      tagSite3DTrackObject(site3DAddBoxSegments(group,trackTieSegments(t),tieMat,`${t.name||'Track'} sleeper solids`,profileMm.tieWidth,sleeperHeight,sleeperBase,bounds),t);
-      const railPathA=offsetTrackPath(path,railOffset);
-      const railPathB=offsetTrackPath(path,-railOffset);
-      const railSegmentsA=railPathA.slice(1).map((p,i)=>({a:railPathA[i],b:p}));
-      const railSegmentsB=railPathB.slice(1).map((p,i)=>({a:railPathB[i],b:p}));
-      tagSite3DTrackObject(site3DAddBoxSegments(group,railSegmentsA,railMat,`${t.name||'Track'} rail A solids`,profileMm.railWidth,profileMm.railHeight,railBase,bounds),t);
-      tagSite3DTrackObject(site3DAddBoxSegments(group,railSegmentsB,railMat,`${t.name||'Track'} rail B solids`,profileMm.railWidth,profileMm.railHeight,railBase,bounds),t);
-    });
-    return group.children.length ? group : null;
+    return createSite3DTrackRenderer({
+      THREE,
+      state,
+      trackProfileDefaults: TRACK_PROFILE_DEFAULTS,
+      positiveNumber,
+      site3DScale,
+      normalizeTrack,
+      trackPathSamples,
+      trackProfilePx,
+      offsetPathPolygon,
+      site3DAddRaisedPolygon,
+      trackTieSegments,
+      tagSite3DTrackObject,
+      offsetTrackPath,
+      site3DAddBoxSegments,
+    }).buildSite3DTrackGroup(bounds);
   }
   function site3DAddEdges(mesh,color=0x4b3828,opacity=.45){
     mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry,30),new THREE.LineBasicMaterial({color,transparent:true,opacity})));

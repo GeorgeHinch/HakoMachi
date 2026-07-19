@@ -10,11 +10,11 @@ function readRepoFile(relativePath) {
 
 test.describe('3D material depth regression contracts', () => {
   test('Site Planner cork roadbed is an opaque depth-writing surface', () => {
-    const source = readRepoFile('js/site-planner.js');
-    const match = source.match(/const roadbedMat=new THREE\.MeshStandardMaterial\((\{[^;]+?\})\);/s);
+    const renderer = readRepoFile('js/site-planner/site-3d-track-renderer.js');
+    const match = renderer.match(/const roadbedMat = new THREE\.MeshStandardMaterial\((\{[^;]+?\})\);/s);
 
     expect(match, 'roadbed material definition exists').not.toBeNull();
-    const material = match[1];
+    const material = match[1].replace(/\s/g, '');
 
     expect(material).toContain('transparent:false');
     expect(material).toContain('opacity:1');
@@ -24,14 +24,16 @@ test.describe('3D material depth regression contracts', () => {
 
   test('Site Planner 3D track uses raised solids for roadbed, sleepers, and rails', () => {
     const source = readRepoFile('js/site-planner.js');
+    const renderer = readRepoFile('js/site-planner/site-3d-track-renderer.js');
 
     expect(source).toContain('function site3DAddRaisedPolygon');
     expect(source).toContain('new THREE.InstancedMesh');
-    expect(source).toContain('sleeper solids');
-    expect(source).toContain('rail A solids');
-    expect(source).toContain('rail B solids');
-    expect(source).not.toContain('const railMat=new THREE.LineBasicMaterial');
-    expect(source).not.toContain('const tieMat=new THREE.LineBasicMaterial');
+    expect(source).toContain("import { createSite3DTrackRenderer } from './site-planner/site-3d-track-renderer.js';");
+    expect(renderer).toContain('sleeper solids');
+    expect(renderer).toContain('rail A solids');
+    expect(renderer).toContain('rail B solids');
+    expect(renderer).not.toContain('const railMat = new THREE.LineBasicMaterial');
+    expect(renderer).not.toContain('const tieMat = new THREE.LineBasicMaterial');
   });
 
   test('Site Planner 3D road meshes use mode-aware benchwork-clipped display polygons', () => {

@@ -53,7 +53,7 @@
         <input type="number" id="depth" min="40" max="300" step="5">
       </div>
       <!-- Live panel-size note — updated by updatePanelDimsNote() -->
-      <div id="panelDimsNote" class="small" style="color:var(--muted);margin-top:-2px;margin-bottom:4px;"></div>
+      <div id="panelDimsNote" class="small"></div>
       <div class="field">
         <label data-i18n="lbl_heightMode">Height mode</label>
         <select id="heightMode">
@@ -129,7 +129,7 @@
 
     <details open>
       <summary data-i18n="s_defaults">Defaults</summary>
-      <div class="small" style="margin-bottom: 6px;">Properties that control what gets placed by default. Each individual window, door, trim, etc. can still be overridden in the floor editor.</div>
+      <div class="small building-generator-defaults-note">Properties that control what gets placed by default. Each individual window, door, trim, etc. can still be overridden in the floor editor.</div>
 
     <details>
       <summary data-i18n="s_roof">Roof</summary>
@@ -144,7 +144,7 @@
           <option value="parapet_gable" data-i18n-opt="opt_parapet_gable">Parapet-hidden gable (false-front)</option>
         </select>
       </div>
-      <div class="field" id="parapetSidesField" style="display:none">
+      <div class="field building-generator-hidden-field" id="parapetSidesField">
         <label data-i18n="lbl_parapetSides">Parapet sides</label>
         <select id="parapetSides">
           <option value="all"  data-i18n-opt="opt_parapetSidesAll">All four walls (fully hidden gable)</option>
@@ -158,24 +158,24 @@
         <input type="number" id="parapetHeight" min="1" max="10" step="0.5" value="2">
       </div>
       <div class="field" id="parapetInnerCladdingField">
-        <label style="display:flex; align-items:center; gap:6px;">
+        <label class="building-generator-checkbox-label">
           <input type="checkbox" id="parapetInnerCladding" checked>
           <span data-i18n="lbl_parapetInner">Add inner parapet top-wrap cladding</span>
         </label>
         <div class="small" data-i18n="hlp_parapetInner">Four foldable cladding strips that wrap over the parapet wall top and continue down the inside face to the roof deck, hiding both the exposed top edge and the inner parapet face.</div>
       </div>
       <div class="field" id="parapetCapField">
-        <label style="display:flex; align-items:center; gap:6px;">
+        <label class="building-generator-checkbox-label">
           <input type="checkbox" id="parapetCap">
           <span data-i18n="lbl_parapetCap">Add ridge cap</span>
         </label>
         <div class="small" data-i18n="hlp_parapetCap">A single 3 mm-wide strip with an etched centre fold line, sized to the roof's ridge length. Score along the etch, fold to match the ridge angle, and glue 1.5 mm to each slope along the seam where the two roof panels meet.</div>
       </div>
-      <div class="field" id="roofPitchField" style="display:none">
+      <div class="field building-generator-hidden-field" id="roofPitchField">
         <label data-i18n="lbl_pitch">Roof pitch (mm rise)</label>
         <input type="number" id="roofPitch" min="3" max="40" step="1" value="10">
       </div>
-      <div class="field" id="roofOverhangAllField" style="display:none">
+      <div class="field building-generator-hidden-field" id="roofOverhangAllField">
         <label data-i18n="lbl_roofOverhangAll">Roof overhang on all sides (mm)</label>
         <input type="number" id="roofOverhangAll" min="1" max="20" step="0.5" value="5">
         <div class="small" data-i18n="hlp_roofOverhangAll">How far the roof projects past the walls on every side. The cladding above will extend to cover the full overhang.</div>
@@ -186,13 +186,13 @@
         <div class="small" id="roofCladdingDescription"></div>
       </div>
       <div class="field" id="trussesEnabledField">
-        <label style="display:flex; align-items:center; gap:6px;">
+        <label class="building-generator-checkbox-label">
           <input type="checkbox" id="trussesEnabled">
           <span data-i18n="lbl_trussesEnabled">Enable roof trusses</span>
         </label>
         <div class="small" data-i18n="hlp_trussesEnabled">Adds internal roof truss parts. The style is selected from the roof shape; direction can stay automatic or be set manually.</div>
       </div>
-      <div id="trussControls" style="display:none;">
+      <div id="trussControls" class="building-generator-hidden-field">
         <div class="field">
           <label data-i18n="lbl_trussSpacing">Truss spacing (mm)</label>
           <input type="number" id="trussSpacing" min="5" max="200" step="1" value="30">
@@ -210,26 +210,26 @@
           <input type="number" id="trussChordW" min="0.5" max="10" step="0.5" value="2">
         </div>
         <div class="field">
-          <label style="display:flex; align-items:center; gap:6px;">
+          <label class="building-generator-checkbox-label">
             <input type="checkbox" id="trussXBraceEnabled">
             <span data-i18n="lbl_trussXBrace">Add wall X-bracing between trusses</span>
           </label>
           <div class="small" data-i18n="hlp_trussXBrace">Automatically places connected X braces on the truss-bearing walls for the selected direction.</div>
         </div>
-        <div id="trussXBraceControls" style="display:none;">
+        <div id="trussXBraceControls" class="building-generator-hidden-field">
           <div class="field">
             <label data-i18n="lbl_trussXBraceW">Wall X-brace width (mm)</label>
             <input type="number" id="trussXBraceW" min="0.3" max="10" step="0.1" value="1">
           </div>
         </div>
         <div class="field">
-          <label style="display:flex; align-items:center; gap:6px;">
+          <label class="building-generator-checkbox-label">
             <input type="checkbox" id="trussSupportsEnabled">
             <span data-i18n="lbl_trussSupports">Add vertical support columns</span>
           </label>
           <div class="small" data-i18n="hlp_trussSupports">Adds core-material support-column parts at each truss bearing point, plus etched floor footprints for assembly.</div>
         </div>
-        <div id="trussSupportControls" style="display:none;">
+        <div id="trussSupportControls" class="building-generator-hidden-field">
           <div class="field">
             <label data-i18n="lbl_trussSupportType">Column cross-section</label>
             <select id="trussSupportColumnType">
@@ -247,14 +247,14 @@
           </div>
         </div>
       </div>
-      <div class="field" id="roofRidgeDirectionField" style="display:none">
+      <div class="field building-generator-hidden-field" id="roofRidgeDirectionField">
         <label data-i18n="lbl_ridge">Ridge direction</label>
         <select id="roofRidgeDirection">
           <option value="ew" data-i18n-opt="opt_ridgeEW">East–West (slopes face front &amp; back)</option>
           <option value="ns" data-i18n-opt="opt_ridgeNS">North–South (slopes face east &amp; west)</option>
         </select>
       </div>
-      <div class="field" id="roofSlopeDirectionField" style="display:none">
+      <div class="field building-generator-hidden-field" id="roofSlopeDirectionField">
         <label data-i18n="lbl_slope">High side</label>
         <select id="roofSlopeDirection">
           <option value="back" data-i18n-opt="opt_slopeBack">Back (north) is high</option>
@@ -263,7 +263,7 @@
           <option value="west" data-i18n-opt="opt_slopeWest">West is high</option>
         </select>
       </div>
-      <div class="field" id="roofOverhangField" style="display:none">
+      <div class="field building-generator-hidden-field" id="roofOverhangField">
         <label data-i18n="lbl_overhang">Roof overhang (mm)</label>
         <div class="roof-overhang-row">
           <input type="number" id="roofOverhangFB" min="0" max="60" step="0.5" value="0"
@@ -278,15 +278,15 @@
           <span data-i18n="lbl_ohEW">East / west</span>
         </div>
       </div>
-      <div class="field" id="soffitCladdingField" style="display:none">
-        <label style="display:flex; align-items:center; gap:6px;">
+      <div class="field building-generator-hidden-field" id="soffitCladdingField">
+        <label class="building-generator-checkbox-label">
           <input type="checkbox" id="soffitCladding">
           <span data-i18n="lbl_soffitCladding">Add soffit cladding</span>
         </label>
         <div class="small" data-i18n="hlp_soffitCladding">Flat cladding pieces sized to the underside of each eave overhang (one per eave side). Glue to the bottom of the overhang where it sticks out past the wall — covers the otherwise-bare core material visible from below. Sized to the overhang's slope distance for gabled roofs (so it covers the full sloped underside).</div>
       </div>
-      <div class="field" id="roofFasciaTrimField" style="display:none">
-        <label style="display:flex; align-items:center; gap:6px;">
+      <div class="field building-generator-hidden-field" id="roofFasciaTrimField">
+        <label class="building-generator-checkbox-label">
           <input type="checkbox" id="roofFasciaTrim">
           <span data-i18n="lbl_roofFasciaTrim">Add fascia trim</span>
         </label>
@@ -301,21 +301,21 @@
         <select id="claddingStyle"></select>
       </div>
       <div class="small" id="claddingDescription"></div>
-      <div class="field" style="margin-top:8px;">
-        <label style="display:flex; align-items:center; gap:6px;">
+      <div class="field building-generator-spaced-field">
+        <label class="building-generator-checkbox-label">
           <input type="checkbox" id="claddingExtendsToFloorBottom">
           <span>Extend exterior cladding to bottom of floor piece</span>
         </label>
         <div class="small">Adds a lower skirt equal to the core/floor thickness so exterior cladding can cover the exposed edge of the floor panel. Openings that touch the floor continue through this skirt.</div>
       </div>
-      <div class="field" style="margin-top:8px;">
-        <label style="display:flex; align-items:center; gap:6px;">
+      <div class="field building-generator-spaced-field">
+        <label class="building-generator-checkbox-label">
           <input type="checkbox" id="interiorCladding">
           <span data-i18n="lbl_interiorCladding">Add interior wall cladding</span>
         </label>
         <div class="small" data-i18n="hlp_interiorCladding">A second cladding panel per wall, glued to the inside face. Doors and windows are cut at the same wall positions so each opening lines up with the matching hole in the exterior cladding and the wall core. Independent style — pick a smooth interior finish even when the exterior is something textured.</div>
       </div>
-      <div class="field" id="interiorCladdingStyleField" style="display:none;">
+      <div class="field building-generator-hidden-field" id="interiorCladdingStyleField">
         <label data-i18n="lbl_interiorCladdingStyle">Interior style</label>
         <select id="interiorCladdingStyle">
           <option value="">— same as exterior —</option>

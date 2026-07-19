@@ -44,6 +44,21 @@ test.describe('HTML code health contracts', () => {
     expect(headingMargin).toBe('0px');
   });
 
+  test('building generator form-shell styles live in the shared stylesheet', () => {
+    const html = readRepoFile('building-generator.html');
+    const css = readRepoFile('css/hakomachi.css');
+
+    expect(html).toContain('class="small building-generator-defaults-note"');
+    expect(html).toContain('class="field building-generator-hidden-field" id="roofPitchField"');
+    expect(html).toContain('class="building-generator-checkbox-label"');
+    expect(html).not.toContain('id="panelDimsNote" class="small" style=');
+    expect(html).not.toContain('id="roofPitchField" style=');
+    expect(html).not.toContain('id="interiorCladdingStyleField" style=');
+    expect(css).toContain('#panelDimsNote');
+    expect(css).toContain('.building-generator-hidden-field');
+    expect(css).toContain('.building-generator-checkbox-label');
+  });
+
   test('page and tool metadata stays aligned with the shared registry', async () => {
     const landingSource = readRepoFile('js/landing/main.js');
     const analyticsSource = readRepoFile('js/shared/hakomachi-analytics.js');

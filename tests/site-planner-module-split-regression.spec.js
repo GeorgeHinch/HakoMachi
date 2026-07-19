@@ -146,6 +146,17 @@ test.describe('Site Planner module split contracts', () => {
     expect(detail).toContain('roadSystem.clearRoadIntersectionOverride');
   });
 
+  test('multi-building detail controls are wired through their sidebar module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-multi-building-detail.js'), 'utf8');
+
+    expect(source).toContain("import { renderMultiBuildingDetail } from './site-planner/sidebar-multi-building-detail.js';");
+    expect(source).toContain('renderMultiBuildingDetail({');
+    expect(source).not.toContain("$('clearMultiB').onclick=()=>");
+    expect(detail).toContain('export function renderMultiBuildingDetail');
+    expect(detail).toContain("getElement('deleteMultiB').onclick");
+  });
+
   test('sidebar input binding stays shared across standard object panels', async () => {
     const binder = await import('../js/site-planner/sidebar-input-binding.js');
     const files = ['sidebar-benchwork-detail.js', 'sidebar-fabric-detail.js', 'sidebar-stl-detail.js', 'sidebar-streetlight-detail.js', 'sidebar-track-detail.js'];

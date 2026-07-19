@@ -58,6 +58,7 @@ import { renderRailCrossingDetail } from './site-planner/sidebar-rail-crossing-d
 import { renderRoadFeatureDetail } from './site-planner/sidebar-road-feature-detail.js';
 import { renderRoadDetail } from './site-planner/sidebar-road-detail.js';
 import { renderRoadIntersectionDetail } from './site-planner/sidebar-road-intersection-detail.js';
+import { renderMultiBuildingDetail } from './site-planner/sidebar-multi-building-detail.js';
 import { renderBenchworkDetail } from './site-planner/sidebar-benchwork-detail.js';
 import { renderFabricDetail } from './site-planner/sidebar-fabric-detail.js';
 import { renderStlDetail } from './site-planner/sidebar-stl-detail.js';
@@ -3156,7 +3157,34 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function renderList(){
     ensureSidebarObjectBrowserController().renderList();
   }
-  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadIntersection=selectedRoadIntersection(); const railCrossing=selectedRailCrossing(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const track=selectedTrack(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const fabric=selectedFabric(); const stl=selectedStlObject(); const selIds=currentSelectedBuildingIds(); const trackAccessory=(!b && !selIds.length && !note && !roadIntersection && !railCrossing && !roadFeature && !road && !track && !bench && !light && !fabric && !stl) ? selectedTrackAccessory() : null; if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use keyboard shortcuts to copy/paste selected building footprints.</span><div class="buttons" style="margin-top:8px"><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(trackAccessory){renderTrackAccessoryDetail({
+  function renderSelectedCore(){
+    const b=selected();
+    const box=$('selectedPanel');
+    const note=selectedAnnotation();
+    const roadIntersection=selectedRoadIntersection();
+    const railCrossing=selectedRailCrossing();
+    const roadFeature=selectedRoadFeature();
+    const road=selectedRoad();
+    const track=selectedTrack();
+    const bench=selectedBenchwork();
+    const light=selectedStreetlight();
+    const fabric=selectedFabric();
+    const stl=selectedStlObject();
+    const selIds=currentSelectedBuildingIds();
+    const trackAccessory=(!b && !selIds.length && !note && !roadIntersection && !railCrossing && !roadFeature && !road && !track && !bench && !light && !fabric && !stl) ? selectedTrackAccessory() : null;
+    if(!b && selIds.length>1){
+      renderMultiBuildingDetail({
+        selectedIds: selIds,
+        panel: box,
+        state,
+        getElement: $,
+        clearBuildingSelection,
+        syncAll,
+      });
+      return;
+    }
+    if(!b){
+      if(trackAccessory){renderTrackAccessoryDetail({
         trackAccessory,
         panel: box,
         getElement: $,

@@ -41,17 +41,18 @@ test.describe('3D material depth regression contracts', () => {
   test('Site Planner 3D road meshes use mode-aware benchwork-clipped display polygons', () => {
     const source = readRepoFile('js/site-planner.js');
     const roadRenderer = readRepoFile('js/site-planner/site-3d-road-renderer.js');
-    const bounds = source.match(/function site3DBounds\(\)\{([\s\S]+?)function disposeSite3DObject/);
+    const sceneUtils = readRepoFile('js/site-planner/site-3d-scene-utils.js');
 
     expect(source).toContain("import { createSite3DRoadRenderer } from './site-planner/site-3d-road-renderer.js';");
+    expect(source).toContain("import { createSite3DSceneUtils } from './site-planner/site-3d-scene-utils.js';");
     expect(source).toContain('function buildSite3DRoadGroup(bounds)');
     expect(source).toContain('createSite3DRoadRenderer({');
-    expect(bounds, '3D bounds builder exists').not.toBeNull();
+    expect(sceneUtils).toContain('function site3DBounds()');
     expect(source).toContain("function shouldClipRoadsToBenchwork()");
     expect(source).toContain("return state.workspaceMode!=='road'");
     expect(roadRenderer).toContain('roadDisplayPolygons(road, { perCurve: 32, clipToBenchwork: shouldClipRoadsToBenchwork() })');
     expect(roadRenderer).not.toContain('site3DAddFlatPolygon(group,r.roadPolygonPx||[]');
-    expect(bounds[1]).toContain('roadDisplayPolygons(r,{perCurve:32,clipToBenchwork:shouldClipRoadsToBenchwork()})');
+    expect(sceneUtils).toContain('roadDisplayPolygons(road, { perCurve: 32, clipToBenchwork: shouldClipRoadsToBenchwork() })');
   });
 
   test('Site Planner 3D road markings and fixtures render above road surfaces', () => {

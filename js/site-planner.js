@@ -61,6 +61,7 @@ import { createSite3DObjectTagging } from './site-planner/site-3d-object-tagging
 import { createSite3DInteractionController } from './site-planner/site-3d-interaction-controller.js';
 import { createSite3DRoadRenderer } from './site-planner/site-3d-road-renderer.js';
 import { createSite3DSceneController } from './site-planner/site-3d-scene-controller.js';
+import { createSite3DSceneUtils } from './site-planner/site-3d-scene-utils.js';
 import { createSite3DTrackRenderer } from './site-planner/site-3d-track-renderer.js';
 import { createSite3DStlRenderer } from './site-planner/site-3d-stl-renderer.js';
 import { createSiteObjectSelectionController } from './site-planner/site-object-selection-controller.js';
@@ -2496,70 +2497,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function site3DGeneratorModelOriginOffset(b,cfg){ return ensureSite3DBuildingConfigController().site3DGeneratorModelOriginOffset(b,cfg); }
   function site3DGeneratorModelRotationY(b,cfg){ return ensureSite3DBuildingConfigController().site3DGeneratorModelRotationY(b,cfg); }
   function site3DNormalizeBuildingConfig(b,cfg){ return ensureSite3DBuildingConfigController().site3DNormalizeBuildingConfig(b,cfg); }
-  function site3DBenchworkFootprintsMm(){
-    return (state.benchworkOutlines||[]).map(raw=>{
-      const bw=normalizeBenchworkOutline(raw);
-      if(!bw || bw.hidden) return null;
-      const pts=benchworkSamples(bw,24).map(p=>({x:site3DScale(p.x), y:site3DScale(p.y)}));
-      return pts.length>=3 ? pts : null;
-    }).filter(Boolean);
-  }
-  function site3DBounds(){
-    const xs=[], ys=[];
-    if(state.image || state.imageMeta){
-      const w=Number(state.image?.naturalWidth||state.image?.width||state.imageMeta?.naturalWidthPx);
-      const h=Number(state.image?.naturalHeight||state.image?.height||state.imageMeta?.naturalHeightPx);
-      if(Number.isFinite(w)&&Number.isFinite(h)&&w>0&&h>0){ xs.push(0,site3DScale(w)); ys.push(0,site3DScale(h)); }
-    }
-    site3DBenchworkFootprintsMm().forEach(pts=>pts.forEach(p=>{ xs.push(p.x); ys.push(p.y); }));
-    state.roads.forEach(raw=>{
-      const r=normalizeRoad(raw);
-      syncRoadMetrics(r);
-      const add=pt=>{ xs.push(site3DScale(pt.x)); ys.push(site3DScale(pt.y)); };
-      const display=roadDisplayPolygons(r,{perCurve:32,clipToBenchwork:shouldClipRoadsToBenchwork()});
-      display.roadPolygons.forEach(poly=>poly.forEach(add));
-      display.sidewalkPolygons.forEach(sw=>(sw.polygon||[]).forEach(add));
-    });
-    (state.tracks||[]).forEach(raw=>{
-      const t=normalizeTrack(raw);
-      if(t.hidden) return;
-      trackPathSamples(t,18).forEach(p=>{ xs.push(site3DScale(p.x)); ys.push(site3DScale(p.y)); });
-    });
-    (state.trackAccessories||[]).forEach(raw=>{
-      const item=normalizeTrackAccessory(raw);
-      refreshTrackAccessoryAnchor(item);
-      if(item.hidden) return;
-      xs.push(site3DScale(item.x));
-      ys.push(site3DScale(item.y));
-    });
-    state.buildings.forEach(raw=>{
-      const b=normalizeBuilding(raw);
-      if(b.hidden) return;
-      const pts=site3DBuildingFootprintMm(b);
-      if(pts) pts.forEach(p=>{ xs.push(p.x); ys.push(p.y); });
-    });
-    (state.stlObjects||[]).forEach(raw=>{
-      const obj=normalizeStlObject(raw);
-      if(obj.hidden) return;
-      stlObjectRect(obj).forEach(p=>{ xs.push(site3DScale(p.x)); ys.push(site3DScale(p.y)); });
-    });
-    if(!xs.length || !ys.length) return {minX:-60,maxX:60,minY:-40,maxY:40,width:120,depth:80,cx:0,cy:0};
-    const width=Math.max(...xs)-Math.min(...xs), depth=Math.max(...ys)-Math.min(...ys);
-    const pad=Math.max(8,Math.min(60,Math.max(width,depth)*.06));
-    const minX=Math.min(...xs)-pad, maxX=Math.max(...xs)+pad, minY=Math.min(...ys)-pad, maxY=Math.max(...ys)+pad;
-    return {minX,maxX,minY,maxY,width:Math.max(1,maxX-minX),depth:Math.max(1,maxY-minY),cx:(minX+maxX)/2,cy:(minY+maxY)/2};
-  }
-  function disposeSite3DObject(obj){
-    if(!obj) return;
-    obj.traverse?.(child=>{
-      child.geometry?.dispose?.();
-      const mats=Array.isArray(child.material)?child.material:[child.material];
-      mats.filter(Boolean).forEach(mat=>{
-        Object.values(mat).forEach(v=>{ if(v && v.isTexture) v.dispose?.(); });
-        mat.dispose?.();
-      });
-    });
-  }
+  const { site3DBenchworkFootprintsMm, site3DBounds, disposeSite3DObject, site3DPlannerRotationY } = createSite3DSceneUtils({
+    state,site3DScale,normalizeBenchworkOutline,benchworkSamples,normalizeRoad,syncRoadMetrics,roadDisplayPolygons,shouldClipRoadsToBenchwork,
+    normalizeTrack,trackPathSamples,normalizeTrackAccessory,refreshTrackAccessoryAnchor,normalizeBuilding,site3DBuildingFootprintMm,normalizeStlObject,stlObjectRect,
+  });
   const {
     tagSite3DBuilding,
     tagSite3DStlObject,
@@ -2568,10 +2509,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     tagSite3DTrackObject,
     tagSite3DRoadFeatureObject,
   } = createSite3DObjectTagging({ THREE, trackAccessoryLabel });
-  function site3DPlannerRotationY(b, opts={}){
-    if(opts.geometryAlreadyInSiteCoordinates && b?.padType==='polygon') return 0;
-    return -(Number(b?.rotationDeg)||0)*Math.PI/180;
-  }
   function signedArea2D(pts){
     return pts.reduce((sum,p,i)=>{
       const q=pts[(i+1)%pts.length];

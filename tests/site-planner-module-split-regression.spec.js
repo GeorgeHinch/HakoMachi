@@ -3,6 +3,20 @@ const fs = require('fs');
 const path = require('path');
 
 test.describe('Site Planner module split contracts', () => {
+  test('flex-track 2D rendering is wired through its renderer module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-renderer-2d.js'), 'utf8');
+
+    expect(source).toContain("import { createTrackRenderer2D } from './site-planner/track-renderer-2d.js';");
+    expect(source).toContain('trackRenderer2D=createTrackRenderer2D({');
+    expect(source).toContain('function drawTrack(raw){ return ensureTrackRenderer2D().drawTrack(raw); }');
+    expect(source).not.toContain("drawTrackModelPath(path,t.roadbedColor||TRACK_PROFILE_DEFAULTS.roadbedColor");
+    expect(renderer).toContain('export function createTrackRenderer2D');
+    expect(renderer).toContain('trackTieSegments(track).forEach');
+    expect(renderer).toContain("drawRoadGeneratedPath(path, 'rgba(200,74,58,.45)', 1, [4, 4])");
+    expect(renderer).toContain('state.hoverTrackSegment.trackId === track.id');
+  });
+
   test('rail-crossing 2D rendering is wired through its renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'rail-crossing-renderer-2d.js'), 'utf8');

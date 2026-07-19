@@ -74,6 +74,7 @@ import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStl
 import { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } from './site-planner/svg-export-utils.js';
 import { createTrackAccessoryGeometry } from './site-planner/track-accessory-geometry.js';
 import { createTrackAccessoryRenderer2D } from './site-planner/track-accessory-renderer-2d.js';
+import { createTrackRenderer2D } from './site-planner/track-renderer-2d.js';
 import { installTopMenus } from './site-planner/top-menu-utils.js';
 import { createTrackController } from './site-planner/track-controller.js';
 import { createToolFlyoutController } from './site-planner/tool-flyout-utils.js';
@@ -801,84 +802,17 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function drawGeneratedRailCrossings(){
     return ensureRailCrossingRenderer2D().drawGeneratedRailCrossings();
   }
-  function drawTrack(raw){
-    const t=normalizeTrack(raw); if(!t || t.hidden || (t.pointsPx||[]).length<2) return;
-    const selected=t.id===state.selectedTrackId || isSiteObjectSelected('track',t.id), hovered=t.id===state.hoverTrackId;
-    const path=trackPathSamples(t);
-    const profile=trackProfilePx(t);
-    const railOffset=profile.gauge/2;
-    const left=offsetTrackPath(path,railOffset);
-    const right=offsetTrackPath(path,-railOffset);
-    ctx.save();
-    ctx.lineCap='round';
-    ctx.lineJoin='round';
-    drawTrackModelPath(path,t.roadbedColor||TRACK_PROFILE_DEFAULTS.roadbedColor,profile.roadbedWidth,.72);
-    drawTrackModelPath(path,t.roadbedTopColor||TRACK_PROFILE_DEFAULTS.roadbedTopColor,profile.roadbedTopWidth,.84);
-    trackTieSegments(t).forEach(seg=>{
-      ctx.strokeStyle=t.tieColor||'#8a6f43';
-      ctx.lineWidth=profile.tieWidth;
-      ctx.beginPath();
-      ctx.moveTo(seg.a.x,seg.a.y);
-      ctx.lineTo(seg.b.x,seg.b.y);
-      ctx.stroke();
-    });
-    drawTrackModelPath(left, selected?'#c84a3a':(hovered?'#d79631':t.color||'#4b4438'), selected?profile.railWidth*1.6:profile.railWidth);
-    drawTrackModelPath(right, selected?'#c84a3a':(hovered?'#d79631':t.color||'#4b4438'), selected?profile.railWidth*1.6:profile.railWidth);
-    if(selected||hovered){
-      drawRoadGeneratedPath(path,'rgba(200,74,58,.45)',1,[4,4]);
-      if(selected){
-        ctx.fillStyle='#fff7ed';
-        ctx.strokeStyle='#c84a3a';
-        ctx.lineWidth=2/state.view.scale;
-        (t.pointsPx||[]).forEach((pt,index)=>{
-          const activePoint=Number.isInteger(state.selectedTrackPointIndex) && state.selectedTrackPointIndex===index;
-          ctx.beginPath();
-          ctx.arc(pt.x,pt.y,(activePoint?7:5)/state.view.scale,0,Math.PI*2);
-          ctx.fillStyle=activePoint?'#c84a3a':'#fff7ed';
-          ctx.strokeStyle=activePoint?'#ffffff':'#c84a3a';
-          ctx.fill();
-          ctx.stroke();
-        });
-        (t.curvesPx||[]).forEach((c,i)=>{
-          if(!c) return;
-          const a=t.pointsPx[i], b=t.pointsPx[i+1];
-          if(!a||!b) return;
-          ctx.save();
-          ctx.strokeStyle='rgba(200,74,58,.42)';
-          ctx.lineWidth=1/state.view.scale;
-          ctx.setLineDash([3/state.view.scale,4/state.view.scale]);
-          ctx.beginPath();
-          ctx.moveTo(a.x,a.y);
-          ctx.lineTo(c.x,c.y);
-          ctx.lineTo(b.x,b.y);
-          ctx.stroke();
-          ctx.restore();
-          ctx.beginPath();
-          ctx.arc(c.x,c.y,5/state.view.scale,0,Math.PI*2);
-          ctx.fill();
-          ctx.stroke();
-        });
-        if(state.hoverTrackSegment && state.hoverTrackSegment.trackId===t.id){
-          const i=state.hoverTrackSegment.index, a=t.pointsPx[i], b=t.pointsPx[i+1], c=t.curvesPx?.[i];
-          if(a&&b){
-            ctx.save();
-            ctx.strokeStyle='#d79631';
-            ctx.lineWidth=5/state.view.scale;
-            ctx.globalAlpha=.65;
-            ctx.beginPath();
-            ctx.moveTo(a.x,a.y);
-            if(c) ctx.quadraticCurveTo(c.x,c.y,b.x,b.y);
-            else ctx.lineTo(b.x,b.y);
-            ctx.stroke();
-            ctx.restore();
-          }
-        }
-      }
-      const c=polygonCenter(path);
-      drawLabel(`${t.name||'Track'} · ${fmt(t.gaugeMm||9)} mm gauge`,{x:c.x+8/state.view.scale,y:c.y-8/state.view.scale});
+  let trackRenderer2D=null;
+  function ensureTrackRenderer2D(){
+    if(!trackRenderer2D){
+      trackRenderer2D=createTrackRenderer2D({
+        ctx,state,trackProfileDefaults:TRACK_PROFILE_DEFAULTS,normalizeTrack,isSiteObjectSelected,trackPathSamples,trackProfilePx,
+        offsetTrackPath,drawTrackModelPath,trackTieSegments,drawRoadGeneratedPath,polygonCenter,drawLabel,fmt,
+      });
     }
-    ctx.restore();
+    return trackRenderer2D;
   }
+  function drawTrack(raw){ return ensureTrackRenderer2D().drawTrack(raw); }
   function trackAccessoryPreset(kind){
     return trackAccessoryGeometry.trackAccessoryPreset(kind);
   }

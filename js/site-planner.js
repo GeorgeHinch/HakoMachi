@@ -59,6 +59,7 @@ import { createSite3DBuildingRenderer } from './site-planner/site-3d-building-re
 import { createSite3DMeshUtils } from './site-planner/site-3d-mesh-utils.js';
 import { createSite3DInteractionController } from './site-planner/site-3d-interaction-controller.js';
 import { createSite3DRoadRenderer } from './site-planner/site-3d-road-renderer.js';
+import { createSite3DSceneController } from './site-planner/site-3d-scene-controller.js';
 import { createSite3DTrackRenderer } from './site-planner/site-3d-track-renderer.js';
 import { createSite3DStlRenderer } from './site-planner/site-3d-stl-renderer.js';
 import { createSiteObjectSelectionController } from './site-planner/site-object-selection-controller.js';
@@ -2968,75 +2969,20 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function site3DHitSelectionData(object){ return ensureSite3DInteractionController().site3DHitSelectionData(object); }
   function selectSite3DHit(selection){ return ensureSite3DInteractionController().selectSite3DHit(selection); }
   function handleSite3DPointerUp(event){ return ensureSite3DInteractionController().handleSite3DPointerUp(event); }
-  function updateSite3D(options={}){
-    if(state.viewMode!=='3d') return;
-    const hadCamera=!!(site3d.initialized && site3d.camera);
-    if(!initSite3D()) return;
-    const shouldPreserveCamera=options.preserveCamera===true || (options.preserveCamera!==false && hadCamera);
-    const cameraSnapshot=shouldPreserveCamera ? site3DCameraSnapshot() : null;
-    clearSite3DHoverIndicator();
-    while(site3d.root.children.length){ const child=site3d.root.children.pop(); disposeSite3DObject(child); }
-    const bounds=site3DBounds();
-    site3d.bounds=bounds;
-    const baseT=SITE3D_BASE_THICKNESS_MM;
-    const benchworkBaseCount=site3DBenchworkFootprintsMm().length;
-    const base=buildSite3DBase(bounds,baseT);
-    site3d.root.add(base);
-    const referenceImage=buildSite3DReferenceImage(bounds);
-    if(referenceImage) site3d.root.add(referenceImage);
-    const roads=buildSite3DRoadGroup(bounds);
-    if(roads) site3d.root.add(roads);
-    const tracks=buildSite3DTrackGroup(bounds);
-    if(tracks) site3d.root.add(tracks);
-    const trackItems=buildSite3DTrackAccessoryGroup(bounds);
-    if(trackItems) site3d.root.add(trackItems);
-    if(!benchworkBaseCount){
-      const grid=new THREE.GridHelper(Math.max(bounds.width,bounds.depth),20,0x8a7f66,0xcfc5aa);
-      grid.position.y=.015;
-      site3d.root.add(grid);
+  let site3DSceneController=null;
+  function ensureSite3DSceneController(){
+    if(!site3DSceneController){
+      site3DSceneController=createSite3DSceneController({
+        THREE,state,site3d,baseThicknessMm:SITE3D_BASE_THICKNESS_MM,initSite3D,
+        site3DCameraSnapshot,clearSite3DHoverIndicator,disposeSite3DObject,site3DBounds,site3DBenchworkFootprintsMm,
+        buildSite3DBase,buildSite3DReferenceImage,buildSite3DRoadGroup,buildSite3DTrackGroup,buildSite3DTrackAccessoryGroup,
+        normalizeBuilding,syncBuildingMetrics,buildSite3DBuildingGroup,tagSite3DBuilding,isBuildingSelected,buildSite3DSelectionHelper,
+        normalizeStlObject,buildSite3DStlObjectGroup,restoreSite3DCameraSnapshot,updateSite3DHoverIndicator,renderSite3D,
+      });
     }
-    state.buildings.forEach(raw=>{
-      const b=normalizeBuilding(raw);
-      syncBuildingMetrics(b);
-      if(b.hidden) return;
-      const g=buildSite3DBuildingGroup(b,bounds);
-      if(g){
-        tagSite3DBuilding(g,b);
-        site3d.root.add(g);
-        if(isBuildingSelected(b.id)){
-          const helper=buildSite3DSelectionHelper(b,bounds);
-          if(helper) site3d.root.add(helper);
-        }
-      }
-    });
-    (state.stlObjects||[]).forEach(raw=>{
-      const obj=normalizeStlObject(raw);
-      if(obj.hidden) return;
-      const g=buildSite3DStlObjectGroup(obj,bounds);
-      if(g){
-        site3d.root.add(g);
-        if(obj.id===state.selectedStlObjectId){
-          const helper=buildSite3DStlObjectGroup({...obj,color:'#0f766e'},bounds);
-          if(helper){
-            helper.name='Selected STL object outline';
-            helper.traverse?.(child=>{ if(child.material){ child.material.transparent=true; child.material.opacity=child.isMesh ? .12 : .95; } });
-            site3d.root.add(helper);
-          }
-        }
-      }
-    });
-    const radius=Math.max(bounds.width,bounds.depth,60);
-    site3d.camera.near=Math.max(.25,radius/1000);
-    site3d.camera.far=Math.max(800,radius*8);
-    if(!restoreSite3DCameraSnapshot(cameraSnapshot)){
-      site3d.camera.position.set(radius*.72,Math.max(70,radius*.58),radius*.82);
-      site3d.camera.updateProjectionMatrix();
-      if(site3d.controls){ site3d.controls.target.set(0,0,0); site3d.controls.update(); }
-      else site3d.camera.lookAt(0,0,0);
-    }
-    updateSite3DHoverIndicator();
-    renderSite3D();
+    return site3DSceneController;
   }
+  function updateSite3D(options={}){ return ensureSite3DSceneController().updateSite3D(options); }
   function setSite3DMode(on){
     state.viewMode=on?'3d':'2d';
     wrap.classList.toggle('view3d',state.viewMode==='3d');

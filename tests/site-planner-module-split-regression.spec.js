@@ -1328,12 +1328,10 @@ test.describe('Site Planner module split contracts', () => {
 
   test('site planner 3D refreshes preserve camera during property syncs', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const sceneController = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-scene-controller.js'), 'utf8');
     const syncStart = source.indexOf('function syncAll(opts = {})');
     const syncEnd = source.indexOf('function syncSelectedBuildingLive');
     const syncAll = source.slice(syncStart, syncEnd);
-    const updateStart = source.indexOf('function updateSite3D(options={})');
-    const updateEnd = source.indexOf('function setSite3DMode');
-    const updateSite3D = source.slice(updateStart, updateEnd);
     const modeStart = source.indexOf('function setSite3DMode(on)');
     const modeEnd = source.indexOf('function bindSite3DButtons');
     const setSite3DMode = source.slice(modeStart, modeEnd);
@@ -1342,8 +1340,12 @@ test.describe('Site Planner module split contracts', () => {
     expect(syncAll).not.toContain('updateSite3D();');
     expect(setSite3DMode).toContain("updateSite3D({preserveCamera:site3d.initialized})");
     expect(setSite3DMode).not.toContain('updateSite3D();');
-    expect(updateSite3D).toContain('const hadCamera=!!(site3d.initialized && site3d.camera)');
-    expect(updateSite3D).toContain('options.preserveCamera!==false && hadCamera');
+    expect(source).toContain("import { createSite3DSceneController } from './site-planner/site-3d-scene-controller.js';");
+    expect(source).toContain('site3DSceneController=createSite3DSceneController({');
+    expect(source).toContain('function updateSite3D(options={}){ return ensureSite3DSceneController().updateSite3D(options); }');
+    expect(sceneController).toContain('const hadCamera = !!(site3d.initialized && site3d.camera)');
+    expect(sceneController).toContain('options.preserveCamera !== false && hadCamera');
+    expect(sceneController).toContain('if (!restoreSite3DCameraSnapshot(cameraSnapshot))');
   });
 
   test('site object selection and clipboard behavior is wired through its controller', () => {

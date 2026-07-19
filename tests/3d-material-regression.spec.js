@@ -72,11 +72,13 @@ test.describe('3D material depth regression contracts', () => {
 
   test('3D preview cameras derive near and far planes from scene bounds', () => {
     const sitePlanner = readRepoFile('js/site-planner.js');
+    const sitePlannerSceneController = readRepoFile('js/site-planner/site-3d-scene-controller.js');
     const buildingPreview = readRepoFile('js/building-generator/preview/three-preview.js');
     const utilityPreview = readRepoFile('js/utilities/utility-3d-preview.js');
 
-    expect(sitePlanner).toContain('site3d.camera.near=Math.max(.25,radius/1000)');
-    expect(sitePlanner).toContain('site3d.camera.far=Math.max(800,radius*8)');
+    expect(sitePlanner).toContain("import { createSite3DSceneController } from './site-planner/site-3d-scene-controller.js';");
+    expect(sitePlannerSceneController).toContain('site3d.camera.near = Math.max(.25, radius / 1000)');
+    expect(sitePlannerSceneController).toContain('site3d.camera.far = Math.max(800, radius * 8)');
     expect(buildingPreview).toContain('threeCamera.near = Math.max(0.25, maxDim / 700)');
     expect(buildingPreview).toContain('threeCamera.far = Math.max(1000, maxDim * 7)');
     expect(utilityPreview).toContain('state.camera.near = Math.max(0.25, maxDim / 800)');

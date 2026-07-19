@@ -53,6 +53,7 @@ import { RAIL_CROSSING_CENTER_CLEARANCE_MM, buildRailCrossingInfillPanels, build
 import { createRailCrossingRenderer2D } from './site-planner/rail-crossing-renderer-2d.js';
 import { createScaleInputController } from './site-planner/scale-input-utils.js';
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
+import { createSidebarDetailController } from './site-planner/sidebar-detail-controller.js';
 import { createSidebarObjectBrowserController } from './site-planner/sidebar-object-browser-controller.js';
 import { renderRailCrossingDetail } from './site-planner/sidebar-rail-crossing-detail.js';
 import { renderRoadFeatureDetail } from './site-planner/sidebar-road-feature-detail.js';
@@ -181,7 +182,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let autosaveTimer = null;
   let autosaveSuppressed = false;
   let renderQueued = false;
-  let activeSidebarDetailKey = null;
   let roadSystem = null;
   let roadAssetExporter = null;
   let roadExportReview = null;
@@ -197,6 +197,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let githubBuildingPreviewRenderer = null;
   let siteObjectSelectionController = null;
   let sidebarObjectBrowserController = null;
+  let sidebarDetailController = null;
   let sitePointerInteractionController = null;
   let siteProjectPersistenceController = null;
   let updateRoadToolButton = () => {};
@@ -3401,154 +3402,33 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function activeSidebarDetailTitle(kind){
     return sidebarDetailTitle(kind);
   }
-  function clearSidebarDetailSelection(){
-    const returnType=sidebarTypeForDetailKind(activeSidebarDetailKind());
-    if(returnType) setSidebarObjectType(returnType);
-    closeSidebarBuildingOverflow();
-    clearPlanObjectSelection();
-    hideContextMenu();
-    renderList();
-    renderRoads();
-    renderStreetlights();
-    renderSelected();
-    updateHandoff();
-    draw();
-  }
-  function closeSidebarBuildingOverflow(){
-    const menu=$('sidebarBuildingOverflowMenu');
-    const wrap=$('sidebarOverflowWrap');
-    const btn=$('sidebarOverflowBtn');
-    menu?.classList.remove('open');
-    wrap?.classList.remove('menuOpen');
-    btn?.setAttribute('aria-expanded','false');
-  }
-  function bindSidebarBuildingOverflowActions(){
-    const b=selected();
-    if(!b) return;
-    const input=$('hakoFileInput');
-    const replace=$('sidebarReplaceHakoB');
-    const remove=$('sidebarRemoveHakoB');
-    const duplicate=$('sidebarDuplicateB');
-    const hide=$('sidebarHideB');
-    const lock=$('sidebarLockB');
-    const del=$('sidebarDeleteB');
-    if(replace) replace.onclick=()=>{closeSidebarBuildingOverflow(); input?.click();};
-    if(remove){
-      remove.disabled=!b.hakoFile;
-      remove.onclick=()=>{
-        closeSidebarBuildingOverflow();
-        if(!b.hakoFile) return;
-        if(!confirm('Remove the stored .hako file from this building?')) return;
-        b.hakoFile=null;
-        b.hakoFileId=null;
-        b.hakoConfig=null;
-        syncAll();
-      };
-    }
-    if(duplicate) duplicate.onclick=()=>{closeSidebarBuildingOverflow(); duplicateBuildingFootprint(b);};
-    if(hide) hide.onclick=()=>{closeSidebarBuildingOverflow(); b.hidden=!b.hidden; syncAll();};
-    if(lock) lock.onclick=()=>{closeSidebarBuildingOverflow(); b.locked=!b.locked; syncAll();};
-    if(del) del.onclick=()=>{
-      closeSidebarBuildingOverflow();
-      state.buildings=state.buildings.filter(x=>x.id!==b.id);
-      clearBuildingSelection();
-      syncAll();
-    };
-  }
-  function bindSidebarDetailToolbarControls(kind){
-    const toolbar=$('sidebarDetailToolbar');
-    const back=$('sidebarBackBtn');
-    if(back) back.onclick=clearSidebarDetailSelection;
-    if(toolbar) hydrateIcons(toolbar);
-    if(kind==='building'){
-      const overflowBtn=$('sidebarOverflowBtn');
-      const overflowMenu=$('sidebarBuildingOverflowMenu');
-      const overflowWrap=$('sidebarOverflowWrap');
-      if(overflowBtn && overflowMenu && overflowWrap){
-        overflowBtn.onclick=e=>{
-          e.preventDefault();
-          e.stopPropagation();
-          const open=!overflowMenu.classList.contains('open');
-          closeSidebarBuildingOverflow();
-          overflowMenu.classList.toggle('open',open);
-          overflowWrap.classList.toggle('menuOpen',open);
-          overflowBtn.setAttribute('aria-expanded',String(open));
-        };
-        overflowMenu.onclick=e=>e.stopPropagation();
-        bindSidebarBuildingOverflowActions();
-      }
-    }
-  }
-  function applySidebarDrillIn(){
-    const sidebar=document.querySelector('.sidebar');
-    if(!sidebar) return;
-    const sections=[...sidebar.children].filter(el=>el.classList&&el.classList.contains('section'));
-    let detailSection=$('selectedPanel')?.closest('.section') || sections.find(sec=>sec.dataset.detailPanel==='true');
-    if(!detailSection){
-      detailSection=sections.find(sec=>{
-        const h=sec.querySelector('h3');
-        return h && h.textContent.trim()==='Selected Building';
-      });
-    }
-    if(!detailSection) return;
-    detailSection.dataset.detailPanel='true';
-    const kind=activeSidebarDetailKind();
-    const detailKey=kind ? `${kind}:${state.selectedId||state.selectedRoadId||state.selectedRoadFeatureId||state.selectedRoadIntersectionId||state.selectedTrackId||state.selectedTrackAccessoryId||state.selectedBenchworkId||state.selectedStreetlightId||state.selectedFabricId||state.selectedStlObjectId||state.selectedAnnotationId||state.selectedRailCrossingId||currentSelectedBuildingIds().join(',')}` : null;
-    const h3=detailSection.querySelector('h3');
-    const existingToolbars=[...sidebar.querySelectorAll('#sidebarDetailToolbar, .sidebarDetailToolbar')];
-    let toolbar=existingToolbars[0] || null;
-    existingToolbars.slice(1).forEach(el=>el.remove());
-    if(kind){
-      sections.forEach(sec=>{ sec.style.display = (sec===detailSection) ? '' : 'none'; });
-      detailSection.classList.add('detailMode');
-      if(h3) h3.textContent=activeSidebarDetailTitle(kind);
-      if(!toolbar){
-        toolbar=document.createElement('div');
-        toolbar.id='sidebarDetailToolbar';
-        toolbar.className='sidebarDetailToolbar';
-      }
-      toolbar.innerHTML=`
-        <button id="sidebarBackBtn" type="button" class="sidebarBackBtn" aria-label="Back to lists"><span data-icon="arrowLeft"></span><span>Back</span></button>
-        ${kind==='building'?`<div id="sidebarOverflowWrap" class="sidebarOverflowWrap">
-          <button id="sidebarOverflowBtn" type="button" class="sidebarOverflowBtn" aria-label="Building actions" title="Building actions" aria-haspopup="true" aria-expanded="false"><span data-icon="moreVertical"></span></button>
-          <div id="sidebarBuildingOverflowMenu" class="dropdownMenu right sidebarOverflowMenu" role="menu">
-            <button id="sidebarReplaceHakoB" type="button">Replace .hako file</button>
-            <button id="sidebarRemoveHakoB" type="button" class="danger" ${selected()?.hakoFile?'':'disabled'}>Remove .hako file</button>
-            <div class="overflow-sep"></div>
-            <button id="sidebarDuplicateB" type="button">Duplicate</button>
-            <button id="sidebarHideB" type="button">${selected()?.hidden?'Show':'Hide'}</button>
-            <button id="sidebarLockB" type="button">${selected()?.locked?'Unlock':'Lock'}</button>
-            <div class="overflow-sep"></div>
-            <button id="sidebarDeleteB" type="button" class="danger">Delete</button>
-          </div>
-        </div>`:''}`;
-      if(toolbar.parentElement!==detailSection || toolbar.nextElementSibling!==h3){
-        detailSection.insertBefore(toolbar, h3 || detailSection.firstChild);
-      }
-      const back=$('sidebarBackBtn');
-      back.onclick=clearSidebarDetailSelection;
-      if(detailKey && detailKey!==activeSidebarDetailKey){
-        sidebar.scrollTop=0;
-      }
-      activeSidebarDetailKey=detailKey;
-      bindSidebarDetailToolbarControls(kind);
-      if(window.matchMedia && window.matchMedia('(max-width:900px)').matches && !state.sidebarOpen){
-        setSidebarOpen(true);
-      }
-    } else {
-      sections.forEach(sec=>{ sec.style.display=''; });
-      detailSection.style.display='none';
-      detailSection.classList.remove('detailMode');
-      if(h3) h3.textContent='Selected Item';
-      closeSidebarBuildingOverflow();
-      if(toolbar) toolbar.remove();
-      activeSidebarDetailKey=null;
-    }
-  }
+  sidebarDetailController=createSidebarDetailController({
+    state,
+    getElement:$,
+    hydrateIcons,
+    activeDetailKind:activeSidebarDetailKind,
+    detailTitle:activeSidebarDetailTitle,
+    sidebarTypeForDetailKind,
+    currentSelectedBuildingIds,
+    setSidebarObjectType,
+    clearPlanObjectSelection,
+    hideContextMenu,
+    renderList,
+    renderRoads,
+    renderStreetlights,
+    refreshSelection:renderSelected,
+    updateHandoff,
+    draw,
+    selected,
+    duplicateBuildingFootprint,
+    clearBuildingSelection,
+    syncAll,
+    setSidebarOpen,
+  });
   function renderSelected(){
     renderObjectBrowser();
     renderSelectedCore();
-    applySidebarDrillIn();
+    sidebarDetailController?.applySidebarDrillIn();
   }
 
   function isNearSquare(w,h){const m=Math.max(w,h); return m>0 && Math.abs(w-h)/m<0.06;}
@@ -4519,7 +4399,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     updateAutosaveStatus('Autosave: cleared');
   }
 
-  installTopMenus({getElement:$, closeSidebarBuildingOverflow});
+  installTopMenus({getElement:$, closeSidebarBuildingOverflow:()=>sidebarDetailController?.closeBuildingOverflow()});
   function exportSelectedSeed(){
     const b=selected();
     if(!b) return showStatusHint('Select a building first.', 'warning');

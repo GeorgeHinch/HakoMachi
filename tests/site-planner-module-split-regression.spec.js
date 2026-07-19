@@ -180,6 +180,22 @@ test.describe('Site Planner module split contracts', () => {
     expect(detail).toContain('copyHakoSeedForBuilding(building)');
   });
 
+  test('sidebar drill-in behavior is wired through a shared detail controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-detail-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createSidebarDetailController } from './site-planner/sidebar-detail-controller.js';");
+    expect(source).toContain('sidebarDetailController=createSidebarDetailController({');
+    expect(source).toContain('sidebarDetailController?.applySidebarDrillIn();');
+    expect(source).toContain('closeSidebarBuildingOverflow:()=>sidebarDetailController?.closeBuildingOverflow()');
+    expect(source).not.toContain('function bindSidebarBuildingOverflowActions()');
+    expect(controller).toContain('export function createSidebarDetailController');
+    expect(controller).toContain('function clearDetailSelection()');
+    expect(controller).toContain('function bindBuildingOverflowActions()');
+    expect(controller).toContain('function applySidebarDrillIn()');
+    expect(controller).toContain('return { applySidebarDrillIn, closeBuildingOverflow };');
+  });
+
   test('sidebar input binding stays shared across standard object panels', async () => {
     const binder = await import('../js/site-planner/sidebar-input-binding.js');
     const files = ['sidebar-benchwork-detail.js', 'sidebar-fabric-detail.js', 'sidebar-stl-detail.js', 'sidebar-streetlight-detail.js', 'sidebar-track-detail.js'];

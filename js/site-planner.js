@@ -62,6 +62,7 @@ import { renderFabricDetail } from './site-planner/sidebar-fabric-detail.js';
 import { renderStlDetail } from './site-planner/sidebar-stl-detail.js';
 import { renderStreetlightDetail } from './site-planner/sidebar-streetlight-detail.js';
 import { renderTrackDetail } from './site-planner/sidebar-track-detail.js';
+import { renderTrackAccessoryDetail } from './site-planner/sidebar-track-accessory-detail.js';
 import { createSite3DBaseRenderer } from './site-planner/site-3d-base-renderer.js';
 import { createSite3DBuildingConfigController } from './site-planner/site-3d-building-config.js';
 import { createSite3DTrackAccessoryRenderer } from './site-planner/site-3d-track-accessory-renderer.js';
@@ -3154,26 +3155,28 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function renderList(){
     ensureSidebarObjectBrowserController().renderList();
   }
-  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadIntersection=selectedRoadIntersection(); const railCrossing=selectedRailCrossing(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const track=selectedTrack(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const fabric=selectedFabric(); const stl=selectedStlObject(); const selIds=currentSelectedBuildingIds(); const trackAccessory=(!b && !selIds.length && !note && !roadIntersection && !railCrossing && !roadFeature && !road && !track && !bench && !light && !fabric && !stl) ? selectedTrackAccessory() : null; if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use keyboard shortcuts to copy/paste selected building footprints.</span><div class="buttons" style="margin-top:8px"><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(trackAccessory){normalizeTrackAccessory(trackAccessory); box.innerHTML=`
-      <b>Track item selected</b>
-      <label>Name</label><input id="trackItemName" value="${escapeAttr(trackAccessory.name||trackAccessoryLabel(trackAccessory.kind))}">
-      <label>Type</label><select id="trackItemKind"><option value="sensor">Under-track Sensor</option><option value="signal">Signal Location</option><option value="crossingArm">Crossing Arm</option><option value="intrusionDetector">Intrusion Detector</option><option value="occupancyLight">Blinking Occupancy Lights</option><option value="trackSwitchLeft">Left-hand Track Switch</option><option value="trackSwitchRight">Right-hand Track Switch</option><option value="trackSwitchTomix1279Left">Tomix 1279 Left Curved Switch</option><option value="trackSwitchTomix1278Right">Tomix 1278 Right Curved Switch</option><option value="trackBufferTomix1428">Tomix 1428 Buffer Stop</option><option value="trackBufferTomix1428Catenary">Tomix 1428 Buffer + Catenary Terminal</option><option value="catenarySingleSide">Single-side Catenary Pole</option><option value="catenaryDoublePortal">Double-track Catenary Portal</option></select>
-      <div class="row"><div><label>X px</label><input id="trackItemX" type="number" step="1" value="${fmt(trackAccessory.x||0)}"></div><div><label>Y px</label><input id="trackItemY" type="number" step="1" value="${fmt(trackAccessory.y||0)}"></div></div>
-      <div class="row"><div><label>Rotation °</label><input id="trackItemRot" type="number" step="1" value="${fmt(trackAccessory.rotationDeg||0)}"></div><div><label>Color</label><input id="trackItemColor" type="color" value="${trackAccessory.color||trackAccessoryPreset(trackAccessory.kind).color}"></div></div>
-      ${isCatenaryAccessoryKind(trackAccessory.kind)?`<label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="trackItemAutoOrient" type="checkbox" ${trackAccessory.autoOrientToTrack!==false&&trackAccessory.trackId?'checked':''}> <span>Attach and auto-orient to track</span></label>`:''}
-      ${isTrackBufferAccessoryKind(trackAccessory.kind)?`<label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="trackItemCatenaryTerminal" type="checkbox" ${trackBufferHasCatenaryTerminal(trackAccessory)?'checked':''}> <span>Show catenary end terminal</span></label>`:''}
-      <label>Notes</label><textarea id="trackItemNotes" rows="3">${escapeHtml(trackAccessory.notes||'')}</textarea>
-      <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="trackItemLocked" type="checkbox" ${trackAccessory.locked?'checked':''}> <span>Lock item</span></label>
-      <div class="buttons" style="margin-top:8px"><button id="trackItemSnap">Snap to Nearest Track</button><button id="deleteTrackItem" class="danger">Delete Item</button></div>
-      <div class="small muted" style="margin-top:8px">Track items mark placement for sensors, signals, crossing arms, catenary poles, switches, buffer stops, and level crossing detection around physical track. Tomix-style switches expose heel, straight, and diverging endpoints for flex-track snapping. Buffer stops prefer track endpoints and can show a catenary terminal. They are saved with the site plan but are not exported as track parts.</div>`;
-      const kind=$('trackItemKind'); if(kind){kind.value=trackAccessory.kind; kind.onchange=()=>{trackAccessory.kind=kind.value; const preset=trackAccessoryPreset(trackAccessory.kind); trackAccessory.color=trackAccessory.color||preset.color; trackAccessory.name=trackAccessory.name||preset.label; if(trackAccessory.kind==='trackBufferTomix1428Catenary') trackAccessory.catenaryEndTerminal=true; normalizeTrackAccessory(trackAccessory); if(isTrackSwitchAccessoryKind(trackAccessory.kind)) syncTracksConnectedToTrackSwitch(trackAccessory); syncAll();};}
-      const bindTrackItem=(id,fn)=>{const el=$(id); if(el) el.oninput=()=>{fn(el.type==='checkbox'?el.checked:el.value); normalizeTrackAccessory(trackAccessory); syncAll();};};
-      bindTrackItem('trackItemName',v=>trackAccessory.name=v); bindTrackItem('trackItemX',v=>{trackAccessory.x=parseFloat(v)||0; trackAccessory.trackAnchor=null; if(isTrackSwitchAccessoryKind(trackAccessory.kind)) syncTracksConnectedToTrackSwitch(trackAccessory);}); bindTrackItem('trackItemY',v=>{trackAccessory.y=parseFloat(v)||0; trackAccessory.trackAnchor=null; if(isTrackSwitchAccessoryKind(trackAccessory.kind)) syncTracksConnectedToTrackSwitch(trackAccessory);}); bindTrackItem('trackItemRot',v=>{trackAccessory.rotationDeg=parseFloat(v)||0; trackAccessory.autoOrientToTrack=false; if(isTrackSwitchAccessoryKind(trackAccessory.kind)) syncTracksConnectedToTrackSwitch(trackAccessory);}); bindTrackItem('trackItemColor',v=>trackAccessory.color=v); bindTrackItem('trackItemNotes',v=>trackAccessory.notes=v); bindTrackItem('trackItemLocked',v=>trackAccessory.locked=!!v);
-      bindTrackItem('trackItemAutoOrient',v=>{trackAccessory.autoOrientToTrack=!!v; if(trackAccessory.autoOrientToTrack){const anchor=nearestTrackAccessoryAnchor({x:trackAccessory.x,y:trackAccessory.y},{trackId:trackAccessory.trackId}); if(anchor) attachTrackAccessoryToAnchor(trackAccessory,anchor); else trackAccessory.autoOrientToTrack=false;}});
-      bindTrackItem('trackItemCatenaryTerminal',v=>{trackAccessory.catenaryEndTerminal=!!v; if(trackAccessory.kind==='trackBufferTomix1428Catenary' && !v) trackAccessory.kind='trackBufferTomix1428';});
-      installAdaptiveDegreeStepping($('trackItemRot'));
-      const snapBtn=$('trackItemSnap'); if(snapBtn) snapBtn.onclick=()=>{const anchor=isTrackBufferAccessoryKind(trackAccessory.kind)?nearestTrackEndpointAnchor({x:trackAccessory.x,y:trackAccessory.y}):nearestTrackAccessoryAnchor({x:trackAccessory.x,y:trackAccessory.y}); if(anchor){if(isCatenaryAccessoryKind(trackAccessory.kind)) attachTrackAccessoryToAnchor(trackAccessory,anchor); else {trackAccessory.x=anchor.point.x; trackAccessory.y=anchor.point.y; trackAccessory.rotationDeg=anchor.angleDeg; trackAccessory.trackId=anchor.trackId; if(isTrackBufferAccessoryKind(trackAccessory.kind)) trackAccessory.trackAnchor={trackId:anchor.trackId,endpointKey:anchor.endpointKey,pointIndex:anchor.pointIndex,pathDistancePx:null,offsetPx:0};} syncAll();}};
-      $('deleteTrackItem').onclick=deleteSelectedTrackAccessory;
+  function renderSelectedCore(){const b=selected(), box=$('selectedPanel'); const note=selectedAnnotation(); const roadIntersection=selectedRoadIntersection(); const railCrossing=selectedRailCrossing(); const roadFeature=selectedRoadFeature(); const road=selectedRoad(); const track=selectedTrack(); const bench=selectedBenchwork(); const light=selectedStreetlight(); const fabric=selectedFabric(); const stl=selectedStlObject(); const selIds=currentSelectedBuildingIds(); const trackAccessory=(!b && !selIds.length && !note && !roadIntersection && !railCrossing && !roadFeature && !road && !track && !bench && !light && !fabric && !stl) ? selectedTrackAccessory() : null; if(!b && selIds.length>1){ box.innerHTML=`<b>${selIds.length} buildings selected</b><br><span class="small muted">Drag any selected footprint to move the whole selection. Use keyboard shortcuts to copy/paste selected building footprints.</span><div class="buttons" style="margin-top:8px"><button id="clearMultiB">Clear Selection</button><button id="deleteMultiB" class="danger">Delete Selected</button></div>`; $('clearMultiB').onclick=()=>{clearBuildingSelection(); syncAll();}; $('deleteMultiB').onclick=()=>{state.buildings=state.buildings.filter(x=>!selIds.includes(x.id)); clearBuildingSelection(); syncAll();}; return;} if(!b){if(trackAccessory){renderTrackAccessoryDetail({
+        trackAccessory,
+        panel: box,
+        getElement: $,
+        fmt,
+        escapeAttr,
+        escapeHtml,
+        syncAll,
+        normalizeTrackAccessory,
+        trackAccessoryLabel,
+        trackAccessoryPreset,
+        isCatenaryAccessoryKind,
+        isTrackSwitchAccessoryKind,
+        isTrackBufferAccessoryKind,
+        trackBufferHasCatenaryTerminal,
+        syncTracksConnectedToTrackSwitch,
+        nearestTrackAccessoryAnchor,
+        nearestTrackEndpointAnchor,
+        attachTrackAccessoryToAnchor,
+        installAdaptiveDegreeStepping,
+        deleteSelectedTrackAccessory,
+      });
       return;
     } if(roadIntersection){const intersectionKey=roadIntersectionKey(roadIntersection); const override=normalizeIntersectionOverride((state.roadIntersectionOverrides||{})[intersectionKey]); const generatedType=roadIntersection.type||'intersection'; const arms=(roadIntersection.arms||[]).map(arm=>`${roadArmKey(arm)}${arm.roadName?` · ${arm.roadName}`:''}`); box.innerHTML=`
       <b>Road intersection selected</b>

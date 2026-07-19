@@ -40,6 +40,18 @@ test.describe('Site Planner module split contracts', () => {
     expect(detail).toContain('railCrossingRegistrationMarks');
   });
 
+  test('track detail controls are wired through their sidebar module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-track-detail.js'), 'utf8');
+
+    expect(source).toContain("import { renderTrackDetail } from './site-planner/sidebar-track-detail.js';");
+    expect(source).toContain('} if(track){renderTrackDetail({');
+    expect(source).not.toContain('const bindTrack=(id,fn)=>');
+    expect(detail).toContain('export function renderTrackDetail');
+    expect(detail).toContain('deleteTrackPoint');
+    expect(detail).toContain('syncTrackMetrics(track)');
+  });
+
   test('flex-track 2D rendering is wired through its renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-renderer-2d.js'), 'utf8');

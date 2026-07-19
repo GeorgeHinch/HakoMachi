@@ -74,6 +74,7 @@ import { renderTrackDetail } from './site-planner/sidebar-track-detail.js';
 import { renderTrackAccessoryDetail } from './site-planner/sidebar-track-accessory-detail.js';
 import { createSite3DBaseRenderer } from './site-planner/site-3d-base-renderer.js';
 import { createSite3DBuildingConfigController } from './site-planner/site-3d-building-config.js';
+import { createSite3DUiController } from './site-planner/site-3d-ui-controller.js';
 import { createSite3DTrackAccessoryRenderer } from './site-planner/site-3d-track-accessory-renderer.js';
 import { createSite3DBuildingRenderer } from './site-planner/site-3d-building-renderer.js';
 import { createSite3DMeshUtils } from './site-planner/site-3d-mesh-utils.js';
@@ -2491,21 +2492,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     view:null, scene:null, camera:null, renderer:null, controls:null,
     root:null, raycaster:null, pointer:null, pointerDown:null, hoverHelper:null, bounds:null, initialized:false
   };
-  function applySite3DSettings(raw=state.site3d){
-    const opacity=Number(raw?.imageOpacity);
-    state.site3d={
-      imageVisible: raw?.imageVisible !== false,
-      imageOpacity: clamp(Number.isFinite(opacity) ? opacity : SITE3D_DEFAULT_IMAGE_OPACITY, 0, 1)
-    };
-    return state.site3d;
-  }
-  function syncSite3DControls(){
-    const settings=applySite3DSettings();
-    const imageVisible=$('site3dImageVisible');
-    const imageOpacity=$('site3dImageOpacity');
-    if(imageVisible) imageVisible.checked=settings.imageVisible;
-    if(imageOpacity) imageOpacity.value=String(settings.imageOpacity);
-  }
   function site3DScale(v){ return state.pxPerMm ? pxToMm(v) : v; }
   function positiveNumber(...values){ for(const v of values){ const n=Number(v); if(Number.isFinite(n) && n>0) return n; } return null; }
   function ensureSite3DBuildingConfigController(){
@@ -2831,33 +2817,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(state.viewMode==='3d') updateSite3D({preserveCamera:site3d.initialized});
     else draw();
   }
-  function bindSite3DButtons(){
-    const view2d=$('view2dCanvasBtn');
-    const view3d=$('view3dCanvasBtn');
-    if(view2d && !view2d.dataset.site3dBound){ view2d.dataset.site3dBound='1'; view2d.onclick=()=>setSite3DMode(false); }
-    if(view3d && !view3d.dataset.site3dBound){ view3d.dataset.site3dBound='1'; view3d.onclick=()=>setSite3DMode(true); }
-    const imageVisible=$('site3dImageVisible');
-    const imageOpacity=$('site3dImageOpacity');
-    if(imageVisible && !imageVisible.dataset.site3dBound){
-      imageVisible.dataset.site3dBound='1';
-      imageVisible.onchange=()=>{
-        state.site3d=state.site3d||{};
-        state.site3d.imageVisible=!!imageVisible.checked;
-        updateSite3D({preserveCamera:true});
-        markDirty('3d reference image visibility', {history:false});
-      };
-    }
-    if(imageOpacity && !imageOpacity.dataset.site3dBound){
-      imageOpacity.dataset.site3dBound='1';
-      imageOpacity.oninput=()=>{
-        state.site3d=state.site3d||{};
-        state.site3d.imageOpacity=clamp(parseFloat(imageOpacity.value)||0,0,1);
-        updateSite3D({preserveCamera:true});
-        markDirty('3d reference image opacity', {history:false});
-      };
-    }
-    syncSite3DControls();
-  }
   function ensureSiteProjectPersistenceController(){
     if(!siteProjectPersistenceController){
       siteProjectPersistenceController=createSiteProjectPersistenceController({
@@ -2928,6 +2887,19 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     logger,
     updateImagePortableStatus,
     updateAutosaveStatus,
+  });
+  const {
+    applySite3DSettings,
+    syncSite3DControls,
+    bindSite3DButtons,
+  } = createSite3DUiController({
+    state,
+    getElement:$,
+    clamp,
+    defaultImageOpacity:SITE3D_DEFAULT_IMAGE_OPACITY,
+    setSite3DMode,
+    updateSite3D,
+    markDirty,
   });
 
 

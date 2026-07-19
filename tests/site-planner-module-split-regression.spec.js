@@ -1718,6 +1718,19 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('function markManualSaveComplete(){');
   });
 
+  test('Site Planner 3D UI controls are wired through their controller', () => {
+    const source=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-ui-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createSite3DUiController } from './site-planner/site-3d-ui-controller.js';");
+    expect(source).toContain('} = createSite3DUiController({');
+    expect(source).not.toContain('function applySite3DSettings(');
+    expect(source).not.toContain('function bindSite3DButtons(){');
+    expect(controller).toContain('export function createSite3DUiController');
+    expect(controller).toContain('function syncSite3DControls(){');
+    expect(controller).toContain("markDirty('3d reference image opacity',{history:false});");
+  });
+
   test('Tomix track accessories fall back to the flex-track gauge scale', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const scaleHelpers = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-geometry.js'), 'utf8');

@@ -582,6 +582,24 @@ test.describe('Site Planner module split contracts', () => {
     expect(returnedState.buildings[0].depthPx).toBe(180);
   });
 
+  test('GitHub building library previews are wired through a dedicated renderer module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'github-building-preview-renderer.js'), 'utf8');
+
+    expect(source).toContain("import { createGithubBuildingPreviewRenderer } from './site-planner/github-building-preview-renderer.js';");
+    expect(source).toContain('function ensureGithubBuildingPreviewRenderer()');
+    expect(source).toContain('return ensureGithubBuildingPreviewRenderer().githubBuildingPreviewConfig(record, parsedConfig)');
+    expect(source).toContain('return ensureGithubBuildingPreviewRenderer().renderGithubBuildingStill(target, cfg, label)');
+    expect(source).toContain('return ensureGithubBuildingPreviewRenderer().upgradeGithubBuildingPreviewFromHako(settings, record, target)');
+    expect(source).not.toContain('function disposeGithubPreviewObject(obj)');
+    expect(renderer).toContain('function githubBuildingPreviewConfig(record, parsedConfig = null)');
+    expect(renderer).toContain('function disposeGithubPreviewObject(obj)');
+    expect(renderer).toContain('sharedRenderer.buildBuildingPreviewGroup(cfg, { includeStlOverlay: false })');
+    expect(renderer).toContain("target.textContent = '3D preview unavailable'");
+    expect(renderer).toContain('renderer?.forceContextLoss?.()');
+    expect(renderer).toContain('const file = await readGithubFile(settings, path)');
+  });
+
   test('road paint stencil specs preserve custom feature dimensions and stay off the road-deck engrave layer', async () => {
     const { paintStencilExportSpec } = await import('../js/site-planner/road-asset-export-specs.js');
     const { roadMarkingPresetByKey } = await import('../js/site-planner/road-marking-presets.js');

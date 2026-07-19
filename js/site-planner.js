@@ -57,6 +57,7 @@ import { createSite3DBuildingConfigController } from './site-planner/site-3d-bui
 import { createSite3DTrackAccessoryRenderer } from './site-planner/site-3d-track-accessory-renderer.js';
 import { createSite3DBuildingRenderer } from './site-planner/site-3d-building-renderer.js';
 import { createSite3DMeshUtils } from './site-planner/site-3d-mesh-utils.js';
+import { createSite3DObjectTagging } from './site-planner/site-3d-object-tagging.js';
 import { createSite3DInteractionController } from './site-planner/site-3d-interaction-controller.js';
 import { createSite3DRoadRenderer } from './site-planner/site-3d-road-renderer.js';
 import { createSite3DSceneController } from './site-planner/site-3d-scene-controller.js';
@@ -2559,28 +2560,14 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       });
     });
   }
-  function tagSite3DBuilding(group,b){
-    if(!group || !b) return group;
-    group.userData.sitePlannerBuildingId=b.id;
-    group.userData.sitePlannerBuildingName=b.name||'Building';
-    group.traverse?.(child=>{
-      child.userData=child.userData||{};
-      child.userData.sitePlannerBuildingId=b.id;
-      child.userData.sitePlannerBuildingName=b.name||'Building';
-    });
-    return group;
-  }
-  function tagSite3DStlObject(group,obj){
-    if(!group || !obj) return group;
-    group.userData.sitePlannerStlObjectId=obj.id;
-    group.userData.sitePlannerStlObjectName=obj.name||'STL Object';
-    group.traverse?.(child=>{
-      child.userData=child.userData||{};
-      child.userData.sitePlannerStlObjectId=obj.id;
-      child.userData.sitePlannerStlObjectName=obj.name||'STL Object';
-    });
-    return group;
-  }
+  const {
+    tagSite3DBuilding,
+    tagSite3DStlObject,
+    tagSite3DTrackAccessory,
+    tagSite3DRoadObject,
+    tagSite3DTrackObject,
+    tagSite3DRoadFeatureObject,
+  } = createSite3DObjectTagging({ THREE, trackAccessoryLabel });
   function site3DPlannerRotationY(b, opts={}){
     if(opts.geometryAlreadyInSiteCoordinates && b?.padType==='polygon') return 0;
     return -(Number(b?.rotationDeg)||0)*Math.PI/180;
@@ -2663,61 +2650,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       offsetTrackPath,
       site3DAddBoxSegments,
     }).buildSite3DTrackGroup(bounds);
-  }
-  function tagSite3DTrackAccessory(group,item){
-    if(!group || !item) return group;
-    if(!group.userData?.sitePlannerTrackAccessoryPickProxy){
-      const pickMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.001,depthWrite:false});
-      const pick=new THREE.Mesh(new THREE.BoxGeometry(30,36,30),pickMat);
-      pick.name=`${item.name||trackAccessoryLabel(item.kind)} 3D pick volume`;
-      pick.position.y=18;
-      pick.userData.sitePlannerTrackAccessoryPickProxy=true;
-      group.add(pick);
-    }
-    group.userData.sitePlannerTrackAccessoryId=item.id;
-    group.userData.sitePlannerTrackAccessoryName=item.name||trackAccessoryLabel(item.kind);
-    group.traverse?.(child=>{
-      child.userData=child.userData||{};
-      child.userData.sitePlannerTrackAccessoryId=item.id;
-      child.userData.sitePlannerTrackAccessoryName=item.name||trackAccessoryLabel(item.kind);
-    });
-    return group;
-  }
-  function tagSite3DRoadObject(object,road){
-    if(!object || !road) return object;
-    object.userData=object.userData||{};
-    object.userData.sitePlannerRoadId=road.id;
-    object.userData.sitePlannerRoadName=road.name||'Road';
-    object.traverse?.(child=>{
-      child.userData=child.userData||{};
-      child.userData.sitePlannerRoadId=road.id;
-      child.userData.sitePlannerRoadName=road.name||'Road';
-    });
-    return object;
-  }
-  function tagSite3DTrackObject(object,track){
-    if(!object || !track) return object;
-    object.userData=object.userData||{};
-    object.userData.sitePlannerTrackId=track.id;
-    object.userData.sitePlannerTrackName=track.name||'Track';
-    object.traverse?.(child=>{
-      child.userData=child.userData||{};
-      child.userData.sitePlannerTrackId=track.id;
-      child.userData.sitePlannerTrackName=track.name||'Track';
-    });
-    return object;
-  }
-  function tagSite3DRoadFeatureObject(object,feature){
-    if(!object || !feature) return object;
-    object.userData=object.userData||{};
-    object.userData.sitePlannerRoadFeatureId=feature.id;
-    object.userData.sitePlannerRoadFeatureName=feature.name||'Road item';
-    object.traverse?.(child=>{
-      child.userData=child.userData||{};
-      child.userData.sitePlannerRoadFeatureId=feature.id;
-      child.userData.sitePlannerRoadFeatureName=feature.name||'Road item';
-    });
-    return object;
   }
   function ensureSite3DBuildingRenderer(){
     if(!site3DBuildingRenderer){

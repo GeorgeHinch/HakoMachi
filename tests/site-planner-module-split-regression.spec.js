@@ -1295,13 +1295,15 @@ test.describe('Site Planner module split contracts', () => {
     const roadRenderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-road-renderer.js'), 'utf8');
     const trackRenderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-track-renderer.js'), 'utf8');
     const meshUtils = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-mesh-utils.js'), 'utf8');
+    const tagging = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-object-tagging.js'), 'utf8');
     const interactionController = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-interaction-controller.js'), 'utf8');
-    const tagsStart = source.indexOf('function tagSite3DBuilding');
-    const tagsEnd = source.indexOf('function buildSite3DCatenaryItem');
-    const tagHelpers = source.slice(tagsStart, tagsEnd);
-
-    expect(tagHelpers).toContain('sitePlannerRoadId');
-    expect(tagHelpers).toContain('sitePlannerTrackId');
+    expect(source).toContain("import { createSite3DObjectTagging } from './site-planner/site-3d-object-tagging.js';");
+    expect(source).toContain('} = createSite3DObjectTagging({ THREE, trackAccessoryLabel });');
+    expect(source).not.toContain('function tagSite3DBuilding');
+    expect(tagging).toContain('`sitePlanner${prefix}Id`');
+    expect(tagging).toContain("tagObject(object, road, 'Road', 'Road')");
+    expect(tagging).toContain("tagObject(object, track, 'Track', 'Track')");
+    expect(tagging).toContain('sitePlannerTrackAccessoryPickProxy');
     expect(roadRenderer).toContain('tagSite3DRoadObject(site3DAddFlatPolygon');
     expect(source).toContain("import { createSite3DTrackRenderer } from './site-planner/site-3d-track-renderer.js';");
     expect(source).toContain("import { createSite3DMeshUtils } from './site-planner/site-3d-mesh-utils.js';");

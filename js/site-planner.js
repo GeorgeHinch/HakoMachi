@@ -6,6 +6,7 @@ import { createAutosaveUiController } from './site-planner/autosave-ui.js';
 import { createBuildingResizeProtectionController } from './site-planner/building-resize-protection.js';
 import { createBuildingSelectionController } from './site-planner/building-selection-utils.js';
 import { createCanvasDrawingController } from './site-planner/canvas-drawing-utils.js';
+import { createSiteBuildingRenderer2D } from './site-planner/site-building-renderer-2d.js';
 import { createSiteCanvasRenderer } from './site-planner/site-canvas-renderer.js';
 import { createContextMenuController } from './site-planner/context-menu-controller.js';
 import { buildingCsvExport, sitePlanSvgExport } from './site-planner/export-utils.js';
@@ -3637,52 +3638,23 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     ctx.restore();
   }
 
-  function drawRotateAffordance(b,pts){
-    const c=buildingCenter(b);
-    const rot=rotateHandlePoint(b);
-    const radius=Math.max(...pts.map(q=>dist(c,q)))+18/state.view.scale;
-    ctx.save();
-    ctx.strokeStyle='rgba(15,118,110,.55)';
-    ctx.fillStyle='rgba(15,118,110,.14)';
-    ctx.lineWidth=2/state.view.scale;
-    ctx.setLineDash([7/state.view.scale,6/state.view.scale]);
-    ctx.beginPath(); ctx.arc(c.x,c.y,radius,0,Math.PI*2); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.beginPath(); ctx.moveTo(c.x,c.y); ctx.lineTo(rot.x,rot.y); ctx.stroke();
-    ctx.beginPath(); ctx.arc(rot.x,rot.y,9/state.view.scale,0,Math.PI*2); ctx.fill(); ctx.stroke();
-    ctx.font=`${13/state.view.scale}px system-ui`; ctx.fillStyle='#0f766e'; ctx.fillText('↻',rot.x-4/state.view.scale,rot.y+5/state.view.scale);
-    ctx.restore();
-  }
   function hakoDisplayTrimPolylinesMm(b){return ensureHakoBuildingGeometryController().hakoDisplayTrimPolylinesMm(b);}
-  function drawHakoTrimLines(b,strong=false){
-    const trimLines=hakoDisplayTrimPolylinesMm(b);
-    if(!b || b.showHakoTrimLines===false || !trimLines.length || !state.pxPerMm) return;
-    ctx.save();
-    ctx.strokeStyle=strong?'#d95f24':'rgba(217,95,36,.65)';
-    ctx.lineWidth=(strong?2.4:1.6)/state.view.scale;
-    ctx.setLineDash([8/state.view.scale,5/state.view.scale]);
-    trimLines.forEach(it=>{
-      const pts=it.points;
-      if(!pts.length) return;
-      ctx.beginPath();
-      pts.forEach((p,i)=>{const q=hakoLocalMmToWorld(b,p); i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);});
-      ctx.stroke();
-      if(strong){
-        const a=hakoLocalMmToWorld(b,pts[0]), z=hakoLocalMmToWorld(b,pts[pts.length-1]);
-        ctx.setLineDash([]);
-        ctx.fillStyle='#d95f24';
-        [a,z].forEach(q=>{ctx.beginPath();ctx.arc(q.x,q.y,3.5/state.view.scale,0,Math.PI*2);ctx.fill();});
-        ctx.setLineDash([8/state.view.scale,5/state.view.scale]);
-      }
-    });
-    ctx.restore();
-  }
-
-  function drawBuilding(b){ if(b.hidden) return; syncBuildingMetrics(b); ctx.save(); const isSelected=isSiteObjectSelected('building',b.id), isHovered=b.id===state.hoverBuildingId; ctx.lineWidth=(isSelected?4:(isHovered?4:3))/state.view.scale; ctx.strokeStyle=isSelected?'#0f766e':(isHovered?'#2a64aa':b.color); ctx.fillStyle=isHovered&&!isSelected?'rgba(42,100,170,.18)':((b.color||'#d79631')+'33'); const polys=visibleBuildingPolygons(b); const pts=polys.flat(); polys.forEach(poly=>{if(poly.length<3) return; ctx.beginPath(); poly.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); ctx.fill(); ctx.stroke();});
-    if((isSelected || isHovered) && hakoDisplayTrimPolylinesMm(b).length) drawHakoTrimLines(b,isSelected);
-    if(isSelected || isHovered){ const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(pts); const trimCount=hakoDisplayTrimPolylinesMm(b).length; const trimNote=trimCount?` · ${trimCount} trim line${trimCount===1?'':'s'}`:''; drawLabel(`${b.name||'Building'} ${b.padType==='rect'&&state.pxPerMm?`${fmt(b.widthMm)}×${fmt(b.depthMm)}mm`:''}${trimNote}`,{x:c.x+6/state.view.scale,y:c.y-6/state.view.scale}); }
-    if(isSelected && currentSelectedBuildingIds().length===1 && !b.locked){ ctx.fillStyle='#0f766e'; pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,5/state.view.scale,0,Math.PI*2);ctx.fill()}); drawRotateAffordance(b,pts); }
-    ctx.restore(); }
+  const { drawBuilding } = createSiteBuildingRenderer2D({
+    state,
+    ctx,
+    dist,
+    fmt,
+    polygonCenter,
+    buildingCenter,
+    rotateHandlePoint,
+    hakoDisplayTrimPolylinesMm,
+    hakoLocalMmToWorld,
+    syncBuildingMetrics,
+    visibleBuildingPolygons,
+    isSiteObjectSelected,
+    currentSelectedBuildingIds,
+    drawLabel: (...args) => drawLabel(...args),
+  });
   const { drawNow, fitImage } = createSiteCanvasRenderer({
     canvas,
     state,

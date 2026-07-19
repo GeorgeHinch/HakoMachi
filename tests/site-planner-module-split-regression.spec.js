@@ -1230,6 +1230,18 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain("targetId: hakoCutTargetId(cut)");
   });
 
+  test('2D building footprint rendering is wired through its renderer module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-building-renderer-2d.js'), 'utf8');
+
+    expect(source).toContain("import { createSiteBuildingRenderer2D } from './site-planner/site-building-renderer-2d.js';");
+    expect(source).toContain('const { drawBuilding } = createSiteBuildingRenderer2D({');
+    expect(source).not.toContain('function drawBuilding(b)');
+    expect(renderer).toContain('function drawBuilding(building)');
+    expect(renderer).toContain('function drawHakoTrimLines(building, strong = false)');
+    expect(renderer).toContain('function drawRotateAffordance(building, points)');
+  });
+
   test('site planner 3D base and reference image rendering is wired through its renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-base-renderer.js'), 'utf8');

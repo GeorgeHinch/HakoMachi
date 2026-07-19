@@ -224,6 +224,18 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('pageHakoImportFileFromDataTransfer(event.dataTransfer)');
   });
 
+  test('cache reset behavior is wired through the Site Planner reset controller', () => {
+    const source=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-reset-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createSiteResetController } from './site-planner/site-reset-controller.js';");
+    expect(source).toContain('const { clearCacheAndReset } = createSiteResetController({');
+    expect(source).not.toContain('async function clearCacheAndReset(){');
+    expect(controller).toContain('export function createSiteResetController');
+    expect(controller).toContain("resetHistory('reset');");
+    expect(controller).toContain("updateAutosaveStatus('Autosave: cleared');");
+  });
+
   test('sidebar input binding stays shared across standard object panels', async () => {
     const binder = await import('../js/site-planner/sidebar-input-binding.js');
     const files = ['sidebar-benchwork-detail.js', 'sidebar-fabric-detail.js', 'sidebar-stl-detail.js', 'sidebar-streetlight-detail.js', 'sidebar-track-detail.js'];

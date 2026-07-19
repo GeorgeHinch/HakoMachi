@@ -76,6 +76,18 @@ test.describe('Site Planner module split contracts', () => {
     expect(detail).toContain("getElement('dupSl').onclick");
   });
 
+  test('fabric detail controls are wired through their sidebar module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-fabric-detail.js'), 'utf8');
+
+    expect(source).toContain("import { renderFabricDetail } from './site-planner/sidebar-fabric-detail.js';");
+    expect(source).toContain('} else if(fabric){renderFabricDetail({');
+    expect(source).not.toContain('const bindFabric=(id,fn)=>');
+    expect(detail).toContain('export function renderFabricDetail');
+    expect(detail).toContain('generateFabricForRegion(fabricRegion, { confirmReplace: true })');
+    expect(detail).toContain("getElement('deleteFabricRegion').onclick");
+  });
+
   test('flex-track 2D rendering is wired through its renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-renderer-2d.js'), 'utf8');

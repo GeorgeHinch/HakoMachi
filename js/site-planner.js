@@ -56,6 +56,7 @@ import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDet
 import { createSidebarObjectBrowserController } from './site-planner/sidebar-object-browser-controller.js';
 import { renderRailCrossingDetail } from './site-planner/sidebar-rail-crossing-detail.js';
 import { renderBenchworkDetail } from './site-planner/sidebar-benchwork-detail.js';
+import { renderFabricDetail } from './site-planner/sidebar-fabric-detail.js';
 import { renderStreetlightDetail } from './site-planner/sidebar-streetlight-detail.js';
 import { renderTrackDetail } from './site-planner/sidebar-track-detail.js';
 import { createSite3DBaseRenderer } from './site-planner/site-3d-base-renderer.js';
@@ -3342,26 +3343,20 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       duplicateStreetlight,
       deleteSelectedStreetlight,
     });
-    } else if(fabric){normalizeFabricRegion(fabric); const presetOptions=Object.entries(FABRIC_PRESETS).map(([key,p])=>`<option value="${key}" ${key===fabric.fabricType?'selected':''}>${escapeHtml(p.label)}</option>`).join(''); const padCount=state.buildings.filter(x=>x.fabricRegionId===fabric.id).length; box.innerHTML=`
-      <b>${escapeHtml(fabric.name||'Fabric Region')} selected</b>
-      <label>Name</label><input id="fabricNameSel" value="${escapeAttr(fabric.name||'')}">
-      <label>Fabric preset</label><select id="fabricPresetSel">${presetOptions}</select>
-      <div class="row"><div><label>Density</label><input id="fabricDensitySel" type="range" min="0.4" max="1.6" step="0.1" value="${fmt(fabric.density)}"></div><div><label>Randomness</label><input id="fabricRandomnessSel" type="range" min="0" max="1" step="0.05" value="${fmt(fabric.randomness)}"></div></div>
-      <div class="row"><div><label>Seed</label><input id="fabricSeedSel" type="number" step="1" value="${fmt(fabric.seed)}"></div><div><label>Color</label><input id="fabricColorSel" type="color" value="${fabric.color||'#7c5f3f'}"></div></div>
-      <div class="row"><div><label>Average floors</label><input id="fabricAvgFloorsSel" type="number" min="1" max="12" step="1" value="${fmt(fabric.averageFloorCount)}"></div><div><label>Max floors</label><input id="fabricMaxFloorsSel" type="number" min="1" max="16" step="1" value="${fmt(fabric.maxFloorCount)}"></div></div>
-      <div class="small muted" style="margin-top:6px">${padCount} generated pad${padCount===1?'':'s'} currently reference this region. Deleting the region keeps those pads and detaches them.</div>
-      <div class="buttons" style="margin-top:8px"><button id="generateFabricRegion" class="primary">${padCount?'Regenerate Pads':'Generate Pads'}</button><button id="deleteFabricRegion" class="danger">Delete Fabric Region</button></div>`;
-      const bindFabric=(id,fn)=>{const el=$(id); if(el) el.oninput=()=>{fn(el.value); normalizeFabricRegion(fabric); syncAll();};};
-      bindFabric('fabricNameSel',v=>fabric.name=v);
-      bindFabric('fabricDensitySel',v=>fabric.density=Math.max(.4,Math.min(1.6,parseFloat(v)||1)));
-      bindFabric('fabricRandomnessSel',v=>fabric.randomness=Math.max(0,Math.min(1,parseFloat(v)||0)));
-      bindFabric('fabricSeedSel',v=>fabric.seed=parseInt(v)||101);
-      bindFabric('fabricColorSel',v=>fabric.color=v);
-      bindFabric('fabricAvgFloorsSel',v=>fabric.averageFloorCount=Math.max(1,parseInt(v)||1));
-      bindFabric('fabricMaxFloorsSel',v=>fabric.maxFloorCount=Math.max(1,parseInt(v)||1));
-      const fp=$('fabricPresetSel'); if(fp) fp.onchange=()=>{fabric.fabricType=fp.value; state.fabricPreset=fp.value; syncAll();};
-      $('generateFabricRegion').onclick=()=>generateFabricForRegion(fabric,{confirmReplace:true});
-      $('deleteFabricRegion').onclick=deleteSelectedFabricRegion;
+    } else if(fabric){renderFabricDetail({
+      fabricRegion: fabric,
+      panel: box,
+      state,
+      getElement: $,
+      fmt,
+      escapeAttr,
+      escapeHtml,
+      fabricPresets: FABRIC_PRESETS,
+      syncAll,
+      normalizeFabricRegion,
+      generateFabricForRegion,
+      deleteSelectedFabricRegion,
+    });
     } else if(stl){normalizeStlObject(stl); const stlFallbackLabels={'asset-unavailable':'asset unavailable','asset-missing':'proxy fallback','mesh-too-large':'proxy fallback: large STL','parse-failed':'proxy fallback: unreadable STL'}; const stlAssetStatus=stl.asset?.renderFallbackReason?` · ${stlFallbackLabels[stl.asset.renderFallbackReason]||'proxy fallback'}`:(stl.asset?.unavailable?' · asset unavailable':(!stl.asset?.dataBase64&&stl.asset?.path?' · referenced asset':'')); const sourceList=(stl.sourceAssets||[]).map((source,idx)=>`
       <div class="listItem compact">
         <div><b>${escapeHtml(source.name||source.fileName||'Source file')}</b><br><span class="small muted">${escapeHtml(source.fileName||'source file')}${source.unavailable?' · unavailable':(!source.dataBase64&&source.path?' · referenced asset':'')}</span></div>

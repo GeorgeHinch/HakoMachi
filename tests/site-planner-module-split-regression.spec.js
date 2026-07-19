@@ -1705,6 +1705,19 @@ test.describe('Site Planner module split contracts', () => {
     expect(historyController).toContain('function redo()');
   });
 
+  test('Site Planner autosave lifecycle is wired through its controller', () => {
+    const source=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-autosave-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createSiteAutosaveController } from './site-planner/site-autosave-controller.js';");
+    expect(source).toContain('} = createSiteAutosaveController({');
+    expect(source).not.toContain('function writeAutosave(){');
+    expect(source).not.toContain('function scheduleAutosave(){');
+    expect(controller).toContain('export function createSiteAutosaveController');
+    expect(controller).toContain("updateAutosaveStatus('Autosave: geometry saved, image too large');");
+    expect(controller).toContain('function markManualSaveComplete(){');
+  });
+
   test('Tomix track accessories fall back to the flex-track gauge scale', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const scaleHelpers = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-geometry.js'), 'utf8');

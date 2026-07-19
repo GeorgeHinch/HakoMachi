@@ -3,6 +3,7 @@ import { base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, down
 import { createHakoMachiLogger } from './shared/hakomachi-diagnostics.js';
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fabrication-colors.js';
 import { createAutosaveUiController } from './site-planner/autosave-ui.js';
+import { createSiteAutosaveController } from './site-planner/site-autosave-controller.js';
 import { createBuildingResizeProtectionController } from './site-planner/building-resize-protection.js';
 import { createBuildingSelectionController } from './site-planner/building-selection-utils.js';
 import { createCanvasDrawingController } from './site-planner/canvas-drawing-utils.js';
@@ -2900,62 +2901,34 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     markDirty,
   });
 
-  function markDirty(_reason='', opts={}){
-    if(opts.history!==false && !state.historySuppressed) pushHistorySnapshot(_reason);
+  function markDirty(reason='', opts={}){
+    if(opts.history!==false && !state.historySuppressed) pushHistorySnapshot(reason);
     if(!state.autosaveReady || autosaveSuppressed) return;
     state.dirty=true;
     state.dirtySinceManualSave=true;
     updateAutosaveStatus();
     scheduleAutosave();
   }
-  function scheduleAutosave(){
-    clearTimeout(autosaveTimer);
-    autosaveTimer=setTimeout(writeAutosave, 450);
-  }
+
   function makeProjectPayload(opts={}){
     return ensureSiteProjectPersistenceController().makeProjectPayload(opts);
   }
-  function writeAutosave(){
-    if(!state.autosaveReady) return;
-    clearTimeout(autosaveTimer);
-    autosaveTimer=null;
-    try{
-      let payload=makeProjectPayload({includeImageDataUrl:true});
-      const meta={savedAt:payload.savedAt, dirtySinceManualSave:!!state.dirtySinceManualSave, imageEmbedded:!!payload.image?.dataUrl, imageBytes:payload.image?.dataUrlByteLength||0};
-      try{
-        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
-        localStorage.setItem(AUTOSAVE_META_KEY, JSON.stringify(meta));
-        updateImagePortableStatus();
-      }catch(storageErr){
-        // Browser localStorage is often too small for large reference images.
-        // Keep geometry safe in this browser by retrying without the image,
-        // while portable .hako-site.json saves still embed the full original.
-        if(payload.image?.dataUrl){
-          payload=makeProjectPayload({includeImageDataUrl:false});
-          const fallbackMeta={savedAt:payload.savedAt, dirtySinceManualSave:!!state.dirtySinceManualSave, imageEmbedded:false, imageTooLargeForAutosave:true, imageBytes:meta.imageBytes};
-          localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
-          localStorage.setItem(AUTOSAVE_META_KEY, JSON.stringify(fallbackMeta));
-          updateAutosaveStatus('Autosave: geometry saved, image too large');
-          updateImagePortableStatus('Portable save: embeds original image; autosave kept geometry only because browser cache is too small.');
-        } else {
-          throw storageErr;
-        }
-      }
-      state.dirty=false;
-      state.lastAutosaveAt=Date.now();
-      if(!(payload.image && !payload.image.dataUrl && state.imageMeta?.dataUrl)) updateAutosaveStatus();
-    }catch(err){
-      logger.warn('Autosave failed:', err);
-      updateAutosaveStatus('Autosave: failed');
-    }
-  }
-  function markManualSaveComplete(){
-    state.dirty=false;
-    state.dirtySinceManualSave=false;
-    writeAutosave();
-    updateAutosaveStatus('Autosave: saved');
-    setTimeout(()=>updateAutosaveStatus(), 1200);
-  }
+  const {
+    scheduleAutosave,
+    writeAutosave,
+    markManualSaveComplete,
+  } = createSiteAutosaveController({
+    state,
+    autosaveKey:AUTOSAVE_KEY,
+    autosaveMetaKey:AUTOSAVE_META_KEY,
+    getTimer:()=>autosaveTimer,
+    setTimer:value=>autosaveTimer=value,
+    makeProjectPayload,
+    localStorage,
+    logger,
+    updateImagePortableStatus,
+    updateAutosaveStatus,
+  });
 
 
   const { drawHoverPreview } = createCanvasHoverPreviewRenderer({

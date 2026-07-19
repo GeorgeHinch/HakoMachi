@@ -52,6 +52,18 @@ test.describe('Site Planner module split contracts', () => {
     expect(detail).toContain('syncTrackMetrics(track)');
   });
 
+  test('benchwork detail controls are wired through their sidebar module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-benchwork-detail.js'), 'utf8');
+
+    expect(source).toContain("import { renderBenchworkDetail } from './site-planner/sidebar-benchwork-detail.js';");
+    expect(source).toContain('} if(bench){renderBenchworkDetail({');
+    expect(source).not.toContain('const bindBench=(id,fn)=>');
+    expect(detail).toContain('export function renderBenchworkDetail');
+    expect(detail).toContain("getElement('clearBenchCurves').onclick");
+    expect(detail).toContain("getElement('deleteBench').onclick");
+  });
+
   test('flex-track 2D rendering is wired through its renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-renderer-2d.js'), 'utf8');

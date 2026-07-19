@@ -55,6 +55,7 @@ import { createScaleInputController } from './site-planner/scale-input-utils.js'
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
 import { createSidebarObjectBrowserController } from './site-planner/sidebar-object-browser-controller.js';
 import { renderRailCrossingDetail } from './site-planner/sidebar-rail-crossing-detail.js';
+import { renderBenchworkDetail } from './site-planner/sidebar-benchwork-detail.js';
 import { renderTrackDetail } from './site-planner/sidebar-track-detail.js';
 import { createSite3DBaseRenderer } from './site-planner/site-3d-base-renderer.js';
 import { createSite3DBuildingConfigController } from './site-planner/site-3d-building-config.js';
@@ -3316,18 +3317,16 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       deleteSelectedTrack,
     });
       return;
-    } if(bench){normalizeBenchworkOutline(bench); box.innerHTML=`
-      <b>Benchwork outline selected</b>
-      <label>Name</label><input id="benchName" value="${escapeAttr(bench.name||'Benchwork Outline')}">
-      <div class="row"><div><label>Color</label><input id="benchColor" type="color" value="${bench.color||'#2f6f4e'}"></div><div><label>Points</label><input value="${(bench.pointsPx||[]).length}" disabled></div></div>
-      <label style="display:flex;align-items:center;gap:6px;margin-top:6px"><input id="benchLocked" type="checkbox" ${bench.locked?'checked':''}> Locked</label>
-      <label>Notes</label><textarea id="benchNotes" rows="3">${escapeHtml(bench.notes||'')}</textarea>
-      <div class="buttons" style="margin-top:8px"><button id="clearBenchCurves">Clear Curves</button><button id="deleteBench" class="danger">Delete Benchwork</button></div>
-      <div class="small muted" style="margin-top:8px">Hover an edge segment on the selected outline and drag to curve it. Anything beyond this boundary can be trimmed in future export stages.</div>`;
-      const bindBench=(id,fn)=>{const el=$(id); if(el) el.oninput=()=>{fn(el.type==='checkbox'?el.checked:el.value); syncAll();};};
-      bindBench('benchName',v=>bench.name=v); bindBench('benchColor',v=>bench.color=v); bindBench('benchLocked',v=>bench.locked=!!v); bindBench('benchNotes',v=>bench.notes=v);
-      $('clearBenchCurves').onclick=()=>{bench.curvesPx=(bench.pointsPx||[]).map(()=>null); syncAll();};
-      $('deleteBench').onclick=deleteSelectedBenchwork;
+    } if(bench){renderBenchworkDetail({
+      benchwork: bench,
+      panel: box,
+      getElement: $,
+      escapeAttr,
+      escapeHtml,
+      syncAll,
+      normalizeBenchworkOutline,
+      deleteSelectedBenchwork,
+    });
       return;
     } if(light){normalizeStreetlight(light); box.innerHTML=`
       <b>${light.mode==='anchored'?'Anchored Streetlight':'Streetlight'} selected</b>

@@ -7,7 +7,10 @@ export function createBenchworkController(deps) {
     distanceToSegment,
     pointInPoly,
     polygonCenter,
+    ctx,
     clearBuildingSelection,
+    isSiteObjectSelected,
+    drawLabel,
     syncAll,
   } = deps;
 
@@ -89,6 +92,54 @@ export function createBenchworkController(deps) {
     return polygonCenter((bw && bw.pointsPx) || []);
   }
 
+  function drawBenchworkPath(bw) {
+    const pts = bw.pointsPx || [];
+    if (pts.length < 2) return;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 0; i < pts.length; i++) {
+      const b = pts[(i + 1) % pts.length], c = bw.curvesPx?.[i];
+      if (c) ctx.quadraticCurveTo(c.x, c.y, b.x, b.y);
+      else ctx.lineTo(b.x, b.y);
+    }
+  }
+
+  function drawBenchwork(bw) {
+    if (!bw || bw.hidden || !Array.isArray(bw.pointsPx) || bw.pointsPx.length < 2) return;
+    normalizeBenchworkOutline(bw);
+    const selected = bw.id === state.selectedBenchworkId || isSiteObjectSelected('benchwork', bw.id);
+    const hovered = bw.id === state.hoverBenchworkId;
+    ctx.save();
+    ctx.lineWidth = (selected ? 5 : (hovered ? 4 : 3)) / state.view.scale;
+    ctx.strokeStyle = selected ? '#0f766e' : (hovered ? '#2a64aa' : (bw.color || '#2f6f4e'));
+    ctx.fillStyle = 'rgba(47,111,78,.045)';
+    ctx.setLineDash(selected ? [12 / state.view.scale, 7 / state.view.scale] : [9 / state.view.scale, 7 / state.view.scale]);
+    drawBenchworkPath(bw);
+    if (bw.pointsPx.length >= 3) ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (selected) {
+      ctx.fillStyle = '#fff7ed'; ctx.strokeStyle = '#0f766e'; ctx.lineWidth = 2 / state.view.scale;
+      bw.pointsPx.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 5 / state.view.scale, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
+      (bw.curvesPx || []).forEach((c, i) => {
+        if (!c) return;
+        const a = bw.pointsPx[i], b = bw.pointsPx[(i + 1) % bw.pointsPx.length];
+        ctx.save(); ctx.strokeStyle = 'rgba(15,118,110,.45)'; ctx.setLineDash([4 / state.view.scale, 4 / state.view.scale]);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.restore();
+        ctx.beginPath(); ctx.arc(c.x, c.y, 5 / state.view.scale, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      });
+      if (state.hoverBenchworkSegment && state.hoverBenchworkSegment.benchworkId === bw.id) {
+        const i = state.hoverBenchworkSegment.index, a = bw.pointsPx[i], b = bw.pointsPx[(i + 1) % bw.pointsPx.length], c = bw.curvesPx?.[i];
+        ctx.save(); ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 7 / state.view.scale; ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(a.x, a.y);
+        if (c) ctx.quadraticCurveTo(c.x, c.y, b.x, b.y); else ctx.lineTo(b.x, b.y);
+        ctx.stroke(); ctx.restore();
+      }
+      const c = benchworkCenter(bw);
+      drawLabel('Benchwork outline / trim boundary', { x: c.x + 8 / state.view.scale, y: c.y - 8 / state.view.scale });
+    }
+    ctx.restore();
+  }
+
   function hitBenchwork(p, pointerType = 'mouse') {
     for (let i = state.benchworkOutlines.length - 1; i >= 0; i--) {
       const bw = normalizeBenchworkOutline(state.benchworkOutlines[i]);
@@ -149,6 +200,7 @@ export function createBenchworkController(deps) {
     hitBenchworkSegment,
     selectedBenchwork,
     benchworkCenter,
+    drawBenchwork,
     hitBenchwork,
     moveBenchwork,
     finishBenchworkOutline,

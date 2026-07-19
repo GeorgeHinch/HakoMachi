@@ -255,7 +255,22 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     updateEmptyImageOverlay,
     setImageStatus,
     updateImagePortableStatus,
-  } = createReferenceImageUiController({state, getElement:$});
+    installReferenceImageImport,
+  } = createReferenceImageUiController({
+    state,
+    getElement:$,
+    readFileAsDataURL,
+    isSupportedImageFile,
+    pageHakoImportFileFromDataTransfer,
+    openImportProgressModal,
+    setImportProgress,
+    finishImportProgress,
+    failImportProgress,
+    resize,
+    fitImage:()=>fitImage(),
+    syncAll,
+    logger,
+  });
   const {
     updateAutosaveStatus,
   } = createAutosaveUiController({state, getElement:$});
@@ -4065,94 +4080,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   } = toolVariantController);
   toolVariantController.installToolVariantControls();
   installTooltips();
-  async function loadReferenceImage(file){
-    if(!file) return;
-    openImportProgressModal('Import reference image','Reading image...',`Loading ${file.name||'reference image'}.`);
-    setImageStatus(`Loading ${file.name}…`);
-    const objectUrl=URL.createObjectURL(file);
-    let dataUrl=null;
-    try{
-      const img=new Image();
-      const loaded=new Promise((resolve,reject)=>{
-        img.onload=()=>resolve();
-        img.onerror=()=>reject(new Error('The browser could not decode this image. Try PNG, JPG, WEBP, or a simple SVG.'));
-      });
-      img.src=objectUrl;
-      await loaded;
-      setImportProgress(2,4,'Decoding image...','Preparing the reference layer for the canvas.');
-      if(img.decode){
-        try{ await img.decode(); } catch(_err){}
-      }
-      setImportProgress(3,4,'Embedding image data...','Preparing a portable copy when the browser allows it.');
-      try{ dataUrl=await readFileAsDataURL(file); }
-      catch(_err){ dataUrl=null; }
-      state.image=img;
-      state.imageMeta={
-        name:file.name,
-        mimeType:file.type || (dataUrl && (dataUrl.match(/^data:([^;]+);/)||[])[1]) || 'application/octet-stream',
-        dataUrl:dataUrl,
-        objectUrlUsed:true,
-        naturalWidthPx:img.naturalWidth||img.width,
-        naturalHeightPx:img.naturalHeight||img.height,
-        opacity:state.imageOpacity,
-        rotationDeg:0
-      };
-      resize();
-      fitImage();
-      syncAll();
-      setImageStatus(`Loaded ${file.name} (${state.imageMeta.naturalWidthPx} × ${state.imageMeta.naturalHeightPx}px).`, 'okText');
-      updateImagePortableStatus();
-      updateEmptyImageOverlay();
-      finishImportProgress('Reference image imported.',`${file.name||'Reference image'} is ready on the canvas.`);
-      logger.info('Image loaded', state.imageMeta);
-    }catch(err){
-      logger.error('Image import failed', err);
-      setImageStatus(err.message || 'Image import failed.', 'warning');
-      failImportProgress('Image import failed.', err.message || 'The image could not be loaded.');
-      URL.revokeObjectURL(objectUrl);
-    }
-  }
-  $('imageFile').addEventListener('change', async e=>{
-    const f=e.target.files && e.target.files[0];
-    e.target.value='';
-    await loadReferenceImage(f);
-  });
-
-  async function handleEmptyImageDrop(file){
-    if(!file) return;
-    if(!isSupportedImageFile(file)){
-      failImportProgress('Unsupported image type.','Drop a PNG, JPG, SVG, or WEBP image here. Use Load for .hako-site package or .hako-site.json project files.');
-      return;
-    }
-    await loadReferenceImage(file);
-  }
-
-  const emptyImageOverlay=$('emptyImageOverlay');
-  const emptyImageCard=$('emptyImageCard');
-  if(emptyImageOverlay){
-    ['dragenter','dragover'].forEach(type=>emptyImageOverlay.addEventListener(type, e=>{
-      if(pageHakoImportFileFromDataTransfer(e.dataTransfer)) return;
-      if(!state.image){
-        e.preventDefault();
-        e.stopPropagation();
-        emptyImageCard?.classList.add('dragOver');
-      }
-    }));
-    ['dragleave','dragend'].forEach(type=>emptyImageOverlay.addEventListener(type, e=>{
-      emptyImageCard?.classList.remove('dragOver');
-    }));
-    emptyImageOverlay.addEventListener('drop', async e=>{
-      if(pageHakoImportFileFromDataTransfer(e.dataTransfer)) return;
-      if(!state.image){
-        e.preventDefault();
-        e.stopPropagation();
-        emptyImageCard?.classList.remove('dragOver');
-        const file=e.dataTransfer?.files?.[0];
-        await handleEmptyImageDrop(file);
-      }
-    });
-  }
-  updateEmptyImageOverlay();
+  installReferenceImageImport();
   if($('opacity')) $('opacity').oninput=e=>{state.imageOpacity=parseFloat(e.target.value); if(state.imageMeta)state.imageMeta.opacity=state.imageOpacity; draw();};
   if($('imageLockBtn')) $('imageLockBtn').onclick=()=>{state.imageLocked=!state.imageLocked; $('imageLockBtn').textContent=state.imageLocked?'Locked':'Unlocked';};
   $('applyScaleBtn').onclick=()=>{

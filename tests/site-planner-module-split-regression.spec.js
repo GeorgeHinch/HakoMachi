@@ -211,6 +211,19 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('function updatePinch()');
   });
 
+  test('reference-image import and drop behavior is wired through the existing UI controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'reference-image-ui.js'), 'utf8');
+
+    expect(source).toContain('installReferenceImageImport,');
+    expect(source).toContain('installReferenceImageImport();');
+    expect(source).not.toContain('async function loadReferenceImage(file)');
+    expect(source).not.toContain('async function handleEmptyImageDrop(file)');
+    expect(controller).toContain('async function loadReferenceImage(file)');
+    expect(controller).toContain('function installReferenceImageImport()');
+    expect(controller).toContain('pageHakoImportFileFromDataTransfer(event.dataTransfer)');
+  });
+
   test('sidebar input binding stays shared across standard object panels', async () => {
     const binder = await import('../js/site-planner/sidebar-input-binding.js');
     const files = ['sidebar-benchwork-detail.js', 'sidebar-fabric-detail.js', 'sidebar-stl-detail.js', 'sidebar-streetlight-detail.js', 'sidebar-track-detail.js'];

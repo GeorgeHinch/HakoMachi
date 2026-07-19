@@ -3,6 +3,21 @@ const fs = require('fs');
 const path = require('path');
 
 test.describe('Site Planner module split contracts', () => {
+  test('rail-crossing 2D rendering is wired through its renderer module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'rail-crossing-renderer-2d.js'), 'utf8');
+
+    expect(source).toContain("import { createRailCrossingRenderer2D } from './site-planner/rail-crossing-renderer-2d.js';");
+    expect(source).toContain('railCrossingRenderer2D=createRailCrossingRenderer2D({ctx,state,drawLabel,generatedRailCrossings,railCrossingInfillPanels});');
+    expect(source).toContain('return ensureRailCrossingRenderer2D().drawGeneratedRailCrossings();');
+    expect(source).not.toContain('function drawRailCrossingPanelTexture');
+    expect(source).not.toContain('function drawRailCrossingIndicator');
+    expect(renderer).toContain('export function createRailCrossingRenderer2D');
+    expect(renderer).toContain('function drawRailCrossingPanelTexture');
+    expect(renderer).toContain('function drawRailCrossingIndicator');
+    expect(renderer).toContain('function drawGeneratedRailCrossings');
+  });
+
   test('generated intersection marking controls live outside the site planner monolith', async () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'road-intersection-marking-controls.js'), 'utf8');
@@ -1681,12 +1696,12 @@ test.describe('Site Planner module split contracts', () => {
   });
 
   test('rail crossing panels use gunmetal preview styling with clipped texture', () => {
-    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
-    const helperStart = source.indexOf('function drawRailCrossingPanelTexture');
-    const drawStart = source.indexOf('function drawRailCrossingPanel(panel', helperStart);
-    const drawEnd = source.indexOf('function drawRailCrossingIndicator', drawStart);
-    const textureHelper = source.slice(helperStart, drawStart);
-    const drawPanel = source.slice(drawStart, drawEnd);
+    const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'rail-crossing-renderer-2d.js'), 'utf8');
+    const helperStart = renderer.indexOf('function drawRailCrossingPanelTexture');
+    const drawStart = renderer.indexOf('function drawRailCrossingPanel(panel', helperStart);
+    const drawEnd = renderer.indexOf('function drawRailCrossingIndicator', drawStart);
+    const textureHelper = renderer.slice(helperStart, drawStart);
+    const drawPanel = renderer.slice(drawStart, drawEnd);
 
     expect(textureHelper).toContain('ctx.clip()');
     expect(textureHelper).toContain("rgba(220,229,232,.25)");

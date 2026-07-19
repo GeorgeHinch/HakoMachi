@@ -48,6 +48,7 @@ import { migrateRoadFeatures } from './site-planner/road-feature-migration.js';
 import { createRoadPresetApplicationController } from './site-planner/road-preset-application-utils.js';
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
 import { RAIL_CROSSING_CENTER_CLEARANCE_MM, buildRailCrossingInfillPanels, buildRailCrossings, hitRailCrossing, normalizeRailCrossingOverride, railCrossingOverrideKey, railCrossingSvgRecords } from './site-planner/rail-crossing-generator.js';
+import { createRailCrossingRenderer2D } from './site-planner/rail-crossing-renderer-2d.js';
 import { createScaleInputController } from './site-planner/scale-input-utils.js';
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
 import { createSidebarObjectBrowserController } from './site-planner/sidebar-object-browser-controller.js';
@@ -788,98 +789,15 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     const tol=(pointerType==='touch'?18:10)/state.view.scale;
     return hitRailCrossing(p,generatedRailCrossings(),tol);
   }
-  function traceRailCrossingPanelPath(pts){
-    ctx.beginPath();
-    pts.forEach((point,index)=>index?ctx.lineTo(point.x,point.y):ctx.moveTo(point.x,point.y));
-    ctx.closePath();
-  }
-  function drawRailCrossingPanelTexture(pts,selected=false){
-    const xs=pts.map(point=>point.x), ys=pts.map(point=>point.y);
-    const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
-    const span=Math.max(maxX-minX,maxY-minY,1);
-    const spacing=Math.max(4/state.view.scale,span*.12);
-    ctx.save();
-    traceRailCrossingPanelPath(pts);
-    ctx.clip();
-    ctx.strokeStyle=selected?'rgba(255,247,237,.34)':'rgba(220,229,232,.25)';
-    ctx.lineWidth=.75/state.view.scale;
-    for(let x=minX-span; x<=maxX+span; x+=spacing){
-      ctx.beginPath();
-      ctx.moveTo(x,maxY+spacing);
-      ctx.lineTo(x+span+spacing,minY-spacing);
-      ctx.stroke();
+  let railCrossingRenderer2D=null;
+  function ensureRailCrossingRenderer2D(){
+    if(!railCrossingRenderer2D){
+      railCrossingRenderer2D=createRailCrossingRenderer2D({ctx,state,drawLabel,generatedRailCrossings,railCrossingInfillPanels});
     }
-    ctx.strokeStyle=selected?'rgba(95,34,26,.45)':'rgba(31,39,45,.42)';
-    ctx.lineWidth=.45/state.view.scale;
-    for(let x=minX-span+spacing*.5; x<=maxX+span; x+=spacing*2){
-      ctx.beginPath();
-      ctx.moveTo(x,minY-spacing);
-      ctx.lineTo(x+span+spacing,maxY+spacing);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-  function drawRailCrossingPanel(panel,crossing,selected=false){
-    const pts=panel.polygon||[];
-    if(pts.length<3) return;
-    ctx.save();
-    ctx.fillStyle=selected?'rgba(95,77,72,.92)':'rgba(73,83,91,.88)';
-    ctx.strokeStyle=selected?'#c84a3a':'#29333a';
-    ctx.lineWidth=(selected?2:1)/state.view.scale;
-    traceRailCrossingPanelPath(pts);
-    ctx.fill();
-    drawRailCrossingPanelTexture(pts,selected);
-    traceRailCrossingPanelPath(pts);
-    ctx.stroke();
-    ctx.restore();
-  }
-  function drawRailCrossingIndicator(crossing,selected=false){
-    if(!crossing?.point) return;
-    const radius=Math.max((selected?5:3)/state.view.scale,Math.min((selected?16:12)/state.view.scale,(crossing.roadWidthPx||24)*(selected?0.18:0.12)));
-    const roadHalf=Math.max(radius*1.45,8/state.view.scale);
-    const trackHalf=Math.max(radius*1.25,7/state.view.scale);
-    ctx.save();
-    ctx.fillStyle=selected?'rgba(255,247,237,.94)':'rgba(200,74,58,.22)';
-    ctx.strokeStyle=selected?'#c84a3a':'rgba(200,74,58,.75)';
-    ctx.lineWidth=(selected?2:1.2)/state.view.scale;
-    ctx.beginPath();
-    ctx.arc(crossing.point.x,crossing.point.y,radius,0,Math.PI*2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.lineCap='round';
-    ctx.strokeStyle=selected?'#6f3f2f':'rgba(58,43,30,.7)';
-    ctx.lineWidth=1.1/state.view.scale;
-    const roadVector=crossing.roadVector||{x:1,y:0};
-    const trackVector=crossing.trackVector||{x:0,y:1};
-    ctx.beginPath();
-    ctx.moveTo(crossing.point.x-roadVector.x*roadHalf,crossing.point.y-roadVector.y*roadHalf);
-    ctx.lineTo(crossing.point.x+roadVector.x*roadHalf,crossing.point.y+roadVector.y*roadHalf);
-    ctx.moveTo(crossing.point.x-trackVector.x*trackHalf,crossing.point.y-trackVector.y*trackHalf);
-    ctx.lineTo(crossing.point.x+trackVector.x*trackHalf,crossing.point.y+trackVector.y*trackHalf);
-    ctx.stroke();
-    ctx.restore();
+    return railCrossingRenderer2D;
   }
   function drawGeneratedRailCrossings(){
-    const crossings=generatedRailCrossings();
-    const selectedId=state.selectedRailCrossingId;
-    const infill=railCrossingInfillPanels(crossings);
-    infill.forEach(panel=>drawRailCrossingPanel(panel,{id:panel.id},false));
-    crossings.forEach(crossing=>{
-      if(crossing.enabled===false) return;
-      const selected=selectedId && (selectedId===crossing.id || selectedId===crossing.key);
-      (crossing.panels||[]).forEach(panel=>drawRailCrossingPanel(panel,crossing,selected));
-      ctx.save();
-      ctx.strokeStyle=selected?'#fff7ed':'rgba(222,231,234,.62)';
-      ctx.lineWidth=.7/state.view.scale;
-      (crossing.engraves||[]).forEach(line=>{
-        ctx.beginPath(); ctx.moveTo(line.a.x,line.a.y); ctx.lineTo(line.b.x,line.b.y); ctx.stroke();
-      });
-      ctx.restore();
-      drawRailCrossingIndicator(crossing,selected);
-      if(selected){
-        drawLabel(`Rail crossing · ${crossing.trackName}`,{x:crossing.point.x+8/state.view.scale,y:crossing.point.y-8/state.view.scale});
-      }
-    });
+    return ensureRailCrossingRenderer2D().drawGeneratedRailCrossings();
   }
   function drawTrack(raw){
     const t=normalizeTrack(raw); if(!t || t.hidden || (t.pointsPx||[]).length<2) return;

@@ -1193,6 +1193,24 @@ test.describe('Site Planner module split contracts', () => {
     expect(renderer).toContain('sharedRenderer.buildBuildingPreviewGroup');
   });
 
+  test('site planner 3D building config normalization is wired through its controller module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-building-config.js'), 'utf8');
+
+    expect(source).toContain("import { createSite3DBuildingConfigController } from './site-planner/site-3d-building-config.js';");
+    expect(source).toContain('function ensureSite3DBuildingConfigController()');
+    expect(source).toContain('return ensureSite3DBuildingConfigController().site3DBuildingFootprintMm(b)');
+    expect(source).toContain('return ensureSite3DBuildingConfigController().site3DNormalizeBuildingConfig(b,cfg)');
+    expect(source).not.toContain('function site3DTypeDefaults(type,fabricType)');
+    expect(source).not.toContain('function site3DGeneratorModelBaseRotationDeg(b,cfg)');
+    expect(controller).toContain('function site3DApplyPlannerDimensions(b, cfg)');
+    expect(controller).toContain('function site3DGeneratorModelBaseRotationDeg(b, cfg)');
+    expect(controller).toContain('function site3DTypeDefaults(type, fabricType)');
+    expect(controller).toContain("cfg.windowStyle = cfg.windowStyle || cfg.windows?.style || seed?.windowStyle || (defaults.commercial ? 'storefront' : 'industrial_small')");
+    expect(controller).toContain('site3DGeneratorModelOriginOffset');
+    expect(controller).toContain('site3DGeneratorModelRotationY');
+  });
+
   test('site planner 3D base and reference image rendering is wired through its renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-base-renderer.js'), 'utf8');

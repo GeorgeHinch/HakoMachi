@@ -56,6 +56,7 @@ import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDet
 import { createSidebarObjectBrowserController } from './site-planner/sidebar-object-browser-controller.js';
 import { renderRailCrossingDetail } from './site-planner/sidebar-rail-crossing-detail.js';
 import { renderRoadFeatureDetail } from './site-planner/sidebar-road-feature-detail.js';
+import { renderRoadDetail } from './site-planner/sidebar-road-detail.js';
 import { renderBenchworkDetail } from './site-planner/sidebar-benchwork-detail.js';
 import { renderFabricDetail } from './site-planner/sidebar-fabric-detail.js';
 import { renderStlDetail } from './site-planner/sidebar-stl-detail.js';
@@ -3252,44 +3253,29 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       deleteSelectedRoadFeature,
     });
       return;
-    } if(road){normalizeRoad(road); const roadPresetKey=road.roadWidthPreset||'custom'; const sidewalkPresetKey=road.sidewalkWidthPreset||'custom'; const showRoadOverride=road.mode!=='outline' && roadPresetKey==='custom'; const showSidewalkOverride=road.mode!=='outline' && sidewalkPresetKey==='custom'; const roadMarkingCount=(state.roadFeatures||[]).filter(feature=>feature?.kind==='marking'&&feature.roadId===road.id).length; box.innerHTML=`
-      <b>${road.mode==='outline'?'Road outline':'Road centerline'} selected</b>
-      <label>Name</label><input id="roadName" value="${escapeAttr(road.name||'Road')}">
-      <label>Road width preset</label><select id="roadWidthPreset" ${road.mode==='outline'?'disabled':''}>${presetOptionsHtml(ROAD_WIDTH_PRESETS, roadPresetKey, currentScaleDivisor())}</select>
-      <div id="roadWidthOverrideWrap" style="display:${showRoadOverride?'block':'none'}"><label>Width override (mm)</label><input id="roadWidth" type="number" step="0.1" value="${fmt(road.widthMm||0)}" ${road.mode==='outline'?'disabled':''}></div>
-      <label>Sidewalk</label><select id="roadSidewalk" ${road.mode==='outline'?'disabled':''}><option value="none">None</option><option value="left">Left</option><option value="right">Right</option><option value="both">Both sides</option></select>
-      <label>Sidewalk width preset</label><select id="roadSidewalkPreset" ${road.mode==='outline'?'disabled':''}>${presetOptionsHtml(SIDEWALK_WIDTH_PRESETS, sidewalkPresetKey, currentScaleDivisor())}</select>
-      <div id="roadSidewalkOverrideWrap" style="display:${showSidewalkOverride?'block':'none'}"><label>Sidewalk width override (mm)</label><input id="roadSidewalkWidth" type="number" step="0.1" value="${fmt(road.sidewalkWidthMm||0)}" ${road.mode==='outline'?'disabled':''}></div>
-      <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="roadLocked" type="checkbox" ${road.locked?'checked':''}> <span>Lock road</span></label>
-      <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="roadIntersectionDetails" type="checkbox" ${state.roadIntersectionDetails!==false?'checked':''}> <span>Show automatic intersection markings</span></label>
-      <label>Driving side</label><select id="roadDrivingSide"><option value="left">Left-hand traffic (Japan)</option><option value="right">Right-hand traffic</option></select>
-      ${roadIntersectionMarkingControls.controlsHtml(road.id)}
-      <div class="buttons" style="margin-top:8px"><button id="realignRoadMarkingsForRoad" type="button" ${roadMarkingCount?'':'disabled'}>Realign Road Markings</button><button id="fitRoadMarkingsForRoad" type="button" ${roadMarkingCount?'':'disabled'}>Fit Road Markings</button></div>
-      <div class="small muted">${roadMarkingCount} road marking${roadMarkingCount===1?'':'s'} attached to this road.</div>
-      <div class="buttons" style="margin-top:8px"><button id="regenRoad">Regenerate road geometry</button><button id="deleteRoad" class="danger">Delete Road</button></div>
-      <div class="small muted" style="margin-top:8px">Presets are common real-world widths converted to physical output millimeters using the calibration scale divisor. Choose <b>Custom / override</b> to show manual width fields. Centerlines can be polyline paths; hover a selected segment and drag to bend it into a curve. Laser-cut road export is not enabled yet.</div>`;
-      const sel=$('roadSidewalk'); if(sel) sel.value=road.sidewalkSide||'none';
-      const bindRoad=(id,fn)=>{const el=$(id); if(el) el.oninput=e=>{fn(el.type==='checkbox'?el.checked:el.value); syncRoadMetrics(road); syncAll();};};
-      bindRoad('roadName',v=>road.name=v);
-      bindRoad('roadWidthPreset',v=>{applyRoadWidthPreset(road,v);});
-      bindRoad('roadWidth',v=>{road.roadWidthPreset='custom'; road.widthMm=parseFloat(v)||0; road.widthPx=state.pxPerMm?mmToPx(road.widthMm):road.widthPx;});
-      bindRoad('roadSidewalk',v=>road.sidewalkSide=v);
-      bindRoad('roadSidewalkPreset',v=>{applySidewalkWidthPreset(road,v);});
-      bindRoad('roadSidewalkWidth',v=>{road.sidewalkWidthPreset='custom'; road.sidewalkWidthMm=parseFloat(v)||0; road.sidewalkWidthPx=state.pxPerMm?mmToPx(road.sidewalkWidthMm):road.sidewalkWidthPx;});
-      bindRoad('roadLocked',v=>road.locked=!!v);
-      bindRoad('roadIntersectionDetails',v=>{state.roadIntersectionDetails=!!v;});
-      const roadDrivingSide=$('roadDrivingSide'); if(roadDrivingSide){roadDrivingSide.value=normalizeDrivingSide(state.roadDrivingSide); roadDrivingSide.onchange=()=>{state.roadDrivingSide=normalizeDrivingSide(roadDrivingSide.value); syncAll();};}
-      roadIntersectionMarkingControls.bindArmCheckbox('roadIntersectionCrosswalks',road.id,'crosswalkEnabled');
-      roadIntersectionMarkingControls.bindArmCheckbox('roadIntersectionStopBars',road.id,'stopBarEnabled');
-      roadIntersectionMarkingControls.bindArmCheckbox('roadIntersectionTactile',road.id,'tactilePaversEnabled');
-      roadIntersectionMarkingControls.bindArmCheckbox('roadIntersectionCurbGuides',road.id,'curbGuideEnabled');
-      roadIntersectionMarkingControls.bindFeatureToggles();
-      const realignRoadMarkings=$('realignRoadMarkingsForRoad');
-      if(realignRoadMarkings) realignRoadMarkings.onclick=()=>{const updated=roadSystem.realignRoadMarkingsForRoad(road.id); showStatusHint(`Realigned ${updated} road marking${updated===1?'':'s'} on ${road.name||'road'}.`); syncAll();};
-      const fitRoadMarkings=$('fitRoadMarkingsForRoad');
-      if(fitRoadMarkings) fitRoadMarkings.onclick=()=>{const updated=roadSystem.fitRoadMarkingsForRoad(road.id); showStatusHint(`Fit ${updated} road marking${updated===1?'':'s'} to ${road.name||'road'} bounds.`); syncAll();};
-      roadIntersectionMarkingControls.bindClearArmOverrides(road.id);
-      $('regenRoad').onclick=()=>syncAll(); $('deleteRoad').onclick=deleteSelectedRoad;
+    } if(road){renderRoadDetail({
+      road,
+      panel: box,
+      state,
+      getElement: $,
+      fmt,
+      escapeAttr,
+      mmToPx,
+      syncAll,
+      normalizeRoad,
+      syncRoadMetrics,
+      roadWidthPresets: ROAD_WIDTH_PRESETS,
+      sidewalkWidthPresets: SIDEWALK_WIDTH_PRESETS,
+      presetOptionsHtml,
+      currentScaleDivisor,
+      applyRoadWidthPreset,
+      applySidewalkWidthPreset,
+      normalizeDrivingSide,
+      roadIntersectionMarkingControls,
+      roadSystem,
+      showStatusHint,
+      deleteSelectedRoad,
+    });
       return;
     } if(track){renderTrackDetail({
       track,

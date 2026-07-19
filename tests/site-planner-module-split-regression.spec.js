@@ -1211,6 +1211,25 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('site3DGeneratorModelRotationY');
   });
 
+  test('Hako building footprint and trim geometry is wired through its controller module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'hako-building-geometry-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createHakoBuildingGeometryController } from './site-planner/hako-building-geometry-controller.js';");
+    expect(source).toContain('function ensureHakoBuildingGeometryController()');
+    expect(source).toContain('return ensureHakoBuildingGeometryController().visibleBuildingPolygons(b)');
+    expect(source).toContain('return ensureHakoBuildingGeometryController().hakoDisplayTrimPolylinesMm(b)');
+    expect(source).not.toContain('function hakoWingBoundsMm(cfg,wing)');
+    expect(source).not.toContain('function resolveHakoLayoutCut(cut,cfg)');
+    expect(source).not.toContain('function arcSampleMm(it)');
+    expect(controller).toContain('function hakoWingBoundsMm(cfg, wing)');
+    expect(controller).toContain('function resolveHakoLayoutCut(cut, cfg)');
+    expect(controller).toContain('function clipHakoPolygonByLayoutCuts(poly, cuts, cfg)');
+    expect(controller).toContain('clipPolygonByHalfPlane(out, a, z');
+    expect(controller).toContain('function hakoDisplayTrimPolylinesMm(b)');
+    expect(controller).toContain("targetId: hakoCutTargetId(cut)");
+  });
+
   test('site planner 3D base and reference image rendering is wired through its renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-base-renderer.js'), 'utf8');

@@ -88,6 +88,41 @@ test.describe('Site Planner module split contracts', () => {
     expect(detail).toContain("getElement('deleteFabricRegion').onclick");
   });
 
+  test('STL detail controls are wired through their sidebar module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-stl-detail.js'), 'utf8');
+
+    expect(source).toContain("import { renderStlDetail } from './site-planner/sidebar-stl-detail.js';");
+    expect(source).toContain('} else if(stl){renderStlDetail({');
+    expect(source).not.toContain('const bindStl=(id,fn)=>');
+    expect(detail).toContain('export function renderStlDetail');
+    expect(detail).toContain("data-stl-source-download");
+    expect(detail).toContain('attachSourceFileToStlObject(stlObject, file)');
+  });
+
+  test('sidebar input binding stays shared across standard object panels', async () => {
+    const binder = await import('../js/site-planner/sidebar-input-binding.js');
+    const files = ['sidebar-benchwork-detail.js', 'sidebar-fabric-detail.js', 'sidebar-stl-detail.js', 'sidebar-streetlight-detail.js', 'sidebar-track-detail.js'];
+
+    files.forEach(file => {
+      const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', file), 'utf8');
+      expect(source).toContain("import { createSidebarInputBinder } from './sidebar-input-binding.js';");
+      expect(source).toContain('const { bindInput } = createSidebarInputBinder({');
+    });
+
+    const element = { type: 'checkbox', checked: true, value: 'ignored', oninput: null };
+    let received = null;
+    let refreshes = 0;
+    const { bindInput } = binder.createSidebarInputBinder({
+      getElement: id => id === 'enabled' ? element : null,
+      afterInput: () => { refreshes += 1; },
+    });
+    bindInput('enabled', value => { received = value; });
+    element.oninput();
+    expect(received).toBe(true);
+    expect(refreshes).toBe(1);
+  });
+
   test('flex-track 2D rendering is wired through its renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-renderer-2d.js'), 'utf8');

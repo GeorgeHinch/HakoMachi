@@ -1,3 +1,5 @@
+import { createSidebarInputBinder } from './sidebar-input-binding.js';
+
 export function renderBenchworkDetail({
   benchwork,
   panel,
@@ -18,18 +20,11 @@ export function renderBenchworkDetail({
     <div class="buttons" style="margin-top:8px"><button id="clearBenchCurves">Clear Curves</button><button id="deleteBench" class="danger">Delete Benchwork</button></div>
     <div class="small muted" style="margin-top:8px">Hover an edge segment on the selected outline and drag to curve it. Anything beyond this boundary can be trimmed in future export stages.</div>`;
 
-  const bindBenchwork = (id, update) => {
-    const element = getElement(id);
-    if (!element) return;
-    element.oninput = () => {
-      update(element.type === 'checkbox' ? element.checked : element.value);
-      syncAll();
-    };
-  };
-  bindBenchwork('benchName', value => benchwork.name = value);
-  bindBenchwork('benchColor', value => benchwork.color = value);
-  bindBenchwork('benchLocked', value => benchwork.locked = !!value);
-  bindBenchwork('benchNotes', value => benchwork.notes = value);
+  const { bindInput } = createSidebarInputBinder({ getElement, afterInput: syncAll });
+  bindInput('benchName', value => benchwork.name = value);
+  bindInput('benchColor', value => benchwork.color = value);
+  bindInput('benchLocked', value => benchwork.locked = !!value);
+  bindInput('benchNotes', value => benchwork.notes = value);
   getElement('clearBenchCurves').onclick = () => {
     benchwork.curvesPx = (benchwork.pointsPx || []).map(() => null);
     syncAll();

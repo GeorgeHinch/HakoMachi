@@ -1,3 +1,5 @@
+import { createSidebarInputBinder } from './sidebar-input-binding.js';
+
 export function renderStreetlightDetail({
   streetlight,
   panel,
@@ -27,29 +29,22 @@ export function renderStreetlightDetail({
     <label>Notes</label><textarea id="slNotes" rows="3">${escapeHtml(streetlight.notes || '')}</textarea>
     <div class="buttons" style="margin-top:8px"><button id="dupSl">Duplicate</button><button id="lockSl">${streetlight.locked ? 'Unlock' : 'Lock'}</button><button id="delSl" class="danger">Delete</button></div>`;
 
-  const bindStreetlight = (id, update) => {
-    const element = getElement(id);
-    if (!element) return;
-    element.oninput = () => {
-      update(element.type === 'checkbox' ? element.checked : element.value);
-      syncAll();
-    };
-  };
-  bindStreetlight('slName', value => streetlight.name = value);
-  bindStreetlight('slColor', value => streetlight.color = value);
-  bindStreetlight('slHeight', value => streetlight.heightMm = parseFloat(value) || 0);
-  bindStreetlight('slArm', value => streetlight.armLengthMm = parseFloat(value) || 0);
-  bindStreetlight('slRot', value => streetlight.rotationDeg = parseFloat(value) || 0);
-  bindStreetlight('slRadius', value => streetlight.lightRadiusMm = parseFloat(value) || 0);
-  bindStreetlight('slNotes', value => streetlight.notes = value);
+  const { bindInput } = createSidebarInputBinder({ getElement, afterInput: syncAll });
+  bindInput('slName', value => streetlight.name = value);
+  bindInput('slColor', value => streetlight.color = value);
+  bindInput('slHeight', value => streetlight.heightMm = parseFloat(value) || 0);
+  bindInput('slArm', value => streetlight.armLengthMm = parseFloat(value) || 0);
+  bindInput('slRot', value => streetlight.rotationDeg = parseFloat(value) || 0);
+  bindInput('slRadius', value => streetlight.lightRadiusMm = parseFloat(value) || 0);
+  bindInput('slNotes', value => streetlight.notes = value);
   installAdaptiveDegreeStepping(getElement('slRot'));
   const type = getElement('slType'); if (type) { type.value = streetlight.type; type.onchange = event => { streetlight.type = event.target.value; syncAll(); }; }
   const mount = getElement('slMount'); if (mount) { mount.value = streetlight.anchor.mountMode; mount.onchange = event => { streetlight.anchor.mountMode = event.target.value; syncAll(); }; }
   const side = getElement('slSide'); if (side) { side.value = streetlight.anchor.sidewalkSide; side.onchange = event => { streetlight.anchor.sidewalkSide = event.target.value; syncAll(); }; }
-  bindStreetlight('slCutDia', value => streetlight.anchor.cutHoleDiameterMm = parseFloat(value) || 0);
-  bindStreetlight('slBulbDia', value => streetlight.anchor.bulbMountDiameterMm = parseFloat(value) || 0);
-  bindStreetlight('slEdgeOffset', value => streetlight.anchor.edgeOffsetMm = parseFloat(value) || 0);
-  bindStreetlight('slLockEdge', value => streetlight.anchor.lockToRoadEdge = !!value);
+  bindInput('slCutDia', value => streetlight.anchor.cutHoleDiameterMm = parseFloat(value) || 0);
+  bindInput('slBulbDia', value => streetlight.anchor.bulbMountDiameterMm = parseFloat(value) || 0);
+  bindInput('slEdgeOffset', value => streetlight.anchor.edgeOffsetMm = parseFloat(value) || 0);
+  bindInput('slLockEdge', value => streetlight.anchor.lockToRoadEdge = !!value);
   getElement('dupSl').onclick = () => { duplicateStreetlight(streetlight); syncAll(); };
   getElement('lockSl').onclick = () => { streetlight.locked = !streetlight.locked; syncAll(); };
   getElement('delSl').onclick = deleteSelectedStreetlight;

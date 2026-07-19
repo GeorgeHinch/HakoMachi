@@ -57,6 +57,7 @@ import { createSidebarObjectBrowserController } from './site-planner/sidebar-obj
 import { renderRailCrossingDetail } from './site-planner/sidebar-rail-crossing-detail.js';
 import { renderBenchworkDetail } from './site-planner/sidebar-benchwork-detail.js';
 import { renderFabricDetail } from './site-planner/sidebar-fabric-detail.js';
+import { renderStlDetail } from './site-planner/sidebar-stl-detail.js';
 import { renderStreetlightDetail } from './site-planner/sidebar-streetlight-detail.js';
 import { renderTrackDetail } from './site-planner/sidebar-track-detail.js';
 import { createSite3DBaseRenderer } from './site-planner/site-3d-base-renderer.js';
@@ -3357,56 +3358,21 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       generateFabricForRegion,
       deleteSelectedFabricRegion,
     });
-    } else if(stl){normalizeStlObject(stl); const stlFallbackLabels={'asset-unavailable':'asset unavailable','asset-missing':'proxy fallback','mesh-too-large':'proxy fallback: large STL','parse-failed':'proxy fallback: unreadable STL'}; const stlAssetStatus=stl.asset?.renderFallbackReason?` · ${stlFallbackLabels[stl.asset.renderFallbackReason]||'proxy fallback'}`:(stl.asset?.unavailable?' · asset unavailable':(!stl.asset?.dataBase64&&stl.asset?.path?' · referenced asset':'')); const sourceList=(stl.sourceAssets||[]).map((source,idx)=>`
-      <div class="listItem compact">
-        <div><b>${escapeHtml(source.name||source.fileName||'Source file')}</b><br><span class="small muted">${escapeHtml(source.fileName||'source file')}${source.unavailable?' · unavailable':(!source.dataBase64&&source.path?' · referenced asset':'')}</span></div>
-        <div class="buttons"><button data-stl-source-download="${idx}" ${source.dataBase64?'':'disabled'}>Download</button><button data-stl-source-delete="${idx}" class="danger">Remove</button></div>
-      </div>`).join('') || '<div class="small muted">No source file attached.</div>'; box.innerHTML=`
-      <b>${escapeHtml(stl.name||'STL Object')} selected</b>
-      <label>Name</label><input id="stlName" value="${escapeAttr(stl.name||'')}">
-      <div class="row"><div><label>Rotation °</label><input id="stlRot" type="number" step="1" value="${fmt(stl.rotationDeg||0)}"></div><div><label>Scale</label><input id="stlScale" type="number" min="0.01" step="0.01" value="${fmt(stl.scale||1)}"></div></div>
-      <div class="row"><div><label>Width mm</label><input id="stlW" type="number" min="0.1" step="0.1" value="${fmt(stl.widthMm||0)}"></div><div><label>Depth mm</label><input id="stlD" type="number" min="0.1" step="0.1" value="${fmt(stl.depthMm||0)}"></div></div>
-      <div class="row"><div><label>Height mm</label><input id="stlH" type="number" min="0.1" step="0.1" value="${fmt(stl.heightMm||0)}"></div><div><label>Color</label><input id="stlColor" type="color" value="${stl.color||'#496a78'}"></div></div>
-      <label class="checkboxRow" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="stlLocked" type="checkbox" ${stl.locked?'checked':''}> <span>Lock object</span></label>
-      <label>Notes</label><textarea id="stlNotes" rows="3">${escapeHtml(stl.notes||'')}</textarea>
-      <div class="small muted" style="margin-top:6px">File: ${escapeHtml(stl.asset?.fileName||'STL asset')} · ${escapeHtml(stl.bounds?.format||'unknown')} bounds${escapeHtml(stlAssetStatus)} · renders as STL geometry when available.</div>
-      <label>Source files</label>
-      <div>${sourceList}</div>
-      <input id="stlSourceFileInput" class="hiddenFile" type="file" accept=".scad,.blend,.py,.js,.json,.txt,.obj,.dae,.3mf">
-      <div class="buttons" style="margin-top:8px"><button id="attachStlSourceFile">Attach Source</button><button id="downloadStlObject" ${stl.asset?.dataBase64?'':'disabled'}>Download STL</button><button id="deleteStlObject" class="danger">Delete Object</button></div>`;
-      const updateDims=()=>{normalizeStlObject(stl); syncAll();};
-      const bindStl=(id,fn)=>{const el=$(id); if(el) el.oninput=()=>{fn(el.type==='checkbox'?el.checked:el.value); updateDims();};};
-      bindStl('stlName',v=>stl.name=v);
-      bindStl('stlRot',v=>stl.rotationDeg=parseFloat(v)||0);
-      bindStl('stlScale',v=>stl.scale=Math.max(.01,parseFloat(v)||1));
-      bindStl('stlW',v=>stl.widthMm=Math.max(.1,parseFloat(v)||.1));
-      bindStl('stlD',v=>stl.depthMm=Math.max(.1,parseFloat(v)||.1));
-      bindStl('stlH',v=>stl.heightMm=Math.max(.1,parseFloat(v)||.1));
-      bindStl('stlColor',v=>stl.color=v);
-      bindStl('stlLocked',v=>stl.locked=!!v);
-      bindStl('stlNotes',v=>stl.notes=v);
-      installAdaptiveDegreeStepping($('stlRot'));
-      $('attachStlSourceFile').onclick=()=>$('stlSourceFileInput')?.click();
-      $('stlSourceFileInput').onchange=async e=>{
-        const f=e.target.files&&e.target.files[0];
-        if(f) await attachSourceFileToStlObject(stl,f);
-        e.target.value='';
-      };
-      box.querySelectorAll('[data-stl-source-download]').forEach(btn=>{
-        btn.onclick=()=>{
-          const source=(stl.sourceAssets||[])[Number(btn.dataset.stlSourceDownload)];
-          if(source) downloadBase64(source.dataBase64, source.fileName||source.name||'source-file', source.mimeType||'application/octet-stream');
-        };
-      });
-      box.querySelectorAll('[data-stl-source-delete]').forEach(btn=>{
-        btn.onclick=()=>{
-          const idx=Number(btn.dataset.stlSourceDelete);
-          stl.sourceAssets=(stl.sourceAssets||[]).filter((_source,i)=>i!==idx);
-          syncAll();
-        };
-      });
-      $('downloadStlObject').onclick=()=>downloadBase64(stl.asset?.dataBase64, stl.asset?.fileName||`${slug(stl.name||'site-object')}.stl`, stl.asset?.mimeType||'model/stl');
-      $('deleteStlObject').onclick=deleteSelectedStlObject;
+    } else if(stl){renderStlDetail({
+      stlObject: stl,
+      panel: box,
+      getElement: $,
+      fmt,
+      escapeAttr,
+      escapeHtml,
+      slug,
+      syncAll,
+      normalizeStlObject,
+      installAdaptiveDegreeStepping,
+      attachSourceFileToStlObject,
+      downloadBase64,
+      deleteSelectedStlObject,
+    });
     } else if(note){const pts=note.points||[]; box.innerHTML=`<b>Annotation selected</b><br><span class="small muted">${pts.length} points</span><div class="buttons" style="margin-top:8px"><button id="delNoteB" class="danger">Delete Annotation</button></div>`; const del=$('delNoteB'); if(del) del.onclick=deleteSelectedAnnotation;} else box.innerHTML='No building selected.'; const btn=$('deleteAnnotationBtn'); if(btn) btn.disabled=!note; return;} if($('deleteAnnotationBtn')) $('deleteAnnotationBtn').disabled=true; syncBuildingMetrics(b); box.innerHTML=`
     <label>Name</label><input id="selName" value="${escapeAttr(b.name||'')}">
     <div class="row"><div><label>Status</label><select id="selState"><option value="notStarted">Not Started</option><option value="inProgress">In Progress</option><option value="awaitingConstruction">Awaiting Construction</option><option value="complete">Complete</option></select></div><div><label>Color</label><input id="selColor" type="color" value="${b.color||'#d79631'}"></div></div>

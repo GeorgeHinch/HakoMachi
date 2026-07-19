@@ -1,3 +1,5 @@
+import { createSidebarInputBinder } from './sidebar-input-binding.js';
+
 export function renderTrackDetail({
   track,
   panel,
@@ -28,27 +30,19 @@ export function renderTrackDetail({
     <div class="buttons" style="margin-top:8px">${selectedPointIndex !== null ? '<button id="deleteTrackPoint" class="danger">Delete Point</button>' : ''}<button id="deleteTrack" class="danger">Delete Track</button></div>
     <div class="small muted" style="margin-top:8px">Approximate planning track: twin rails and ties are drawn as site context for a physical track product. Track paths are not exported as fabricated parts.</div>`;
 
-  const bindTrack = (id, update) => {
-    const element = getElement(id);
-    if (!element) return;
-    element.oninput = () => {
-      update(element.type === 'checkbox' ? element.checked : element.value);
-      syncTrackMetrics(track);
-      syncAll();
-    };
-  };
-  bindTrack('trackName', value => track.name = value);
-  bindTrack('trackGauge', value => {
+  const { bindInput } = createSidebarInputBinder({ getElement, afterInput: () => { syncTrackMetrics(track); syncAll(); } });
+  bindInput('trackName', value => track.name = value);
+  bindInput('trackGauge', value => {
     track.gaugeMm = parseFloat(value) || 9;
     track.gaugePx = state.pxPerMm ? mmToPx(track.gaugeMm) : track.gaugePx;
   });
-  bindTrack('trackTieSpacing', value => {
+  bindInput('trackTieSpacing', value => {
     track.tieSpacingMm = parseFloat(value) || 4;
     track.tieSpacingPx = state.pxPerMm ? mmToPx(track.tieSpacingMm) : track.tieSpacingPx;
   });
-  bindTrack('trackColor', value => track.color = value);
-  bindTrack('trackTieColor', value => track.tieColor = value);
-  bindTrack('trackLocked', value => track.locked = !!value);
+  bindInput('trackColor', value => track.color = value);
+  bindInput('trackTieColor', value => track.tieColor = value);
+  bindInput('trackLocked', value => track.locked = !!value);
   const deletePoint = getElement('deleteTrackPoint'); if (deletePoint) deletePoint.onclick = deleteSelectedTrackPoint;
   getElement('deleteTrack').onclick = deleteSelectedTrack;
 }

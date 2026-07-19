@@ -1,3 +1,5 @@
+import { createSidebarInputBinder } from './sidebar-input-binding.js';
+
 export function renderFabricDetail({
   fabricRegion,
   panel,
@@ -27,22 +29,14 @@ export function renderFabricDetail({
     <div class="small muted" style="margin-top:6px">${padCount} generated pad${padCount === 1 ? '' : 's'} currently reference this region. Deleting the region keeps those pads and detaches them.</div>
     <div class="buttons" style="margin-top:8px"><button id="generateFabricRegion" class="primary">${padCount ? 'Regenerate Pads' : 'Generate Pads'}</button><button id="deleteFabricRegion" class="danger">Delete Fabric Region</button></div>`;
 
-  const bindFabric = (id, update) => {
-    const element = getElement(id);
-    if (!element) return;
-    element.oninput = () => {
-      update(element.value);
-      normalizeFabricRegion(fabricRegion);
-      syncAll();
-    };
-  };
-  bindFabric('fabricNameSel', value => fabricRegion.name = value);
-  bindFabric('fabricDensitySel', value => fabricRegion.density = Math.max(.4, Math.min(1.6, parseFloat(value) || 1)));
-  bindFabric('fabricRandomnessSel', value => fabricRegion.randomness = Math.max(0, Math.min(1, parseFloat(value) || 0)));
-  bindFabric('fabricSeedSel', value => fabricRegion.seed = parseInt(value) || 101);
-  bindFabric('fabricColorSel', value => fabricRegion.color = value);
-  bindFabric('fabricAvgFloorsSel', value => fabricRegion.averageFloorCount = Math.max(1, parseInt(value) || 1));
-  bindFabric('fabricMaxFloorsSel', value => fabricRegion.maxFloorCount = Math.max(1, parseInt(value) || 1));
+  const { bindInput } = createSidebarInputBinder({ getElement, afterInput: () => { normalizeFabricRegion(fabricRegion); syncAll(); } });
+  bindInput('fabricNameSel', value => fabricRegion.name = value);
+  bindInput('fabricDensitySel', value => fabricRegion.density = Math.max(.4, Math.min(1.6, parseFloat(value) || 1)));
+  bindInput('fabricRandomnessSel', value => fabricRegion.randomness = Math.max(0, Math.min(1, parseFloat(value) || 0)));
+  bindInput('fabricSeedSel', value => fabricRegion.seed = parseInt(value) || 101);
+  bindInput('fabricColorSel', value => fabricRegion.color = value);
+  bindInput('fabricAvgFloorsSel', value => fabricRegion.averageFloorCount = Math.max(1, parseInt(value) || 1));
+  bindInput('fabricMaxFloorsSel', value => fabricRegion.maxFloorCount = Math.max(1, parseInt(value) || 1));
   const preset = getElement('fabricPresetSel'); if (preset) preset.onchange = () => { fabricRegion.fabricType = preset.value; state.fabricPreset = preset.value; syncAll(); };
   getElement('generateFabricRegion').onclick = () => generateFabricForRegion(fabricRegion, { confirmReplace: true });
   getElement('deleteFabricRegion').onclick = deleteSelectedFabricRegion;

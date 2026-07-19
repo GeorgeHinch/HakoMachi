@@ -2089,11 +2089,17 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     deleteSelectedStreetlight,
     placeStreetlight,
     duplicateStreetlight,
+    drawStreetlight,
   } = createStreetlightController({
     state,
     uid,
+    rad,
+    ctx,
     dist,
+    mmToPx,
     clearBuildingSelection,
+    isSiteObjectSelected,
+    drawLabel: (...args) => drawLabel(...args),
     syncAll,
   });
   const {
@@ -3707,41 +3713,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(isSelected || isHovered){ const c=b.padType==='rect'?{x:b.x,y:b.y}:polygonCenter(pts); const trimCount=hakoDisplayTrimPolylinesMm(b).length; const trimNote=trimCount?` · ${trimCount} trim line${trimCount===1?'':'s'}`:''; drawLabel(`${b.name||'Building'} ${b.padType==='rect'&&state.pxPerMm?`${fmt(b.widthMm)}×${fmt(b.depthMm)}mm`:''}${trimNote}`,{x:c.x+6/state.view.scale,y:c.y-6/state.view.scale}); }
     if(isSelected && currentSelectedBuildingIds().length===1 && !b.locked){ ctx.fillStyle='#0f766e'; pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,5/state.view.scale,0,Math.PI*2);ctx.fill()}); drawRotateAffordance(b,pts); }
     ctx.restore(); }
-  function drawStreetlight(l){
-    l=normalizeStreetlight(l);
-    const selected=l.id===state.selectedStreetlightId || isSiteObjectSelected('streetlight',l.id), hovered=l.id===state.hoverStreetlightId;
-    const r=Math.max(5, state.pxPerMm ? mmToPx(l.lightRadiusMm||2) : 8)/state.view.scale;
-    const armPx=Math.max(10, state.pxPerMm ? mmToPx(l.armLengthMm||3.5) : 14)/state.view.scale;
-    const a=rad(l.rotationDeg||0);
-    ctx.save();
-    ctx.translate(l.x,l.y); ctx.rotate(a);
-    const isAnchored=l.mode==='anchored';
-    ctx.lineWidth=(selected?3:2)/state.view.scale;
-    ctx.strokeStyle=selected?'#0f766e':(isAnchored?'#c84a3a':'#2a64aa');
-    ctx.fillStyle=isAnchored?'rgba(200,74,58,.18)':'rgba(42,100,170,.16)';
-    // future export footprint / mount marker
-    if(isAnchored){
-      const mount=l.anchor?.mountMode||'sidewalkCutHole';
-      const diaMm=mount==='roadEdgeBulbMount'?(l.anchor?.bulbMountDiameterMm||3):(l.anchor?.cutHoleDiameterMm||1.2);
-      const mr=Math.max(4,state.pxPerMm?mmToPx(diaMm/2):6)/state.view.scale;
-      ctx.beginPath(); ctx.arc(0,0,mr,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      if(mount==='sidewalkCutHole'){
-        ctx.beginPath(); ctx.moveTo(-mr*.65,0); ctx.lineTo(mr*.65,0); ctx.moveTo(0,-mr*.65); ctx.lineTo(0,mr*.65); ctx.stroke();
-      } else {
-        ctx.beginPath(); ctx.arc(0,0,mr*1.45,0,Math.PI*2); ctx.stroke();
-      }
-    }
-    ctx.fillStyle=l.color||'#c84a3a'; ctx.strokeStyle=selected?'#0f766e':'#3a2b1e';
-    ctx.lineWidth=1.5/state.view.scale;
-    ctx.beginPath(); ctx.arc(0,0,4/state.view.scale,0,Math.PI*2); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-armPx*1.2); ctx.lineTo(armPx,-armPx*1.2); ctx.stroke();
-    if(l.type==='doubleArm'){ctx.beginPath(); ctx.moveTo(0,-armPx*1.2); ctx.lineTo(-armPx,-armPx*1.2); ctx.stroke();}
-    ctx.fillStyle='#f7d87a'; ctx.beginPath(); ctx.arc(armPx,-armPx*1.2,3/state.view.scale,0,Math.PI*2); ctx.fill();
-    if(l.type==='doubleArm'){ctx.beginPath(); ctx.arc(-armPx,-armPx*1.2,3/state.view.scale,0,Math.PI*2); ctx.fill();}
-    if(selected||hovered){ctx.strokeStyle='rgba(15,118,110,.9)'; ctx.lineWidth=1.25/state.view.scale; ctx.strokeRect(-12/state.view.scale,-armPx*1.2-9/state.view.scale,Math.max(24/state.view.scale,armPx+18/state.view.scale),armPx*1.2+20/state.view.scale);}
-    ctx.restore();
-    if(selected||hovered) drawLabel(`${l.name||'Streetlight'}${l.mode==='anchored'?' · anchored':''}`,{x:l.x+8/state.view.scale,y:l.y-8/state.view.scale});
-  }
   function draw(){
     if(renderQueued) return;
     renderQueued = true;

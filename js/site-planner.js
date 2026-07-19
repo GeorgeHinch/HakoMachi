@@ -55,6 +55,7 @@ import { createSite3DBaseRenderer } from './site-planner/site-3d-base-renderer.j
 import { createSite3DBuildingConfigController } from './site-planner/site-3d-building-config.js';
 import { createSite3DTrackAccessoryRenderer } from './site-planner/site-3d-track-accessory-renderer.js';
 import { createSite3DBuildingRenderer } from './site-planner/site-3d-building-renderer.js';
+import { createSite3DMeshUtils } from './site-planner/site-3d-mesh-utils.js';
 import { createSite3DRoadRenderer } from './site-planner/site-3d-road-renderer.js';
 import { createSite3DTrackRenderer } from './site-planner/site-3d-track-renderer.js';
 import { createSite3DStlRenderer } from './site-planner/site-3d-stl-renderer.js';
@@ -2726,13 +2727,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     });
     return group;
   }
-  function site3DMaterial(color,fallback=0xd7b56d,opts={}){
-    let c;
-    try{ c=new THREE.Color(color || fallback); }catch(_err){ c=new THREE.Color(fallback); }
-    const opacity=opts.opacity ?? 1;
-    const transparent=opts.transparent ?? opacity<1;
-    return new THREE.MeshStandardMaterial({color:c,roughness:.82,metalness:0,opacity,transparent,depthTest:opts.depthTest ?? true,depthWrite:opts.depthWrite ?? !transparent,...opts});
-  }
   function site3DPlannerRotationY(b, opts={}){
     if(opts.geometryAlreadyInSiteCoordinates && b?.padType==='polygon') return 0;
     return -(Number(b?.rotationDeg)||0)*Math.PI/180;
@@ -2743,6 +2737,21 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       return sum + p.x*q.y - q.x*p.y;
     },0)/2;
   }
+  const {
+    site3DMaterial,
+    site3DAddEdges,
+    site3DAddFlatPolygon,
+    site3DAddRaisedPolygon,
+    site3DAddBoxSegments,
+    site3DBox,
+    site3DBeam,
+  } = createSite3DMeshUtils({
+    THREE,
+    dist,
+    site3DScale,
+    signedArea2D,
+    getBounds: () => site3d.bounds,
+  });
   function ensureSite3DBaseRenderer(){
     if(!site3DBaseRenderer){
       site3DBaseRenderer=createSite3DBaseRenderer({
@@ -2763,85 +2772,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function buildSite3DReferenceImage(bounds){
     return ensureSite3DBaseRenderer().buildSite3DReferenceImage(bounds);
-  }
-  function site3DAddFlatPolygon(group, pts, mat, outlineMat, name, y=.07){
-    if(!pts || pts.length<3) return null;
-    const ordered=signedArea2D(pts)<0 ? pts.slice().reverse() : pts.slice();
-    const shape=new THREE.Shape();
-    ordered.forEach((p,i)=>{
-      const x=site3DScale(p.x)-site3d.bounds.cx;
-      const z=site3DScale(p.y)-site3d.bounds.cy;
-      if(i===0) shape.moveTo(x,z);
-      else shape.lineTo(x,z);
-    });
-    shape.closePath();
-    const geo=new THREE.ShapeGeometry(shape);
-    geo.rotateX(Math.PI/2);
-    const mesh=new THREE.Mesh(geo,mat);
-    mesh.name=name;
-    mesh.position.y=y;
-    group.add(mesh);
-
-    const verts=[];
-    ordered.forEach((p,i)=>{
-      const q=ordered[(i+1)%ordered.length];
-      verts.push(
-        site3DScale(p.x)-site3d.bounds.cx, y+.025, site3DScale(p.y)-site3d.bounds.cy,
-        site3DScale(q.x)-site3d.bounds.cx, y+.025, site3DScale(q.y)-site3d.bounds.cy
-      );
-    });
-    const edgeGeo=new THREE.BufferGeometry();
-    edgeGeo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
-    const edge=new THREE.LineSegments(edgeGeo,outlineMat);
-    edge.name=`${name} outline`;
-    group.add(edge);
-    return mesh;
-  }
-  function site3DAddRaisedPolygon(group, pts, mat, outlineMat, name, topY=.2, height=.15){
-    if(!pts || pts.length<3) return null;
-    const ordered=signedArea2D(pts)<0 ? pts.slice().reverse() : pts.slice();
-    const shape=new THREE.Shape();
-    ordered.forEach((p,i)=>{
-      const x=site3DScale(p.x)-site3d.bounds.cx;
-      const z=site3DScale(p.y)-site3d.bounds.cy;
-      if(i===0) shape.moveTo(x,z);
-      else shape.lineTo(x,z);
-    });
-    shape.closePath();
-    const geo=new THREE.ExtrudeGeometry(shape,{depth:Math.max(.02,height),bevelEnabled:false});
-    geo.rotateX(Math.PI/2);
-    const mesh=new THREE.Mesh(geo,mat);
-    mesh.name=name;
-    mesh.position.y=topY;
-    group.add(mesh);
-    if(outlineMat) site3DAddEdges(mesh,outlineMat.color?.getHex?.() ?? 0x8f7b55,outlineMat.opacity ?? .45);
-    return mesh;
-  }
-  function site3DAddBoxSegments(group,segments,mat,name,width,height,baseY,bounds){
-    const valid=(segments||[]).filter(seg=>seg?.a&&seg?.b&&dist(seg.a,seg.b)>0);
-    if(!valid.length) return null;
-    const geo=new THREE.BoxGeometry(1,1,1);
-    const mesh=new THREE.InstancedMesh(geo,mat,valid.length);
-    const matrix=new THREE.Matrix4();
-    const quat=new THREE.Quaternion();
-    const pos=new THREE.Vector3();
-    const scale=new THREE.Vector3();
-    const up=new THREE.Vector3(0,1,0);
-    valid.forEach((seg,idx)=>{
-      const dx=site3DScale(seg.b.x-seg.a.x);
-      const dz=site3DScale(seg.b.y-seg.a.y);
-      const length=Math.max(.05,Math.hypot(dx,dz));
-      const angle=Math.atan2(dz,dx);
-      pos.set(site3DScale((seg.a.x+seg.b.x)/2)-bounds.cx,baseY+height/2,site3DScale((seg.a.y+seg.b.y)/2)-bounds.cy);
-      quat.setFromAxisAngle(up,-angle);
-      scale.set(length,height,width);
-      matrix.compose(pos,quat,scale);
-      mesh.setMatrixAt(idx,matrix);
-    });
-    mesh.instanceMatrix.needsUpdate=true;
-    mesh.name=name;
-    group.add(mesh);
-    return mesh;
   }
   function buildSite3DRoadGroup(bounds){
     return createSite3DRoadRenderer({
@@ -2879,28 +2809,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       offsetTrackPath,
       site3DAddBoxSegments,
     }).buildSite3DTrackGroup(bounds);
-  }
-  function site3DAddEdges(mesh,color=0x4b3828,opacity=.45){
-    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry,30),new THREE.LineBasicMaterial({color,transparent:true,opacity})));
-    return mesh;
-  }
-  function site3DBox(w,h,d,mat,x,y,z){
-    const mesh=new THREE.Mesh(new THREE.BoxGeometry(Math.max(.05,w),Math.max(.05,h),Math.max(.05,d)),mat);
-    mesh.position.set(x||0,y||0,z||0);
-    return mesh;
-  }
-  function site3DBeam(group,a,b,radius,mat,name='Catenary beam'){
-    const start=new THREE.Vector3(a.x,a.y,a.z);
-    const end=new THREE.Vector3(b.x,b.y,b.z);
-    const delta=end.clone().sub(start);
-    const len=delta.length();
-    if(!(len>.01)) return null;
-    const mesh=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,len,8),mat);
-    mesh.name=name;
-    mesh.position.copy(start.add(end).multiplyScalar(.5));
-    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());
-    group.add(mesh);
-    return mesh;
   }
   function tagSite3DTrackAccessory(group,item){
     if(!group || !item) return group;

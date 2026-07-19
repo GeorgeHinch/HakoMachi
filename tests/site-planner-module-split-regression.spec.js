@@ -1265,6 +1265,7 @@ test.describe('Site Planner module split contracts', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const roadRenderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-road-renderer.js'), 'utf8');
     const trackRenderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-track-renderer.js'), 'utf8');
+    const meshUtils = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-mesh-utils.js'), 'utf8');
     const tagsStart = source.indexOf('function tagSite3DBuilding');
     const tagsEnd = source.indexOf('function buildSite3DCatenaryItem');
     const tagHelpers = source.slice(tagsStart, tagsEnd);
@@ -1276,8 +1277,11 @@ test.describe('Site Planner module split contracts', () => {
     expect(tagHelpers).toContain('sitePlannerTrackId');
     expect(roadRenderer).toContain('tagSite3DRoadObject(site3DAddFlatPolygon');
     expect(source).toContain("import { createSite3DTrackRenderer } from './site-planner/site-3d-track-renderer.js';");
+    expect(source).toContain("import { createSite3DMeshUtils } from './site-planner/site-3d-mesh-utils.js';");
     expect(trackRenderer).toContain('tagSite3DTrackObject(site3DAddRaisedPolygon');
     expect(trackRenderer).toContain('tagSite3DTrackObject(site3DAddBoxSegments');
+    expect(meshUtils).toContain('function site3DAddFlatPolygon');
+    expect(meshUtils).toContain('function site3DAddEdges');
     expect(picker).toContain("return {type:'trackAccessory'");
     expect(picker).toContain("return {type:'roadFeature'");
     expect(picker).toContain("return {type:'stlObject'");

@@ -25,9 +25,11 @@ test.describe('3D material depth regression contracts', () => {
   test('Site Planner 3D track uses raised solids for roadbed, sleepers, and rails', () => {
     const source = readRepoFile('js/site-planner.js');
     const renderer = readRepoFile('js/site-planner/site-3d-track-renderer.js');
+    const meshUtils = readRepoFile('js/site-planner/site-3d-mesh-utils.js');
 
-    expect(source).toContain('function site3DAddRaisedPolygon');
-    expect(source).toContain('new THREE.InstancedMesh');
+    expect(source).toContain("import { createSite3DMeshUtils } from './site-planner/site-3d-mesh-utils.js';");
+    expect(meshUtils).toContain('function site3DAddRaisedPolygon');
+    expect(meshUtils).toContain('new THREE.InstancedMesh');
     expect(source).toContain("import { createSite3DTrackRenderer } from './site-planner/site-3d-track-renderer.js';");
     expect(renderer).toContain('sleeper solids');
     expect(renderer).toContain('rail A solids');

@@ -167,6 +167,19 @@ test.describe('Site Planner module split contracts', () => {
     expect(detail).toContain("getElement('delNoteB')");
   });
 
+  test('building detail controls are wired through their sidebar module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-building-detail.js'), 'utf8');
+
+    expect(source).toContain("import { renderBuildingDetail } from './site-planner/sidebar-building-detail.js';");
+    expect(source).toContain('renderBuildingDetail({');
+    expect(source).not.toContain("const bind=(id,fn)=>{const e=$(id)");
+    expect(detail).toContain('export function renderBuildingDetail');
+    expect(detail).toContain('attachHakoFileToSelectedBuilding');
+    expect(detail).toContain('openBuildingInHakoMachi(building)');
+    expect(detail).toContain('copyHakoSeedForBuilding(building)');
+  });
+
   test('sidebar input binding stays shared across standard object panels', async () => {
     const binder = await import('../js/site-planner/sidebar-input-binding.js');
     const files = ['sidebar-benchwork-detail.js', 'sidebar-fabric-detail.js', 'sidebar-stl-detail.js', 'sidebar-streetlight-detail.js', 'sidebar-track-detail.js'];
@@ -620,6 +633,7 @@ test.describe('Site Planner module split contracts', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'hako-handoff-controller.js'), 'utf8');
     const resizeProtectionSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'building-resize-protection.js'), 'utf8');
+    const detailSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-building-detail.js'), 'utf8');
     const { createHakoHandoffController } = await import('../js/site-planner/hako-handoff-controller.js');
 
     expect(source).toContain("import { createHakoHandoffController } from './site-planner/hako-handoff-controller.js';");
@@ -628,7 +642,8 @@ test.describe('Site Planner module split contracts', () => {
     expect(source).toContain('} = createBuildingResizeProtectionController({');
     expect(source).toContain('await applySitePlannerBuildingUpdate(payload)');
     expect(source).toContain('confirmBuildingResize: (building, details={}) => confirmProtectedBuildingResize');
-    expect(source).toContain("selW.onchange=()=>applySelectedBuildingDimensionInput(b,'width',selW.value,selW)");
+    expect(source).toContain("import { renderBuildingDetail } from './site-planner/sidebar-building-detail.js';");
+    expect(detailSource).toContain("applySelectedBuildingDimensionInput(building, 'width', width.value, width)");
     expect(source).toContain("d.type==='rectCorner' || d.type==='polyPoint'");
     expect(source).not.toContain('function sitePlannerBuildingUpdatePayload(data)');
     expect(source).not.toContain('function ensureBuildingResizeConfirmModal');

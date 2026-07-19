@@ -87,7 +87,7 @@ test.describe('3D material depth regression contracts', () => {
   });
 
   test('Site Planner 3D image controls preserve the active camera', () => {
-    const source = readRepoFile('js/site-planner.js');
+    const source = readRepoFile('js/site-planner/site-3d-ui-controller.js');
     const imageVisibleHandler = source.match(/imageVisible\.onchange=\(\)=>\{([\s\S]+?)markDirty\('3d reference image visibility'/);
     const imageOpacityHandler = source.match(/imageOpacity\.oninput=\(\)=>\{([\s\S]+?)markDirty\('3d reference image opacity'/);
 

@@ -3,6 +3,18 @@ const fs = require('fs');
 const path = require('path');
 
 test.describe('Site Planner module split contracts', () => {
+  test('canvas hover previews are wired through their renderer module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'canvas-hover-preview-renderer.js'), 'utf8');
+
+    expect(source).toContain("import { createCanvasHoverPreviewRenderer } from './site-planner/canvas-hover-preview-renderer.js';");
+    expect(source).toContain('const { drawHoverPreview } = createCanvasHoverPreviewRenderer({');
+    expect(source).not.toContain('function drawHoverPreview(){');
+    expect(renderer).toContain('export function createCanvasHoverPreviewRenderer');
+    expect(renderer).toContain('githubPlacementPreviewPolygon(placement, placement.previewPoint, mmToPx)');
+    expect(renderer).toContain('const hoverPreview = state.hoverPreview;');
+  });
+
   test('flex-track 2D rendering is wired through its renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-renderer-2d.js'), 'utf8');

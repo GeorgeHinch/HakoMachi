@@ -6,6 +6,7 @@ import { createAutosaveUiController } from './site-planner/autosave-ui.js';
 import { createBuildingResizeProtectionController } from './site-planner/building-resize-protection.js';
 import { createBuildingSelectionController } from './site-planner/building-selection-utils.js';
 import { createCanvasDrawingController } from './site-planner/canvas-drawing-utils.js';
+import { createCanvasHoverPreviewRenderer } from './site-planner/canvas-hover-preview-renderer.js';
 import { createSiteBuildingRenderer2D } from './site-planner/site-building-renderer-2d.js';
 import { createSiteCanvasRenderer } from './site-planner/site-canvas-renderer.js';
 import { createContextMenuController } from './site-planner/context-menu-controller.js';
@@ -3000,33 +3001,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
 
 
-  function drawHoverPreview(){
-    const placement=state.githubBuildingPlacement;
-    if(placement?.previewPoint){
-      const poly=githubPlacementPreviewPolygon(placement, placement.previewPoint, mmToPx);
-      if(poly.length>=3){
-        ctx.save();
-        ctx.strokeStyle='rgba(15,118,110,.95)';
-        ctx.fillStyle='rgba(15,118,110,.14)';
-        ctx.lineWidth=2/state.view.scale;
-        ctx.setLineDash([7/state.view.scale,5/state.view.scale]);
-        ctx.beginPath();
-        poly.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        ctx.setLineDash([]);
-        drawLabel(`Place ${placement.record?.name||placement.record?.id||'building'}`,{x:placement.previewPoint.x+10/state.view.scale,y:placement.previewPoint.y-10/state.view.scale});
-        ctx.restore();
-      }
-    }
-    const hp=state.hoverPreview; if(!hp) return;
-    ctx.save();
-    ctx.strokeStyle='rgba(15,118,110,.85)'; ctx.fillStyle='rgba(15,118,110,.16)'; ctx.lineWidth=1.5/state.view.scale;
-    ctx.beginPath(); ctx.arc(hp.point.x,hp.point.y,(hp.kind==='handle'?12:7)/state.view.scale,0,Math.PI*2); ctx.fill(); ctx.stroke();
-    if(hp.label) drawLabel(hp.label,{x:hp.point.x+10/state.view.scale,y:hp.point.y-10/state.view.scale});
-    ctx.restore();
-  }
+  const { drawHoverPreview } = createCanvasHoverPreviewRenderer({
+    ctx,
+    state,
+    mmToPx,
+    drawLabel,
+    githubPlacementPreviewPolygon,
+  });
 
   function groupSelectionPointCloud(entries=currentSelectedMovableSiteObjects()){
     const points=[];

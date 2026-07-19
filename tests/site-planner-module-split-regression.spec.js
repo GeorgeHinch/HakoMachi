@@ -157,6 +157,16 @@ test.describe('Site Planner module split contracts', () => {
     expect(detail).toContain("getElement('deleteMultiB').onclick");
   });
 
+  test('annotation detail controls are wired through their sidebar module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-annotation-detail.js'), 'utf8');
+
+    expect(source).toContain("import { renderAnnotationDetail } from './site-planner/sidebar-annotation-detail.js';");
+    expect(source).toContain('renderAnnotationDetail({ annotation: note');
+    expect(detail).toContain('export function renderAnnotationDetail');
+    expect(detail).toContain("getElement('delNoteB')");
+  });
+
   test('sidebar input binding stays shared across standard object panels', async () => {
     const binder = await import('../js/site-planner/sidebar-input-binding.js');
     const files = ['sidebar-benchwork-detail.js', 'sidebar-fabric-detail.js', 'sidebar-stl-detail.js', 'sidebar-streetlight-detail.js', 'sidebar-track-detail.js'];

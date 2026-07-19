@@ -59,6 +59,7 @@ import { renderRoadFeatureDetail } from './site-planner/sidebar-road-feature-det
 import { renderRoadDetail } from './site-planner/sidebar-road-detail.js';
 import { renderRoadIntersectionDetail } from './site-planner/sidebar-road-intersection-detail.js';
 import { renderMultiBuildingDetail } from './site-planner/sidebar-multi-building-detail.js';
+import { renderAnnotationDetail } from './site-planner/sidebar-annotation-detail.js';
 import { renderBenchworkDetail } from './site-planner/sidebar-benchwork-detail.js';
 import { renderFabricDetail } from './site-planner/sidebar-fabric-detail.js';
 import { renderStlDetail } from './site-planner/sidebar-stl-detail.js';
@@ -3356,7 +3357,18 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       downloadBase64,
       deleteSelectedStlObject,
     });
-    } else if(note){const pts=note.points||[]; box.innerHTML=`<b>Annotation selected</b><br><span class="small muted">${pts.length} points</span><div class="buttons" style="margin-top:8px"><button id="delNoteB" class="danger">Delete Annotation</button></div>`; const del=$('delNoteB'); if(del) del.onclick=deleteSelectedAnnotation;} else box.innerHTML='No building selected.'; const btn=$('deleteAnnotationBtn'); if(btn) btn.disabled=!note; return;} if($('deleteAnnotationBtn')) $('deleteAnnotationBtn').disabled=true; syncBuildingMetrics(b); box.innerHTML=`
+    } else if(note){
+      renderAnnotationDetail({ annotation: note, panel: box, getElement: $, deleteSelectedAnnotation });
+    } else {
+      box.innerHTML='No building selected.';
+    }
+    const btn=$('deleteAnnotationBtn');
+    if(btn) btn.disabled=!note;
+    return;
+  }
+  if($('deleteAnnotationBtn')) $('deleteAnnotationBtn').disabled=true;
+  syncBuildingMetrics(b);
+  box.innerHTML=`
     <label>Name</label><input id="selName" value="${escapeAttr(b.name||'')}">
     <div class="row"><div><label>Status</label><select id="selState"><option value="notStarted">Not Started</option><option value="inProgress">In Progress</option><option value="awaitingConstruction">Awaiting Construction</option><option value="complete">Complete</option></select></div><div><label>Color</label><input id="selColor" type="color" value="${b.color||'#d79631'}"></div></div>
     <div class="row"><div><label>Category</label><input id="selCat" value="${escapeAttr(b.category||'industrial')}"></div><div><label>Type</label><input value="${b.padType}" disabled></div></div>

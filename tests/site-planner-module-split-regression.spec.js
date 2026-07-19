@@ -28,6 +28,18 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('function drawGroupSelectionAffordance');
   });
 
+  test('rail-crossing detail controls are wired through their sidebar module', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-rail-crossing-detail.js'), 'utf8');
+
+    expect(source).toContain("import { renderRailCrossingDetail } from './site-planner/sidebar-rail-crossing-detail.js';");
+    expect(source).toContain('} if(railCrossing){renderRailCrossingDetail({');
+    expect(source).not.toContain('const updateRailCrossingOverride=patch=>');
+    expect(detail).toContain('export function renderRailCrossingDetail');
+    expect(detail).toContain('railCrossingSurveyTemplate');
+    expect(detail).toContain('railCrossingRegistrationMarks');
+  });
+
   test('flex-track 2D rendering is wired through its renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-renderer-2d.js'), 'utf8');

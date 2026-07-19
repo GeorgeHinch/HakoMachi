@@ -1281,30 +1281,32 @@ test.describe('Site Planner module split contracts', () => {
     const roadRenderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-road-renderer.js'), 'utf8');
     const trackRenderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-track-renderer.js'), 'utf8');
     const meshUtils = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-mesh-utils.js'), 'utf8');
+    const interactionController = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-interaction-controller.js'), 'utf8');
     const tagsStart = source.indexOf('function tagSite3DBuilding');
     const tagsEnd = source.indexOf('function buildSite3DCatenaryItem');
     const tagHelpers = source.slice(tagsStart, tagsEnd);
-    const pickerStart = source.indexOf('function site3DHitSelectionData');
-    const pickerEnd = source.indexOf('function updateSite3D(options={})');
-    const picker = source.slice(pickerStart, pickerEnd);
 
     expect(tagHelpers).toContain('sitePlannerRoadId');
     expect(tagHelpers).toContain('sitePlannerTrackId');
     expect(roadRenderer).toContain('tagSite3DRoadObject(site3DAddFlatPolygon');
     expect(source).toContain("import { createSite3DTrackRenderer } from './site-planner/site-3d-track-renderer.js';");
     expect(source).toContain("import { createSite3DMeshUtils } from './site-planner/site-3d-mesh-utils.js';");
+    expect(source).toContain("import { createSite3DInteractionController } from './site-planner/site-3d-interaction-controller.js';");
+    expect(source).toContain('site3DInteractionController=createSite3DInteractionController({');
+    expect(source).toContain('function handleSite3DPointerUp(event){ return ensureSite3DInteractionController().handleSite3DPointerUp(event); }');
     expect(trackRenderer).toContain('tagSite3DTrackObject(site3DAddRaisedPolygon');
     expect(trackRenderer).toContain('tagSite3DTrackObject(site3DAddBoxSegments');
     expect(meshUtils).toContain('function site3DAddFlatPolygon');
     expect(meshUtils).toContain('function site3DAddEdges');
-    expect(picker).toContain("return {type:'trackAccessory'");
-    expect(picker).toContain("return {type:'roadFeature'");
-    expect(picker).toContain("return {type:'stlObject'");
-    expect(picker).toContain("return {type:'building'");
-    expect(picker).toContain("return {type:'track'");
-    expect(picker).toContain("return {type:'road'");
-    expect(picker).toContain('state.selectedRoadFeatureId=feature.id');
-    expect(picker).toContain('updateSite3D({preserveCamera:true})');
+    expect(source).not.toContain("return {type:'trackAccessory'");
+    expect(interactionController).toContain("return { type: 'trackAccessory'");
+    expect(interactionController).toContain("return { type: 'roadFeature'");
+    expect(interactionController).toContain("return { type: 'stlObject'");
+    expect(interactionController).toContain("return { type: 'building'");
+    expect(interactionController).toContain("return { type: 'track'");
+    expect(interactionController).toContain("return { type: 'road'");
+    expect(interactionController).toContain('state.selectedRoadFeatureId = feature.id');
+    expect(interactionController).toContain('updateSite3D({ preserveCamera: true })');
   });
 
   test('site planner STL 3D object rendering is wired through its renderer module', () => {

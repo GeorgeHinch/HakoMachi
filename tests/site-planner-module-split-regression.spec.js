@@ -1770,6 +1770,19 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain("setGithubProgress(8,8,'Save complete.','Saved '+path);");
   });
 
+  test('GitHub site load orchestration is wired through its controller', () => {
+    const source=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'github-site-load-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createGithubSiteLoadController } from './site-planner/github-site-load-controller.js';");
+    expect(source).toContain('const {loadSitePlanFromGithub}=createGithubSiteLoadController({');
+    expect(source).not.toContain('async function loadSitePlanFromGithub(record){');
+    expect(controller).toContain('export function createGithubSiteLoadController');
+    expect(controller).toContain("diagnostics.measure('resolve STL assets'");
+    expect(controller).toContain('loadProject(project,{fromFile:true});');
+    expect(controller).toContain("showStatusHint(message,'warning');");
+  });
+
   test('Tomix track accessories fall back to the flex-track gauge scale', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const scaleHelpers = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-geometry.js'), 'utf8');

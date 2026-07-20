@@ -24,6 +24,7 @@ import { cacheImageAsset, cachedImageAsset, githubHakoAssetPath, githubImageAsse
 import { createBenchworkController } from './site-planner/benchwork-controller.js';
 import { createGithubDataAccess } from './site-planner/github-access-utils.js';
 import { createGithubSiteAssetController } from './site-planner/github-site-asset-controller.js';
+import { createGithubSiteLoadController } from './site-planner/github-site-load-controller.js';
 import { createGithubSiteSaveController } from './site-planner/github-site-save-controller.js';
 import { createGithubSiteSourceController } from './site-planner/github-site-source-controller.js';
 import { githubPlacementPreviewPolygon, githubRecordPlacementShape } from './site-planner/github-building-placement-utils.js';
@@ -4183,49 +4184,23 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     markManualSaveComplete,
     closeGithubModal,
   });
-  async function loadSitePlanFromGithub(record){
-    const diagnostics=createPersistenceDiagnostics('GitHub site load', {path:record?.path, name:record?.name});
-    try{
-      const settings=getGithubSettings();
-      requireGithubSettings(settings);
-      setGithubStatus('Loading '+record.path+'...');
-      const file=await diagnostics.measure('read site plan JSON', () => readGithubFile(settings, record.path));
-      if(!file) throw new Error('Missing file: '+record.path);
-      const text=String(file.text||'');
-      diagnostics.mark('site plan JSON received', {bytes:diagnosticByteLength(text)});
-      if(!text.trim()) throw new Error('GitHub file is empty or could not be read: '+record.path);
-      let project;
-      try{
-        project=JSON.parse(text);
-      }catch(err){
-        throw new Error(`Could not parse ${record.path} as JSON (${text.length} bytes): ${err.message||err}`);
-      }
-      if(isGithubContentsMetadata(project)){
-        throw new Error(`GitHub returned file metadata instead of site-plan content for ${record.path}. Refresh the page and try again; if it repeats, the saved file may need to be re-saved from HakoMachi.`);
-      }
-      const normalized=normalizeLoadedSitePlanPayload(project);
-      project=normalized.payload;
-      if(normalized.source!=='top-level'){
-        setGithubStatus(`Loaded site-plan payload from ${normalized.source}.`);
-      }
-      await diagnostics.measure('resolve image assets', () => resolveProjectImageFromGithub(project, settings));
-      await diagnostics.measure('resolve building assets', () => resolveProjectHakoAssetsFromGithub(project, settings));
-      await diagnostics.measure('resolve STL assets', () => resolveProjectStlAssetsFromGithub(project, settings));
-      diagnostics.mark('payload ready', {
-        buildings:(project.buildings||[]).length,
-        stlObjects:(project.stlObjects||[]).length,
-        manifestAssets:(project.assetManifest?.assets||[]).length,
-      });
-      loadProject(project, {fromFile:true});
-      diagnostics.finish({status:'loaded'});
-      rememberGithubSiteSource({id:record.id, name:record.name, path:record.path});
-      closeGithubModal();
-    }catch(err){
-      diagnostics.finish({status:'failed', error:err?.message||String(err)});
-      setGithubStatus('GitHub load failed: '+(err.message||err));
-      showStatusHint('GitHub load failed: '+(err.message||err), 'warning');
-    }
-  }
+  const {loadSitePlanFromGithub}=createGithubSiteLoadController({
+    createPersistenceDiagnostics,
+    getGithubSettings,
+    requireGithubSettings,
+    setGithubStatus,
+    readGithubFile,
+    diagnosticByteLength,
+    isGithubContentsMetadata,
+    normalizeLoadedSitePlanPayload,
+    resolveProjectImageFromGithub,
+    resolveProjectHakoAssetsFromGithub,
+    resolveProjectStlAssetsFromGithub,
+    loadProject,
+    rememberGithubSiteSource,
+    closeGithubModal,
+    showStatusHint,
+  });
   async function openGithubSitePlans(){
     try{
       const settings=getGithubSettings();

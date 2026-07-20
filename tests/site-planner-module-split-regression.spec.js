@@ -1731,6 +1731,21 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain("resetHistory(opts.fromAutosave ? 'autosave restored' : 'project loaded')");
   });
 
+  test('building project normalization and legacy footprint recovery are wired through their controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-building-project-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createSiteBuildingProjectController } from './site-planner/site-building-project-controller.js';");
+    expect(source).toContain('siteBuildingProjectController=createSiteBuildingProjectController({');
+    expect(source).toContain('function normalizeBuilding(building){ return ensureSiteBuildingProjectController().normalizeBuilding(building); }');
+    expect(source).toContain('function collectProjectBuildings(project){ return ensureSiteBuildingProjectController().collectProjectBuildings(project); }');
+    expect(source).not.toContain('function savedBuildingPointsPx(raw){');
+    expect(controller).toContain('function normalizeBuilding(building)');
+    expect(controller).toContain('function savedBuildingPointsPx(raw)');
+    expect(controller).toContain("source = 'fabricRegions.*.buildingPads';");
+    expect(controller).toContain('function footprintLoadMessage(project, loadedCount, source)');
+  });
+
   test('Site Planner autosave lifecycle is wired through its controller', () => {
     const source=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-autosave-controller.js'), 'utf8');

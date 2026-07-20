@@ -90,6 +90,7 @@ import { createSite3DSceneController } from './site-planner/site-3d-scene-contro
 import { createSite3DSceneUtils } from './site-planner/site-3d-scene-utils.js';
 import { createSite3DTrackRenderer } from './site-planner/site-3d-track-renderer.js';
 import { createSite3DStlRenderer } from './site-planner/site-3d-stl-renderer.js';
+import { createSiteBuildingProjectController } from './site-planner/site-building-project-controller.js';
 import { createSiteObjectSelectionController } from './site-planner/site-object-selection-controller.js';
 import { createSitePointerInteractionController } from './site-planner/site-pointer-interaction-controller.js';
 import { createSiteProjectPersistenceController } from './site-planner/site-project-persistence-controller.js';
@@ -1667,23 +1668,17 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(dist(p,rot)<s*1.5 || rotationZoneHit(p,b,pointerType)) return {type:'rotate'};
     return null;
   }
-  function buildingStateLabel(value){return BUILDING_STATES[value] || BUILDING_STATES.notStarted;}
-  function normalizeBuilding(b){
-    if(!b) return b;
-    if(!b.state) b.state='notStarted';
-    if(b.state==='todo' || b.state==='planned' || b.state==='new') b.state='notStarted';
-    if(b.state==='awaiting' || b.state==='readyToBuild') b.state='awaitingConstruction';
-    if(!BUILDING_STATES[b.state]) b.state='notStarted';
-    if(!('hakoFile' in b)) b.hakoFile=null;
-    if(b.hakoFile && !b.hakoFile.fileName && b.hakoFile.name) b.hakoFile.fileName=b.hakoFile.name;
-    if(b.hakoFile && !b.hakoFile.importedAt) b.hakoFile.importedAt=new Date().toISOString();
-    if(b.hakoFile) b.hakoFileId=b.hakoFile.path || b.hakoFile.fileName || b.hakoFileId || null;
-    if(!Array.isArray(b.hakoTrimLinesMm) && b.hakoConfig){
-      const trim=extractHakoTrimLinesMm(b.hakoConfig);
-      if(trim.length){ b.hakoTrimLinesMm=trim; b.showHakoTrimLines=true; }
+  let siteBuildingProjectController=null;
+  function ensureSiteBuildingProjectController(){
+    if(!siteBuildingProjectController){
+      siteBuildingProjectController=createSiteBuildingProjectController({
+        state,buildingStates:BUILDING_STATES,extractHakoTrimLinesMm,uid,colors,mmToPx,
+      });
     }
-    return b;
+    return siteBuildingProjectController;
   }
+  function buildingStateLabel(value){ return ensureSiteBuildingProjectController().buildingStateLabel(value); }
+  function normalizeBuilding(building){ return ensureSiteBuildingProjectController().normalizeBuilding(building); }
   const {
     buildingFootprintChanged,
     cloneSitePlannerValue,
@@ -1715,164 +1710,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     else b.depthPx=after.depthPx;
     syncSelectedBuildingLive(b);
   }
-  function pointFromAny(raw){
-    if(!raw) return null;
-    if(Array.isArray(raw) && raw.length>=2){
-      const x=Number(raw[0]), y=Number(raw[1]);
-      return Number.isFinite(x)&&Number.isFinite(y)?{x,y}:null;
-    }
-    const x=Number(raw.x ?? raw.pxX ?? raw.xPx ?? raw.left);
-    const y=Number(raw.y ?? raw.pxY ?? raw.yPx ?? raw.top);
-    if(Number.isFinite(x)&&Number.isFinite(y)) return {x,y};
-    const xm=Number(raw.xMm ?? raw.mmX ?? raw.modelX ?? raw.modelMmX);
-    const ym=Number(raw.yMm ?? raw.mmY ?? raw.modelY ?? raw.modelMmY);
-    if(Number.isFinite(xm)&&Number.isFinite(ym)&&state.pxPerMm) return {x:mmToPx(xm),y:mmToPx(ym)};
-    return null;
-  }
-  function pointsFromAny(raw){
-    if(!raw) return null;
-    const candidates=[raw.pointsPx, raw.polygonPx, raw.polygon, raw.points, raw.footprint?.pointsPx, raw.footprint?.polygon, raw.footprint?.points, raw.hakoSeed?.footprint?.pointsPx, raw.hakoSeed?.footprint?.polygon, raw.hakoSeed?.footprint];
-    for(const c of candidates){
-      if(Array.isArray(c)){
-        const pts=c.map(pointFromAny).filter(Boolean);
-        if(pts.length>=3) return pts;
-      }
-    }
-    return null;
-  }
-
-  // Saved Site Planner building footprints are stored in image-pixel space.
-  // Keep this separate from the .hako import point parser, which may read model-mm
-  // footprint fields. A previous duplicate pointsFromAny() declaration caused saved
-  // pointsMm to be preferred over pointsPx on load, making footprints too large and
-  // shifted away from the reference image.
-  function savedBuildingPointsPx(raw){
-    if(!raw) return null;
-    const parsePxPoint = p=>{
-      if(!p) return null;
-      if(Array.isArray(p) && p.length>=2){
-        const x=Number(p[0]), y=Number(p[1]);
-        return Number.isFinite(x)&&Number.isFinite(y)?{x,y}:null;
-      }
-      const x=Number(p.x ?? p.pxX ?? p.xPx ?? p.left);
-      const y=Number(p.y ?? p.pxY ?? p.yPx ?? p.top);
-      return Number.isFinite(x)&&Number.isFinite(y)?{x,y}:null;
-    };
-    const pixelCandidates=[
-      raw.pointsPx,
-      raw.polygonPx,
-      raw.footprint?.pointsPx,
-      raw.footprint?.polygonPx,
-      raw.hakoSeed?.footprint?.pointsPx,
-      raw.hakoSeed?.footprint?.polygonPx
-    ];
-    for(const c of pixelCandidates){
-      if(Array.isArray(c)){
-        const pts=c.map(parsePxPoint).filter(Boolean);
-        if(pts.length>=3) return pts;
-      }
-    }
-    // Only use mm coordinates as a legacy fallback when no pixel-space geometry exists.
-    const parseMmPoint = p=>{
-      if(!p || !state.pxPerMm) return null;
-      if(Array.isArray(p) && p.length>=2){
-        const x=Number(p[0]), y=Number(p[1]);
-        return Number.isFinite(x)&&Number.isFinite(y)?{x:mmToPx(x),y:mmToPx(y)}:null;
-      }
-      const x=Number(p.xMm ?? p.mmX ?? p.modelX ?? p.modelMmX ?? p.x);
-      const y=Number(p.yMm ?? p.mmY ?? p.modelY ?? p.modelMmY ?? p.y);
-      return Number.isFinite(x)&&Number.isFinite(y)?{x:mmToPx(x),y:mmToPx(y)}:null;
-    };
-    const mmCandidates=[
-      raw.pointsMm,
-      raw.polygonMm,
-      raw.footprint?.pointsMm,
-      raw.footprint?.polygonMm,
-      raw.hakoSeed?.footprint?.pointsMm,
-      raw.hakoSeed?.footprint?.polygonMm
-    ];
-    for(const c of mmCandidates){
-      if(Array.isArray(c)){
-        const pts=c.map(parseMmPoint).filter(Boolean);
-        if(pts.length>=3) return pts;
-      }
-    }
-    return null;
-  }
-
-  function normalizeLoadedBuilding(raw, index=0){
-    if(!raw || typeof raw!=='object') return null;
-    const b={...raw};
-    b.id=b.id || b.buildingId || b.padId || uid('bldg');
-    b.name=b.name || b.buildingName || b.label || `Building ${index+1}`;
-    b.category=b.category || 'industrial';
-    b.color=b.color || colors[index%colors.length];
-    b.hidden=!!b.hidden;
-    b.locked=!!b.locked;
-    b.rotationDeg=Number.isFinite(Number(b.rotationDeg))?Number(b.rotationDeg):0;
-    b.state=b.state || b.buildingState || 'notStarted';
-    b.notes=b.notes || '';
-    if(!('hakoFile' in b)) b.hakoFile=b.completedHakoFile || b.hako || null;
-
-    const pts=savedBuildingPointsPx(raw);
-    const wantsPolygon = b.padType==='polygon' || raw.type==='polygon' || raw.kind==='BuildingPad' || !!pts;
-    if(wantsPolygon && pts){
-      b.padType='polygon';
-      b.pointsPx=pts;
-    } else {
-      b.padType='rect';
-      const cx=Number(b.x ?? b.cx ?? b.centerX ?? raw.position?.x ?? raw.center?.x);
-      const cy=Number(b.y ?? b.cy ?? b.centerY ?? raw.position?.y ?? raw.center?.y);
-      b.x=Number.isFinite(cx)?cx:0;
-      b.y=Number.isFinite(cy)?cy:0;
-      const wp=Number(b.widthPx ?? b.wPx ?? raw.sizePx?.w ?? raw.sizePx?.width);
-      const hp=Number(b.depthPx ?? b.heightPx ?? b.hPx ?? raw.sizePx?.h ?? raw.sizePx?.height);
-      const wm=Number(b.widthMm ?? raw.width ?? raw.w ?? raw.sizeMm?.w ?? raw.sizeMm?.width);
-      const dm=Number(b.depthMm ?? raw.depth ?? raw.heightMm ?? raw.h ?? raw.sizeMm?.h ?? raw.sizeMm?.depth ?? raw.sizeMm?.height);
-      b.widthPx=Number.isFinite(wp)?wp:(Number.isFinite(wm)&&state.pxPerMm?mmToPx(wm):Math.max(20, Number(b.widthPx)||40));
-      b.depthPx=Number.isFinite(hp)?hp:(Number.isFinite(dm)&&state.pxPerMm?mmToPx(dm):Math.max(20, Number(b.depthPx)||40));
-    }
-    normalizeBuilding(b);
-    return b;
-  }
-  function collectProjectBuildings(p){
-    const sources=[
-      ['buildings', p?.buildings],
-      ['buildingPads', p?.buildingPads],
-      ['pads', p?.pads],
-      ['lots', p?.lots],
-      ['site.buildings', p?.site?.buildings],
-      ['site.buildingPads', p?.site?.buildingPads]
-    ];
-    let source='none';
-    let arr=[];
-    for(const [name,val] of sources){
-      if(Array.isArray(val) && val.length){source=name; arr=val; break;}
-    }
-    if(!arr.length && Array.isArray(p?.fabricRegions)){
-      const nested=[];
-      p.fabricRegions.forEach(r=>{
-        if(Array.isArray(r.buildingPads)) nested.push(...r.buildingPads.map(b=>({...b, fabricRegionId:b.fabricRegionId||r.id})));
-        if(Array.isArray(r.pads)) nested.push(...r.pads.map(b=>({...b, fabricRegionId:b.fabricRegionId||r.id})));
-      });
-      if(nested.length){source='fabricRegions.*.buildingPads'; arr=nested;}
-    }
-    return {source, buildings:arr.map((b,i)=>normalizeLoadedBuilding(b,i)).filter(Boolean)};
-  }
-  function projectShapeFields(p){
-    if(!p || typeof p!=='object') return String(p ?? 'empty');
-    return Object.keys(p).slice(0,12).join(', ') || 'none';
-  }
-  function footprintLoadMessage(p, loadedCount, source){
-    if(loadedCount>0){
-      if(source && source!=='buildings') return `Loaded ${loadedCount} building footprint${loadedCount===1?'':'s'} from legacy field ${source}.`;
-      return '';
-    }
-    if(Array.isArray(p?.buildings) && p.buildings.length===0){
-      return 'Project loaded, but this saved file contains 0 building footprints. Its buildings array is empty, so there are no pads to restore.';
-    }
-    return `Project loaded, but no supported building footprint data was found. Fields found: ${projectShapeFields(p)}.`;
-  }
+  function collectProjectBuildings(project){ return ensureSiteBuildingProjectController().collectProjectBuildings(project); }
+  function footprintLoadMessage(project, loadedCount, source){ return ensureSiteBuildingProjectController().footprintLoadMessage(project, loadedCount, source); }
   const {
     selected,
     currentSelectedBuildingIds,

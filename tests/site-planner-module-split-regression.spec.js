@@ -1746,7 +1746,7 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('function footprintLoadMessage(project, loadedCount, source)');
   });
 
-  test('building import attachment and GitHub placement are wired through their controller', () => {
+test('building import attachment and GitHub placement are wired through their controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-building-placement-controller.js'), 'utf8');
 
@@ -2265,4 +2265,20 @@ test.describe('Site Planner module split contracts', () => {
     expect(svg).toContain('id="railCrossingSurveyEngrave"');
     expect(svg).toContain('data-feature-type="railCrossingSurveyAngleLabel"');
   });
+});
+
+test('GitHub settings and library list presentation are wired through their controller', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+  const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'github-library-ui-controller.js'), 'utf8');
+
+  expect(source).toContain("import { createGithubLibraryUiController } from './site-planner/github-library-ui-controller.js';");
+  expect(source).toContain('const githubLibraryUiController = createGithubLibraryUiController({');
+  expect(source).toContain('function openGithubSettings(){ return githubLibraryUiController.openGithubSettings(); }');
+  expect(source).toContain('function openGithubSitePlans(){ return githubLibraryUiController.openGithubSitePlans(); }');
+  expect(source).toContain('function openGithubBuildings(){ return githubLibraryUiController.openGithubBuildings(); }');
+  expect(source).not.toContain("function openGithubSettings(){\n    const settings=getGithubSettings();");
+  expect(controller).toContain('export function createGithubLibraryUiController({');
+  expect(controller).toContain('function openGithubSettings()');
+  expect(controller).toContain('async function openGithubSitePlans()');
+  expect(controller).toContain('async function openGithubBuildings()');
 });

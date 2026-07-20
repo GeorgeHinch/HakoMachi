@@ -30,6 +30,7 @@ import { createGithubSiteSaveController } from './site-planner/github-site-save-
 import { createGithubSiteSourceController } from './site-planner/github-site-source-controller.js';
 import { githubPlacementPreviewPolygon, githubRecordPlacementShape } from './site-planner/github-building-placement-utils.js';
 import { createGithubBuildingPreviewRenderer } from './site-planner/github-building-preview-renderer.js';
+import { createGithubLibraryUiController } from './site-planner/github-library-ui-controller.js';
 import { createGithubModalController } from './site-planner/github-modal-utils.js';
 import { githubProjectName, githubSiteRecord, isGithubContentsMetadata, normalizeGithubLibrary, normalizeLoadedSitePlanPayload, upsertGithubSitePlan } from './site-planner/github-site-library.js';
 import { createHakoBuildingGeometryController } from './site-planner/hako-building-geometry-controller.js';
@@ -3733,29 +3734,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(!b) return showStatusHint('Select a building first.', 'warning');
     downloadText(JSON.stringify(makeSeed(b),null,2),`${slug(b.name)}-hakomachi-seed.json`,'application/json');
   }
-  function openGithubSettings(){
-    const settings=getGithubSettings();
-    openGithubModal('GitHub data repository', `
-      <div class="field"><label>Private data repo</label><input id="gdRepo" value="${escapeAttr(settings.repoFullName)}" placeholder="GeorgeHinch/hakomachi_savedata"><div class="small">Use owner/repo. The repo can be private.</div></div>
-      <div class="field"><label>Branch</label><input id="gdBranch" value="${escapeAttr(settings.branch)}"></div>
-      <div class="field"><label>Fine-grained token</label><input id="gdToken" type="password" value="${escapeAttr(settings.token)}"><div class="small">Stored only in this browser. Needs Contents read/write on the data repo.</div></div>
-      <div class="field"><label>Footprint library path</label><input id="gdLibrary" value="${escapeAttr(settings.libraryPath)}"></div>
-      <div class="field"><label>Site plan files directory</label><input id="gdSites" value="${escapeAttr(settings.sitePlansDir)}"></div>
-    `, [
-      {label:'Save settings', cls:'primary', onClick:()=>{
-        setGithubSettings({
-          repoFullName:$('gdRepo').value,
-          branch:$('gdBranch').value,
-          token:$('gdToken').value,
-          libraryPath:$('gdLibrary').value,
-          sitePlansDir:$('gdSites').value
-        });
-        setGithubStatus('Settings saved.');
-      }},
-      {label:'Datastore guide', onClick:()=>window.open('docs/github-datastore.md','_blank','noopener')},
-      {label:'Close', onClick:closeGithubModal}
-    ]);
-  }
   const {
     saveGithubImageAsset,
     saveGithubHakoAssets,
@@ -3837,82 +3815,15 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     closeGithubModal,
     showStatusHint,
   });
-  async function openGithubSitePlans(){
-    try{
-      const settings=getGithubSettings();
-      try{requireGithubSettings(settings);}catch(err){openGithubSettings(); setGithubStatus(err.message); return;}
-      openGithubModal('GitHub site plans', '<div class="small">Loading...</div>', [{label:'Close', onClick:closeGithubModal}]);
-      const library=await loadGithubLibrary(settings);
-      const records=normalizeGithubLibrary(library).records.sitePlans;
-      const body=$('githubDataBody');
-      if(!records.length){
-        body.innerHTML='<div class="small">No saved site plans yet.</div>';
-        return;
-      }
-      body.innerHTML='<div class="small">Choose a saved site plan from the shared HakoMachi library.</div>';
-      records.forEach(record=>{
-        const row=document.createElement('div');
-        row.className='githubDataRecord';
-        const summary=record.summary||{};
-        row.innerHTML=`<div><b>${escapeHtml(record.name||record.id)}</b><small>${escapeHtml(record.path||'')}</small><small>${summary.buildings||0} buildings / ${summary.roads||0} roads / ${summary.tracks||0} tracks / ${escapeHtml(record.updatedAt||'')}</small></div>`;
-        const button=document.createElement('button');
-        button.type='button';
-        button.textContent='Load';
-        button.onclick=()=>loadSitePlanFromGithub(record);
-        row.appendChild(button);
-        body.appendChild(row);
-      });
-    }catch(err){
-      openGithubModal('GitHub site plans', `<div class="warning">${escapeHtml(err.message||err)}</div>`, [{label:'Close', onClick:closeGithubModal}]);
-    }
-  }
-  async function openGithubBuildings(){
-    try{
-      const settings=getGithubSettings();
-      try{requireGithubSettings(settings);}catch(err){openGithubSettings(); setGithubStatus(err.message); return;}
-      openGithubModal('GitHub building footprints', '<div class="small">Loading...</div>', [{label:'Close', onClick:closeGithubModal}]);
-      const library=await loadGithubLibrary(settings);
-      const records=normalizeGithubLibrary(library).records.buildings;
-      const body=$('githubDataBody');
-      if(!records.length){
-        body.innerHTML='<div class="small">No saved building footprints yet.</div>';
-        return;
-      }
-      body.innerHTML='<div class="small">Shared footprint records with generated 3D still previews. Cards load from the saved .hako file when available.</div>';
-      records.forEach(record=>{
-        const footprint=record.footprint||{};
-        const path=record.path||record.paths?.hako||'';
-        const row=document.createElement('div');
-        row.className='githubDataRecord githubBuildingRecord';
-        const preview=document.createElement('div');
-        preview.className='githubBuildingPreview';
-        preview.textContent='Rendering preview...';
-        const info=document.createElement('div');
-        info.className='githubBuildingInfo';
-        info.innerHTML=`<b>${escapeHtml(record.name||record.id)}</b><small>${escapeHtml(path)}</small><small>${Number(footprint.widthMm||0).toFixed(1)} x ${Number(footprint.depthMm||0).toFixed(1)} mm</small>`;
-        const actions=document.createElement('div');
-        actions.className='githubBuildingActions';
-        const placeButton=document.createElement('button');
-        placeButton.type='button';
-        placeButton.textContent='Place';
-        placeButton.onclick=()=>armGithubBuildingPlacement(record);
-        const button=document.createElement('button');
-        button.type='button';
-        button.textContent='Copy path';
-        button.onclick=()=>prompt('Building .hako path', path);
-        actions.appendChild(placeButton);
-        actions.appendChild(button);
-        row.appendChild(preview);
-        row.appendChild(info);
-        row.appendChild(actions);
-        body.appendChild(row);
-        renderGithubBuildingStill(preview, githubBuildingPreviewConfig(record), record.name||record.id||'3D building preview');
-        upgradeGithubBuildingPreviewFromHako(settings, record, preview);
-      });
-    }catch(err){
-      openGithubModal('GitHub building footprints', `<div class="warning">${escapeHtml(err.message||err)}</div>`, [{label:'Close', onClick:closeGithubModal}]);
-    }
-  }
+  const githubLibraryUiController = createGithubLibraryUiController({
+    getElement: $, getGithubSettings, setGithubSettings, requireGithubSettings, openGithubModal, closeGithubModal, setGithubStatus,
+    loadGithubLibrary, normalizeGithubLibrary, escapeAttr, escapeHtml, windowRef: window, documentRef: document,
+    loadSitePlanFromGithub, armGithubBuildingPlacement, renderGithubBuildingStill, githubBuildingPreviewConfig,
+    upgradeGithubBuildingPreviewFromHako, promptFn: prompt,
+  });
+  function openGithubSettings(){ return githubLibraryUiController.openGithubSettings(); }
+  function openGithubSitePlans(){ return githubLibraryUiController.openGithubSitePlans(); }
+  function openGithubBuildings(){ return githubLibraryUiController.openGithubBuildings(); }
   $('inputMode').onchange=e=>{state.inputMode=e.target.value; draw();};
   $('snapBtn').onclick=()=>{state.snapOn=!state.snapOn; $('snapBtn').classList.toggle('active', state.snapOn); $('snapBtn').textContent=state.snapOn?'Snap: On':'Snap: Off'; draw();};
   $('deleteAnnotationBtn').onclick=deleteSelectedAnnotation;

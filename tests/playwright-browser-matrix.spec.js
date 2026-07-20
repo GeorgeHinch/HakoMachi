@@ -12,6 +12,7 @@ test.describe('cross-browser regression matrix', () => {
     expect(config).toContain("const projectGroups = {");
     expect(config).toContain("firefox: [");
     expect(config).toContain("name: 'desktop-firefox'");
+    expect(config).toContain("'webgl.force-enabled': true");
     expect(config).toContain("webkit: [");
     expect(config).toContain("name: 'desktop-webkit'");
     expect(config).toContain("process.env.HAKOMACHI_PLAYWRIGHT_PROJECTS || 'chromium'");

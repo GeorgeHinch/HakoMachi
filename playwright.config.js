@@ -1,15 +1,6 @@
 const port = Number(process.env.HAKOMACHI_TEST_PORT || 4173);
-
-module.exports = {
-  testDir: './tests',
-  timeout: 60000,
-  fullyParallel: true,
-  use: {
-    baseURL: `http://127.0.0.1:${port}`,
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-  },
-  projects: [
+const projectGroups = {
+  chromium: [
     {
       name: 'desktop-chromium',
       use: {
@@ -45,6 +36,44 @@ module.exports = {
       },
     },
   ],
+  firefox: [
+    {
+      name: 'desktop-firefox',
+      use: {
+        browserName: 'firefox',
+        viewport: { width: 1366, height: 900 },
+      },
+    },
+  ],
+  webkit: [
+    {
+      name: 'desktop-webkit',
+      use: {
+        browserName: 'webkit',
+        viewport: { width: 1366, height: 900 },
+      },
+    },
+  ],
+};
+const requestedProjectGroups = (process.env.HAKOMACHI_PLAYWRIGHT_PROJECTS || 'chromium')
+  .split(',')
+  .map(value => value.trim())
+  .filter(Boolean);
+const unknownProjectGroups = requestedProjectGroups.filter(group => !projectGroups[group]);
+if (unknownProjectGroups.length) {
+  throw new Error(`Unknown HAKOMACHI_PLAYWRIGHT_PROJECTS value: ${unknownProjectGroups.join(', ')}`);
+}
+
+module.exports = {
+  testDir: './tests',
+  timeout: 60000,
+  fullyParallel: true,
+  use: {
+    baseURL: `http://127.0.0.1:${port}`,
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
+  },
+  projects: requestedProjectGroups.flatMap(group => projectGroups[group]),
   webServer: {
     command: `node tools/static_server.js ${port}`,
     url: `http://127.0.0.1:${port}`,

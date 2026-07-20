@@ -1705,6 +1705,20 @@ test.describe('Site Planner module split contracts', () => {
     expect(historyController).toContain('function redo()');
   });
 
+  test('local site bundle save and load workflows are wired through their controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-project-bundle-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createSiteProjectBundleController } from './site-planner/site-project-bundle-controller.js';");
+    expect(source).toContain('const { saveSitePlanBundle, loadProjectJsonObject, loadSitePlanBundle } = createSiteProjectBundleController({');
+    expect(source).not.toContain('async function saveSitePlanBundle(){');
+    expect(source).not.toContain('async function loadSitePlanBundle(file){');
+    expect(controller).toContain('export function createSiteProjectBundleController');
+    expect(controller).toContain("zip.file('hakomachi-site.hako-site.json', projectText)");
+    expect(controller).toContain("await diagnostics.measure('hydrate bundled assets'");
+    expect(controller).toContain('return { saveSitePlanBundle, loadProjectJsonObject, loadSitePlanBundle };');
+  });
+
   test('Site Planner autosave lifecycle is wired through its controller', () => {
     const source=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-autosave-controller.js'), 'utf8');

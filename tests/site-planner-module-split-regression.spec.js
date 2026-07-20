@@ -2299,3 +2299,15 @@ test('Site Planner startup and cross-window lifecycle are wired through their co
   expect(controller).toContain("windowRef.addEventListener('storage'");
   expect(controller).toContain('function boot()');
 });
+
+test('track accessory browser filters are wired through their model module', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+  const model = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-browser-model.js'), 'utf8');
+
+  expect(source).toContain("import { createTrackAccessoryBrowserModel } from './site-planner/track-accessory-browser-model.js';");
+  expect(source).toContain('const trackAccessoryBrowserModel = createTrackAccessoryBrowserModel({ state, normalizeTrackAccessory });');
+  expect(source).toContain('function trackAccessoryFilterCounts(){ return trackAccessoryBrowserModel.trackAccessoryFilterCounts(); }');
+  expect(source).not.toContain('const TRACK_ACCESSORY_OBJECT_FILTERS = Object.freeze([');
+  expect(model).toContain('export const TRACK_ACCESSORY_OBJECT_FILTERS = Object.freeze([');
+  expect(model).toContain('function trackAccessoryFilterCounts()');
+});

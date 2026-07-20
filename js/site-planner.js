@@ -107,6 +107,7 @@ import { createStlObjectModelController } from './site-planner/stl-object-model.
 import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlVertices } from './site-planner/stl-utils.js';
 import { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } from './site-planner/svg-export-utils.js';
 import { createTrackAccessoryGeometry } from './site-planner/track-accessory-geometry.js';
+import { createTrackAccessoryBrowserModel } from './site-planner/track-accessory-browser-model.js';
 import { createTrackAccessoryRenderer2D } from './site-planner/track-accessory-renderer-2d.js';
 import { createTrackRenderer2D } from './site-planner/track-renderer-2d.js';
 import { installTopMenus } from './site-planner/top-menu-utils.js';
@@ -870,29 +871,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function trackAccessoryLabel(kind){
     return trackAccessoryGeometry.trackAccessoryLabel(kind);
   }
-  const TRACK_ACCESSORY_OBJECT_FILTERS = Object.freeze([
-    { key: 'all', label: 'All track items', kinds: null },
-    { key: 'sensors', label: 'Sensors', kinds: ['sensor'] },
-    { key: 'signals', label: 'Signals', kinds: ['signal', 'occupancyLight'] },
-    { key: 'crossings', label: 'Crossing equipment', kinds: ['crossingArm', 'intrusionDetector'] },
-    { key: 'catenary', label: 'Catenary', kinds: ['catenarySingleSide', 'catenaryDoublePortal'] },
-    { key: 'switches', label: 'Switches', kinds: ['trackSwitchLeft', 'trackSwitchRight', 'trackSwitchTomix1279Left', 'trackSwitchTomix1278Right'] },
-    { key: 'buffers', label: 'Buffer stops', kinds: ['trackBufferTomix1428', 'trackBufferTomix1428Catenary'] },
-  ]);
-  function trackAccessoryObjectFilterDefinition(key='all'){
-    return TRACK_ACCESSORY_OBJECT_FILTERS.find(filter=>filter.key===key) || TRACK_ACCESSORY_OBJECT_FILTERS[0];
-  }
-  function trackAccessoryMatchesObjectFilter(item, filterKey='all'){
-    const filter=trackAccessoryObjectFilterDefinition(filterKey);
-    return !filter.kinds || filter.kinds.includes(item?.kind);
-  }
-  function trackAccessoryFilterCounts(){
-    const items=(state.trackAccessories||[]).map(normalizeTrackAccessory);
-    return TRACK_ACCESSORY_OBJECT_FILTERS.map(filter=>({
-      ...filter,
-      count: filter.kinds ? items.filter(item=>filter.kinds.includes(item.kind)).length : items.length,
-    }));
-  }
+  const trackAccessoryBrowserModel = createTrackAccessoryBrowserModel({ state, normalizeTrackAccessory });
+  function trackAccessoryObjectFilterDefinition(key='all'){ return trackAccessoryBrowserModel.trackAccessoryObjectFilterDefinition(key); }
+  function trackAccessoryMatchesObjectFilter(item, filterKey='all'){ return trackAccessoryBrowserModel.trackAccessoryMatchesObjectFilter(item, filterKey); }
+  function trackAccessoryFilterCounts(){ return trackAccessoryBrowserModel.trackAccessoryFilterCounts(); }
   function isTrackAccessoryAction(action){
     return trackAccessoryGeometry.isTrackAccessoryAction(action);
   }

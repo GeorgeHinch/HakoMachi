@@ -5,7 +5,14 @@ const SITE_AUTOSAVE_KEY = 'hakomachiSitePlannerAutosave_v1';
 const SITE_AUTOSAVE_META_KEY = 'hakomachiSitePlannerAutosaveMeta_v1';
 
 async function sampledCanvasStats(locator) {
-  return pngStats(await locator.screenshot());
+  const page = locator.page();
+  if (page.context().browser()?.browserType().name() === 'chromium') {
+    return pngStats(await locator.screenshot());
+  }
+  await locator.scrollIntoViewIfNeeded();
+  const box = await locator.boundingBox();
+  if (!box) return { width: 0, height: 0, sampled: 0, uniqueColors: 0, nonEmpty: false };
+  return pngStats(await page.screenshot(), box);
 }
 
 function paeth(a, b, c) {
@@ -16,12 +23,19 @@ function paeth(a, b, c) {
   return pa <= pb && pa <= pc ? a : (pb <= pc ? b : c);
 }
 
-function pngStats(buffer) {
+function pngStats(buffer, region = null) {
   const decoded = decodePng(buffer);
   if (!decoded) {
     return { width: 0, height: 0, sampled: 0, uniqueColors: 0, nonEmpty: false };
   }
   const { width, height, bpp, pixels, stride } = decoded;
+  const startX = Math.max(0, Math.floor(region?.x || 0));
+  const startY = Math.max(0, Math.floor(region?.y || 0));
+  const sampleWidth = Math.max(0, Math.min(width - startX, Math.floor(region?.width || width)));
+  const sampleHeight = Math.max(0, Math.min(height - startY, Math.floor(region?.height || height)));
+  if (!sampleWidth || !sampleHeight) {
+    return { width: 0, height: 0, sampled: 0, uniqueColors: 0, nonEmpty: false };
+  }
   const points = [];
   for (let y = 0; y < 24; y++) {
     for (let x = 0; x < 36; x++) {
@@ -31,8 +45,8 @@ function pngStats(buffer) {
   const colors = new Set();
   let nonEmpty = false;
   for (const [rx, ry] of points) {
-    const x = Math.max(0, Math.min(width - 1, Math.floor(width * rx)));
-    const y = Math.max(0, Math.min(height - 1, Math.floor(height * ry)));
+    const x = startX + Math.max(0, Math.min(sampleWidth - 1, Math.floor(sampleWidth * rx)));
+    const y = startY + Math.max(0, Math.min(sampleHeight - 1, Math.floor(sampleHeight * ry)));
     const index = y * stride + x * bpp;
     const r = pixels[index];
     const g = pixels[index + 1];
@@ -41,7 +55,7 @@ function pngStats(buffer) {
     colors.add(`${r},${g},${b},${a}`);
     if (a && (r || g || b)) nonEmpty = true;
   }
-  return { width, height, sampled: points.length, uniqueColors: colors.size, nonEmpty };
+  return { width: sampleWidth, height: sampleHeight, sampled: points.length, uniqueColors: colors.size, nonEmpty };
 }
 
 function countPixels(buffer, predicate) {

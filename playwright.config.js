@@ -63,6 +63,7 @@ const unknownProjectGroups = requestedProjectGroups.filter(group => !projectGrou
 if (unknownProjectGroups.length) {
   throw new Error(`Unknown HAKOMACHI_PLAYWRIGHT_PROJECTS value: ${unknownProjectGroups.join(', ')}`);
 }
+const requestedWorkers = Number(process.env.HAKOMACHI_PLAYWRIGHT_WORKERS);
 
 module.exports = {
   testDir: './tests',
@@ -74,6 +75,8 @@ module.exports = {
     screenshot: 'only-on-failure',
   },
   projects: requestedProjectGroups.flatMap(group => projectGroups[group]),
+  // Keep WebGL-heavy non-Chromium lanes deterministic on hosted runners.
+  workers: Number.isFinite(requestedWorkers) && requestedWorkers > 0 ? requestedWorkers : undefined,
   webServer: {
     command: `node tools/static_server.js ${port}`,
     url: `http://127.0.0.1:${port}`,

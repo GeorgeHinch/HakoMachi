@@ -15,6 +15,7 @@ test.describe('cross-browser regression matrix', () => {
     expect(config).toContain("webkit: [");
     expect(config).toContain("name: 'desktop-webkit'");
     expect(config).toContain("process.env.HAKOMACHI_PLAYWRIGHT_PROJECTS || 'chromium'");
+    expect(config).toContain('process.env.HAKOMACHI_PLAYWRIGHT_WORKERS');
   });
 
   test('GitHub Actions runs Firefox on Linux and WebKit on macOS', () => {
@@ -24,6 +25,7 @@ test.describe('cross-browser regression matrix', () => {
     expect(workflow).toContain('needs: project-checks');
     expect(workflow).toContain('label: Firefox');
     expect(workflow).toContain('playwright_project_group: firefox');
+    expect(workflow).toContain('playwright_workers: 1');
     expect(workflow).toContain('install_command: npx playwright install --with-deps firefox');
     expect(workflow).toContain('label: Safari WebKit');
     expect(workflow).toContain('os: macos-latest');

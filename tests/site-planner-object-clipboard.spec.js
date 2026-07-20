@@ -89,12 +89,14 @@ test.describe('Site Planner object clipboard', () => {
       const canvasStyle = getComputedStyle(canvas);
       return {
         wrapUserSelect: wrapStyle.userSelect,
+        wrapWebkitUserSelect: wrapStyle.webkitUserSelect,
         canvasUserSelect: canvasStyle.userSelect,
+        canvasWebkitUserSelect: canvasStyle.webkitUserSelect,
         canvasDraggable: canvas.getAttribute('draggable'),
       };
     });
-    expect(styles.wrapUserSelect).toBe('none');
-    expect(styles.canvasUserSelect).toBe('none');
+    expect(styles.wrapUserSelect || styles.wrapWebkitUserSelect).toBe('none');
+    expect(styles.canvasUserSelect || styles.canvasWebkitUserSelect).toBe('none');
     expect(styles.canvasDraggable).toBe('false');
 
     const eventResults = await page.evaluate(() => {

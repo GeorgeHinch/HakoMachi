@@ -41,19 +41,23 @@ jobs:
             label: Chromium
             os: ubuntu-latest
             playwright_project_group: chromium
+            playwright_workers: 6
             install_command: npx playwright install --with-deps chromium
           - id: firefox
             label: Firefox
             os: ubuntu-latest
             playwright_project_group: firefox
+            playwright_workers: 1
             install_command: npx playwright install --with-deps firefox
           - id: webkit
             label: Safari WebKit
             os: macos-latest
             playwright_project_group: webkit
+            playwright_workers: 1
             install_command: npx playwright install webkit
     env:
       HAKOMACHI_PLAYWRIGHT_PROJECTS: ${{ matrix.playwright_project_group }}
+      HAKOMACHI_PLAYWRIGHT_WORKERS: ${{ matrix.playwright_workers }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v6

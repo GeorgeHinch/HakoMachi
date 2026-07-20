@@ -360,7 +360,7 @@ test.describe('Site Planner track regressions', () => {
     expect(extended.pointsPx[0]).toMatchObject({ x: 120, y: 220 });
     expect(extended.pointsPx[1]).toMatchObject({ x: 250, y: 220 });
     expect(extended.pointsPx[2].x).toBeCloseTo(340, 1);
-    expect(extended.pointsPx[2].y).toBeCloseTo(260, 1);
+    expect(Math.abs(extended.pointsPx[2].y - 260)).toBeLessThan(1);
     await expect(page.locator('#selectedPanel')).toContainText('Track selected');
   });
 

@@ -84,6 +84,7 @@ import { createSite3DBuildingRenderer } from './site-planner/site-3d-building-re
 import { createSite3DMeshUtils } from './site-planner/site-3d-mesh-utils.js';
 import { createSite3DObjectTagging } from './site-planner/site-3d-object-tagging.js';
 import { createSite3DInteractionController } from './site-planner/site-3d-interaction-controller.js';
+import { createSite3DLifecycleController } from './site-planner/site-3d-lifecycle-controller.js';
 import { createSite3DRoadRenderer } from './site-planner/site-3d-road-renderer.js';
 import { createSite3DSceneController } from './site-planner/site-3d-scene-controller.js';
 import { createSite3DSceneUtils } from './site-planner/site-3d-scene-utils.js';
@@ -132,16 +133,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       clearCanvasBrowserSelection();
     });
   });
-  function ensureSite3dView(){
-    let view = $('site3dView');
-    if(view) return view;
-    view = document.createElement('div');
-    view.id = 'site3dView';
-    view.className = 'site3dView';
-    view.setAttribute('aria-label', '3D site view');
-    wrap.insertBefore(view, canvas.nextSibling);
-    return view;
-  }
   const state = createInitialState();
   const GITHUB_DEFAULT_LIBRARY = githubData.DEFAULT_LIBRARY_PATH;
   const GITHUB_DEFAULT_SITE_DIR = githubData.DEFAULT_SITE_PLANS_DIR;
@@ -2746,52 +2737,18 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   async function upgradeGithubBuildingPreviewFromHako(settings, record, target){
     return ensureGithubBuildingPreviewRenderer().upgradeGithubBuildingPreviewFromHako(settings, record, target);
   }
-  function initSite3D(){
-    if(site3d.initialized) return true;
-    site3d.view=ensureSite3dView();
-    if(typeof THREE==='undefined'){ logger.warn('3D view unavailable: Three.js did not load.'); return false; }
-    site3d.scene=new THREE.Scene();
-    site3d.scene.background=new THREE.Color(0xecece6);
-    site3d.camera=new THREE.PerspectiveCamera(45,1,.1,5000);
-    site3d.raycaster=new THREE.Raycaster();
-    site3d.pointer=new THREE.Vector2();
-    site3d.renderer=new THREE.WebGLRenderer({antialias:true});
-    site3d.renderer.localClippingEnabled=true;
-    site3d.renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
-    site3d.renderer.domElement.draggable=false;
-    site3d.renderer.domElement.addEventListener('selectstart', e=>e.preventDefault());
-    site3d.renderer.domElement.addEventListener('dragstart', e=>e.preventDefault());
-    site3d.renderer.domElement.addEventListener('pointerdown', e=>{ site3d.pointerDown={x:e.clientX,y:e.clientY}; });
-    site3d.renderer.domElement.addEventListener('pointerup', handleSite3DPointerUp);
-    site3d.view.appendChild(site3d.renderer.domElement);
-    installThreeRenderCanvas(site3d.view,site3d.renderer.domElement);
-    const ambient=new THREE.AmbientLight(0xffffff,.72);
-    const dir=new THREE.DirectionalLight(0xffffff,.82);
-    dir.position.set(160,220,140);
-    site3d.scene.add(ambient,dir);
-    site3d.root=new THREE.Group();
-    site3d.scene.add(site3d.root);
-    if(THREE.OrbitControls){
-      site3d.controls=new THREE.OrbitControls(site3d.camera,site3d.renderer.domElement);
-      site3d.controls.enableDamping=false;
-      site3d.controls.addEventListener('change',renderSite3D);
+  let site3DLifecycleController=null;
+  function ensureSite3DLifecycleController(){
+    if(!site3DLifecycleController){
+      site3DLifecycleController=createSite3DLifecycleController({
+        windowRef:window,documentRef:document,state,site3d,THREE,canvas,wrap,getElement:$,logger,installThreeRenderCanvas,
+        handleSite3DPointerUp,renderSite3D,updateEmptyImageOverlay,updateSite3D,draw,
+      });
     }
-    site3d.initialized=true;
-    resizeSite3D();
-    return true;
+    return site3DLifecycleController;
   }
-  document.addEventListener('selectstart', e=>{
-    if(state.viewMode==='3d' && e.target?.closest?.('.canvasWrap')) e.preventDefault();
-  });
-  function resizeSite3D(){
-    if(!site3d.initialized || !site3d.renderer || !site3d.camera) return;
-    const r=(site3d.view||ensureSite3dView()).getBoundingClientRect();
-    const w=Math.max(1,Math.floor(r.width)), h=Math.max(1,Math.floor(r.height));
-    site3d.camera.aspect=w/h;
-    site3d.camera.updateProjectionMatrix();
-    site3d.renderer.setSize(w,h,false);
-    renderSite3D();
-  }
+  function initSite3D(){ return ensureSite3DLifecycleController().initSite3D(); }
+  function resizeSite3D(){ return ensureSite3DLifecycleController().resizeSite3D(); }
   let site3DInteractionController=null;
   function ensureSite3DInteractionController(){
     if(!site3DInteractionController){
@@ -2825,16 +2782,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return site3DSceneController;
   }
   function updateSite3D(options={}){ return ensureSite3DSceneController().updateSite3D(options); }
-  function setSite3DMode(on){
-    state.viewMode=on?'3d':'2d';
-    wrap.classList.toggle('view3d',state.viewMode==='3d');
-    document.querySelector('.sitePlannerApp')?.classList.toggle('view3d',state.viewMode==='3d');
-    $('view2dCanvasBtn')?.classList.toggle('active',state.viewMode!=='3d');
-    $('view3dCanvasBtn')?.classList.toggle('active',state.viewMode==='3d');
-    updateEmptyImageOverlay();
-    if(state.viewMode==='3d') updateSite3D({preserveCamera:site3d.initialized});
-    else draw();
-  }
+  function setSite3DMode(on){ return ensureSite3DLifecycleController().setSite3DMode(on); }
   function ensureSiteProjectPersistenceController(){
     if(!siteProjectPersistenceController){
       siteProjectPersistenceController=createSiteProjectPersistenceController({

@@ -1606,17 +1606,15 @@ test.describe('Site Planner module split contracts', () => {
   test('site planner 3D refreshes preserve camera during property syncs', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const sceneController = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-scene-controller.js'), 'utf8');
+    const lifecycleController = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-lifecycle-controller.js'), 'utf8');
     const syncStart = source.indexOf('function syncAll(opts = {})');
     const syncEnd = source.indexOf('function syncSelectedBuildingLive');
     const syncAll = source.slice(syncStart, syncEnd);
-    const modeStart = source.indexOf('function setSite3DMode(on)');
-    const modeEnd = source.indexOf('function bindSite3DButtons');
-    const setSite3DMode = source.slice(modeStart, modeEnd);
 
     expect(syncAll).toContain("if(state.viewMode==='3d') updateSite3D({preserveCamera:true})");
     expect(syncAll).not.toContain('updateSite3D();');
-    expect(setSite3DMode).toContain("updateSite3D({preserveCamera:site3d.initialized})");
-    expect(setSite3DMode).not.toContain('updateSite3D();');
+    expect(lifecycleController).toContain('updateSite3D({ preserveCamera: site3d.initialized })');
+    expect(lifecycleController).not.toContain('updateSite3D();');
     expect(source).toContain("import { createSite3DSceneController } from './site-planner/site-3d-scene-controller.js';");
     expect(source).toContain('site3DSceneController=createSite3DSceneController({');
     expect(source).toContain('function updateSite3D(options={}){ return ensureSite3DSceneController().updateSite3D(options); }');
@@ -1757,6 +1755,21 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('export function createSite3DUiController');
     expect(controller).toContain('function syncSite3DControls(){');
     expect(controller).toContain("markDirty('3d reference image opacity',{history:false});");
+  });
+
+  test('Site Planner 3D renderer lifecycle is wired through its controller', () => {
+    const source=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-lifecycle-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createSite3DLifecycleController } from './site-planner/site-3d-lifecycle-controller.js';");
+    expect(source).toContain('site3DLifecycleController=createSite3DLifecycleController({');
+    expect(source).toContain('function initSite3D(){ return ensureSite3DLifecycleController().initSite3D(); }');
+    expect(source).toContain('function setSite3DMode(on){ return ensureSite3DLifecycleController().setSite3DMode(on); }');
+    expect(source).not.toContain('function ensureSite3dView(){');
+    expect(controller).toContain('function ensureSite3dView()');
+    expect(controller).toContain('function initSite3D()');
+    expect(controller).toContain('function resizeSite3D()');
+    expect(controller).toContain('function setSite3DMode(on)');
   });
 
   test('GitHub save-source state is wired through its Site Planner controller', () => {

@@ -98,6 +98,7 @@ import { createSitePointerInteractionController } from './site-planner/site-poin
 import { createSiteProjectPersistenceController } from './site-planner/site-project-persistence-controller.js';
 import { createSiteProjectBundleController } from './site-planner/site-project-bundle-controller.js';
 import { createSiteProjectLoadController } from './site-planner/site-project-load-controller.js';
+import { createSiteRuntimeLifecycleController } from './site-planner/site-runtime-lifecycle-controller.js';
 import { createSidebarUiController } from './site-planner/sidebar-ui.js';
 import { createStatusUiController } from './site-planner/status-ui.js';
 import { createStreetlightController } from './site-planner/streetlight-controller.js';
@@ -3939,65 +3940,13 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function slug(s){return githubData.slugify(s, 'building');}
 
-  function restoreAutosaveIfAvailable(){
-    try{
-      const raw=localStorage.getItem(AUTOSAVE_KEY);
-      if(!raw) return false;
-      const metaRaw=localStorage.getItem(AUTOSAVE_META_KEY);
-      const meta=metaRaw?JSON.parse(metaRaw):{};
-      const payload=JSON.parse(raw);
-      state.autosaveRestored=true;
-      loadProject(payload, {fromAutosave:true, dirtySinceManualSave:!!meta.dirtySinceManualSave});
-      return true;
-    }catch(err){
-      logger.warn('Could not restore autosave:', err);
-      return false;
-    }
-  }
-  window.addEventListener('beforeunload', e=>{
-    if(state.dirty) writeAutosave();
-    if(state.dirtySinceManualSave){
-      e.preventDefault();
-      e.returnValue='';
-      return '';
-    }
+  const siteRuntimeLifecycleController = createSiteRuntimeLifecycleController({
+    state, windowRef: window, localStorageRef: localStorage, sessionStorageRef: sessionStorage,
+    autosaveKey: AUTOSAVE_KEY, autosaveMetaKey: AUTOSAVE_META_KEY, buildingUpdateKey: SITE_PLANNER_BUILDING_UPDATE_KEY, logger,
+    loadProject, writeAutosave, sitePlannerBuildingUpdatePayload, applySitePlannerBuildingUpdate, acknowledgeSitePlannerBuildingUpdate,
+    bindSite3DButtons, installWholePageHakoDrop, installSelectedHakoSidebarDrop, resize, rememberGithubSiteSource, syncAll, fitImage,
+    resetHistory, updateHistoryButtons, processQueuedSitePlannerBuildingUpdate,
   });
-
-  window.addEventListener('message', async e=>{
-    if(e.origin && e.origin !== window.location.origin) return;
-    const payload=sitePlannerBuildingUpdatePayload(e.data);
-    const result=await applySitePlannerBuildingUpdate(payload);
-    if(result){
-      try{
-        localStorage.removeItem(SITE_PLANNER_BUILDING_UPDATE_KEY);
-        sessionStorage.removeItem(SITE_PLANNER_BUILDING_UPDATE_KEY);
-      }catch(_err){}
-      acknowledgeSitePlannerBuildingUpdate(e.source, e.origin, result);
-      if(payload?.returnToSitePlanner){
-        try{ window.focus(); }catch(_err){}
-      }
-    }
-  });
-  window.addEventListener('storage', async e=>{
-    if(e.key===SITE_PLANNER_BUILDING_UPDATE_KEY && e.newValue){
-      try{
-        const payload=JSON.parse(e.newValue);
-        if(await applySitePlannerBuildingUpdate(payload)){
-          localStorage.removeItem(SITE_PLANNER_BUILDING_UPDATE_KEY);
-        }
-      }catch(err){
-        logger.warn('Could not apply building update from storage:', err);
-      }
-    }
-  });
-
-  bindSite3DButtons();
-  installWholePageHakoDrop();
-  installSelectedHakoSidebarDrop();
-  resize();
-  const restored=restoreAutosaveIfAvailable();
-  state.autosaveReady=true;
-  if(!restored){rememberGithubSiteSource(null); syncAll({skipDirty:true}); fitImage(); resetHistory('initial'); writeAutosave();}
-  else { updateHistoryButtons(); }
-  setTimeout(()=>{ processQueuedSitePlannerBuildingUpdate(); }, 0);
+  siteRuntimeLifecycleController.bindWindowLifecycle();
+  siteRuntimeLifecycleController.boot();
 })();

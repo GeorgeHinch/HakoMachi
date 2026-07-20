@@ -689,6 +689,7 @@ test.describe('Site Planner module split contracts', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'hako-handoff-controller.js'), 'utf8');
     const resizeProtectionSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'building-resize-protection.js'), 'utf8');
+    const lifecycleSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-runtime-lifecycle-controller.js'), 'utf8');
     const detailSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-building-detail.js'), 'utf8');
     const { createHakoHandoffController } = await import('../js/site-planner/hako-handoff-controller.js');
 
@@ -696,7 +697,7 @@ test.describe('Site Planner module split contracts', () => {
     expect(source).toContain("import { createBuildingResizeProtectionController } from './site-planner/building-resize-protection.js';");
     expect(source).toContain('} = createHakoHandoffController({');
     expect(source).toContain('} = createBuildingResizeProtectionController({');
-    expect(source).toContain('await applySitePlannerBuildingUpdate(payload)');
+    expect(lifecycleSource).toContain('await applySitePlannerBuildingUpdate(payload)');
     expect(source).toContain('confirmBuildingResize: (building, details={}) => confirmProtectedBuildingResize');
     expect(source).toContain("import { renderBuildingDetail } from './site-planner/sidebar-building-detail.js';");
     expect(detailSource).toContain("applySelectedBuildingDimensionInput(building, 'width', width.value, width)");
@@ -2281,4 +2282,20 @@ test('GitHub settings and library list presentation are wired through their cont
   expect(controller).toContain('function openGithubSettings()');
   expect(controller).toContain('async function openGithubSitePlans()');
   expect(controller).toContain('async function openGithubBuildings()');
+});
+
+test('Site Planner startup and cross-window lifecycle are wired through their controller', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+  const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-runtime-lifecycle-controller.js'), 'utf8');
+
+  expect(source).toContain("import { createSiteRuntimeLifecycleController } from './site-planner/site-runtime-lifecycle-controller.js';");
+  expect(source).toContain('const siteRuntimeLifecycleController = createSiteRuntimeLifecycleController({');
+  expect(source).toContain('siteRuntimeLifecycleController.bindWindowLifecycle();');
+  expect(source).toContain('siteRuntimeLifecycleController.boot();');
+  expect(source).not.toContain('function restoreAutosaveIfAvailable(){');
+  expect(controller).toContain('function restoreAutosaveIfAvailable()');
+  expect(controller).toContain("windowRef.addEventListener('beforeunload'");
+  expect(controller).toContain("windowRef.addEventListener('message'");
+  expect(controller).toContain("windowRef.addEventListener('storage'");
+  expect(controller).toContain('function boot()');
 });

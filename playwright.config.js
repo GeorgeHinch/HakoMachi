@@ -42,7 +42,8 @@ const projectGroups = {
       use: {
         browserName: 'firefox',
         viewport: { width: 1366, height: 900 },
-        // GitHub's headless Linux runners need this to expose software WebGL.
+        headless: false,
+        // Ensure Linux CI can expose software WebGL through its Xvfb display.
         firefoxUserPrefs: {
           'webgl.disabled': false,
           'webgl.force-enabled': true,

@@ -28,6 +28,7 @@ test.describe('cross-browser regression matrix', () => {
     expect(workflow).toContain('playwright_project_group: firefox');
     expect(workflow).toContain('playwright_workers: 1');
     expect(workflow).toContain('install_command: npx playwright install --with-deps firefox');
+    expect(workflow).toContain('test_command: xvfb-run --auto-servernum npm run check:browser:ci');
     expect(workflow).toContain('label: Safari WebKit');
     expect(workflow).toContain('os: macos-latest');
     expect(workflow).toContain('playwright_project_group: webkit');

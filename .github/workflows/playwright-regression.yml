@@ -43,18 +43,21 @@ jobs:
             playwright_project_group: chromium
             playwright_workers: 6
             install_command: npx playwright install --with-deps chromium
+            test_command: npm run check:browser:ci
           - id: firefox
             label: Firefox
             os: ubuntu-latest
             playwright_project_group: firefox
             playwright_workers: 1
             install_command: npx playwright install --with-deps firefox
+            test_command: xvfb-run --auto-servernum npm run check:browser:ci
           - id: webkit
             label: Safari WebKit
             os: macos-latest
             playwright_project_group: webkit
             playwright_workers: 1
             install_command: npx playwright install webkit
+            test_command: npm run check:browser:ci
     env:
       HAKOMACHI_PLAYWRIGHT_PROJECTS: ${{ matrix.playwright_project_group }}
       HAKOMACHI_PLAYWRIGHT_WORKERS: ${{ matrix.playwright_workers }}
@@ -75,7 +78,7 @@ jobs:
         run: ${{ matrix.install_command }}
 
       - name: Run Playwright regression suite
-        run: npm run check:browser:ci
+        run: ${{ matrix.test_command }}
 
       - name: Upload Playwright artifacts
         if: always()

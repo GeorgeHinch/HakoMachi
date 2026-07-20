@@ -23,6 +23,7 @@ import { createFootprintClipboardController } from './site-planner/footprint-cli
 import { cacheImageAsset, cachedImageAsset, githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, hakoFileAssetReference, imageAssetFileName, imageAssetReference, imageMetaForProject, stlAssetReference, stlSourceAssetReference, uniqueHakoAssetFileName, uniqueStlAssetFileName, uniqueStlSourceAssetFileName } from './site-planner/github-asset-paths.js';
 import { createBenchworkController } from './site-planner/benchwork-controller.js';
 import { createGithubDataAccess } from './site-planner/github-access-utils.js';
+import { createGithubSiteAssetController } from './site-planner/github-site-asset-controller.js';
 import { createGithubSiteSourceController } from './site-planner/github-site-source-controller.js';
 import { githubPlacementPreviewPolygon, githubRecordPlacementShape } from './site-planner/github-building-placement-utils.js';
 import { createGithubBuildingPreviewRenderer } from './site-planner/github-building-preview-renderer.js';
@@ -4117,138 +4118,41 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       {label:'Close', onClick:closeGithubModal}
     ]);
   }
-  async function saveGithubImageAsset(settings, siteId, siteName){
-    const dataUrl=state.imageMeta?.dataUrl;
-    if(!dataUrl) return state.imageMeta?.asset || null;
-    const info=dataUrlInfo(dataUrl);
-    if(!info?.isBase64 || !info.data) return state.imageMeta?.asset || null;
-    const path=githubImageAssetPath(settings, GITHUB_DEFAULT_SITE_DIR, siteId, state.imageMeta);
-    const asset=imageAssetReference(path, state.imageMeta, dataUrl, state.image);
-    setGithubProgress(2,8,'Writing reference image asset...',`Saving ${asset.name} outside the main site file.`);
-    await writeGithubBase64File(settings, path, info.data, `Save HakoMachi site image asset: ${siteName}`);
-    state.imageMeta.asset=asset;
-    cacheImageAsset(asset, dataUrl);
-    return asset;
-  }
-  async function saveGithubHakoAssets(settings, siteId, siteName){
-    const usedNames=new Set();
-    const hakoAssets=[];
-    for(let i=0;i<state.buildings.length;i++){
-      const b=normalizeBuilding(state.buildings[i],i);
-      const text=hakoFileText(b);
-      if(!b.hakoFile || !text) continue;
-      const fileName=uniqueHakoAssetFileName(b, usedNames);
-      const path=githubHakoAssetPath(settings, GITHUB_DEFAULT_SITE_DIR, siteId, fileName);
-      const asset=hakoFileAssetReference(path, b, text);
-      setGithubProgress(3,8,'Writing building files...',`Saving ${asset.name} (${i+1} of ${state.buildings.length}) outside the main site file.`);
-      await writeGithubBase64File(settings, path, textToBase64(text), `Save HakoMachi building asset: ${siteName}`);
-      b.hakoFile={...(b.hakoFile||{}),...asset,dataText:text,parsedConfig:b.hakoFile?.parsedConfig||b.hakoConfig||null,unavailable:false};
-      b.hakoFileId=asset.path;
-      hakoAssets.push({role:'building-hako',asset,text,buildingId:b.id});
-    }
-    if(!hakoAssets.length) setGithubProgress(3,8,'No building files to write.','The site plan does not currently include attached building .hako files.');
-    return hakoAssets;
-  }
-  async function saveGithubStlAssets(settings, siteId, siteName){
-    const usedModelNames=new Set();
-    const usedSourceNames=new Set();
-    const stlAssets=[];
-    const stlObjects=state.stlObjects||[];
-    for(let i=0;i<stlObjects.length;i++){
-      const obj=normalizeStlObject(stlObjects[i]);
-      const dataBase64=obj?.asset?.dataBase64;
-      if(dataBase64){
-        const fileName=uniqueStlAssetFileName(obj, usedModelNames);
-        const path=githubStlAssetPath(settings, GITHUB_DEFAULT_SITE_DIR, siteId, fileName);
-        const asset=stlAssetReference(path, obj, dataBase64);
-        setGithubProgress(4,8,'Writing STL site objects...',`Saving ${asset.name} (${i+1} of ${stlObjects.length}) outside the main site file.`);
-        await writeGithubBase64File(settings, path, dataBase64, `Save HakoMachi site STL asset: ${siteName}`);
-        obj.asset={...(obj.asset||{}),...asset,dataBase64};
-        stlAssets.push({role:'model',asset,dataBase64,objectId:obj.id});
-      }
-      for(const source of (obj.sourceAssets||[])){
-        if(!source?.dataBase64) continue;
-        const fileName=uniqueStlSourceAssetFileName(source, usedSourceNames);
-        const path=githubStlSourceAssetPath(settings, GITHUB_DEFAULT_SITE_DIR, siteId, fileName);
-        const asset=stlSourceAssetReference(path, obj, source, source.dataBase64);
-        setGithubProgress(4,8,'Writing STL source files...',`Saving ${asset.name} (${i+1} of ${stlObjects.length}) outside the main site file.`);
-        await writeGithubBase64File(settings, path, source.dataBase64, `Save HakoMachi site STL source asset: ${siteName}`);
-        Object.assign(source, asset, {dataBase64:source.dataBase64});
-        stlAssets.push({role:'source',asset,dataBase64:source.dataBase64,objectId:obj.id,sourceAssetId:source.id});
-      }
-    }
-    if(!stlAssets.length) setGithubProgress(4,8,'No STL assets to write.','The site plan does not currently include embedded STL or source files.');
-    return stlAssets;
-  }
-  async function resolveProjectImageFromGithub(project, settings){
-    const asset=project?.image?.asset;
-    if(!asset?.path || project.image?.dataUrl) return project;
-    const cached=cachedImageAsset(asset);
-    if(cached){
-      project.image.dataUrl=cached;
-      return project;
-    }
-    setGithubStatus('Loading referenced image asset...');
-    try{
-      const file=await readGithubBase64File(settings, asset.path);
-      if(file?.contentBase64){
-        project.image.dataUrl=dataUrlFromBase64(asset.mimeType, file.contentBase64);
-        cacheImageAsset(asset, project.image.dataUrl);
-      } else {
-        project.image.assetLoadError='The referenced image asset was empty or unavailable.';
-        setGithubStatus('Referenced image asset could not be loaded.');
-      }
-    }catch(err){
-      project.image.assetLoadError=err?.message || 'The referenced image asset could not be loaded.';
-      setGithubStatus('Referenced image asset could not be loaded.');
-    }
-    return project;
-  }
-  async function resolveProjectHakoAssetsFromGithub(project, settings){
-    const buildings=Array.isArray(project?.buildings) ? project.buildings : [];
-    for(const b of buildings){
-      const asset=b?.hakoFile;
-      if(!asset?.path || hakoFileText(b)) continue;
-      setGithubStatus('Loading referenced building file...');
-      const file=await readGithubBase64File(settings, asset.path);
-      if(file?.contentBase64){
-        const text=base64ToText(file.contentBase64);
-        let parsed=null;
-        try{ parsed=JSON.parse(text); }catch(_err){}
-        b.hakoFile={...asset,dataText:text,parsedConfig:parsed,unavailable:false};
-        if(parsed && !b.hakoConfig) b.hakoConfig=parsed;
-      } else {
-        b.hakoFile={...asset,unavailable:true};
-      }
-    }
-    return project;
-  }
-  async function resolveProjectStlAssetsFromGithub(project, settings){
-    const stlObjects=Array.isArray(project?.stlObjects) ? project.stlObjects : [];
-    for(const obj of stlObjects){
-      const asset=obj?.asset;
-      if(asset?.path && !asset.dataBase64){
-        setGithubStatus('Loading referenced STL asset...');
-        const file=await readGithubBase64File(settings, asset.path);
-        if(file?.contentBase64){
-          obj.asset={...asset,dataBase64:file.contentBase64};
-        } else {
-          obj.asset={...asset,unavailable:true};
-        }
-      }
-      for(const source of (Array.isArray(obj.sourceAssets) ? obj.sourceAssets : [])){
-        if(!source?.path || source.dataBase64) continue;
-        setGithubStatus('Loading referenced STL source asset...');
-        const file=await readGithubBase64File(settings, source.path);
-        if(file?.contentBase64){
-          Object.assign(source,{dataBase64:file.contentBase64,unavailable:false});
-        } else {
-          Object.assign(source,{unavailable:true});
-        }
-      }
-    }
-    return project;
-  }
+  const {
+    saveGithubImageAsset,
+    saveGithubHakoAssets,
+    saveGithubStlAssets,
+    resolveProjectImageFromGithub,
+    resolveProjectHakoAssetsFromGithub,
+    resolveProjectStlAssetsFromGithub,
+  } = createGithubSiteAssetController({
+    state,
+    defaultSiteDir:GITHUB_DEFAULT_SITE_DIR,
+    dataUrlInfo,
+    githubImageAssetPath,
+    imageAssetReference,
+    setGithubProgress,
+    writeGithubBase64File,
+    cacheImageAsset,
+    normalizeBuilding,
+    hakoFileText,
+    uniqueHakoAssetFileName,
+    githubHakoAssetPath,
+    hakoFileAssetReference,
+    textToBase64,
+    normalizeStlObject,
+    uniqueStlAssetFileName,
+    githubStlAssetPath,
+    stlAssetReference,
+    uniqueStlSourceAssetFileName,
+    githubStlSourceAssetPath,
+    stlSourceAssetReference,
+    cachedImageAsset,
+    setGithubStatus,
+    readGithubBase64File,
+    dataUrlFromBase64,
+    base64ToText,
+  });
   async function saveSitePlanToGithub(options={}){
     const diagnostics=createPersistenceDiagnostics('GitHub site save');
     try{

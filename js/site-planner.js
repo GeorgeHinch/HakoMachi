@@ -93,6 +93,7 @@ import { createSiteObjectSelectionController } from './site-planner/site-object-
 import { createSitePointerInteractionController } from './site-planner/site-pointer-interaction-controller.js';
 import { createSiteProjectPersistenceController } from './site-planner/site-project-persistence-controller.js';
 import { createSiteProjectBundleController } from './site-planner/site-project-bundle-controller.js';
+import { createSiteProjectLoadController } from './site-planner/site-project-load-controller.js';
 import { createSidebarUiController } from './site-planner/sidebar-ui.js';
 import { createStatusUiController } from './site-planner/status-ui.js';
 import { createStreetlightController } from './site-planner/streetlight-controller.js';
@@ -4370,115 +4371,20 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     summarizePersistenceAssets,cacheImageAsset,downloadBlob,markManualSaveComplete,showStatusHint,normalizeLoadedSitePlanPayload,loadProject,
     rememberGithubSiteSource,githubSiteSourceFromProject,findSiteBundleProjectName,diagnosticByteLength,hydrateSiteBundleAssets,dataUrlFromBase64,
   });
-  function loadProject(p, opts={}){
-    autosaveSuppressed=true;
-    state.image=null;
-    state.imageMeta=p.image||null;
-    state.imageOpacity=Number.isFinite(p.imageOpacity)?p.imageOpacity:(state.imageMeta?.opacity ?? state.imageOpacity ?? .75);
-    state.imageLocked=p.imageLocked ?? state.imageLocked ?? true;
-    state.view=restoreProjectView(p, canvas.getBoundingClientRect()) || state.view;
-    state.viewMode='2d';
-    applySite3DSettings(p.site3d||{});
-    syncSite3DControls();
-    wrap.classList.remove('view3d');
-    document.querySelector('.sitePlannerApp')?.classList.remove('view3d');
-    state.pxPerMm=p.scale?.pxPerMm||null;
-    state.calibrationLine=p.scale?.calibrationLine||null;
-    state.lastCalibrationLine=state.calibrationLine;
-    const loadedBuildingSet=collectProjectBuildings(p);
-    state.buildings=loadedBuildingSet.buildings;
-    const loadFootprintMessage=footprintLoadMessage(p, state.buildings.length, loadedBuildingSet.source);
-    const savedDims=savedImageDimensions(p);
-    const loadedRoads = Array.isArray(p.roads) ? p.roads : (Array.isArray(p.siteConstraints) ? p.siteConstraints.filter(c=>c&&c.type==='road') : []);
-    state.roads=loadedRoads.map(normalizeRoad);
-    state.tracks=(Array.isArray(p.tracks)?p.tracks:[]).map(normalizeTrack);
-    state.trackAccessories=(Array.isArray(p.trackAccessories)?p.trackAccessories:[]).map(normalizeTrackAccessory);
-    state.roadFeatures=migrateLoadedRoadFeatures(p.roadFeatures);
-    state.roadDrivingSide=normalizeDrivingSide(p.roadDrivingSide);
-    state.roadIntersectionDetails=p.roadIntersectionDetails!==false;
-    state.roadIntersectionOverrides=p.roadIntersectionOverrides&&typeof p.roadIntersectionOverrides==='object'?structuredClone(p.roadIntersectionOverrides):{};
-    state.generatedRoadIntersections=[];
-    state.railCrossingOverrides=p.railCrossingOverrides&&typeof p.railCrossingOverrides==='object'?structuredClone(p.railCrossingOverrides):{};
-    state.generatedRailCrossings=[];
-    const loadedStlObjects = Array.isArray(p.stlObjects) ? p.stlObjects : (Array.isArray(p.siteObjects) ? p.siteObjects.filter(o=>o&&(o.type==='stl'||o.type==='stlObject'||o.kind==='stl')) : (Array.isArray(p.siteConstraints) ? p.siteConstraints.filter(o=>o&&(o.type==='stlObject'||o.type==='stl'||o.kind==='stl')) : []));
-    state.stlObjects=loadedStlObjects.map(normalizeStlObject);
-    const loadedBenchworks = Array.isArray(p.benchworkOutlines) ? p.benchworkOutlines : (Array.isArray(p.siteConstraints) ? p.siteConstraints.filter(c=>c&&(c.type==='benchworkOutline'||c.type==='benchwork'||c.constraintType==='benchworkOutline')) : []);
-    state.benchworkOutlines=loadedBenchworks.map(normalizeBenchworkOutline);
-    state.fabricRegions=(p.fabricRegions||[]).map(normalizeFabricRegion);
-    state.streetlights=(p.streetlights||[]).map(normalizeStreetlight);
-    state.annotations=p.annotations||[];
-    clearBuildingSelection();
-    state.selectedRoadId=null;
-    state.selectedRoadIntersectionId=null;
-    state.selectedTrackId=null;
-    state.selectedTrackPointIndex=null;
-    state.selectedTrackAccessoryId=null;
-    state.selectedRailCrossingId=null;
-    state.selectedStlObjectId=null;
-    state.selectedBenchworkId=null;
-    state.selectedStreetlightId=null;
-    state.selectedAnnotationId=null;
-    if($('opacity')) $('opacity').value=String(state.imageOpacity);
-    if($('imageLockBtn')) $('imageLockBtn').textContent=state.imageLocked?'Locked':'Unlocked';
-    if(state.imageMeta?.dataUrl){
-      const img=new Image();
-      img.onload=()=>{
-        state.image=img;
-        const loadedW=img.naturalWidth||img.width;
-        const loadedH=img.naturalHeight||img.height;
-        const savedW=savedDims.w || state.imageMeta.naturalWidthPx;
-        const savedH=savedDims.h || state.imageMeta.naturalHeightPx;
-        let geometryRemapped=false;
-        if(savedW && savedH && (loadedW!==savedW || loadedH!==savedH)){
-          scaleLoadedPixelGeometry(state, loadedW/savedW, loadedH/savedH);
-          geometryRemapped=true;
-          setImageStatus(loadAlignmentMessage(state.buildings.length,savedW,savedH,loadedW,loadedH,true), 'warning');
-          updateImagePortableStatus('Portable image warning: loaded pixel dimensions differed from saved metadata, so planner geometry was remapped to the restored image.');
-        } else {
-          setImageStatus(loadAlignmentMessage(state.buildings.length,savedW||loadedW,savedH||loadedH,loadedW,loadedH,false), 'okText');
-          state.imageMeta.naturalWidthPx=loadedW;
-          state.imageMeta.naturalHeightPx=loadedH;
-          state.imageMeta.pixelDimensionsVerifiedOnLoad=true;
-          updateImagePortableStatus();
-        }
-        if(loadFootprintMessage && state.buildings.length===0) setImageStatus(loadFootprintMessage, 'warning');
-        if(!p.view) fitImage();
-        syncAll({skipDirty:true});
-        autosaveSuppressed=false;
-        resetHistory(opts.fromAutosave?'autosave restored':'project loaded');
-      };
-      img.onerror=()=>{
-        setImageStatus('Project loaded, but the embedded image could not be decoded.', 'warning');
-        updateImagePortableStatus('Portable image error: embedded image could not be decoded.');
-        if(loadFootprintMessage) setImageStatus(loadFootprintMessage, 'warning');
-        autosaveSuppressed=false;
-        syncAll({skipDirty:true});
-        resetHistory(opts.fromAutosave?'autosave restored':'project loaded');
-      };
-      img.src=state.imageMeta.dataUrl;
-    } else {
-      if(state.imageMeta){
-        if(state.imageMeta.assetLoadError){
-          setImageStatus(`Referenced image asset could not be loaded: ${state.imageMeta.assetLoadError}`, 'warning');
-          updateImagePortableStatus('Portable image warning: referenced image asset could not be loaded.');
-        } else {
-          setImageStatus('Project loaded without embedded image data. Re-import the original image to see the reference layer.', 'warning');
-          updateImagePortableStatus('Portable save warning: this project has image metadata but no embedded image data.');
-        }
-      } else {
-        setImageStatus('No image loaded.', 'muted');
-        updateImagePortableStatus();
-      }
-      if(loadFootprintMessage) setImageStatus(loadFootprintMessage, 'warning');
-      syncAll({skipDirty:true});
-      autosaveSuppressed=false;
-      resetHistory(opts.fromAutosave?'autosave restored':'project loaded');
+  let siteProjectLoadController=null;
+  function ensureSiteProjectLoadController(){
+    if(!siteProjectLoadController){
+      siteProjectLoadController=createSiteProjectLoadController({
+        windowRef:window,documentRef:document,state,canvas,getElement:$,setAutosaveSuppressed:value=>{autosaveSuppressed=value;},
+        restoreProjectView,applySite3DSettings,syncSite3DControls,wrap,collectProjectBuildings,footprintLoadMessage,savedImageDimensions,
+        normalizeRoad,normalizeTrack,normalizeTrackAccessory,migrateLoadedRoadFeatures,normalizeDrivingSide,normalizeStlObject,normalizeBenchworkOutline,
+        normalizeFabricRegion,normalizeStreetlight,clearBuildingSelection,setImageStatus,updateImagePortableStatus,scaleLoadedPixelGeometry,
+        loadAlignmentMessage,fitImage,syncAll,resetHistory,updateAutosaveStatus,
+      });
     }
-    state.dirty=false;
-    state.dirtySinceManualSave=!!opts.dirtySinceManualSave;
-    updateAutosaveStatus(opts.fromAutosave?'Autosave: restored':'Autosave: loaded');
-    setTimeout(()=>updateAutosaveStatus(), 1200);
+    return siteProjectLoadController;
   }
+  function loadProject(project, opts={}){ return ensureSiteProjectLoadController().loadProject(project, opts); }
   function csvExport(){syncAll(); return buildingCsvExport(state.buildings, {normalizeBuilding});}
 
   function svgExport(){

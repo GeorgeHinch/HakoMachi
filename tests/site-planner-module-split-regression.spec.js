@@ -1711,12 +1711,26 @@ test.describe('Site Planner module split contracts', () => {
 
     expect(source).toContain("import { createSiteProjectBundleController } from './site-planner/site-project-bundle-controller.js';");
     expect(source).toContain('const { saveSitePlanBundle, loadProjectJsonObject, loadSitePlanBundle } = createSiteProjectBundleController({');
-    expect(source).not.toContain('async function saveSitePlanBundle(){');
+    expect(source).not.toContain('function loadProject(p, opts={}){');
     expect(source).not.toContain('async function loadSitePlanBundle(file){');
     expect(controller).toContain('export function createSiteProjectBundleController');
     expect(controller).toContain("zip.file('hakomachi-site.hako-site.json', projectText)");
     expect(controller).toContain("await diagnostics.measure('hydrate bundled assets'");
     expect(controller).toContain('return { saveSitePlanBundle, loadProjectJsonObject, loadSitePlanBundle };');
+  });
+
+  test('project application and image restoration are wired through their controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-project-load-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createSiteProjectLoadController } from './site-planner/site-project-load-controller.js';");
+    expect(source).toContain('siteProjectLoadController=createSiteProjectLoadController({');
+    expect(source).toContain('function loadProject(project, opts={}){ return ensureSiteProjectLoadController().loadProject(project, opts); }');
+    expect(source).not.toContain('async function saveSitePlanBundle(){');
+    expect(controller).toContain('export function createSiteProjectLoadController');
+    expect(controller).toContain('function loadProject(project, opts = {})');
+    expect(controller).toContain('scaleLoadedPixelGeometry(state, loadedW / savedW, loadedH / savedH)');
+    expect(controller).toContain("resetHistory(opts.fromAutosave ? 'autosave restored' : 'project loaded')");
   });
 
   test('Site Planner autosave lifecycle is wired through its controller', () => {
@@ -1834,13 +1848,14 @@ test.describe('Site Planner module split contracts', () => {
   test('benchwork outline behavior is wired through the benchwork controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'benchwork-controller.js'), 'utf8');
+    const projectLoadController = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-project-load-controller.js'), 'utf8');
 
     expect(source).toContain("import { createBenchworkController } from './site-planner/benchwork-controller.js';");
     expect(source).toContain('} = createBenchworkController({');
     expect(source).toContain('normalizeBenchworkOutline,');
     expect(source).toContain('drawBenchwork,');
     expect(source).toContain('benchworkPathSamples: benchworkSamples');
-    expect(source).toContain('state.benchworkOutlines=loadedBenchworks.map(normalizeBenchworkOutline);');
+    expect(projectLoadController).toContain('state.benchworkOutlines = loadedBenchworks.map(normalizeBenchworkOutline);');
 
     expect(controller).toContain('export function createBenchworkController');
     expect(controller).toContain('function normalizeBenchworkOutline(bw)');
@@ -1910,12 +1925,13 @@ test.describe('Site Planner module split contracts', () => {
   test('fabric fill behavior is wired through the fabric controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'fabric-controller.js'), 'utf8');
+    const projectLoadController = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-project-load-controller.js'), 'utf8');
 
     expect(source).toContain("import { createFabricController } from './site-planner/fabric-controller.js';");
     expect(source).toContain('fabricController = createFabricController({');
     expect(source).toContain('if(fabricController) fabricController.initFabricControls();');
     expect(source).toContain('generateFabricForRegion,');
-    expect(source).toContain('state.fabricRegions=(p.fabricRegions||[]).map(normalizeFabricRegion);');
+    expect(projectLoadController).toContain('state.fabricRegions = (project.fabricRegions || []).map(normalizeFabricRegion);');
 
     expect(controller).toContain('export function createFabricController');
     expect(controller).toContain('function normalizeFabricRegion(region)');

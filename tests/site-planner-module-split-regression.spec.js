@@ -1746,6 +1746,21 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('function footprintLoadMessage(project, loadedCount, source)');
   });
 
+  test('building import attachment and GitHub placement are wired through their controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-building-placement-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createSiteBuildingPlacementController } from './site-planner/site-building-placement-controller.js';");
+    expect(source).toContain('siteBuildingPlacementController=createSiteBuildingPlacementController({');
+    expect(source).toContain('function createBuildingFromImportedHako(fileName, text, parsed){ return ensureSiteBuildingPlacementController().createBuildingFromImportedHako(fileName, text, parsed); }');
+    expect(source).toContain('function placeGithubBuildingAt(center){ return ensureSiteBuildingPlacementController().placeGithubBuildingAt(center); }');
+    expect(source).not.toContain('function storeHakoFileOnBuilding(b, fileName, text, parsed, opts={}){');
+    expect(controller).toContain('function storeHakoFileOnBuilding(building, fileName, text, parsed, options = {})');
+    expect(controller).toContain('function createBuildingFromImportedHako(fileName, text, parsed)');
+    expect(controller).toContain('function armGithubBuildingPlacement(record)');
+    expect(controller).toContain('function placeGithubBuildingAt(center)');
+  });
+
   test('Site Planner autosave lifecycle is wired through its controller', () => {
     const source=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-autosave-controller.js'), 'utf8');

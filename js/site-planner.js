@@ -10,6 +10,7 @@ import { createCanvasDrawingController } from './site-planner/canvas-drawing-uti
 import { createCanvasHoverPreviewRenderer } from './site-planner/canvas-hover-preview-renderer.js';
 import { createGroupSelectionController } from './site-planner/group-selection-controller.js';
 import { createSiteBuildingRenderer2D } from './site-planner/site-building-renderer-2d.js';
+import { createSiteBuildingPlacementController } from './site-planner/site-building-placement-controller.js';
 import { createSiteCanvasRenderer } from './site-planner/site-canvas-renderer.js';
 import { createSiteCanvasGestureController } from './site-planner/site-canvas-gesture-controller.js';
 import { createSiteHistoryController } from './site-planner/site-history-controller.js';
@@ -2062,180 +2063,26 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     summaryElement: ()=>$('hakoFileSummaryB'),
   });
 
-  function visibleWorldCenter(){
-    const r=canvas.getBoundingClientRect();
-    return {x:(r.width/2-state.view.x)/state.view.scale, y:(r.height/2-state.view.y)/state.view.scale};
-  }
-
-  function selectedFootprintSizeMm(b){
-    if(!b) return null;
-    syncBuildingMetrics(b);
-    if(b.padType==='rect'){
-      const widthMm=positiveNumber(b.widthMm, state.pxPerMm ? pxToMm(b.widthPx) : null);
-      const depthMm=positiveNumber(b.depthMm, state.pxPerMm ? pxToMm(b.depthPx) : null);
-      return widthMm && depthMm ? {widthMm, depthMm, source:'footprint'} : null;
+  let siteBuildingPlacementController=null;
+  function ensureSiteBuildingPlacementController(){
+    if(!siteBuildingPlacementController){
+      siteBuildingPlacementController=createSiteBuildingPlacementController({
+        state,canvas,getElement:$,uid,colors,slug,fmt,mmToPx,pxToMm,positiveNumber,deriveFootprintFromHakoConfig,
+        applyHakoConfigToPlannerFootprint,githubRecordPlacementShape,githubPlacementPreviewPolygon,normalizeBuilding,
+        syncBuildingMetrics,setBuildingSelection,syncAll,closeGithubModal,showStatusHint,draw,
+      });
     }
-    const widthMm=positiveNumber(b.derived?.boundingWidthMm);
-    const depthMm=positiveNumber(b.derived?.boundingDepthMm);
-    return widthMm && depthMm ? {widthMm, depthMm, source:'footprint bounds'} : null;
+    return siteBuildingPlacementController;
   }
-
-  function footprintSizesMatch(currentSize, incomingSize){
-    if(!currentSize || !incomingSize) return false;
-    const widthTol=Math.max(0.5, Math.max(currentSize.widthMm, incomingSize.widthMm)*0.01);
-    const depthTol=Math.max(0.5, Math.max(currentSize.depthMm, incomingSize.depthMm)*0.01);
-    return Math.abs(currentSize.widthMm-incomingSize.widthMm)<=widthTol && Math.abs(currentSize.depthMm-incomingSize.depthMm)<=depthTol;
-  }
-
-  function formatFootprintSize(size){
-    return size ? `${fmt(size.widthMm)} x ${fmt(size.depthMm)} mm` : 'unknown size';
-  }
-
-  function storeHakoFileOnBuilding(b, fileName, text, parsed, opts={}){
-    const derived=deriveFootprintFromHakoConfig(parsed||{});
-    b.hakoConfig=structuredClone(parsed);
-    b.hakoFile={
-      fileName:fileName||`${slug(b.name||'building')}.hako`,
-      mimeType:'application/json',
-      sizeBytes:text.length,
-      importedAt:new Date().toISOString(),
-      dataText:text,
-      parsedConfig:structuredClone(parsed),
-      source:opts.source||'selected-building-upload',
-    };
-    b.hakoFileId=b.hakoFile.fileName;
-    if(derived?.trimLinesMm?.length){
-      b.hakoTrimLinesMm=derived.trimLinesMm;
-      b.showHakoTrimLines=true;
-    } else {
-      delete b.hakoTrimLinesMm;
-    }
-    if(opts.resizeFootprint) applyHakoConfigToPlannerFootprint(b, parsed);
-    delete b.plannerHeightMm;
-    if(b.state==='notStarted') b.state='inProgress';
-    normalizeBuilding(b);
-    syncBuildingMetrics(b);
-    syncAll();
-    $('statusHint').textContent=`Attached ${b.hakoFile.fileName} to ${b.name||'building'}${opts.resizeFootprint?' and resized the footprint':''}.`;
-  }
-
-  function confirmSelectedHakoSizeMismatch(b, currentSize, incomingSize, fileName){
-    const currentText=formatFootprintSize(currentSize);
-    const incomingText=formatFootprintSize(incomingSize);
-    return confirm(`The dropped .hako file does not match the selected footprint size.\n\nSelected footprint: ${currentText}\nDropped building: ${incomingText}\n\nClick OK to upload "${fileName}" and resize the selected footprint to the .hako size.\nClick Cancel to discard the upload.`);
-  }
-
-  function createBuildingFromImportedHako(fileName, text, parsed){
-    const derived=deriveFootprintFromHakoConfig(parsed||{});
-    if(!derived){
-      showStatusHint('Could not find a footprint, width/depth, or polygon in that .hako file.', 'warning');
-      return null;
-    }
-    const center=visibleWorldCenter();
-    const baseName=(parsed && (parsed.name||parsed.buildingName||parsed.title||parsed.projectName)) || (fileName||'Imported Building').replace(/\.(hako|json)$/i,'');
-    const b={
-      id:uid('bldg'), name:baseName,
-      category:(parsed && (parsed.buildingType||parsed.type||parsed.category)) || 'imported',
-      color:colors[state.buildings.length%colors.length], hidden:false, locked:false,
-      state:'complete', notes:`Imported from an existing .hako file${derived.source?` (${derived.source})`:''}.`,
-      hakoConfig:parsed||null,
-      hakoFile:{fileName:fileName||`${slug(baseName)}.hako`,mimeType:'application/json',sizeBytes:text.length,importedAt:new Date().toISOString(),dataText:text,parsedConfig:parsed||null},
-      hakoFileId:fileName||`${slug(baseName)}.hako`,
-    };
-    if(derived.trimLinesMm && derived.trimLinesMm.length){
-      b.hakoTrimLinesMm=derived.trimLinesMm;
-      b.showHakoTrimLines=true;
-    }
-    if(derived.padType==='polygon' && derived.pointsMm){
-      const ptsMm=derived.pointsMm;
-      const xs=ptsMm.map(p=>p.x), ys=ptsMm.map(p=>p.y);
-      const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
-      const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
-      b.hakoGeometryOriginMm={x:cx,y:cy};
-      b.padType='polygon';
-      b.pointsPx=ptsMm.map(p=>({x:center.x+mmToPx(p.x-cx), y:center.y+mmToPx(p.y-cy)}));
-      b.rotationDeg=0;
-    } else {
-      b.padType='rect'; b.x=center.x; b.y=center.y;
-      b.widthPx=mmToPx(derived.widthMm||20); b.depthPx=mmToPx(derived.depthMm||20); b.rotationDeg=0;
-      b.hakoGeometryOriginMm={x:(derived.widthMm||20)/2,y:(derived.depthMm||20)/2};
-    }
-    normalizeBuilding(b); syncBuildingMetrics(b);
-    state.buildings.push(b); setBuildingSelection([b.id], b.id);
-    syncAll();
-    return b;
-  }
-
-  function armGithubBuildingPlacement(record){
-    const shape=githubRecordPlacementShape(record);
-    if(!shape){ showStatusHint('This library record does not include enough footprint data to place it.', 'warning'); return; }
-    state.githubBuildingPlacement={
-      record:structuredClone(record),
-      derived:shape.derived,
-      cfg:shape.cfg,
-      origin:shape.origin,
-      previewPoint:visibleWorldCenter()
-    };
-    state.tool='select';
-    closeGithubModal();
-    $('statusHint').textContent=`Click the site plan to place ${record?.name||record?.id||'building footprint'}. Press Escape to cancel.`;
-    draw();
-  }
-
-  function cancelGithubBuildingPlacement(){
-    if(!state.githubBuildingPlacement) return false;
-    state.githubBuildingPlacement=null;
-    $('statusHint').textContent='Building placement canceled.';
-    draw();
-    return true;
-  }
-
-  function placeGithubBuildingAt(center){
-    const placement=state.githubBuildingPlacement;
-    if(!placement) return false;
-    const record=placement.record||{};
-    const path=record.path||record.paths?.hako||'';
-    const d=placement.derived||{};
-    const cfg=placement.cfg && Object.keys(placement.cfg).length ? structuredClone(placement.cfg) : null;
-    const b={
-      id:uid('bldg'),
-      name:record.name||record.id||'Library Building',
-      category:(record.tags&&record.tags[0])||record.category||cfg?.buildingType||'library',
-      color:colors[state.buildings.length%colors.length],
-      hidden:false,
-      locked:false,
-      state:'notStarted',
-      notes:`Placed from GitHub building footprint library${path?`: ${path}`:''}.`,
-      hakoConfig:cfg,
-      hakoSeed:record.hakoSeed||cfg?.hakoSeed||null,
-      hakoFile:null,
-      hakoFileId:path||null,
-      githubLibraryRecord:{id:record.id||null,path:path||null,placedAt:new Date().toISOString()}
-    };
-    if(d.trimLinesMm?.length){ b.hakoTrimLinesMm=d.trimLinesMm; b.showHakoTrimLines=true; }
-    if(d.padType==='polygon' && Array.isArray(d.pointsMm) && d.pointsMm.length>=3){
-      b.padType='polygon';
-      b.pointsPx=githubPlacementPreviewPolygon(placement, center, mmToPx);
-      b.rotationDeg=0;
-      b.hakoGeometryOriginMm=placement.origin;
-    } else {
-      b.padType='rect';
-      b.x=center.x;
-      b.y=center.y;
-      b.widthPx=mmToPx(d.widthMm||20);
-      b.depthPx=mmToPx(d.depthMm||20);
-      b.rotationDeg=0;
-      b.hakoGeometryOriginMm={x:(d.widthMm||20)/2,y:(d.depthMm||20)/2};
-    }
-    normalizeBuilding(b);
-    syncBuildingMetrics(b);
-    state.buildings.push(b);
-    setBuildingSelection([b.id], b.id);
-    state.githubBuildingPlacement=null;
-    syncAll();
-    $('statusHint').textContent=`Placed ${b.name}.`;
-    return true;
-  }
+  function visibleWorldCenter(){ return ensureSiteBuildingPlacementController().visibleWorldCenter(); }
+  function selectedFootprintSizeMm(building){ return ensureSiteBuildingPlacementController().selectedFootprintSizeMm(building); }
+  function footprintSizesMatch(currentSize, incomingSize){ return ensureSiteBuildingPlacementController().footprintSizesMatch(currentSize, incomingSize); }
+  function storeHakoFileOnBuilding(building, fileName, text, parsed, options={}){ return ensureSiteBuildingPlacementController().storeHakoFileOnBuilding(building, fileName, text, parsed, options); }
+  function confirmSelectedHakoSizeMismatch(building, currentSize, incomingSize, fileName){ return ensureSiteBuildingPlacementController().confirmSelectedHakoSizeMismatch(building, currentSize, incomingSize, fileName); }
+  function createBuildingFromImportedHako(fileName, text, parsed){ return ensureSiteBuildingPlacementController().createBuildingFromImportedHako(fileName, text, parsed); }
+  function armGithubBuildingPlacement(record){ return ensureSiteBuildingPlacementController().armGithubBuildingPlacement(record); }
+  function cancelGithubBuildingPlacement(){ return ensureSiteBuildingPlacementController().cancelGithubBuildingPlacement(); }
+  function placeGithubBuildingAt(center){ return ensureSiteBuildingPlacementController().placeGithubBuildingAt(center); }
 
   const {
     attachHakoFileToSelectedBuilding,

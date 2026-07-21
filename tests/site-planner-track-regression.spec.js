@@ -430,10 +430,13 @@ test.describe('Site Planner track regressions', () => {
 
   test('switch endpoint snapping keeps the drag-start source leg stable', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
-    expect(source).toContain('const pointerSourceEndpoint=draggedTrackSwitchEndpointName(item,pointerPoint);');
-    expect(source).toContain('nearestSwitchEndpointPair(item,pointerPoint,preferredSourceEndpoint||pointerSourceEndpoint)');
-    expect(source).toContain('function trackSwitchEndpointOutwardAngleDeg');
-    expect(source).toContain('rotationDelta*.18');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-switch-connection-controller.js'), 'utf8');
+    expect(source).toContain("import { createTrackSwitchConnectionController } from './site-planner/track-switch-connection-controller.js';");
+    expect(source).toContain('return ensureTrackSwitchConnectionController().snapTrackSwitchToEndpoint(item,pointerPoint,preferredSourceEndpoint);');
+    expect(controller).toContain('const pointerSourceEndpoint = draggedTrackSwitchEndpointName(item, pointerPoint);');
+    expect(controller).toContain('nearestSwitchEndpointPair(item, pointerPoint, preferredSourceEndpoint || pointerSourceEndpoint)');
+    expect(controller).toContain('function trackSwitchEndpointOutwardAngleDeg');
+    expect(controller).toContain('rotationDelta * .18');
     const objectSelection = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-object-selection-controller.js'), 'utf8');
     expect(objectSelection).toContain('snapSourceEndpoint: entry.type === type && entry.item.id === item.id ? draggedTrackSwitchEndpointName(entry.item, p) : null');
     expect(objectSelection).toContain('snapTrackSwitchToEndpoint(item, pointerPoint, preferredSourceEndpoint)');

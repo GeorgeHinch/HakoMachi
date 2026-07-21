@@ -135,6 +135,17 @@ test.describe('Site Planner module split contracts', () => {
     expect(detail).toContain('syncTracksConnectedToTrackSwitch(trackAccessory)');
   });
 
+  test('track switch endpoint connection behavior lives in its dedicated controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-switch-connection-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createTrackSwitchConnectionController } from './site-planner/track-switch-connection-controller.js';");
+    expect(source).toContain('function ensureTrackSwitchConnectionController()');
+    expect(controller).toContain('export function createTrackSwitchConnectionController');
+    expect(controller).toContain('function snapTrackSwitchToEndpoint');
+    expect(controller).toContain('function syncTracksConnectedToTrackSwitch');
+  });
+
   test('road intersection detail controls are wired through their sidebar module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-road-intersection-detail.js'), 'utf8');

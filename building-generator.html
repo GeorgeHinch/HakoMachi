@@ -461,8 +461,8 @@
       <div class="field">
         <label><input type="checkbox" id="rooftopShieldEnabled"> Include shield wall</label>
       </div>
-      <div id="rooftopShieldFields" style="display:none;">
-        <div class="small" style="margin-bottom:8px;">
+      <div id="rooftopShieldFields" class="rooftop-shield-fields">
+        <div class="small rooftop-shield-description">
           X-braced structural cores (1.5 mm) with corner tongue-and-slot joinery
           and louvered cladding (0.28 mm) that glues on top. Drag handles in the
           floor editor to resize the outline, move it, add walk-through openings,
@@ -489,9 +489,9 @@
       <summary data-i18n="s_bill">Billboards</summary>
       <div class="small">Rooftop billboard structures. Each is a laser-cut assembly that glues to the roof.</div>
       <div id="billboardFields">
-        <div class="small" style="color:var(--muted);">No billboards yet — click Add to place one.</div>
+        <div class="small billboard-empty-state">No billboards yet — click Add to place one.</div>
       </div>
-      <button id="bbAddBillboardBtn" style="margin-top:6px;"><span data-icon="plus"></span> Add Billboard</button>
+      <button id="bbAddBillboardBtn" class="billboard-add-button"><span data-icon="plus"></span> Add Billboard</button>
     </details>
 
     <details>
@@ -551,7 +551,7 @@
             <div class="overflow-sep"></div>
             <button id="exportConfigBtn" title="Download settings as a standalone .hako file"><span data-icon="download"></span> Export settings (.hako)</button>
             <button id="importConfigBtn" title="Import settings from a .hako file (or legacy .json)"><span data-icon="upload"></span> Import settings (.hako)</button>
-            <input type="file" id="importConfigFile" accept=".hako,.hakoseed,.hakoplan,.json,application/json" style="display:none">
+            <input type="file" id="importConfigFile" class="visually-hidden-file-input" accept=".hako,.hakoseed,.hakoplan,.json,application/json">
             <div class="overflow-sep"></div>
             <button id="resetBtn" title="Reset to building-type defaults"><span data-icon="reset"></span> Reset to defaults</button>
             <div class="overflow-sep"></div>
@@ -574,8 +574,8 @@
       </div>
     </div>
     <div class="legend">
-      <span><span class="swatch" style="background:#c84a3a"></span> Cut</span>
-      <span><span class="swatch" style="background:#2a64aa"></span> Etch / score</span>
+      <span><span class="swatch swatch-cut"></span> Cut</span>
+      <span><span class="swatch swatch-etch"></span> Etch / score</span>
       <span class="small">Stroke widths exaggerated for screen visibility</span>
     </div>
     <div id="buildingTitlePanel"></div>

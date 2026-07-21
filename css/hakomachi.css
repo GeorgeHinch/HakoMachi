@@ -1031,3 +1031,10 @@
   .building-generator-spaced-field {
     margin-top: 8px;
   }
+.rooftop-shield-fields { display: none; }
+.rooftop-shield-description { margin-bottom: 8px; }
+.billboard-empty-state { color: var(--muted); }
+.billboard-add-button { margin-top: 6px; }
+.visually-hidden-file-input { display: none; }
+.swatch-cut { background: #c84a3a; }
+.swatch-etch { background: #2a64aa; }

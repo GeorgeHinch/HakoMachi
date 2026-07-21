@@ -711,8 +711,8 @@
         <button id="oeTabFrontChamferWest" class="oe-wall-tab" data-oe-wall="front_chamfer_west" style="display:none;">Front angle W</button>
         <button id="oeTabFrontChamferEast" class="oe-wall-tab" data-oe-wall="front_chamfer_east" style="display:none;">Front angle E</button>
       </div>
-      <span id="oeModeBadge" class="oe-mode-badge" style="margin-left:8px;"></span>
-      <div style="margin-left:auto; display:flex; gap:6px;">
+      <span id="oeModeBadge" class="oe-mode-badge opening-editor-mode-badge"></span>
+      <div class="editor-header-actions">
         <button id="oeResetWallBtn">Reset to Auto</button>
         <button id="oeApplyBtn" class="primary"><span data-icon="check"></span> Apply &amp; Regenerate</button>
         <button id="oeCloseBtn"><span data-icon="close"></span></button>
@@ -741,7 +741,7 @@
           <span class="oe-fab-zoom">Zoom</span>
           <button id="oeZoomInBtn" class="oe-fab-zoom-btn" title="Zoom in"><span data-icon="plus"></span></button>
           <button id="oeZoomOutBtn" class="oe-fab-zoom-btn" title="Zoom out"><span data-icon="minus"></span></button>
-          <button id="oeZoomResetBtn" class="oe-fab-zoom-btn" title="Reset zoom" style="font-size:10px;">1:1</button>
+          <button id="oeZoomResetBtn" class="oe-fab-zoom-btn opening-editor-zoom-reset" title="Reset zoom">1:1</button>
           <span id="oeZoomLabel" class="oe-fab-zoom-lbl">100%</span>
 
           <div class="oe-fab-sep"></div>
@@ -761,7 +761,7 @@
       <span><b>Drag</b> items from toolbox to place</span>
       <span><b>Shift+click</b> or <b>drag empty space</b> to multi-select</span>
       <span><b>Drag</b> selection to move · <kbd>Delete</kbd> removes all selected</span>
-      <span style="margin-left:auto; font-size:10px; color:var(--muted);">Dashed lines = floor levels &nbsp;|&nbsp; Y=0 at top</span>
+      <span class="editor-footer-hint">Dashed lines = floor levels &nbsp;|&nbsp; Y=0 at top</span>
     </div>
   </div>
 </div>
@@ -776,8 +776,8 @@
   <div class="we-dialog">
     <div class="we-header">
       <h2><span data-icon="shape"></span> Building Shape</h2>
-      <span style="font-size:11px; color:var(--muted);">Click ＋ arrows to add a wing · Click wing to select · Drag handles to resize</span>
-      <div style="margin-left:auto; display:flex; gap:6px;">
+      <span class="wing-editor-hint">Click ＋ arrows to add a wing · Click wing to select · Drag handles to resize</span>
+      <div class="editor-header-actions">
         <button id="weApplyBtn" class="primary"><span data-icon="check"></span> Apply &amp; Regenerate</button>
         <button id="weCloseBtn"><span data-icon="close"></span></button>
       </div>

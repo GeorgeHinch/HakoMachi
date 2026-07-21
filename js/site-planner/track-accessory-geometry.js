@@ -58,6 +58,12 @@ export function createTrackAccessoryGeometry({
     return kind === 'trackBufferTomix1428' || kind === 'trackBufferTomix1428Catenary';
   }
 
+  function normalizeAngleDeltaDeg(value) {
+    let out = ((Number(value) || 0) + 180) % 360;
+    if (out < 0) out += 360;
+    return out - 180;
+  }
+
   function trackBufferHasCatenaryTerminal(item) {
     return item?.kind === 'trackBufferTomix1428Catenary' || !!item?.catenaryEndTerminal;
   }
@@ -298,6 +304,7 @@ export function createTrackAccessoryGeometry({
     isTrackAccessoryAction,
     isTrackBufferAccessoryKind,
     isTrackSwitchAccessoryKind,
+    normalizeAngleDeltaDeg,
     normalizeTrackAccessory,
     pointAtPolylineDistance,
     polylineLength,

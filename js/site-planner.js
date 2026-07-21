@@ -979,9 +979,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return trackAccessoryGeometry.rotatePoint(point, angleDeg);
   }
   function normalizeAngleDeltaDeg(value){
-    let out=((Number(value)||0)+180)%360;
-    if(out<0) out+=360;
-    return out-180;
+    return trackAccessoryGeometry.normalizeAngleDeltaDeg(value);
   }
   function trackSwitchEndpointOutwardAngleDeg(endpointName, angleDeg){
     const base=Number(angleDeg)||0;

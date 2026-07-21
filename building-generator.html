@@ -647,29 +647,29 @@
     <div class="oe-header">
       <h2>Floor Editor</h2>
       <div class="oe-wall-tabs" id="iwFloorTabs"></div>
-      <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+      <div class="editor-header-actions">
         <button class="primary" id="iwBtnApply"><span data-icon="check"></span> Apply &amp; Regenerate</button>
         <button id="iwBtnClose"><span data-icon="close"></span></button>
       </div>
     </div>
 
     <!-- Properties / controls of the currently active tool or selected item -->
-    <div class="oe-topbar" id="iwTopbar" style="min-height:36px;"></div>
+    <div class="oe-topbar interior-wall-topbar" id="iwTopbar"></div>
 
     <!-- Body: left library + canvas, identical to opening editor -->
     <div class="oe-body">
       <div class="oe-toolbox" id="iwToolbox"></div>
 
-      <div class="oe-canvas-area" id="iwCanvasWrap" style="background:#e0e0d8;padding:0;overflow:hidden;position:relative;">
+      <div class="oe-canvas-area interior-wall-canvas" id="iwCanvasWrap">
         <div class="oe-fab-bar">
           <span class="oe-fab-zoom">Zoom</span>
           <button class="oe-fab-zoom-btn" id="iwZoomIn"><span data-icon="plus"></span></button>
           <button class="oe-fab-zoom-btn" id="iwZoom1">1:1</button>
           <button class="oe-fab-zoom-btn" id="iwZoomOut"><span data-icon="minus"></span></button>
           <div class="oe-fab-sep"></div>
-          <span class="oe-fab-zoom" style="display:flex;align-items:center;gap:4px;">Grid
+          <span class="oe-fab-zoom interior-wall-grid-label">Grid
             <input type="number" id="iwGridInput" value="5" min="1" max="50" step="1"
-              style="width:32px;padding:1px 3px;font-size:11px;border:1px solid #ccc;border-radius:3px;text-align:center;-moz-appearance:textfield;">mm
+              class="interior-wall-grid-input">mm
           </span>
           <!-- Cladding toggle — only meaningful on the roof tab. Shown/hidden
                by iwRender based on iwIsRoof(). Mirrors the wall editor's
@@ -692,7 +692,7 @@
 
     <div class="oe-footer">
       <span id="iwStatus">Select a tool from the library, then interact with the floor plan.</span>
-      <span style="margin-left:auto;font-size:10px;color:var(--muted);">Drag to draw walls · Click in Erase mode to delete</span>
+      <span class="editor-footer-hint">Drag to draw walls · Click in Erase mode to delete</span>
     </div>
 
   </div>

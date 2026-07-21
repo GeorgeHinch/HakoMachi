@@ -1047,3 +1047,4 @@
 .opening-editor-mode-badge { margin-left: 8px; }
 .opening-editor-zoom-reset { font-size: 10px; }
 .wing-editor-hint { font-size: 11px; color: var(--muted); }
+.three-column-row { grid-template-columns: 1fr 1fr 1fr; }

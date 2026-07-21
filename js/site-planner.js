@@ -109,6 +109,7 @@ import { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } from './sit
 import { createTrackAccessoryGeometry } from './site-planner/track-accessory-geometry.js';
 import { createTrackAccessoryBrowserModel } from './site-planner/track-accessory-browser-model.js';
 import { createTrackAccessoryRenderer2D } from './site-planner/track-accessory-renderer-2d.js';
+import { createTrackAccessoryAnchorController } from './site-planner/track-accessory-anchor-controller.js';
 import { createTrackSwitchConnectionController } from './site-planner/track-switch-connection-controller.js';
 import { createTrackRenderer2D } from './site-planner/track-renderer-2d.js';
 import { installTopMenus } from './site-planner/top-menu-utils.js';
@@ -197,6 +198,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let hakoBuildingGeometryController = null;
   let trackAccessoryGeometry = null;
   let trackAccessoryRenderer2D = null;
+  let trackAccessoryAnchorController = null;
   let trackSwitchConnectionController = null;
   let site3DBuildingConfigController = null;
   let site3DBaseRenderer = null;
@@ -1134,120 +1136,46 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function finalizeMovedSiteObject(type,orig){return ensureSiteObjectSelectionController().finalizeMovedSiteObject(type,orig);}
   function startSiteObjectMoveDrag(type,item,e,p){return ensureSiteObjectSelectionController().startSiteObjectMoveDrag(type,item,e,p);}
   function handleSiteObjectPointerHit(type,item,e,p){return ensureSiteObjectSelectionController().handleSiteObjectPointerHit(type,item,e,p);}
+  function ensureTrackAccessoryAnchorController(){
+    if(!trackAccessoryAnchorController){
+      trackAccessoryAnchorController=createTrackAccessoryAnchorController({
+        state,
+        normalizeTrack,
+        normalizeTrackAccessory,
+        isCatenaryAccessoryKind,
+        isTrackBufferAccessoryKind,
+        trackPathSamples,
+        resolveTrackEndpointAnchor,
+        clamp,
+        closestPointOnSegment,
+        deg,
+      });
+    }
+    return trackAccessoryAnchorController;
+  }
   function trackAccessorySnapDistance(){
-    return 56/state.view.scale;
+    return ensureTrackAccessoryAnchorController().trackAccessorySnapDistance();
   }
   function sampledTrackSegments(t, perCurve=20){
-    const path=trackPathSamples(t,perCurve);
-    const segments=[];
-    let cumulative=0;
-    for(let i=0;i<path.length-1;i++){
-      const a=path[i], b=path[i+1];
-      const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy);
-      if(!(len>0)) continue;
-      segments.push({a,b,dx,dy,len,start:cumulative});
-      cumulative+=len;
-    }
-    return {path,segments,total:cumulative};
+    return ensureTrackAccessoryAnchorController().sampledTrackSegments(t,perCurve);
   }
   function trackPointAtDistance(trackId,pathDistancePx){
-    const t=(state.tracks||[]).map(normalizeTrack).find(track=>track.id===trackId);
-    if(!t || t.hidden || (t.pointsPx||[]).length<2) return null;
-    const sampled=sampledTrackSegments(t,24);
-    if(!sampled.segments.length) return null;
-    const target=clamp(Number(pathDistancePx)||0,0,sampled.total);
-    let seg=sampled.segments[sampled.segments.length-1];
-    for(const candidate of sampled.segments){
-      if(target<=candidate.start+candidate.len){seg=candidate; break;}
-    }
-    const local=seg.len ? clamp((target-seg.start)/seg.len,0,1) : 0;
-    const point={x:seg.a.x+seg.dx*local,y:seg.a.y+seg.dy*local};
-    const tangent={x:seg.dx/seg.len,y:seg.dy/seg.len};
-    const normal={x:-tangent.y,y:tangent.x};
-    return {trackId:t.id,point,tangent,normal,pathDistancePx:target,angleDeg:deg(Math.atan2(tangent.y,tangent.x))};
+    return ensureTrackAccessoryAnchorController().trackPointAtDistance(trackId,pathDistancePx);
   }
   function nearestTrackAccessoryAnchor(p,options={}){
-    let best=null;
-    (state.tracks||[]).map(normalizeTrack).forEach(t=>{
-      if(options.trackId && t.id!==options.trackId) return;
-      if(t.hidden || (t.pointsPx||[]).length<2) return;
-      const sampled=sampledTrackSegments(t,24);
-      sampled.segments.forEach(seg=>{
-        const a=seg.a, b=seg.b;
-        const hit=closestPointOnSegment(p,a,b);
-        const point=hit.point;
-        const distance=hit.distance;
-        if(!best || distance<best.distance){
-          const local=Number.isFinite(Number(hit.t)) ? hit.t : (seg.len ? clamp(((point.x-a.x)*seg.dx+(point.y-a.y)*seg.dy)/(seg.len*seg.len),0,1) : 0);
-          const tangent={x:seg.dx/seg.len,y:seg.dy/seg.len};
-          const normal={x:-tangent.y,y:tangent.x};
-          best={
-            trackId:t.id,
-            point,
-            distance,
-            tangent,
-            normal,
-            pathDistancePx:seg.start+seg.len*local,
-            offsetPx:(p.x-point.x)*normal.x+(p.y-point.y)*normal.y,
-            angleDeg:deg(Math.atan2(tangent.y,tangent.x)),
-          };
-        }
-      });
-    });
-    return best;
+    return ensureTrackAccessoryAnchorController().nearestTrackAccessoryAnchor(p,options);
   }
   function attachTrackAccessoryToAnchor(item,anchor,options={}){
-    if(!item || !anchor) return false;
-    const snapToTrack=options.snapToTrack!==false;
-    const offsetPx=snapToTrack ? 0 : (Number.isFinite(Number(anchor.offsetPx)) ? Number(anchor.offsetPx) : 0);
-    item.trackId=anchor.trackId;
-    item.trackAnchor={trackId:anchor.trackId,pathDistancePx:anchor.pathDistancePx,offsetPx};
-    item.autoOrientToTrack=isCatenaryAccessoryKind(item.kind);
-    item.x=anchor.point.x+(anchor.normal?.x||0)*offsetPx;
-    item.y=anchor.point.y+(anchor.normal?.y||0)*offsetPx;
-    item.rotationDeg=anchor.angleDeg;
-    return true;
+    return ensureTrackAccessoryAnchorController().attachTrackAccessoryToAnchor(item,anchor,options);
   }
   function resolveTrackAccessoryAnchor(item){
-    if(!item || !isCatenaryAccessoryKind(item.kind) || item.autoOrientToTrack===false || !item.trackId) return null;
-    let anchor=null;
-    if(item.trackAnchor && item.trackAnchor.trackId===item.trackId && Number.isFinite(Number(item.trackAnchor.pathDistancePx))){
-      anchor=trackPointAtDistance(item.trackId,item.trackAnchor.pathDistancePx);
-      if(anchor) anchor.offsetPx=Number(item.trackAnchor.offsetPx)||0;
-    }
-    if(!anchor){
-      anchor=nearestTrackAccessoryAnchor({x:item.x,y:item.y},{trackId:item.trackId});
-      if(anchor) item.trackAnchor={trackId:anchor.trackId,pathDistancePx:anchor.pathDistancePx,offsetPx:0};
-    }
-    if(!anchor) return null;
-    const offsetPx=Number(anchor.offsetPx)||0;
-    return {
-      ...anchor,
-      point:{x:anchor.point.x+(anchor.normal?.x||0)*offsetPx,y:anchor.point.y+(anchor.normal?.y||0)*offsetPx},
-      offsetPx,
-    };
+    return ensureTrackAccessoryAnchorController().resolveTrackAccessoryAnchor(item);
   }
   function refreshTrackAccessoryAnchor(item){
-    normalizeTrackAccessory(item);
-    if(isTrackBufferAccessoryKind(item.kind) && item.trackAnchor?.trackId && item.trackAnchor?.endpointKey){
-      const endpoint=resolveTrackEndpointAnchor(item.trackAnchor.trackId,item.trackAnchor.endpointKey);
-      if(!endpoint) return false;
-      item.trackId=endpoint.trackId;
-      item.x=endpoint.point.x;
-      item.y=endpoint.point.y;
-      item.rotationDeg=endpoint.angleDeg;
-      item.trackAnchor={trackId:endpoint.trackId,endpointKey:endpoint.endpointKey,pointIndex:endpoint.pointIndex,pathDistancePx:null,offsetPx:0};
-      return true;
-    }
-    const anchor=resolveTrackAccessoryAnchor(item);
-    if(!anchor) return false;
-    item.x=anchor.point.x;
-    item.y=anchor.point.y;
-    item.rotationDeg=anchor.angleDeg;
-    return true;
+    return ensureTrackAccessoryAnchorController().refreshTrackAccessoryAnchor(item);
   }
   function refreshAnchoredTrackAccessories(){
-    (state.trackAccessories||[]).forEach(item=>refreshTrackAccessoryAnchor(item));
+    return ensureTrackAccessoryAnchorController().refreshAnchoredTrackAccessories();
   }
   function catenarySpacingPxForTrack(trackId){
     if(state.pxPerMm) return Math.max(1, mmToPx(CATENARY_SPACING_MODEL_MM));

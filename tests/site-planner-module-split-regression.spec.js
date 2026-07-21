@@ -146,6 +146,17 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('function syncTracksConnectedToTrackSwitch');
   });
 
+  test('track accessory anchoring lives outside the Site Planner monolith', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-anchor-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createTrackAccessoryAnchorController } from './site-planner/track-accessory-anchor-controller.js';");
+    expect(source).toContain('function ensureTrackAccessoryAnchorController()');
+    expect(controller).toContain('export function createTrackAccessoryAnchorController');
+    expect(controller).toContain('function nearestTrackAccessoryAnchor');
+    expect(controller).toContain('function refreshTrackAccessoryAnchor');
+  });
+
   test('road intersection detail controls are wired through their sidebar module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-road-intersection-detail.js'), 'utf8');

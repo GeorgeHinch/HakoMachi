@@ -157,6 +157,55 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('function refreshTrackAccessoryAnchor');
   });
 
+  test('auto-catenary placement retains standard spacing and avoids duplicate poles', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'catenary-auto-placement-controller.js'), 'utf8');
+    const { createCatenaryAutoPlacementController } = await import('../js/site-planner/catenary-auto-placement-controller.js');
+    const state = {
+      pxPerMm: 1,
+      tracks: [{ id: 'track_1', pointsPx: [{ x: 0, y: 0 }, { x: 95, y: 0 }] }],
+      trackAccessories: [],
+    };
+    let nextId = 0;
+    const controller = createCatenaryAutoPlacementController({
+      state,
+      catenarySpacingModelMm: 30,
+      catenaryPrototypeSpacingM: 30,
+      mmToPx: value => value,
+      normalizeTrack: track => track,
+      normalizeTrackAccessory: item => item,
+      sampledTrackSegments: () => ({ total: 95 }),
+      trackPointAtDistance: (trackId, distance) => ({
+        trackId,
+        point: { x: distance, y: 0 },
+        normal: { x: 0, y: 1 },
+        pathDistancePx: distance,
+        angleDeg: 0,
+      }),
+      nearestTrackAccessoryAnchor: () => null,
+      trackAccessorySnapDistance: () => 56,
+      attachTrackAccessoryToAnchor: (item, anchor) => {
+        item.trackId = anchor.trackId;
+        item.trackAnchor = { trackId: anchor.trackId, pathDistancePx: anchor.pathDistancePx, offsetPx: 0 };
+        return true;
+      },
+      trackAccessoryPreset: () => ({ label: 'Catenary Pole', color: '#aaa', defaultNotes: 'test' }),
+      uid: () => `pole_${++nextId}`,
+      fmt: value => String(value),
+      hitTrack: () => state.tracks[0],
+      clearBuildingSelection: () => {},
+      syncAll: () => {},
+      showStatusHint: () => {},
+    });
+
+    expect(source).toContain("import { createCatenaryAutoPlacementController } from './site-planner/catenary-auto-placement-controller.js';");
+    expect(source).toContain('function ensureCatenaryAutoPlacementController()');
+    expect(controllerSource).toContain('export function createCatenaryAutoPlacementController');
+    expect(controller.applyCatenaryToTrack('track_1')).toMatchObject({ created: 4, skipped: 0, spacingModelMm: 30 });
+    expect(state.trackAccessories.map(item => item.trackAnchor.pathDistancePx)).toEqual([0, 30, 60, 95]);
+    expect(controller.applyCatenaryToTrack('track_1')).toMatchObject({ created: 0, skipped: 4 });
+  });
+
   test('road intersection detail controls are wired through their sidebar module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-road-intersection-detail.js'), 'utf8');

@@ -7,6 +7,7 @@ import { createSiteAutosaveController } from './site-planner/site-autosave-contr
 import { createBuildingResizeProtectionController } from './site-planner/building-resize-protection.js';
 import { createBuildingSelectionController } from './site-planner/building-selection-utils.js';
 import { createCanvasDrawingController } from './site-planner/canvas-drawing-utils.js';
+import { createCatenaryAutoPlacementController } from './site-planner/catenary-auto-placement-controller.js';
 import { createCanvasHoverPreviewRenderer } from './site-planner/canvas-hover-preview-renderer.js';
 import { createGroupSelectionController } from './site-planner/group-selection-controller.js';
 import { createSiteBuildingRenderer2D } from './site-planner/site-building-renderer-2d.js';
@@ -199,6 +200,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let trackAccessoryGeometry = null;
   let trackAccessoryRenderer2D = null;
   let trackAccessoryAnchorController = null;
+  let catenaryAutoPlacementController = null;
   let trackSwitchConnectionController = null;
   let site3DBuildingConfigController = null;
   let site3DBaseRenderer = null;
@@ -1177,106 +1179,51 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function refreshAnchoredTrackAccessories(){
     return ensureTrackAccessoryAnchorController().refreshAnchoredTrackAccessories();
   }
-  function catenarySpacingPxForTrack(trackId){
-    if(state.pxPerMm) return Math.max(1, mmToPx(CATENARY_SPACING_MODEL_MM));
-    const track=(state.tracks||[]).map(normalizeTrack).find(t=>t.id===trackId);
-    const gaugePx=Number(track?.gaugePx);
-    const gaugeMm=Number(track?.gaugeMm);
-    if(Number.isFinite(gaugePx) && gaugePx>0 && Number.isFinite(gaugeMm) && gaugeMm>0){
-      return Math.max(1, CATENARY_SPACING_MODEL_MM * gaugePx / gaugeMm);
+  function ensureCatenaryAutoPlacementController(){
+    if(!catenaryAutoPlacementController){
+      catenaryAutoPlacementController=createCatenaryAutoPlacementController({
+        state,
+        catenarySpacingModelMm:CATENARY_SPACING_MODEL_MM,
+        catenaryPrototypeSpacingM:CATENARY_PROTOTYPE_SPACING_M,
+        mmToPx,
+        normalizeTrack,
+        normalizeTrackAccessory,
+        sampledTrackSegments,
+        trackPointAtDistance,
+        nearestTrackAccessoryAnchor,
+        trackAccessorySnapDistance,
+        attachTrackAccessoryToAnchor,
+        trackAccessoryPreset,
+        uid,
+        fmt,
+        hitTrack,
+        clearBuildingSelection,
+        syncAll,
+        showStatusHint,
+      });
     }
-    return CATENARY_SPACING_MODEL_MM;
+    return catenaryAutoPlacementController;
+  }
+  function catenarySpacingPxForTrack(trackId){
+    return ensureCatenaryAutoPlacementController().catenarySpacingPxForTrack(trackId);
   }
   function catenaryAtTrackDistance(trackId,pathDistancePx,kind='catenarySingleSide'){
-    const spacingPx=catenarySpacingPxForTrack(trackId);
-    const duplicateTolerance=Math.max(4,Math.min(18,spacingPx*.12));
-    return (state.trackAccessories||[]).map(normalizeTrackAccessory).some(item=>{
-      if(item.hidden || item.kind!==kind || item.trackId!==trackId) return false;
-      const existing=Number(item.trackAnchor?.pathDistancePx);
-      return Number.isFinite(existing) && Math.abs(existing-pathDistancePx)<=duplicateTolerance;
-    });
+    return ensureCatenaryAutoPlacementController().catenaryAtTrackDistance(trackId,pathDistancePx,kind);
   }
   function createAnchoredCatenaryAt(trackId,pathDistancePx,kind='catenarySingleSide'){
-    const anchor=trackPointAtDistance(trackId,pathDistancePx);
-    if(!anchor) return null;
-    const preset=trackAccessoryPreset(kind);
-    const accessory=normalizeTrackAccessory({
-      id:uid('trackItem'),
-      kind,
-      name:`${preset.label} ${(state.trackAccessories||[]).length+1}`,
-      x:anchor.point.x,
-      y:anchor.point.y,
-      rotationDeg:anchor.angleDeg,
-      trackId,
-      autoOrientToTrack:true,
-      color:preset.color,
-      notes:preset.defaultNotes,
-    });
-    attachTrackAccessoryToAnchor(accessory,anchor);
-    return accessory;
+    return ensureCatenaryAutoPlacementController().createAnchoredCatenaryAt(trackId,pathDistancePx,kind);
   }
   function applyCatenarySection(startAnchor,endAnchor,kind='catenarySingleSide'){
-    if(!startAnchor || !endAnchor || startAnchor.trackId!==endAnchor.trackId) return {created:0, skipped:0};
-    const trackId=startAnchor.trackId;
-    const spacingPx=catenarySpacingPxForTrack(trackId);
-    const start=Math.min(startAnchor.pathDistancePx,endAnchor.pathDistancePx);
-    const end=Math.max(startAnchor.pathDistancePx,endAnchor.pathDistancePx);
-    const length=end-start;
-    if(!(length>1)) return {created:0, skipped:0};
-    const distances=[start];
-    for(let d=start+spacingPx; d<end-spacingPx*.25; d+=spacingPx) distances.push(d);
-    distances.push(end);
-    state.trackAccessories=state.trackAccessories||[];
-    let created=0, skipped=0, last=null;
-    distances.forEach(distance=>{
-      if(last!==null && Math.abs(distance-last)<4) return;
-      last=distance;
-      if(catenaryAtTrackDistance(trackId,distance,kind)){ skipped++; return; }
-      const accessory=createAnchoredCatenaryAt(trackId,distance,kind);
-      if(!accessory) return;
-      state.trackAccessories.push(accessory);
-      state.selectedTrackId=null;
-      state.selectedTrackPointIndex=null;
-      state.selectedTrackAccessoryId=accessory.id;
-      created++;
-    });
-    return {created, skipped, spacingPx, spacingModelMm:CATENARY_SPACING_MODEL_MM};
+    return ensureCatenaryAutoPlacementController().applyCatenarySection(startAnchor,endAnchor,kind);
   }
   function catenarySectionResultText(result){
-    return `Added ${result.created} catenary pole${result.created===1?'':'s'} at ${fmt(CATENARY_SPACING_MODEL_MM)} mm spacing (${CATENARY_PROTOTYPE_SPACING_M} m prototype at Japanese N scale).${result.skipped?` Skipped ${result.skipped} existing pole${result.skipped===1?'':'s'}.`:''}`;
+    return ensureCatenaryAutoPlacementController().catenarySectionResultText(result);
   }
   function applyCatenaryToTrack(trackId,kind='catenarySingleSide'){
-    const t=(state.tracks||[]).map(normalizeTrack).find(track=>track.id===trackId);
-    if(!t || t.hidden || (t.pointsPx||[]).length<2) return {created:0, skipped:0};
-    const sampled=sampledTrackSegments(t,24);
-    if(!(sampled.total>1)) return {created:0, skipped:0};
-    const start=trackPointAtDistance(t.id,0);
-    const end=trackPointAtDistance(t.id,sampled.total);
-    return applyCatenarySection(start,end,kind);
+    return ensureCatenaryAutoPlacementController().applyCatenaryToTrack(trackId,kind);
   }
   function handleCatenaryAutoTrackClick(p,pointerType='mouse'){
-    const trackHit=hitTrack(p,pointerType);
-    const anchor=trackHit ? null : nearestTrackAccessoryAnchor(p);
-    const trackId=trackHit?.id || (anchor && anchor.distance<=trackAccessorySnapDistance() ? anchor.trackId : null);
-    const hint=$('statusHint');
-    if(!trackId){
-      if(hint) hint.textContent='Click a track spline to auto place catenary along its full length.';
-      return false;
-    }
-    clearBuildingSelection();
-    state.selectedTrackId=trackId;
-    state.selectedTrackPointIndex=null;
-    state.selectedRoadId=null;
-    state.selectedRoadFeatureId=null;
-    state.selectedBenchworkId=null;
-    state.selectedStreetlightId=null;
-    state.selectedAnnotationId=null;
-    state.selectedFabricId=null;
-    state.catenarySectionDraft=null;
-    const result=applyCatenaryToTrack(trackId,'catenarySingleSide');
-    syncAll();
-    if(hint) hint.textContent=catenarySectionResultText(result);
-    return true;
+    return ensureCatenaryAutoPlacementController().handleCatenaryAutoTrackClick(p,pointerType);
   }
   function beginTrackContinuationFromSnap(snap){
     const connection=snap?.connection;

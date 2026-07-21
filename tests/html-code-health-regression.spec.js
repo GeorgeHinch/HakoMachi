@@ -59,6 +59,28 @@ test.describe('HTML code health contracts', () => {
     expect(css).toContain('.building-generator-checkbox-label');
   });
 
+  test('main pages use focused module entrypoints after their legacy global dependencies', () => {
+    const sitePlannerHtml = readRepoFile('site-planner.html');
+    const buildingGeneratorHtml = readRepoFile('building-generator.html');
+    const sitePlannerEntrypoint = readRepoFile('js/site-planner/page-entry.js');
+    const buildingGeneratorEntrypoint = readRepoFile('js/building-generator/page-entry.js');
+
+    expect(sitePlannerHtml).toContain('src="js/site-planner/page-entry.js?v=hm-assets-20260717-1"');
+    expect(sitePlannerHtml).not.toContain('src="js/shared/hakomachi-logo.js"');
+    expect(sitePlannerHtml).not.toContain('src="js/site-planner/main.js?v=hm-assets-20260717-1"');
+    expect(sitePlannerEntrypoint).toContain("import '../shared/hakomachi-logo.js';");
+    expect(sitePlannerEntrypoint).toContain("import '../shared/hakomachi-analytics.js';");
+    expect(sitePlannerEntrypoint).toContain("import '../shared/building-preview-renderer.js?v=hm-assets-20260717-1';");
+    expect(sitePlannerEntrypoint).toContain("import './main.js?v=hm-assets-20260717-1';");
+
+    expect(buildingGeneratorHtml).toContain('src="js/building-generator/page-entry.js?v=hm-assets-20260717-1"');
+    expect(buildingGeneratorHtml).not.toContain('src="js/shared/hakomachi-logo.js"');
+    expect(buildingGeneratorHtml).not.toContain('src="js/building-generator/main.js?v=hm-assets-20260717-1"');
+    expect(buildingGeneratorEntrypoint).toContain("import '../shared/hakomachi-logo.js';");
+    expect(buildingGeneratorEntrypoint).toContain("import '../shared/hakomachi-analytics.js';");
+    expect(buildingGeneratorEntrypoint).toContain("import './main.js?v=hm-assets-20260717-1';");
+  });
+
   test('page and tool metadata stays aligned with the shared registry', async () => {
     const landingSource = readRepoFile('js/landing/main.js');
     const analyticsSource = readRepoFile('js/shared/hakomachi-analytics.js');

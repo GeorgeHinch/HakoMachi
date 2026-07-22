@@ -17,6 +17,7 @@ import { createSiteBuildingPlacementController } from './site-planner/site-build
 import { createSiteCanvasRenderer } from './site-planner/site-canvas-renderer.js';
 import { createSiteCanvasGestureController } from './site-planner/site-canvas-gesture-controller.js';
 import { createSiteCanvasKeyboardController } from './site-planner/site-canvas-keyboard-controller.js';
+import { createSiteCanvasPointerFinishController } from './site-planner/site-canvas-pointer-finish-controller.js';
 import { createSiteHistoryController } from './site-planner/site-history-controller.js';
 import { createSiteResetController } from './site-planner/site-reset-controller.js';
 import { createContextMenuController } from './site-planner/context-menu-controller.js';
@@ -3018,48 +3019,39 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     }
     draw();
   }, {passive:false});
-  async function finishPointer(e){
-    clearCanvasBrowserSelection();
-    clearLongPress();
-    state.pointers.delete(e.pointerId);
-    if(state.drag?.type==='pinch'){state.pinch=null; state.drag=null; draw(); return;}
-    if(!state.drag)return;
-    if(state.drag.pointerId!==undefined && state.drag.pointerId!==e.pointerId) return;
-    const d=state.drag;
-    if(d.type==='rect'&&d.preview){state.buildings.push(d.preview); setBuildingSelection([d.preview.id], d.preview.id); renderList(); renderSelected(); updateHandoff();}
-    if(d.type==='marquee'){const r=selectionRectFromPoints(d.start,d.end||d.start); if(Math.max(r.w,r.h)>5/state.view.scale){const hits=buildingsInSelectionRect(r); const ids=d.additive?[...new Set([...(d.baseIds||[]),...hits])]:hits; setBuildingSelection(ids, ids.length===1?ids[0]:null); setSelectedSiteObjects(ids.map(id=>({type:'building',id})));} else if(!d.additive){clearBuildingSelection(); clearSelectedSiteObjects(); state.selectedAnnotationId=null; state.selectedStreetlightId=null; state.selectedRoadId=null; state.selectedBenchworkId=null; state.selectedFabricId=null; state.selectedStlObjectId=null;} renderList(); renderSelected(); updateHandoff();}
-    if(d.type==='roadCenterline'&&d.preview&&dist(d.start,d.end)>4){state.roads.push(d.preview); state.selectedRoadId=d.preview.id; clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null; renderRoads(); renderSelected();}
-    if(d.type==='pan' && d.rightButtonPan && d.moved){state.suppressNextContextMenu=true;}
-    if(d.type==='rectCorner' || d.type==='polyPoint'){
-      const b=selected();
-      if(b && d.orig && buildingFootprintChanged(d.orig,b) && !await confirmProtectedBuildingResize(b,{before:d.orig,after:cloneSitePlannerValue(b)})){
-        restoreBuildingSnapshot(b,d.orig);
-        canvas.classList.remove('panning');
-        state.drag=null;
-        syncAll({skipDirty:true});
-        return;
-      }
-    }
-    canvas.classList.remove('panning');
-    state.drag=null; syncAll();
-  }
-  canvas.addEventListener('pointerup', finishPointer);
-  canvas.addEventListener('pointercancel', finishPointer);
-  canvas.addEventListener('dblclick', e=>{
-    const p=screenToWorld(e);
-    const road=hitRoad(p,'mouse');
-    if(road && road.mode==='outline'){
-      e.preventDefault();
-      state.selectedRoadId=road.id;
-      state.roadOutlineEditId=road.id;
-      clearBuildingSelection(); state.selectedStreetlightId=null; state.selectedBenchworkId=null; state.selectedAnnotationId=null;
-      renderRoads(); renderList(); renderStreetlights(); renderSelected(); draw();
-      return;
-    }
-    if(state.tool==='road' && state.roadMode==='centerline' && state.roadDraft.length>=2){ e.preventDefault(); finishRoadCenterline(); }
-    if(state.tool==='road' && state.roadMode==='outline' && state.roadDraft.length>=3){ e.preventDefault(); finishRoadOutline(); }
-    if(state.tool==='track' && state.trackDraft.length>=2){ e.preventDefault(); finishTrack(); }
+  const siteCanvasPointerFinishController = createSiteCanvasPointerFinishController({
+    state,
+    canvas,
+    clearCanvasBrowserSelection,
+    clearLongPress,
+    draw,
+    setBuildingSelection,
+    renderList,
+    renderSelected,
+    updateHandoff,
+    selectionRectFromPoints,
+    buildingsInSelectionRect,
+    setSelectedSiteObjects,
+    clearBuildingSelection,
+    clearSelectedSiteObjects,
+    dist,
+    renderRoads,
+    selected,
+    buildingFootprintChanged,
+    confirmProtectedBuildingResize,
+    cloneSitePlannerValue,
+    restoreBuildingSnapshot,
+    syncAll,
+    screenToWorld,
+    hitRoad,
+    renderStreetlights,
+    finishRoadCenterline,
+    finishRoadOutline,
+    finishTrack,
   });
+  canvas.addEventListener('pointerup', siteCanvasPointerFinishController.finishPointer);
+  canvas.addEventListener('pointercancel', siteCanvasPointerFinishController.finishPointer);
+  canvas.addEventListener('dblclick', siteCanvasPointerFinishController.handleCanvasDoubleClick);
   canvas.addEventListener('contextmenu', e=>{
     e.preventDefault();
     if(state.suppressNextContextMenu){state.suppressNextContextMenu=false; hideContextMenu(); return;}

@@ -359,6 +359,66 @@ test.describe('Site Planner module split contracts', () => {
     expect(prevented).toBe(true);
   });
 
+  test('canvas pointer completion and double-click drafts live in a dedicated controller', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-canvas-pointer-finish-controller.js'), 'utf8');
+    const { createSiteCanvasPointerFinishController } = await import('../js/site-planner/site-canvas-pointer-finish-controller.js');
+    const events = [];
+    const state = {
+      pointers: new Map([[7, { x: 1, y: 1 }]]),
+      drag: { type: 'rect', pointerId: 7, preview: { id: 'building_1' } },
+      buildings: [],
+      view: { scale: 1 },
+      roads: [],
+    };
+    const noop = () => {};
+    const controller = createSiteCanvasPointerFinishController({
+      state,
+      canvas: { classList: { remove: name => events.push(`remove:${name}`) } },
+      clearCanvasBrowserSelection: () => events.push('clear-browser'),
+      clearLongPress: () => events.push('clear-press'),
+      draw: noop,
+      setBuildingSelection: (...args) => events.push(['select-buildings', ...args]),
+      renderList: noop,
+      renderSelected: noop,
+      updateHandoff: noop,
+      selectionRectFromPoints: noop,
+      buildingsInSelectionRect: () => [],
+      setSelectedSiteObjects: noop,
+      clearBuildingSelection: noop,
+      clearSelectedSiteObjects: noop,
+      dist: () => 10,
+      renderRoads: noop,
+      selected: () => null,
+      buildingFootprintChanged: () => false,
+      confirmProtectedBuildingResize: async () => true,
+      cloneSitePlannerValue: value => value,
+      restoreBuildingSnapshot: noop,
+      syncAll: () => events.push('sync'),
+      screenToWorld: noop,
+      hitRoad: () => null,
+      renderStreetlights: noop,
+      finishRoadCenterline: noop,
+      finishRoadOutline: noop,
+      finishTrack: noop,
+    });
+
+    expect(source).toContain("import { createSiteCanvasPointerFinishController } from './site-planner/site-canvas-pointer-finish-controller.js';");
+    expect(source).toContain("canvas.addEventListener('pointerup', siteCanvasPointerFinishController.finishPointer);");
+    expect(source).not.toContain('async function finishPointer(e){');
+    expect(controllerSource).toContain('export function createSiteCanvasPointerFinishController');
+    expect(controllerSource).toContain('async function finishPointer');
+    expect(controllerSource).toContain('function handleCanvasDoubleClick');
+
+    await controller.finishPointer({ pointerId: 7 });
+
+    expect(state.pointers.has(7)).toBe(false);
+    expect(state.buildings).toEqual([{ id: 'building_1' }]);
+    expect(state.drag).toBeNull();
+    expect(events).toContainEqual(['select-buildings', ['building_1'], 'building_1']);
+    expect(events).toContain('sync');
+  });
+
   test('track accessory placement and interaction live outside the Site Planner monolith', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-interaction-controller.js'), 'utf8');
@@ -925,6 +985,7 @@ test.describe('Site Planner module split contracts', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'hako-handoff-controller.js'), 'utf8');
     const resizeProtectionSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'building-resize-protection.js'), 'utf8');
+    const pointerFinishSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-canvas-pointer-finish-controller.js'), 'utf8');
     const lifecycleSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-runtime-lifecycle-controller.js'), 'utf8');
     const detailSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-building-detail.js'), 'utf8');
     const { createHakoHandoffController } = await import('../js/site-planner/hako-handoff-controller.js');
@@ -937,7 +998,7 @@ test.describe('Site Planner module split contracts', () => {
     expect(source).toContain('confirmBuildingResize: (building, details={}) => confirmProtectedBuildingResize');
     expect(source).toContain("import { renderBuildingDetail } from './site-planner/sidebar-building-detail.js';");
     expect(detailSource).toContain("applySelectedBuildingDimensionInput(building, 'width', width.value, width)");
-    expect(source).toContain("d.type==='rectCorner' || d.type==='polyPoint'");
+    expect(pointerFinishSource).toContain("drag.type === 'rectCorner' || drag.type === 'polyPoint'");
     expect(source).not.toContain('function sitePlannerBuildingUpdatePayload(data)');
     expect(source).not.toContain('function ensureBuildingResizeConfirmModal');
 

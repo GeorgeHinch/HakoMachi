@@ -66,6 +66,7 @@ import { createScaleInputController } from './site-planner/scale-input-utils.js'
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
 import { createSidebarDetailController } from './site-planner/sidebar-detail-controller.js';
 import { createSidebarObjectBrowserController } from './site-planner/sidebar-object-browser-controller.js';
+import { createSidebarSelectedDetailController } from './site-planner/sidebar-selected-detail-controller.js';
 import { renderRailCrossingDetail } from './site-planner/sidebar-rail-crossing-detail.js';
 import { renderRoadFeatureDetail } from './site-planner/sidebar-road-feature-detail.js';
 import { renderRoadDetail } from './site-planner/sidebar-road-detail.js';
@@ -212,6 +213,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let githubBuildingPreviewRenderer = null;
   let siteObjectSelectionController = null;
   let sidebarObjectBrowserController = null;
+  let sidebarSelectedDetailController = null;
   let sidebarDetailController = null;
   let sitePointerInteractionController = null;
   let siteProjectPersistenceController = null;
@@ -2412,41 +2414,31 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function renderList(){
     ensureSidebarObjectBrowserController().renderList();
   }
-  function renderSelectedCore(){
-    const b=selected();
-    const box=$('selectedPanel');
-    const note=selectedAnnotation();
-    const roadIntersection=selectedRoadIntersection();
-    const railCrossing=selectedRailCrossing();
-    const roadFeature=selectedRoadFeature();
-    const road=selectedRoad();
-    const track=selectedTrack();
-    const bench=selectedBenchwork();
-    const light=selectedStreetlight();
-    const fabric=selectedFabric();
-    const stl=selectedStlObject();
-    const selIds=currentSelectedBuildingIds();
-    const trackAccessory=(!b && !selIds.length && !note && !roadIntersection && !railCrossing && !roadFeature && !road && !track && !bench && !light && !fabric && !stl) ? selectedTrackAccessory() : null;
-    if(!b && selIds.length>1){
-      renderMultiBuildingDetail({
-        selectedIds: selIds,
-        panel: box,
+  function ensureSidebarSelectedDetailController(){
+    if(!sidebarSelectedDetailController){
+      sidebarSelectedDetailController=createSidebarSelectedDetailController({
+        selected,
+        getElement:$,
+        selectedAnnotation,
+        selectedRoadIntersection,
+        selectedRailCrossing,
+        selectedRoadFeature,
+        selectedRoad,
+        selectedTrack,
+        selectedBenchwork,
+        selectedStreetlight,
+        selectedFabric,
+        selectedStlObject,
+        currentSelectedBuildingIds,
+        selectedTrackAccessory,
+        renderMultiBuildingDetail,
         state,
-        getElement: $,
         clearBuildingSelection,
         syncAll,
-      });
-      return;
-    }
-    if(!b){
-      if(trackAccessory){renderTrackAccessoryDetail({
-        trackAccessory,
-        panel: box,
-        getElement: $,
+        renderTrackAccessoryDetail,
         fmt,
         escapeAttr,
         escapeHtml,
-        syncAll,
         normalizeTrackAccessory,
         trackAccessoryLabel,
         trackAccessoryPreset,
@@ -2460,192 +2452,91 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
         attachTrackAccessoryToAnchor,
         installAdaptiveDegreeStepping,
         deleteSelectedTrackAccessory,
+        renderRoadIntersectionDetail,
+        roadSystem,
+        roadIntersectionKey,
+        normalizeIntersectionOverride,
+        roadArmKey,
+        renderRailCrossingDetail,
+        railCrossingOverrideKey,
+        normalizeRailCrossingOverride,
+        RAIL_CROSSING_CENTER_CLEARANCE_MM,
+        renderRoadFeatureDetail,
+        mmToPx,
+        normalizeRoadFeature,
+        hatchOptionsHtml,
+        markingOptionsHtml,
+        markingPresetByKey,
+        grateFamilyOptionsHtml,
+        syncPhysicalGrateSpecDimensions,
+        applyRoadHatchPreset,
+        applyRoadMarkingPreset,
+        roadPresetScaleContext,
+        setPhysicalGrateMode,
+        applyPhysicalGrateFamily,
+        setRoadMarkingOutputMode,
+        fitRoadMarkingToRoad,
+        alignRoadMarkingToRoad,
+        deleteSelectedRoadFeature,
+        renderRoadDetail,
+        normalizeRoad,
+        syncRoadMetrics,
+        ROAD_WIDTH_PRESETS,
+        SIDEWALK_WIDTH_PRESETS,
+        presetOptionsHtml,
+        currentScaleDivisor,
+        applyRoadWidthPreset,
+        applySidewalkWidthPreset,
+        normalizeDrivingSide,
+        roadIntersectionMarkingControls,
+        showStatusHint,
+        deleteSelectedRoad,
+        renderTrackDetail,
+        normalizeTrack,
+        syncTrackMetrics,
+        deleteSelectedTrackPoint,
+        deleteSelectedTrack,
+        renderBenchworkDetail,
+        normalizeBenchworkOutline,
+        deleteSelectedBenchwork,
+        renderStreetlightDetail,
+        normalizeStreetlight,
+        duplicateStreetlight,
+        deleteSelectedStreetlight,
+        renderFabricDetail,
+        FABRIC_PRESETS,
+        normalizeFabricRegion,
+        generateFabricForRegion,
+        deleteSelectedFabricRegion,
+        renderStlDetail,
+        slug,
+        normalizeStlObject,
+        attachSourceFileToStlObject,
+        downloadBase64,
+        deleteSelectedStlObject,
+        renderAnnotationDetail,
+        deleteSelectedAnnotation,
+        renderBuildingDetail,
+        syncBuildingMetrics,
+        syncSelectedBuildingLive,
+        site3DBuildingHeightMm,
+        site3DBuildingConfig,
+        site3DBuildingElevationMm,
+        hakoFileSummary,
+        hakoFileText,
+        renameAttachedHakoFileForBuilding,
+        applySelectedBuildingDimensionInput,
+        attachHakoFileToSelectedBuilding,
+        downloadText,
+        openBuildingInHakoMachi,
+        copyHakoSeedForBuilding,
+        transformedRect,
       });
-      return;
-    } if(roadIntersection){renderRoadIntersectionDetail({
-      roadIntersection,
-      panel: box,
-      state,
-      getElement: $,
-      fmt,
-      escapeAttr,
-      escapeHtml,
-      syncAll,
-      roadSystem,
-      roadIntersectionKey,
-      normalizeIntersectionOverride,
-      roadArmKey,
-    });
-      return;
-    } if(railCrossing){renderRailCrossingDetail({
-      railCrossing,
-      panel: box,
-      state,
-      getElement: $,
-      fmt,
-      escapeHtml,
-      syncAll,
-      installAdaptiveDegreeStepping,
-      railCrossingOverrideKey,
-      normalizeRailCrossingOverride,
-      centerClearanceMm: RAIL_CROSSING_CENTER_CLEARANCE_MM,
-    });
-      return;
-    } if(roadFeature){renderRoadFeatureDetail({
-      roadFeature,
-      panel: box,
-      state,
-      getElement: $,
-      fmt,
-      escapeAttr,
-      escapeHtml,
-      mmToPx,
-      syncAll,
-      normalizeRoadFeature,
-      installAdaptiveDegreeStepping,
-      hatchOptionsHtml,
-      markingOptionsHtml,
-      markingPresetByKey,
-      grateFamilyOptionsHtml,
-      syncPhysicalGrateSpecDimensions,
-      applyRoadHatchPreset,
-      applyRoadMarkingPreset,
-      roadPresetScaleContext,
-      setPhysicalGrateMode,
-      applyPhysicalGrateFamily,
-      setRoadMarkingOutputMode,
-      fitRoadMarkingToRoad,
-      alignRoadMarkingToRoad,
-      deleteSelectedRoadFeature,
-    });
-      return;
-    } if(road){renderRoadDetail({
-      road,
-      panel: box,
-      state,
-      getElement: $,
-      fmt,
-      escapeAttr,
-      mmToPx,
-      syncAll,
-      normalizeRoad,
-      syncRoadMetrics,
-      roadWidthPresets: ROAD_WIDTH_PRESETS,
-      sidewalkWidthPresets: SIDEWALK_WIDTH_PRESETS,
-      presetOptionsHtml,
-      currentScaleDivisor,
-      applyRoadWidthPreset,
-      applySidewalkWidthPreset,
-      normalizeDrivingSide,
-      roadIntersectionMarkingControls,
-      roadSystem,
-      showStatusHint,
-      deleteSelectedRoad,
-    });
-      return;
-    } if(track){renderTrackDetail({
-      track,
-      panel: box,
-      state,
-      getElement: $,
-      fmt,
-      escapeAttr,
-      mmToPx,
-      syncAll,
-      normalizeTrack,
-      syncTrackMetrics,
-      deleteSelectedTrackPoint,
-      deleteSelectedTrack,
-    });
-      return;
-    } if(bench){renderBenchworkDetail({
-      benchwork: bench,
-      panel: box,
-      getElement: $,
-      escapeAttr,
-      escapeHtml,
-      syncAll,
-      normalizeBenchworkOutline,
-      deleteSelectedBenchwork,
-    });
-      return;
-    } if(light){renderStreetlightDetail({
-      streetlight: light,
-      panel: box,
-      getElement: $,
-      fmt,
-      escapeAttr,
-      escapeHtml,
-      syncAll,
-      normalizeStreetlight,
-      installAdaptiveDegreeStepping,
-      duplicateStreetlight,
-      deleteSelectedStreetlight,
-    });
-    } else if(fabric){renderFabricDetail({
-      fabricRegion: fabric,
-      panel: box,
-      state,
-      getElement: $,
-      fmt,
-      escapeAttr,
-      escapeHtml,
-      fabricPresets: FABRIC_PRESETS,
-      syncAll,
-      normalizeFabricRegion,
-      generateFabricForRegion,
-      deleteSelectedFabricRegion,
-    });
-    } else if(stl){renderStlDetail({
-      stlObject: stl,
-      panel: box,
-      getElement: $,
-      fmt,
-      escapeAttr,
-      escapeHtml,
-      slug,
-      syncAll,
-      normalizeStlObject,
-      installAdaptiveDegreeStepping,
-      attachSourceFileToStlObject,
-      downloadBase64,
-      deleteSelectedStlObject,
-    });
-    } else if(note){
-      renderAnnotationDetail({ annotation: note, panel: box, getElement: $, deleteSelectedAnnotation });
-    } else {
-      box.innerHTML='No building selected.';
     }
-    const btn=$('deleteAnnotationBtn');
-    if(btn) btn.disabled=!note;
-    return;
+    return sidebarSelectedDetailController;
   }
-  if($('deleteAnnotationBtn')) $('deleteAnnotationBtn').disabled=true;
-  renderBuildingDetail({
-    building: b,
-    panel: box,
-    getElement: $,
-    fmt,
-    escapeAttr,
-    escapeHtml,
-    slug,
-    syncAll,
-    syncBuildingMetrics,
-    syncSelectedBuildingLive,
-    site3DBuildingHeightMm,
-    site3DBuildingConfig,
-    site3DBuildingElevationMm,
-    hakoFileSummary,
-    hakoFileText,
-    renameAttachedHakoFileForBuilding,
-    installAdaptiveDegreeStepping,
-    applySelectedBuildingDimensionInput,
-    attachHakoFileToSelectedBuilding,
-    downloadText,
-    openBuildingInHakoMachi,
-    copyHakoSeedForBuilding,
-    transformedRect,
-  });
+  function renderSelectedCore(){
+    return ensureSidebarSelectedDetailController().renderSelectedCore();
   }
 
   function activeSidebarDetailKind(){

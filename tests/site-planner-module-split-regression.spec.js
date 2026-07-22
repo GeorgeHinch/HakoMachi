@@ -2,6 +2,10 @@ const { expect, test } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
 
+function readSelectedDetailController() {
+  return fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-selected-detail-controller.js'), 'utf8');
+}
+
 test.describe('Site Planner module split contracts', () => {
   test('canvas hover previews are wired through their renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
@@ -33,7 +37,8 @@ test.describe('Site Planner module split contracts', () => {
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-rail-crossing-detail.js'), 'utf8');
 
     expect(source).toContain("import { renderRailCrossingDetail } from './site-planner/sidebar-rail-crossing-detail.js';");
-    expect(source).toContain('} if(railCrossing){renderRailCrossingDetail({');
+    expect(source).toContain("import { createSidebarSelectedDetailController } from './site-planner/sidebar-selected-detail-controller.js';");
+    expect(readSelectedDetailController()).toContain('} if(railCrossing){renderRailCrossingDetail({');
     expect(source).not.toContain('const updateRailCrossingOverride=patch=>');
     expect(detail).toContain('export function renderRailCrossingDetail');
     expect(detail).toContain('railCrossingSurveyTemplate');
@@ -45,7 +50,7 @@ test.describe('Site Planner module split contracts', () => {
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-track-detail.js'), 'utf8');
 
     expect(source).toContain("import { renderTrackDetail } from './site-planner/sidebar-track-detail.js';");
-    expect(source).toContain('} if(track){renderTrackDetail({');
+    expect(readSelectedDetailController()).toContain('} if(track){renderTrackDetail({');
     expect(source).not.toContain('const bindTrack=(id,fn)=>');
     expect(detail).toContain('export function renderTrackDetail');
     expect(detail).toContain('deleteTrackPoint');
@@ -57,7 +62,7 @@ test.describe('Site Planner module split contracts', () => {
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-benchwork-detail.js'), 'utf8');
 
     expect(source).toContain("import { renderBenchworkDetail } from './site-planner/sidebar-benchwork-detail.js';");
-    expect(source).toContain('} if(bench){renderBenchworkDetail({');
+    expect(readSelectedDetailController()).toContain('} if(bench){renderBenchworkDetail({');
     expect(source).not.toContain('const bindBench=(id,fn)=>');
     expect(detail).toContain('export function renderBenchworkDetail');
     expect(detail).toContain("getElement('clearBenchCurves').onclick");
@@ -69,7 +74,7 @@ test.describe('Site Planner module split contracts', () => {
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-streetlight-detail.js'), 'utf8');
 
     expect(source).toContain("import { renderStreetlightDetail } from './site-planner/sidebar-streetlight-detail.js';");
-    expect(source).toContain('} if(light){renderStreetlightDetail({');
+    expect(readSelectedDetailController()).toContain('} if(light){renderStreetlightDetail({');
     expect(source).not.toContain("$('dupSl').onclick=()=>");
     expect(detail).toContain('export function renderStreetlightDetail');
     expect(detail).toContain("installAdaptiveDegreeStepping(getElement('slRot'))");
@@ -81,7 +86,7 @@ test.describe('Site Planner module split contracts', () => {
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-fabric-detail.js'), 'utf8');
 
     expect(source).toContain("import { renderFabricDetail } from './site-planner/sidebar-fabric-detail.js';");
-    expect(source).toContain('} else if(fabric){renderFabricDetail({');
+    expect(readSelectedDetailController()).toContain('} else if(fabric){renderFabricDetail({');
     expect(source).not.toContain('const bindFabric=(id,fn)=>');
     expect(detail).toContain('export function renderFabricDetail');
     expect(detail).toContain('generateFabricForRegion(fabricRegion, { confirmReplace: true })');
@@ -93,7 +98,7 @@ test.describe('Site Planner module split contracts', () => {
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-stl-detail.js'), 'utf8');
 
     expect(source).toContain("import { renderStlDetail } from './site-planner/sidebar-stl-detail.js';");
-    expect(source).toContain('} else if(stl){renderStlDetail({');
+    expect(readSelectedDetailController()).toContain('} else if(stl){renderStlDetail({');
     expect(source).not.toContain('const bindStl=(id,fn)=>');
     expect(detail).toContain('export function renderStlDetail');
     expect(detail).toContain("data-stl-source-download");
@@ -105,7 +110,7 @@ test.describe('Site Planner module split contracts', () => {
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-road-feature-detail.js'), 'utf8');
 
     expect(source).toContain("import { renderRoadFeatureDetail } from './site-planner/sidebar-road-feature-detail.js';");
-    expect(source).toContain('} if(roadFeature){renderRoadFeatureDetail({');
+    expect(readSelectedDetailController()).toContain('} if(roadFeature){renderRoadFeatureDetail({');
     expect(detail).toContain('export function renderRoadFeatureDetail');
     expect(detail).toContain('applyRoadMarkingPreset(roadFeature');
     expect(detail).toContain('setPhysicalGrateMode(roadFeature');
@@ -117,7 +122,7 @@ test.describe('Site Planner module split contracts', () => {
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-road-detail.js'), 'utf8');
 
     expect(source).toContain("import { renderRoadDetail } from './site-planner/sidebar-road-detail.js';");
-    expect(source).toContain('} if(road){renderRoadDetail({');
+    expect(readSelectedDetailController()).toContain('} if(road){renderRoadDetail({');
     expect(detail).toContain('export function renderRoadDetail');
     expect(detail).toContain('roadIntersectionMarkingControls.bindFeatureToggles()');
     expect(detail).toContain('roadSystem.realignRoadMarkingsForRoad(road.id)');
@@ -128,7 +133,7 @@ test.describe('Site Planner module split contracts', () => {
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-track-accessory-detail.js'), 'utf8');
 
     expect(source).toContain("import { renderTrackAccessoryDetail } from './site-planner/sidebar-track-accessory-detail.js';");
-    expect(source).toContain('if(trackAccessory){renderTrackAccessoryDetail({');
+    expect(readSelectedDetailController()).toContain('if(trackAccessory){renderTrackAccessoryDetail({');
     expect(detail).toContain('export function renderTrackAccessoryDetail');
     expect(detail).toContain('nearestTrackEndpointAnchor');
     expect(detail).toContain('attachTrackAccessoryToAnchor(trackAccessory, anchor)');
@@ -223,7 +228,7 @@ test.describe('Site Planner module split contracts', () => {
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-road-intersection-detail.js'), 'utf8');
 
     expect(source).toContain("import { renderRoadIntersectionDetail } from './site-planner/sidebar-road-intersection-detail.js';");
-    expect(source).toContain('} if(roadIntersection){renderRoadIntersectionDetail({');
+    expect(readSelectedDetailController()).toContain('} if(roadIntersection){renderRoadIntersectionDetail({');
     expect(detail).toContain('export function renderRoadIntersectionDetail');
     expect(detail).toContain('roadSystem.setRoadIntersectionOverride');
     expect(detail).toContain('roadSystem.clearRoadIntersectionOverride');
@@ -234,7 +239,7 @@ test.describe('Site Planner module split contracts', () => {
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-multi-building-detail.js'), 'utf8');
 
     expect(source).toContain("import { renderMultiBuildingDetail } from './site-planner/sidebar-multi-building-detail.js';");
-    expect(source).toContain('renderMultiBuildingDetail({');
+    expect(readSelectedDetailController()).toContain('renderMultiBuildingDetail({');
     expect(source).not.toContain("$('clearMultiB').onclick=()=>");
     expect(detail).toContain('export function renderMultiBuildingDetail');
     expect(detail).toContain("getElement('deleteMultiB').onclick");
@@ -245,7 +250,7 @@ test.describe('Site Planner module split contracts', () => {
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-annotation-detail.js'), 'utf8');
 
     expect(source).toContain("import { renderAnnotationDetail } from './site-planner/sidebar-annotation-detail.js';");
-    expect(source).toContain('renderAnnotationDetail({ annotation: note');
+    expect(readSelectedDetailController()).toContain('renderAnnotationDetail({ annotation: note');
     expect(detail).toContain('export function renderAnnotationDetail');
     expect(detail).toContain("getElement('delNoteB')");
   });
@@ -255,7 +260,7 @@ test.describe('Site Planner module split contracts', () => {
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-building-detail.js'), 'utf8');
 
     expect(source).toContain("import { renderBuildingDetail } from './site-planner/sidebar-building-detail.js';");
-    expect(source).toContain('renderBuildingDetail({');
+    expect(readSelectedDetailController()).toContain('renderBuildingDetail({');
     expect(source).not.toContain("const bind=(id,fn)=>{const e=$(id)");
     expect(detail).toContain('export function renderBuildingDetail');
     expect(detail).toContain('attachHakoFileToSelectedBuilding');
@@ -1458,7 +1463,7 @@ test.describe('Site Planner module split contracts', () => {
     expect(source).toContain('function selectedRoadIntersection()');
     expect(source).toContain('function hitGeneratedRoadIntersection');
     expect(source).toContain("import { renderRoadIntersectionDetail } from './site-planner/sidebar-road-intersection-detail.js';");
-    expect(source).toContain('} if(roadIntersection){renderRoadIntersectionDetail({');
+    expect(readSelectedDetailController()).toContain('} if(roadIntersection){renderRoadIntersectionDetail({');
     expect(detailSource).toContain('Road intersection selected');
     expect(detailSource).toContain('roadSystem.setRoadIntersectionOverride');
     expect(detailSource).toContain('roadSystem.clearRoadIntersectionOverride');

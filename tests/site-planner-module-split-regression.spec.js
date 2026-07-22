@@ -206,6 +206,18 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller.applyCatenaryToTrack('track_1')).toMatchObject({ created: 0, skipped: 4 });
   });
 
+  test('track accessory placement and interaction live outside the Site Planner monolith', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-interaction-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createTrackAccessoryInteractionController } from './site-planner/track-accessory-interaction-controller.js';");
+    expect(source).toContain('function ensureTrackAccessoryInteractionController()');
+    expect(controller).toContain('export function createTrackAccessoryInteractionController');
+    expect(controller).toContain('function placeTrackAccessory');
+    expect(controller).toContain('function hitTrackAccessoryRotationHandle');
+    expect(controller).toContain('function deleteSelectedTrackAccessory');
+  });
+
   test('road intersection detail controls are wired through their sidebar module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-road-intersection-detail.js'), 'utf8');
@@ -1939,12 +1951,11 @@ test('building import attachment and GitHub placement are wired through their co
   test('track switch labels are anchored away from the rotation handle', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer2d = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-renderer-2d.js'), 'utf8');
-    const labelStart = source.indexOf('function trackAccessoryLabelPoint');
-    const labelEnd = source.indexOf('function selectTrackAccessory');
-    const labelHelper = source.slice(labelStart, labelEnd);
+    const interactionController = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-interaction-controller.js'), 'utf8');
 
-    expect(labelHelper).toContain('isTrackSwitchAccessoryKind');
-    expect(labelHelper).toContain('maxY+24*scale');
+    expect(source).toContain('return ensureTrackAccessoryInteractionController().trackAccessoryLabelPoint(item);');
+    expect(interactionController).toContain('isTrackSwitchAccessoryKind');
+    expect(interactionController).toContain('maxY + 24 * scale');
     expect(renderer2d).toContain('drawLabel(item.name || trackAccessoryLabel(item.kind), trackAccessoryLabelPoint(item))');
     expect(renderer2d).not.toContain('drawLabel(item.name||trackAccessoryLabel(item.kind),{x:item.x+12*scale,y:item.y-12*scale})');
   });

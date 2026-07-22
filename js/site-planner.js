@@ -111,6 +111,7 @@ import { createTrackAccessoryGeometry } from './site-planner/track-accessory-geo
 import { createTrackAccessoryBrowserModel } from './site-planner/track-accessory-browser-model.js';
 import { createTrackAccessoryRenderer2D } from './site-planner/track-accessory-renderer-2d.js';
 import { createTrackAccessoryAnchorController } from './site-planner/track-accessory-anchor-controller.js';
+import { createTrackAccessoryInteractionController } from './site-planner/track-accessory-interaction-controller.js';
 import { createTrackSwitchConnectionController } from './site-planner/track-switch-connection-controller.js';
 import { createTrackRenderer2D } from './site-planner/track-renderer-2d.js';
 import { installTopMenus } from './site-planner/top-menu-utils.js';
@@ -201,6 +202,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let trackAccessoryRenderer2D = null;
   let trackAccessoryAnchorController = null;
   let catenaryAutoPlacementController = null;
+  let trackAccessoryInteractionController = null;
   let trackSwitchConnectionController = null;
   let site3DBuildingConfigController = null;
   let site3DBaseRenderer = null;
@@ -1248,135 +1250,60 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     draw();
     return true;
   }
+  function ensureTrackAccessoryInteractionController(){
+    if(!trackAccessoryInteractionController){
+      trackAccessoryInteractionController=createTrackAccessoryInteractionController({
+        state,
+        normalizeTrackAccessory,
+        isTrackSwitchAccessoryKind,
+        isTrackBufferAccessoryKind,
+        isCatenaryAccessoryKind,
+        trackAccessoryPreset,
+        trackAccessorySnapDistance,
+        nearestTrackSwitchEndpoint,
+        nearestTrackEndpointAnchor,
+        nearestTrackAccessoryAnchor,
+        alignTrackSwitchEndpointToTarget,
+        attachTrackAccessoryToAnchor,
+        refreshTrackAccessoryAnchor,
+        trackSwitchGeometryPx,
+        trackBufferGeometryPx,
+        trackSwitchDirection,
+        selectedTrackAccessory,
+        setSingleSiteObjectSelection,
+        syncAll,
+        refreshUi:()=>{renderList(); renderRoads(); renderStreetlights(); renderSelected(); updateHandoff(); draw();},
+        showStatusHint,
+        uid,
+        dist,
+        rad,
+      });
+    }
+    return trackAccessoryInteractionController;
+  }
   function placeTrackAccessory(p,kind){
-    const preset=trackAccessoryPreset(kind);
-    const maxSnap=trackAccessorySnapDistance();
-    const switchEndpointAnchor=isTrackSwitchAccessoryKind(kind) ? nearestTrackSwitchEndpoint(p) : null;
-    const switchEndpointSnapped=!!(switchEndpointAnchor && switchEndpointAnchor.distance<=maxSnap);
-    const anchor=switchEndpointSnapped ? switchEndpointAnchor : (isTrackBufferAccessoryKind(kind) ? nearestTrackEndpointAnchor(p) : nearestTrackAccessoryAnchor(p));
-    const snapped=anchor && anchor.distance<=maxSnap;
-    const point=snapped ? anchor.point : p;
-    const accessory=normalizeTrackAccessory({
-      id:uid('trackItem'),
-      kind,
-      name:`${preset.label} ${(state.trackAccessories||[]).length+1}`,
-      x:point.x,
-      y:point.y,
-      rotationDeg:snapped ? anchor.angleDeg : 0,
-      trackId:snapped ? anchor.trackId : null,
-      autoOrientToTrack:snapped && isCatenaryAccessoryKind(kind),
-      color:preset.color,
-      catenaryEndTerminal:kind==='trackBufferTomix1428Catenary',
-      notes:preset.defaultNotes,
-    });
-    if(switchEndpointSnapped) alignTrackSwitchEndpointToTarget(accessory,'heel',switchEndpointAnchor);
-    if(snapped && isCatenaryAccessoryKind(kind)) attachTrackAccessoryToAnchor(accessory,anchor);
-    if(snapped && isTrackBufferAccessoryKind(kind)) accessory.trackAnchor={trackId:anchor.trackId,endpointKey:anchor.endpointKey,pointIndex:anchor.pointIndex,pathDistancePx:null,offsetPx:0};
-    state.trackAccessories=state.trackAccessories||[];
-    state.trackAccessories.push(accessory);
-    selectTrackAccessory(accessory, {skipSync:true});
-    syncAll();
-    $('statusHint').textContent=switchEndpointSnapped ? `${preset.label} heel snapped to switch endpoint and matched its turnout angle.` : (snapped ? `${preset.label} attached to nearest track endpoint.` : `${preset.label} placed.`);
-    return accessory;
+    return ensureTrackAccessoryInteractionController().placeTrackAccessory(p,kind);
   }
   function hitTrackAccessory(p,pointerType='mouse'){
-    const tol=(pointerType==='touch'?18:13)/state.view.scale;
-    let best=null;
-    (state.trackAccessories||[]).map(normalizeTrackAccessory).forEach(item=>{
-      refreshTrackAccessoryAnchor(item);
-      if(item.hidden) return;
-      let d=dist(p,{x:item.x,y:item.y});
-      let itemTol=tol;
-      if(isTrackSwitchAccessoryKind(item.kind)){
-        const geom=trackSwitchGeometryPx(item);
-        const a=rad(-(Number(item.rotationDeg)||0));
-        const dx=p.x-item.x, dy=p.y-item.y;
-        const lx=dx*Math.cos(a)-dy*Math.sin(a);
-        const ly=dx*Math.sin(a)+dy*Math.cos(a);
-        const maxOffset=Math.max(Math.abs(geom.offset||0),Math.abs(geom.mainOffset||0));
-        const verticalMin=-geom.roadbedWidth/2-tol;
-        const verticalMax=maxOffset+geom.roadbedWidth/2+tol;
-        const dir=trackSwitchDirection(item.kind);
-        const yMin=dir<0 ? -verticalMax : verticalMin;
-        const yMax=dir<0 ? -verticalMin : verticalMax;
-        if(lx>=-geom.halfLength-tol && lx<=geom.halfLength+tol && ly>=yMin && ly<=yMax) d=0;
-        itemTol=Math.max(tol,Math.min(36/state.view.scale,geom.length/4));
-      } else if(isTrackBufferAccessoryKind(item.kind)){
-        const geom=trackBufferGeometryPx(item);
-        const a=rad(-(Number(item.rotationDeg)||0));
-        const dx=p.x-item.x, dy=p.y-item.y;
-        const lx=dx*Math.cos(a)-dy*Math.sin(a);
-        const ly=dx*Math.sin(a)+dy*Math.cos(a);
-        if(lx>=-geom.length*.35-tol && lx<=geom.length+tol && Math.abs(ly)<=geom.width*.55+tol) d=0;
-        itemTol=Math.max(tol,Math.min(28/state.view.scale,geom.length));
-      }
-      if(d<=itemTol && (!best || d<best.distance)) best={...item,distance:d};
-    });
-    return best;
+    return ensureTrackAccessoryInteractionController().hitTrackAccessory(p,pointerType);
   }
   function trackAccessoryRotationHandlePoint(item){
-    if(!item) return null;
-    const a=rad(Number(item.rotationDeg)||0);
-    const local=trackAccessoryRotationHandleLocal(item);
-    return {
-      x:item.x+local.x*Math.cos(a)-local.y*Math.sin(a),
-      y:item.y+local.x*Math.sin(a)+local.y*Math.cos(a),
-    };
+    return ensureTrackAccessoryInteractionController().trackAccessoryRotationHandlePoint(item);
   }
   function trackAccessoryRotationHandleLocal(item){
-    const scale=1/state.view.scale;
-    if(isTrackSwitchAccessoryKind(item?.kind)){
-      const geom=trackSwitchGeometryPx(item);
-      const dir=trackSwitchDirection(item.kind);
-      const maxOffset=Math.max(Math.abs(geom.offset||0),Math.abs(geom.mainOffset||0));
-      const minY=dir<0 ? -maxOffset-geom.roadbedWidth/2 : -geom.roadbedWidth/2;
-      return {x:0,y:minY-28*scale};
-    }
-    return {x:0,y:-34*scale};
+    return ensureTrackAccessoryInteractionController().trackAccessoryRotationHandleLocal(item);
   }
   function hitTrackAccessoryRotationHandle(p,pointerType='mouse'){
-    const item=selectedTrackAccessory();
-    if(!item || item.hidden || item.locked) return null;
-    const handle=trackAccessoryRotationHandlePoint(item);
-    if(!handle) return null;
-    const tol=(pointerType==='touch'?20:12)/state.view.scale;
-    return dist(p,handle)<=tol ? item : null;
+    return ensureTrackAccessoryInteractionController().hitTrackAccessoryRotationHandle(p,pointerType);
   }
   function trackAccessoryLabelPoint(item){
-    const scale=1/state.view.scale;
-    if(!isTrackSwitchAccessoryKind(item?.kind)) return {x:item.x+12*scale,y:item.y-12*scale};
-    const geom=trackSwitchGeometryPx(item);
-    const dir=trackSwitchDirection(item.kind);
-    const maxOffset=Math.max(Math.abs(geom.offset||0),Math.abs(geom.mainOffset||0));
-    const maxY=dir<0 ? geom.roadbedWidth/2 : maxOffset+geom.roadbedWidth/2;
-    const local={x:-geom.halfLength,y:maxY+24*scale};
-    const a=rad(Number(item.rotationDeg)||0);
-    return {
-      x:item.x+local.x*Math.cos(a)-local.y*Math.sin(a),
-      y:item.y+local.x*Math.sin(a)+local.y*Math.cos(a),
-    };
+    return ensureTrackAccessoryInteractionController().trackAccessoryLabelPoint(item);
   }
   function selectTrackAccessory(item, opts={}){
-    if(!item) return false;
-    setSingleSiteObjectSelection('trackAccessory',item.id);
-    if(!opts.skipSync){
-      renderList(); renderRoads(); renderStreetlights(); renderSelected(); updateHandoff(); draw();
-    }
-    return true;
+    return ensureTrackAccessoryInteractionController().selectTrackAccessory(item,opts);
   }
   function deleteSelectedTrackAccessory(){
-    if(!state.selectedTrackAccessoryId) return false;
-    const removedId=state.selectedTrackAccessoryId;
-    state.trackAccessories=(state.trackAccessories||[]).filter(x=>x.id!==state.selectedTrackAccessoryId);
-    (state.tracks||[]).forEach(track=>{
-      if(!track?.endpointConnections) return;
-      ['start','end'].forEach(key=>{
-        if(track.endpointConnections[key]?.trackAccessoryId===removedId) delete track.endpointConnections[key];
-      });
-    });
-    state.selectedTrackAccessoryId=null;
-    syncAll();
-    return true;
+    return ensureTrackAccessoryInteractionController().deleteSelectedTrackAccessory();
   }
   function drawTrackAccessory(raw){
     return trackAccessoryRenderer2D.drawTrackAccessory(raw);

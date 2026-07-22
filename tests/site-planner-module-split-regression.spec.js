@@ -255,6 +255,54 @@ test.describe('Site Planner module split contracts', () => {
     expect(statusHint.textContent).toContain('30 mm spacing');
   });
 
+  test('road task setup and Road-mode actions live in a dedicated controller', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'road-tool-task-controller.js'), 'utf8');
+    const { createRoadToolTaskController } = await import('../js/site-planner/road-tool-task-controller.js');
+    const modeButton = { dataset: { roadModeTool: 'outline' } };
+    const intersectionsButton = { dataset: { roadAction: 'intersections' } };
+    const state = { roadMode: 'centerline', roadTask: null, roadExportPreview: false, selectedRoadId: null };
+    const events = [];
+    const statusHint = { textContent: '' };
+    const controller = createRoadToolTaskController({
+      state,
+      documentRef: {
+        querySelectorAll: selector => selector === '[data-road-mode-tool]'
+          ? [modeButton]
+          : selector === '[data-road-action]' ? [intersectionsButton] : [],
+      },
+      getElement: id => id === 'statusHint' ? statusHint : null,
+      setWorkspaceMode: (...args) => events.push(['workspace', ...args]),
+      setActiveTool: (...args) => events.push(['tool', ...args]),
+      updateRoadToolButton: () => events.push(['road-button']),
+      roadSystem: { generatedRoadIntersections: () => events.push(['intersections']) },
+      renderSelected: () => events.push(['selected']),
+      draw: () => events.push(['draw']),
+      setSidebarOpen: value => events.push(['sidebar', value]),
+      updateWorkspaceModeUi: () => events.push(['ui']),
+      setRoadExportPreview: () => events.push(['preview']),
+      openRoadExportReview: () => events.push(['export']),
+    });
+
+    expect(source).toContain("import { createRoadToolTaskController } from './site-planner/road-tool-task-controller.js';");
+    expect(source).toContain('roadToolTaskController.bindRoadToolControls();');
+    expect(source).not.toContain("document.querySelectorAll('[data-road-action]').forEach(btn=>btn.onclick=()=>{");
+    expect(controllerSource).toContain('export function createRoadToolTaskController');
+    expect(controllerSource).toContain('function bindRoadToolControls');
+
+    controller.bindRoadToolControls();
+    modeButton.onclick();
+    intersectionsButton.onclick();
+
+    expect(state.roadMode).toBe('outline');
+    expect(state.roadTask).toBe('intersections');
+    expect(events).toContainEqual(['tool', 'road']);
+    expect(events).toContainEqual(['tool', 'select', { preserveRoadTask: true }]);
+    expect(events).toContainEqual(['intersections']);
+    expect(events).toContainEqual(['sidebar', true]);
+    expect(statusHint.textContent).toContain('Select a road');
+  });
+
   test('track accessory placement and interaction live outside the Site Planner monolith', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-interaction-controller.js'), 'utf8');

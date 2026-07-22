@@ -8,6 +8,7 @@ import { createBuildingResizeProtectionController } from './site-planner/buildin
 import { createBuildingSelectionController } from './site-planner/building-selection-utils.js';
 import { createCanvasDrawingController } from './site-planner/canvas-drawing-utils.js';
 import { createCatenaryAutoPlacementController } from './site-planner/catenary-auto-placement-controller.js';
+import { createRoadToolTaskController } from './site-planner/road-tool-task-controller.js';
 import { createTrackToolTaskController } from './site-planner/track-tool-task-controller.js';
 import { createCanvasHoverPreviewRenderer } from './site-planner/canvas-hover-preview-renderer.js';
 import { createGroupSelectionController } from './site-planner/group-selection-controller.js';
@@ -3172,38 +3173,22 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }));
   document.querySelectorAll('.toolbtn[data-tool]:not([data-road-mode-tool]):not([data-track-action])').forEach(btn=>btn.onclick=()=>setActiveTool(btn.dataset.tool));
   $('workspaceMode')?.addEventListener('change', e=>setWorkspaceMode(e.target.value));
-  document.querySelectorAll('[data-road-mode-tool]').forEach(btn=>btn.onclick=()=>{
-    state.roadMode=btn.dataset.roadModeTool||'centerline';
-    updateRoadToolButton();
-    setWorkspaceMode('road', {preserveRoadTask: true});
-    setActiveTool('road');
+  const roadToolTaskController = createRoadToolTaskController({
+    state,
+    documentRef: document,
+    getElement: $,
+    setWorkspaceMode,
+    setActiveTool,
+    updateRoadToolButton,
+    roadSystem,
+    renderSelected,
+    draw,
+    setSidebarOpen,
+    updateWorkspaceModeUi,
+    setRoadExportPreview,
+    openRoadExportReview,
   });
-  document.querySelectorAll('[data-road-action]').forEach(btn=>btn.onclick=()=>{
-    const action=btn.dataset.roadAction;
-    setWorkspaceMode('road', {preserveRoadTask: true});
-    if(action==='intersections'){
-      state.roadTask='intersections';
-      state.roadIntersectionDetails=true;
-      setActiveTool('select', {preserveRoadTask: true});
-      roadSystem.generatedRoadIntersections();
-      renderSelected();
-      draw();
-      setSidebarOpen(true);
-      const hint=$('statusHint');
-      if(hint) hint.textContent=state.selectedRoadId ? 'Intersection controls are open for the selected road.' : 'Select a road to adjust its automatic intersection markings.';
-      updateWorkspaceModeUi();
-      return;
-    }
-    if(action==='exportPreview'){
-      state.roadTask='exportPreview';
-      setRoadExportPreview(!state.roadExportPreview);
-      updateWorkspaceModeUi();
-      return;
-    }
-    if(action==='exportAssets'){
-      openRoadExportReview();
-    }
-  });
+  roadToolTaskController.bindRoadToolControls();
   const trackToolTaskController = createTrackToolTaskController({
     state,
     documentRef: document,

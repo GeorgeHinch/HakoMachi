@@ -16,6 +16,7 @@ import { createSiteBuildingRenderer2D } from './site-planner/site-building-rende
 import { createSiteBuildingPlacementController } from './site-planner/site-building-placement-controller.js';
 import { createSiteCanvasRenderer } from './site-planner/site-canvas-renderer.js';
 import { createSiteCanvasGestureController } from './site-planner/site-canvas-gesture-controller.js';
+import { createSiteCanvasKeyboardController } from './site-planner/site-canvas-keyboard-controller.js';
 import { createSiteHistoryController } from './site-planner/site-history-controller.js';
 import { createSiteResetController } from './site-planner/site-reset-controller.js';
 import { createContextMenuController } from './site-planner/context-menu-controller.js';
@@ -3075,81 +3076,39 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     onGestureChange:(e,p,gesture)=>setCanvasZoomAtClientPoint(p.x,p.y,gesture.startScale*(Number(e.scale)||1))
   });
   canvas.addEventListener('wheel', e=>{e.preventDefault(); zoomCanvasAtClientPoint(e.clientX,e.clientY,e.deltaY);},{passive:false});
-  function deleteCurrentSelection(){
-    if(state.selectedAnnotationId){ deleteSelectedAnnotation(); return true; }
-    if(state.selectedRoadFeatureId){ deleteSelectedRoadFeature(); return true; }
-    if(state.selectedStreetlightId){ deleteSelectedStreetlight(); return true; }
-    if(state.selectedRoadId){ deleteSelectedRoad(); return true; }
-    if(state.selectedTrackAccessoryId && !state.selectedId && !currentSelectedBuildingIds().length && !state.selectedRoadId && !state.selectedTrackId && !state.selectedRoadFeatureId && !state.selectedStreetlightId && !state.selectedBenchworkId && !state.selectedFabricId && !state.selectedStlObjectId && !state.selectedAnnotationId){ deleteSelectedTrackAccessory(); return true; }
-    if(state.selectedTrackId && Number.isInteger(state.selectedTrackPointIndex)){ deleteSelectedTrackPoint(); return true; }
-    if(state.selectedTrackId){ deleteSelectedTrack(); return true; }
-    if(state.selectedStlObjectId){ deleteSelectedStlObject(); return true; }
-    if(state.selectedBenchworkId){ deleteSelectedBenchwork(); return true; }
-    if(state.selectedFabricId){ deleteSelectedFabricRegion(); return true; }
-    const ids=currentSelectedBuildingIds();
-    if(ids.length){
-      state.buildings=state.buildings.filter(b=>!ids.includes(b.id));
-      clearBuildingSelection();
-      syncAll();
-      return true;
-    }
-    return false;
-  }
-  window.addEventListener('keydown', e=>{
-    if(e.key==='Shift') state.shiftKeyDown=true;
-    const target=e.target;
-    if(target && target.matches && target.matches('input,textarea,select,[contenteditable="true"]')) return;
-    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){
-      e.preventDefault();
-      if(e.shiftKey) redo(); else undo();
-      return;
-    }
-    if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='y'){
-      e.preventDefault();
-      redo();
-      return;
-    }
-    if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='c'){
-      if(currentSelectedBuildingIds().length){e.preventDefault(); if(copySelectedFootprint()) state.objectClipboardType='footprint'; renderSelected();}
-      else if(copySelectedSiteObject()){e.preventDefault(); renderSelected();}
-      return;
-    }
-    if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==='v'){
-      if(state.objectClipboardType==='siteObject' && state.siteObjectClipboard){e.preventDefault(); pasteSiteObjectFromClipboard();}
-      else if(state.footprintClipboard){e.preventDefault(); pasteFootprintFromClipboard();}
-      return;
-    }
-    if(e.key==='Enter'&&state.tool==='polygon') finishPolygon();
-    if(e.key==='Enter'&&state.tool==='benchwork') finishBenchworkOutline();
-    if(e.key==='Enter'&&state.tool==='road'&&state.roadMode==='outline') finishRoadOutline();
-    if(e.key==='Enter'&&state.tool==='road'&&state.roadMode==='centerline') finishRoadCenterline();
-    if(e.key==='Enter'&&state.tool==='track') finishTrack();
-    if(e.key==='Backspace'&&state.tool==='polygon'&&state.polygonDraft.length){state.polygonDraft.pop(); draw(); return;}
-    if(e.key==='Backspace'&&state.tool==='benchwork'&&state.benchworkDraft.length){state.benchworkDraft.pop(); draw(); return;}
-    if(e.key==='Backspace'&&state.tool==='track'&&state.trackDraft.length){state.trackDraft.pop(); state.trackDraftConnections?.pop?.(); if(!state.trackDraft.length) state.trackDraftExtension=null; draw(); return;}
-    if(e.key==='Escape'){
-      hideContextMenu();
-      if(cancelGithubBuildingPlacement()){ e.preventDefault(); return; }
-      state.hoverPreview=null;
-      state.trackDraft=[];
-      state.trackDraftConnections=[];
-      state.trackDraftExtension=null;
-      state.selectedAnnotationId=null;
-      state.selectedFabricId=null;
-      state.selectedStlObjectId=null;
-      if(state.roadOutlineEditId) state.roadOutlineEditId=null;
-      renderSelected();
-      draw();
-      return;
-    }
-    if(e.key==='Delete'||e.key==='Backspace'){
-      if(deleteCurrentSelection()) e.preventDefault();
-    }
+  const siteCanvasKeyboardController = createSiteCanvasKeyboardController({
+    state,
+    windowRef: window,
+    hideContextMenu,
+    cancelGithubBuildingPlacement,
+    renderSelected,
+    draw,
+    deleteSelectedAnnotation,
+    deleteSelectedRoadFeature,
+    deleteSelectedStreetlight,
+    deleteSelectedRoad,
+    currentSelectedBuildingIds,
+    deleteSelectedTrackAccessory,
+    deleteSelectedTrackPoint,
+    deleteSelectedTrack,
+    deleteSelectedStlObject,
+    deleteSelectedBenchwork,
+    deleteSelectedFabricRegion,
+    clearBuildingSelection,
+    syncAll,
+    undo,
+    redo,
+    copySelectedFootprint,
+    copySelectedSiteObject,
+    pasteSiteObjectFromClipboard,
+    pasteFootprintFromClipboard,
+    finishPolygon,
+    finishBenchworkOutline,
+    finishRoadOutline,
+    finishRoadCenterline,
+    finishTrack,
   });
-  window.addEventListener('keyup', e=>{
-    if(e.key==='Shift' || !e.shiftKey) state.shiftKeyDown=false;
-  });
-  window.addEventListener('blur', ()=>{state.shiftKeyDown=false;});
+  siteCanvasKeyboardController.bindKeyboardShortcuts();
   function finishPolygon(){if(state.polygonDraft.length<3) return; const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'polygon',pointsPx:state.polygonDraft.slice(),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,state:'notStarted',notes:'',hakoConfig:null,hakoFile:null,hakoFileId:null}; syncBuildingMetrics(b); state.buildings.push(b); setBuildingSelection([b.id], b.id); state.polygonDraft=[]; syncAll();}
   ({
     setActiveTool,

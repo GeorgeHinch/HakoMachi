@@ -303,6 +303,62 @@ test.describe('Site Planner module split contracts', () => {
     expect(statusHint.textContent).toContain('Select a road');
   });
 
+  test('canvas keyboard shortcuts and selection deletion live in a dedicated controller', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-canvas-keyboard-controller.js'), 'utf8');
+    const { createSiteCanvasKeyboardController } = await import('../js/site-planner/site-canvas-keyboard-controller.js');
+    const listeners = new Map();
+    const events = [];
+    const state = { selectedRoadId: 'road_1', buildings: [] };
+    const noop = () => {};
+    const controller = createSiteCanvasKeyboardController({
+      state,
+      windowRef: { addEventListener: (type, handler) => listeners.set(type, handler) },
+      hideContextMenu: noop,
+      cancelGithubBuildingPlacement: () => false,
+      renderSelected: noop,
+      draw: noop,
+      deleteSelectedAnnotation: noop,
+      deleteSelectedRoadFeature: noop,
+      deleteSelectedStreetlight: noop,
+      deleteSelectedRoad: () => events.push('road'),
+      currentSelectedBuildingIds: () => [],
+      deleteSelectedTrackAccessory: noop,
+      deleteSelectedTrackPoint: noop,
+      deleteSelectedTrack: noop,
+      deleteSelectedStlObject: noop,
+      deleteSelectedBenchwork: noop,
+      deleteSelectedFabricRegion: noop,
+      clearBuildingSelection: noop,
+      syncAll: noop,
+      undo: noop,
+      redo: noop,
+      copySelectedFootprint: () => false,
+      copySelectedSiteObject: () => false,
+      pasteSiteObjectFromClipboard: noop,
+      pasteFootprintFromClipboard: noop,
+      finishPolygon: noop,
+      finishBenchworkOutline: noop,
+      finishRoadOutline: noop,
+      finishRoadCenterline: noop,
+      finishTrack: noop,
+    });
+
+    expect(source).toContain("import { createSiteCanvasKeyboardController } from './site-planner/site-canvas-keyboard-controller.js';");
+    expect(source).toContain('siteCanvasKeyboardController.bindKeyboardShortcuts();');
+    expect(source).not.toContain("window.addEventListener('keydown', e=>{");
+    expect(controllerSource).toContain('export function createSiteCanvasKeyboardController');
+    expect(controllerSource).toContain('function deleteCurrentSelection');
+    expect(controllerSource).toContain('function bindKeyboardShortcuts');
+
+    controller.bindKeyboardShortcuts();
+    let prevented = false;
+    listeners.get('keydown')({ key: 'Delete', target: null, preventDefault: () => { prevented = true; } });
+
+    expect(events).toEqual(['road']);
+    expect(prevented).toBe(true);
+  });
+
   test('track accessory placement and interaction live outside the Site Planner monolith', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-interaction-controller.js'), 'utf8');

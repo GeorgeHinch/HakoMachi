@@ -16,6 +16,7 @@ import { createSiteBuildingRenderer2D } from './site-planner/site-building-rende
 import { createSiteBuildingPlacementController } from './site-planner/site-building-placement-controller.js';
 import { createSiteCanvasRenderer } from './site-planner/site-canvas-renderer.js';
 import { createSiteCanvasGestureController } from './site-planner/site-canvas-gesture-controller.js';
+import { createSiteCanvasHoverController } from './site-planner/site-canvas-hover-controller.js';
 import { createSiteCanvasKeyboardController } from './site-planner/site-canvas-keyboard-controller.js';
 import { createSiteCanvasPointerFinishController } from './site-planner/site-canvas-pointer-finish-controller.js';
 import { createSiteHistoryController } from './site-planner/site-history-controller.js';
@@ -2649,6 +2650,26 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function startExistingObjectInteraction(e,p){
     return ensureSitePointerInteractionController().startExistingObjectInteraction(e,p);
   }
+  const siteCanvasHoverController = createSiteCanvasHoverController({
+    state,
+    draw,
+    hitStreetlight,
+    selectedRoad,
+    hitRoadOutlineSegment,
+    hitRoadCenterlineSegment,
+    hitBenchworkSegment,
+    selectedBenchwork,
+    hitBenchwork,
+    hitRoad,
+    hitTrackAccessory,
+    hitTrack,
+    selectedTrack,
+    hitTrackSegment,
+    hitStlObject,
+    hitTest,
+    selected,
+    handleAt,
+  });
 
   canvas.addEventListener('pointerdown', e=>{
     e.preventDefault(); clearCanvasBrowserSelection(); hideContextMenu();
@@ -2880,41 +2901,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     moveCancelsLongPress(e);
     const p=screenToWorld(e); $('statusMouse').textContent=state.pxPerMm?`Pointer: ${fmt(pxToMm(p.x))}, ${fmt(pxToMm(p.y))} mm (${e.pointerType})`:`Pointer: ${fmt(p.x)}, ${fmt(p.y)} px (${e.pointerType})`;
     if(state.drag?.type==='pinch'){e.preventDefault(); updatePinch(); draw(); return;}
-    if(!state.drag){
-      if(state.githubBuildingPlacement){
-        state.githubBuildingPlacement.previewPoint=p;
-        state.hoverPreview=null;
-        draw();
-        return;
-      }
-      const hoverL=hitStreetlight(p,e.pointerType);
-      state.hoverStreetlightId=hoverL ? hoverL.id : null;
-      const hoverSelectedRoad=(state.selectedRoadId && !hoverL) ? selectedRoad() : null;
-      const hoverCurve=hoverSelectedRoad ? (hoverSelectedRoad.mode==='outline' ? (state.roadOutlineEditId===hoverSelectedRoad.id ? hitRoadOutlineSegment(p, hoverSelectedRoad, e.pointerType) : null) : hitRoadCenterlineSegment(p, hoverSelectedRoad, e.pointerType)) : null;
-      state.hoverRoadSegment=hoverCurve?{roadId:state.selectedRoadId,index:hoverCurve.index}:null;
-      const hoverBenchCurve=(state.selectedBenchworkId && !hoverL && !hoverCurve) ? hitBenchworkSegment(p, selectedBenchwork(), e.pointerType) : null;
-      state.hoverBenchworkSegment=hoverBenchCurve?{benchworkId:state.selectedBenchworkId,index:hoverBenchCurve.index}:null;
-      const hoverBW=(hoverL||hoverCurve||hoverBenchCurve) ? (hoverBenchCurve?selectedBenchwork():null) : hitBenchwork(p);
-      state.hoverBenchworkId=hoverBW ? hoverBW.id : null;
-      const hoverR=(hoverL||hoverBW) ? null : hitRoad(p);
-      state.hoverRoadId=hoverR ? hoverR.id : (hoverCurve?state.selectedRoadId:null);
-      const hoverItem=(hoverL||hoverBW||hoverR) ? null : hitTrackAccessory(p,e.pointerType);
-      state.hoverTrackAccessoryId=hoverItem ? hoverItem.id : null;
-      const hoverT=(hoverL||hoverBW||hoverR||hoverItem) ? null : hitTrack(p,e.pointerType);
-      state.hoverTrackId=hoverT ? hoverT.id : null;
-      const hoverSelectedTrack=state.selectedTrackId && !hoverL && !hoverBW && !hoverR ? selectedTrack() : null;
-      const hoverTrackCurve=hoverSelectedTrack ? hitTrackSegment(p, hoverSelectedTrack, e.pointerType) : null;
-      state.hoverTrackSegment=hoverTrackCurve?{trackId:state.selectedTrackId,index:hoverTrackCurve.index}:null;
-      const hoverStl=(hoverL||hoverBW||hoverR||hoverItem||hoverT) ? null : hitStlObject(p,e.pointerType);
-      state.hoverStlObjectId=hoverStl ? hoverStl.id : null;
-      const hoverB=(hoverL||hoverBW||hoverR||hoverItem||hoverT||hoverStl) ? null : hitTest(p);
-      state.hoverBuildingId=hoverB ? hoverB.id : null;
-      if(e.pointerType==='pen' && e.buttons===0){
-        const hb=selected()||hoverB, hh=hb?handleAt(p,hb,e.pointerType):null;
-        state.hoverPreview={point:p,kind:hh?'handle':'cursor',label:hh?hh.type.replace(/([A-Z])/g,' $1'):'Pencil'};
-      } else if(e.pointerType!=='pen') state.hoverPreview=null;
-      draw(); return;
-    }
+    if(!state.drag && siteCanvasHoverController.handleIdlePointerMove(e,p)) return;
     if(state.drag.pointerId!==undefined && state.drag.pointerId!==e.pointerId) return;
     e.preventDefault();
     const d=state.drag;

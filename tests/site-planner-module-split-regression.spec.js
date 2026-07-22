@@ -419,6 +419,46 @@ test.describe('Site Planner module split contracts', () => {
     expect(events).toContain('sync');
   });
 
+  test('idle canvas hover state lives in a dedicated controller', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-canvas-hover-controller.js'), 'utf8');
+    const { createSiteCanvasHoverController } = await import('../js/site-planner/site-canvas-hover-controller.js');
+    const state = {};
+    let draws = 0;
+    const noHit = () => null;
+    const controller = createSiteCanvasHoverController({
+      state,
+      draw: () => { draws += 1; },
+      hitStreetlight: noHit,
+      selectedRoad: noHit,
+      hitRoadOutlineSegment: noHit,
+      hitRoadCenterlineSegment: noHit,
+      hitBenchworkSegment: noHit,
+      selectedBenchwork: noHit,
+      hitBenchwork: noHit,
+      hitRoad: noHit,
+      hitTrackAccessory: noHit,
+      hitTrack: noHit,
+      selectedTrack: noHit,
+      hitTrackSegment: noHit,
+      hitStlObject: noHit,
+      hitTest: noHit,
+      selected: noHit,
+      handleAt: noHit,
+    });
+
+    expect(source).toContain("import { createSiteCanvasHoverController } from './site-planner/site-canvas-hover-controller.js';");
+    expect(source).toContain('siteCanvasHoverController.handleIdlePointerMove(e,p)');
+    expect(source).not.toContain('const hoverL=hitStreetlight(p,e.pointerType);');
+    expect(controllerSource).toContain('export function createSiteCanvasHoverController');
+    expect(controllerSource).toContain('function handleIdlePointerMove');
+
+    expect(controller.handleIdlePointerMove({ pointerType: 'mouse', buttons: 0 }, { x: 12, y: 18 })).toBe(true);
+    expect(state.hoverPreview).toBeNull();
+    expect(state.hoverRoadId).toBeNull();
+    expect(draws).toBe(1);
+  });
+
   test('track accessory placement and interaction live outside the Site Planner monolith', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-interaction-controller.js'), 'utf8');

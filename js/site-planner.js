@@ -8,6 +8,7 @@ import { createBuildingResizeProtectionController } from './site-planner/buildin
 import { createBuildingSelectionController } from './site-planner/building-selection-utils.js';
 import { createCanvasDrawingController } from './site-planner/canvas-drawing-utils.js';
 import { createCatenaryAutoPlacementController } from './site-planner/catenary-auto-placement-controller.js';
+import { createTrackToolTaskController } from './site-planner/track-tool-task-controller.js';
 import { createCanvasHoverPreviewRenderer } from './site-planner/canvas-hover-preview-renderer.js';
 import { createGroupSelectionController } from './site-planner/group-selection-controller.js';
 import { createSiteBuildingRenderer2D } from './site-planner/site-building-renderer-2d.js';
@@ -3203,62 +3204,26 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
       openRoadExportReview();
     }
   });
-  function beginTrackAccessoryPlacement(action){
-    state.trackTask=action;
-    state.catenarySectionDraft=null;
-    setWorkspaceMode('track', {preserveTrackTask: true});
-    setActiveTool('select', {preserveTrackTask: true});
-    renderSelected();
-    draw();
-    if(window.matchMedia && window.matchMedia('(max-width: 700px)').matches) setSidebarOpen(false);
-    else setSidebarOpen(true);
-    const hint=$('statusHint');
-    if(hint) hint.textContent=`${trackAccessoryLabel(action)} placement is active. Click near track to place a marker.`;
-    updateWorkspaceModeUi();
-  }
-  function beginCatenaryAutoSection(){
-    state.trackTask='catenaryAutoSection';
-    state.catenarySectionDraft=null;
-    setWorkspaceMode('track', {preserveTrackTask: true});
-    setActiveTool('select', {preserveTrackTask: true});
-    renderSelected();
-    draw();
-    if(window.matchMedia && window.matchMedia('(max-width: 700px)').matches) setSidebarOpen(false);
-    else setSidebarOpen(true);
-    const hint=$('statusHint');
-    if(hint) hint.textContent=`Auto catenary section is active. Click the start and end points on one track; poles use ${fmt(CATENARY_SPACING_MODEL_MM)} mm spacing (${CATENARY_PROTOTYPE_SPACING_M} m prototype at Japanese N scale).`;
-    updateWorkspaceModeUi();
-  }
-  document.querySelectorAll('[data-track-action]').forEach(btn=>btn.onclick=()=>{
-    const action=btn.dataset.trackAction;
-    setWorkspaceMode('track', {preserveTrackTask: true});
-    if(action==='draw'){
-      state.trackTask=null;
-      setActiveTool('track');
-      return;
-    }
-    if(action==='edit' || action==='connect'){
-      state.trackTask=action;
-      setActiveTool('select', {preserveTrackTask: true});
-      renderSelected();
-      draw();
-      setSidebarOpen(true);
-      const hint=$('statusHint');
-      if(hint) hint.textContent=action==='connect'
-        ? 'Endpoint connection editing is active. Select a track and drag an endpoint near another endpoint to snap them together.'
-        : 'Track editing is active. Select a track, then drag points or bend a highlighted segment.';
-      updateWorkspaceModeUi();
-      return;
-    }
-    if(isTrackAccessoryAction(action)){
-      beginTrackAccessoryPlacement(action);
-      return;
-    }
-    if(isCatenaryAutoSectionAction(action)){
-      beginCatenaryAutoSection();
-      return;
-    }
+  const trackToolTaskController = createTrackToolTaskController({
+    state,
+    documentRef: document,
+    windowRef: window,
+    getElement: $,
+    setWorkspaceMode,
+    setActiveTool,
+    renderSelected,
+    draw,
+    setSidebarOpen,
+    updateWorkspaceModeUi,
+    trackAccessoryLabel,
+    isTrackAccessoryAction,
+    isCatenaryAutoSectionAction,
+    fmt,
+    catenarySpacingModelMm: CATENARY_SPACING_MODEL_MM,
+    catenaryPrototypeSpacingM: CATENARY_PROTOTYPE_SPACING_M,
   });
+  const { beginTrackAccessoryPlacement, beginCatenaryAutoSection } = trackToolTaskController;
+  trackToolTaskController.bindTrackActionControls();
 
   const toolVariantController = createToolVariantController({
     state,

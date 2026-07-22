@@ -211,6 +211,50 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller.applyCatenaryToTrack('track_1')).toMatchObject({ created: 0, skipped: 4 });
   });
 
+  test('track task setup and Track-mode actions live in a dedicated controller', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-tool-task-controller.js'), 'utf8');
+    const { createTrackToolTaskController } = await import('../js/site-planner/track-tool-task-controller.js');
+    const catenaryButton = { dataset: { trackAction: 'catenaryAutoSection' } };
+    const state = { trackTask: null, catenarySectionDraft: { pending: true } };
+    const events = [];
+    const statusHint = { textContent: '' };
+    const controller = createTrackToolTaskController({
+      state,
+      documentRef: { querySelectorAll: selector => selector === '[data-track-action]' ? [catenaryButton] : [] },
+      windowRef: { matchMedia: () => ({ matches: false }) },
+      getElement: id => id === 'statusHint' ? statusHint : null,
+      setWorkspaceMode: (...args) => events.push(['workspace', ...args]),
+      setActiveTool: (...args) => events.push(['tool', ...args]),
+      renderSelected: () => events.push(['selected']),
+      draw: () => events.push(['draw']),
+      setSidebarOpen: value => events.push(['sidebar', value]),
+      updateWorkspaceModeUi: () => events.push(['ui']),
+      trackAccessoryLabel: action => action,
+      isTrackAccessoryAction: () => false,
+      isCatenaryAutoSectionAction: action => action === 'catenaryAutoSection',
+      fmt: value => String(value),
+      catenarySpacingModelMm: 30,
+      catenaryPrototypeSpacingM: 30,
+    });
+
+    expect(source).toContain("import { createTrackToolTaskController } from './site-planner/track-tool-task-controller.js';");
+    expect(source).toContain('trackToolTaskController.bindTrackActionControls();');
+    expect(source).not.toContain('function beginCatenaryAutoSection(){');
+    expect(controllerSource).toContain('export function createTrackToolTaskController');
+    expect(controllerSource).toContain('function beginTrackAccessoryPlacement');
+    expect(controllerSource).toContain('function beginCatenaryAutoSection');
+
+    controller.bindTrackActionControls();
+    catenaryButton.onclick();
+
+    expect(state.trackTask).toBe('catenaryAutoSection');
+    expect(state.catenarySectionDraft).toBeNull();
+    expect(events).toContainEqual(['tool', 'select', { preserveTrackTask: true }]);
+    expect(events).toContainEqual(['sidebar', true]);
+    expect(statusHint.textContent).toContain('30 mm spacing');
+  });
+
   test('track accessory placement and interaction live outside the Site Planner monolith', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-interaction-controller.js'), 'utf8');

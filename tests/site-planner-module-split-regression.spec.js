@@ -523,6 +523,68 @@ test.describe('Site Planner module split contracts', () => {
     expect(events).toEqual(expect.arrayContaining([['capture', 9], ['class', 'panning']]));
   });
 
+  test('page-level controls live in a dedicated controller', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-page-controls-controller.js'), 'utf8');
+    const { createSitePageControlsController } = await import('../js/site-planner/site-page-controls-controller.js');
+    const controls = new Map();
+    const createControl = () => ({
+      classList: { toggle: (...args) => events.push(['toggle', ...args]) },
+      addEventListener: (type, handler) => { controls.get('loadFile').listeners[type] = handler; },
+      listeners: {},
+      textContent: '',
+    });
+    const events = [];
+    for (const id of ['opacity', 'inputMode', 'snapBtn', 'saveBtn', 'githubSaveBtn', 'mobileSaveBtn']) controls.set(id, createControl());
+    const state = { annotations: [], inputMode: 'mouse', snapOn: false, view: {}, roadExportPreview: false };
+    const controller = createSitePageControlsController({
+      state,
+      getElement: id => controls.get(id) || null,
+      installTooltips: () => events.push('tooltips'),
+      installReferenceImageImport: () => events.push('image-import'),
+      draw: () => events.push('draw'),
+      modelKnownMm: () => 0,
+      dist: () => 0,
+      showStatusHint: () => {},
+      confirmFn: () => true,
+      syncAll: () => {},
+      renderSelected: () => {},
+      markDirty: () => {},
+      fitImage: () => {},
+      clearCacheAndReset: () => {},
+      openGithubSettings: () => {},
+      openGithubSitePlans: () => {},
+      openGithubBuildings: () => {},
+      saveCurrentSitePlan: () => events.push('save-current'),
+      saveSitePlanToGithub: options => events.push(['save-github', options]),
+      undo: () => {}, redo: () => {}, deleteSelectedAnnotation: () => {},
+      isLikelyStlFile: () => false, importStlAsSiteObject: async () => {},
+      openImportProgressModal: () => {}, isSiteBundlePackageFile: () => false, setImportProgress: () => {},
+      loadSitePlanBundle: async () => {}, loadProjectJsonObject: async () => {},
+      finishImportProgress: () => {}, failImportProgress: () => {},
+      setRoadExportPreview: () => {}, openRoadExportReview: () => {}, downloadText: () => {},
+      csvExport: () => '', svgExport: () => '', exportSelectedSeed: () => {},
+      updatePrimarySaveUi: () => events.push('save-ui'),
+    });
+
+    expect(source).toContain("import { createSitePageControlsController } from './site-planner/site-page-controls-controller.js';");
+    expect(source).toContain('sitePageControlsController.bindPageControls();');
+    expect(source).not.toContain("$('inputMode').onchange=e=>");
+    expect(controllerSource).toContain('export function createSitePageControlsController');
+    expect(controllerSource).toContain('function bindReferenceImageControls');
+    expect(controllerSource).toContain('function bindProjectControls');
+
+    controller.bindPageControls();
+    controls.get('inputMode').onchange({ target: { value: 'pencil' } });
+    controls.get('snapBtn').onclick();
+    controls.get('saveBtn').onclick();
+    controls.get('githubSaveBtn').onclick();
+
+    expect(state.inputMode).toBe('pencil');
+    expect(state.snapOn).toBe(true);
+    expect(events).toEqual(expect.arrayContaining(['tooltips', 'image-import', 'save-ui', 'save-current', ['save-github', { reuseCurrent: true }], ['toggle', 'active', true]]));
+  });
+
   test('track accessory placement and interaction live outside the Site Planner monolith', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-interaction-controller.js'), 'utf8');
@@ -614,14 +676,16 @@ test.describe('Site Planner module split contracts', () => {
   test('reference-image import and drop behavior is wired through the existing UI controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'reference-image-ui.js'), 'utf8');
+    const pageControls = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-page-controls-controller.js'), 'utf8');
 
     expect(source).toContain('installReferenceImageImport,');
-    expect(source).toContain('installReferenceImageImport();');
+    expect(source).toContain('sitePageControlsController.bindPageControls();');
     expect(source).not.toContain('async function loadReferenceImage(file)');
     expect(source).not.toContain('async function handleEmptyImageDrop(file)');
     expect(controller).toContain('async function loadReferenceImage(file)');
     expect(controller).toContain('function installReferenceImageImport()');
     expect(controller).toContain('pageHakoImportFileFromDataTransfer(event.dataTransfer)');
+    expect(pageControls).toContain('installReferenceImageImport();');
   });
 
   test('cache reset behavior is wired through the Site Planner reset controller', () => {
@@ -2322,17 +2386,19 @@ test('building import attachment and GitHub placement are wired through their co
   test('freehand annotation behavior is wired through the annotation controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'annotation-controller.js'), 'utf8');
+    const pageControls = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-page-controls-controller.js'), 'utf8');
 
     expect(source).toContain("import { createAnnotationController } from './site-planner/annotation-controller.js';");
     expect(source).toContain('} = createAnnotationController({');
     expect(source).toContain('hitAnnotation,');
     expect(source).toContain('drawAnnotations,');
-    expect(source).toContain("markDirty('annotations cleared');");
+    expect(source).toContain('sitePageControlsController.bindPageControls();');
 
     expect(controller).toContain('export function createAnnotationController');
     expect(controller).toContain('function hitAnnotation');
     expect(controller).toContain('function startAnnotationStroke');
     expect(controller).toContain('function drawAnnotations');
+    expect(pageControls).toContain("markDirty('annotations cleared');");
   });
 
   test('streetlight model behavior is wired through the streetlight controller', () => {

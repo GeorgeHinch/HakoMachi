@@ -21,6 +21,7 @@ import { createSiteCanvasKeyboardController } from './site-planner/site-canvas-k
 import { createSiteCanvasPointerMoveController } from './site-planner/site-canvas-pointer-move-controller.js';
 import { createSiteCanvasPointerDownController } from './site-planner/site-canvas-pointer-down-controller.js';
 import { createSiteCanvasPointerFinishController } from './site-planner/site-canvas-pointer-finish-controller.js';
+import { createSitePageControlsController } from './site-planner/site-page-controls-controller.js';
 import { createSiteHistoryController } from './site-planner/site-history-controller.js';
 import { createSiteResetController } from './site-planner/site-reset-controller.js';
 import { createContextMenuController } from './site-planner/context-menu-controller.js';
@@ -2955,33 +2956,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     updateCatenaryToolButton,
   } = toolVariantController);
   toolVariantController.installToolVariantControls();
-  installTooltips();
-  installReferenceImageImport();
-  if($('opacity')) $('opacity').oninput=e=>{state.imageOpacity=parseFloat(e.target.value); if(state.imageMeta)state.imageMeta.opacity=state.imageOpacity; draw();};
-  if($('imageLockBtn')) $('imageLockBtn').onclick=()=>{state.imageLocked=!state.imageLocked; $('imageLockBtn').textContent=state.imageLocked?'Locked':'Unlocked';};
-  $('applyScaleBtn').onclick=()=>{
-    const line=state.lastCalibrationLine||state.calibrationLine;
-    if(!line) return showStatusHint('Draw a calibration line first.', 'warning');
-    const known=modelKnownMm();
-    const len=dist({x:line.x1,y:line.y1},{x:line.x2,y:line.y2});
-    if(known<=0||len<=0) return showStatusHint('Calibration length must be greater than zero.', 'warning');
-    const nextPxPerMm=len/known;
-    if(state.pxPerMm && Math.abs(state.pxPerMm-nextPxPerMm)>1e-9){
-      const ok=confirm('Change calibration?\n\nThis will update all real millimeter values derived from the image, including building dimensions, road widths, sidewalk widths, streetlight sizes, and exported coordinates. Pixel positions on the image will stay in place, but measured values will change.');
-      if(!ok) return;
-    }
-    state.pxPerMm=nextPxPerMm;
-    state.calibrationLine=line;
-    syncAll();
-  };
-  $('clearScaleBtn').onclick=()=>{
-    if(state.pxPerMm){
-      const ok=confirm('Clear calibration?\n\nThis will remove calibrated millimeter measurements until you recalibrate. Existing image-space geometry will remain in place.');
-      if(!ok) return;
-    }
-    state.pxPerMm=null;
-    syncAll();
-  };
 
   const { clearCacheAndReset } = createSiteResetController({
     state,
@@ -3101,65 +3075,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function openGithubSettings(){ return githubLibraryUiController.openGithubSettings(); }
   function openGithubSitePlans(){ return githubLibraryUiController.openGithubSitePlans(); }
   function openGithubBuildings(){ return githubLibraryUiController.openGithubBuildings(); }
-  $('inputMode').onchange=e=>{state.inputMode=e.target.value; draw();};
-  $('snapBtn').onclick=()=>{state.snapOn=!state.snapOn; $('snapBtn').classList.toggle('active', state.snapOn); $('snapBtn').textContent=state.snapOn?'Snap: On':'Snap: Off'; draw();};
-  $('deleteAnnotationBtn').onclick=deleteSelectedAnnotation;
-  $('clearAnnotationsBtn').onclick=()=>{if(state.annotations.length && !confirm('Clear all freehand annotation notes?')) return; state.annotations=[]; state.selectedAnnotationId=null; renderSelected(); draw(); markDirty('annotations cleared');};
-  $('fitBtn').onclick=()=>{fitImage(); markDirty('view changed', {history:false});}; $('resetBtn').onclick=()=>{state.view={x:40,y:40,scale:1}; draw(); markDirty('view changed', {history:false});}; $('clearCacheBtn').onclick=clearCacheAndReset; if($('clearCachePanelBtn')) $('clearCachePanelBtn').onclick=clearCacheAndReset;
   function saveCurrentSitePlan(){
     if(activeGithubSiteSource()) return saveSitePlanToGithub({reuseCurrent:true});
     return saveSitePlanBundle();
   }
-  $('githubSettingsBtn').onclick=openGithubSettings;
-  $('githubSaveBtn').onclick=()=>saveSitePlanToGithub({reuseCurrent:true});
-  $('githubLoadBtn').onclick=openGithubSitePlans;
-  $('githubBuildingsBtn').onclick=openGithubBuildings;
-  if($('mobileGithubSettingsBtn')) $('mobileGithubSettingsBtn').onclick=openGithubSettings;
-  if($('mobileGithubSaveBtn')) $('mobileGithubSaveBtn').onclick=()=>saveSitePlanToGithub({reuseCurrent:true});
-  if($('mobileGithubLoadBtn')) $('mobileGithubLoadBtn').onclick=openGithubSitePlans;
-  if($('mobileGithubBuildingsBtn')) $('mobileGithubBuildingsBtn').onclick=openGithubBuildings;
-  $('saveBtn').onclick=()=>saveCurrentSitePlan();
-  if($('undoBtn')) $('undoBtn').onclick=()=>undo();
-  if($('redoBtn')) $('redoBtn').onclick=()=>redo();
-  if($('mobileUndoBtn')) $('mobileUndoBtn').onclick=()=>undo();
-  if($('mobileRedoBtn')) $('mobileRedoBtn').onclick=()=>redo();
-  $('loadFile').addEventListener('change', async e=>{
-    const f=e.target.files && e.target.files[0];
-    if(!f) return;
-    if(isLikelyStlFile(f)){
-      await importStlAsSiteObject(f);
-      e.target.value='';
-      return;
-    }
-    openImportProgressModal('Import site plan','Reading file...',`Reading ${f.name||'site plan file'}.`);
-    try{
-      const isPackage=isSiteBundlePackageFile(f);
-      setImportProgress(2,4,'Validating site plan...','Checking the project JSON and save format.');
-      if(isPackage){
-        setImportProgress(3,4,'Applying package...','Restoring the site plan and bundled reference image assets.');
-        await loadSitePlanBundle(f);
-      } else {
-        const text=await f.text();
-        const project=JSON.parse(text);
-        setImportProgress(3,4,'Applying site plan...','Restoring the canvas, image metadata, and placed objects.');
-        await loadProjectJsonObject(project, {fromFile:true});
-      }
-      finishImportProgress('Site plan imported.',`${f.name||'Project file'} has been loaded.`);
-    }
-    catch(err){failImportProgress('Could not load project.', err.message);}
-    e.target.value='';
-  });
-  if($('roadExportPreviewBtn')) $('roadExportPreviewBtn').onclick=()=>setRoadExportPreview(!state.roadExportPreview);
-  if($('mobileRoadExportPreviewBtn')) $('mobileRoadExportPreviewBtn').onclick=()=>setRoadExportPreview(!state.roadExportPreview);
-  if($('roadAssetSvgBtn')) $('roadAssetSvgBtn').onclick=openRoadExportReview;
-  if($('mobileRoadAssetSvgBtn')) $('mobileRoadAssetSvgBtn').onclick=openRoadExportReview;
-  $('csvBtn').onclick=()=>downloadText(csvExport(),'hakomachi-building-pads.csv','text/csv');
-  $('svgBtn').onclick=()=>downloadText(svgExport(),'hakomachi-site.svg','image/svg+xml');
-  $('seedBtn').onclick=exportSelectedSeed;
-  if($('mobileSaveBtn')) $('mobileSaveBtn').onclick=()=>saveCurrentSitePlan();
-  if($('mobileCsvBtn')) $('mobileCsvBtn').onclick=()=>downloadText(csvExport(),'hakomachi-building-pads.csv','text/csv');
-  if($('mobileSeedBtn')) $('mobileSeedBtn').onclick=exportSelectedSeed;
-  updatePrimarySaveUi();
   function openBuildingInHakoMachi(building){
     const b=building || selected();
     if(!b) return showStatusHint('Select a building first.', 'warning');
@@ -3215,6 +3134,48 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return sitePlanSvgExport({state, width:w, height:h, tracksSvg:''}, {buildingCenter, escapeHtml, mmToPx, normalizeBenchworkOutline, normalizeRoad, normalizeRoadFeature, normalizeStreetlight, polygonCenter, visibleBuildingPolygons});
   }
   function slug(s){return githubData.slugify(s, 'building');}
+
+  const sitePageControlsController = createSitePageControlsController({
+    state,
+    getElement: $,
+    installTooltips,
+    installReferenceImageImport,
+    draw,
+    modelKnownMm,
+    dist,
+    showStatusHint,
+    confirmFn: confirm,
+    syncAll,
+    renderSelected,
+    markDirty,
+    fitImage,
+    clearCacheAndReset,
+    openGithubSettings,
+    openGithubSitePlans,
+    openGithubBuildings,
+    saveCurrentSitePlan,
+    saveSitePlanToGithub,
+    undo,
+    redo,
+    deleteSelectedAnnotation,
+    isLikelyStlFile,
+    importStlAsSiteObject,
+    openImportProgressModal,
+    isSiteBundlePackageFile,
+    setImportProgress,
+    loadSitePlanBundle,
+    loadProjectJsonObject,
+    finishImportProgress,
+    failImportProgress,
+    setRoadExportPreview,
+    openRoadExportReview,
+    downloadText,
+    csvExport,
+    svgExport,
+    exportSelectedSeed,
+    updatePrimarySaveUi,
+  });
+  sitePageControlsController.bindPageControls();
 
   const siteRuntimeLifecycleController = createSiteRuntimeLifecycleController({
     state, windowRef: window, localStorageRef: localStorage, sessionStorageRef: sessionStorage,

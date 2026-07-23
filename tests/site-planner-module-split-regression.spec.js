@@ -117,6 +117,18 @@ test.describe('Site Planner module split contracts', () => {
     expect(detail).toContain('setRoadMarkingOutputMode(roadFeature');
   });
 
+  test('road feature configuration rules are wired through their controller', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'road-feature-config-controller.js'), 'utf8');
+
+    expect(source).toContain("import { createRoadFeatureConfigController } from './site-planner/road-feature-config-controller.js';");
+    expect(source).toContain('} = createRoadFeatureConfigController({');
+    expect(source).not.toContain('function setRoadMarkingOutputMode(feature, mode){');
+    expect(controller).toContain('function migrateLoadedRoadFeatures(features)');
+    expect(controller).toContain('function applyPhysicalGrateFamily(feature, key)');
+    expect(controller).toContain('function setRoadMarkingOutputMode(feature, mode)');
+  });
+
   test('road detail controls are wired through their sidebar module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-road-detail.js'), 'utf8');

@@ -56,13 +56,12 @@ import { createImportProgressController } from './site-planner/import-progress-m
 import { BUILDING_STATES, FABRIC_PRESETS, JP_ROAD_MARKING_STANDARD_ID, ROAD_WIDTH_PRESETS, SIDEWALK_WIDTH_PRESETS, TRACK_PROFILE_DEFAULTS } from './site-planner/presets.js';
 import { loadAlignmentMessage, restoreProjectView, savedImageDimensions, scaleLoadedPixelGeometry } from './site-planner/project-load-utils.js';
 import { createReferenceImageUiController } from './site-planner/reference-image-ui.js';
-import { drainageGrateFamilyOptions, grateFamilyPresetByKey } from './site-planner/road-drainage-grate-inserts.js';
 import { normalizeIntersectionOverride, roadArmKey } from './site-planner/road-intersection-overrides.js';
 import { createRoadSystemController } from './site-planner/road-system-controller.js';
 import { createRoadAssetExportController } from './site-planner/road-asset-export-controller.js';
 import { createRoadExportReviewController } from './site-planner/road-export-review-panel.js';
 import { createRoadIntersectionMarkingControls } from './site-planner/road-intersection-marking-controls.js';
-import { migrateRoadFeatures } from './site-planner/road-feature-migration.js';
+import { createRoadFeatureConfigController } from './site-planner/road-feature-config-controller.js';
 import { createRoadPresetApplicationController } from './site-planner/road-preset-application-utils.js';
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
 import { RAIL_CROSSING_CENTER_CLEARANCE_MM, normalizeRailCrossingOverride, railCrossingOverrideKey, railCrossingSvgRecords } from './site-planner/rail-crossing-generator.js';
@@ -450,74 +449,21 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function normalizeRoadFeature(f){
     return roadSystem.normalizeRoadFeature(f);
   }
-  function migrateLoadedRoadFeatures(features){
-    return migrateRoadFeatures(Array.isArray(features) ? structuredClone(features) : [], {}, { pxPerMm: state.pxPerMm }).map(normalizeRoadFeature);
-  }
-  function grateFamilyOptionsHtml(selectedKey){
-    const selected=grateFamilyPresetByKey(selectedKey||'rectangularDrain').key;
-    return drainageGrateFamilyOptions().map(option=>`<option value="${escapeAttr(option.value)}" ${option.value===selected?'selected':''}>${escapeHtml(option.label)}</option>`).join('');
-  }
-  function applyPhysicalGrateFamily(feature, key){
-    const preset=grateFamilyPresetByKey(key||feature.grateInsertSpec?.key||'rectangularDrain');
-    feature.physicalInsert='foldedDrainageGrateInsert';
-    feature.grateInsertSpec={
-      ...(feature.grateInsertSpec||{}),
-      key:preset.key,
-      widthMm:preset.widthMm,
-      depthMm:preset.depthMm,
-      diameterMm:preset.diameterMm,
-      shape:preset.shape,
-    };
-    feature.hatchShape=preset.shape==='circle'?'circle':'rect';
-    if(preset.shape==='circle'){
-      feature.diameterMm=preset.diameterMm||preset.widthMm;
-      if(state.pxPerMm) feature.diameterPx=mmToPx(feature.diameterMm);
-    } else {
-      feature.widthMm=preset.widthMm;
-      feature.depthMm=preset.depthMm;
-      if(state.pxPerMm){feature.widthPx=mmToPx(feature.widthMm); feature.depthPx=mmToPx(feature.depthMm);}
-    }
-    return feature;
-  }
-  function syncPhysicalGrateSpecDimensions(feature){
-    if(feature.physicalInsert!=='foldedDrainageGrateInsert') return feature;
-    feature.grateInsertSpec=feature.grateInsertSpec||{key:feature.hatchShape==='circle'?'etchedManholeCover':'rectangularDrain'};
-    if(feature.hatchShape==='circle'){
-      feature.grateInsertSpec.shape='circle';
-      feature.grateInsertSpec.diameterMm=feature.diameterMm;
-      feature.grateInsertSpec.widthMm=feature.diameterMm;
-      feature.grateInsertSpec.depthMm=feature.diameterMm;
-    } else {
-      feature.grateInsertSpec.shape='rect';
-      feature.grateInsertSpec.widthMm=feature.widthMm;
-      feature.grateInsertSpec.depthMm=feature.depthMm;
-    }
-    return feature;
-  }
-  function setPhysicalGrateMode(feature, enabled){
-    if(enabled) return applyPhysicalGrateFamily(feature, feature.grateInsertSpec?.key || (feature.hatchShape==='circle'?'etchedManholeCover':'rectangularDrain'));
-    delete feature.physicalInsert;
-    delete feature.grateInsertSpec;
-    return feature;
-  }
-  function setRoadMarkingOutputMode(feature, mode){
-    feature.outputMode=mode==='paintStencil'?'paintStencil':'etch';
-    if(feature.outputMode==='paintStencil'){
-      feature.visualOnly=false;
-      feature.cutBehavior='paintStencil';
-      feature.exportLayer='paintStencilCut';
-      feature.stencilMaterialId=feature.stencilMaterialId||'stencil-stock';
-      feature.stencilSpec=feature.stencilSpec||{marginMm:2, bridgeMm:0.35};
-    } else {
-      feature.visualOnly=true;
-      feature.cutBehavior='etchOnly';
-      feature.exportLayer='roadMarkingEtch';
-    }
-    return feature;
-  }
-  function normalizeDrivingSide(value){
-    return value === 'right' ? 'right' : 'left';
-  }
+  const {
+    migrateLoadedRoadFeatures,
+    grateFamilyOptionsHtml,
+    applyPhysicalGrateFamily,
+    syncPhysicalGrateSpecDimensions,
+    setPhysicalGrateMode,
+    setRoadMarkingOutputMode,
+    normalizeDrivingSide,
+  } = createRoadFeatureConfigController({
+    state,
+    mmToPx,
+    escapeAttr,
+    escapeHtml,
+    normalizeRoadFeature,
+  });
   function selectedRoadFeature(){return roadSystem.selectedRoadFeature();}
   function clearRoadFeatureSelection(){return roadSystem.clearRoadFeatureSelection();}
   function roadSurfaceAtPoint(p){

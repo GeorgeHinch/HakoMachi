@@ -34,13 +34,9 @@ import { createFootprintClipboardController } from './site-planner/footprint-cli
 import { cacheImageAsset, cachedImageAsset, githubHakoAssetPath, githubImageAssetPath, githubSiteAssetFolderPath, githubStlAssetPath, githubStlSourceAssetPath, hakoFileAssetReference, imageAssetFileName, imageAssetReference, imageMetaForProject, stlAssetReference, stlSourceAssetReference, uniqueHakoAssetFileName, uniqueStlAssetFileName, uniqueStlSourceAssetFileName } from './site-planner/github-asset-paths.js';
 import { createBenchworkController } from './site-planner/benchwork-controller.js';
 import { createGithubDataAccess } from './site-planner/github-access-utils.js';
-import { createGithubSiteAssetController } from './site-planner/github-site-asset-controller.js';
-import { createGithubSiteLoadController } from './site-planner/github-site-load-controller.js';
-import { createGithubSiteSaveController } from './site-planner/github-site-save-controller.js';
 import { createGithubSiteSourceController } from './site-planner/github-site-source-controller.js';
 import { githubPlacementPreviewPolygon, githubRecordPlacementShape } from './site-planner/github-building-placement-utils.js';
 import { createGithubBuildingPreviewRenderer } from './site-planner/github-building-preview-renderer.js';
-import { createGithubLibraryUiController } from './site-planner/github-library-ui-controller.js';
 import { createGithubModalController } from './site-planner/github-modal-utils.js';
 import { githubProjectName, githubSiteRecord, isGithubContentsMetadata, normalizeGithubLibrary, normalizeLoadedSitePlanPayload, upsertGithubSitePlan } from './site-planner/github-site-library.js';
 import { createHakoBuildingGeometryController } from './site-planner/hako-building-geometry-controller.js';
@@ -102,8 +98,7 @@ import { createSiteBuildingProjectController } from './site-planner/site-buildin
 import { createSiteObjectSelectionController } from './site-planner/site-object-selection-controller.js';
 import { createSitePointerInteractionController } from './site-planner/site-pointer-interaction-controller.js';
 import { createSiteProjectPersistenceController } from './site-planner/site-project-persistence-controller.js';
-import { createSiteProjectBundleController } from './site-planner/site-project-bundle-controller.js';
-import { createSiteProjectLoadController } from './site-planner/site-project-load-controller.js';
+import { createSiteProjectWorkflowFacade } from './site-planner/site-project-workflow-facade.js';
 import { createSiteRuntimeLifecycleController } from './site-planner/site-runtime-lifecycle-controller.js';
 import { createSidebarUiController } from './site-planner/sidebar-ui.js';
 import { createStatusUiController } from './site-planner/status-ui.js';
@@ -2599,99 +2594,72 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     downloadText(JSON.stringify(makeSeed(b),null,2),`${slug(b.name)}-hakomachi-seed.json`,'application/json');
   }
   const {
-    saveGithubImageAsset,
-    saveGithubHakoAssets,
-    saveGithubStlAssets,
-    resolveProjectImageFromGithub,
-    resolveProjectHakoAssetsFromGithub,
-    resolveProjectStlAssetsFromGithub,
-  } = createGithubSiteAssetController({
-    state,
-    defaultSiteDir:GITHUB_DEFAULT_SITE_DIR,
-    dataUrlInfo,
-    githubImageAssetPath,
-    imageAssetReference,
-    setGithubProgress,
-    writeGithubBase64File,
-    cacheImageAsset,
-    normalizeBuilding,
-    hakoFileText,
-    uniqueHakoAssetFileName,
-    githubHakoAssetPath,
-    hakoFileAssetReference,
-    textToBase64,
-    normalizeStlObject,
-    uniqueStlAssetFileName,
-    githubStlAssetPath,
-    stlAssetReference,
-    uniqueStlSourceAssetFileName,
-    githubStlSourceAssetPath,
-    stlSourceAssetReference,
-    cachedImageAsset,
-    setGithubStatus,
-    readGithubBase64File,
-    dataUrlFromBase64,
-    base64ToText,
-  });
-  const {saveSitePlanToGithub}=createGithubSiteSaveController({
-    defaultSiteDir:GITHUB_DEFAULT_SITE_DIR,
-    createPersistenceDiagnostics,
-    getGithubSettings,
-    requireGithubSettings,
-    openGithubSettings,
-    setGithubStatus,
-    getCurrentGithubSite,
-    projectJson,
-    githubProjectName,
-    prompt,
-    openGithubSaveProgressModal,
-    setGithubProgress,
-    slug,
-    cleanRepoPath:githubData.cleanRepoPath,
-    saveGithubImageAsset,
-    saveGithubHakoAssets,
-    saveGithubStlAssets,
-    summarizePersistenceAssets,
-    githubSiteAssetFolderPath,
-    diagnosticByteLength,
-    writeGithubFile,
-    loadGithubLibrary,
-    upsertGithubSitePlan,
-    githubSiteRecord,
-    rememberGithubSiteSource,
-    markManualSaveComplete,
-    closeGithubModal,
-  });
-  const {loadSitePlanFromGithub}=createGithubSiteLoadController({
-    createPersistenceDiagnostics,
-    getGithubSettings,
-    requireGithubSettings,
-    setGithubStatus,
-    readGithubFile,
-    diagnosticByteLength,
-    isGithubContentsMetadata,
-    normalizeLoadedSitePlanPayload,
-    resolveProjectImageFromGithub,
-    resolveProjectHakoAssetsFromGithub,
-    resolveProjectStlAssetsFromGithub,
     loadProject,
-    rememberGithubSiteSource,
-    closeGithubModal,
-    showStatusHint,
+    loadProjectJsonObject,
+    loadSitePlanBundle,
+    openGithubSettings,
+    openGithubSitePlans,
+    openGithubBuildings,
+    saveCurrentSitePlan,
+    saveSitePlanToGithub,
+  } = createSiteProjectWorkflowFacade({
+    githubAssets: {
+      state, defaultSiteDir:GITHUB_DEFAULT_SITE_DIR, dataUrlInfo, githubImageAssetPath,
+      imageAssetReference, setGithubProgress, writeGithubBase64File, cacheImageAsset,
+      normalizeBuilding, hakoFileText, uniqueHakoAssetFileName, githubHakoAssetPath,
+      hakoFileAssetReference, textToBase64, normalizeStlObject, uniqueStlAssetFileName,
+      githubStlAssetPath, stlAssetReference, uniqueStlSourceAssetFileName,
+      githubStlSourceAssetPath, stlSourceAssetReference, cachedImageAsset,
+      setGithubStatus, readGithubBase64File, dataUrlFromBase64, base64ToText,
+    },
+    githubSave: {
+      defaultSiteDir:GITHUB_DEFAULT_SITE_DIR, createPersistenceDiagnostics,
+      getGithubSettings, requireGithubSettings, setGithubStatus, getCurrentGithubSite,
+      projectJson, githubProjectName, prompt, openGithubSaveProgressModal,
+      setGithubProgress, slug, cleanRepoPath:githubData.cleanRepoPath,
+      summarizePersistenceAssets, githubSiteAssetFolderPath, diagnosticByteLength,
+      writeGithubFile, loadGithubLibrary, upsertGithubSitePlan, githubSiteRecord,
+      rememberGithubSiteSource, markManualSaveComplete, closeGithubModal,
+    },
+    githubLoad: {
+      createPersistenceDiagnostics, getGithubSettings, requireGithubSettings,
+      setGithubStatus, readGithubFile, diagnosticByteLength, isGithubContentsMetadata,
+      normalizeLoadedSitePlanPayload, rememberGithubSiteSource, closeGithubModal,
+      showStatusHint,
+    },
+    githubLibrary: {
+      getElement: $, getGithubSettings, setGithubSettings, requireGithubSettings,
+      openGithubModal, closeGithubModal, setGithubStatus, loadGithubLibrary,
+      normalizeGithubLibrary, escapeAttr, escapeHtml, windowRef: window,
+      documentRef: document, armGithubBuildingPlacement, renderGithubBuildingStill,
+      githubBuildingPreviewConfig, upgradeGithubBuildingPreviewFromHako,
+      promptFn: prompt,
+    },
+    bundle: {
+      windowRef:window, state, createPersistenceDiagnostics, buildLocalImageBundleAsset,
+      buildLocalHakoBundleAssets, buildLocalStlBundleAssets, cachedImageAsset,
+      imageAssetReference, imageAssetFileName, dataUrlInfo, normalizeBuilding,
+      hakoFileText, uniqueHakoAssetFileName, hakoFileAssetReference,
+      normalizeStlObject, uniqueStlAssetFileName, stlAssetReference,
+      uniqueStlSourceAssetFileName, stlSourceAssetReference, projectJson,
+      summarizePersistenceAssets, cacheImageAsset, downloadBlob, markManualSaveComplete,
+      showStatusHint, normalizeLoadedSitePlanPayload, rememberGithubSiteSource,
+      githubSiteSourceFromProject, findSiteBundleProjectName, diagnosticByteLength,
+      hydrateSiteBundleAssets, dataUrlFromBase64,
+    },
+    projectLoad: {
+      windowRef:window, documentRef:document, state, canvas, getElement:$,
+      setAutosaveSuppressed:value=>{autosaveSuppressed=value;}, restoreProjectView,
+      applySite3DSettings, syncSite3DControls, wrap, collectProjectBuildings,
+      footprintLoadMessage, savedImageDimensions, normalizeRoad, normalizeTrack,
+      normalizeTrackAccessory, migrateLoadedRoadFeatures, normalizeDrivingSide,
+      normalizeStlObject, normalizeBenchworkOutline, normalizeFabricRegion,
+      normalizeStreetlight, clearBuildingSelection, setImageStatus,
+      updateImagePortableStatus, scaleLoadedPixelGeometry, loadAlignmentMessage,
+      fitImage, syncAll, resetHistory, updateAutosaveStatus,
+    },
+    activeGithubSiteSource,
   });
-  const githubLibraryUiController = createGithubLibraryUiController({
-    getElement: $, getGithubSettings, setGithubSettings, requireGithubSettings, openGithubModal, closeGithubModal, setGithubStatus,
-    loadGithubLibrary, normalizeGithubLibrary, escapeAttr, escapeHtml, windowRef: window, documentRef: document,
-    loadSitePlanFromGithub, armGithubBuildingPlacement, renderGithubBuildingStill, githubBuildingPreviewConfig,
-    upgradeGithubBuildingPreviewFromHako, promptFn: prompt,
-  });
-  function openGithubSettings(){ return githubLibraryUiController.openGithubSettings(); }
-  function openGithubSitePlans(){ return githubLibraryUiController.openGithubSitePlans(); }
-  function openGithubBuildings(){ return githubLibraryUiController.openGithubBuildings(); }
-  function saveCurrentSitePlan(){
-    if(activeGithubSiteSource()) return saveSitePlanToGithub({reuseCurrent:true});
-    return saveSitePlanBundle();
-  }
   function openBuildingInHakoMachi(building){
     const b=building || selected();
     if(!b) return showStatusHint('Select a building first.', 'warning');
@@ -2718,27 +2686,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function projectJson(opts={}){
     return ensureSiteProjectPersistenceController().projectJson(opts);
   }
-  const { saveSitePlanBundle, loadProjectJsonObject, loadSitePlanBundle } = createSiteProjectBundleController({
-    windowRef:window,state,createPersistenceDiagnostics,buildLocalImageBundleAsset,buildLocalHakoBundleAssets,buildLocalStlBundleAssets,
-    cachedImageAsset,imageAssetReference,imageAssetFileName,dataUrlInfo,normalizeBuilding,hakoFileText,uniqueHakoAssetFileName,hakoFileAssetReference,
-    normalizeStlObject,uniqueStlAssetFileName,stlAssetReference,uniqueStlSourceAssetFileName,stlSourceAssetReference,projectJson,
-    summarizePersistenceAssets,cacheImageAsset,downloadBlob,markManualSaveComplete,showStatusHint,normalizeLoadedSitePlanPayload,loadProject,
-    rememberGithubSiteSource,githubSiteSourceFromProject,findSiteBundleProjectName,diagnosticByteLength,hydrateSiteBundleAssets,dataUrlFromBase64,
-  });
-  let siteProjectLoadController=null;
-  function ensureSiteProjectLoadController(){
-    if(!siteProjectLoadController){
-      siteProjectLoadController=createSiteProjectLoadController({
-        windowRef:window,documentRef:document,state,canvas,getElement:$,setAutosaveSuppressed:value=>{autosaveSuppressed=value;},
-        restoreProjectView,applySite3DSettings,syncSite3DControls,wrap,collectProjectBuildings,footprintLoadMessage,savedImageDimensions,
-        normalizeRoad,normalizeTrack,normalizeTrackAccessory,migrateLoadedRoadFeatures,normalizeDrivingSide,normalizeStlObject,normalizeBenchworkOutline,
-        normalizeFabricRegion,normalizeStreetlight,clearBuildingSelection,setImageStatus,updateImagePortableStatus,scaleLoadedPixelGeometry,
-        loadAlignmentMessage,fitImage,syncAll,resetHistory,updateAutosaveStatus,
-      });
-    }
-    return siteProjectLoadController;
-  }
-  function loadProject(project, opts={}){ return ensureSiteProjectLoadController().loadProject(project, opts); }
   function csvExport(){syncAll(); return buildingCsvExport(state.buildings, {normalizeBuilding});}
 
   function svgExport(){

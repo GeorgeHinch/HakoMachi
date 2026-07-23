@@ -2193,9 +2193,12 @@ test.describe('Site Planner module split contracts', () => {
   test('local site bundle save and load workflows are wired through their controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-project-bundle-controller.js'), 'utf8');
+    const facade = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-project-workflow-facade.js'), 'utf8');
 
-    expect(source).toContain("import { createSiteProjectBundleController } from './site-planner/site-project-bundle-controller.js';");
-    expect(source).toContain('const { saveSitePlanBundle, loadProjectJsonObject, loadSitePlanBundle } = createSiteProjectBundleController({');
+    expect(source).toContain("import { createSiteProjectWorkflowFacade } from './site-planner/site-project-workflow-facade.js';");
+    expect(source).toContain('} = createSiteProjectWorkflowFacade({');
+    expect(facade).toContain("import { createSiteProjectBundleController } from './site-project-bundle-controller.js';");
+    expect(facade).toContain('const { saveSitePlanBundle, loadProjectJsonObject, loadSitePlanBundle } = createSiteProjectBundleController({');
     expect(source).not.toContain('function loadProject(p, opts={}){');
     expect(source).not.toContain('async function loadSitePlanBundle(file){');
     expect(controller).toContain('export function createSiteProjectBundleController');
@@ -2207,10 +2210,12 @@ test.describe('Site Planner module split contracts', () => {
   test('project application and image restoration are wired through their controller', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-project-load-controller.js'), 'utf8');
+    const facade = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-project-workflow-facade.js'), 'utf8');
 
-    expect(source).toContain("import { createSiteProjectLoadController } from './site-planner/site-project-load-controller.js';");
-    expect(source).toContain('siteProjectLoadController=createSiteProjectLoadController({');
-    expect(source).toContain('function loadProject(project, opts={}){ return ensureSiteProjectLoadController().loadProject(project, opts); }');
+    expect(source).toContain("import { createSiteProjectWorkflowFacade } from './site-planner/site-project-workflow-facade.js';");
+    expect(facade).toContain("import { createSiteProjectLoadController } from './site-project-load-controller.js';");
+    expect(facade).toContain('if (!projectLoadController) projectLoadController = createSiteProjectLoadController(projectLoad);');
+    expect(facade).toContain('function loadProject(project, options = {})');
     expect(source).not.toContain('async function saveSitePlanBundle(){');
     expect(controller).toContain('export function createSiteProjectLoadController');
     expect(controller).toContain('function loadProject(project, opts = {})');
@@ -2305,9 +2310,11 @@ test('building import attachment and GitHub placement are wired through their co
   test('GitHub site asset save and load helpers are wired through their controller', () => {
     const source=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'github-site-asset-controller.js'), 'utf8');
+    const facade=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-project-workflow-facade.js'), 'utf8');
 
-    expect(source).toContain("import { createGithubSiteAssetController } from './site-planner/github-site-asset-controller.js';");
-    expect(source).toContain('} = createGithubSiteAssetController({');
+    expect(source).toContain("import { createSiteProjectWorkflowFacade } from './site-planner/site-project-workflow-facade.js';");
+    expect(facade).toContain("import { createGithubSiteAssetController } from './github-site-asset-controller.js';");
+    expect(facade).toContain('const assets = createGithubSiteAssetController(githubAssets);');
     expect(source).not.toContain('async function saveGithubImageAsset(');
     expect(source).not.toContain('async function resolveProjectStlAssetsFromGithub(');
     expect(controller).toContain('export function createGithubSiteAssetController');
@@ -2319,9 +2326,11 @@ test('building import attachment and GitHub placement are wired through their co
   test('GitHub site save orchestration is wired through its controller', () => {
     const source=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'github-site-save-controller.js'), 'utf8');
+    const facade=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-project-workflow-facade.js'), 'utf8');
 
-    expect(source).toContain("import { createGithubSiteSaveController } from './site-planner/github-site-save-controller.js';");
-    expect(source).toContain('const {saveSitePlanToGithub}=createGithubSiteSaveController({');
+    expect(source).toContain("import { createSiteProjectWorkflowFacade } from './site-planner/site-project-workflow-facade.js';");
+    expect(facade).toContain("import { createGithubSiteSaveController } from './github-site-save-controller.js';");
+    expect(facade).toContain('const { saveSitePlanToGithub } = createGithubSiteSaveController({');
     expect(source).not.toContain('async function saveSitePlanToGithub(options={}){');
     expect(controller).toContain('export function createGithubSiteSaveController');
     expect(controller).toContain("const reuseCurrent=!!(options.reuseCurrent&&current?.id&&current?.name&&current?.path);");
@@ -2331,9 +2340,11 @@ test('building import attachment and GitHub placement are wired through their co
   test('GitHub site load orchestration is wired through its controller', () => {
     const source=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'github-site-load-controller.js'), 'utf8');
+    const facade=fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-project-workflow-facade.js'), 'utf8');
 
-    expect(source).toContain("import { createGithubSiteLoadController } from './site-planner/github-site-load-controller.js';");
-    expect(source).toContain('const {loadSitePlanFromGithub}=createGithubSiteLoadController({');
+    expect(source).toContain("import { createSiteProjectWorkflowFacade } from './site-planner/site-project-workflow-facade.js';");
+    expect(facade).toContain("import { createGithubSiteLoadController } from './github-site-load-controller.js';");
+    expect(facade).toContain('const { loadSitePlanFromGithub } = createGithubSiteLoadController({');
     expect(source).not.toContain('async function loadSitePlanFromGithub(record){');
     expect(controller).toContain('export function createGithubSiteLoadController');
     expect(controller).toContain("diagnostics.measure('resolve STL assets'");
@@ -2766,12 +2777,14 @@ test('building import attachment and GitHub placement are wired through their co
 test('GitHub settings and library list presentation are wired through their controller', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
   const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'github-library-ui-controller.js'), 'utf8');
+  const facade = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-project-workflow-facade.js'), 'utf8');
 
-  expect(source).toContain("import { createGithubLibraryUiController } from './site-planner/github-library-ui-controller.js';");
-  expect(source).toContain('const githubLibraryUiController = createGithubLibraryUiController({');
-  expect(source).toContain('function openGithubSettings(){ return githubLibraryUiController.openGithubSettings(); }');
-  expect(source).toContain('function openGithubSitePlans(){ return githubLibraryUiController.openGithubSitePlans(); }');
-  expect(source).toContain('function openGithubBuildings(){ return githubLibraryUiController.openGithubBuildings(); }');
+  expect(source).toContain("import { createSiteProjectWorkflowFacade } from './site-planner/site-project-workflow-facade.js';");
+  expect(facade).toContain("import { createGithubLibraryUiController } from './github-library-ui-controller.js';");
+  expect(facade).toContain('const githubLibraryUiController = createGithubLibraryUiController({');
+  expect(facade).toContain('function openGithubSettings()');
+  expect(facade).toContain('function openGithubSitePlans()');
+  expect(facade).toContain('function openGithubBuildings()');
   expect(source).not.toContain("function openGithubSettings(){\n    const settings=getGithubSettings();");
   expect(controller).toContain('export function createGithubLibraryUiController({');
   expect(controller).toContain('function openGithubSettings()');

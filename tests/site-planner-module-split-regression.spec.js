@@ -459,6 +459,35 @@ test.describe('Site Planner module split contracts', () => {
     expect(draws).toBe(1);
   });
 
+  test('active canvas drag mutation lives in a dedicated controller', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-canvas-pointer-move-controller.js'), 'utf8');
+    const { createSiteCanvasPointerMoveController } = await import('../js/site-planner/site-canvas-pointer-move-controller.js');
+    const building = { id: 'building_1', padType: 'rect', x: 10, y: 20 };
+    const state = {
+      drag: { type: 'move', start: { x: 10, y: 20 }, orig: { id: 'building_1', padType: 'rect', x: 10, y: 20 } },
+      buildings: [building],
+    };
+    const metrics = [];
+    const controller = createSiteCanvasPointerMoveController({
+      state,
+      syncBuildingMetrics: item => metrics.push(item.id),
+    });
+
+    expect(source).toContain("import { createSiteCanvasPointerMoveController } from './site-planner/site-canvas-pointer-move-controller.js';");
+    expect(source).toContain('siteCanvasPointerMoveController.handleActivePointerMove(e,p);');
+    expect(source).not.toContain('const d=state.drag;');
+    expect(controllerSource).toContain('export function createSiteCanvasPointerMoveController');
+    expect(controllerSource).toContain('function handleActivePointerMove');
+    expect(controllerSource).toContain("else if(d.type==='moveTrackAccessory')");
+    expect(controllerSource).toContain("else if(d.type==='roadPoint')");
+
+    controller.handleActivePointerMove({ pointerType: 'mouse' }, { x: 34, y: 51 });
+
+    expect(building).toMatchObject({ x: 34, y: 51 });
+    expect(metrics).toEqual(['building_1']);
+  });
+
   test('track accessory placement and interaction live outside the Site Planner monolith', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-interaction-controller.js'), 'utf8');

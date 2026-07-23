@@ -6,6 +6,7 @@ import { createAutosaveUiController } from './site-planner/autosave-ui.js';
 import { createSiteAutosaveController } from './site-planner/site-autosave-controller.js';
 import { createBuildingResizeProtectionController } from './site-planner/building-resize-protection.js';
 import { createBuildingSelectionController } from './site-planner/building-selection-utils.js';
+import { createBuildingInteractionModel } from './site-planner/building-interaction-model.js';
 import { createCanvasDrawingController } from './site-planner/canvas-drawing-utils.js';
 import { createCatenaryAutoPlacementController } from './site-planner/catenary-auto-placement-controller.js';
 import { createRoadToolTaskController } from './site-planner/road-tool-task-controller.js';
@@ -335,6 +336,25 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     applySidewalkWidthPreset,
   } = createRoadPresetApplicationController({state, mmToPx, currentScaleDivisor, rebuildRoadGeometry});
   const {
+    pointInBuilding,
+    lockedHitTolerance,
+    hitBuildingSelectable,
+    hitTest,
+    polyEdgeDistance,
+    rotateHandlePoint,
+    rotationZoneHit,
+    handleAt,
+  } = createBuildingInteractionModel({
+    state,
+    visibleBuildingPolygons,
+    pointInPoly,
+    buildingPoints,
+    buildingCenter,
+    distanceToSegment,
+    dist,
+    matchMediaFn: matchMedia,
+  });
+  const {
     normalizeStlObject,
     stlObjectRect,
     hitStlObject,
@@ -366,19 +386,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   installSidebarToggle();
   function mmToPx(mm){return state.pxPerMm? mm*state.pxPerMm : mm;}
   function pxToMm(px){return state.pxPerMm? px/state.pxPerMm : px;}
-  function pointInBuilding(p,b){if(b.hidden) return false; return visibleBuildingPolygons(b).some(pts=>pts.length>=3 && pointInPoly(p,pts));}
-  function lockedHitTolerance(pointerType='mouse'){
-    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
-    return (coarse?18:9)/state.view.scale;
-  }
-  function hitBuildingSelectable(p,b,pointerType='mouse'){
-    if(!b || b.hidden) return false;
-    if(!b.locked) return pointInBuilding(p,b);
-    const pts=buildingPoints(b);
-    if(!pts || pts.length<2) return false;
-    return polyEdgeDistance(p,pts) <= lockedHitTolerance(pointerType);
-  }
-  function hitTest(p,pointerType='mouse'){for(let i=state.buildings.length-1;i>=0;i--){const b=state.buildings[i]; if(hitBuildingSelectable(p,b,pointerType)) return b;} return null;}
 
 
   function normalizeRoad(r){
@@ -979,44 +986,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function hakoWorldToLocalMm(b,p){return ensureHakoBuildingGeometryController().hakoWorldToLocalMm(b,p);}
   function visibleBuildingPolygons(b){return ensureHakoBuildingGeometryController().visibleBuildingPolygons(b);}
   function visibleBuildingPoints(b){return ensureHakoBuildingGeometryController().visibleBuildingPoints(b);}
-  function polyEdgeDistance(p,pts){
-    if(!pts||pts.length<2) return Infinity;
-    let best=Infinity;
-    for(let i=0;i<pts.length;i++) best=Math.min(best,distanceToSegment(p,pts[i],pts[(i+1)%pts.length]));
-    return best;
-  }
-  function rotateHandlePoint(b){
-    const pts=buildingPoints(b); if(!pts.length) return buildingCenter(b);
-    const c=buildingCenter(b);
-    let top=pts[0];
-    pts.forEach(q=>{if(q.y<top.y) top=q;});
-    const r=Math.max(28/state.view.scale, Math.max(...pts.map(q=>dist(c,q)))+22/state.view.scale);
-    const ang=Math.atan2(top.y-c.y, top.x-c.x)-Math.PI/10;
-    return {x:c.x+Math.cos(ang)*r,y:c.y+Math.sin(ang)*r};
-  }
-  function rotationZoneHit(p,b,pointerType='mouse'){
-    const pts=buildingPoints(b); if(!pts.length) return false;
-    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
-    const nearMin=(coarse?8:5)/state.view.scale;
-    const nearMax=(coarse?42:30)/state.view.scale;
-    const d=polyEdgeDistance(p,pts);
-    const inside=pointInPoly(p,pts);
-    return !inside && d>=nearMin && d<=nearMax;
-  }
-  function handleAt(p,b,pointerType='mouse'){
-    if(!b || b.locked) return null;
-    const coarse=(pointerType==='pen'||pointerType==='touch'||matchMedia('(pointer: coarse)').matches);
-    const s=(coarse?18:9)/state.view.scale;
-    const pts=buildingPoints(b);
-    if(b.padType==='polygon'){
-      for(let i=0;i<pts.length;i++) if(dist(p,pts[i])<s) return {type:'polyPoint', index:i};
-    } else {
-      for(let i=0;i<pts.length;i++) if(dist(p,pts[i])<s) return {type:'rectCorner', index:i};
-    }
-    const rot=rotateHandlePoint(b);
-    if(dist(p,rot)<s*1.5 || rotationZoneHit(p,b,pointerType)) return {type:'rotate'};
-    return null;
-  }
   let siteBuildingProjectController=null;
   function ensureSiteBuildingProjectController(){
     if(!siteBuildingProjectController){

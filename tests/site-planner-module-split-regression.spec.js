@@ -2337,11 +2337,16 @@ test('building import attachment and GitHub placement are wired through their co
   test('Tomix track accessories fall back to the flex-track gauge scale', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const scaleHelpers = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-geometry.js'), 'utf8');
+    const facade = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-geometry-facade.js'), 'utf8');
 
     expect(source).toContain("import { createTrackAccessoryGeometry } from './site-planner/track-accessory-geometry.js';");
+    expect(source).toContain("import { createTrackAccessoryGeometryFacade } from './site-planner/track-accessory-geometry-facade.js';");
+    expect(source).toContain('} = createTrackAccessoryGeometryFacade({');
     expect(scaleHelpers).toContain('trackProfileDefaults.gaugeMm');
     expect(scaleHelpers).toContain('return 10 /');
     expect(scaleHelpers).not.toContain('return 0.32');
+    expect(facade).toContain('function trackSwitchGeometryPx(item)');
+    expect(facade).toContain('function normalizeTrackAccessory(raw = {})');
   });
 
   test('track switch labels are anchored away from the rotation handle', () => {
@@ -2359,9 +2364,12 @@ test('building import attachment and GitHub placement are wired through their co
   test('track switch diverging ties are spaced by curve distance', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer2d = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-renderer-2d.js'), 'utf8');
+    const facade = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-geometry-facade.js'), 'utf8');
 
-    expect(source).toContain('function pointAtPolylineDistance');
-    expect(source).toContain('function polylineLength');
+    expect(source).toContain('pointAtPolylineDistance,');
+    expect(source).toContain('polylineLength,');
+    expect(facade).toContain('function pointAtPolylineDistance(path, distance)');
+    expect(facade).toContain('function polylineLength(path)');
     expect(renderer2d).toContain('const branchLength = polylineLength(branch)');
     expect(renderer2d).toContain('const station = pointAtPolylineDistance(branch, d)');
     expect(renderer2d).not.toContain('for(let i=3;i<branch.length;i+=3)');

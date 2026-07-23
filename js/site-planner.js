@@ -118,6 +118,7 @@ import { createStlObjectModelController } from './site-planner/stl-object-model.
 import { boundsFromVertices, estimateStlTriangleCount, isLikelyStlFile, parseStlVertices } from './site-planner/stl-utils.js';
 import { svgFabricationAttrs, svgFeatureTransform, svgPathFromPoly } from './site-planner/svg-export-utils.js';
 import { createTrackAccessoryGeometry } from './site-planner/track-accessory-geometry.js';
+import { createTrackAccessoryGeometryFacade } from './site-planner/track-accessory-geometry-facade.js';
 import { createTrackAccessoryBrowserModel } from './site-planner/track-accessory-browser-model.js';
 import { createTrackAccessoryRenderer2D } from './site-planner/track-accessory-renderer-2d.js';
 import { createTrackAccessoryAnchorController } from './site-planner/track-accessory-anchor-controller.js';
@@ -661,92 +662,9 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return trackRenderer2D;
   }
   function drawTrack(raw){ return ensureTrackRenderer2D().drawTrack(raw); }
-  function trackAccessoryPreset(kind){
-    return trackAccessoryGeometry.trackAccessoryPreset(kind);
-  }
-  function trackAccessoryLabel(kind){
-    return trackAccessoryGeometry.trackAccessoryLabel(kind);
-  }
-  const trackAccessoryBrowserModel = createTrackAccessoryBrowserModel({ state, normalizeTrackAccessory });
   function trackAccessoryObjectFilterDefinition(key='all'){ return trackAccessoryBrowserModel.trackAccessoryObjectFilterDefinition(key); }
   function trackAccessoryMatchesObjectFilter(item, filterKey='all'){ return trackAccessoryBrowserModel.trackAccessoryMatchesObjectFilter(item, filterKey); }
   function trackAccessoryFilterCounts(){ return trackAccessoryBrowserModel.trackAccessoryFilterCounts(); }
-  function isTrackAccessoryAction(action){
-    return trackAccessoryGeometry.isTrackAccessoryAction(action);
-  }
-  function isCatenaryAccessoryKind(kind){
-    return trackAccessoryGeometry.isCatenaryAccessoryKind(kind);
-  }
-  function isTrackSwitchAccessoryKind(kind){
-    return trackAccessoryGeometry.isTrackSwitchAccessoryKind(kind);
-  }
-  function isTrackBufferAccessoryKind(kind){
-    return trackAccessoryGeometry.isTrackBufferAccessoryKind(kind);
-  }
-  function trackBufferHasCatenaryTerminal(item){
-    return trackAccessoryGeometry.trackBufferHasCatenaryTerminal(item);
-  }
-  function defaultTrackAccessoryPxPerMm(){
-    return trackAccessoryGeometry.defaultTrackAccessoryPxPerMm();
-  }
-  function trackAccessoryPxPerMm(item){
-    return trackAccessoryGeometry.trackAccessoryPxPerMm(item);
-  }
-  function trackBufferPxPerMm(item){
-    return trackAccessoryGeometry.trackBufferPxPerMm(item);
-  }
-  function tomixBufferGeometry(scale=1){
-    return trackAccessoryGeometry.tomixBufferGeometry(scale);
-  }
-  function trackBufferGeometryPx(item){
-    return trackAccessoryGeometry.trackBufferGeometryPx(item);
-  }
-  function trackBufferGeometrySite3D(item){
-    return trackAccessoryGeometry.trackBufferGeometrySite3D(item);
-  }
-  function trackSwitchDirection(kind){
-    return trackAccessoryGeometry.trackSwitchDirection(kind);
-  }
-  function trackSwitchPxPerMm(item){
-    return trackAccessoryGeometry.trackSwitchPxPerMm(item);
-  }
-  function tomixTurnoutGeometry(scale=1){
-    return trackAccessoryGeometry.tomixTurnoutGeometry(scale);
-  }
-  function trackSwitchGeometryPx(item){
-    return trackAccessoryGeometry.trackSwitchGeometryPx(item);
-  }
-  function trackSwitchGeometrySite3D(item){
-    return trackAccessoryGeometry.trackSwitchGeometrySite3D(item);
-  }
-  function trackSwitchEndpointDefinitions(item){
-    return trackAccessoryGeometry.trackSwitchEndpointDefinitions(item);
-  }
-  function trackSwitchCurvePoints(geom, dir, steps=18){
-    return trackAccessoryGeometry.trackSwitchCurvePoints(geom, dir, steps);
-  }
-  function trackSwitchMainPathPoints(geom, dir, steps=18){
-    return trackAccessoryGeometry.trackSwitchMainPathPoints(geom, dir, steps);
-  }
-  function pointAtPolylineDistance(path,distance){
-    return trackAccessoryGeometry.pointAtPolylineDistance(path, distance);
-  }
-  function polylineLength(path){
-    return trackAccessoryGeometry.polylineLength(path);
-  }
-  function drawTrackSwitchPolyline(points){
-    if(trackAccessoryRenderer2D) return trackAccessoryRenderer2D.drawTrackSwitchPolyline?.(points);
-    if(!points || !points.length) return;
-    ctx.beginPath();
-    points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
-    ctx.stroke();
-  }
-  function transformTrackSwitchLocalPoint(item, local){
-    return trackAccessoryGeometry.transformTrackSwitchLocalPoint(item, local);
-  }
-  function trackSwitchEndpointPoints(item){
-    return trackAccessoryGeometry.trackSwitchEndpointPoints(item);
-  }
   function ensureTrackSwitchConnectionController(){
     if(!trackSwitchConnectionController){
       trackSwitchConnectionController=createTrackSwitchConnectionController({
@@ -848,9 +766,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   }
   function isCatenaryAutoSectionAction(action){
     return action==='catenaryAutoSection';
-  }
-  function normalizeTrackAccessory(raw={}){
-    return trackAccessoryGeometry.normalizeTrackAccessory(raw);
   }
   function selectedTrackAccessory(){
     return (state.trackAccessories||[]).find(x=>x.id===state.selectedTrackAccessoryId) || null;
@@ -1455,6 +1370,40 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     deg,
     uid,
   });
+  const {
+    trackAccessoryPreset,
+    trackAccessoryLabel,
+    isTrackAccessoryAction,
+    isCatenaryAccessoryKind,
+    isTrackSwitchAccessoryKind,
+    isTrackBufferAccessoryKind,
+    trackBufferHasCatenaryTerminal,
+    defaultTrackAccessoryPxPerMm,
+    trackAccessoryPxPerMm,
+    trackBufferPxPerMm,
+    tomixBufferGeometry,
+    trackBufferGeometryPx,
+    trackBufferGeometrySite3D,
+    trackSwitchDirection,
+    trackSwitchPxPerMm,
+    tomixTurnoutGeometry,
+    trackSwitchGeometryPx,
+    trackSwitchGeometrySite3D,
+    trackSwitchEndpointDefinitions,
+    trackSwitchCurvePoints,
+    trackSwitchMainPathPoints,
+    pointAtPolylineDistance,
+    polylineLength,
+    drawTrackSwitchPolyline,
+    transformTrackSwitchLocalPoint,
+    trackSwitchEndpointPoints,
+    normalizeTrackAccessory,
+  } = createTrackAccessoryGeometryFacade({
+    getGeometry: () => trackAccessoryGeometry,
+    getRenderer: () => trackAccessoryRenderer2D,
+    ctx,
+  });
+  const trackAccessoryBrowserModel = createTrackAccessoryBrowserModel({ state, normalizeTrackAccessory });
   trackAccessoryRenderer2D = createTrackAccessoryRenderer2D({
     ctx,
     state,

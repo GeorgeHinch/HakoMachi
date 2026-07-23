@@ -488,6 +488,41 @@ test.describe('Site Planner module split contracts', () => {
     expect(metrics).toEqual(['building_1']);
   });
 
+  test('canvas pointer-down routing lives in a dedicated controller', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-canvas-pointer-down-controller.js'), 'utf8');
+    const { createSiteCanvasPointerDownController } = await import('../js/site-planner/site-canvas-pointer-down-controller.js');
+    const events = [];
+    const state = { pointers: new Map(), drag: null };
+    const controller = createSiteCanvasPointerDownController({
+      state,
+      canvas: {
+        setPointerCapture: pointerId => events.push(['capture', pointerId]),
+        classList: { add: name => events.push(['class', name]) },
+      },
+      clearCanvasBrowserSelection: () => events.push('clear-browser'),
+      hideContextMenu: () => events.push('hide-menu'),
+      pointerSnapshot: () => ({ x: 1, y: 2 }),
+      startPanFromPointer: () => { state.drag = {}; },
+    });
+
+    expect(source).toContain("import { createSiteCanvasPointerDownController } from './site-planner/site-canvas-pointer-down-controller.js';");
+    expect(source).toContain("canvas.addEventListener('pointerdown', e=>siteCanvasPointerDownController.handlePointerDown(e), {passive:false});");
+    expect(source).not.toContain("canvas.addEventListener('pointerdown', e=>{");
+    expect(controllerSource).toContain('export function createSiteCanvasPointerDownController');
+    expect(controllerSource).toContain('function handlePointerDown');
+    expect(controllerSource).toContain('if(state.tool===\'track\')');
+    expect(controllerSource).toContain('if(state.tool===\'road\')');
+
+    let prevented = false;
+    controller.handlePointerDown({ pointerId: 9, button: 2, buttons: 2, clientX: 40, clientY: 60, preventDefault: () => { prevented = true; } });
+
+    expect(prevented).toBe(true);
+    expect(state.pointers.get(9)).toEqual({ x: 1, y: 2 });
+    expect(state.drag).toMatchObject({ rightButtonPan: true, moved: false, startClient: { x: 40, y: 60 } });
+    expect(events).toEqual(expect.arrayContaining([['capture', 9], ['class', 'panning']]));
+  });
+
   test('track accessory placement and interaction live outside the Site Planner monolith', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-accessory-interaction-controller.js'), 'utf8');

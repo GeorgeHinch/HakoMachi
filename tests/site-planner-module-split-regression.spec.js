@@ -32,6 +32,18 @@ test.describe('Site Planner module split contracts', () => {
     expect(controller).toContain('function drawGroupSelectionAffordance');
   });
 
+  test('building hit testing and edit handles live in their interaction model', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
+    const model = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'building-interaction-model.js'), 'utf8');
+
+    expect(source).toContain("import { createBuildingInteractionModel } from './site-planner/building-interaction-model.js';");
+    expect(source).toContain('} = createBuildingInteractionModel({');
+    expect(source).not.toContain('function rotationZoneHit(p,b,pointerType=\'mouse\'){');
+    expect(model).toContain('function hitBuildingSelectable(point, building, pointerType = \'mouse\')');
+    expect(model).toContain('function rotateHandlePoint(building)');
+    expect(model).toContain('function handleAt(point, building, pointerType = \'mouse\')');
+  });
+
   test('rail-crossing detail controls are wired through their sidebar module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const detail = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-rail-crossing-detail.js'), 'utf8');

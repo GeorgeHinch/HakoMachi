@@ -72,6 +72,7 @@ import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDet
 import { createSidebarDetailController } from './site-planner/sidebar-detail-controller.js';
 import { createSidebarObjectBrowserController } from './site-planner/sidebar-object-browser-controller.js';
 import { createSidebarSelectedDetailController } from './site-planner/sidebar-selected-detail-controller.js';
+import { createSiteSidebarSelectionFacade } from './site-planner/site-sidebar-selection-facade.js';
 import { renderRailCrossingDetail } from './site-planner/sidebar-rail-crossing-detail.js';
 import { renderRoadFeatureDetail } from './site-planner/sidebar-road-feature-detail.js';
 import { renderRoadDetail } from './site-planner/sidebar-road-detail.js';
@@ -1930,21 +1931,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     });
   }
 
-  function clearPlanObjectSelection(){
-    clearBuildingSelection();
-    clearSelectedSiteObjects();
-    state.selectedRoadId=null;
-    state.selectedRoadFeatureId=null;
-    state.selectedTrackId=null;
-    state.selectedTrackAccessoryId=null;
-    state.selectedBenchworkId=null;
-    state.selectedStreetlightId=null;
-    state.selectedFabricId=null;
-    state.selectedAnnotationId=null;
-    state.selectedStlObjectId=null;
-    state.selectedRoadIntersectionId=null;
-    state.selectedRailCrossingId=null;
-  }
+  let sidebarSelectionFacade=null;
+  function clearPlanObjectSelection(){ return sidebarSelectionFacade.clearPlanObjectSelection(); }
   function ensureSidebarObjectBrowserController(){
     if(!sidebarObjectBrowserController){
       sidebarObjectBrowserController=createSidebarObjectBrowserController({
@@ -2118,12 +2106,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return ensureSidebarSelectedDetailController().renderSelectedCore();
   }
 
-  function activeSidebarDetailKind(){
-    return activeSidebarDetailKindForState(state,currentSelectedBuildingIds());
-  }
-  function activeSidebarDetailTitle(kind){
-    return sidebarDetailTitle(kind);
-  }
+  function activeSidebarDetailKind(){ return sidebarSelectionFacade.activeSidebarDetailKind(); }
+  function activeSidebarDetailTitle(kind){ return sidebarSelectionFacade.activeSidebarDetailTitle(kind); }
   sidebarDetailController=createSidebarDetailController({
     state,
     getElement:$,
@@ -2147,11 +2131,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     syncAll,
     setSidebarOpen,
   });
-  function renderSelected(){
-    renderObjectBrowser();
-    renderSelectedCore();
-    sidebarDetailController?.applySidebarDrillIn();
-  }
+  sidebarSelectionFacade=createSiteSidebarSelectionFacade({
+    state,clearBuildingSelection,clearSelectedSiteObjects,currentSelectedBuildingIds,
+    activeSidebarDetailKindForState,sidebarDetailTitle,renderObjectBrowser,renderSelectedCore,
+    applySidebarDrillIn:()=>sidebarDetailController?.applySidebarDrillIn(),
+  });
+  function renderSelected(){ return sidebarSelectionFacade.renderSelected(); }
 
   const {
     addRectFromDrag,

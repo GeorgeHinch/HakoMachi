@@ -214,6 +214,7 @@ test.describe('Site Planner module split contracts', () => {
   test('track task setup and Track-mode actions live in a dedicated controller', async () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'track-tool-task-controller.js'), 'utf8');
+    const toolControls = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-tool-controls-controller.js'), 'utf8');
     const { createTrackToolTaskController } = await import('../js/site-planner/track-tool-task-controller.js');
     const catenaryButton = { dataset: { trackAction: 'catenaryAutoSection' } };
     const state = { trackTask: null, catenarySectionDraft: { pending: true } };
@@ -239,11 +240,13 @@ test.describe('Site Planner module split contracts', () => {
     });
 
     expect(source).toContain("import { createTrackToolTaskController } from './site-planner/track-tool-task-controller.js';");
-    expect(source).toContain('trackToolTaskController.bindTrackActionControls();');
+    expect(source).toContain('const siteToolControlsController = createSiteToolControlsController({');
+    expect(source).toContain('siteToolControlsController);');
     expect(source).not.toContain('function beginCatenaryAutoSection(){');
     expect(controllerSource).toContain('export function createTrackToolTaskController');
     expect(controllerSource).toContain('function beginTrackAccessoryPlacement');
     expect(controllerSource).toContain('function beginCatenaryAutoSection');
+    expect(toolControls).toContain('trackToolTaskController.bindTrackActionControls();');
 
     controller.bindTrackActionControls();
     catenaryButton.onclick();
@@ -258,6 +261,7 @@ test.describe('Site Planner module split contracts', () => {
   test('road task setup and Road-mode actions live in a dedicated controller', async () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'road-tool-task-controller.js'), 'utf8');
+    const toolControls = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-tool-controls-controller.js'), 'utf8');
     const { createRoadToolTaskController } = await import('../js/site-planner/road-tool-task-controller.js');
     const modeButton = { dataset: { roadModeTool: 'outline' } };
     const intersectionsButton = { dataset: { roadAction: 'intersections' } };
@@ -285,10 +289,11 @@ test.describe('Site Planner module split contracts', () => {
     });
 
     expect(source).toContain("import { createRoadToolTaskController } from './site-planner/road-tool-task-controller.js';");
-    expect(source).toContain('roadToolTaskController.bindRoadToolControls();');
+    expect(source).toContain('const siteToolControlsController = createSiteToolControlsController({');
     expect(source).not.toContain("document.querySelectorAll('[data-road-action]').forEach(btn=>btn.onclick=()=>{");
     expect(controllerSource).toContain('export function createRoadToolTaskController');
     expect(controllerSource).toContain('function bindRoadToolControls');
+    expect(toolControls).toContain('roadToolTaskController.bindRoadToolControls();');
 
     controller.bindRoadToolControls();
     modeButton.onclick();
@@ -910,17 +915,19 @@ test.describe('Site Planner module split contracts', () => {
   test('toolbar variant buttons are wired through the variant controller', async () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'tool-variant-controller.js'), 'utf8');
+    const toolControls = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-tool-controls-controller.js'), 'utf8');
     const { createToolVariantController, roadModeLabel } = await import('../js/site-planner/tool-variant-controller.js');
 
     expect(source).toContain("import { createToolVariantController } from './site-planner/tool-variant-controller.js';");
-    expect(source).toContain('const toolVariantController = createToolVariantController({');
-    expect(source).toContain('toolVariantController.installToolVariantControls();');
+    expect(source).toContain('const siteToolControlsController = createSiteToolControlsController({');
     expect(source).not.toContain('function updateRoadToolButton()');
     expect(source).not.toContain('function trackSwitchToolTask()');
 
     expect(controllerSource).toContain('export function createToolVariantController');
     expect(controllerSource).toContain('function updateRoadToolButton()');
     expect(controllerSource).toContain('function installToolVariantControls()');
+    expect(toolControls).toContain('const toolVariantController = createToolVariantController({');
+    expect(toolControls).toContain('toolVariantController.installToolVariantControls();');
     expect(roadModeLabel('marking')).toBe('Road Marking');
     expect(roadModeLabel('outline')).toBe('Road Outline');
 
@@ -983,18 +990,20 @@ test.describe('Site Planner module split contracts', () => {
   test('workspace mode and active tool behavior is wired through its controller', async () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const controllerSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'workspace-mode-controller.js'), 'utf8');
+    const toolControls = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-tool-controls-controller.js'), 'utf8');
     const {
       createWorkspaceModeController,
       normalizeWorkspaceMode,
     } = await import('../js/site-planner/workspace-mode-controller.js');
 
     expect(source).toContain("import { createWorkspaceModeController } from './site-planner/workspace-mode-controller.js';");
-    expect(source).toContain('} = createWorkspaceModeController({');
+    expect(source).toContain('const siteToolControlsController = createSiteToolControlsController({');
     expect(source).not.toContain('function maybeFinishActiveRoadDraft');
     expect(source).not.toContain('function setWorkspaceMode(mode, opts={})');
 
     expect(controllerSource).toContain('export function createWorkspaceModeController');
     expect(controllerSource).toContain('function setActiveTool(tool, opts = {})');
+    expect(toolControls).toContain('} = createWorkspaceModeController({');
     expect(normalizeWorkspaceMode('road')).toBe('road');
     expect(normalizeWorkspaceMode('track')).toBe('track');
     expect(normalizeWorkspaceMode('bogus')).toBe('layout');

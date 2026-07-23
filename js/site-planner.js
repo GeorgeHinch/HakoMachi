@@ -22,6 +22,7 @@ import { createSiteCanvasPointerMoveController } from './site-planner/site-canva
 import { createSiteCanvasPointerDownController } from './site-planner/site-canvas-pointer-down-controller.js';
 import { createSiteCanvasPointerFinishController } from './site-planner/site-canvas-pointer-finish-controller.js';
 import { createSitePageControlsController } from './site-planner/site-page-controls-controller.js';
+import { createSiteToolControlsController } from './site-planner/site-tool-controls-controller.js';
 import { createSiteHistoryController } from './site-planner/site-history-controller.js';
 import { createSiteResetController } from './site-planner/site-reset-controller.js';
 import { createContextMenuController } from './site-planner/context-menu-controller.js';
@@ -225,14 +226,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let sidebarDetailController = null;
   let sitePointerInteractionController = null;
   let siteProjectPersistenceController = null;
-  let updateRoadToolButton = () => {};
-  let updateStreetlightToolButton = () => {};
-  let updateTrackSwitchToolButton = () => {};
-  let updateTrackBufferToolButton = () => {};
-  let updateCatenaryToolButton = () => {};
   let updateWorkspaceModeUi = () => {};
   let setWorkspaceMode = () => {};
-  let setActiveTool = () => {};
   let drawGrid = () => {};
   let drawLabel = () => {};
   let drawLine = () => {};
@@ -2876,86 +2871,38 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   });
   siteCanvasKeyboardController.bindKeyboardShortcuts();
   function finishPolygon(){if(state.polygonDraft.length<3) return; const b={id:uid('bldg'),name:`Building ${state.buildings.length+1}`,padType:'polygon',pointsPx:state.polygonDraft.slice(),rotationDeg:0,category:'industrial',color:colors[state.buildings.length%colors.length],hidden:false,locked:false,state:'notStarted',notes:'',hakoConfig:null,hakoFile:null,hakoFileId:null}; syncBuildingMetrics(b); state.buildings.push(b); setBuildingSelection([b.id], b.id); state.polygonDraft=[]; syncAll();}
-  ({
-    setActiveTool,
-    setWorkspaceMode,
-    updateWorkspaceModeUi,
-  } = createWorkspaceModeController({
-    state,
-    getElement: $,
-    finishRoadCenterline,
-    finishRoadOutline,
-    finishTrack,
-    hideToolFlyouts,
-    updateToolButtons: {
-      updateTrackSwitchToolButton: () => updateTrackSwitchToolButton(),
-      updateTrackBufferToolButton: () => updateTrackBufferToolButton(),
-      updateCatenaryToolButton: () => updateCatenaryToolButton(),
-    },
-    updateStatus,
-    draw,
-    syncAll,
-  }));
-  document.querySelectorAll('.toolbtn[data-tool]:not([data-road-mode-tool]):not([data-track-action])').forEach(btn=>btn.onclick=()=>setActiveTool(btn.dataset.tool));
-  $('workspaceMode')?.addEventListener('change', e=>setWorkspaceMode(e.target.value));
-  const roadToolTaskController = createRoadToolTaskController({
-    state,
-    documentRef: document,
-    getElement: $,
-    setWorkspaceMode,
-    setActiveTool,
-    updateRoadToolButton,
-    roadSystem,
-    renderSelected,
-    draw,
-    setSidebarOpen,
-    updateWorkspaceModeUi,
-    setRoadExportPreview,
-    openRoadExportReview,
-  });
-  roadToolTaskController.bindRoadToolControls();
-  const trackToolTaskController = createTrackToolTaskController({
+  const siteToolControlsController = createSiteToolControlsController({
     state,
     documentRef: document,
     windowRef: window,
     getElement: $,
-    setWorkspaceMode,
-    setActiveTool,
-    renderSelected,
+    createWorkspaceModeController,
+    createRoadToolTaskController,
+    createTrackToolTaskController,
+    createToolVariantController,
+    finishRoadCenterline,
+    finishRoadOutline,
+    finishTrack,
+    hideToolFlyouts,
+    updateStatus,
     draw,
+    syncAll,
+    roadSystem,
+    renderSelected,
     setSidebarOpen,
-    updateWorkspaceModeUi,
+    setRoadExportPreview,
+    openRoadExportReview,
     trackAccessoryLabel,
     isTrackAccessoryAction,
     isCatenaryAutoSectionAction,
     fmt,
     catenarySpacingModelMm: CATENARY_SPACING_MODEL_MM,
     catenaryPrototypeSpacingM: CATENARY_PROTOTYPE_SPACING_M,
-  });
-  const { beginTrackAccessoryPlacement, beginCatenaryAutoSection } = trackToolTaskController;
-  trackToolTaskController.bindTrackActionControls();
-
-  const toolVariantController = createToolVariantController({
-    state,
-    getElement: $,
     setIcon,
     hydrateIcons,
     toggleToolFlyout,
-    hideToolFlyouts,
-    setActiveTool,
-    beginTrackAccessoryPlacement,
-    beginCatenaryAutoSection,
-    isCatenaryAutoSectionAction,
-    updateWorkspaceModeUi,
   });
-  ({
-    updateRoadToolButton,
-    updateStreetlightToolButton,
-    updateTrackSwitchToolButton,
-    updateTrackBufferToolButton,
-    updateCatenaryToolButton,
-  } = toolVariantController);
-  toolVariantController.installToolVariantControls();
+  ({ setWorkspaceMode, updateWorkspaceModeUi } = siteToolControlsController);
 
   const { clearCacheAndReset } = createSiteResetController({
     state,

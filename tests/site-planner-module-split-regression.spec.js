@@ -745,16 +745,18 @@ test.describe('Site Planner module split contracts', () => {
   test('rail-crossing 2D rendering is wired through its renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'rail-crossing-renderer-2d.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-road-crossing-controller.js'), 'utf8');
 
-    expect(source).toContain("import { createRailCrossingRenderer2D } from './site-planner/rail-crossing-renderer-2d.js';");
-    expect(source).toContain('railCrossingRenderer2D=createRailCrossingRenderer2D({ctx,state,drawLabel,generatedRailCrossings,railCrossingInfillPanels});');
-    expect(source).toContain('return ensureRailCrossingRenderer2D().drawGeneratedRailCrossings();');
+    expect(source).toContain("import { createSiteRoadCrossingController } from './site-planner/site-road-crossing-controller.js';");
+    expect(source).toContain('} = createSiteRoadCrossingController({');
     expect(source).not.toContain('function drawRailCrossingPanelTexture');
     expect(source).not.toContain('function drawRailCrossingIndicator');
     expect(renderer).toContain('export function createRailCrossingRenderer2D');
     expect(renderer).toContain('function drawRailCrossingPanelTexture');
     expect(renderer).toContain('function drawRailCrossingIndicator');
     expect(renderer).toContain('function drawGeneratedRailCrossings');
+    expect(controller).toContain('createRailCrossingRenderer2D({ ctx, state, drawLabel, generatedRailCrossings, railCrossingInfillPanels })');
+    expect(controller).toContain('function drawGeneratedRailCrossings()');
   });
 
   test('generated intersection marking controls live outside the site planner monolith', async () => {
@@ -1845,17 +1847,20 @@ test.describe('Site Planner module split contracts', () => {
     const sidebarSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-object-model.js'), 'utf8');
     const rendererSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'road-intersection-preview-renderer.js'), 'utf8');
     const detailSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'sidebar-road-intersection-detail.js'), 'utf8');
+    const crossingController = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-road-crossing-controller.js'), 'utf8');
 
-    expect(source).toContain('function selectedRoadIntersection()');
-    expect(source).toContain('function hitGeneratedRoadIntersection');
+    expect(source).toContain('selectedRoadIntersection,');
+    expect(source).toContain('hitGeneratedRoadIntersection,');
     expect(source).toContain("import { renderRoadIntersectionDetail } from './site-planner/sidebar-road-intersection-detail.js';");
     expect(readSelectedDetailController()).toContain('} if(roadIntersection){renderRoadIntersectionDetail({');
     expect(detailSource).toContain('Road intersection selected');
     expect(detailSource).toContain('roadSystem.setRoadIntersectionOverride');
     expect(detailSource).toContain('roadSystem.clearRoadIntersectionOverride');
-    expect(source).toContain('selectedIntersectionKey:state.selectedRoadIntersectionId');
+    expect(crossingController).toContain('selectedIntersectionKey: state.selectedRoadIntersectionId');
     expect(sidebarSource).toContain("roadIntersection: 'Road Intersection'");
     expect(rendererSource).toContain('selectedNodeFill');
+    expect(crossingController).toContain('function selectedRoadIntersection()');
+    expect(crossingController).toContain('function hitGeneratedRoadIntersection');
   });
 
   test('generated tactile pavers stay on sidewalk-bearing road arms', async () => {

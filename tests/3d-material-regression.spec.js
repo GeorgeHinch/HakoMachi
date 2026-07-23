@@ -48,8 +48,8 @@ test.describe('3D material depth regression contracts', () => {
     expect(source).toContain('function buildSite3DRoadGroup(bounds)');
     expect(source).toContain('createSite3DRoadRenderer({');
     expect(sceneUtils).toContain('function site3DBounds()');
-    expect(source).toContain("function shouldClipRoadsToBenchwork()");
-    expect(source).toContain("return state.workspaceMode!=='road'");
+    expect(source).toContain("import { createSiteRoadCrossingController } from './site-planner/site-road-crossing-controller.js';");
+    expect(source).toContain('shouldClipRoadsToBenchwork,');
     expect(roadRenderer).toContain('roadDisplayPolygons(road, { perCurve: 32, clipToBenchwork: shouldClipRoadsToBenchwork() })');
     expect(roadRenderer).not.toContain('site3DAddFlatPolygon(group,r.roadPolygonPx||[]');
     expect(sceneUtils).toContain('roadDisplayPolygons(road, { perCurve: 32, clipToBenchwork: shouldClipRoadsToBenchwork() })');

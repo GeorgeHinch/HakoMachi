@@ -69,8 +69,8 @@ import { createRoadIntersectionMarkingControls } from './site-planner/road-inter
 import { migrateRoadFeatures } from './site-planner/road-feature-migration.js';
 import { createRoadPresetApplicationController } from './site-planner/road-preset-application-utils.js';
 import { applyRoadHatchPreset, applyRoadMarkingPreset, hatchOptionsHtml, hatchPresetByKey, markingOptionsHtml, markingPresetByKey, presetModelMm, presetOptionsHtml, roadPresetByKey, sidewalkPresetByKey } from './site-planner/road-preset-utils.js';
-import { RAIL_CROSSING_CENTER_CLEARANCE_MM, buildRailCrossingInfillPanels, buildRailCrossings, hitRailCrossing, normalizeRailCrossingOverride, railCrossingOverrideKey, railCrossingSvgRecords } from './site-planner/rail-crossing-generator.js';
-import { createRailCrossingRenderer2D } from './site-planner/rail-crossing-renderer-2d.js';
+import { RAIL_CROSSING_CENTER_CLEARANCE_MM, normalizeRailCrossingOverride, railCrossingOverrideKey, railCrossingSvgRecords } from './site-planner/rail-crossing-generator.js';
+import { createSiteRoadCrossingController } from './site-planner/site-road-crossing-controller.js';
 import { createScaleInputController } from './site-planner/scale-input-utils.js';
 import { activeSidebarDetailKindForState, activeSidebarDetailTitle as sidebarDetailTitle, sidebarTypeForDetailKind } from './site-planner/sidebar-object-model.js';
 import { createSidebarDetailController } from './site-planner/sidebar-detail-controller.js';
@@ -649,223 +649,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     setWorkspaceMode('road', {preserveRoadTask: true});
     updateWorkspaceModeUi();
     roadExportReview?.open();
-  }
-  function drawRoadJunctions(){
-    return roadSystem.drawRoadJunctions();
-  }
-  function drawGeneratedRoadIntersections(){
-    return roadSystem.drawGeneratedRoadIntersections({selectedIntersectionKey:state.selectedRoadIntersectionId});
-  }
-  function drawRoad(r){
-    return roadSystem.drawRoad(r);
-  }
-  function benchworkClipPolygons(perCurve=24){
-    return (state.benchworkOutlines||[])
-      .map(raw=>normalizeBenchworkOutline(raw))
-      .filter(bw=>bw && !bw.hidden)
-      .map(bw=>benchworkSamples(bw,perCurve))
-      .filter(poly=>poly.length>=3);
-  }
-  function withRoadBenchworkClip(drawFn){
-    const clips=state.workspaceMode==='road' ? [] : benchworkClipPolygons(24);
-    if(!clips.length){ drawFn(); return; }
-    ctx.save();
-    ctx.beginPath();
-    clips.forEach(poly=>{
-      poly.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
-      ctx.closePath();
-    });
-    ctx.clip();
-    drawFn();
-    ctx.restore();
-  }
-  function drawRoadLayer(){
-    withRoadBenchworkClip(()=>{
-      state.roads.forEach(drawRoad);
-      drawRoadJunctions();
-      drawGeneratedRoadIntersections();
-      (state.roadFeatures||[]).forEach(drawRoadFeature);
-      drawRoadExportPreview();
-    });
-  }
-  function signedAreaForClip(poly){
-    return (poly||[]).reduce((sum,p,i,arr)=>{
-      const q=arr[(i+1)%arr.length]||p;
-      return sum + p.x*q.y - q.x*p.y;
-    },0)/2;
-  }
-  function clipPolygonToEdge(subject,a,b,keepLeft=true){
-    if(!Array.isArray(subject) || subject.length<3) return [];
-    const out=[];
-    const inside=p=>{
-      const cross=(b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x);
-      return keepLeft ? cross>=-0.001 : cross<=0.001;
-    };
-    const intersection=(p,q)=>{
-      const dx=q.x-p.x, dy=q.y-p.y;
-      const ex=b.x-a.x, ey=b.y-a.y;
-      const denom=dx*ey-dy*ex;
-      if(Math.abs(denom)<1e-9) return q;
-      const t=((a.x-p.x)*ey-(a.y-p.y)*ex)/denom;
-      return {x:p.x+dx*t,y:p.y+dy*t};
-    };
-    for(let i=0;i<subject.length;i++){
-      const cur=subject[i], prev=subject[(i+subject.length-1)%subject.length];
-      const curInside=inside(cur), prevInside=inside(prev);
-      if(curInside){
-        if(!prevInside) out.push(intersection(prev,cur));
-        out.push(cur);
-      } else if(prevInside){
-        out.push(intersection(prev,cur));
-      }
-    }
-    return out.filter((p,i,arr)=>i===0 || dist(p,arr[i-1])>0.01);
-  }
-  function isConvexPolygon(poly){
-    if(!Array.isArray(poly) || poly.length<3) return false;
-    let sign=0;
-    for(let i=0;i<poly.length;i++){
-      const a=poly[i], b=poly[(i+1)%poly.length], c=poly[(i+2)%poly.length];
-      const cross=(b.x-a.x)*(c.y-b.y)-(b.y-a.y)*(c.x-b.x);
-      if(Math.abs(cross)<0.001) continue;
-      const next=Math.sign(cross);
-      if(sign && next!==sign) return false;
-      sign=next;
-    }
-    return true;
-  }
-  function clipPolygonToBenchwork(poly, opts={}){
-    if(!Array.isArray(poly) || poly.length<3) return [];
-    const clips=benchworkClipPolygons(opts.perCurve||24);
-    if(!clips.length) return [poly];
-    const out=[];
-    let convexClipCount=0;
-    clips.forEach(rawClip=>{
-      if(!isConvexPolygon(rawClip)) return;
-      convexClipCount++;
-      const clip=signedAreaForClip(rawClip)<0 ? rawClip.slice().reverse() : rawClip.slice();
-      let clipped=poly.slice();
-      for(let i=0;i<clip.length && clipped.length>=3;i++){
-        clipped=clipPolygonToEdge(clipped,clip[i],clip[(i+1)%clip.length],true);
-      }
-      if(clipped.length>=3 && Math.abs(signedAreaForClip(clipped))>.5) out.push(clipped);
-    });
-    if(!convexClipCount) return [poly];
-    return out;
-  }
-  function roadDisplayPolygons(road, opts={}){
-    const clip=opts.clipToBenchwork!==false;
-    const roadPolygons=clip ? clipPolygonToBenchwork(road.roadPolygonPx||[],opts) : [road.roadPolygonPx||[]].filter(poly=>poly.length>=3);
-    const sidewalkPolygons=[];
-    (road.sidewalkPolygonsPx||[]).forEach((sw,idx)=>{
-      const polys=clip ? clipPolygonToBenchwork(sw.polygon||[],opts) : [sw.polygon||[]].filter(poly=>poly.length>=3);
-      polys.forEach((polygon,pieceIndex)=>sidewalkPolygons.push({...sw, polygon, sourceIndex:idx, pieceIndex}));
-    });
-    return {roadPolygons, sidewalkPolygons};
-  }
-  function shouldClipRoadsToBenchwork(){
-    return state.workspaceMode!=='road';
-  }
-  function generatedRailCrossings(){
-    const crossings=buildRailCrossings({
-      roads:(state.roads||[]).map(normalizeRoad),
-      tracks:(state.tracks||[]).map(normalizeTrack),
-      roadCenterlineSamples,
-      trackPathSamples,
-      pxPerMm:state.pxPerMm,
-      overrides:state.railCrossingOverrides||{},
-    });
-    state.generatedRailCrossings=crossings;
-    return crossings;
-  }
-  function railCrossingInfillPanels(crossings=generatedRailCrossings()){
-    const roadWidthPxById={};
-    (state.roads||[]).forEach(raw=>{const road=normalizeRoad(raw); roadWidthPxById[road.id]=road.widthPx||24;});
-    return buildRailCrossingInfillPanels(crossings,{roadWidthPxById});
-  }
-  function roadIntersectionKey(intersection){
-    return intersection?.overrideKey || intersection?.id || '';
-  }
-  function generatedRoadIntersections(){
-    return roadSystem.generatedRoadIntersections();
-  }
-  function selectedRoadIntersection(){
-    const id=state.selectedRoadIntersectionId;
-    if(!id) return null;
-    if(selectedSiteObjectCount() || state.selectedId || currentSelectedBuildingIds().length || state.selectedAnnotationId || state.selectedRoadFeatureId || state.selectedRoadId || state.selectedTrackId || state.selectedTrackAccessoryId || state.selectedBenchworkId || state.selectedStreetlightId || state.selectedFabricId || state.selectedStlObjectId || state.selectedRailCrossingId) return null;
-    return generatedRoadIntersections().find(intersection=>roadIntersectionKey(intersection)===id) || null;
-  }
-  function selectRoadIntersection(intersection){
-    if(!intersection) return false;
-    clearBuildingSelection();
-    clearSelectedSiteObjects();
-    state.selectedRoadId=null;
-    state.selectedRoadFeatureId=null;
-    state.selectedTrackId=null;
-    state.selectedTrackPointIndex=null;
-    state.selectedTrackAccessoryId=null;
-    state.selectedBenchworkId=null;
-    state.selectedStreetlightId=null;
-    state.selectedAnnotationId=null;
-    state.selectedFabricId=null;
-    state.selectedStlObjectId=null;
-    state.selectedRailCrossingId=null;
-    state.selectedRoadIntersectionId=roadIntersectionKey(intersection);
-    renderList(); renderRoads(); renderStreetlights(); renderSelected(); draw();
-    return true;
-  }
-  function hitGeneratedRoadIntersection(p,pointerType='mouse'){
-    if(state.roadIntersectionDetails===false) return null;
-    const coarse=pointerType==='touch';
-    const baseTol=(coarse?18:10)/state.view.scale;
-    let best=null;
-    generatedRoadIntersections().forEach(intersection=>{
-      const center=intersection.center||intersection;
-      if(!center) return;
-      const tol=Math.max(baseTol, Math.min(24/state.view.scale, (intersection.maxRoadWidthPx||24)*.32));
-      const distance=dist(p,center);
-      if(distance<=tol && (!best || distance<best.distance)) best={intersection,distance};
-    });
-    return best?.intersection || null;
-  }
-  function selectedRailCrossing(){
-    const id=state.selectedRailCrossingId;
-    if(!id) return null;
-    if(selectedSiteObjectCount() || state.selectedId || currentSelectedBuildingIds().length || state.selectedAnnotationId || state.selectedRoadFeatureId || state.selectedRoadId || state.selectedTrackId || state.selectedTrackAccessoryId || state.selectedBenchworkId || state.selectedStreetlightId || state.selectedFabricId || state.selectedStlObjectId || state.selectedRoadIntersectionId) return null;
-    return generatedRailCrossings().find(crossing=>crossing.id===id || crossing.key===id) || null;
-  }
-  function selectRailCrossing(crossing){
-    if(!crossing) return false;
-    clearBuildingSelection();
-    clearSelectedSiteObjects();
-    state.selectedRoadId=null;
-    state.selectedRoadFeatureId=null;
-    state.selectedTrackId=null;
-    state.selectedTrackPointIndex=null;
-    state.selectedTrackAccessoryId=null;
-    state.selectedBenchworkId=null;
-    state.selectedStreetlightId=null;
-    state.selectedAnnotationId=null;
-    state.selectedFabricId=null;
-    state.selectedStlObjectId=null;
-    state.selectedRoadIntersectionId=null;
-    state.selectedRailCrossingId=crossing.key||crossing.id;
-    renderList(); renderRoads(); renderStreetlights(); renderSelected(); draw();
-    return true;
-  }
-  function hitGeneratedRailCrossing(p,pointerType='mouse'){
-    const tol=(pointerType==='touch'?18:10)/state.view.scale;
-    return hitRailCrossing(p,generatedRailCrossings(),tol);
-  }
-  let railCrossingRenderer2D=null;
-  function ensureRailCrossingRenderer2D(){
-    if(!railCrossingRenderer2D){
-      railCrossingRenderer2D=createRailCrossingRenderer2D({ctx,state,drawLabel,generatedRailCrossings,railCrossingInfillPanels});
-    }
-    return railCrossingRenderer2D;
-  }
-  function drawGeneratedRailCrossings(){
-    return ensureRailCrossingRenderer2D().drawGeneratedRailCrossings();
   }
   let trackRenderer2D=null;
   function ensureTrackRenderer2D(){
@@ -1724,6 +1507,51 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     setStatusHint: showStatusHint,
     syncAll,
     dist,
+  });
+  const {
+    benchworkClipPolygons,
+    withRoadBenchworkClip,
+    drawRoadJunctions,
+    drawGeneratedRoadIntersections,
+    drawRoad,
+    drawRoadLayer,
+    clipPolygonToBenchwork,
+    roadDisplayPolygons,
+    shouldClipRoadsToBenchwork,
+    generatedRailCrossings,
+    railCrossingInfillPanels,
+    roadIntersectionKey,
+    generatedRoadIntersections,
+    selectedRoadIntersection,
+    selectRoadIntersection,
+    hitGeneratedRoadIntersection,
+    selectedRailCrossing,
+    selectRailCrossing,
+    hitGeneratedRailCrossing,
+    drawGeneratedRailCrossings,
+  } = createSiteRoadCrossingController({
+    state,
+    ctx,
+    dist,
+    normalizeBenchworkOutline,
+    benchworkSamples,
+    normalizeRoad,
+    normalizeTrack,
+    roadCenterlineSamples,
+    trackPathSamples,
+    roadSystem,
+    drawRoadFeature,
+    drawRoadExportPreview,
+    selectedSiteObjectCount,
+    currentSelectedBuildingIds,
+    clearBuildingSelection,
+    clearSelectedSiteObjects,
+    renderList,
+    renderRoads,
+    renderStreetlights,
+    renderSelected,
+    draw,
+    drawLabel,
   });
   roadIntersectionMarkingControls = createRoadIntersectionMarkingControls({
     state,

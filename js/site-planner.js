@@ -89,20 +89,15 @@ import { renderStlDetail } from './site-planner/sidebar-stl-detail.js';
 import { renderStreetlightDetail } from './site-planner/sidebar-streetlight-detail.js';
 import { renderTrackDetail } from './site-planner/sidebar-track-detail.js';
 import { renderTrackAccessoryDetail } from './site-planner/sidebar-track-accessory-detail.js';
-import { createSite3DBaseRenderer } from './site-planner/site-3d-base-renderer.js';
 import { createSite3DBuildingConfigController } from './site-planner/site-3d-building-config.js';
 import { createSite3DUiController } from './site-planner/site-3d-ui-controller.js';
-import { createSite3DTrackAccessoryRenderer } from './site-planner/site-3d-track-accessory-renderer.js';
-import { createSite3DBuildingRenderer } from './site-planner/site-3d-building-renderer.js';
 import { createSite3DMeshUtils } from './site-planner/site-3d-mesh-utils.js';
 import { createSite3DObjectTagging } from './site-planner/site-3d-object-tagging.js';
 import { createSite3DInteractionController } from './site-planner/site-3d-interaction-controller.js';
 import { createSite3DLifecycleController } from './site-planner/site-3d-lifecycle-controller.js';
-import { createSite3DRoadRenderer } from './site-planner/site-3d-road-renderer.js';
 import { createSite3DSceneController } from './site-planner/site-3d-scene-controller.js';
 import { createSite3DSceneUtils } from './site-planner/site-3d-scene-utils.js';
-import { createSite3DTrackRenderer } from './site-planner/site-3d-track-renderer.js';
-import { createSite3DStlRenderer } from './site-planner/site-3d-stl-renderer.js';
+import { createSite3DRendererFacade } from './site-planner/site-3d-renderer-facade.js';
 import { createSiteBuildingProjectController } from './site-planner/site-building-project-controller.js';
 import { createSiteObjectSelectionController } from './site-planner/site-object-selection-controller.js';
 import { createSitePointerInteractionController } from './site-planner/site-pointer-interaction-controller.js';
@@ -216,10 +211,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   let trackAccessoryInteractionController = null;
   let trackSwitchConnectionController = null;
   let site3DBuildingConfigController = null;
-  let site3DBaseRenderer = null;
-  let site3DTrackAccessoryRenderer = null;
-  let site3DBuildingRenderer = null;
-  let site3DStlRenderer = null;
   let githubBuildingPreviewRenderer = null;
   let siteObjectSelectionController = null;
   let sidebarObjectBrowserController = null;
@@ -1741,162 +1732,60 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     signedArea2D,
     getBounds: () => site3d.bounds,
   });
-  function ensureSite3DBaseRenderer(){
-    if(!site3DBaseRenderer){
-      site3DBaseRenderer=createSite3DBaseRenderer({
-        THREE,
-        state,
-        signedArea2D,
-        site3DScale,
-        site3DBenchworkFootprintsMm,
-        normalizeBenchworkOutline,
-        benchworkSamples,
-        applySite3DSettings,
-      });
-    }
-    return site3DBaseRenderer;
-  }
-  function buildSite3DBase(bounds,baseT){
-    return ensureSite3DBaseRenderer().buildSite3DBase(bounds,baseT);
-  }
-  function buildSite3DReferenceImage(bounds){
-    return ensureSite3DBaseRenderer().buildSite3DReferenceImage(bounds);
-  }
-  function buildSite3DRoadGroup(bounds){
-    return createSite3DRoadRenderer({
-      THREE,
-      state,
-      normalizeRoad,
-      syncRoadMetrics,
-      roadDisplayPolygons,
-      shouldClipRoadsToBenchwork,
-      clipPolygonToBenchwork,
-      site3DAddFlatPolygon,
-      normalizeRoadFeature,
-      isSiteObjectSelected,
-      tagSite3DRoadObject,
-      tagSite3DRoadFeatureObject,
-      roadSystem,
-      markingPresetByKey,
-      rad,
-    }).buildSite3DRoadGroup(bounds);
-  }
-  function buildSite3DTrackGroup(bounds){
-    return createSite3DTrackRenderer({
-      THREE,
-      state,
-      trackProfileDefaults: TRACK_PROFILE_DEFAULTS,
-      positiveNumber,
-      site3DScale,
-      normalizeTrack,
-      trackPathSamples,
-      trackProfilePx,
-      offsetPathPolygon,
-      site3DAddRaisedPolygon,
-      trackTieSegments,
-      tagSite3DTrackObject,
-      offsetTrackPath,
-      site3DAddBoxSegments,
-    }).buildSite3DTrackGroup(bounds);
-  }
-  function ensureSite3DBuildingRenderer(){
-    if(!site3DBuildingRenderer){
-      site3DBuildingRenderer=createSite3DBuildingRenderer({
-        THREE,
-        logger,
-        site3DScale,
-        site3DMaterial,
-        site3DBox,
-        site3DAddEdges,
-        site3DBuildingFootprintMm,
-        site3DBuildingCenterMm,
-        site3DBuildingConfig,
-        site3DGeneratorBuildingConfig,
-        site3DBuildingHeightMm,
-        site3DFloorCount,
-        site3DBuildingElevationMm,
-        site3DPlannerRotationY,
-        site3DGeneratorModelOriginOffset,
-        site3DGeneratorModelRotationY,
-        visibleBuildingPolygons,
-        tagSite3DBuilding,
-        positiveNumber,
-      });
-    }
-    return site3DBuildingRenderer;
-  }
-  function buildSite3DSelectionHelper(b,bounds,opts={}){
-    return ensureSite3DBuildingRenderer().buildSite3DSelectionHelper(b,bounds,opts);
-  }
-  function buildSite3DBuildingGroup(b,bounds){
-    return ensureSite3DBuildingRenderer().buildSite3DBuildingGroup(b,bounds);
-  }
-  function ensureSite3DTrackAccessoryRenderer(){
-    if(!site3DTrackAccessoryRenderer){
-      site3DTrackAccessoryRenderer=createSite3DTrackAccessoryRenderer({
-        THREE,
-        state,
-        trackProfileDefaults: TRACK_PROFILE_DEFAULTS,
-        rad,
-        clamp,
-        site3DScale,
-        site3DAddEdges,
-        site3DBox,
-        site3DBeam,
-        isSiteObjectSelected,
-        tagSite3DTrackAccessory,
-        refreshTrackAccessoryAnchor,
-        normalizeTrackAccessory,
-        trackAccessoryLabel,
-        isCatenaryAccessoryKind,
-        isTrackSwitchAccessoryKind,
-        isTrackBufferAccessoryKind,
-        trackBufferHasCatenaryTerminal,
-        trackSwitchDirection,
-        trackSwitchGeometrySite3D,
-        trackSwitchCurvePoints,
-        trackSwitchMainPathPoints,
-        polylineLength,
-        pointAtPolylineDistance,
-        offsetTrackPath,
-        trackBufferGeometrySite3D,
-      });
-    }
-    return site3DTrackAccessoryRenderer;
-  }
-  function buildSite3DCatenaryItem(item,bounds){
-    return ensureSite3DTrackAccessoryRenderer().buildSite3DCatenaryItem(item,bounds);
-  }
-  function buildSite3DTrackSwitchItem(item,bounds){
-    return ensureSite3DTrackAccessoryRenderer().buildSite3DTrackSwitchItem(item,bounds);
-  }
-  function buildSite3DTrackBufferItem(item,bounds){
-    return ensureSite3DTrackAccessoryRenderer().buildSite3DTrackBufferItem(item,bounds);
-  }
-  function buildSite3DTrackAccessoryGroup(bounds){
-    return ensureSite3DTrackAccessoryRenderer().buildSite3DTrackAccessoryGroup(bounds);
-  }
-  function ensureSite3DStlRenderer(){
-    if(!site3DStlRenderer){
-      site3DStlRenderer=createSite3DStlRenderer({
-        THREE,
-        logger,
-        base64ToArrayBuffer,
-        boundsFromVertices,
-        estimateStlTriangleCount,
-        parseStlVertices,
-        normalizeStlObject,
-        site3DScale,
-        mmToPx,
-        site3DMaterial,
-        tagSite3DStlObject,
-      });
-    }
-    return site3DStlRenderer;
-  }
-  function buildSite3DStlObjectGroup(raw,bounds){
-    return ensureSite3DStlRenderer().buildSite3DStlObjectGroup(raw,bounds);
-  }
+  const {
+    buildSite3DBase,
+    buildSite3DReferenceImage,
+    buildSite3DRoadGroup,
+    buildSite3DTrackGroup,
+    buildSite3DSelectionHelper,
+    buildSite3DBuildingGroup,
+    buildSite3DCatenaryItem,
+    buildSite3DTrackSwitchItem,
+    buildSite3DTrackBufferItem,
+    buildSite3DTrackAccessoryGroup,
+    buildSite3DStlObjectGroup,
+  } = createSite3DRendererFacade({
+    base: {
+      THREE, state, signedArea2D, site3DScale, site3DBenchworkFootprintsMm,
+      normalizeBenchworkOutline, benchworkSamples,
+      applySite3DSettings: (...args) => applySite3DSettings(...args),
+    },
+    road: {
+      THREE, state, normalizeRoad, syncRoadMetrics, roadDisplayPolygons,
+      shouldClipRoadsToBenchwork, clipPolygonToBenchwork, site3DAddFlatPolygon,
+      normalizeRoadFeature, isSiteObjectSelected, tagSite3DRoadObject,
+      tagSite3DRoadFeatureObject, roadSystem, markingPresetByKey, rad,
+    },
+    track: {
+      THREE, state, trackProfileDefaults: TRACK_PROFILE_DEFAULTS, positiveNumber,
+      site3DScale, normalizeTrack, trackPathSamples, trackProfilePx,
+      offsetPathPolygon, site3DAddRaisedPolygon, trackTieSegments,
+      tagSite3DTrackObject, offsetTrackPath, site3DAddBoxSegments,
+    },
+    building: {
+      THREE, logger, site3DScale, site3DMaterial, site3DBox, site3DAddEdges,
+      site3DBuildingFootprintMm, site3DBuildingCenterMm, site3DBuildingConfig,
+      site3DGeneratorBuildingConfig, site3DBuildingHeightMm, site3DFloorCount,
+      site3DBuildingElevationMm, site3DPlannerRotationY,
+      site3DGeneratorModelOriginOffset, site3DGeneratorModelRotationY,
+      visibleBuildingPolygons, tagSite3DBuilding, positiveNumber,
+    },
+    trackAccessories: {
+      THREE, state, trackProfileDefaults: TRACK_PROFILE_DEFAULTS, rad, clamp,
+      site3DScale, site3DAddEdges, site3DBox, site3DBeam, isSiteObjectSelected,
+      tagSite3DTrackAccessory, refreshTrackAccessoryAnchor, normalizeTrackAccessory,
+      trackAccessoryLabel, isCatenaryAccessoryKind, isTrackSwitchAccessoryKind,
+      isTrackBufferAccessoryKind, trackBufferHasCatenaryTerminal,
+      trackSwitchDirection, trackSwitchGeometrySite3D, trackSwitchCurvePoints,
+      trackSwitchMainPathPoints, polylineLength, pointAtPolylineDistance,
+      offsetTrackPath, trackBufferGeometrySite3D,
+    },
+    stl: {
+      THREE, logger, base64ToArrayBuffer, boundsFromVertices,
+      estimateStlTriangleCount, parseStlVertices, normalizeStlObject,
+      site3DScale, mmToPx, site3DMaterial, tagSite3DStlObject,
+    },
+  });
   function ensureGithubBuildingPreviewRenderer(){
     if(!githubBuildingPreviewRenderer){
       githubBuildingPreviewRenderer=createGithubBuildingPreviewRenderer({

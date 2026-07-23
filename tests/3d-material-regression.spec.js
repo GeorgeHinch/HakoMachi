@@ -26,11 +26,13 @@ test.describe('3D material depth regression contracts', () => {
     const source = readRepoFile('js/site-planner.js');
     const renderer = readRepoFile('js/site-planner/site-3d-track-renderer.js');
     const meshUtils = readRepoFile('js/site-planner/site-3d-mesh-utils.js');
+    const facade = readRepoFile('js/site-planner/site-3d-renderer-facade.js');
 
     expect(source).toContain("import { createSite3DMeshUtils } from './site-planner/site-3d-mesh-utils.js';");
     expect(meshUtils).toContain('function site3DAddRaisedPolygon');
     expect(meshUtils).toContain('new THREE.InstancedMesh');
-    expect(source).toContain("import { createSite3DTrackRenderer } from './site-planner/site-3d-track-renderer.js';");
+    expect(source).toContain("import { createSite3DRendererFacade } from './site-planner/site-3d-renderer-facade.js';");
+    expect(facade).toContain("import { createSite3DTrackRenderer } from './site-3d-track-renderer.js';");
     expect(renderer).toContain('sleeper solids');
     expect(renderer).toContain('rail A solids');
     expect(renderer).toContain('rail B solids');
@@ -42,11 +44,14 @@ test.describe('3D material depth regression contracts', () => {
     const source = readRepoFile('js/site-planner.js');
     const roadRenderer = readRepoFile('js/site-planner/site-3d-road-renderer.js');
     const sceneUtils = readRepoFile('js/site-planner/site-3d-scene-utils.js');
+    const facade = readRepoFile('js/site-planner/site-3d-renderer-facade.js');
 
-    expect(source).toContain("import { createSite3DRoadRenderer } from './site-planner/site-3d-road-renderer.js';");
+    expect(source).toContain("import { createSite3DRendererFacade } from './site-planner/site-3d-renderer-facade.js';");
     expect(source).toContain("import { createSite3DSceneUtils } from './site-planner/site-3d-scene-utils.js';");
-    expect(source).toContain('function buildSite3DRoadGroup(bounds)');
-    expect(source).toContain('createSite3DRoadRenderer({');
+    expect(source).toContain('} = createSite3DRendererFacade({');
+    expect(facade).toContain("import { createSite3DRoadRenderer } from './site-3d-road-renderer.js';");
+    expect(facade).toContain('function buildSite3DRoadGroup(bounds)');
+    expect(facade).toContain('createSite3DRoadRenderer(road)');
     expect(sceneUtils).toContain('function site3DBounds()');
     expect(source).toContain("import { createSiteRoadCrossingController } from './site-planner/site-road-crossing-controller.js';");
     expect(source).toContain('shouldClipRoadsToBenchwork,');
@@ -58,9 +63,11 @@ test.describe('3D material depth regression contracts', () => {
   test('Site Planner 3D road markings and fixtures render above road surfaces', () => {
     const source = readRepoFile('js/site-planner.js');
     const roadRenderer = readRepoFile('js/site-planner/site-3d-road-renderer.js');
+    const facade = readRepoFile('js/site-planner/site-3d-renderer-facade.js');
     const overlayMaterial = roadRenderer.match(/function roadOverlayMaterial\(color, fallback, options = \{\}\) \{([\s\S]+?)function roadOverlayLineMaterial/);
 
-    expect(source).toContain("import { createSite3DRoadRenderer } from './site-planner/site-3d-road-renderer.js';");
+    expect(source).toContain("import { createSite3DRendererFacade } from './site-planner/site-3d-renderer-facade.js';");
+    expect(facade).toContain("import { createSite3DRoadRenderer } from './site-3d-road-renderer.js';");
     expect(overlayMaterial, '3D road overlay material helper exists').not.toBeNull();
     expect(roadRenderer).toContain("import { buildRoadMarkingShapes } from './road-marking-shapes.js';");
     expect(roadRenderer).toContain('addGeneratedRoadIntersections(group)');

@@ -1896,8 +1896,10 @@ test.describe('Site Planner module split contracts', () => {
   test('track switch 3D renderer uses flex-track colors and flat roadbed segments', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-track-accessory-renderer.js'), 'utf8');
+    const facade = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-renderer-facade.js'), 'utf8');
 
-    expect(source).toContain("import { createSite3DTrackAccessoryRenderer } from './site-planner/site-3d-track-accessory-renderer.js';");
+    expect(source).toContain("import { createSite3DRendererFacade } from './site-planner/site-3d-renderer-facade.js';");
+    expect(facade).toContain("import { createSite3DTrackAccessoryRenderer } from './site-3d-track-accessory-renderer.js';");
     expect(renderer).toContain('trackProfileDefaults.railColor');
     expect(renderer).toContain('trackProfileDefaults.tieColor');
     expect(renderer).toContain('trackProfileDefaults.roadbedHeightMm');
@@ -1949,11 +1951,13 @@ test.describe('Site Planner module split contracts', () => {
   test('site planner 3D building rendering is wired through its renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-building-renderer.js'), 'utf8');
+    const facade = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-renderer-facade.js'), 'utf8');
 
-    expect(source).toContain("import { createSite3DBuildingRenderer } from './site-planner/site-3d-building-renderer.js';");
-    expect(source).toContain('site3DBuildingRenderer=createSite3DBuildingRenderer({');
-    expect(source).toContain('function buildSite3DSelectionHelper(b,bounds,opts={})');
-    expect(source).toContain('function buildSite3DBuildingGroup(b,bounds)');
+    expect(source).toContain("import { createSite3DRendererFacade } from './site-planner/site-3d-renderer-facade.js';");
+    expect(source).toContain('} = createSite3DRendererFacade({');
+    expect(facade).toContain("import { createSite3DBuildingRenderer } from './site-3d-building-renderer.js';");
+    expect(facade).toContain('function buildSite3DSelectionHelper(buildingRecord, bounds, options = {})');
+    expect(facade).toContain('function buildSite3DBuildingGroup(buildingRecord, bounds)');
     expect(source).not.toContain('function site3DWindowColumns');
     expect(source).not.toContain('function addSite3DFacadeDetails');
     expect(source).not.toContain('function buildSite3DMassing');
@@ -2015,11 +2019,13 @@ test.describe('Site Planner module split contracts', () => {
   test('site planner 3D base and reference image rendering is wired through its renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-base-renderer.js'), 'utf8');
+    const facade = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-renderer-facade.js'), 'utf8');
 
-    expect(source).toContain("import { createSite3DBaseRenderer } from './site-planner/site-3d-base-renderer.js';");
-    expect(source).toContain('function ensureSite3DBaseRenderer()');
-    expect(source).toContain('return ensureSite3DBaseRenderer().buildSite3DBase(bounds,baseT)');
-    expect(source).toContain('return ensureSite3DBaseRenderer().buildSite3DReferenceImage(bounds)');
+    expect(source).toContain("import { createSite3DRendererFacade } from './site-planner/site-3d-renderer-facade.js';");
+    expect(source).toContain('} = createSite3DRendererFacade({');
+    expect(facade).toContain("import { createSite3DBaseRenderer } from './site-3d-base-renderer.js';");
+    expect(facade).toContain('function buildSite3DBase(bounds, baseThicknessMm)');
+    expect(facade).toContain('function buildSite3DReferenceImage(bounds)');
     expect(source).not.toContain('function site3DReferenceImageMaskPaths()');
     expect(source).not.toContain('function buildSite3DReferenceTexture(w,h)');
     expect(renderer).toContain('Negative-thickness rectangular site base');
@@ -2046,7 +2052,7 @@ test.describe('Site Planner module split contracts', () => {
     expect(tagging).toContain("tagObject(object, track, 'Track', 'Track')");
     expect(tagging).toContain('sitePlannerTrackAccessoryPickProxy');
     expect(roadRenderer).toContain('tagSite3DRoadObject(site3DAddFlatPolygon');
-    expect(source).toContain("import { createSite3DTrackRenderer } from './site-planner/site-3d-track-renderer.js';");
+    expect(source).toContain("import { createSite3DRendererFacade } from './site-planner/site-3d-renderer-facade.js';");
     expect(source).toContain("import { createSite3DMeshUtils } from './site-planner/site-3d-mesh-utils.js';");
     expect(source).toContain("import { createSite3DInteractionController } from './site-planner/site-3d-interaction-controller.js';");
     expect(source).toContain('site3DInteractionController=createSite3DInteractionController({');
@@ -2069,10 +2075,11 @@ test.describe('Site Planner module split contracts', () => {
   test('site planner STL 3D object rendering is wired through its renderer module', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner.js'), 'utf8');
     const renderer = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-stl-renderer.js'), 'utf8');
+    const facade = fs.readFileSync(path.join(__dirname, '..', 'js', 'site-planner', 'site-3d-renderer-facade.js'), 'utf8');
 
-    expect(source).toContain("import { createSite3DStlRenderer } from './site-planner/site-3d-stl-renderer.js';");
-    expect(source).toContain('function ensureSite3DStlRenderer()');
-    expect(source).toContain('return ensureSite3DStlRenderer().buildSite3DStlObjectGroup(raw,bounds)');
+    expect(source).toContain("import { createSite3DRendererFacade } from './site-planner/site-3d-renderer-facade.js';");
+    expect(facade).toContain("import { createSite3DStlRenderer } from './site-3d-stl-renderer.js';");
+    expect(facade).toContain('function buildSite3DStlObjectGroup(raw, bounds)');
     expect(source).not.toContain('function site3DStlGeometry(obj, targetW, targetH, targetD)');
     expect(source).not.toContain('mesh.userData.sitePlannerStlActualMesh=true');
     expect(renderer).toContain('function site3DStlGeometry(obj, targetW, targetH, targetD)');

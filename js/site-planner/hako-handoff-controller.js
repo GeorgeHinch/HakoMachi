@@ -23,6 +23,12 @@ export function createHakoHandoffController({
   syncAll,
   statusHintElement = () => null,
   confirmBuildingResize = null,
+  windowRef = window,
+  localStorageRef = localStorage,
+  sessionStorageRef = sessionStorage,
+  navigatorRef = navigator,
+  promptFn = prompt,
+  showStatusHint = () => {},
 }) {
   function plannerHandoffForBuilding(b) {
     return {
@@ -120,6 +126,32 @@ export function createHakoHandoffController({
     if (!preview) return;
     const b = selected();
     preview.textContent = b ? JSON.stringify(makeSeed(b), null, 2) : '';
+  }
+
+  function openBuildingInHakoMachi(building = null) {
+    const b = building || selected();
+    if (!b) { showStatusHint('Select a building first.', 'warning'); return false; }
+    const seed = makeSeed(b);
+    localStorageRef.setItem('hakomachiSitePlannerSeed', JSON.stringify(seed));
+    sessionStorageRef.setItem('hakomachiSitePlannerSeed', JSON.stringify(seed));
+    const child = windowRef.open('building-generator.html#sitePlannerSeed', '_blank');
+    const targetOrigin = windowRef.location.origin && windowRef.location.origin !== 'null' ? windowRef.location.origin : '*';
+    setTimeout(() => { try { child?.postMessage?.({ type: 'hakomachi:open-building-seed', buildingSeed: seed }, targetOrigin); } catch (_err) {} }, 650);
+    return true;
+  }
+
+  async function copyHakoSeedForBuilding(building = null) {
+    const b = building || selected();
+    if (!b) { showStatusHint('Select a building first.', 'warning'); return false; }
+    const text = JSON.stringify(makeSeed(b), null, 2);
+    try {
+      await navigatorRef.clipboard.writeText(text);
+      const statusHint = statusHintElement();
+      if (statusHint) statusHint.textContent = 'Copied HakoSeed for ' + (b.name || 'building');
+    } catch (_err) {
+      promptFn('Copy HakoSeed', text);
+    }
+    return true;
   }
 
   function sitePlannerBuildingUpdatePayload(data) {
@@ -312,6 +344,8 @@ export function createHakoHandoffController({
     attachPlannerHandoff,
     makeAttachedHakoSeed,
     makeSeed,
+    openBuildingInHakoMachi,
+    copyHakoSeedForBuilding,
     plannerHandoffForBuilding,
     pointsMmToPlacedPx,
     processQueuedSitePlannerBuildingUpdate,

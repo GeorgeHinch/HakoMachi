@@ -1001,6 +1001,8 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   const {
     updateHandoff,
     makeSeed,
+    openBuildingInHakoMachi,
+    copyHakoSeedForBuilding,
     sitePlannerBuildingUpdatePayload,
     applyHakoConfigToPlannerFootprint,
     applySitePlannerBuildingUpdate,
@@ -1023,6 +1025,12 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     syncAll,
     statusHintElement: () => $('statusHint'),
     confirmBuildingResize: (building, details={}) => confirmProtectedBuildingResize(building,{...details,changed:true}),
+    windowRef: window,
+    localStorageRef: localStorage,
+    sessionStorageRef: sessionStorage,
+    navigatorRef: navigator,
+    promptFn: prompt,
+    showStatusHint,
   });
   const {
     normalizeBenchworkOutline,
@@ -2513,27 +2521,6 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     },
     activeGithubSiteSource,
   });
-  function openBuildingInHakoMachi(building){
-    const b=building || selected();
-    if(!b) return showStatusHint('Select a building first.', 'warning');
-    const seed=makeSeed(b);
-    localStorage.setItem(SITE_PLANNER_SEED_KEY,JSON.stringify(seed));
-    sessionStorage.setItem(SITE_PLANNER_SEED_KEY,JSON.stringify(seed));
-    const child=window.open('building-generator.html#sitePlannerSeed','_blank');
-    const targetOrigin=window.location.origin && window.location.origin !== 'null' ? window.location.origin : '*';
-    setTimeout(()=>{ try{ child?.postMessage?.({type:'hakomachi:open-building-seed',buildingSeed:seed}, targetOrigin); }catch(_err){} }, 650);
-  }
-  async function copyHakoSeedForBuilding(building){
-    const b=building || selected();
-    if(!b) return showStatusHint('Select a building first.', 'warning');
-    const text=JSON.stringify(makeSeed(b),null,2);
-    try{
-      await navigator.clipboard.writeText(text);
-      $('statusHint').textContent='Copied HakoSeed for '+(b.name||'building');
-    }catch(_err){
-      prompt('Copy HakoSeed', text);
-    }
-  }
   const legacyOpenBtn=$('openHakoBtn');
   if(legacyOpenBtn) legacyOpenBtn.onclick=()=>openBuildingInHakoMachi();
   function projectJson(opts={}){

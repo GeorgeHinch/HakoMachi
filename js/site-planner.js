@@ -16,6 +16,7 @@ import { createGroupSelectionController } from './site-planner/group-selection-c
 import { createSiteBuildingRenderer2D } from './site-planner/site-building-renderer-2d.js';
 import { createSiteBuildingPlacementController } from './site-planner/site-building-placement-controller.js';
 import { createSiteCanvasRenderer } from './site-planner/site-canvas-renderer.js';
+import { createSiteCanvasPathRenderer } from './site-planner/site-canvas-path-renderer.js';
 import { createSiteCanvasGestureController } from './site-planner/site-canvas-gesture-controller.js';
 import { createSiteCanvasHoverController } from './site-planner/site-canvas-hover-controller.js';
 import { createSiteCanvasKeyboardController } from './site-planner/site-canvas-keyboard-controller.js';
@@ -508,42 +509,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     return roadSystem.finishRoadOutline();
   }
 
-  function drawPoly(pts, fill=true, stroke=true){
-    if(!Array.isArray(pts) || pts.length<2) return;
-    ctx.beginPath();
-    pts.forEach((p,i)=>{
-      if(i===0) ctx.moveTo(p.x,p.y);
-      else ctx.lineTo(p.x,p.y);
-    });
-    if(pts.length>2) ctx.closePath();
-    if(fill && pts.length>2) ctx.fill();
-    if(stroke) ctx.stroke();
-  }
-
-  function drawRoadGeneratedPath(path, stroke, width=1.4, dash=null){
-    if(!Array.isArray(path) || path.length<2) return;
-    ctx.save();
-    ctx.strokeStyle=stroke;
-    ctx.lineWidth=width/state.view.scale;
-    if(dash) ctx.setLineDash(dash.map(v=>v/state.view.scale));
-    ctx.beginPath();
-    path.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
-    ctx.stroke();
-    ctx.restore();
-  }
-  function drawTrackModelPath(path, stroke, width=1.4, alpha=1){
-    if(!Array.isArray(path) || path.length<2) return;
-    ctx.save();
-    ctx.strokeStyle=stroke;
-    ctx.globalAlpha=alpha;
-    ctx.lineWidth=width;
-    ctx.lineCap='round';
-    ctx.lineJoin='round';
-    ctx.beginPath();
-    path.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
-    ctx.stroke();
-    ctx.restore();
-  }
+  const { drawPoly, drawRoadGeneratedPath, drawTrackModelPath } = createSiteCanvasPathRenderer({ ctx, state });
   function roadEdgePaths(r){
     return roadSystem.roadEdgePaths(r);
   }

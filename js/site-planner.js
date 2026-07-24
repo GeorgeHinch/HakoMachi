@@ -62,6 +62,7 @@ import { normalizeIntersectionOverride, roadArmKey } from './site-planner/road-i
 import { createRoadSystemController } from './site-planner/road-system-controller.js';
 import { createRoadAssetExportController } from './site-planner/road-asset-export-controller.js';
 import { createRoadExportReviewController } from './site-planner/road-export-review-panel.js';
+import { createRoadExportUiController } from './site-planner/road-export-ui-controller.js';
 import { createRoadIntersectionMarkingControls } from './site-planner/road-intersection-marking-controls.js';
 import { createRoadFeatureConfigController } from './site-planner/road-feature-config-controller.js';
 import { createRoadPresetApplicationController } from './site-planner/road-preset-application-utils.js';
@@ -539,24 +540,10 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
   function drawRoadExportPreview(){
     return roadSystem.drawRoadExportPreview();
   }
-  function updateRoadExportBadge(data){
-    const el=$('roadExportBadge'); if(!el) return;
-    if(!state.roadExportPreview){el.style.display='none'; return;}
-    el.style.display='block';
-    el.innerHTML=`<b>Road Export Preview</b>${data.roads.length} roads · ${data.seams.length} seam cuts<br><span class="muted">Seams avoid junction bulbs and use benchwork crossings where found.</span>`;
-  }
-  function setRoadExportPreview(on){
-    state.roadExportPreview=!!on;
-    ['roadExportPreviewBtn','mobileRoadExportPreviewBtn'].forEach(id=>{const b=$(id); if(b) b.textContent='Road Export Preview: '+(state.roadExportPreview?'On':'Off');});
-    updateWorkspaceModeUi();
-    draw();
-  }
-  function openRoadExportReview(){
-    state.roadTask='exportAssets';
-    setWorkspaceMode('road', {preserveRoadTask: true});
-    updateWorkspaceModeUi();
-    roadExportReview?.open();
-  }
+  const { updateRoadExportBadge, setRoadExportPreview, openRoadExportReview } = createRoadExportUiController({
+    state,getElement:$,updateWorkspaceModeUi:()=>updateWorkspaceModeUi(),draw,
+    setWorkspaceMode:(...args)=>setWorkspaceMode(...args),getRoadExportReview:()=>roadExportReview,
+  });
   let trackRenderer2D=null;
   function ensureTrackRenderer2D(){
     if(!trackRenderer2D){

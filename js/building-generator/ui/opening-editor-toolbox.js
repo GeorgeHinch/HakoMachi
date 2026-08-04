@@ -1,3 +1,5 @@
+import { oeWallPlacementXBounds } from './opening-editor-facades.js?v=hm-assets-20260804-8';
+
 /* =====================================================================
    TOOLBOX — dynamic left panel; one draggable card per opening style
    ===================================================================== */
@@ -1053,9 +1055,9 @@ export function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
     // floor panel slot. Horizontal: the edge buffer (matT on front/back,
     // 0 on side walls), which is where the perpendicular wall's core
     // material sits behind the inside face.
-    const buf = oeEdgeBuffer(oeWall);
+    const widthBounds = oeWallPlacementXBounds(0, true);
     const maxH = Math.max(2, bandH - 2);
-    const maxW = Math.max(2, W - buf.left - buf.right);
+    const maxW = Math.max(2, widthBounds.maxX - widthBounds.minX);
     const tooTall = dims.h > maxH;
     const tooWide = dims.w > maxW;
 
@@ -1105,7 +1107,7 @@ export function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
   }
 
   if (type === 'window') {
-    const buf = oeEdgeBuffer(oeWall);
+    const xBounds = oeWallPlacementXBounds(dims.w, true);
     const bands = oeGetFloorBands(oeWall);
     const bi = oeYToBand(bands, y);
     let ny;
@@ -1117,20 +1119,22 @@ export function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
       ny = Math.max(2, Math.min(H - dims.h - 2, y - dims.h / 2));
     }
     oeOpenings[oeWall].push({ type: 'window',
-      x: oeSnapPlacementX(Math.max(buf.left, Math.min(W - dims.w - buf.right, x - dims.w / 2)), dims.w),
+      x: oeSnapPlacementX(Math.max(xBounds.minX, Math.min(xBounds.maxX, x - dims.w / 2)), dims.w),
       y: oeSnapPlacementY(ny, dims.h), w: dims.w, h: dims.h,
       style: styleKey });
   } else if (type === 'awning') {
     // Place awning; y = attachment point on wall face. Snap x to grid.
     // h field stores the DEPTH (projection), not visual wall height.
+    const xBounds = oeWallPlacementXBounds(dims.w);
     oeOpenings[oeWall].push({ type: 'awning',
-      x: oeSnapPlacementX(Math.max(0, Math.min(W - dims.w, x - dims.w / 2)), dims.w),
+      x: oeSnapPlacementX(Math.max(xBounds.minX, Math.min(xBounds.maxX, x - dims.w / 2)), dims.w),
       y: oeSnapPlacementY(Math.max(0, Math.min(H - AWNING_DISP_H, y)), AWNING_DISP_H),
       w: dims.w,
       h: dims.d });   // h = depth for awnings
   } else if (type === 'balcony') {
+    const xBounds = oeWallPlacementXBounds(dims.w);
     oeOpenings[oeWall].push({ type: 'balcony',
-      x: oeSnapPlacementX(Math.max(0, Math.min(W - dims.w, x - dims.w / 2)), dims.w),
+      x: oeSnapPlacementX(Math.max(xBounds.minX, Math.min(xBounds.maxX, x - dims.w / 2)), dims.w),
       y: oeSnapPlacementY(Math.max(0, Math.min(H - dims.h, y - dims.h / 2)), dims.h),
       w: dims.w, h: dims.h, d: dims.d,
       balconyType: dims.balconyType });
@@ -1151,14 +1155,16 @@ export function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
       const activePlan = oeActivePlan();
       const topY = downspoutRooflineTopY(activeCfg, activePlan, oeWall, styleKey);
       const downH = Math.max(1, H - topY);
+      const xBounds = oeWallPlacementXBounds(dims.w);
       oeOpenings[oeWall].push({ type: 'fixture',
-        x: oeSnapPlacementX(Math.max(0, Math.min(W - dims.w, x - dims.w / 2)), dims.w),
+        x: oeSnapPlacementX(Math.max(xBounds.minX, Math.min(xBounds.maxX, x - dims.w / 2)), dims.w),
         y: topY,
         w: dims.w, h: downH,
         style: styleKey });
     } else {
+      const xBounds = oeWallPlacementXBounds(dims.w);
       oeOpenings[oeWall].push({ type: 'fixture',
-        x: oeSnapPlacementX(Math.max(0, Math.min(W - dims.w, x - dims.w / 2)), dims.w),
+        x: oeSnapPlacementX(Math.max(xBounds.minX, Math.min(xBounds.maxX, x - dims.w / 2)), dims.w),
         y: oeSnapPlacementY(Math.max(0, Math.min(H - dims.h, y - dims.h / 2)), dims.h),
         w: dims.w, h: dims.h,
         style: styleKey });
@@ -1166,8 +1172,9 @@ export function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
   } else if (type === 'cladding_override') {
     // Free-placed rectangular patch of secondary cladding material. Clamps
     // to wall bounds; the user picks the actual style via the topbar picker.
+    const xBounds = oeWallPlacementXBounds(dims.w);
     oeOpenings[oeWall].push({ type: 'cladding_override',
-      x: oeSnapPlacementX(Math.max(0, Math.min(W - dims.w, x - dims.w / 2)), dims.w),
+      x: oeSnapPlacementX(Math.max(xBounds.minX, Math.min(xBounds.maxX, x - dims.w / 2)), dims.w),
       y: oeSnapPlacementY(Math.max(0, Math.min(H - dims.h, y - dims.h / 2)), dims.h),
       w: dims.w, h: dims.h,
       claddingStyle: oeDefaultOverrideCladdingStyle(),
@@ -1175,8 +1182,9 @@ export function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
   } else if (type === 'printed_item') {
     // Free-placed printed item — prints on a separate sheet (not laser-cut)
     // and gets glued to the wall by the user.
+    const xBounds = oeWallPlacementXBounds(dims.w);
     oeOpenings[oeWall].push({ type: 'printed_item',
-      x: oeSnapPlacementX(Math.max(0, Math.min(W - dims.w, x - dims.w / 2)), dims.w),
+      x: oeSnapPlacementX(Math.max(xBounds.minX, Math.min(xBounds.maxX, x - dims.w / 2)), dims.w),
       y: oeSnapPlacementY(Math.max(0, Math.min(H - dims.h, y - dims.h / 2)), dims.h),
       w: dims.w, h: dims.h,
       style: styleKey,
@@ -1200,11 +1208,12 @@ export function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
       oeOpenings[face] = oeOpenings[face].filter(op => op.type !== 'bay');
     }
     if (!Array.isArray(oeOpenings[oeWall])) oeOpenings[oeWall] = [];
-    const buf = oeEdgeBuffer(oeWall);
-    const maxBayW = Math.max(2, W - buf.left - buf.right);
+    const availableBay = oeWallPlacementXBounds(0, true);
+    const maxBayW = Math.max(2, availableBay.maxX - availableBay.minX);
     const bw = Math.min(maxBayW, dims.w);
     const bh = Math.min(H - 2, dims.h);
-    const bx = oeSnapPlacementX(Math.max(buf.left, Math.min(W - bw - buf.right, x - bw / 2)), bw);
+    const bayBounds = oeWallPlacementXBounds(bw, true);
+    const bx = oeSnapPlacementX(Math.max(bayBounds.minX, Math.min(bayBounds.maxX, x - bw / 2)), bw);
     const bayEntry = { type: 'bay',
       x: bx, y: H - bh,            // bottom-anchored
       w: bw, h: bh,
@@ -1231,9 +1240,9 @@ export function oePlacementDropOpeningImpl(type, dims, x, y, styleKey) {
       });
     }
   } else {
-    const buf = oeEdgeBuffer(oeWall);
+    const xBounds = oeWallPlacementXBounds(dims.w, true);
     oeOpenings[oeWall].push({ type: 'door',
-      x: oeSnapPlacementX(Math.max(buf.left, Math.min(W - dims.w - buf.right, x - dims.w / 2)), dims.w),
+      x: oeSnapPlacementX(Math.max(xBounds.minX, Math.min(xBounds.maxX, x - dims.w / 2)), dims.w),
       y: oeDoorSnappedY(oeWall, dims.h, y), w: dims.w, h: dims.h,
       style: styleKey,
     });

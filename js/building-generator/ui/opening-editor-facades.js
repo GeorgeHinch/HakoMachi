@@ -1,3 +1,5 @@
+import { layoutCutRetainedXIntervalForPart } from '../core/layout-cut-geometry.js?v=hm-assets-20260804-8';
+
 /* =====================================================================
    OPENING EDITOR MODULE FACADES
    ---------------------------------------------------------------------
@@ -193,16 +195,39 @@ export function oeOpMeasurePoint(op) {
 }
 export function oeClampOpToWall(op, x, y) {
   const { W, H } = oeGetWallDims(oeWall);
-  const buf = oeEdgeBuffer(oeWall);
   const isThroughCut = (op.type === 'window' || op.type === 'door' || op.type === 'bay');
-  const minX = isThroughCut ? buf.left : 0;
-  const maxX = isThroughCut ? (W - (op.w || 0) - buf.right) : (W - (op.w || 0));
+  const { minX, maxX } = oeWallPlacementXBounds(op.w || 0, isThroughCut);
   const opH = oeOpH(op);
   const maxY = Math.max(0, H - opH);
   return {
     x: Math.max(minX, Math.min(Math.max(minX, maxX), x)),
     y: Math.max(0, Math.min(maxY, y)),
   };
+}
+
+// Match the core wall span retained by layout-cut output while keeping opening
+// coordinates in the original wall-local space used by saved .hako files.
+export function oeWallLayoutCutInterval(wall = oeWall) {
+  const { W } = oeGetWallDims(wall);
+  const full = { x0: 0, x1: W, omit: false, cropped: false };
+  if (!(W > 0) || isFrontChamferWallFace(wall)) return full;
+  const wallPartId = { front: 'front_wall', back: 'back_wall', east: 'side_wall_east', west: 'side_wall_west' }[wall];
+  if (!wallPartId) return full;
+  const wingSuffix = oeWingIndex != null ? `_wing${oeWingIndex}` : '';
+  const interval = layoutCutRetainedXIntervalForPart({ id: wallPartId + wingSuffix }, CONFIG);
+  if (!interval) return full;
+  const x0 = Math.max(0, Math.min(W, Number(interval.x0) || 0));
+  const x1 = Math.max(x0, Math.min(W, Number(interval.x1) || 0));
+  return { x0, x1, omit: !!interval.omit || x1 - x0 <= 0.01, cropped: x0 > 0.01 || x1 < W - 0.01 };
+}
+
+export function oeWallPlacementXBounds(width = 0, isThroughCut = false, wall = oeWall) {
+  const { W } = oeGetWallDims(wall);
+  const retained = oeWallLayoutCutInterval(wall);
+  const buf = isThroughCut ? oeEdgeBuffer(wall) : { left: 0, right: 0 };
+  const minX = Math.max(retained.x0, buf.left);
+  const maxX = Math.min(retained.x1 - (Number(width) || 0), W - (Number(width) || 0) - buf.right);
+  return { minX, maxX: Math.max(minX, maxX), retained };
 }
 export function oeMoveSelectionAnchorTo(anchorX, measuredYFromBottom) {
   const ops = oeOpenings[oeWall] || [];

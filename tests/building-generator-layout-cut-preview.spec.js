@@ -104,5 +104,20 @@ test.describe('building generator layout-cut 3D preview', () => {
     expect(wallInventory.withoutCut).toContain('side_wall_east_wing1');
     expect(wallInventory.withCut).toContain('side_wall_east_wing0');
     expect(wallInventory.withCut).toContain('side_wall_east_wing1');
+
+    await page.click('#openingEditorBtn');
+    await page.click('[data-oe-wall="front"]');
+    await expect(page.locator('#openingEditorSvg [data-oe-wall-outline="true"]')).toBeVisible();
+    const openingEditor = await page.evaluate(() => {
+      const outline = document.querySelector('#openingEditorSvg [data-oe-wall-outline="true"]');
+      return {
+        hasLayoutCut: outline?.getAttribute('data-oe-layout-cut'),
+        shownX0: Number(outline?.getAttribute('data-oe-layout-cut-x0')),
+        shownX1: Number(outline?.getAttribute('data-oe-layout-cut-x1')),
+      };
+    });
+    expect(openingEditor.hasLayoutCut).toBe('true');
+    expect(openingEditor.shownX0).toBeGreaterThan(0);
+    expect(openingEditor.shownX1).toBeLessThan(suppliedArcCutConfig.width);
   });
 });

@@ -1,7 +1,8 @@
 /* =====================================================================
    FLOOR BANDS
    ===================================================================== */
-import { clipPolygonByLayoutCuts, layoutCutsActive } from '../core/layout-cut-geometry.js?v=hm-assets-20260804-7';
+import { clipPolygonByLayoutCuts, layoutCutsActive } from '../core/layout-cut-geometry.js?v=hm-assets-20260804-8';
+import { oeWallLayoutCutInterval } from './opening-editor-facades.js?v=hm-assets-20260804-8';
 
 export function oeWallHasParapetBand(cfg, wall) {
   if (!cfg) return false;
@@ -446,6 +447,8 @@ export function oeCanvasRenderImpl() {
   const svg = document.getElementById('openingEditorSvg');
   if (!svg) return;
   const { W, H: baseH } = oeGetWallDims(oeWall);
+  const layoutCutInterval = oeWallLayoutCutInterval(oeWall);
+  const hasLayoutCut = layoutCutInterval.cropped || layoutCutInterval.omit;
 
   // Emit the 4 corner resize handles for a selected opening. Each handle
   // carries data-oe-handle (corner identifier) + data-oe-idx (which op in
@@ -505,7 +508,7 @@ export function oeCanvasRenderImpl() {
   const peakAbove = Math.max(pitchL, pitchR, gable);
 
   // ---- Coplanar wing extensions (joined / L-shaped walls) ----
-  const wingExts   = oeComputeWingExtensions();
+  const wingExts   = hasLayoutCut ? [] : oeComputeWingExtensions();
   const leftExts   = wingExts.filter(e => e.side === 'left');
   const rightExts  = wingExts.filter(e => e.side === 'right');
   const leftExtW   = leftExts.reduce((a, e) => a + e.width, 0);
@@ -534,6 +537,28 @@ export function oeCanvasRenderImpl() {
   // so cladding, floor bands and parapet (all drawn inside the clip path)
   // naturally extend across the wing portion too.
   function wallPts() {
+    if (hasLayoutCut) {
+      const x0mm = oeWall === 'east' ? W - layoutCutInterval.x1 : layoutCutInterval.x0;
+      const x1mm = oeWall === 'east' ? W - layoutCutInterval.x0 : layoutCutInterval.x1;
+      const yB = oy + wallH * s;
+      const topYAt = (x) => {
+        if (gable > 0) {
+          if (x <= W / 2) return oy - (pitchL + (gable - pitchL) * (x / Math.max(W / 2, 0.001))) * s;
+          return oy - (gable + (pitchR - gable) * ((x - W / 2) / Math.max(W / 2, 0.001))) * s;
+        }
+        return oy - (pitchL + (pitchR - pitchL) * (x / Math.max(W, 0.001))) * s;
+      };
+      const p = [
+        `${(ox + x0mm * s).toFixed(1)},${yB.toFixed(1)}`,
+        `${(ox + x0mm * s).toFixed(1)},${topYAt(x0mm).toFixed(1)}`,
+      ];
+      if (gable > 0 && x0mm < W / 2 && x1mm > W / 2) {
+        p.push(`${(ox + W * s / 2).toFixed(1)},${(oy - gable * s).toFixed(1)}`);
+      }
+      p.push(`${(ox + x1mm * s).toFixed(1)},${topYAt(x1mm).toFixed(1)}`);
+      p.push(`${(ox + x1mm * s).toFixed(1)},${yB.toFixed(1)}`);
+      return p.join(' ');
+    }
     const p = [];
     // Up to one extension per side is supported in the polygon. Additional
     // extensions on the same side will still render as separate hatched
@@ -582,7 +607,7 @@ export function oeCanvasRenderImpl() {
   </defs>`;
 
   // Wall background fill (matches actual shape)
-  html += `<polygon points="${WPTS}" fill="#c8bfb0" stroke="none"/>`;
+  html += `<polygon data-oe-wall-outline="true" data-oe-layout-cut="${hasLayoutCut ? 'true' : 'false'}" data-oe-layout-cut-x0="${layoutCutInterval.x0.toFixed(3)}" data-oe-layout-cut-x1="${layoutCutInterval.x1.toFixed(3)}" points="${WPTS}" fill="#c8bfb0" stroke="none"/>`;
 
   // ---- All interior content clipped to the wall polygon ----
   html += `<g clip-path="url(#oe-wall-clip)">`;

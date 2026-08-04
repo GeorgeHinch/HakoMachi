@@ -680,19 +680,11 @@ export function layoutCutWallClipSpec(part, cfg) {
       else if (kind === 'interior_cladding') x = matT + panelX;  // interior panel starts inside side walls
       else x = panelX;                                           // core wall frame
     } else {
-      // For front/back-attached wings, the two wing side faces are opposite
-      // exterior views of the same outward run. In top-down wing-local space
-      // the west side is x=0 and east side is x=width, but the generated
-      // sheet/preview labels use the exterior side convention. Without this
-      // front/back-wing correction, arc/line layout cuts shorten the opposite
-      // side wall from the one the shape editor shows: the long side appears
-      // where the short side should be. East/west-attached wings already use
-      // the normal side-wall mapping.
-      const fbWingSideFlip = !!(wing && (wing.face === 'front' || wing.face === 'back'));
-      const effectiveWall = fbWingSideFlip
-        ? (wall === 'west' ? 'east' : (wall === 'east' ? 'west' : wall))
-        : wall;
-      x = (effectiveWall === 'west') ? 0 : width;
+      // Panel identities stay in the wing's local footprint frame. Flipping
+      // east/west for front/back wings mapped their exterior panels to the
+      // opposite world edge, causing an arc cut to omit walls still needed to
+      // close the cropped building.
+      x = (wall === 'west') ? 0 : width;
       if (kind === 'exterior_cladding') {
         y = panelX;                                              // side cladding spans full outside depth
       } else if (kind === 'core' && blockCfg._omitConnectionWall) {

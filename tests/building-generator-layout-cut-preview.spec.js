@@ -3,11 +3,11 @@ const { test, expect } = require('@playwright/test');
 const suppliedArcCutConfig = {
   width: 86.78996248471772,
   depth: 110.9583680412339,
-  height: 49,
+  height: 70,
   heightIncludesParapet: true,
   heightMode: 'floors',
   floorCount: 3,
-  floorHeight: 15,
+  floorHeight: 22,
   roofStyle: 'parapet',
   parapetHeight: 4,
   coreThickness: 1.5,
@@ -30,6 +30,10 @@ const suppliedArcCutConfig = {
 test.describe('building generator layout-cut 3D preview', () => {
   test('clips the supplied free arc consistently across its main block and wings', async ({ page }) => {
     await page.goto('/building-generator.html', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => (
+      !!window.HakoMachiBuildingGeneratorRuntime?.generateBuilding
+      && typeof window.updateThreePreview === 'function'
+    ));
     await page.evaluate((config) => {
       Object.assign(window.CONFIG, structuredClone(config));
       window.regenerate();
@@ -83,5 +87,22 @@ test.describe('building generator layout-cut 3D preview', () => {
     // the 3D clipping plane must retain a positive X / negative Z normal.
     expect(preview.firstPlane.normalX).toBeGreaterThan(0);
     expect(preview.firstPlane.normalZ).toBeLessThan(0);
+
+    const wallInventory = await page.evaluate(() => {
+      const runtime = window.HakoMachiBuildingGeneratorRuntime;
+      const clone = value => window.structuredClone ? window.structuredClone(value) : JSON.parse(JSON.stringify(value));
+      const list = cfg => runtime.generateBuilding(cfg).parts
+        .filter(part => /(?:wall|side_wall|front_wall|back_wall)/.test(part.id))
+        .map(part => part.id)
+        .sort();
+      const withCut = clone(runtime.CONFIG);
+      const withoutCut = clone(runtime.CONFIG);
+      withoutCut.layoutCuts = [];
+      return { withCut: list(withCut), withoutCut: list(withoutCut) };
+    });
+    expect(wallInventory.withoutCut).toContain('side_wall_east_wing0');
+    expect(wallInventory.withoutCut).toContain('side_wall_east_wing1');
+    expect(wallInventory.withCut).toContain('side_wall_east_wing0');
+    expect(wallInventory.withCut).toContain('side_wall_east_wing1');
   });
 });

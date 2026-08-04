@@ -42,8 +42,13 @@ test.describe('building generator layout-cut 3D preview', () => {
       const group = window.buildingMesh;
       const guide = group?.getObjectByName?.('Layout cut guide');
       let firstPlane = null;
+      let guideUsesDepthTest = true;
       const boxes = [];
       group?.traverse?.(child => {
+        if (child.userData?.layoutCutGuide) {
+          const guideMaterials = Array.isArray(child.material) ? child.material : [child.material];
+          if (guideMaterials.some(material => material?.depthTest === false)) guideUsesDepthTest = false;
+        }
         if (!child.isMesh || child.userData?.layoutCutGuide) return;
         const materials = Array.isArray(child.material) ? child.material : [child.material];
         const plane = materials.find(Boolean)?.clippingPlanes?.[0];
@@ -59,6 +64,7 @@ test.describe('building generator layout-cut 3D preview', () => {
       return {
         planes: group?.userData?.layoutCutClippingPlaneCount || 0,
         guideSegments: guide?.children?.length || 0,
+        guideUsesDepthTest,
         firstPlane,
         bounds: boxes.length ? {
           minX: Math.min(...boxes.map(box => box.minX)),
@@ -71,6 +77,7 @@ test.describe('building generator layout-cut 3D preview', () => {
 
     expect(preview.planes).toBe(24);
     expect(preview.guideSegments).toBeGreaterThan(24);
+    expect(preview.guideUsesDepthTest).toBe(true);
     expect(preview.bounds).not.toBeNull();
     // The first free-arc segment travels north-west. Left of it is east, so
     // the 3D clipping plane must retain a positive X / negative Z normal.

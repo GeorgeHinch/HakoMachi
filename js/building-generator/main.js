@@ -1,9 +1,9 @@
-import '../building-generator-runtime.js?v=hm-assets-20260804-5';
+import '../building-generator-runtime.js?v=hm-assets-20260804-6';
 import {
   buildingPreviewRenderer,
   installBuildingPreviewGlobal,
   previewModules,
-} from './preview/index.js?v=hm-assets-20260804-5';
+} from './preview/index.js?v=hm-assets-20260804-6';
 import { createHakoMachiLogger } from '../shared/hakomachi-diagnostics.js';
 
 const logger = createHakoMachiLogger('Building Generator');

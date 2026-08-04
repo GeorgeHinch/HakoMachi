@@ -5,11 +5,11 @@
 
 import { installThreeRenderCanvas } from '../../shared/browser-utils.js';
 import { createHakoMachiLogger } from '../../shared/hakomachi-diagnostics.js';
-import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=hm-assets-20260804-5';
-import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=hm-assets-20260804-5';
-import { collectPreviewLayoutCuts, previewLayoutCutsActive } from './layout-cut-helpers.js?v=hm-assets-20260804-5';
-import { createPreviewMaterialHelpers } from './material-helpers.js?v=hm-assets-20260804-5';
-import { get3DWallProfileForFace, getPreviewEffectiveRidgeDir, isPreviewGabledRoofStyle } from './wall-profile-helpers.js?v=hm-assets-20260804-5';
+import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=hm-assets-20260804-6';
+import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=hm-assets-20260804-6';
+import { collectPreviewLayoutCuts, previewLayoutCutsActive } from './layout-cut-helpers.js?v=hm-assets-20260804-6';
+import { createPreviewMaterialHelpers } from './material-helpers.js?v=hm-assets-20260804-6';
+import { get3DWallProfileForFace, getPreviewEffectiveRidgeDir, isPreviewGabledRoofStyle } from './wall-profile-helpers.js?v=hm-assets-20260804-6';
 
 const logger = createHakoMachiLogger('Building Generator 3D Preview');
 
@@ -3298,7 +3298,7 @@ function addLayoutCutGuidePreview3D(group, cfg, topY) {
     emissive: 0x5a1f0f,
     emissiveIntensity: 0.35,
     roughness: 0.65,
-    depthTest: false,
+    depthTest: true,
     depthWrite: false,
   });
   const addTube = (p0, p1, y, radius = 0.55) => {
@@ -3339,7 +3339,7 @@ function addLayoutCutGuidePreview3D(group, cfg, topY) {
       transparent: true,
       opacity: 0.28,
       side: THREE.DoubleSide,
-      depthTest: false,
+      depthTest: true,
       depthWrite: false,
     });
     const ribbon = new THREE.Mesh(ribbonGeo, ribbonMat);
@@ -3354,7 +3354,7 @@ function addLayoutCutGuidePreview3D(group, cfg, topY) {
     color: 0xd95f24,
     transparent: true,
     opacity: 0.96,
-    depthTest: false,
+    depthTest: true,
     depthWrite: false,
   });
   mat.clippingPlanes = null;

@@ -1,3 +1,3 @@
 'use strict';
 
-import '../site-planner.js?v=hm-assets-20260804-2';
+import '../site-planner.js?v=hm-assets-20260804-3';

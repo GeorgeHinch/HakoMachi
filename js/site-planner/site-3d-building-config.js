@@ -129,6 +129,15 @@ export function createSite3DBuildingConfigController({
 
   function site3DGeneratorModelRotationY(b, cfg) {
     const plannerDeg = Number(b?.rotationDeg) || 0;
+    const explicitDeg = site3DExplicitModelRotationDeg(b, cfg);
+    // Polygon footprints are stored as already-rotated site points. Their
+    // measured Hako footprint angle is therefore the complete placement
+    // rotation; adding rotationDeg again turns the generated model twice.
+    if (b?.hakoConfig && b?.padType === 'polygon') {
+      const placementDeg = hakoFootprintRotationDeg(b);
+      const modelOffsetDeg = Number.isFinite(explicitDeg) ? explicitDeg : 0;
+      return -(placementDeg + modelOffsetDeg) * Math.PI / 180;
+    }
     const baseDeg = site3DGeneratorModelBaseRotationDeg(b, cfg);
     return -(plannerDeg + baseDeg) * Math.PI / 180;
   }

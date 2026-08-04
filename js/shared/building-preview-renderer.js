@@ -1,6 +1,6 @@
-import * as data from '../building-generator/data/index.js?v=hm-assets-20260804-2';
-import { coreModules } from '../building-generator/core/index.js?v=hm-assets-20260804-2';
-import * as materialRegistry from '../building-generator/core/material-registry.js?v=hm-assets-20260804-2';
+import * as data from '../building-generator/data/index.js?v=hm-assets-20260804-3';
+import { coreModules } from '../building-generator/core/index.js?v=hm-assets-20260804-3';
+import * as materialRegistry from '../building-generator/core/material-registry.js?v=hm-assets-20260804-3';
 import * as stlExportConfig from '../building-generator/core/stl-export-config.js';
 import { wingModules } from '../building-generator/wing/index.js';
 
@@ -27,7 +27,7 @@ function publishPreviewDependencies(root = globalThis) {
 
 publishPreviewDependencies(globalThis);
 
-const threePreview = await import('../building-generator/preview/three-preview.js?v=hm-assets-20260804-2');
+const threePreview = await import('../building-generator/preview/three-preview.js?v=hm-assets-20260804-3');
 
 const buildBuildingPreviewGroup = threePreview.buildHakoMachiBuildingPreviewGroup;
 const buildGeneratedStlPreviewGroup = threePreview.buildGeneratedStlPreviewGroup;

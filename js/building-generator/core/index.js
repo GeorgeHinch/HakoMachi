@@ -1,6 +1,6 @@
 import * as wallFeatureModel from './wall-feature-model.js';
-import * as legacyHakoImport from './legacy-hako-import.js?v=hm-assets-20260804-2';
-import * as wallFeatureAccessors from './wall-feature-accessors.js?v=hm-assets-20260804-2';
+import * as legacyHakoImport from './legacy-hako-import.js?v=hm-assets-20260804-3';
+import * as wallFeatureAccessors from './wall-feature-accessors.js?v=hm-assets-20260804-3';
 import * as i18n from './i18n.js';
 import * as state from './state.js';
 import * as geometryPrimitives from './geometry-primitives.js';
@@ -10,7 +10,7 @@ import * as trussSystem from './truss-system.js';
 import * as trussBearingTabs from './truss-bearing-tabs.js';
 import * as verticalTrussSupports from './vertical-truss-supports.js';
 import * as roofGenerator from './roof-generator.js';
-import * as layoutCutGeometry from './layout-cut-geometry.js?v=hm-assets-20260804-2';
+import * as layoutCutGeometry from './layout-cut-geometry.js?v=hm-assets-20260804-3';
 import * as awnings from './awnings.js';
 import * as balconies from './balconies.js';
 import * as billboards from './billboards.js';

@@ -1,8 +1,11 @@
+import {
+  clipPolygonByLayoutCuts,
+  sampleLayoutCutSegments,
+} from '../building-generator/core/layout-cut-geometry.js?v=hm-assets-20260804-3';
+
 export function createHakoBuildingGeometryController({
   state,
-  clamp,
   collectArrayFields,
-  clipPolygonByHalfPlane,
   buildingPoints,
   buildingCenter,
   mmToPx,
@@ -85,101 +88,12 @@ export function createHakoBuildingGeometryController({
     return (cut && cut.targetId) ? String(cut.targetId) : 'main';
   }
 
-  function hakoCutTargetBoundsMm(cfg, cut) {
-    const target = hakoCutTargetId(cut);
-    if (target !== 'main') {
-      const wing = (Array.isArray(cfg?.wings) ? cfg.wings : []).find(w => String(w.id || '') === target);
-      const bounds = hakoWingBoundsMm(cfg, wing);
-      if (bounds) return { kind: 'wing', wing, ...bounds };
-    }
-    return { kind: 'main', x: 0, y: 0, w: Number(cfg?.width) || 0, d: Number(cfg?.depth) || 0 };
-  }
-
-  function resolveHakoLayoutCut(cut, cfg) {
-    if (!cut || cut.type !== 'arc' || cut.positionMode !== 'measured') return cut;
-    const b = hakoCutTargetBoundsMm(cfg, cut);
-    let p1;
-    let p2;
-    let maxOffset;
-    if (b.kind === 'wing' && b.wing) {
-      const wing = b.wing;
-      maxOffset = Math.max(0, Number(wing.depth) || 0);
-      const a = clamp(Number(cut.startOffset) || 0, 0, maxOffset);
-      const e = clamp(Number(cut.endOffset) || 0, 0, maxOffset);
-      const width = Number(cfg.width) || 0;
-      const depth = Number(cfg.depth) || 0;
-      if (wing.face === 'east') {
-        p1 = { x: width + a, y: wing.offset };
-        p2 = { x: width + e, y: wing.offset + wing.span };
-      } else if (wing.face === 'west') {
-        p1 = { x: 0 - a, y: wing.offset };
-        p2 = { x: 0 - e, y: wing.offset + wing.span };
-      } else if (wing.face === 'front') {
-        p1 = { x: wing.offset, y: 0 - a };
-        p2 = { x: wing.offset + wing.span, y: 0 - e };
-      } else {
-        p1 = { x: wing.offset, y: depth + a };
-        p2 = { x: wing.offset + wing.span, y: depth + e };
-      }
-    } else {
-      const edge = cut.referenceEdge || 'back';
-      maxOffset = (edge === 'front' || edge === 'back') ? Math.max(0, b.d) : Math.max(0, b.w);
-      const a = clamp(Number(cut.startOffset) || 0, 0, maxOffset);
-      const e = clamp(Number(cut.endOffset) || 0, 0, maxOffset);
-      if (edge === 'front') {
-        p1 = { x: b.x, y: b.y + a };
-        p2 = { x: b.x + b.w, y: b.y + e };
-      } else if (edge === 'back') {
-        p1 = { x: b.x, y: b.y + b.d - a };
-        p2 = { x: b.x + b.w, y: b.y + b.d - e };
-      } else if (edge === 'east') {
-        p1 = { x: b.x + b.w - a, y: b.y };
-        p2 = { x: b.x + b.w - e, y: b.y + b.d };
-      } else {
-        p1 = { x: b.x + a, y: b.y };
-        p2 = { x: b.x + e, y: b.y + b.d };
-      }
-    }
-    const dx = p2.x - p1.x;
-    const dy = p2.y - p1.y;
-    const len = Math.max(0.0001, Math.hypot(dx, dy));
-    const bulge = Number.isFinite(Number(cut.bulge)) ? Number(cut.bulge) : 20;
-    const side = Number(cut.bulgeSide) < 0 ? -1 : 1;
-    const nx = -dy / len;
-    const ny = dx / len;
-    const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
-    return { ...cut, x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, cx: mid.x + nx * bulge * side, cy: mid.y + ny * bulge * side, _measuredResolved: true };
-  }
-
   function sampleHakoLayoutCutSegments(cut, cfg) {
-    cut = resolveHakoLayoutCut(cut, cfg);
-    if (!cut || cut.enabled === false) return [];
-    if (cut.type !== 'arc') return [[{ x: +cut.x1, y: +cut.y1 }, { x: +cut.x2, y: +cut.y2 }]];
-    const p0 = { x: +cut.x1, y: +cut.y1 };
-    const p1 = { x: +cut.cx, y: +cut.cy };
-    const p2 = { x: +cut.x2, y: +cut.y2 };
-    const pts = [];
-    for (let i = 0; i <= 24; i++) {
-      const t = i / 24;
-      const mt = 1 - t;
-      pts.push({ x: mt * mt * p0.x + 2 * mt * t * p1.x + t * t * p2.x, y: mt * mt * p0.y + 2 * mt * t * p1.y + t * t * p2.y });
-    }
-    const segs = [];
-    for (let i = 0; i < pts.length - 1; i++) {
-      if (Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y) > 0.001) segs.push([pts[i], pts[i + 1]]);
-    }
-    return segs;
+    return sampleLayoutCutSegments(cut, cfg);
   }
 
   function clipHakoPolygonByLayoutCuts(poly, cuts, cfg) {
-    let out = (poly || []).map(p => ({ x: p.x, y: p.y }));
-    (cuts || []).forEach(cut => {
-      sampleHakoLayoutCutSegments(cut, cfg).forEach(([a, z]) => {
-        if (out.length < 3) return;
-        out = clipPolygonByHalfPlane(out, a, z, cut.keepSide === 'right' ? 'right' : 'left');
-      });
-    });
-    return out;
+    return clipPolygonByLayoutCuts(poly, cuts, cfg);
   }
 
   function activeHakoLayoutCuts(b) {

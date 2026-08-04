@@ -2021,9 +2021,8 @@ test.describe('Site Planner module split contracts', () => {
     expect(source).not.toContain('function resolveHakoLayoutCut(cut,cfg)');
     expect(source).not.toContain('function arcSampleMm(it)');
     expect(controller).toContain('function hakoWingBoundsMm(cfg, wing)');
-    expect(controller).toContain('function resolveHakoLayoutCut(cut, cfg)');
     expect(controller).toContain('function clipHakoPolygonByLayoutCuts(poly, cuts, cfg)');
-    expect(controller).toContain('clipPolygonByHalfPlane(out, a, z');
+    expect(controller).toContain('clipPolygonByLayoutCuts(poly, cuts, cfg)');
     expect(controller).toContain('function hakoDisplayTrimPolylinesMm(b)');
     expect(controller).toContain("targetId: hakoCutTargetId(cut)");
   });

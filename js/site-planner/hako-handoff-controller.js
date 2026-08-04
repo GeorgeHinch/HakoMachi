@@ -201,9 +201,17 @@ export function createHakoHandoffController({
     } else if (derived.padType === 'polygon' && derived.pointsMm) {
       const pointsPx = pointsMmToPlacedPx(derived.pointsMm, center, b.rotationDeg || 0);
       if (pointsPx) {
+        const xs = derived.pointsMm.map(point => Number(point.x));
+        const ys = derived.pointsMm.map(point => Number(point.y));
         b.padType = 'polygon';
         b.pointsPx = pointsPx;
-        b.hakoGeometryOriginMm = null;
+        // pointsMmToPlacedPx centers the polygon on its bounding-box centre.
+        // Retain that same local origin for trim lines and the generator 3D
+        // model so the returned building cannot drift or mirror its cuts.
+        b.hakoGeometryOriginMm = {
+          x: (Math.min(...xs) + Math.max(...xs)) / 2,
+          y: (Math.min(...ys) + Math.max(...ys)) / 2,
+        };
         delete b.widthPx;
         delete b.depthPx;
       }

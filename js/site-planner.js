@@ -1,4 +1,4 @@
-import githubData from './shared/github-data.js?v=hm-assets-20260804-2';
+import githubData from './shared/github-data.js?v=hm-assets-20260804-3';
 import { base64ToArrayBuffer, base64ToText, dataUrlFromBase64, dataUrlInfo, downloadBase64, downloadBlob, downloadText, escapeAttr, escapeHtml, formatBytes, installCanvasGestureBoundary, installThreeRenderCanvas, textToBase64 } from './shared/browser-utils.js';
 import { createHakoMachiLogger } from './shared/hakomachi-diagnostics.js';
 import { SVG_FABRICATION_OPERATIONS, svgFabricationColor } from './shared/svg-fabrication-colors.js';
@@ -125,7 +125,6 @@ import { createToolTooltipController } from './site-planner/tool-tooltip-control
 import { createToolVariantController } from './site-planner/tool-variant-controller.js';
 import { createViewTransformController } from './site-planner/view-transform-utils.js';
 import { createWorkspaceModeController } from './site-planner/workspace-mode-controller.js';
-import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geometry.js?v=hm-assets-20260804-2';
 
 (() => {
   const canvas = document.getElementById('canvas');
@@ -918,9 +917,7 @@ import { clipPolygonByHalfPlane } from './building-generator/core/layout-cut-geo
     if(!hakoBuildingGeometryController){
       hakoBuildingGeometryController=createHakoBuildingGeometryController({
         state,
-        clamp,
         collectArrayFields,
-        clipPolygonByHalfPlane,
         buildingPoints,
         buildingCenter,
         mmToPx,

@@ -87,6 +87,41 @@ test.describe('building generator side bay regressions', () => {
     expect(result.left.svg).not.toContain('north-up plan view');
   });
 
+  test('3D clipping planes retain the Shape Editor cut side', async ({ page }) => {
+    await page.goto('/building-generator.html', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.HakoMachiBuildingPreviewRenderer?.buildBuildingPreviewGroup);
+
+    const result = await page.evaluate(() => {
+      const runtime = window.HakoMachiBuildingGeneratorRuntime;
+      const cfg = window.structuredClone
+        ? window.structuredClone(runtime.CONFIG)
+        : JSON.parse(JSON.stringify(runtime.CONFIG));
+      Object.assign(cfg, {
+        width: 100,
+        depth: 80,
+        wings: [],
+        layoutCuts: [{ id: 'front-cut', type: 'line', x1: 0, y1: 40, x2: 100, y2: 40, keepSide: 'left' }],
+      });
+      const group = window.HakoMachiBuildingPreviewRenderer.buildBuildingPreviewGroup(cfg);
+      let plane = null;
+      group.traverse(child => {
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        if (!plane) plane = materials.find(material => material?.clippingPlanes?.length)?.clippingPlanes[0] || null;
+      });
+      return {
+        planeFound: !!plane,
+        // p.y = 60 is the kept lower/back side in front-up plan coordinates;
+        // p.y = 20 is the trimmed front side.
+        keptDistance: plane?.distanceToPoint(new THREE.Vector3(0, 0, 20)),
+        trimmedDistance: plane?.distanceToPoint(new THREE.Vector3(0, 0, -20)),
+      };
+    });
+
+    expect(result.planeFound).toBe(true);
+    expect(result.keptDistance).toBeLessThanOrEqual(0);
+    expect(result.trimmedDistance).toBeGreaterThan(0);
+  });
+
   test('Shape Editor finishes a wing resize when the pointer is released', async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));

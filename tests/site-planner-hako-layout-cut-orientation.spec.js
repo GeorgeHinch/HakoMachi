@@ -115,4 +115,76 @@ test.describe('Site Planner Hako layout-cut orientation', () => {
     expect(result.rotationY).toBeCloseTo(-Math.PI / 2, 8);
     expect(result.originOffset).toEqual({ x: 10, z: 0 });
   });
+
+  test('clips every returned wing with a free arc owned by the main shape', async ({ page }) => {
+    await page.goto('/site-planner.html', { waitUntil: 'networkidle' });
+
+    const result = await page.evaluate(async () => {
+      const [{ createHakoBuildingGeometryController }, { clipPolygonByLayoutCuts }, { deriveFootprintFromHakoConfig }] = await Promise.all([
+        import('/js/site-planner/hako-building-geometry-controller.js'),
+        import('/js/building-generator/core/layout-cut-geometry.js'),
+        import('/js/site-planner/hako-footprint-utils.js'),
+      ]);
+      const cfg = {
+        width: 86.78996248471772,
+        depth: 110.9583680412339,
+        wings: [
+          { id: 'back-wing', face: 'back', offset: 0, span: 82, depth: 40 },
+          { id: 'front-wing', face: 'front', offset: 0, span: 52, depth: 18 },
+        ],
+        layoutCuts: [{
+          id: 'free-arc', type: 'arc',
+          x1: 79.57309238439005, y1: 172.42074227079945,
+          x2: 37.78912164087538, y2: -21.929718985321216,
+          cx: 43.39498124235886, cy: 44.51459617525653,
+          keepSide: 'left', targetId: 'main',
+        }],
+      };
+      const derived = deriveFootprintFromHakoConfig(cfg);
+      const xs = derived.pointsMm.map(point => point.x);
+      const ys = derived.pointsMm.map(point => point.y);
+      const origin = {
+        x: (Math.min(...xs) + Math.max(...xs)) / 2,
+        y: (Math.min(...ys) + Math.max(...ys)) / 2,
+      };
+      const center = { x: 500, y: 500 };
+      const building = {
+        padType: 'polygon',
+        hakoConfig: cfg,
+        hakoGeometryOriginMm: origin,
+        rotationDeg: 0,
+        pointsPx: derived.pointsMm.map(point => ({
+          x: center.x + point.x - origin.x,
+          y: center.y + point.y - origin.y,
+        })),
+      };
+      const controller = createHakoBuildingGeometryController({
+        state: { pxPerMm: 1 },
+        collectArrayFields: (root, paths) => paths.flatMap(path => {
+          const value = path.reduce((current, key) => current && current[key], root);
+          return Array.isArray(value) ? value : [];
+        }),
+        buildingPoints: item => item.pointsPx,
+        buildingCenter: () => center,
+        mmToPx: value => value,
+        pxToMm: value => value,
+        rad: degrees => degrees * Math.PI / 180,
+      });
+      const expected = controller.hakoBlockPolygonsMm(cfg)
+        .map(block => clipPolygonByLayoutCuts(block.poly, cfg.layoutCuts, cfg))
+        .filter(poly => poly.length >= 3)
+        .map(poly => poly.map(point => ({
+          x: center.x + point.x - origin.x,
+          y: center.y + point.y - origin.y,
+        })));
+      const signature = polys => polys.map(poly => poly
+        .map(point => point.x.toFixed(3) + ',' + point.y.toFixed(3))
+        .sort()
+        .join('|'))
+        .sort();
+      return { expected: signature(expected), actual: signature(controller.visibleBuildingPolygons(building)) };
+    });
+
+    expect(result.actual).toEqual(result.expected);
+  });
 });

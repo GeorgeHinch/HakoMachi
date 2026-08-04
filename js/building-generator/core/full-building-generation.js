@@ -2,7 +2,7 @@
    FULL BUILDING GENERATION
    Combines all parts into a list.
    ===================================================================== */
-import { clipPolygonByLayoutCuts, generateLayoutCutSolidBackParts, layoutCutsActive } from './layout-cut-geometry.js?v=hm-assets-20260804-4';
+import { clipPolygonByLayoutCuts, generateLayoutCutSolidBackParts, layoutCutsActive } from './layout-cut-geometry.js?v=hm-assets-20260804-5';
 
 
 export function htmlEscapeInline(s) {

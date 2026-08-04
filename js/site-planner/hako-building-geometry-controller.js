@@ -1,7 +1,7 @@
 import {
   clipPolygonByLayoutCuts,
   sampleLayoutCutSegments,
-} from '../building-generator/core/layout-cut-geometry.js?v=hm-assets-20260804-4';
+} from '../building-generator/core/layout-cut-geometry.js?v=hm-assets-20260804-5';
 
 export function createHakoBuildingGeometryController({
   state,
@@ -52,6 +52,16 @@ export function createHakoBuildingGeometryController({
     return out;
   }
 
+  function normalizeAxisAngleDeg(value) {
+    let out = normalizeAngleDeg180(value);
+    // A footprint edge is an axis, not a directional vector. Traversing the
+    // same edge from its opposite end must not rotate the returned Hako model
+    // by 180 degrees and mirror its layout-cut side.
+    while (out > 90) out -= 180;
+    while (out <= -90) out += 180;
+    return out;
+  }
+
   function hakoLongestEdgeAngleDeg(polys) {
     let bestLen = -1;
     let bestAngle = null;
@@ -79,7 +89,7 @@ export function createHakoBuildingGeometryController({
     const localAngle = hakoLongestEdgeAngleDeg(localPolys);
     const siteAngle = hakoLongestEdgeAngleDeg([buildingPoints(b)]);
     if (Number.isFinite(localAngle) && Number.isFinite(siteAngle)) {
-      return normalizeAngleDeg180(siteAngle - localAngle);
+      return normalizeAxisAngleDeg(siteAngle - localAngle);
     }
     return Number(b.rotationDeg) || 0;
   }
@@ -132,23 +142,26 @@ export function createHakoBuildingGeometryController({
     const base = buildingPoints(b).map(p => ({ x: p.x, y: p.y }));
     if (base.length < 3 || !state.pxPerMm || !b || !b.hakoConfig) return base.length >= 3 ? [base] : [];
     const cuts = activeHakoLayoutCuts(b);
-    const hasTargetedCuts = cuts.some(c => hakoCutTargetId(c) !== 'main');
-    const blocks = hasTargetedCuts ? hakoBlockPolygonsMm(b.hakoConfig) : [];
-    if (!blocks.length) {
+    if (!cuts.length) return [base];
+
+    // The generator crops every physical block with every active layout cut.
+    // targetId identifies the Shape Editor control that owns a cut; it does
+    // not limit the cut to that block. Treating a main cut as a crop of the
+    // composite outline left attached wings square and could invert the
+    // apparent retained side after a planner round trip.
+    const blocks = hakoBlockPolygonsMm(b.hakoConfig);
+    const hasSeparateBlocks = blocks.length > 1 && Array.isArray(b.hakoConfig.wings) && b.hakoConfig.wings.length > 0;
+    if (!hasSeparateBlocks) {
       let out = base;
-      const mainCuts = cuts.filter(c => hakoCutTargetId(c) === 'main');
-      if (mainCuts.length) {
-        const localBase = base.map(p => hakoWorldToLocalMm(b, p));
-        const clipped = clipHakoPolygonByLayoutCuts(localBase, mainCuts, b.hakoConfig);
-        if (clipped && clipped.length >= 3) out = clipped.map(p => hakoLocalMmToWorld(b, p));
-      }
+      const localBase = base.map(p => hakoWorldToLocalMm(b, p));
+      const clipped = clipHakoPolygonByLayoutCuts(localBase, cuts, b.hakoConfig);
+      if (clipped && clipped.length >= 3) out = clipped.map(p => hakoLocalMmToWorld(b, p));
       return out.length >= 3 ? [out] : [base];
     }
     const polys = [];
     blocks.forEach(block => {
       let poly = block.poly.map(p => ({ x: p.x, y: p.y }));
-      const blockCuts = cuts.filter(c => hakoCutTargetId(c) === block.id);
-      if (blockCuts.length) poly = clipHakoPolygonByLayoutCuts(poly, blockCuts, b.hakoConfig);
+      poly = clipHakoPolygonByLayoutCuts(poly, cuts, b.hakoConfig);
       if (poly && poly.length >= 3) polys.push(poly.map(p => hakoLocalMmToWorld(b, p)));
     });
     return polys.length ? polys : [base];

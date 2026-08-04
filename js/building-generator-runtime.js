@@ -38419,10 +38419,7 @@ function oeCanvasRenderImpl() {
   // extensions as L (or U) steps so the merged wall looks continuous — and
   // so cladding, floor bands and parapet (all drawn inside the clip path)
   // naturally extend across the wing portion too.
-  function wallPts() {
-    if (hasLayoutCut) {
-      const x0mm = oeWall === 'east' ? W - layoutCutInterval.x1 : layoutCutInterval.x0;
-      const x1mm = oeWall === 'east' ? W - layoutCutInterval.x0 : layoutCutInterval.x1;
+  function mainWallPts(x0mm, x1mm) {
       const yB = oy + wallH * s;
       const topYAt = (x) => {
         if (gable > 0) {
@@ -38441,6 +38438,12 @@ function oeCanvasRenderImpl() {
       p.push(`${(ox + x1mm * s).toFixed(1)},${topYAt(x1mm).toFixed(1)}`);
       p.push(`${(ox + x1mm * s).toFixed(1)},${yB.toFixed(1)}`);
       return p.join(' ');
+  }
+  function wallPts() {
+    if (hasLayoutCut) {
+      const x0mm = oeWall === 'east' ? W - layoutCutInterval.x1 : layoutCutInterval.x0;
+      const x1mm = oeWall === 'east' ? W - layoutCutInterval.x0 : layoutCutInterval.x1;
+      return mainWallPts(x0mm, x1mm);
     }
     const p = [];
     // Up to one extension per side is supported in the polygon. Additional
@@ -38473,6 +38476,7 @@ function oeCanvasRenderImpl() {
     return p.join(' ');
   }
   const WPTS = wallPts();
+  const fullMainWallPts = hasLayoutCut ? mainWallPts(0, W) : WPTS;
   // Total extended wall x range used by cladding, floor bands, parapet
   const wxStart = ox - leftExtW * s;
   const wxEnd   = ox + W * s + rightExtW * s;
@@ -38480,6 +38484,7 @@ function oeCanvasRenderImpl() {
 
   let html = `<defs>
     <clipPath id="oe-wall-clip"><polygon points="${WPTS}"/></clipPath>
+${hasLayoutCut ? `<mask id="oe-layout-cut-fade-mask"><rect x="0" y="0" width="100%" height="100%" fill="white"/><polygon points="${WPTS}" fill="black"/></mask>` : ''}
     <pattern id="oe-hatch" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(45)">
       <line x1="0" y1="0" x2="0" y2="5" stroke="#bbb" stroke-width="1.2"/>
     </pattern>
@@ -38488,6 +38493,24 @@ function oeCanvasRenderImpl() {
       <line x1="0" y1="0" x2="0" y2="6" stroke="#7a6c5e" stroke-width="2"/>
     </pattern>
   </defs>`;
+
+  // Keep the removed panel portion as a non-interactive visual reference. The
+  // mask hides this ghost beneath material that is still manufactured, while
+  // retaining faded markers for windows and other features that run off-cut.
+  if (hasLayoutCut) {
+    const fadeOps = (oeOpenings[oeWall] || []).filter(op => op && op.w > 0 && oeOpH(op) > 0);
+    html += `<g data-oe-layout-cut-fade="true" mask="url(#oe-layout-cut-fade-mask)" opacity="0.24" pointer-events="none">`;
+    html += `<polygon points="${fullMainWallPts}" fill="#c8bfb0" stroke="#756b60" stroke-width="1.1"/>`;
+    html += `<polygon points="${fullMainWallPts}" fill="url(#oe-hatch)" opacity="0.22"/>`;
+    for (const op of fadeOps) {
+      const opH = op.type === 'awning' ? AWNING_DISP_H : oeOpH(op);
+      const rx = ox + oeMirrorX(op.x || 0, op.w) * s;
+      const ry = oy + (op.y || 0) * s;
+      const fill = op.type === 'window' ? '#77a8d3' : (op.type === 'door' || op.type === 'bay' ? '#c98957' : '#6f6963');
+      html += `<rect data-oe-layout-cut-fade-item="true" x="${rx.toFixed(1)}" y="${ry.toFixed(1)}" width="${(op.w * s).toFixed(1)}" height="${(opH * s).toFixed(1)}" fill="${fill}" stroke="#5c554e" stroke-width="0.7"/>`;
+    }
+    html += '</g>';
+  }
 
   // Wall background fill (matches actual shape)
   html += `<polygon data-oe-wall-outline="true" data-oe-layout-cut="${hasLayoutCut ? 'true' : 'false'}" data-oe-layout-cut-x0="${layoutCutInterval.x0.toFixed(3)}" data-oe-layout-cut-x1="${layoutCutInterval.x1.toFixed(3)}" points="${WPTS}" fill="#c8bfb0" stroke="none"/>`;

@@ -1,4 +1,4 @@
-import { layoutCutRetainedXIntervalForPart } from '../core/layout-cut-geometry.js?v=hm-assets-20260804-8';
+import { layoutCutRetainedXIntervalForPart } from '../core/layout-cut-geometry.js?v=hm-assets-20260804-9';
 
 /* =====================================================================
    OPENING EDITOR MODULE FACADES

@@ -1,4 +1,4 @@
-import { oeWallPlacementXBounds } from './opening-editor-facades.js?v=hm-assets-20260804-8';
+import { oeWallPlacementXBounds } from './opening-editor-facades.js?v=hm-assets-20260804-9';
 
 /* =====================================================================
    TOOLBOX — dynamic left panel; one draggable card per opening style

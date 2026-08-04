@@ -12,6 +12,9 @@ const suppliedArcCutConfig = {
   parapetHeight: 4,
   coreThickness: 1.5,
   claddingThickness: 0.28,
+  wallFeatures: {
+    front: [{ type: 'window', x: 3, y: 12, w: 10, h: 10, style: 'single' }],
+  },
   wings: [
     { id: 'back-wing', face: 'back', offset: 0, span: 82, depth: 40, height: 30, floors: 1, connection: 'wall' },
     { id: 'front-wing', face: 'front', offset: 0, span: 52, depth: 18, height: 49, floors: 1, connection: 'wall' },
@@ -108,6 +111,7 @@ test.describe('building generator layout-cut 3D preview', () => {
     await page.click('#openingEditorBtn');
     await page.click('[data-oe-wall="front"]');
     await expect(page.locator('#openingEditorSvg [data-oe-wall-outline="true"]')).toBeVisible();
+    await expect(page.locator('#openingEditorSvg [data-oe-layout-cut-fade="true"]')).toBeVisible();
     const openingEditor = await page.evaluate(() => {
       const outline = document.querySelector('#openingEditorSvg [data-oe-wall-outline="true"]');
       return {
@@ -119,5 +123,6 @@ test.describe('building generator layout-cut 3D preview', () => {
     expect(openingEditor.hasLayoutCut).toBe('true');
     expect(openingEditor.shownX0).toBeGreaterThan(0);
     expect(openingEditor.shownX1).toBeLessThan(suppliedArcCutConfig.width);
+    expect(await page.locator('#openingEditorSvg [data-oe-layout-cut-fade-item="true"]').count()).toBeGreaterThan(0);
   });
 });

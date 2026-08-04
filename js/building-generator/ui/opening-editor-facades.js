@@ -1,4 +1,4 @@
-import { layoutCutRetainedXIntervalForPart } from '../core/layout-cut-geometry.js?v=hm-assets-20260804-12';
+import { layoutCutRetainedXIntervalForPart } from '../core/layout-cut-geometry.js?v=hm-assets-20260804-13';
 
 /* =====================================================================
    OPENING EDITOR MODULE FACADES
@@ -323,6 +323,63 @@ export function oeStateActivePlanImpl() {
   return (oeWingIndex != null && oeWingPlan) ? oeWingPlan : lastPlan;
 }
 
+export function oeWallTabId(face) {
+  if (face === 'front_chamfer_west') return 'oeTabFrontChamferWest';
+  if (face === 'front_chamfer_east') return 'oeTabFrontChamferEast';
+  return 'oeTab' + String(face || '').charAt(0).toUpperCase() + String(face || '').slice(1);
+}
+
+export function oeWallIsAvailable(face) {
+  if (oeWingIndex != null && face === 'front') return false;
+  if (!isFrontChamferWallFace(face)) return true;
+  if (oeWingIndex != null) return false;
+  const chamfer = frontCornerChamferFor(oeActiveCfg(), oeActivePlan());
+  return chamfer.enabled && frontChamferFaceLength(chamfer, face) > 0.01;
+}
+
+export function oeRefreshWallTabs() {
+  const target = oeEditTarget();
+  for (const w of WALL_FACE_KEYS) {
+    const tab = document.getElementById(oeWallTabId(w));
+    if (!tab) continue;
+    const available = oeWallIsAvailable(w);
+    tab.style.display = available ? '' : 'none';
+    tab.classList.toggle('oe-active', w === oeWall);
+    tab.classList.toggle('oe-manual-indicator', wallHasManualFeatures(target, w));
+  }
+}
+
+export function oePopulateTargetSelect() {
+  const select = document.getElementById('oeTargetSelect');
+  if (!select) return;
+
+  const wings = Array.isArray(CONFIG.wings) ? CONFIG.wings : [];
+  select.replaceChildren();
+  const mainOption = document.createElement('option');
+  mainOption.value = 'main';
+  mainOption.textContent = 'Main building';
+  select.appendChild(mainOption);
+
+  wings.forEach((wing, index) => {
+    const option = document.createElement('option');
+    option.value = `wing:${index}`;
+    option.textContent = `Wing ${index + 1} (${String(wing && (wing.face || wing.side) || 'wing')})`;
+    select.appendChild(option);
+  });
+
+  select.value = oeWingIndex != null ? `wing:${oeWingIndex}` : 'main';
+  select.disabled = wings.length === 0;
+}
+
+export function oeSetEditTarget(value) {
+  const match = /^wing:(\d+)$/.exec(String(value || ''));
+  const wingIndex = match ? Number(match[1]) : null;
+  const validWing = Number.isInteger(wingIndex) && wingIndex >= 0 &&
+    Array.isArray(CONFIG.wings) && !!CONFIG.wings[wingIndex];
+  const nextWall = validWing && oeWall === 'front' ? 'back' : oeWall;
+  oeStateOpenImpl(nextWall, validWing ? wingIndex : null);
+}
+
 export function oeStateOpenImpl(wall, wingIndex) {
   if (typeof wall !== 'string') wall = null;
   if (!lastPlan) { readForm(); regenerate(); }
@@ -366,6 +423,8 @@ export function oeStateOpenImpl(wall, wingIndex) {
   // default to 'back' (the wing's outermost face — always editable).
   let initialWall = wall;
   if (oeWingIndex != null && !initialWall) initialWall = 'back';
+  if (initialWall && !oeWallIsAvailable(initialWall)) initialWall = null;
+  oePopulateTargetSelect();
   oeSetWall(initialWall || oeWall);
   oeSetTool(oeTool === 'window' || oeTool === 'door' ? 'move' : oeTool);
 }
@@ -443,6 +502,7 @@ export function oeStateApplyImpl() {
 }
 
 export function oeStateSetWallImpl(wall) {
+  if (!oeWallIsAvailable(wall)) wall = 'front';
   oeWall = wall;
   oeSelectedSet.clear();
   const targetForManualState = oeEditTarget();
@@ -462,13 +522,7 @@ export function oeStateSetWallImpl(wall) {
       if (autoOps && autoOps.length) oeOpenings[wall].push(...autoOps);
     }
   }
-  const targetForTabs = oeEditTarget();
-  for (const w of ['front', 'back', 'east', 'west']) {
-    const tab = document.getElementById('oeTab' + w.charAt(0).toUpperCase() + w.slice(1));
-    if (!tab) continue;
-    tab.classList.toggle('oe-active', w === wall);
-    tab.classList.toggle('oe-manual-indicator', wallHasManualFeatures(targetForTabs, w));
-  }
+  oeRefreshWallTabs();
   oeUpdateModeBadge();
   oeRender();
 }

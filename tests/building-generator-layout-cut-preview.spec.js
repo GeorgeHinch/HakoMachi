@@ -37,6 +37,35 @@ const suppliedArcCutConfig = {
 };
 
 test.describe('building generator layout-cut 3D preview', () => {
+  test('lets the opening editor select a wing and its exposed wall faces', async ({ page }) => {
+    await page.goto('/building-generator.html', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.HakoMachiBuildingGeneratorRuntime?.generateBuilding);
+    await page.evaluate((config) => {
+      Object.assign(window.CONFIG, structuredClone(config));
+      window.regenerate();
+    }, suppliedArcCutConfig);
+
+    await page.click('#openingEditorBtn');
+    await expect(page.locator('#oeTargetSelect')).toHaveValue('main');
+    await expect(page.locator('#oeTargetSelect option')).toHaveText([
+      'Main building',
+      'Wing 1 (back)',
+      'Wing 2 (front)',
+    ]);
+    await expect(page.locator('#oeTabFront')).toBeVisible();
+
+    await page.selectOption('#oeTargetSelect', 'wing:1');
+    await expect(page.locator('#oeTargetSelect')).toHaveValue('wing:1');
+    await expect(page.locator('#oeTabFront')).toBeHidden();
+    await expect(page.locator('#oeTabBack')).toHaveClass(/oe-active/);
+    await expect(page.locator('#oeTabEast')).toBeVisible();
+    await expect(page.locator('#oeTabWest')).toBeVisible();
+
+    await page.selectOption('#oeTargetSelect', 'main');
+    await expect(page.locator('#oeTargetSelect')).toHaveValue('main');
+    await expect(page.locator('#oeTabFront')).toBeVisible();
+  });
+
   test('clips the supplied free arc consistently across its main block and wings', async ({ page }) => {
     await page.goto('/building-generator.html', { waitUntil: 'networkidle' });
     await page.waitForFunction(() => (

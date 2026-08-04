@@ -903,6 +903,11 @@ export function renderPartsOutput(parts) {
       openOpeningEditor(wall, wingIdx);
     });
   });
+  const oeTargetSelect = document.getElementById('oeTargetSelect');
+  if (oeTargetSelect && !oeTargetSelect.dataset.bound) {
+    oeTargetSelect.dataset.bound = 'true';
+    oeTargetSelect.addEventListener('change', () => oeSetEditTarget(oeTargetSelect.value));
+  }
   document.querySelectorAll('.part[data-iw-floor]').forEach(card => {
     card.addEventListener('click', () => {
       // data-iw-floor can be a numeric floor index (0 = ground floor, 1 =

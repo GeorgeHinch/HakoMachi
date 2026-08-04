@@ -1,7 +1,7 @@
 import {
   clipPolygonByLayoutCuts,
   sampleLayoutCutSegments,
-} from '../building-generator/core/layout-cut-geometry.js?v=hm-assets-20260804-12';
+} from '../building-generator/core/layout-cut-geometry.js?v=hm-assets-20260804-13';
 
 export function createHakoBuildingGeometryController({
   state,

@@ -615,6 +615,8 @@
     display: flex; align-items: center; gap: 10px; flex-shrink: 0;
   }
   .oe-header h2 { margin: 0; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+  .oe-target-picker { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .oe-target-picker select { min-width: 120px; max-width: 180px; height: 27px; padding: 3px 24px 3px 7px; border: 1px solid var(--border); border-radius: 3px; background: #fff; color: var(--text); font: inherit; }
   .oe-wall-tabs { display: flex; gap: 3px; }
   .oe-wall-tab {
     padding: 4px 10px; border: 1px solid var(--border); border-radius: 3px;

@@ -30910,6 +30910,10 @@ function init() {
   document.querySelectorAll('[data-oe-wall]').forEach(btn => {
     btn.addEventListener('click', () => oeSetWall(btn.dataset.oeWall));
   });
+  const oeTargetSelect = document.getElementById('oeTargetSelect');
+  if (oeTargetSelect) {
+    oeTargetSelect.addEventListener('change', () => oeSetEditTarget(oeTargetSelect.value));
+  }
   bindClick('oeResetWallBtn', oeResetWall);
   bindClick('oeApplyBtn', oeApply);
   bindClick('oeCloseBtn', oeClose);
@@ -35184,10 +35188,49 @@ function oeWallTabId(face) {
 }
 
 function oeWallIsAvailable(face) {
+  // A wing's local front is its attachment face. It has no physical exterior
+  // panel, so it cannot receive wall openings in the editor.
+  if (oeWingIndex != null && face === 'front') return false;
   if (!isFrontChamferWallFace(face)) return true;
   if (oeWingIndex != null) return false;
   const chamfer = frontCornerChamferFor(oeActiveCfg(), oeActivePlan());
   return chamfer.enabled && frontChamferFaceLength(chamfer, face) > 0.01;
+}
+
+function oePopulateTargetSelect() {
+  const select = document.getElementById('oeTargetSelect');
+  if (!select) return;
+
+  const wings = Array.isArray(CONFIG.wings) ? CONFIG.wings : [];
+  select.replaceChildren();
+
+  const mainOption = document.createElement('option');
+  mainOption.value = 'main';
+  mainOption.textContent = 'Main building';
+  select.appendChild(mainOption);
+
+  wings.forEach((wing, index) => {
+    const option = document.createElement('option');
+    option.value = `wing:${index}`;
+    const attachment = String(wing && (wing.face || wing.side) || 'wing');
+    option.textContent = `Wing ${index + 1} (${attachment})`;
+    select.appendChild(option);
+  });
+
+  select.value = oeWingIndex != null ? `wing:${oeWingIndex}` : 'main';
+  select.disabled = wings.length === 0;
+}
+
+function oeSetEditTarget(value) {
+  const match = /^wing:(\d+)$/.exec(String(value || ''));
+  const wingIndex = match ? Number(match[1]) : null;
+  const validWing = Number.isInteger(wingIndex) && wingIndex >= 0 &&
+    Array.isArray(CONFIG.wings) && !!CONFIG.wings[wingIndex];
+
+  // Keep the current side when it exists on the selected surface. A wing's
+  // local front is an internal connection face, so move to its outer face.
+  const nextWall = validWing && oeWall === 'front' ? 'back' : oeWall;
+  oeStateOpenImpl(nextWall, validWing ? wingIndex : null);
 }
 
 function oeRefreshWallTabs() {
@@ -35246,6 +35289,7 @@ function oeStateOpenImpl(wall, wingIndex) {
   let initialWall = wall;
   if (oeWingIndex != null && !initialWall) initialWall = 'back';
   if (initialWall && !oeWallIsAvailable(initialWall)) initialWall = null;
+  oePopulateTargetSelect();
   oeSetWall(initialWall || oeWall);
   oeSetTool(oeTool === 'window' || oeTool === 'door' ? 'move' : oeTool);
 }

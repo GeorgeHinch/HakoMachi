@@ -2,7 +2,7 @@ import {
   buildingPreviewRenderer,
   installBuildingPreviewGlobal,
   threePreview,
-} from '../../shared/building-preview-renderer.js?v=hm-assets-20260804-9';
+} from '../../shared/building-preview-renderer.js?v=hm-assets-20260804-10';
 import * as controller from './controller.js';
 
 export const installPreviewLegacyBehavior = threePreview.installThreePreviewLegacyBehavior;

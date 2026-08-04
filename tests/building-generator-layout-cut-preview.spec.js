@@ -13,7 +13,10 @@ const suppliedArcCutConfig = {
   coreThickness: 1.5,
   claddingThickness: 0.28,
   wallFeatures: {
-    front: [{ type: 'window', x: 3, y: 12, w: 10, h: 10, style: 'single' }],
+    front: [
+      { type: 'window', x: 3, y: 12, w: 10, h: 10, style: 'single' },
+      { type: 'window', x: 75, y: 12, w: 8, h: 10, style: 'single' },
+    ],
   },
   wings: [
     { id: 'back-wing', face: 'back', offset: 0, span: 82, depth: 40, height: 30, floors: 1, connection: 'wall' },
@@ -101,12 +104,21 @@ test.describe('building generator layout-cut 3D preview', () => {
       const withCut = clone(runtime.CONFIG);
       const withoutCut = clone(runtime.CONFIG);
       withoutCut.layoutCuts = [];
-      return { withCut: list(withCut), withoutCut: list(withoutCut) };
+      const cutParts = runtime.generateBuilding(withCut).parts;
+      const offsets = ['front_wall', 'back_wall'].map(id => {
+        const part = cutParts.find(candidate => candidate.id === id);
+        return { id, bboxOffsetX: Number(part?.bboxOffsetX) || 0 };
+      });
+      return { withCut: list(withCut), withoutCut: list(withoutCut), offsets };
     });
     expect(wallInventory.withoutCut).toContain('side_wall_east_wing0');
     expect(wallInventory.withoutCut).toContain('side_wall_east_wing1');
     expect(wallInventory.withCut).toContain('side_wall_east_wing0');
     expect(wallInventory.withCut).toContain('side_wall_east_wing1');
+    // Front/back panels are mirrored on assembly. Their kept local spans must
+    // therefore begin at the east-facing sheet edge after the global cut.
+    expect(wallInventory.offsets.find(part => part.id === 'front_wall').bboxOffsetX).toBeLessThanOrEqual(0.01);
+    expect(wallInventory.offsets.find(part => part.id === 'back_wall').bboxOffsetX).toBeLessThanOrEqual(0.01);
 
     await page.click('#openingEditorBtn');
     await page.click('[data-oe-wall="front"]');
@@ -121,7 +133,7 @@ test.describe('building generator layout-cut 3D preview', () => {
       };
     });
     expect(openingEditor.hasLayoutCut).toBe('true');
-    expect(openingEditor.shownX0).toBeGreaterThan(0);
+    expect(openingEditor.shownX0).toBeLessThanOrEqual(0.01);
     expect(openingEditor.shownX1).toBeLessThan(suppliedArcCutConfig.width);
     expect(await page.locator('#openingEditorSvg [data-oe-layout-cut-fade-item="true"]').count()).toBeGreaterThan(0);
   });

@@ -104,6 +104,13 @@ test.describe('3D material depth regression contracts', () => {
     expect(imageOpacityHandler[1]).toContain('updateSite3D({preserveCamera:true})');
   });
 
+  test('Building Generator 3D layout cuts retain the same side as exported floor plans', () => {
+    const preview = readRepoFile('js/building-generator/preview/three-preview.js');
+
+    expect(preview).toMatch(/const normal = keepRight\s*\? new THREE\.Vector3\(-dy, 0, dx\)\s*:\s*new THREE\.Vector3\(dy, 0, -dx\);/);
+    expect(preview).toContain('const constant = keepRight ? sideOffset : -sideOffset;');
+  });
+
   test('utility 3D solid material defaults keep depth writes enabled', () => {
     const source = readRepoFile('js/utilities/utility-3d-preview.js');
 

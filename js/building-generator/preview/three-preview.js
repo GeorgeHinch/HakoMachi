@@ -3380,10 +3380,13 @@ export function applyLayoutCutClippingToGroup(group, cfg, transformMatrix = null
         if (Math.hypot(dx, dy) < 0.001) continue;
         const sideOffset = dx * (d / 2 - a.y) - dy * (w / 2 - a.x);
         const keepRight = cut.keepSide === 'right';
+        // Three.js discards the positive side of a clipping plane. The
+        // floor-plan/export cropper retains the requested side instead, so
+        // invert the plane here to keep the same half-plane in 3D.
         const normal = keepRight
-          ? new THREE.Vector3(dy, 0, -dx)
-          : new THREE.Vector3(-dy, 0, dx);
-        const constant = keepRight ? -sideOffset : sideOffset;
+          ? new THREE.Vector3(-dy, 0, dx)
+          : new THREE.Vector3(dy, 0, -dx);
+        const constant = keepRight ? sideOffset : -sideOffset;
         const len = normal.length();
         if (len <= 0.000001) continue;
         normal.multiplyScalar(1 / len);

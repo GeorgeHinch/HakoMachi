@@ -31,6 +31,62 @@ test.describe('building generator side bay regressions', () => {
     await expect(fade.locator('path')).toHaveAttribute('fill-opacity', '0.78');
   });
 
+  test('printed layout reference keeps arc cuts in Shape Editor orientation', async ({ page }) => {
+    await page.goto('/building-generator.html', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.HakoMachiBuildingGeneratorRuntime?.generateBuilding);
+
+    const result = await page.evaluate(() => {
+      const runtime = window.HakoMachiBuildingGeneratorRuntime;
+      const makeConfig = keepSide => {
+        const cfg = window.structuredClone
+          ? window.structuredClone(runtime.CONFIG)
+          : JSON.parse(JSON.stringify(runtime.CONFIG));
+        Object.assign(cfg, {
+          width: 100,
+          depth: 80,
+          wings: [],
+          layoutCuts: [{
+            id: `printed-arc-${keepSide}`,
+            type: 'arc',
+            x1: 0,
+            y1: 40,
+            cx: 50,
+            cy: 70,
+            x2: 100,
+            y2: 40,
+            keepSide,
+          }],
+        });
+        return cfg;
+      };
+      const meanPolygonY = keepSide => {
+        const part = runtime.generateBuilding(makeConfig(keepSide)).parts
+          .find(candidate => candidate.id === 'building_layout_reference_print');
+        const points = part.svgContent.match(/<polygon points="([^"]+)"/)[1]
+          .trim()
+          .split(/\s+/)
+          .map(pair => Number(pair.split(',')[1]));
+        return {
+          meanY: points.reduce((total, y) => total + y, 0) / points.length,
+          svg: part.svgContent,
+        };
+      };
+      return {
+        left: meanPolygonY('left'),
+        right: meanPolygonY('right'),
+      };
+    });
+
+    // In the Shape Editor's front-up coordinate system, the left side of this
+    // upward-bulging arc sits closer to the front/top of the footprint. A
+    // map-style Y inversion would reverse this relationship.
+    expect(result.left.meanY).toBeLessThan(result.right.meanY);
+    expect(result.left.svg).toContain('front-up plan view');
+    expect(result.left.svg).toContain('>Front</text>');
+    expect(result.left.svg).toContain('>Back</text>');
+    expect(result.left.svg).not.toContain('north-up plan view');
+  });
+
   test('Shape Editor finishes a wing resize when the pointer is released', async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));

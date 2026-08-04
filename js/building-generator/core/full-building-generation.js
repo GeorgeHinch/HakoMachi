@@ -2,7 +2,7 @@
    FULL BUILDING GENERATION
    Combines all parts into a list.
    ===================================================================== */
-import { clipPolygonByLayoutCuts, generateLayoutCutSolidBackParts, layoutCutsActive } from './layout-cut-geometry.js?v=hm-assets-20260804-1';
+import { clipPolygonByLayoutCuts, generateLayoutCutSolidBackParts, layoutCutsActive } from './layout-cut-geometry.js?v=hm-assets-20260804-2';
 
 
 export function htmlEscapeInline(s) {
@@ -127,11 +127,11 @@ export function createBuildingLayoutReferencePrintPart(cfg, plan) {
   const mapY = titleH + margin;
   const f = v => Number(v || 0).toFixed(3).replace(/\.000$/, '');
   const px = x => mapX + Number(x) - b.minX;
-  // App floor plan uses y=0 at the front/south edge. A printed reference is a
-  // normal map view, so invert Y to put north/back at the top of the sheet.
-  const py = y => mapY + b.maxY - Number(y);
-  const topY = blk => py(blk.y + blk.d);
-  const bottomY = blk => py(blk.y);
+  // Keep the printed reference in the same front-up orientation as the Shape
+  // Editor so layout cuts read on the same side in every building view.
+  const py = y => mapY + Number(y) - b.minY;
+  const frontY = blk => py(blk.y);
+  const backY = blk => py(blk.y + blk.d);
   const leftX = blk => px(blk.x);
   const rightX = blk => px(blk.x + blk.w);
   const markerColour = type => type === 'window' ? '#78baf3' : (type === 'bay' ? '#7c55df' : '#efa257');
@@ -141,8 +141,8 @@ export function createBuildingLayoutReferencePrintPart(cfg, plan) {
   svg += `<rect x="0" y="0" width="${f(pageW)}" height="${f(pageH)}" fill="#fffdf8"/>`;
   svg += `<text x="${f(pageW / 2)}" y="9" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="5" font-weight="700" fill="#2a2a28">Building layout reference</text>`;
   svg += `<text x="${f(pageW / 2)}" y="15" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="2.7" fill="#8a8277">Footprint with window / door / bay positions</text>`;
-  svg += `<text x="${f(pageW / 2)}" y="21" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="3.2" fill="#777">N</text>`;
-  svg += `<text x="${f(pageW / 2)}" y="${f(mapY + b.d + 8)}" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="3.2" fill="#777">S</text>`;
+  svg += `<text x="${f(pageW / 2)}" y="21" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="3.2" fill="#777">Front</text>`;
+  svg += `<text x="${f(pageW / 2)}" y="${f(mapY + b.d + 8)}" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="3.2" fill="#777">Back</text>`;
   svg += `<text x="${f(mapX - 5)}" y="${f(mapY + b.d / 2 + 1)}" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="3.2" fill="#777">W</text>`;
   svg += `<text x="${f(mapX + b.w + 5)}" y="${f(mapY + b.d / 2 + 1)}" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="3.2" fill="#777">E</text>`;
 
@@ -167,17 +167,15 @@ export function createBuildingLayoutReferencePrintPart(cfg, plan) {
         const t = markerT(op.type);
         const ox = Number(op.x) || 0;
         if (face === 'back') {
-          // North/top edge: wall-local x is already the plan-view x position.
-          marker(leftX(blk) + ox, topY(blk) - 3, along, t, op.type, `${blk.label} ${face} ${op.type}`);
+          marker(leftX(blk) + ox, backY(blk) + 1.5, along, t, op.type, `${blk.label} ${face} ${op.type}`);
         } else if (face === 'front') {
-          // South/bottom edge: do not mirror from the flat wall sheet.
-          marker(leftX(blk) + ox, bottomY(blk) + 1.5, along, t, op.type, `${blk.label} ${face} ${op.type}`);
+          marker(leftX(blk) + ox, frontY(blk) - 3, along, t, op.type, `${blk.label} ${face} ${op.type}`);
         } else if (face === 'east') {
-          // East wall-local x is measured from north/top in current side-wall conventions.
-          marker(rightX(blk) + 1.5, topY(blk) + ox, t, along, op.type, `${blk.label} ${face} ${op.type}`);
+          // East wall-local x is measured from the back edge.
+          marker(rightX(blk) + 1.5, backY(blk) - ox - along, t, along, op.type, `${blk.label} ${face} ${op.type}`);
         } else {
-          // West wall-local x is measured from south/front, so invert for north-up plan.
-          marker(leftX(blk) - 3, bottomY(blk) - ox - along, t, along, op.type, `${blk.label} ${face} ${op.type}`);
+          // West wall-local x is measured from the front edge.
+          marker(leftX(blk) - 3, frontY(blk) + ox, t, along, op.type, `${blk.label} ${face} ${op.type}`);
         }
       }
     }
@@ -191,7 +189,7 @@ export function createBuildingLayoutReferencePrintPart(cfg, plan) {
     svg += `<rect x="${f(x)}" y="${f(legY - 3)}" width="4" height="3" fill="${legend[i][1]}"/>`;
     svg += `<text x="${f(x + 5.5)}" y="${f(legY - 0.6)}" font-family="system-ui,-apple-system,sans-serif" font-size="2.7" fill="#555">${legend[i][0]}</text>`;
   }
-  svg += `<text x="${f(pageW - 4)}" y="${f(pageH - 2.5)}" text-anchor="end" font-family="system-ui,-apple-system,sans-serif" font-size="2.4" fill="#999">north-up plan view</text>`;
+  svg += `<text x="${f(pageW - 4)}" y="${f(pageH - 2.5)}" text-anchor="end" font-family="system-ui,-apple-system,sans-serif" font-size="2.4" fill="#999">front-up plan view</text>`;
 
   return normalizePartMetadata({
     id: 'building_layout_reference_print',
@@ -205,7 +203,7 @@ export function createBuildingLayoutReferencePrintPart(cfg, plan) {
     rects: [],
     lines: [],
     svgContent: svg,
-    assemblyNote: 'Print at 100% for a flat reference showing the overall building footprint and the placement of windows, doors, and bay openings. This is a north-up plan view, not a mirrored wall-sheet view.',
+    assemblyNote: 'Print at 100% for a flat reference showing the overall building footprint and the placement of windows, doors, and bay openings. This matches the front-up Shape Editor orientation.',
     meta: { area: 'general', role: 'printed_detail' },
   });
 }

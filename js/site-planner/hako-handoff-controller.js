@@ -23,11 +23,11 @@ export function createHakoHandoffController({
   syncAll,
   statusHintElement = () => null,
   confirmBuildingResize = null,
-  windowRef = window,
-  localStorageRef = localStorage,
-  sessionStorageRef = sessionStorage,
-  navigatorRef = navigator,
-  promptFn = prompt,
+  windowRef = typeof window === 'undefined' ? null : window,
+  localStorageRef = typeof localStorage === 'undefined' ? null : localStorage,
+  sessionStorageRef = typeof sessionStorage === 'undefined' ? null : sessionStorage,
+  navigatorRef = typeof navigator === 'undefined' ? null : navigator,
+  promptFn = typeof prompt === 'function' ? prompt : () => null,
   showStatusHint = () => {},
 }) {
   function plannerHandoffForBuilding(b) {

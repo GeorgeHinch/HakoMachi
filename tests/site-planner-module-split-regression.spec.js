@@ -677,7 +677,7 @@ test.describe('Site Planner module split contracts', () => {
 
     expect(source).toContain("import { createSidebarDetailController } from './site-planner/sidebar-detail-controller.js';");
     expect(source).toContain('sidebarDetailController=createSidebarDetailController({');
-    expect(source).toContain('sidebarDetailController?.applySidebarDrillIn();');
+    expect(source).toContain('applySidebarDrillIn:()=>sidebarDetailController?.applySidebarDrillIn(),');
     expect(source).toContain('closeSidebarBuildingOverflow:()=>sidebarDetailController?.closeBuildingOverflow()');
     expect(source).not.toContain('function bindSidebarBuildingOverflowActions()');
     expect(controller).toContain('export function createSidebarDetailController');

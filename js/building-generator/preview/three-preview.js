@@ -5,11 +5,11 @@
 
 import { installThreeRenderCanvas } from '../../shared/browser-utils.js';
 import { createHakoMachiLogger } from '../../shared/hakomachi-diagnostics.js';
-import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=hm-assets-20260804-3';
-import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=hm-assets-20260804-3';
-import { collectPreviewLayoutCuts, previewLayoutCutsActive } from './layout-cut-helpers.js?v=hm-assets-20260804-3';
-import { createPreviewMaterialHelpers } from './material-helpers.js?v=hm-assets-20260804-3';
-import { get3DWallProfileForFace, getPreviewEffectiveRidgeDir, isPreviewGabledRoofStyle } from './wall-profile-helpers.js?v=hm-assets-20260804-3';
+import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=hm-assets-20260804-4';
+import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=hm-assets-20260804-4';
+import { collectPreviewLayoutCuts, previewLayoutCutsActive } from './layout-cut-helpers.js?v=hm-assets-20260804-4';
+import { createPreviewMaterialHelpers } from './material-helpers.js?v=hm-assets-20260804-4';
+import { get3DWallProfileForFace, getPreviewEffectiveRidgeDir, isPreviewGabledRoofStyle } from './wall-profile-helpers.js?v=hm-assets-20260804-4';
 
 const logger = createHakoMachiLogger('Building Generator 3D Preview');
 
@@ -3380,13 +3380,15 @@ export function applyLayoutCutClippingToGroup(group, cfg, transformMatrix = null
         if (Math.hypot(dx, dy) < 0.001) continue;
         const sideOffset = dx * (d / 2 - a.y) - dy * (w / 2 - a.x);
         const keepRight = cut.keepSide === 'right';
-        // Three.js discards the positive side of a clipping plane. The
-        // floor-plan/export cropper retains the requested side instead, so
-        // invert the plane here to keep the same half-plane in 3D.
+        // WebGL's local clipping path keeps the positive side of the plane.
+        // The floor-plan/export cropper uses the signed 2D line side, where
+        // positive means left. Keep that convention after mapping Y to Z so
+        // the 3D massing stays on the same side as the Shape Editor, SVG, and
+        // printed reference plan.
         const normal = keepRight
-          ? new THREE.Vector3(-dy, 0, dx)
-          : new THREE.Vector3(dy, 0, -dx);
-        const constant = keepRight ? sideOffset : -sideOffset;
+          ? new THREE.Vector3(dy, 0, -dx)
+          : new THREE.Vector3(-dy, 0, dx);
+        const constant = keepRight ? -sideOffset : sideOffset;
         const len = normal.length();
         if (len <= 0.000001) continue;
         normal.multiplyScalar(1 / len);

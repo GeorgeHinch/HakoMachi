@@ -118,8 +118,9 @@ test.describe('building generator side bay regressions', () => {
     });
 
     expect(result.planeFound).toBe(true);
-    expect(result.keptDistance).toBeLessThanOrEqual(0);
-    expect(result.trimmedDistance).toBeGreaterThan(0);
+    // Three.js local clipping retains the positive half-plane.
+    expect(result.keptDistance).toBeGreaterThanOrEqual(0);
+    expect(result.trimmedDistance).toBeLessThanOrEqual(0);
   });
 
   test('Shape Editor finishes a wing resize when the pointer is released', async ({ page }) => {

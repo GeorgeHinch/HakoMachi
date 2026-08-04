@@ -16,6 +16,9 @@ const suppliedArcCutConfig = {
     front: [
       { type: 'window', x: 3, y: 12, w: 10, h: 10, style: 'single' },
       { type: 'window', x: 75, y: 12, w: 8, h: 10, style: 'single' },
+      // This lies behind the attached front wing. It must not leave a detached
+      // cutout or generate glass for the removed cladding area.
+      { type: 'window', x: 23, y: 28.5, w: 8, h: 5, style: 'single' },
     ],
   },
   wings: [
@@ -120,6 +123,21 @@ test.describe('building generator layout-cut 3D preview', () => {
     // independently tested.
     expect(wallInventory.offsets.find(part => part.id === 'front_wall').bboxOffsetX).toBeLessThanOrEqual(0.01);
     expect(wallInventory.offsets.find(part => part.id === 'back_wall').bboxOffsetX).toBeLessThan(-0.01);
+
+    const frontCladding = await page.evaluate((config) => {
+      const runtime = window.HakoMachiBuildingGeneratorRuntime;
+      const clone = value => window.structuredClone ? window.structuredClone(value) : JSON.parse(JSON.stringify(value));
+      const cfg = Object.assign(clone(runtime.CONFIG), clone(config));
+      const part = runtime.generateBuilding(cfg).parts.find(candidate => candidate.id === 'cladding_front');
+      return {
+        rects: part?.rects || [],
+        windowSpecs: part?.windowSpecs || [],
+        hasDetachedCutPath: (part?.paths || []).slice(1).some(path => /15\.9\d*,49\.4\d*/.test(path?.d || '')),
+      };
+    }, suppliedArcCutConfig);
+    expect(frontCladding.rects.some(rect => rect.x > 20 && rect.x < 32 && rect.y > 25)).toBe(false);
+    expect(frontCladding.windowSpecs.some(window => window.x > 20 && window.x < 32 && window.y > 25)).toBe(false);
+    expect(frontCladding.hasDetachedCutPath).toBe(false);
 
     await page.click('#openingEditorBtn');
     await page.click('[data-oe-wall="front"]');

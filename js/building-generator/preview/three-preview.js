@@ -5,11 +5,11 @@
 
 import { installThreeRenderCanvas } from '../../shared/browser-utils.js';
 import { createHakoMachiLogger } from '../../shared/hakomachi-diagnostics.js';
-import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=hm-assets-20260804-11';
-import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=hm-assets-20260804-11';
-import { collectPreviewLayoutCuts, previewLayoutCutsActive } from './layout-cut-helpers.js?v=hm-assets-20260804-11';
-import { createPreviewMaterialHelpers } from './material-helpers.js?v=hm-assets-20260804-11';
-import { get3DWallProfileForFace, getPreviewEffectiveRidgeDir, isPreviewGabledRoofStyle } from './wall-profile-helpers.js?v=hm-assets-20260804-11';
+import { buildWindowSvgBody, getGroundFloorWindowDims, getWindowDims } from '../data/opening-styles.js?v=hm-assets-20260804-12';
+import { embeddedRailOrientation, embeddedRailProfile, embeddedRailsForCfg, sampleLayoutCutSegments } from '../core/layout-cut-geometry.js?v=hm-assets-20260804-12';
+import { collectPreviewLayoutCuts, previewLayoutCutsActive } from './layout-cut-helpers.js?v=hm-assets-20260804-12';
+import { createPreviewMaterialHelpers } from './material-helpers.js?v=hm-assets-20260804-12';
+import { get3DWallProfileForFace, getPreviewEffectiveRidgeDir, isPreviewGabledRoofStyle } from './wall-profile-helpers.js?v=hm-assets-20260804-12';
 
 const logger = createHakoMachiLogger('Building Generator 3D Preview');
 

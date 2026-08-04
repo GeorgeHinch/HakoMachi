@@ -1314,6 +1314,46 @@ export function generateCladdingPanel(cfg, plan, which, band) {
     paths[0].d = d;
   }
 
+  // A wing connection can turn a cladding sheet into an L-shaped outline: the
+  // shared main wall remains structural, but the covered section no longer has
+  // exterior cladding. Remove any holes, marks, and downstream inserts that
+  // would otherwise be left floating in that removed area.
+  const visibleBottomCutouts = bottomCutouts.filter(c => c && c.x2 > c.x1 + 0.01);
+  const pointIsInRemovedCladding = (x, y) => visibleBottomCutouts.some(c => {
+    if (x < c.x1 - 0.01 || x > c.x2 + 0.01 || y < c.yTop - 0.01) return false;
+    if (c.kind !== 'flap' || !(c.flapW > 0.5)) return true;
+    if (y >= c.flapBottom - 0.01) return true;
+    return x <= c.flapX + 0.01 || x >= c.flapX + c.flapW - 0.01;
+  });
+  const rectTouchesRemovedCladding = (r) => {
+    if (!r || !(r.w > 0) || !(r.h > 0)) return false;
+    const x2 = r.x + r.w, y2 = r.y + r.h;
+    return [
+      { x: r.x, y: r.y }, { x: x2, y: r.y },
+      { x: r.x, y: y2 }, { x: x2, y: y2 },
+      { x: r.x + r.w / 2, y: r.y + r.h / 2 },
+    ].some(p => pointIsInRemovedCladding(p.x, p.y));
+  };
+  const lineTouchesRemovedCladding = (line) => {
+    if (!line) return false;
+    return [0.1, 0.5, 0.9].some(t => pointIsInRemovedCladding(
+      line.x1 + (line.x2 - line.x1) * t,
+      line.y1 + (line.y2 - line.y1) * t,
+    ));
+  };
+  const pathStartsInRemovedCladding = (path) => {
+    if (!path || !path.d) return false;
+    const match = String(path.d).match(/[Mm]\s*([-+]?\d*\.?\d+)\s*,?\s*([-+]?\d*\.?\d+)/);
+    return !!match && pointIsInRemovedCladding(Number(match[1]), Number(match[2]));
+  };
+  if (visibleBottomCutouts.length) {
+    rects.splice(0, rects.length, ...rects.filter(r => r.type !== 'cut' || !rectTouchesRemovedCladding(r)));
+    paths.splice(1, paths.length - 1, ...paths.slice(1).filter(path => path.type !== 'cut' || !pathStartsInRemovedCladding(path)));
+    lines.splice(0, lines.length, ...lines.filter(line => !lineTouchesRemovedCladding(line)));
+  }
+  const retainedCladWindowsBand = cladWindowsBand.filter(w => !rectTouchesRemovedCladding(w));
+  const retainedCladDoorsBand = cladDoorsBand.filter(d => !rectTouchesRemovedCladding(d));
+
   // Floor-bottom cladding-extension seam. This line marks where the original
   // wall bottom ends and the added skirt starts, but it must stop at window/
   // door/bay cut lines. It used to be pushed before cutOpenings was populated,
@@ -1419,8 +1459,8 @@ export function generateCladdingPanel(cfg, plan, which, band) {
   // For backward-compat reasons the part counts ONLY include 'opening'
   // windows (those that need the full glass+frame stack). Blanked counts
   // are tracked separately.
-  const openingWindows = cladWindowsBand.filter(w => placementOf(w) === 'opening');
-  const blankedWindows = cladWindowsBand.filter(w => placementOf(w) === 'blanked');
+  const openingWindows = retainedCladWindowsBand.filter(w => placementOf(w) === 'opening');
+  const blankedWindows = retainedCladWindowsBand.filter(w => placementOf(w) === 'blanked');
   const groundCount = openingWindows.filter(w => w.isGround).length;
   const upperCount = openingWindows.length - groundCount;
   const blankedGround = blankedWindows.filter(w => w.isGround).length;
@@ -1455,7 +1495,7 @@ export function generateCladdingPanel(cfg, plan, which, band) {
     originalW: w.w, clipLeft: 0,
     style: effectiveStyle(w), isGround: !!w.isGround,
   }));
-  const doorSpecs = cladDoorsBand.map(d => ({
+  const doorSpecs = retainedCladDoorsBand.map(d => ({
     x: d.x, y: d.y,
     w: d.w, h: d.h,
     originalW: d.w, clipLeft: 0,
@@ -1518,7 +1558,7 @@ export function generateCladdingPanel(cfg, plan, which, band) {
         const wx = wallXFromCladdingX(w.x, w.w, which, plan, cfg);
         out.push({ x: wx, y: w.y + (panelYStart || 0), w: w.w, h: w.h, kind: 'window_blanked' });
       }
-      for (const d of cladDoorsBand) {
+      for (const d of retainedCladDoorsBand) {
         const wx = wallXFromCladdingX(d.x, d.w, which, plan, cfg);
         out.push({ x: wx, y: d.y + (panelYStart || 0), w: d.w, h: d.h, kind: 'door' });
       }

@@ -218,6 +218,9 @@ export function weRender() {
       text-anchor="middle" font-family="system-ui" pointer-events="none">${a.label}</text>`;
   }
 
+  // Fade the portion that will be removed before drawing the interactive cut
+  // guides and handles above it.
+  html += weRenderLayoutCutFade(ox, oy, s);
   // Layout cut masks draw above the building blocks. Clicking a dashed cut
   // toggles which side is kept; selected cuts expose endpoint/control handles.
   html += weRenderLayoutCuts(ox, oy, s, minX, minY, maxX, maxY);

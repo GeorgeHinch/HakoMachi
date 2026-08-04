@@ -1,6 +1,36 @@
 const { expect, test } = require('@playwright/test');
 
 test.describe('building generator side bay regressions', () => {
+  test('Shape Editor fades the portion removed by an arc layout cut', async ({ page }) => {
+    await page.goto('/building-generator.html', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.HakoMachiBuildingGeneratorRuntime?.generateBuilding);
+    await page.click('#wingEditorBtn');
+    await page.evaluate(() => {
+      const runtime = window.HakoMachiBuildingGeneratorRuntime;
+      const width = Number(runtime.CONFIG.width) || 100;
+      const depth = Number(runtime.CONFIG.depth) || 60;
+      runtime.CONFIG.layoutCuts = [{
+        id: 'arc-fade',
+        type: 'arc',
+        x1: 0,
+        y1: depth / 2,
+        cx: width / 2,
+        cy: depth * 0.9,
+        x2: width,
+        y2: depth / 2,
+        keepSide: 'left',
+      }];
+    });
+    await page.click('#weCloseBtn');
+    await page.click('#wingEditorBtn');
+
+    const fade = page.locator('#wingEditorSvg [data-layout-cut-fade="true"]');
+    await expect(fade).toHaveCount(1);
+    await expect(fade.locator('path')).toHaveCount(1);
+    await expect(fade.locator('path')).toHaveAttribute('fill-rule', 'evenodd');
+    await expect(fade.locator('path')).toHaveAttribute('fill-opacity', '0.78');
+  });
+
   test('Shape Editor finishes a wing resize when the pointer is released', async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));

@@ -459,6 +459,40 @@ export function weCutSvgPoint(evt) {
   return { x: (evt.clientX - rect.left) * sx + vb[0], y: (evt.clientY - rect.top) * sy + vb[1] };
 }
 
+export function weRenderLayoutCutFade(ox, oy, s) {
+  const cuts = weEnsureLayoutCuts().filter(cut => cut && cut.enabled !== false);
+  if (!cuts.length) return '';
+  refreshMeasuredLayoutCuts(CONFIG);
+  const f = value => Number(value).toFixed(2);
+  const pathFor = poly => (poly || []).map((point, index) => {
+    const x = ox + Number(point.x) * s;
+    const y = oy + Number(point.y) * s;
+    return `${index ? 'L' : 'M'} ${f(x)} ${f(y)}`;
+  }).join(' ') + ' Z';
+  const rectPoly = (x, y, w, d) => [
+    { x, y }, { x: x + w, y }, { x: x + w, y: y + d }, { x, y: y + d },
+  ];
+  const blocks = [
+    { id: 'main', poly: rectPoly(0, 0, Number(CONFIG.width) || 0, Number(CONFIG.depth) || 0) },
+    ...CONFIG.wings.map(wing => {
+      const bounds = weWingBounds(CONFIG, wing);
+      return { id: wing.id, poly: rectPoly(bounds.x, bounds.y, bounds.w, bounds.d) };
+    }),
+  ];
+  let html = '<g class="we-layout-cut-fade" data-layout-cut-fade="true" pointer-events="none">';
+  for (const block of blocks) {
+    const kept = clipPolygonByLayoutCuts(block.poly, cuts, CONFIG);
+    if (!kept || kept.length < 3) {
+      html += `<path d="${pathFor(block.poly)}" fill="#f6f4ee" fill-opacity="0.78"/>`;
+      continue;
+    }
+    // Even-odd fill leaves the exported footprint transparent and fades only
+    // the material trimmed away by the same cropper used for generated parts.
+    html += `<path d="${pathFor(block.poly)} ${pathFor(kept)}" fill="#f6f4ee" fill-opacity="0.78" fill-rule="evenodd"/>`;
+  }
+  return html + '</g>';
+}
+
 export function weRenderLayoutCuts(ox, oy, s, minX, minY, maxX, maxY) {
   const cuts = weEnsureLayoutCuts();
   if (!cuts.length) return '';

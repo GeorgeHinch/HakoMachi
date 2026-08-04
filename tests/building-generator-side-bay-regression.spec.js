@@ -1,6 +1,33 @@
 const { expect, test } = require('@playwright/test');
 
 test.describe('building generator side bay regressions', () => {
+  test('Shape Editor finishes a wing resize when the pointer is released', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+
+    await page.goto('/building-generator.html', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.HakoMachiBuildingGeneratorRuntime?.generateBuilding);
+    await page.click('#wingEditorBtn');
+    await page.click('#wingEditorSvg [data-addface="east"]');
+
+    const depthHandle = page.locator('#wingEditorSvg [data-handle="depth"]').first();
+    const box = await depthHandle.boundingBox();
+    expect(box, 'the selected wing should expose a depth resize handle').toBeTruthy();
+
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 36, box.y + box.height / 2);
+    await page.mouse.up();
+
+    const result = await page.evaluate(() => {
+      const wing = window.HakoMachiBuildingGeneratorRuntime.CONFIG.wings.at(-1);
+      return { depth: wing?.depth, wingCount: window.HakoMachiBuildingGeneratorRuntime.CONFIG.wings.length };
+    });
+    expect(result.wingCount).toBeGreaterThan(0);
+    expect(result.depth).toBeGreaterThan(40);
+    expect(pageErrors).toEqual([]);
+  });
+
   test('west gable walls can carry a bay opening through the bottom edge', async ({ page }) => {
     await page.goto('/building-generator.html', { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.HakoMachiBuildingGeneratorRuntime?.generateBuilding);

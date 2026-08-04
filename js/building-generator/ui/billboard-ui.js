@@ -416,8 +416,13 @@ export function weOnMouseDown(e) {
     weRender();
   }
 
+  function cleanupDrag() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+
   function onUp() {
-    if (cleanupDrag) cleanupDrag();
+    cleanupDrag();
     _weDragState = null;
     regenerate();
   }

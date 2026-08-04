@@ -115,10 +115,11 @@ test.describe('building generator layout-cut 3D preview', () => {
     expect(wallInventory.withoutCut).toContain('side_wall_east_wing1');
     expect(wallInventory.withCut).toContain('side_wall_east_wing0');
     expect(wallInventory.withCut).toContain('side_wall_east_wing1');
-    // Front/back panels are mirrored on assembly. Their kept local spans must
-    // therefore begin at the east-facing sheet edge after the global cut.
+    // The front sheet is mirrored on assembly, while the back sheet retains
+    // its local direction. Both mappings are intentional and must remain
+    // independently tested.
     expect(wallInventory.offsets.find(part => part.id === 'front_wall').bboxOffsetX).toBeLessThanOrEqual(0.01);
-    expect(wallInventory.offsets.find(part => part.id === 'back_wall').bboxOffsetX).toBeLessThanOrEqual(0.01);
+    expect(wallInventory.offsets.find(part => part.id === 'back_wall').bboxOffsetX).toBeLessThan(-0.01);
 
     await page.click('#openingEditorBtn');
     await page.click('[data-oe-wall="front"]');
@@ -136,5 +137,18 @@ test.describe('building generator layout-cut 3D preview', () => {
     expect(openingEditor.shownX0).toBeLessThanOrEqual(0.01);
     expect(openingEditor.shownX1).toBeLessThan(suppliedArcCutConfig.width);
     expect(await page.locator('#openingEditorSvg [data-oe-layout-cut-fade-item="true"]').count()).toBeGreaterThan(0);
+
+    await page.click('[data-oe-wall="back"]');
+    const backEditor = await page.evaluate(() => {
+      const outline = document.querySelector('#openingEditorSvg [data-oe-wall-outline="true"]');
+      return {
+        hasLayoutCut: outline?.getAttribute('data-oe-layout-cut'),
+        shownX0: Number(outline?.getAttribute('data-oe-layout-cut-x0')),
+        shownX1: Number(outline?.getAttribute('data-oe-layout-cut-x1')),
+      };
+    });
+    expect(backEditor.hasLayoutCut).toBe('true');
+    expect(backEditor.shownX0).toBeGreaterThan(0.01);
+    expect(backEditor.shownX1).toBeLessThan(suppliedArcCutConfig.width);
   });
 });

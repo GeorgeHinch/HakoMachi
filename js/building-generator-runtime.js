@@ -14248,12 +14248,19 @@ function layoutCutWallClipSpec(part, cfg) {
     let x, y;
     if (wall === 'front' || wall === 'back') {
       y = (wall === 'front') ? 0 : depth;
-      // Front/back wall sheets are mirrored when assembled: their local x=0
-      // edge is the building's east edge. Convert to the Shape Editor's
-      // west-to-east world frame before applying a layout cut.
-      if (kind === 'exterior_cladding') x = width - (panelX - cT);
-      else if (kind === 'interior_cladding') x = width - (matT + panelX);
-      else x = width - panelX;
+      // The front sheet is assembled mirrored, while the back sheet retains
+      // its local left-to-right direction. Convert each into the Shape
+      // Editor's west-to-east world frame before applying a layout cut.
+      const mirroredFront = wall === 'front';
+      if (kind === 'exterior_cladding') {
+        const localX = panelX - cT;
+        x = mirroredFront ? width - localX : localX;
+      } else if (kind === 'interior_cladding') {
+        const localX = matT + panelX;
+        x = mirroredFront ? width - localX : localX;
+      } else {
+        x = mirroredFront ? width - panelX : panelX;
+      }
     } else {
       // Panel identities stay in the wing's local footprint frame. Flipping
       // east/west for front/back wings mapped their exterior panels to the

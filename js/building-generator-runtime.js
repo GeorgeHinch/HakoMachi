@@ -35278,7 +35278,10 @@ function oeStateOpenImpl(wall, wingIndex) {
 
   document.getElementById('openingEditorModal').style.display = '';
   oeEditorOpen = true;
-  if (threeControls) { try { threeControls.dispose(); } catch(e) {} threeControls = null; }
+  // Keep the preview module's existing OrbitControls instance alive. Replacing
+  // it here leaves the module's render loop attached to the disposed control,
+  // so the camera can move without the canvas ever redrawing after Apply.
+  if (threeControls) threeControls.enabled = false;
   const _tp = document.getElementById('threePreview');
   if (_tp) _tp.style.display = 'none';
   OpeningEditorToolbox.populate();
@@ -35305,12 +35308,7 @@ function oeStateCloseImpl() {
   oeEditorOpen = false;
   const _tp = document.getElementById('threePreview');
   if (_tp) _tp.style.display = '';
-  if (threeRenderer && threeCamera && !threeControls) {
-    try {
-      threeControls = new THREE.OrbitControls(threeCamera, threeRenderer.domElement);
-      threeControls.enableDamping = true;
-    } catch(e) { threeControls = null; }
-  }
+  if (threeControls) threeControls.enabled = true;
   if (threeRenderer && threeCamera) {
     const cont = document.getElementById('threePreview');
     if (cont) {
@@ -35319,6 +35317,7 @@ function oeStateCloseImpl() {
       threeCamera.updateProjectionMatrix();
     }
   }
+  if (typeof requestThreePreviewRender === 'function') requestThreePreviewRender(4);
 }
 
 function oeStateApplyImpl() {

@@ -1,4 +1,4 @@
-import { layoutCutRetainedXIntervalForPart } from '../core/layout-cut-geometry.js?v=hm-assets-20260804-13';
+import { layoutCutRetainedXIntervalForPart } from '../core/layout-cut-geometry.js?v=hm-assets-20260808-01';
 
 /* =====================================================================
    OPENING EDITOR MODULE FACADES
@@ -413,7 +413,7 @@ export function oeStateOpenImpl(wall, wingIndex) {
 
   document.getElementById('openingEditorModal').style.display = '';
   oeEditorOpen = true;
-  if (threeControls) { try { threeControls.dispose(); } catch(e) {} threeControls = null; }
+  if (threeControls) threeControls.enabled = false;
   const _tp = document.getElementById('threePreview');
   if (_tp) _tp.style.display = 'none';
   OpeningEditorToolbox.populate();
@@ -440,12 +440,7 @@ export function oeStateCloseImpl() {
   oeEditorOpen = false;
   const _tp = document.getElementById('threePreview');
   if (_tp) _tp.style.display = '';
-  if (threeRenderer && threeCamera && !threeControls) {
-    try {
-      threeControls = new THREE.OrbitControls(threeCamera, threeRenderer.domElement);
-      threeControls.enableDamping = true;
-    } catch(e) { threeControls = null; }
-  }
+  if (threeControls) threeControls.enabled = true;
   if (threeRenderer && threeCamera) {
     const cont = document.getElementById('threePreview');
     if (cont) {
@@ -454,6 +449,7 @@ export function oeStateCloseImpl() {
       threeCamera.updateProjectionMatrix();
     }
   }
+  if (typeof requestThreePreviewRender === 'function') requestThreePreviewRender(4);
 }
 
 export function oeStateApplyImpl() {

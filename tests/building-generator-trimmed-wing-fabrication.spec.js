@@ -12,6 +12,7 @@ const baseConfig = {
   parapetHeight: 0,
   coreThickness: 1.5,
   claddingThickness: 0.28,
+  claddingStyle: 'alc_panel',
   tongueWidth: 8,
   floorPanels: true,
   windowDensity: 'none',
@@ -67,7 +68,7 @@ test.describe('trimmed wing fabrication reconciliation (#232)', () => {
     };
 
     const result = await generate(page, cfg);
-    const west = result.parts.find(part => part.id === 'side_wall_west_wing0');
+    const west = result.parts.find(part => part.id === 'cladding_side_west_wing0');
     expect(west).toBeTruthy();
     expect(west.mirrorX).toBe(true);
     expect(west._layoutCutPhysicalSpanResolved).toBe(true);

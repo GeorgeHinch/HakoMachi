@@ -1,12 +1,22 @@
-import '../building-generator-runtime.js?v=hm-assets-20260808-01';
+import '../building-generator-runtime.js?v=hm-assets-20260814-01';
+import {
+  generateBuildingWithWings as generateTrimAwareWingBuilding,
+  installTrimAwareWingGeneration,
+} from './wing/coplanar-opening-reconciliation.js?v=hm-assets-20260814-01';
 import {
   buildingPreviewRenderer,
   installBuildingPreviewGlobal,
   previewModules,
-} from './preview/index.js?v=hm-assets-20260808-01';
+} from './preview/index.js?v=hm-assets-20260814-01';
 import { createHakoMachiLogger } from '../shared/hakomachi-diagnostics.js';
 
 const logger = createHakoMachiLogger('Building Generator');
+
+const legacyRuntime = window.HakoMachiBuildingGeneratorRuntime;
+if (legacyRuntime?.generateBuildingWithWings && legacyRuntime?.setWingGenerationOverride) {
+  installTrimAwareWingGeneration(legacyRuntime.generateBuildingWithWings);
+  legacyRuntime.setWingGenerationOverride(generateTrimAwareWingBuilding);
+}
 
 window.HakoMachiBuildingGenerator = Object.freeze({
   ...(window.HakoMachiBuildingGenerator || {}),

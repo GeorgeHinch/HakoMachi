@@ -12,6 +12,7 @@ const baseConfig = {
   parapetHeight: 0,
   coreThickness: 1.5,
   claddingThickness: 0.28,
+  claddingStyle: 'alc_panel',
   tongueWidth: 8,
   floorPanels: true,
   windowDensity: 'none',

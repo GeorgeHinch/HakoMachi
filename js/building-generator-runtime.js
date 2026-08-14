@@ -14268,7 +14268,11 @@ function layoutCutWallClipSpec(part, cfg) {
       // close the cropped building.
       x = (wall === 'west') ? 0 : width;
       if (kind === 'exterior_cladding') {
-        y = panelX;                                              // side cladding spans full outside depth
+        // Side cladding includes the connection-end overlap in its local
+        // outline. Shift its local axis back by the core thickness so an
+        // opening at its cladding-frame x aligns with the matching core-wall
+        // opening in the top-down footprint.
+        y = panelX - matT;
       } else if (kind === 'core' && blockCfg._omitConnectionWall) {
         // Wing side core walls tab directly into the main wall because the
         // wing connection-face wall is omitted. Their x=0 edge is the main
@@ -22531,11 +22535,17 @@ function replaceBuildingLayoutReferencePrintPart(parts, cfg, plan) {
   parts.push(createBuildingLayoutReferencePrintPart(cfg, plan));
 }
 
+let wingGenerationOverride = null;
+
+function setWingGenerationOverride(generator) {
+  wingGenerationOverride = typeof generator === 'function' ? generator : null;
+}
+
 function generateBuilding(cfg) {
   upgradeConfigToCurrentStorage(cfg);
   // Route to the multi-block generator whenever wings are present.
   if ((cfg.wings || []).length > 0) {
-    const wingResult = generateBuildingWithWings(cfg);
+    const wingResult = (wingGenerationOverride || generateBuildingWithWings)(cfg);
     replaceBuildingLayoutReferencePrintPart(wingResult.parts, cfg, wingResult.plan);
     return wingResult;
   }
@@ -40644,7 +40654,7 @@ Object.defineProperties(globalThis, {
 globalThis.HakoMachiBuildingGeneratorRuntime = Object.freeze({
   get CONFIG() { return CONFIG; },
   init, regenerate, readForm, writeForm, generateBuilding, createAssemblyPlan, createAssemblyPlanFromConfig, createAssemblySequence, createAssemblyStepIllustrations, createAssemblyManualHtml, generateBuildingWithWings, generateBuildingStl,
-  buildEdgePlans, upgradeConfigToCurrentStorage, serializableCurrentConfig, flashMessage,
+  setWingGenerationOverride, buildEdgePlans, upgradeConfigToCurrentStorage, serializableCurrentConfig, flashMessage,
   start: startHakoMachiBuildingGeneratorRuntime,
 });
 document.documentElement.dataset.buildingGeneratorRuntime = 'ready';

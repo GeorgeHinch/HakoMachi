@@ -10,13 +10,18 @@
 
 export * from './trimmed-wing-generation.js';
 
-import { generateBuildingWithWings as generateTrimmedWingBuilding } from './trimmed-wing-generation.js';
+import {
+  generateBuildingWithWings as generateTrimmedWingBuilding,
+  setTrimmedWingBaseGenerator,
+} from './trimmed-wing-generation.js';
 import { generateBuildingWithWings as generateRawWingBuilding } from './main-block.js';
 import { computeFaceMerges } from './block-context.js';
 import { buildWingCfg, wingHeight } from './default-wing-template.js';
-import { buildEdgePlans, generateSideWall } from '../core/segmented-wall-exposure.js';
+import { buildEdgePlans } from '../core/segmented-wall-exposure.js';
+import { generateCladdingPanel } from '../core/roof-fascia-trim.js';
 import {
   clipOpeningSpecsForLayoutCut,
+  layoutCutPartWallKind,
   layoutCutWallClipSpec,
   layoutCutsActive,
   tallyDoorSpecs,
@@ -34,6 +39,18 @@ import { normalizePartsMetadata } from '../core/part-metadata.js';
 const EPS = 0.01;
 const MIN_OPENING_W = 1.0;
 const SPEC_KEYS = ['windowSpecs', 'blankedSpecs', 'doorSpecs'];
+let runtimeBaseGenerateBuildingWithWings = null;
+
+export function installTrimAwareWingGeneration(baseGenerator) {
+  runtimeBaseGenerateBuildingWithWings = typeof baseGenerator === 'function' ? baseGenerator : null;
+  setTrimmedWingBaseGenerator(runtimeBaseGenerateBuildingWithWings);
+}
+
+function generateRawWingBuildingFromRuntime(cfg) {
+  return runtimeBaseGenerateBuildingWithWings
+    ? runtimeBaseGenerateBuildingWithWings(cfg)
+    : generateRawWingBuilding(cfg);
+}
 
 function cloneJson(value) {
   if (value == null) return value;
@@ -87,10 +104,63 @@ function dedupeSpecs(specs) {
   });
 }
 
-function mergedCoreSpecs(rawPart, cfg) {
+function wallFeatureSpecs(owner, face) {
+  const features = owner?.wallFeatures?.[face];
+  if (!Array.isArray(features)) return null;
+  const empty = { windowSpecs: [], blankedSpecs: [], doorSpecs: [] };
+  for (const feature of features) {
+    if (!feature || !(Number(feature.w) > 0) || !(Number(feature.h) > 0)) continue;
+    const spec = {
+      ...feature,
+      x: Number(feature.x) || 0,
+      y: Number(feature.y) || 0,
+      w: Number(feature.w),
+      h: Number(feature.h),
+      originalW: Number(feature.w),
+      clipLeft: 0,
+      isGround: !!feature.isGround,
+    };
+    if (feature.type === 'window') empty.windowSpecs.push(spec);
+    else if (feature.type === 'door') empty.doorSpecs.push(spec);
+  }
+  return empty;
+}
+
+function specsForMainPart(rawPart, cfg, face, kind) {
+  const fallback = kind === 'core' ? wallFeatureSpecs(cfg, face) : null;
+  const out = {};
+  for (const key of SPEC_KEYS) {
+    const existing = rawPart?.[key];
+    out[key] = Array.isArray(existing) && existing.length
+      ? existing.map(spec => ({ ...spec }))
+      : (fallback?.[key] || []).map(spec => ({ ...spec }));
+  }
+  return out;
+}
+
+function wingSpecsForMerge(cfg, wing, wingFace, kind, band) {
+  const wCfg = buildWingCfg(cfg, wing);
+  const wPlan = buildEdgePlans(wCfg);
+  if (kind === 'exterior_cladding') {
+    const wingPart = generateCladdingPanel(wCfg, wPlan, wingFace, band === 'all' ? null : band);
+    return {
+      specs: Object.fromEntries(SPEC_KEYS.map(key => [key, (wingPart?.[key] || []).map(spec => ({ ...spec }))])),
+      width: Number(wingPart?.bboxW) || 0,
+      sideLen: Number(wPlan.sideLen) || 0,
+    };
+  }
+  return {
+    specs: wallFeatureSpecs(wing, wingFace) || { windowSpecs: [], blankedSpecs: [], doorSpecs: [] },
+    width: 0,
+    sideLen: Number(wPlan.sideLen) || 0,
+  };
+}
+
+function mergedSpecs(rawPart, cfg) {
   const merge = rawPart?._coplanarMerge;
-  if (!merge || merge.kind !== 'core' || !merge.face) return null;
+  if (!merge || !merge.face || (merge.kind !== 'core' && merge.kind !== 'cladding')) return null;
   const face = merge.face;
+  const kind = merge.kind === 'cladding' ? 'exterior_cladding' : 'core';
   const mainW = Number(cfg.width) || 0;
   const mainD = Number(cfg.depth) || 0;
   const topology = computeFaceMerges(cfg, mainW, mainD);
@@ -99,36 +169,42 @@ function mergedCoreSpecs(rawPart, cfg) {
 
   const plan = buildEdgePlans(cfg);
   const matT = Number(plan.matT) || Number(cfg.coreThickness) || 0;
-  const faceMainW = (face === 'east' || face === 'west')
-    ? Number(plan.sideLen) || 0
-    : Number(plan.fbWidth) || mainW;
-  const leftExtW = faceMerges.left ? (Number(faceMerges.left.wing.depth) || 0) + matT : 0;
+  const faceMainW = kind === 'exterior_cladding'
+    ? ((face === 'east' || face === 'west') ? mainD : mainW + 2 * (Number(cfg.claddingThickness) || 0))
+    : ((face === 'east' || face === 'west') ? Number(plan.sideLen) || 0 : Number(plan.fbWidth) || mainW);
+  const leftWing = faceMerges.left
+    ? wingSpecsForMerge(cfg, faceMerges.left.wing, faceMerges.left.wingFace, kind, merge.band)
+    : null;
+  const rightWing = faceMerges.right
+    ? wingSpecsForMerge(cfg, faceMerges.right.wing, faceMerges.right.wingFace, kind, merge.band)
+    : null;
+  const leftExtW = leftWing
+    ? (kind === 'exterior_cladding' ? leftWing.width : (Number(faceMerges.left.wing.depth) || 0) + matT)
+    : 0;
   const xMain = leftExtW;
 
   const out = { windowSpecs: [], blankedSpecs: [], doorSpecs: [] };
+  const mainSpecs = specsForMainPart(rawPart, cfg, face, kind);
   for (const key of SPEC_KEYS) {
-    out[key].push(...(rawPart[key] || []).map(spec => ({ ...spec, x: (Number(spec.x) || 0) + xMain })));
+    out[key].push(...mainSpecs[key].map(spec => ({ ...spec, x: (Number(spec.x) || 0) + xMain })));
   }
 
   for (const side of ['left', 'right']) {
     const m = faceMerges[side];
     if (!m || !m.wing) continue;
     const wing = m.wing;
-    const wCfg = buildWingCfg(cfg, wing);
-    const wPlan = buildEdgePlans(wCfg);
-    const wingSide = m.wingFace === 'east' ? 'E' : 'W';
-    const wingWall = generateSideWall(wCfg, wPlan, wingSide);
-    const stepY = Number(plan.H) - Number(wingHeight(cfg, wing));
-    const wSideLen = Number(wPlan.sideLen) || 0;
-    const wingWallXStart = side === 'left'
-      ? 2 * matT
-      : xMain + faceMainW + 2 * matT;
+    const wingData = side === 'left' ? leftWing : rightWing;
+    const stepY = kind === 'core' ? Number(plan.H) - Number(wingHeight(cfg, wing)) : 0;
+    const wingWallXStart = kind === 'exterior_cladding'
+      ? (side === 'left' ? 0 : xMain + faceMainW)
+      : (side === 'left' ? 2 * matT : xMain + faceMainW + 2 * matT);
 
     for (const key of SPEC_KEYS) {
-      for (const spec of (wingWall[key] || [])) {
+      for (const spec of (wingData?.specs?.[key] || [])) {
         const sx = Number(spec.x) || 0;
         const sw = Number(spec.w) || 0;
-        const x = m.flipWX ? (wSideLen - (sx + sw)) : sx;
+        const sourceWidth = kind === 'exterior_cladding' ? wingData.width : wingData.sideLen;
+        const x = m.flipWX ? (sourceWidth - (sx + sw)) : sx;
         out[key].push({
           ...spec,
           x: x + wingWallXStart,
@@ -145,10 +221,10 @@ function mergedCoreSpecs(rawPart, cfg) {
 function reconcileCoplanarSpecs(parts, rawParts, cfg) {
   const rawById = new Map((rawParts || []).map(part => [part?.id, part]));
   for (const part of (parts || [])) {
-    if (!part?._coplanarMerge || part._coplanarMerge.kind !== 'core') continue;
+    if (!part?._coplanarMerge || !['core', 'cladding'].includes(part._coplanarMerge.kind)) continue;
     const rawPart = rawById.get(part.id);
     if (!rawPart) continue;
-    const specs = mergedCoreSpecs(rawPart, cfg);
+    const specs = mergedSpecs(rawPart, cfg);
     if (!specs) continue;
     const interval = part._layoutCutSourceInterval || null;
     for (const key of SPEC_KEYS) part[key] = clipSpecsToInterval(specs[key], interval);
@@ -179,7 +255,9 @@ function resolvedSpecs(part, key, cfg) {
 }
 
 function rebuildAccessories(parts, cfg) {
-  const wallParts = (parts || []).filter(part => !!layoutCutWallClipSpec(part, cfg));
+  const candidateWalls = (parts || []).filter(part => !!layoutCutWallClipSpec(part, cfg));
+  const claddingWalls = candidateWalls.filter(part => layoutCutPartWallKind(part) === 'exterior_cladding');
+  const wallParts = claddingWalls.length ? claddingWalls : candidateWalls;
   const allWindows = [];
   const allBlanked = [];
   const allDoors = [];
@@ -250,7 +328,7 @@ export function generateBuildingWithWings(cfg) {
 
   const rawCfg = cloneJson(cfg);
   rawCfg.layoutCuts = [];
-  const raw = generateRawWingBuilding(rawCfg);
+  const raw = generateRawWingBuildingFromRuntime(rawCfg);
   reconcileCoplanarSpecs(result.parts, raw.parts, cfg);
   const counts = rebuildAccessories(result.parts, cfg);
   result.totalWindows = counts.totalWindows;

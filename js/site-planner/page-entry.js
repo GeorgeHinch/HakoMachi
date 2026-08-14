@@ -6,5 +6,5 @@
  */
 import '../shared/hakomachi-logo.js';
 import '../shared/hakomachi-analytics.js';
-import '../shared/building-preview-renderer.js?v=hm-assets-20260808-01';
-import './main.js?v=hm-assets-20260808-01';
+import '../shared/building-preview-renderer.js?v=hm-assets-20260814-01';
+import './main.js?v=hm-assets-20260814-01';

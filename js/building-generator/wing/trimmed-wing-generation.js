@@ -37,6 +37,7 @@ import {
   polygonBounds,
   sampleLayoutCutSegments,
   tallyDoorSpecs,
+  wingLocalToWorldPointForLayoutCut,
 } from '../core/layout-cut-geometry.js';
 import {
   generateBlankedWindowPanels,
@@ -50,6 +51,17 @@ import { normalizePartsMetadata } from '../core/part-metadata.js';
 
 const EPS = 0.01;
 const MIN_OPENING_W = 1.0;
+let runtimeBaseGenerateBuildingWithWings = null;
+
+export function setTrimmedWingBaseGenerator(generator) {
+  runtimeBaseGenerateBuildingWithWings = typeof generator === 'function' ? generator : null;
+}
+
+function generateBaseWingBuilding(cfg) {
+  return runtimeBaseGenerateBuildingWithWings
+    ? runtimeBaseGenerateBuildingWithWings(cfg)
+    : generateBuildingWithWingsBase(cfg);
+}
 
 function cloneJson(value) {
   if (value == null) return value;
@@ -134,12 +146,74 @@ function coplanarSpanInfo(part, cfg, spec) {
   const main1 = spec.toWorld(mainW);
   const vx = (main1.x - main0.x) / mainW;
   const vy = (main1.y - main0.y) / mainW;
+  const wingFaceSegment = (m) => {
+    if (!m || !m.wing) return null;
+    const wing = m.wing;
+    const wingX = m.wingFace === 'east' ? Number(wing.span) || 0 : 0;
+    const transform = {
+      kind: 'wing',
+      face: wing.face,
+      offset: wing.offset,
+      mainW: cfg.width,
+      mainD: cfg.depth,
+    };
+    const a = wingLocalToWorldPointForLayoutCut(cfg, transform, { x: wingX, y: 0 });
+    const b = wingLocalToWorldPointForLayoutCut(cfg, transform, {
+      x: wingX,
+      y: Number(wing.depth) || 0,
+    });
+    const distance = (p, q) => Math.hypot(p.x - q.x, p.y - q.y);
+    const seam = Math.min(distance(a, main0), distance(a, main1))
+      <= Math.min(distance(b, main0), distance(b, main1)) ? a : b;
+    const outer = seam === a ? b : a;
+    return { seam, outer };
+  };
+  const segments = [{ x0: leftW, x1: leftW + mainW, world0: main0, world1: main1 }];
+  const leftSegment = wingFaceSegment(faceMerges.left);
+  if (leftSegment && leftW > 0) {
+    segments.unshift({ x0: 0, x1: leftW, world0: leftSegment.outer, world1: leftSegment.seam });
+  }
+  const rightSegment = wingFaceSegment(faceMerges.right);
+  if (rightSegment && rightW > 0) {
+    segments.push({
+      x0: leftW + mainW,
+      x1: panelW,
+      world0: rightSegment.seam,
+      world1: rightSegment.outer,
+    });
+  }
   return {
     panelW,
     mainOffset: leftW,
     mainW,
     world0: { x: main0.x - vx * leftW, y: main0.y - vy * leftW },
     world1: { x: main1.x + vx * rightW, y: main1.y + vy * rightW },
+    segments,
+  };
+}
+
+function retainedIntervalForSpan(span, cuts, cfg) {
+  if (!Array.isArray(span.segments) || span.segments.length === 0) {
+    const kept = retainedParamInterval(span.world0, span.world1, cuts, cfg);
+    if (kept.omit) return { omit: true, x0: 0, x1: 0 };
+    return { omit: false, x0: span.panelW * kept.t0, x1: span.panelW * kept.t1 };
+  }
+
+  const ranges = [];
+  for (const segment of span.segments) {
+    const kept = retainedParamInterval(segment.world0, segment.world1, cuts, cfg);
+    if (kept.omit) continue;
+    const width = segment.x1 - segment.x0;
+    ranges.push({
+      x0: segment.x0 + width * kept.t0,
+      x1: segment.x0 + width * kept.t1,
+    });
+  }
+  if (!ranges.length) return { omit: true, x0: 0, x1: 0 };
+  return {
+    omit: false,
+    x0: Math.min(...ranges.map(range => range.x0)),
+    x1: Math.max(...ranges.map(range => range.x1)),
   };
 }
 
@@ -246,14 +320,14 @@ function clipSpecsToPhysicalInterval(specs, span, physicalX0, physicalX1, minW =
 function trimCustomWallPart(part, cfg, cuts) {
   const span = physicalSpanForPart(part, cfg);
   if (!span) return null;
-  const kept = retainedParamInterval(span.world0, span.world1, cuts, cfg);
+  const kept = retainedIntervalForSpan(span, cuts, cfg);
   if (kept.omit) {
     part._layoutCutOmit = true;
     return { part, span, physicalX0: 0, physicalX1: 0 };
   }
 
-  const physicalX0 = Math.max(0, span.panelW * kept.t0);
-  const physicalX1 = Math.min(span.panelW, span.panelW * kept.t1);
+  const physicalX0 = Math.max(0, kept.x0);
+  const physicalX1 = Math.min(span.panelW, kept.x1);
   const source = sourceIntervalForPhysical(span, physicalX0, physicalX1);
   const x0 = Math.max(0, source.x0);
   const x1 = Math.min(span.panelW, source.x1);
@@ -431,23 +505,23 @@ function rebuildOpeningAccessories(parts, cfg) {
 
 export function generateBuildingWithWings(cfg) {
   if (!layoutCutsActive(cfg) || !Array.isArray(cfg && cfg.wings) || cfg.wings.length === 0) {
-    return generateBuildingWithWingsBase(cfg);
+    return generateBaseWingBuilding(cfg);
   }
 
   const cuts = activeCuts(cfg);
-  if (!cuts.length) return generateBuildingWithWingsBase(cfg);
+  if (!cuts.length) return generateBaseWingBuilding(cfg);
 
   // Keep the established result for all ordinary parts: trusses, columns,
   // floors/roofs, internal walls and the 3D-facing metadata already have
   // specialized trim behavior in the base generator.
-  const result = generateBuildingWithWingsBase(cfg);
+  const result = generateBaseWingBuilding(cfg);
 
   // Regenerate a no-cut reference solely to recover complete affected wall
   // geometry before the legacy final-pass clipping/mirroring can discard the
   // wrong physical end. No saved config is changed.
   const rawCfg = cloneJson(cfg);
   rawCfg.layoutCuts = [];
-  const raw = generateBuildingWithWingsBase(rawCfg);
+  const raw = generateBaseWingBuilding(rawCfg);
 
   replaceCustomWalls(result.parts, raw.parts, cfg, cuts);
   dropPartiallyTrimmedSlots(result.parts, cfg);

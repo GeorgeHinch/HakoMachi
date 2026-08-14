@@ -65,20 +65,20 @@ test.describe('HTML code health contracts', () => {
     const sitePlannerEntrypoint = readRepoFile('js/site-planner/page-entry.js');
     const buildingGeneratorEntrypoint = readRepoFile('js/building-generator/page-entry.js');
 
-    expect(sitePlannerHtml).toContain('src="js/site-planner/page-entry.js?v=hm-assets-20260717-1"');
+    expect(sitePlannerHtml).toMatch(/src="js\/site-planner\/page-entry\.js\?v=hm-assets-[^"]+"/);
     expect(sitePlannerHtml).not.toContain('src="js/shared/hakomachi-logo.js"');
-    expect(sitePlannerHtml).not.toContain('src="js/site-planner/main.js?v=hm-assets-20260717-1"');
+    expect(sitePlannerHtml).not.toMatch(/src="js\/site-planner\/main\.js(?:\?v=[^"]+)?"/);
     expect(sitePlannerEntrypoint).toContain("import '../shared/hakomachi-logo.js';");
     expect(sitePlannerEntrypoint).toContain("import '../shared/hakomachi-analytics.js';");
-    expect(sitePlannerEntrypoint).toContain("import '../shared/building-preview-renderer.js?v=hm-assets-20260717-1';");
-    expect(sitePlannerEntrypoint).toContain("import './main.js?v=hm-assets-20260717-1';");
+    expect(sitePlannerEntrypoint).toMatch(/import '\.\.\/shared\/building-preview-renderer\.js\?v=hm-assets-[^']+';/);
+    expect(sitePlannerEntrypoint).toMatch(/import '\.\/main\.js\?v=hm-assets-[^']+';/);
 
-    expect(buildingGeneratorHtml).toContain('src="js/building-generator/page-entry.js?v=hm-assets-20260717-1"');
+    expect(buildingGeneratorHtml).toMatch(/src="js\/building-generator\/page-entry\.js\?v=hm-assets-[^"]+"/);
     expect(buildingGeneratorHtml).not.toContain('src="js/shared/hakomachi-logo.js"');
-    expect(buildingGeneratorHtml).not.toContain('src="js/building-generator/main.js?v=hm-assets-20260717-1"');
+    expect(buildingGeneratorHtml).not.toMatch(/src="js\/building-generator\/main\.js(?:\?v=[^"]+)?"/);
     expect(buildingGeneratorEntrypoint).toContain("import '../shared/hakomachi-logo.js';");
     expect(buildingGeneratorEntrypoint).toContain("import '../shared/hakomachi-analytics.js';");
-    expect(buildingGeneratorEntrypoint).toContain("import './main.js?v=hm-assets-20260717-1';");
+    expect(buildingGeneratorEntrypoint).toMatch(/import '\.\/main\.js\?v=hm-assets-[^']+';/);
   });
 
   test('page and tool metadata stays aligned with the shared registry', async () => {

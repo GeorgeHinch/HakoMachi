@@ -623,9 +623,32 @@ export function layoutCutWingIndexFromPart(part) {
   return m ? parseInt(m[1], 10) : null;
 }
 
+// Keep part-to-face routing beside the crop geometry rather than relying on
+// the opening editor's legacy runtime helper. Trimmed wing generation uses
+// these ids before the UI layer is involved.
+export function layoutCutWallFromPartId(id) {
+  const value = String(id || '');
+  const wingMatch = value.match(/^(.*)_wing(\d+)$/);
+  const baseId = wingMatch ? wingMatch[1] : value;
+
+  let wall = null;
+  if (baseId === 'front_wall' || baseId.startsWith('front_wall_')) wall = 'front';
+  else if (baseId === 'back_wall' || baseId.startsWith('back_wall_')) wall = 'back';
+  else if (baseId === 'side_wall_east' || baseId.startsWith('side_wall_east_')) wall = 'east';
+  else if (baseId === 'side_wall_west' || baseId.startsWith('side_wall_west_')) wall = 'west';
+  else if (baseId === 'front_chamfer_wall_west' || baseId.startsWith('cladding_front_chamfer_west')) wall = 'front_chamfer_west';
+  else if (baseId === 'front_chamfer_wall_east' || baseId.startsWith('cladding_front_chamfer_east')) wall = 'front_chamfer_east';
+  else if (baseId.startsWith('cladding_front') || baseId === 'cladding_parapet_inner_front') wall = 'front';
+  else if (baseId.startsWith('cladding_back') || baseId === 'cladding_parapet_inner_back') wall = 'back';
+  else if (baseId.startsWith('cladding_side_east') || baseId === 'cladding_parapet_inner_east') wall = 'east';
+  else if (baseId.startsWith('cladding_side_west') || baseId === 'cladding_parapet_inner_west') wall = 'west';
+
+  return wall ? { wall, wingIndex: wingMatch ? parseInt(wingMatch[2], 10) : null } : null;
+}
+
 export function layoutCutWallFromPart(part) {
   const id = (part && part.id) || '';
-  const wi = wallFromPartId(id);
+  const wi = layoutCutWallFromPartId(id);
   if (wi && wi.wall) return wi.wall;
 
   if (id.startsWith('interior_cladding_front')) return 'front';
@@ -696,7 +719,11 @@ export function layoutCutWallClipSpec(part, cfg) {
       // close the cropped building.
       x = (wall === 'west') ? 0 : width;
       if (kind === 'exterior_cladding') {
-        y = panelX;                                              // side cladding spans full outside depth
+        // Side cladding includes the connection-end overlap in its local
+        // outline. Shift its local axis back by the core thickness so an
+        // opening at its cladding-frame x aligns with the matching core-wall
+        // opening in the top-down footprint.
+        y = panelX - matT;
       } else if (kind === 'core' && blockCfg._omitConnectionWall) {
         // Wing side core walls tab directly into the main wall because the
         // wing connection-face wall is omitted. Their x=0 edge is the main

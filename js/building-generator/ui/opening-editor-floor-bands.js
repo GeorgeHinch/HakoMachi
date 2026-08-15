@@ -1334,8 +1334,8 @@ export function renderBuildingFootprintMap(svgEl, highlightWall) {
     const wS = wing.span || 30, wD = wing.depth || 20, off = wing.offset || 0;
     if      (wing.face === 'east')  { maxX = Math.max(maxX, mainW + wD); minY = Math.min(minY, off); maxY = Math.max(maxY, off + wS); }
     else if (wing.face === 'west')  { minX = Math.min(minX, -wD);        minY = Math.min(minY, off); maxY = Math.max(maxY, off + wS); }
-    else if (wing.face === 'front') { maxY = Math.max(maxY, mainD + wD); minX = Math.min(minX, off); maxX = Math.max(maxX, off + wS); }
-    else                            { minY = Math.min(minY, -wD);        minX = Math.min(minX, off); maxX = Math.max(maxX, off + wS); }
+    else if (wing.face === 'front') { minY = Math.min(minY, -wD);        minX = Math.min(minX, off); maxX = Math.max(maxX, off + wS); }
+    else                            { maxY = Math.max(maxY, mainD + wD); minX = Math.min(minX, off); maxX = Math.max(maxX, off + wS); }
   }
 
   const bW = maxX - minX, bH = maxY - minY;

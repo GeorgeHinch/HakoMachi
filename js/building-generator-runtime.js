@@ -32727,7 +32727,12 @@ function generateBuildingWithWings(cfg) {
         const wingFace = ext.m.wingFace;
         const wingSide = (wingFace === 'east') ? 'E' : 'W';
         const wingWall = generateSideWall(wCfg, wPlan, wingSide);
-        const wSideLen = wPlan.sideLen;
+        // A wing omits its connection wall, so its side panel is one core
+        // thickness longer than a normal block's interior side span. Use the
+        // actual panel-body width when reversing rects for a coplanar merge;
+        // mirroring around `wPlan.sideLen` shifts every wing slot and opening
+        // one material thickness toward the connection seam.
+        const wSideLen = wPlan.sideLen + (wCfg._omitConnectionWall ? matT : 0);
         const wingWallXStart = (side === 'left')
           ? 2 * matT
           : xMain + faceMainW + 2 * matT;
@@ -39320,8 +39325,8 @@ function renderBuildingFootprintMap(svgEl, highlightWall) {
     const wS = wing.span || 30, wD = wing.depth || 20, off = wing.offset || 0;
     if      (wing.face === 'east')  { maxX = Math.max(maxX, mainW + wD); minY = Math.min(minY, off); maxY = Math.max(maxY, off + wS); }
     else if (wing.face === 'west')  { minX = Math.min(minX, -wD);        minY = Math.min(minY, off); maxY = Math.max(maxY, off + wS); }
-    else if (wing.face === 'front') { maxY = Math.max(maxY, mainD + wD); minX = Math.min(minX, off); maxX = Math.max(maxX, off + wS); }
-    else                            { minY = Math.min(minY, -wD);        minX = Math.min(minX, off); maxX = Math.max(maxX, off + wS); }
+    else if (wing.face === 'front') { minY = Math.min(minY, -wD);        minX = Math.min(minX, off); maxX = Math.max(maxX, off + wS); }
+    else                            { maxY = Math.max(maxY, mainD + wD); minX = Math.min(minX, off); maxX = Math.max(maxX, off + wS); }
   }
 
   const bW = maxX - minX, bH = maxY - minY;

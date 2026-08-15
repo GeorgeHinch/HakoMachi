@@ -560,7 +560,12 @@ export function generateBuildingWithWings(cfg) {
         const wingFace = ext.m.wingFace;
         const wingSide = (wingFace === 'east') ? 'E' : 'W';
         const wingWall = generateSideWall(wCfg, wPlan, wingSide);
-        const wSideLen = wPlan.sideLen;
+        // A wing omits its connection wall, so its side panel is one core
+        // thickness longer than a normal block's interior side span. Use the
+        // actual panel-body width when reversing rects for a coplanar merge;
+        // mirroring around `wPlan.sideLen` shifts every wing slot and opening
+        // one material thickness toward the connection seam.
+        const wSideLen = wPlan.sideLen + (wCfg._omitConnectionWall ? matT : 0);
         const wingWallXStart = (side === 'left')
           ? 2 * matT
           : xMain + faceMainW + 2 * matT;

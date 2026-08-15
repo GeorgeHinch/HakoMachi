@@ -75,4 +75,36 @@ test.describe('coplanar merged openings (#232)', () => {
     expect(glassSheets.length).toBeGreaterThan(0);
     expect(glassSheets.reduce((sum, part) => sum + Number(part.tileCount || 0), 0)).toBe(2);
   });
+
+  test('keeps a flush back wing\'s mirrored slots on its actual side-wall span', async ({ page }) => {
+    const cfg = {
+      ...baseConfig,
+      roofStyle: 'parapet',
+      parapetHeight: 5,
+      wings: [{
+        id: 'back-coplanar-wing',
+        face: 'back',
+        offset: 0,
+        span: 30,
+        depth: 30,
+        height: 30,
+        floors: 1,
+        connection: 'wall',
+        windowDensity: 'none',
+        wallFeatures: { front: [], back: [], east: [], west: [] },
+      }],
+      layoutCuts: [],
+    };
+
+    const result = await generate(page, cfg);
+    const merged = result.parts.find(part => part.id === 'side_wall_west');
+    expect(merged?._coplanarMerge?.face).toBe('west');
+
+    // The coplanar back wing is reversed into the left extension. Its side
+    // wall omits the connection face, so its body is 1.5 mm longer than the
+    // ordinary interior span. Its roof slot must reflect across that full
+    // body, not across the shorter regular-block span.
+    const wingRoofSlot = merged.rects.find(rect => rect.y === 14 && rect.w === 8 && rect.h === 1.5);
+    expect(wingRoofSlot).toMatchObject({ x: 13.25, y: 14, w: 8, h: 1.5 });
+  });
 });
